@@ -1,0 +1,378 @@
+C 
+C RCS info 
+C $Author: steves $ 
+C $Locker:  $ 
+C $Date: 2004/01/21 23:01:21 $ 
+C $Id: a31484.ftn,v 1.3 2004/01/21 23:01:21 steves Exp $ 
+C $Revision: 1.3 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A31484__ACCEPT_IF( REF_DATA, VEL_DATA, WID_DATA,
+     1                              POLGRID_CR, POLGRID_PR )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A31484__ACCEPT_IF
+*.
+*.  MODULE VERSION: 0002
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       02/24/97      0000      Steve Smith          CCR NA96-17903
+*.       03/16/99      0001      Toolset              CCR NA98-23803
+*.       05/17/99      0002      Mike Istok           CCR NA96-17803
+*.
+*.  CALLING SEQUENCE: CALL A31484__ACCEPT_IF( REF_DATA, VEL_DATA,
+*.                                            WID_DATA, POLGRID_CR,
+*.                                            POLGRID_PR )
+*.  MODULE FUNCTION:
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT                TYPE        DESCRIPTION
+*.    -   -----                ----        -----------
+*.    G   RDBLTH               I*4         (CONSTANT)Flag value indicating
+*.                                         sample bin Below Threshold
+*.    G   RDRNGF               I*4         (CONSTANT)Flag value indicating
+*.                                         sample bin Range Folded
+*.    C   ACCEPT_HIGH_VEL      I*4         Maximum positive velocity threshold
+*.                                         for the ACCEPT_IF region
+*.    C   ACCEPT_LOW_VEL       I*4         Maximum negitive velocity threshold
+*.                                         for the ACCEPT_IF region
+*.    C   ADACPTWID_L          I*4         Local copy of ACCEPT_IF region
+*.                                         spectrum width threshold
+*.                                         (ADACPTWID)
+*.    C   ADMINDBZ_L           I*4         Local copy of ADMINDBZ (Mimimum dBZ
+*.                                         threshold below which reflectivity
+*.                                         is not considered clutter)
+*.    C   DELTABIN             I*4         Scaling parameter used for radial
+*.                                         to polar grid mapping.
+*.    C   LAST_RAD             I*4         Index into polar grid of the last
+*.                                         radial of the elevation sweep
+*.    C   MAX_DOPBIN           I*4         Maximum bin number of
+*.                                         velocity/spectrum width along a
+*.                                         radial.
+*.    C   PREV_RAD             I*4         Index into polar grid of the
+*.                                         previous radial processed.
+*.    C   REGION_END_BIN       I*4         Bin number for the end of the
+*.                                         current processing region.
+*.    C   REGION_START_BIN     I*4         Bin number for the start of the
+*.                                         current processing region.
+*.    C   START_RBIN           I*4         Start bin number of the layer
+*.                                         composite reflectivity polar grid -
+*.                                         AP removed for current region.
+*.    C   CLUTTER_FLAG         I*4         (CONSTANT)Value assigned to
+*.                                         reflectivity if it is classified as
+*.                                         clutter
+*.    C   DOP_BINS_PER_REF_BIN I*4         (CONSTANT)Number of velocity bins
+*.                                         per reflectivity bin
+*.    C   MAX_ALGO_RANGE       I*4         (CONSTANT)Maximum reflectivity bin
+*.                                         number that the AP editing algorithm
+*.                                         is designed to process.
+*.    C   MISSING_FLAG         I*4         (CONSTANT)Value used to indicate
+*.                                         bin value in layer composite
+*.                                         reflectivity -AP removed polar grid
+*.                                         is missing.
+*.    P   POLGRID_CR           I*2         Current radial in polar grid that
+*.                                         is reflectivity is being checked.
+*.    P   POLGRID_PR           I*2         Previous radial in polar grid that
+*.                                         is reflectivity is being checked.
+*.    P   REF_DATA             I*2         Base reflectivity radial
+*.    P   VEL_DATA             I*2         A radial of base velocity data
+*.    P   WID_DATA             I*2         A radial of spectrum width data
+*.
+*.    *   OUTPUT     TYPE        DESCRIPTION
+*.    -   ------     ----        -----------
+*.    P   POLGRID_CR I*2         Current radial in polar grid that is
+*.                               reflectivity is being checked.
+*.    P   POLGRID_PR I*2         Previous radial in polar grid that is
+*.                               reflectivity is being checked.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE: NONE
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME            TYPE        DESCRIPTION
+*.    ----            ----        -----------
+*.    BELOW_THRESHOLD I*4         FLAG VALUE INDICATING BELOW THRESHOLD
+*.    CLUTTER         L*4         Flag indicating that the reflectivity data
+*.                                should be classified  as cluuter
+*.    I               I*4         Do loop variable
+*.    IB              I*2         Index into POLGRID_CR - equivalenced to IBIN
+*.                                (the region start bin)
+*.    IBIN            I*4         Start polar grid bin in this region
+*.    INVALID         I*2         Invalid reflectivity flag value
+*.    J               I*4         Index for starting Doppler bin
+*.    K               I*4         Do loop index
+*.    RANGE_FOLDED    I*4         Parameter for range-folded value
+*.    VALID           I*2         Flag indicating reflectivity data is valid
+*.                                and not clutter
+*.    VALID_INVALID   I*2         An array of reflectivity data flagged as
+*.                                valid or invalid
+*.    WEATHER         L*4         Flag indicating that the reflectivity data
+*.                                should be classified as weather
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3148C1
+*.    A3148C3
+*.
+*.  ERROR CONDITIONS: NONE.
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP07.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK07.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+      IMPLICIT NONE
+C
+$INCLUDE A309.INC/G,   **A3PM02   (NLIST)
+$INCLUDE A304.INC/G,   **A304P4   (NLIST)
+$INCLUDE A314BUF.INC/G,**A3148P2  (NLIST)
+$INCLUDE A314BUF.INC/G,**A3148P3  (NLIST)
+$INCLUDE A314BUF.INC/G,**A3148C1  (NLIST)
+$INCLUDE               **A3148C3  (NLIST)
+C
+C***  PASSED ARGUEMENTS
+C
+      INTEGER*2 REF_DATA(*), VEL_DATA(*), WID_DATA(*)
+      INTEGER*2 POLGRID_CR(*), POLGRID_PR(*)
+C
+C*** LOCAL DECLARATIONS:
+C
+      INTEGER*4 I, J, K
+C
+      INTEGER*4 IBIN, IB
+      LOGICAL   CLUTTER, WEATHER
+
+      INTEGER*2 VALID_INVALID(MAX_ALGO_RANGE)
+      INTEGER*2 VALID, INVALID
+      PARAMETER( INVALID = 0, VALID = 1)
+
+      INTEGER*4 BELOW_THRESHOLD, RANGE_FOLDED
+      PARAMETER( BELOW_THRESHOLD = RDBLTH )
+      PARAMETER( RANGE_FOLDED = RDRNGF )
+C
+C********************************************************************
+C** EXECUTABLE CODE
+C
+C....................................................................
+C
+C**   THE ALGORITHM FOR THE ACCEPT_IF REGION IS AS FOLLOWS:
+C
+C**      The ACCEPT_IF region is a region within which reflectivity
+C**      data is considered as representing clutter unless indicated
+C**      otherwise by either a high radial velocity or wide spectrum
+C**      width.
+C
+C**      For a reflectivity to be accepted, the following two
+C**      statements must both be true:
+C
+C**      1)  At least one corresponding velocity/spectrum width
+C**          range gate has either (a) a velocity greater than
+C**          or equal to a certain velocity threshold, or (b) a
+C**          spectrum width greater than or equal to a certain
+C**          spectrum width threshold.
+C
+C**      2)  No corresponding velocity/spectrum width range gate
+C**          has both (a) a velocity less than a certain velocity
+C**          threshold and (b) a spectrum width less than a certain
+C**          width threshold.
+C
+C**      NOTE 1:  If velocity and/or spectrum width are not available
+C**               owing to either below SNR threshold or are range
+C**               ambiguous, the reflectivity is automatically
+C**               rejected.
+C
+C**      NOTE 2:  Furthermore, if any reflectivity range gate has
+C**               reflectivity less than a minimum dBZ threshold,
+C**               the reflectivity is accepted.
+C
+C
+C....................................................................
+C
+C**   INITIALIZE THIS REGIONS START POLAR GRID BIN
+C
+      IBIN = START_RBIN
+C
+C**   BUILD LAYER COMPOSITE REFLECTIVITY WITH AP REMOVED FOR THE
+C**   ACCEPT_IF REGION
+C
+      DO 40 I = REGION_START_BIN, REGION_END_BIN
+C
+         call RPG_set_mssw_to_uint( IBIN, IB )
+C
+C**      ONLY PROCESS REFLECTIVITY IF ABOVE THRESHOLD
+C
+         IF( REF_DATA( I ) .GT. BELOW_THRESHOLD ) THEN
+
+            IF( REF_DATA( I ) .LE. ADMINDBZ_L ) THEN
+C
+C**            REFLECTIVITY IS BELOW MINIMUM REFLECTIVITY THRESHOLD
+C**            AND ABOVE SNR THRESHOLD. JUST TREAT AS IF IT WERE NOT
+C**            CLUTTER.
+C
+               IF( POLGRID_CR( IB ) .LT. REF_DATA( I ) )
+     1             POLGRID_CR( IB ) = REF_DATA( I )
+
+C
+C**            MARK THE REFLECTIVITY AS VALID.
+C
+               VALID_INVALID( I ) = VALID
+
+            ELSE
+C
+C**            INITIALIZE THE CLUTTER AND WEATHER FLAGS TO NOT WEATHER
+C**            AND NOT CLUTTER.
+C
+               CLUTTER = .FALSE.
+               WEATHER = .FALSE.
+C
+C**            INITIALIZE THE STARTING DOPPLER BIN
+C
+               J = MIN0( ((I-1)*DOP_BINS_PER_REF_BIN+1), MAX_DOPBIN )
+C
+C**            DO FOR ALL CORRESPONDING DOPPLER BINS ...
+C
+               DO 41 K = J, MIN0(J+DOP_BINS_PER_REF_BIN-1, MAX_DOPBIN)
+C
+C**               IF VELOCITY IS GREATER THAN RANGE-FOLDED VALUE AND
+C**               THE SPECTRUM WIDTH IS GREATER THAN THE RANGE-FOLDED
+C**               VALUE, THEN ...
+C
+                  IF( VEL_DATA( K ) .GT. RANGE_FOLDED .AND.
+     1                WID_DATA( K ) .GT. RANGE_FOLDED ) THEN
+C
+C**                  IF VELOCITY VALUE DOES NOT INDICATE POTENTIAL
+C**                  CLUTTER, MARK AS WEATHER.
+C
+                     IF ( VEL_DATA( K ) .LE. ACCEPT_LOW_VEL .OR.
+     1                    VEL_DATA( K ) .GE. ACCEPT_HIGH_VEL ) THEN
+
+                        WEATHER = .TRUE.
+C
+C**                  IF SPECTRUM WIDTH GREATER THAN SOME THRESHOLD
+C**                  MINIMUM, MARK AS WEATHER.
+C
+                     ELSE IF ( WID_DATA( K ) .GE. ADACPTWID_L ) THEN
+
+                        WEATHER = .TRUE.
+
+                     ELSE
+C
+C**                     BOTH VELOCITY AND SPECTRUM WIDTH INDICATE
+C**                     CLUTTER, SO MARK AS CLUTTER.
+C
+                        CLUTTER = .TRUE.
+                        GO TO 42
+
+                     END IF
+
+                  END IF
+
+ 41            CONTINUE
+
+ 42            IF( .NOT. CLUTTER .AND. WEATHER ) THEN
+C
+C**               ....... NOT CLUTTER .......
+C
+                  IF( POLGRID_CR( IB ) .LT. REF_DATA( I ) )
+     1                POLGRID_CR( IB ) = REF_DATA( I )
+C
+C**               MARK REFLECTIVITY AS VALID.
+C
+                  VALID_INVALID( I ) = VALID
+
+               ELSE
+C
+C**               ....... CLUTTER .......
+C
+                  IF( POLGRID_CR( IB ) .EQ. MISSING_FLAG )
+     1                POLGRID_CR( IB ) = CLUTTER_FLAG
+C
+C**               MARK REFLECTIVITY AS INVALID.
+C
+                  VALID_INVALID( I ) = INVALID
+
+               END IF
+
+            END IF
+
+         END IF
+C
+C**      INCREMENT BIN COORDINATE
+C
+         IBIN = IBIN + DELTABIN
+
+ 40   CONTINUE
+
+C
+C**   CHECK IF PREVIOUS AZIMUTH SLOT WAS MISSED BECAUSE RADIALS ARE
+C**   MORE THAN 1 DEGREE APART
+C
+      IF ( PREV_RAD .NE. LAST_RAD ) THEN
+C
+C**      INITIALIZE START BIN FOR REFLECTIVITY.
+C
+         IBIN = START_RBIN
+C
+C**      DO FOR ALL REFLECTIVITY BINS IN THE ACCEPT IF REGION ...
+C
+         DO 45 I = REGION_START_BIN, REGION_END_BIN
+C
+            call RPG_set_mssw_to_uint( IBIN, IB )
+C
+C**         IF REFLECTIVITY MARKED AS VALID, MAP IT TO POLAR GRID.
+C
+            IF( VALID_INVALID(I) .EQ. VALID ) THEN
+C
+C**            MAP ONLY IF REFLECTIVITY IS LARGER THAN POLAR GRID
+C**            VALUE.
+C
+               IF( POLGRID_PR( IB ) .LT. REF_DATA( I ) )
+     1             POLGRID_PR( IB ) = REF_DATA( I )
+
+            ELSE
+C
+C**            IF GRID VALUE IS MISSING, SET GRID VALUE TO CLUUTER.
+C
+               IF( POLGRID_PR( IB ) .EQ. MISSING_FLAG )
+     1             POLGRID_PR( IB ) = CLUTTER_FLAG
+
+            END IF
+C
+C**         INCREMENT BIN COORDINATE
+C
+            IBIN = IBIN + DELTABIN
+
+ 45      CONTINUE
+
+      END IF
+C
+C**   RETURN TO BUFFER CONTROL ROUTINE
+C
+      RETURN
+      END

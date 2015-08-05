@@ -1,0 +1,69 @@
+# RCS info
+# $Author: jing $
+# $Locker:  $
+# $Date: 2011/01/03 19:46:23 $
+# $Id: ntp.conf.tmpl,v 1.2 2011/01/03 19:46:23 jing Exp $
+# $Revision: 1.2 $
+# $State: Exp $
+#
+# This template is used for generating site-dependent "network"
+SET _gdc_set_interpreting = !-# 
+SET _gdc_install_file = /etc/ntp.conf
+#
+# Default entry is 0.0.0.0 (mask 0.0.0.0). Ignore means deny all packets.
+restrict 172.25.0.0 mask 255.255.0.0 nomodify notrap noquery
+^
+# Permit all access over the loopback interface.  This could
+# be tightened as well, but to do so would effect some of
+# the administrative functions.
+restrict 127.0.0.1 
+^
+SET CN = 
+IF FAA_CH2: SET CN = 2
+
+# --- OUR TIMESERVERS ----- 
+IF  NODE_NAME==rpga: {
+    server rda$CN
+    restrict rda$CN nomodify notrap noquery
+}
+ELSEIF NODE_NAME==mscf: {
+    server rda2 prefer
+    restrict rda2 nomodify notrap noquery
+    server rda
+    restrict rda nomodify notrap noquery
+    server rpga2
+    restrict rpga2 nomodify notrap noquery
+    server rpga
+    restrict rpga nomodify notrap noquery
+}
+ELSE: {
+    server rda$CN prefer
+    restrict rda$CN nomodify notrap noquery
+    server rpga$CN
+    restrict rpga$CN nomodify notrap noquery
+}
+^
+# --- GENERAL CONFIGURATION ---
+#
+# Undisciplined Local Clock. This is a fake driver intended for backup
+# and when no outside source of synchronized time is available. The
+# default stratum is usually 3, but in this case we elect to use stratum
+# 0. Since the server line does not have the prefer keyword, this driver
+# is never used for synchronization, unless no other other
+# synchronization source is available. In case the local host is
+# controlled by some external source, such as an external oscillator or
+# another protocol, the prefer keyword would cause the local host to
+# disregard all other synchronization sources, unless the kernel
+# modifications are in use and declare an unsynchronized condition.
+IF NODE_NAME==rpga: {
+    server	127.127.1.0	# local clock
+    IF FAA_CH2:  fudge	127.127.1.0 stratum 9
+    ELSE:    fudge	127.127.1.0 stratum 10
+}
+^
+# Drift file.  Put this in a directory which the daemon can write to.
+# No symbolic links allowed, either, since the daemon updates the file
+# by creating a temporary in the same directory and then rename()'ing
+# it to the file.
+driftfile /var/lib/ntp/drift
+broadcastdelay	0.008

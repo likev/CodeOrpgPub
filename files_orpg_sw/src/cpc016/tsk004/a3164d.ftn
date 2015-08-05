@@ -1,0 +1,329 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/16 20:36:27 $
+C $Id: a3164d.ftn,v 1.3 2002/12/16 20:36:27 christie Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A3164D__HAIL_PAGES(NUMHAIL,HAILSTATS,REALADAP,BUF,
+     $                                     INTGADAP)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3164D__HAIL_PAGES
+*.
+*.  MODULE VERSION: 0015
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       10 18 85      0000      JSGROMMONS
+*.       05 01 86      0001      JSGROMMONS           SPR#  60124
+*.       05 01 86      0001      JSGROMMONS           SPR#  60157
+*.       06 03 86      0002      JSGROMMONS           SPR#  60313
+*.       10 02 86      0003      J GROMMONS           SPR # 60346
+*.       12 12 88      0004      STEVE ANDERSON       SPR # 80528
+*.       11 06 90      0005      David M. Lynch       SPR # 91257
+*.       12 03 91      0006      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0007      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0008      Toolset              SPR 91895
+*.       03/25/93      0009      Toolset              SPR NA93-06801
+*.       01/28/94      0010      Toolset              SPR NA94-01101
+*.       03/03/94      0011      Toolset              SPR NA94-05501
+*.       04/01/95      0012      Toolset              CCR NA95-11802
+*.       04/22/95      0013      STEVE SMITH          CCR NA94-26301
+*.       12/23/96      0014      Toolset              CCR NA95-11807
+*.       03/16/99      0015      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:
+*.     CALL A3164D__HAIL_PAGES(NUMHAIL,HAILSTATS,REALADAP,BUF)
+*.
+*.  MODULE FUNCTION:
+*.     BUILD THE PAGES FOR THE GRAPHIC BLOCK
+*.
+*.
+*.  MODULES CALLED: A3164A__HAIL_AZRAN, A3164G__PACKET_LINES, 
+*.                  A3164H__PACKET_WRITE, A3164I__PACKET_MOVE, 
+*.                  A3CM29__GRID_VECTORS 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT     TYPE        DESCRIPTION
+*.    -   -----     ----        -----------
+*.    G   HA_H0     I*4         (CONSTANT)Index to the 0 degree C altitude in
+*.                              adaptation data
+*.    G   HA_H20    I*4         (CONSTANT)Index to the -20 degree C altitude
+*.                              in adaptation data.
+*.    G   HA_TDA    I*4         (CONSTANT)Index to the Day of the Temp
+*.                              Altitude Date Stamp in adaptation data.
+*.    G   HA_THR    I*4         (CONSTANT)Index to the Hour of the Temp
+*.                              Altitude Time Stamp in adaptation data.
+*.    G   HA_TMN    I*4         (CONSTANT)Index to the Minutes of the Temp
+*.                              Altitude Time Stamp in adaptation data.
+*.    G   HA_TMO    I*4         (CONSTANT)Index to the Month of the Temp
+*.                              Altitude Date Stamp in adaptation data.
+*.    G   HA_TYR    I*4         (CONSTANT)Index to the Year of the Temp
+*.                              Altitude Date Stamp in adaptation data.
+*.    G   NHAL_MAX  I*4         (CONSTANT)A sizing parameter equal to the max.
+*.                              number of cells processed by the hail
+*.                              algorithm.
+*.    G   NHAL_STS  I*4         (CONSTANT)A sizing parameter equal to the
+*.                              number of hail attributes stored in the
+*.                              HAILSTATS array.
+*.    C   GPHLNG    I*4         Length of graphics block in halfwords.
+*.    C   N1        I*4         Lower limit of lines to be written.
+*.    C   N2        I*4         Upper limit of lines to be written.
+*.    C   NDX       I*4         Working subscript for moving data.
+*.    C   NP        I*4         Number of pages to be written.
+*.    C   PGNO      I*2         Page Number.
+*.    C   PNDX      I*4         Pointer into output buffer.
+*.    C   GLOFF     I*4         (CONSTANT)Offset to beginning of graphics line
+*.                              within page.
+*.    C   GPOFF     I*4         (CONSTANT)Offset to beginning of first
+*.                              graphics page.
+*.    C   NCOLS     I*4         (CONSTANT)Used as a dimension of a
+*.                              one-dimensional array.
+*.    C   NHAL_ADP  I*4         (CONSTANT)A sizing parameter equal to the
+*.                              number of hail adaptable parameters stored in
+*.                              HAILADAP and HAIL_RADAP.
+*.    P   BUF       I*2         OUTPUT BUFFER
+*.    P   HAILSTATS R*4         Array containing hail attribute information
+*.                              for all cells.
+*.    P   INTGADAP  I*4         Integer Array of Hail Adapatation data
+*.    P   NUMHAIL   I*4         The number of storm cells with hail
+*.    P   REALADAP  R*4         A real array of Hail Adaptation data
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    C   GPHLNG  I*4         Length of graphics block in halfwords.
+*.    C   IPIX    I*2         Row pixel.
+*.    C   JPIX    I*2         Column pixel.
+*.    C   K1      I*4         Lower limit of fields to be written.
+*.    C   K2      I*4         Upper limit of fields to be written.
+*.    C   N2      I*4         Upper limit of lines to be written.
+*.    C   NDX     I*4         Working subscript for moving data.
+*.    C   NP      I*4         Number of pages to be written.
+*.    C   PGNO    I*2         Page Number.
+*.    C   PNDX    I*4         Pointer into output buffer.
+*.    P   BUF     I*2         OUTPUT BUFFER
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    P   BUF               I*2         OUTPUT BUFFER
+*.    P   HAILSTATS         R*4         Array containing hail attribute
+*.                                      information for all cells.
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME    TYPE        DESCRIPTION
+*.    ----    ----        -----------
+*.    AZ      I*4         AZ ARRAY FOR WRITING PACKET
+*.    BL      I*4         NO OF CHARACTERS PER LINE
+*.    BLNGTH  I*4         LENGTH OF PACKET DATA INCLUDING OVERHEAD IN BYTES.
+*.    DAY     I*4         Date stamp of Hail Temperature Altitudes
+*.    FLD1    CHAR*9      HAILABEL ARRAY FOR DETERMINING
+*.    FLD3    CHAR*9      Field 3 in line
+*.    GUPLIM  I*4         Upper limit for the number of lines per graphic
+*.                        page.
+*.    HOUR    I*4         Hour of the Hail Temeprature Altitude Time Stamp in
+*.                        adaptation data.
+*.    HT0C    R*4         The Hail 0 degree C altitude in adaptation data
+*.    HTM20C  R*4         The -20 degree C altitude in adaptation data
+*.    I       I*4         SUBSCRIPT
+*.    IDNX    I*4         SUBSCRIPT FOR STORING INTO
+*.    IK      I*4         NO OF DATA FIELDS MOVED INTO
+*.    IKK     I*4         Used in build packets.
+*.    K       I*4         SUBSCRIPT FOR HAIL DATA
+*.    MIN     I*4         Minute from Hail Temperature Date/Time Stamp
+*.    MONTH   I*4         The Month of the Hail Temperature Altitude Date
+*.                        Stamp in adaptation data.
+*.    NPX     I*4         INTERMEDIATE NO OF PAGES
+*.    OPCODE  I*2         CONSTANT 8 FOR TEXT PACKET
+*.    PLNGTH  I*4         LENGTH OF PAGE IN NUMBER OF I*2 WORDS.
+*.    PLNGTHX I*2         LENGTH OF PAGE IN NUMBER OF BYTES.
+*.    RAN     R*4         RAN ARRAY FOR WRITING PACKET
+*.    STID    CHAR*2      Hail ID array for writing storm ID.
+*.    TXCLR   I*2         PARAMETER FOR TEXT STRING COLOR
+*.    VLNGTH  I*4         LENGTH OF VECTORS STORED
+*.    VOPT    I*4         OPTION = 1 FOR DOWN GRID VECTORS
+*.    YEAR    I*4         The Year of the Hail Temperature Altitude Date Stamp
+*.                        in adaptation data.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3164B
+*.    A3164D
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP16.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK16.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+      IMPLICIT NONE
+C
+C** HAIL DEFINITIONS:
+C
+$INCLUDE A315BUF.INC/G,**A315P9H  (NEND NLIST)
+$INCLUDE A315BUF.INC/G,**A315PHAD (NEND NLIST)
+C
+C** LOCAL COMMON
+C
+$INCLUDE A316.INC/G,**A3164P4 (NLIST)
+C
+C** LOCAL DEFINITIONS:
+C
+      INTEGER*2  BUF(*)
+      INTEGER*2  OPCODE,TXCLR,PLNGTHX
+C
+      INTEGER*4  BLNGTH,PLNGTH
+      INTEGER*4  VOPT,VLNGTH
+      INTEGER*4  BL,AZ(NCOLS),NUMHAIL,IDNX
+      INTEGER*4  I,NPX,K,IK,IKK
+      INTEGER*4  INTGADAP(NHAL_ADP), HOUR,
+     $   MIN, DAY, MONTH, YEAR
+C
+      REAL  RAN(NCOLS)
+      REAL  HAILSTATS(NHAL_STS,NHAL_MAX)
+      REAL  REALADAP(NHAL_ADP), HT0C, HTM20C
+C
+      CHARACTER*2   STID(NCOLS)
+      CHARACTER*9   FLD1(NCOLS), FLD3(NCOLS)
+      CHARACTER*80  TXCHR(NCOLS)
+C
+      PARAMETER (OPCODE=8,TXCLR=0,VOPT=3)
+C
+      EQUIVALENCE  (TBUF(1,1),TXCHR)
+C
+C** INITIALIZE FOR HAIL
+C
+      NDX = NDX + GPOFF + GLOFF
+      K = 0
+      IK = 1
+      BLNGTH = 0
+      PLNGTH = 0
+C
+C** DETERMINE NUMBER OF PAGES OF HAIL
+C
+      IF (NUMHAIL .GT. 0) THEN
+         NP = NUMHAIL / GUPLIM
+         NPX = GUPLIM*NP
+         IF (NPX .LT. NUMHAIL) THEN
+            NP = NP + 1
+         ENDIF
+C
+C** EXTRACT THE HAIL TEMPERATURE ALTITUDES
+C
+         HT0C = REALADAP(HA_H0)
+         HTM20C = REALADAP(HA_H20)
+C
+C** EXTRACT THE HAIL TEMPERATURE ALTITUDES
+C** TIME/DATE STAMP
+C
+          HOUR = INTGADAP(HA_THR)
+          MIN  = INTGADAP(HA_TMN)
+          DAY  = INTGADAP(HA_TDA)
+          MONTH = INTGADAP(HA_TMO)
+          YEAR = INTGADAP(HA_TYR)
+C
+C** BUILD PAGES FOR HAIL
+C
+         DO 150  I = 1, NP
+            N2 = NUMHAIL - IK + 1
+            IF (N2 .GT. 0) THEN
+               IF (N2 .GT. GUPLIM) THEN
+                  N2 = GUPLIM
+               ENDIF
+C
+C** BUILD PACKETS
+C
+               IKK = IK
+               K =IKK
+               IK = IK + N2
+               PGNO = I
+               IPIX = 0
+               JPIX = 1
+C
+C** GET STORM CELL IDS
+C
+              CALL A3164A__HAIL_AZRAN(K,HAILSTATS,STID,AZ,RAN)
+C
+              K = IKK
+C
+C** FILL LINE FIELDS
+C
+               CALL A3164G__PACKET_LINES(K,HAILSTATS,FLD1,FLD3)
+C
+               K1=N1
+               K2=N2
+C
+C** WRITE LINES
+C
+               CALL A3164H__PACKET_WRITE(STID,AZ,RAN,HT0C,HTM20C,
+     >      HOUR, MIN, DAY, MONTH, YEAR, FLD1, FLD3, BL)
+C
+C** MOVE DATA TO OUTPUT BUFFER
+C
+               CALL A3164I__PACKET_MOVE(BUF,OPCODE,BLNGTH,TXCLR,BL)
+C
+C** MOVE GRID VECTORS INTO OUTPUT BUFFER
+C
+               IDNX = NDX
+               CALL A3CM29__GRID_VECTORS(VOPT,BUF,IDNX,VLNGTH)
+               NDX = NDX + VLNGTH
+               BLNGTH = BLNGTH + VLNGTH
+               PLNGTH = PLNGTH + BLNGTH
+               GPHLNG = GPHLNG + PLNGTH + 2
+C
+C** STORE PAGE LENGTH, PAGE NO FOR PAGE
+C
+               PLNGTHX = PLNGTH * 2
+               BUF(PNDX) = PGNO
+               PNDX = PNDX + 1
+C
+C** STORE LENGTHS
+C
+               BUF(PNDX) = PLNGTHX
+               PLNGTH = 0
+               PNDX = NDX
+               NDX = NDX + GLOFF
+C
+            ENDIF
+  150    CONTINUE
+C
+C** END OF HAIL
+C
+      ENDIF
+C
+C** HAIL ALREADY WRITTEN - ADJUST NDX
+C
+      IF (N2 .GT. 0)  THEN
+         NDX = NDX - GLOFF
+      ENDIF
+C
+C** RETURN TO CALLER MODULE
+C
+      RETURN
+      END

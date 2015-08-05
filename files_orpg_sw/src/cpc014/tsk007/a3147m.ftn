@@ -1,0 +1,117 @@
+C 
+C RCS info 
+C $Author: steves $ 
+C $Locker:  $ 
+C $Date: 2006/07/12 17:42:35 $ 
+C $Id: a3147m.ftn,v 1.5 2006/07/12 17:42:35 steves Exp $ 
+C $Revision: 1.5 $ 
+C $State: Exp $ 
+C 
+        SUBROUTINE A3147M__BIAS(BIAS, BUF)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3147M__BIAS
+*.
+*.  MODULE VERSION: 0003
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       12 19 85      0000      CHERYL STEPHENSON
+*.       12/23/96      0001      Toolset              CCR NA95-11807
+*.       03/16/99      0002      Toolset              CCR NA98-23803
+*.       10/26/05      0003      Cham Pham            CCR NA05-21401
+*.
+*.  CALLING SEQUENCE: CALL A3147M__BIAS(BIAS, BUF)
+*.
+*.  MODULE FUNCTION: This module applies the Bias to the unadjusted
+*.  hourly accumulation.
+*.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT       TYPE        DESCRIPTION
+*.    -   -----       ----        -----------
+*.    G   MAX_ADJBINS I*4         (CONSTANT)Maximum number of range bins
+*.                                (index into output buffer of adjusted
+*.                                values).
+*.    G   MAX_AZMTHS  I*4         (CONSTANT)Maximum number of azimuths in a
+*.                                scan (index into output buffer of adjusted
+*.                                values).
+*.    P   BIAS        R*4         Bias between rain gage and radar estimates
+*.    P   BUF         I*2         Output buffer
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    P   BUF     I*2         Output buffer
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME  TYPE        DESCRIPTION
+*.    ----  ----        -----------
+*.    INDX  I*4         Do loop index
+*.    INULL I*2         (CONSTANT)Integer parameter value for zero
+*.    ADJACCUM I*2       Adjusted hourly accumulations value
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK14.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+$INCLUDE A313HBUF.INC/G,**A313HYPP (NLIST)
+      INTEGER   INDX
+      INTEGER*2 BUF(MAX_ADJBINS*MAX_AZMTHS),ADJACCUM, INULL
+      REAL BIAS, TEMP
+      REAL BIAS_NOADJ
+      PARAMETER (BIAS_NOADJ = 1.0)
+      PARAMETER (INULL = 0)
+C*************** E X E C U T A B L E ******************************
+C
+X     WRITE(14,*)'ENTERING A3147M - BIAS '
+C
+C Compute adjusted accumulation
+C
+      DO 10 INDX = 1, MAX_AZMTHS*MAX_ADJBINS,1
+          IF (BUF (INDX) .GT. INULL) THEN
+C
+C** Note: Changed for LINUX - Used RPG_NINT library function instead
+C         of adding 0.5 for rounding to the nearest integer.
+C
+            TEMP = BUF(INDX)*BIAS
+            call RPG_NINT(TEMP, ADJACCUM)
+            BUF(INDX) = ADJACCUM
+          ENDIF
+10    CONTINUE
+X     WRITE(14,*)'EXIT A3147M'
+      RETURN
+      END

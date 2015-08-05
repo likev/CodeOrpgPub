@@ -1,0 +1,336 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/16 19:40:34 $
+C $Id: a315f7.ftn,v 1.3 2002/12/16 19:40:34 christie Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A315F7__FORECAST_LOCS( STORMIDTYP, STORMOTION,
+     >                                  STORMFORW )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A315F7__FORECAST_LOCS
+*.
+*.  MODULE VERSION: 0016
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       08 16 85      0000      DENNIS MILLER        BUILD 2
+*.       05 07 86      0001      DENNIS MILLER        SPR # 304
+*.       11 15 86      0002      M STEWART            SPR # 60346
+*.       11 15 86      0002      M STEWART            SPR # 60650
+*.       02 26 87      0003      DENNIS MILLER        SPR # 70106
+*.       07 27 89      0004      DENNIS MILLER        SPR # 90424
+*.       03 20 90      0005      RICH MIHOCI          SPR # 90697
+*.       02 22 91      0006      DENNIS MILLER        SPR # 91256
+*.       02 15 91      0006      JOHN DEPHILIP        SPR # 91762
+*.       12 03 91      0007      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0008      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0009      Toolset              SPR 91895
+*.       03/25/93      0010      Toolset              SPR NA93-06801
+*.       01/28/94      0011      Toolset              SPR NA94-01101
+*.       03/03/94      0012      Toolset              SPR NA94-05501
+*.       04/01/95      0013      Toolset              CCR NA95-11802
+*.       05/25/95      0014      STEVE SMITH          CCR NA94-26302
+*.       12/23/96      0015      Toolset              CCR NA95-11807
+*.       03/16/99      0016      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A315F7__FORECAST_LOCS( STORMIDTYP,
+*.                                             STORMOTION,STORMFORW )
+*.
+*.  MODULE FUNCTION:
+*.
+*.    This routine determines forecast storm cell locations at future
+*.  times for all "Continuing" storm cells, for which a forecast-
+*.  velocity has been determined.
+*.
+*.    First the routine determines the Permissible Error for each
+*.  continuing storm at each desired Forecast Interval from the
+*.  Adaptable parameter (maximum) Allowable Error. Then these
+*.  Permissible Error are compared to the previously computed Track
+*.  Error.
+*.
+*.    If the Forecast Error is less than the Permissible Error at a
+*.  given forecast interval, then Forecast X- and Y- positions are
+*.  determined for that storm cell by extrapolating the X- and Y-
+*.  storm cell speeds over that interval. Otherwise, the Forecast X-
+*.  and Y- storm cell speeds at that interval are set as "Undefined".
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT      TYPE        DESCRIPTION
+*.    -   -----      ----        -----------
+*.    G   ADPALWER   I*4         Allowable error saved in Storm Data
+*.    G   ADPERINT   I*4         Adaptation data Error interval stored in
+*.                               Storm Data
+*.    G   ADPFCINT   I*4         Adaptation data Forecast Interval stored in
+*.                               Storm Data
+*.    G   ADPNFORC   I*4         Adaptation data number of Forecast Intervals
+*.                               stored in Storm Data
+*.    G   NSTF_FOR   I*4         (CONSTANT)First dimension of STORMFORW array
+*.                               which holds X, Y coordinates of extrapolated
+*.                               (forecast) storm cell positions.
+*.    G   NSTF_IDT   I*4         (CONSTANT)The number of attributes for each
+*.                               storm cell in the array STORMIDTYP which
+*.                               contains Storm ID, storm type, and number of
+*.                               volumes tracked.
+*.    G   NSTF_INT   I*4         (CONSTANT)2nd dimension of STORMFORW array
+*.                               and equals maximum number of forecast
+*.                               intervals.
+*.    G   NSTF_MAX   I*4         (CONSTANT)The maximum number of storm cells
+*.                               the array STORMIDTYP may hold.  The array
+*.                               provides the storm cell Id attribute.
+*.    G   NSTF_MOT   I*4         (CONSTANT)The number of storm motion
+*.                               attributes for each storm cell in the array
+*.                               STORMOTION. (First dimension)
+*.    G   STF_ERR    I*4         (CONSTANT)Offset to the forecast error (km)
+*.                               in the STORMOTION part of the
+*.                               tracking/forecast output buffer.
+*.    G   STF_TYP    I*4         (CONSTANT)Offset to the cell type in the
+*.                               STORMIDTYP part of the tracking/forecast
+*.                               output buffer.
+*.    G   STF_X0     I*4         (CONSTANT)Offset to the x-coord. of the
+*.                               centroid (km) in the STORMOTION part of the
+*.                               tracking/forecast output buffer.
+*.    G   STF_XF     I*4         (CONSTANT)Offset to the forecasted x
+*.                               locations (km) in the STORMBACK part of the
+*.                               tracking/forecast output buffer.
+*.    G   STF_Y0     I*4         (CONSTANT)Offset to the y-coord. of the
+*.                               centroid (km) in the STORMOTION part of the
+*.                               tracking/forecast output buffer.
+*.    G   STF_YF     I*4         (CONSTANT)Offset to the forecasted y
+*.                               locations (km) in the STORMBACK part of the
+*.                               tracking/forecast output buffer.
+*.    G   TYP_CON    I*4         (CONSTANT)Flag that indicates that a storm
+*.                               cell has a history of at least two volume
+*.                               scans.
+*.    G   UNDEF      R*4         (CONSTANT)Value that shows that storm cell
+*.                               attributes of motion cannot be calculated
+*.                               because there is no storm cell history.
+*.    C   IXCUR      I*4         Index to the current volume scan in the
+*.                               correlation table
+*.    C   NSTMHIST   I*4         Array of the # of cells/volume scan in
+*.                               correlation table.
+*.    C   STMSPD     R*4         An array of cell motions including X & Y
+*.                               movement (km) in the preceding volume scan
+*.                               and speed (km/sec) and direction (deg) for
+*.                               the cells history.
+*.    C   TIMEINT    R*4         Time interval between present and preceding
+*.                               volume scans.
+*.    C   X_DIR      I*4         (CONSTANT)Index to the x-direction of a storm
+*.                               cell in the STMSPD and BESTPOS arrays.
+*.    C   Y_DIR      I*4         (CONSTANT)Index to the y-direction of a storm
+*.                               cell in the STMSPD and BESTPOS arrays.
+*.    P   STORMIDTYP I*4         2-D array of supplementary storm desciption
+*.                               information per volume scan, output by
+*.                               "FORECAST" algorithm.
+*.    P   STORMOTION R*4         2-D array of Storm-Motion attributes per
+*.                               volume scan, output by "FORECAST" algorithm.
+*.
+*.    *   OUTPUT    TYPE        DESCRIPTION
+*.    -   ------    ----        -----------
+*.    G   ADPALWER  I*4         Allowable error saved in Storm Data
+*.    G   ADPERINT  I*4         Adaptation data Error interval stored in Storm
+*.                              Data
+*.    G   ADPFCINT  I*4         Adaptation data Forecast Interval stored in
+*.                              Storm Data
+*.    G   ADPNFORC  I*4         Adaptation data number of Forecast Intervals
+*.                              stored in Storm Data
+*.    C   IXCUR     I*4         Index to the current volume scan in the
+*.                              correlation table
+*.    P   STORMFORW R*4         3-D array of forecasted X & Y storm
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME       TYPE        DESCRIPTION
+*.    ----       ----        -----------
+*.    CNVMNSEC   R*4         Constant for converting minutes to seconds
+*.    IC         I*4         Do-loop index for storms of current volume scan.
+*.    INTVLRATIO R*4         Ratio of forecast interval to error interval
+*.    NF         I*4         Do-loop index for forecast intervals
+*.    PERMISBASE R*4         Permissible Error at the base distance
+*.    PERMISERR  R*4         Array of permissible errors at all forecast
+*.                           intervals
+*.    STM_FCERR  R*4         Storm Cell forecast error
+*.    XFORCDIS   R*4         Distance storm moves in X-direction
+*.    YFORCDIS   R*4         Distance storm moves in Y-direction
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A315CSAD
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A315C6T
+*.    A315CFF
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:
+*.
+*.     No forecast positions are determined for "New" storm cells,
+*.   even though they will eventually be assigned a speed and dir-
+*.   ection (equal to default values, or averages of storm cells
+*.   for which speed and direction are known). Instead, all forecast
+*.   positions for "New" storm cells are set to a flag value
+*.   indicating "Undefined".
+*.
+*.     "Continuing" storm cells only have their forecast positions
+*.   determined at times at which their Track Error is less than the
+*.   Permissible Error, a condition that becomes harder to meet as
+*.   time passes.  Otherwise, the forecast positions too are flagged
+*.   as "Undefined".
+*.
+*.     The more past locations known for a storm, the more accurate
+*.   its forecast positions are likely to be.
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     Compiled using COMP15.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     Linked using LINK15.CSS
+*.
+*.  MISC:  None
+*.
+C********************************************************************
+C
+C       STORM POSITION FORECAST : FORECAST LOCATIONS  SUBROUTINE
+C
+C********************************************************************
+C
+      IMPLICIT NONE
+C
+C**Attach output parameter-definition file (of "POSITION_FORECAST")
+$INCLUDE A315BUF.INC/G,**A315P7F (NLIST)
+C
+C**Attach local STORMS Adaptation Data parameter file:
+$INCLUDE **A315PSAD (NLIST)
+C
+C**Attach local STORMS Adaptation Data definitions:
+$INCLUDE **A315CSAD (NLIST)
+C
+C**Attach internal common block (of "STORM_TRACK" output variables).
+$INCLUDE A315.INC/G,**A315C6T (NLIST)
+C
+C**Attach internal common block (of "FORECAST" local variables).
+$INCLUDE **A315CFF (NLIST)
+C
+C*********************** DATA DECLARATIONS ***************************
+C
+C** From output buffer:
+C
+      INTEGER  STORMIDTYP( NSTF_IDT, NSTF_MAX )
+      REAL     STORMOTION( NSTF_MOT, NSTF_MAX )
+      REAL     STORMFORW( NSTF_FOR, NSTF_INT, NSTF_MAX )
+C
+C** Local:
+C
+      INTEGER  IC, NF
+      REAL     PERMISERR( NSTF_INT ), PERMISBASE, INTVLRATIO
+      REAL     CNVMEKM, CNVMNSEC, XFORCDIS, YFORCDIS, STM_FCERR
+C
+C********************* DATA INITIALIZATIONS *************************
+C
+      PARAMETER (CNVMEKM = 0.001, CNVMNSEC = 60.0)
+C
+C****************** BEGIN MAIN PROCESSING SECTION *******************
+C
+C**  Determine Permissible Error at each Forecast Interval from
+C**  Allowable Error & Error Interval (Adaptation Data).
+C
+      INTVLRATIO = FLOAT(ADPERINT) / FLOAT(ADPFCINT)
+      PERMISBASE = ADPALWER * INTVLRATIO
+C
+C**  DO FOR ALL (FORECAST INTERVALS)
+C
+      DO 900  NF = 1, ADPNFORC
+C
+C**  COMPUTE (PERMISSIBLE ERROR)
+C
+         PERMISERR( NF ) = PERMISBASE / NF
+ 900  CONTINUE
+C
+C**  Determine predicted X & Y positions for each "Continuing" storm
+C**  cell at each forecast interval for which Forecast Error <
+C**  Permissible Error.
+C
+      DO 1200  IC = 1, NSTMHIST( IXCUR )
+         IF ( STORMIDTYP(STF_TYP,IC) .EQ. TYP_CON )  THEN
+C
+C**  If storm cell type is "Continuing", compute X & Y increments per
+C**  (base) forecast-time period, from storm cell speed.
+C
+            XFORCDIS = ADPFCINT * CNVMNSEC * STMSPD(X_DIR,IC)
+            YFORCDIS = ADPFCINT * CNVMNSEC * STMSPD(Y_DIR,IC)
+C
+C**  Scale the Forecast Error by the ratio of the Error Interval
+C**  to the time between volume scans (TIMEINT)
+C
+            STM_FCERR = STORMOTION(STF_ERR,IC)*FLOAT(ADPERINT)
+     >                * CNVMNSEC / TIMEINT
+C
+C**  Compare Forecast Error and Permissible Error at each desired
+C**  forecast interval.
+C
+C** DO FOR ALL (FORECAST INTERVALS)
+C
+            DO 1100  NF = 1, ADPNFORC
+               IF ( STM_FCERR .LT. PERMISERR(NF) )  THEN
+C
+C**  Forecast Error < Permissible Error for this Forecast interval.
+C
+C**  COMPUTE (forecasted X-POSITION (Storm Cell)) and
+C**  COMPUTE (forecasted Y-POSITION (Storm Cell)):
+C
+C**  WRITE (forecasted X-POSITION (Storm Cell)) and
+C**  WRITE (forecasted Y-POSITION (Storm Cell)):
+C
+                  STORMFORW(STF_XF,NF,IC) = STORMOTION(STF_X0,IC)
+     >                                    + NF * XFORCDIS
+                  STORMFORW(STF_YF,NF,IC) = STORMOTION(STF_Y0,IC)
+     >                                    + NF * YFORCDIS
+               ELSE
+C
+C**  Else if Forecast Error exceeds Permissible Error, set Forecast
+C**  Locations at that interval to "Undefined".
+C
+                  STORMFORW( STF_XF,NF,IC ) = UNDEF
+                  STORMFORW( STF_YF,NF,IC ) = UNDEF
+               END IF
+ 1100       CONTINUE
+C
+         ELSE
+C
+C**  If storm has no previous history (i.e. is of type "New"), set
+C**  Forecast X & Y Locations to "Undefined" at all intervals.
+C
+            DO 1000  NF = 1, ADPNFORC
+               STORMFORW( STF_XF,NF,IC ) = UNDEF
+               STORMFORW( STF_YF,NF,IC ) = UNDEF
+ 1000       CONTINUE
+         END IF
+C
+ 1200 CONTINUE
+C
+C************** END OF PROCESSING FOR SUBROUTINE ********************
+C
+      RETURN
+      END

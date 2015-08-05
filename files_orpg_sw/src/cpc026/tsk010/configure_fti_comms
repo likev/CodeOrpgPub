@@ -1,0 +1,223 @@
+#!/bin/sh
+#    File: configure_fti_comms
+# Purpose: Configure the interface and routes for the FTI/FAA connections
+#
+# RCS info
+# $Author: cmn $
+# $Locker:  $
+# $Date: 2007/10/23 18:23:35 $
+# $Id: configure_fti_comms,v 1.11 2007/10/23 18:23:35 cmn Exp $
+# $Revision: 1.11 $
+# $State: Exp $
+#
+
+
+#********************************************************************
+#  Display script usage information
+#********************************************************************
+print_usage ()
+{
+  echo
+  echo
+  echo "Usage: `basename $0` -i input_directory -o output_base_directory -s site_name -n node_name"
+  echo "    This script builds the site specific files used for the FTI connections"
+  echo "      Options:"
+  echo "        -h Print usage information"
+  echo
+  echo
+}
+
+
+#********************************************************************
+#  Initialize the network parameters used by the other functions 
+#********************************************************************
+
+Init_network_parms () {
+
+   data_file=$input_dir/hosts.dat
+
+   if [ -f data_file ]; then
+      echo "Error generating FTI interface file: $data_file not found"
+      exit 1
+   fi
+
+   subnet=
+
+   subnet=`/usr/bin/awk -F, '
+   {
+     if ( $1 == site ) {
+        print $2
+     }
+   }' site=$site_name $data_file`
+
+   if [ -z "$subnet" ]
+   then
+       echo "Subnet address not found in $data_file for site $site_name"
+       exit 1
+   fi
+
+   interface=eth0:0
+
+   if [ $node_name = "rpg2" ]
+   then
+     gateway_ip=172.25.$subnet.77
+     host_ip=172.25.$subnet.84
+   else
+     gateway_ip=172.25.$subnet.7
+     host_ip=172.25.$subnet.14
+   fi
+
+   fti_network=`/usr/bin/awk -F, '{ if ( site == $1 ) print $11 }'\
+                site=$site_name $data_file`
+
+   if [ -z "$fti_network" ]
+   then
+       echo "FTI IP Address not defined in file $data_file for site $site_name"
+   fi
+}
+
+
+#********************************************************************
+#   Generate the aliased interface for the FTI connections
+#********************************************************************
+
+Configure_fti_interface () {
+
+   output_dir=$output_base_dir/root/etc/sysconfig/network-scripts
+   mkdir -p $output_dir
+
+   output_file=$output_dir/ifcfg-$interface
+
+   echo "DEVICE=$interface" > $output_file
+   echo "IPADDR=$host_ip" >> $output_file
+   echo "GATEWAY=$gateway_ip" >> $output_file
+
+   # mask the aliased interface filename so the floppy loads won't fail.
+   # apparently, the linux floppy driver doesn't like the interface filename
+
+   cwd=$PWD
+   cd $output_dir
+   tar cvf eth00.tar ifcfg-$interface
+   cd $cwd
+   rm $output_file
+}
+
+
+#********************************************************************
+#   Configure the FTI routes
+#********************************************************************
+
+Configure_fti_routes () {
+
+   if [ -z "$fti_network" ]
+   then
+       exit 0
+   fi
+
+   output_dir=$output_base_dir/root/etc/rc.d
+   mkdir -p $output_dir
+
+   data_file=$input_dir/fipr.dat
+
+   if [ -f data_file ]; then
+      echo "Error generating FTI interface file: $data_file not found"
+      exit 1
+   fi
+
+   #
+   # Specify routes for FAA traffic
+   #
+   network=`echo $fti_network | cut -d. -f1,2`
+   network=$network".0.0"
+
+   output_file=$output_dir/rc.local.modify
+
+   echo "#" >> $output_file
+   echo "# Add routes for FTI connections" >> $output_file
+   echo "#" >> $output_file
+   echo ", route add -net $network netmask 255.255.0.0 gw $gateway_ip dev $interface" > $output_file
+
+   /usr/bin/awk -F, ' {
+      if ($1 == site_id) {
+         for (i = 2; i <= NF; i++) {
+           if ($i != primary_network)
+              print ", route add -net", $i, "netmask 255.255.0.0 gw", gateway, "dev", device
+         }
+      }
+      else { }
+   }' site_id=$site_name gateway=$gateway_ip device=$interface primary_network=$network $data_file >> $output_file
+
+   chmod  a+rx $output_file
+}
+
+
+#********************************************************************
+#   main
+#********************************************************************
+
+#set -x
+
+#
+# define global variables
+#
+input_dir=
+output_base_dir=
+site_name=
+node_name=
+interface=
+gateway_ip=
+host_ip=
+
+#
+#read the command line arguments
+#
+while getopts hi:o:n:s: input
+do
+   case $input in
+   h) print_usage; exit 0 ;;
+   i) input_dir="$OPTARG" ;;
+   o) output_base_dir="$OPTARG" ;;
+   s) site_name="$OPTARG" ;;
+   n) node_name="$OPTARG" ;;
+    esac
+done
+
+#   Validate input argments
+if [ -z "$input_dir" ]
+then
+    echo "Input directory is required"
+    exit 1
+fi
+
+if [ -z "$output_base_dir" ]
+then
+    echo "Output directory is required"
+    exit 1
+fi
+
+if [ -z "$site_name" ]
+then
+    echo "Site name (ie. ICAO) is required"
+    exit 1
+fi
+
+if [ -z "$node_name" ]
+then
+   echo "Node name is required"
+   exit 1
+fi
+
+#
+#ensure site name is lowercase
+#
+site_name=`echo $site_name | tr '[A-Z]' '[a-z]'`
+
+#
+#call the funtions to configure the interface and routes
+#
+Init_network_parms
+Configure_fti_interface
+Configure_fti_routes
+
+exit 0
+

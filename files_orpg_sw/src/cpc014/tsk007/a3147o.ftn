@@ -1,0 +1,174 @@
+C 
+C RCS info 
+C $Author: nolitam $ 
+C $Locker:  $ 
+C $Date: 2002/11/27 15:17:29 $ 
+C $Id: a3147o.ftn,v 1.3 2002/11/27 15:17:29 nolitam Exp $ 
+C $Revision: 1.3 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A3147O__PACKET_MOVE(USPBUF,BLNGTH,BL)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3147O__PACKET_MOVE
+*.
+*.  MODULE VERSION: 0002
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.        10/19/95      0000     Cheryl Stephenson    CCR NA94-08462
+*.       12/23/96      0001      Toolset              CCR NA95-11807
+*.       03/16/99      0002      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:
+*.     CALL A31470__PACKET_MOVE(USPBUF,BLNGTH,BL)
+*.
+*.  MODULE FUNCTION:
+*.     MOVE THE FORMATTED PACKET LINES FOR THE GRAPHIC BLOCK TO
+*.     THE OUTPUT BUFFER
+*.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT  TYPE        DESCRIPTION
+*.    -   -----  ----        -----------
+*.    C   IPIX   I*2         I pixel location for graphic packet (row)
+*.    C   JPIX   I*2         J pixel location for graphic packet (column)
+*.    C   NDX    I*4         Working subscript for moving data into output
+*.                           buffer
+*.    C   TBUF   I*2         Temporary buffer for the attribute table
+*.    C   TXCHR  CHAR*80     Text charatcer lines
+*.    C   GLOFF  I*4         (CONSTANT)Offset to beginning of graphics line
+*.                           within graphic attribute page
+*.    C   NCOLS  I*4         (CONSTANT)Second dimension of TBUF (55)
+*.    P   BL     I*4         Number of characters per line
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    C   JPIX    I*2         J pixel location for graphic packet (column)
+*.    C   NDX     I*4         Working subscript for moving data into output
+*.                            buffer
+*.    C   TBUF    I*2         Temporary buffer for the attribute table
+*.    C   TXCHR   CHAR*80     Text charatcer lines
+*.    P   BLNGTH  I*4         LENGTH OF PACKET BLOCK IN BYTES
+*.    P   USPBUF  I*2         USP product buffer
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME    TYPE        DESCRIPTION
+*.    ----    ----        -----------
+*.    BLNGTHX I*2         Length of packet data in halfwords
+*.    GDOFF   I*4         (CONSTANT)Offset to beginning of character data
+*.                        within a line
+*.    GNOLNS  I*4         (CONSTANT)Number of lines per graphic page
+*.    IB      I*4         Subscript for storing charatcers
+*.    JB      I*4         Line number index for storing characters
+*.    JINCR   I*2         (CONSTANT)Increment for JPIX ('j' pixel count, value
+*.                        = 10)
+*.    OPCODE  I*2         (CONSTANT)Opcode for Text Packet (value = 8)
+*.    TXCLR   I*2         (CONSTANT)Value for Text String Color (value = 0)
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3147C3
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK14.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+
+C
+      IMPLICIT NONE
+C
+C   LOCAL COMMON
+$INCLUDE A3147.INC/G,**A3147P2 (NLIST)
+$INCLUDE             **A3147C3 (NLIST)
+C
+C   LOCAL DEFINITIONS:
+      INTEGER*2  USPBUF(*)
+      INTEGER*2  OPCODE,TXCLR,JINCR,BLNGTHX
+C
+      INTEGER*4  IB,JB,BL
+      INTEGER*4  BLNGTH
+C
+      CHARACTER*80  TXCHR(NCOLS)
+C
+      EQUIVALENCE  (TBUF(1,1),TXCHR)
+C
+      PARAMETER(JINCR=10)
+      PARAMETER (OPCODE = 8)
+      PARAMETER (TXCLR = 0)
+C----------------------- EXECUTABLE --------------------------
+X     WRITE(14,*)'ENTER A3147O'
+C
+C  DETERMINE LENGTH OF BLOCK FOR PACKET
+C
+      BLNGTH = GNOLNS * (BL+GDOFF+GLOFF)
+C
+C  DETERMINE NO OF WORDS IN LINE HEREAFTER
+C
+      BLNGTHX = (BL+GDOFF) * 2
+C
+C  MOVE DATA TO OUTPUT BUFFER
+C
+      DO 150  JB = 1,GNOLNS
+         USPBUF(NDX) = OPCODE
+         NDX = NDX + 1
+         USPBUF(NDX) = BLNGTHX
+C
+C  MOVE COLOR TO OUTPUT BUFFER
+C
+         NDX = NDX + 1
+         USPBUF(NDX) = TXCLR
+         NDX = NDX + 1
+C
+C  MOVE I,J PIXELS TO OUTPUT BUFFER
+C
+         USPBUF(NDX) = IPIX
+         NDX = NDX + 1
+         USPBUF(NDX) = JPIX
+         NDX = NDX + 1
+C
+C  MOVE CHARACTERS TO OUTPUT BUFFER
+C
+         DO 140  IB = 1,BL
+            USPBUF(NDX) = TBUF(IB,JB)
+            NDX = NDX + 1
+  140 CONTINUE
+C
+C  DETERMINE JPIX VALUE FOR NEXT LINE LOCATION
+C
+         JPIX = JPIX + JINCR
+  150 CONTINUE
+C
+X     WRITE(14,*)'LEAVING 7O'
+      RETURN
+      END

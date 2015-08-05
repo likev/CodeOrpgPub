@@ -1,0 +1,53 @@
+rpg_options(4)           RPG Options Information		 rpg_options(4)
+
+	
+DESCRIPTION
+
+The RPG Options file contains descriptions of tasks which can be invoked from
+the RPG HCI when the RPG is in defined states.  Typically, it contains 
+selections to reinitialize various RPG components when the RPG is shutdown.
+However, this can be extended to other RPG states as well.
+
+Notes:   This file can be edited while the RPG is operating.  The  RPG doesn't
+need to be restarted.
+
+This file contains a set of special tasks which can be invoked through the HCI
+under controlled conditions.  A set of rules have been defined so that the HCI
+can dynamically build a set of objects for the user to select from.  A sample
+task entry is defined below.
+
+ 	Task {
+		name 		"Cleanup logs"
+		description	"This option removes all log files"
+		action		"remove_logs -c"
+		state		MRPG_ST_SHUTDOWN
+		msg		"This message goes to syslog file"
+	}
+
+In the above example, a toggle button with the label "Cleanup logs" would be
+added to the HCI window.  It would only be selectable when the RPG is in a
+shutdown state.  If the RPG was in a shutdown state and the item was selected,
+then the action performed would be to invoke the "remove_logs -c" command using
+the "system()" function.
+
+The valid state fields are defined in the header file mrpg.h.  Multiple states
+are supported.  Each field must be separated by one or more blanks.  For
+example, if one wanted an option to be available in both shutdown and operate
+states, the following state entry could be defined:
+
+	state	MRPG_ST_SHUTDOWN MRPG_ST_OPERATING
+
+Multiple actions can be invoked by separating each command by the ";"
+character.  For example, if the user wanted to invoke "task1", "task2 -c -f",
+and "task3 100" from a single selection they could define the following action
+entry:
+
+	action	"task1;task2 -c -f;task3 100"
+
+Refer to the HCI header file "hci_rpg_options.h" for specific limits on the
+number of init options entries allowed and the maximum lengths for the
+description, action, state, and msg strings.
+
+SEE ALSO
+
+hci_rpc(1) cs(3)

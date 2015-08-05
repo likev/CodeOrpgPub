@@ -1,0 +1,313 @@
+C
+C RCS info
+C $Author: steves $
+C $Locker:  $
+C $Date: 2006/07/05 22:32:22 $
+C $Id: a317d7.ftn,v 1.4 2006/07/05 22:32:22 steves Exp $
+C $Revision: 1.4 $
+C $State: Exp $
+C
+      SUBROUTINE A317D7__DEF_TDA1D( REFL1, REFL2, VELOC1, VELOC2 )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A317D7__DEF_TDA1D
+*.
+*.  MODULE VERSION: 0001
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       05 16 97      0000      R. LEE               CCR NA95-21503
+*.       03/16/99      0001      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:  CALL A317D7__DEF_TDA1D( REFL1, REFL2,
+*.                      VELOC1, VELOC2 )
+*.
+*.  MODULE FUNCTION: Finds pattern vectors from 2 adjacent radials.
+*.
+*.
+*.  MODULES CALLED: NONE
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT        TYPE        DESCRIPTION
+*.    -   -----        ----        -----------
+*.    G   ADPMNPV      I*4         Adaptable Parameter Max Number Pattern
+*.                                 Vectors
+*.    G   PV_AZIM      R*4         Azimuth of each radial.
+*.    G   TDAMAIN      R*4         An array that holds pattern attributes.
+*.    C   BADPRFL      I*4         Biased reflectivity threshold below which no TVS
+*.                                 possible
+*.    C   BADPVEL      I*4         Biased velocity threshold below which no TVS
+*.                                 identified
+*.    C   DBINSIZE     R*4         Doppler bin size multiplied by one radian
+*.    C   DBRNGSTART   R*4         Starting range for processing pattern
+*.                                 vectors
+*.    C   MAX_DOP_BIN  I*4         Maximum Doppler bin number in a radial.
+*.    C   PVCOUNT      I*4         Count of pattern vectors found in an
+*.                                 elevation scan
+*.    C   PV_BAZ       I*4         Index into TDAMAIN to the Pattern
+*.                                 Vector beginning azimuth
+*.    C   PV_BIN       I*4         Index into TDAMAIN to the Pattern
+*.                                 Vector bin numbers.
+*.    C   PV_DV        I*4         Index into TDAMAIN to the Pattern
+*.                                 Vector delta velocity.
+*.    C   PV_SHR       I*4         Index into TDAMAIN to the shear of a
+*.                                 pattern vector.
+*.    C   RDRNGF       I*4         Flag value indicating sample bin
+*.                                 Range Folded
+*.    C   NUMBINS      I*4         The number of bins required for
+*.                                 processing TDA1D data.  Min of: max # of
+*.                                 bins, # of bins for max PV height, or #
+*.                                 of bins for max PV range.)
+*.    C   NUMVELBINS   I*4         Number of velocity bins to process along
+*.                                 a radial.
+*.    C   RADCOUNT     I*4         Number of radials in an elevation scan.
+*.    C   TDAAZPTR     I*4         Pointer to 1st good azimuthal index within
+*.                                 the TDA1D attributes array (1 or 401)
+*.    C   TDABFPTR     I*4         Pointer to 1st good pattern vector index
+*.                                 within the TDA1D attributes array (0 or
+*.                                 3000).
+*.    C   VMULFCT      R*4         Multiplicative factor to convert
+*.                                 velocity values to biased velocity.
+*.    P   REFL1        I*2         Array holding a radial of biased
+*.                                 reflectivity values.
+*.    P   REFL2        I*2         Array holding a radial of biased
+*.                                 reflectivity values.
+*.    P   VELOC1       I*2         Array that holds biased Doppler
+*.                                 velocity data.
+*.    P   VELOC2       I*2         Array that holds biased Doppler
+*.                                 velocity data.
+*.
+*.    *   OUTPUT       TYPE        DESCRIPTION
+*.    -   ------       ----        -----------
+*.    G   TDAMAIN      R*4         An array that holds pattern attributes.
+*.    C   DELTANG      R*4         Change in azimuth between radials.
+*.                                 This is from the radial header and
+*.                                 stored in local common.
+*.    C   PVCOUNT      I*4         Count of pattern vectors found in an
+*.                                 elevation scan
+*.    G   PV_INDX      I*2         Index to the first and last pattern
+*.                                 vector in a radial.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME      TYPE        DESCRIPTION
+*.    ----      ----        -----------
+*.    BIN_OFFSET I*4        Correction applied when calculating number
+*.                          of bins out to some range
+*.    DELV       I*4        Biased velocity difference between two
+*.                          adjacent velocity bins
+*.    FIRSTPV    I*4        First Pattern Vector Number, 1
+*.    I          I*4        Do loop variable
+*.    J          I*4        Do loop variable
+*.    K          I*4        Velocity pointer
+*.    L          I*4        Temporary storage of pattern vector counter
+*.    LASTPV     I*4        Index of PV_INDX which points to the last
+*.                          pattern vector of a radial
+*.   PV_TNUM     I*4        Total number pattern vector count.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    PVECS09
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A317CTAD
+*.    A317CGT
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     Compiled using COMP17.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     Linked using LINK17.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+      IMPLICIT NONE
+C
+C     Includes
+C
+C**  Attach pointers for global memory for unpack radial
+$INCLUDE A304.INC/G,**A304P4 (NLIST)
+C
+C**  Attach pointers for segments buffer A3CD09
+$INCLUDE A317BUF.INC/G,**A317P3T (NLIST)
+$INCLUDE A317BUF.INC/G,**A317PTAD (NLIST)
+$INCLUDE A317BUF.INC/G,**A317CTAD (NLIST)
+C
+C**  Attach segment buffer A3CD09DZ
+$INCLUDE A309.INC/G,**A3CD09BL (NLIST)
+C
+C** Attach buffer pointers for segments buffer
+$INCLUDE A317.INC/G,**A317C3T  (NLIST)
+C
+C**  Attach derived adaptation data for segments
+$INCLUDE **A317CDT (NLIST)
+C
+C**  Attach internal common for segments
+$INCLUDE **A317CGT (NLIST)
+C
+C** PASSED ARGUMENTS
+C
+      INTEGER*2 REFL1(PREFSIZE), REFL2(PREFSIZE),
+     1          VELOC1(PVELSIZE), VELOC2(PVELSIZE)
+
+C** INTERNAL VARIABLES
+
+      INTEGER I, J, K, L, PV_TNUM
+      INTEGER LASTPV, FIRSTPV, DELV
+C
+C**  PARAMETER DECLARATIONS
+C
+      PARAMETER ( FIRSTPV = 1, LASTPV = 2 )
+C
+C====================================================================
+C
+C** BEGIN EXECUTABLE CODE.
+C
+C
+C** .... while the number of pattern vectors is less than or equal
+C**      to THRESHOLD(maximum # Pattern Vectors) ....
+C
+      IF ( (PVCOUNT) .GE. (ADPMNPV) ) RETURN
+C
+      PV_TNUM = PVCOUNT
+C
+C** .... DO FOR ALL (SAMPLE VOLUMES) ....
+C
+C** NOTE: NUMBINS IS COMPUTED TAKING INTO ACCOUNT BOTH THE
+C** THRESHOLD(maximum Pattern Vector Height) AND THE
+C** THRESHOLD(maximum Pattern Vector Range).  SEE MODULE
+C** A317G7.FTN.
+C
+      DO 220 I=1,NUMBINS
+C
+C** .... Reflectivity Factor(Sample Volume) of corresponding SAMPLE
+C**      VOLUMES in both radials are greater than or equal to
+C**      THRESHOLD(minimum Reflectivity) ...
+C
+         IF((REFL1(I) .GE. BADPRFL) .AND.
+     1      (REFL2(I) .GE. BADPRFL)) THEN
+C
+C** ADJUST THE VELOCITY POINTER TO MATCH UP WITH REFLECTIVITY BIN.
+C
+            K = (I-1)*NUMVELBINS + BIN_OFFSET
+C
+C** TRAVERSE ALONG THE RADIAL IN VELOCITY.
+C
+            DO 230 J=1,NUMVELBINS
+C
+C** INCREMENT THE VELOCITY POINTER.
+C
+               K = K + 1
+               IF( K .GT. MAX_DOP_BIN ) GO TO 240
+               IF( K .LE. 0 ) GO TO 230
+C
+C** WE REQUIRE VELOCITIES IN BOTH RADIALS TO BE VALID.
+C
+               IF ( (VELOC1(K).GT.RDRNGF) .AND.
+     >              (VELOC2(K).GT.RDRNGF) ) THEN
+C
+C** .... COMPUTE (Pattern Vector(Velocity Difference)) ....
+C
+C** NOTE: THIS VALUE IS COMPUTED IN SCALED AND BIASED UNITS.
+C** THE COMPARISION TO THE THRESHOLD VALUE IS ALSO PERFORMED
+C** AGAINST A SCALED AND BIASED VALUE.
+C
+                  DELV = VELOC2(K) - VELOC1(K)
+C
+C** .... IF( Pattern Vector(Velocity Difference) is greater than
+C**      or equal to THRESHOLD(Vector Velocity Difference) ....
+C
+                  IF( DELV .GE. BADPVEL ) THEN
+C
+C** .... IDENTIFY a new Pattern Vector ...
+C
+C** INCREMENT THE PATTERN VECTOR COUNTER AND STORE THE PV
+C** ATTRIBUTES.
+C
+                     PV_TNUM = PV_TNUM+1
+                     L = PV_TNUM+TDABFPTR
+C
+C** CALCULATE THE PATTERN VECTOR DELTA V IN M/S.
+C
+                     TDAMAIN(PV_DV,L) = DELV*VMULFCT
+C
+C** .... SET Pattern Vector(Range) to the RANGE(Slant) ...
+C
+C** NOTE: WE ARE SAVING RANGE BIN INDEX VICE THE ACTUAL RANGE.
+C
+                     TDAMAIN(PV_BIN,L) = K
+C
+C** SHEAR COMPUTATION NOT NEEDED - DELETED FROM AEL LATE IN GAME
+C
+C** CALCULATE THE PATTERN VECTOR RANGE TO BE USED IN SHEAR
+C** COMPUTATION.  NOTE: THIS RANGE HAS BEEN SCALED BY ONE
+C** RADIAN (SEE A317G7.FTN).
+C
+C                    RANGE = DBRNGSTART + FLOAT(K)*DBINSIZE
+C
+C** .... COMPUTE(Pattern Vector(Azimuth Difference)) ....
+C
+C                    DELTANG=ABS(PV_AZIM(RADCOUNT+TDAAZPTR)-
+C    >                           PV_AZIM(RADCOUNT+TDAAZPTR-1))
+C                    IF(DELTANG.GT.180.0) DELTANG=360.0-DELTANG
+C
+C** .... COMPUTE(Pattern Vector(Shear)) ....
+C
+C                    TDAMAIN(PV_SHR,L) =
+C    >                     TDAMAIN(PV_DV,L)/(DELTANG*RANGE)
+C
+C** .... COMPUTE(Pattern Vector(beginning Azimuth)) ....
+C
+                     TDAMAIN(PV_BAZ,L)=PV_AZIM(RADCOUNT+TDAAZPTR-1)
+C
+C** .... while the number of pattern vectors is less than or equal
+C**      to THRESHOLD(maximum # Pattern Vectors) ....
+C
+                     IF ( (PV_TNUM) .GE. (ADPMNPV) ) GO TO 240
+
+                  ENDIF
+
+               ENDIF
+
+ 230        CONTINUE
+
+         ENDIF
+
+ 220  CONTINUE
+C
+C** SAVE THE INDEX OF THE LAST PATTERN VECTOR IN THE RADIAL.
+C
+ 240  IF ( (PV_TNUM-PVCOUNT) .GT. 0 ) THEN
+
+         PV_INDX(FIRSTPV,RADCOUNT+TDAAZPTR-1)=PVCOUNT+TDABFPTR+1
+         PVCOUNT = PV_TNUM
+         PV_INDX(LASTPV,RADCOUNT+TDAAZPTR-1)=PVCOUNT+TDABFPTR
+
+      END IF
+
+      RETURN
+      END

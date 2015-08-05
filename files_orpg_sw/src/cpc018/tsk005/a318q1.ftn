@@ -1,0 +1,294 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/17 18:34:17 $
+C $Id: a318q1.ftn,v 1.2 2002/12/17 18:34:17 christie Exp $
+C $Revision: 1.2 $
+C $State: Exp $
+C
+      SUBROUTINE A318Q1__TVS_CONTROL(PARAM)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A318Q1__TVS_CONTROL
+*.
+*.  MODULE VERSION: 0014
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       04/02/97      0000      DAVE ZITTEL          CCR NA95-21503
+*.       03/16/99      0014      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:
+*.     CALL A318Q1__TVS_CONTROL(PARAM)
+*.
+*.  MODULE FUNCTION:
+*.     CONTROL THE FLOW OF DATA FOR TVS GRAPHICS AND ALPHANUMERIC PRODUCTS
+*.
+*.  MODULES CALLED: A31145__ABORT_ME, A31168__ABORT_ME_BECAUSE, 
+*.                  A31211__GET_INBUF, A31212__REL_INBUF, A31215__GET_OUTBUF, 
+*.                  A31216__REL_OUTBUF, A31218__BUF_VOL, A318QC__TVS_CORSTR, 
+*.                  A318QF__TVS_PROCESSING 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT         TYPE        DESCRIPTION
+*.    -   -----         ----        -----------
+*.    G   MEM           I*4         Array in RPG shared memory set aside for
+*.                                  buffer sharing.
+*.    G   DESTROY       I*4         (CONSTANT)Mnemonic used as input to
+*.                                  A31216__REL_OUTBUF. Indicates "do not pass
+*.                                  data to other tasks".
+*.    G   FORWARD       I*4         (CONSTANT)Parameter to indicate that an
+*.                                  output buffer is to be forwarded to
+*.                                  successor tasks
+*.    G   NORMAL        I*4         (CONSTANT)Parameter which indicates normal
+*.                                  completion of requested operation to
+*.                                  acquire input or output buffer
+*.    G   NO_MEM        I*4         (CONSTANT)Parameter which indicates no
+*.                                  memory available on attempt to acquire
+*.                                  output buffer
+*.    G   PROD_MEM_SHED I*4         (CONSTANT)(CONSTANT)Parameter which
+*.                                  indicates that product aborted due to
+*.                                  memory load shedding
+*.    G   TAD           I*4         (CONSTANT)POINTER INTO THE TVSATTR BUFFER
+*.                                  TO TDAADAP (THE TVS ADAPTATION DATA ARRAY)
+*.    G   TAM           I*4         (CONSTANT)POINTER INTO THE TVSATTR BUFFER
+*.                                  TO TVS_MAIN (THE TVS FEATURE ATTRIBUTE
+*.                                  ARRAY)
+*.    G   TDA_SAD       I*4         (CONSTANT)Index into TDA adaptation data
+*.                                  for MAXTSTMD
+*.    G   TNE           I*4         (CONSTANT)POINTER INTO THE TVSATTR BUFFER
+*.                                  TO THE # OF ETVSes IDENTIFIED IN THE
+*.                                  CURRENT VOLUME SCAN (A NEGATIVE #
+*.                                  INDICATES MORE THAN THE MAX. ALLOWED WERE
+*.                                  FOUND)
+*.    G   TNT           I*4         (CONSTANT)POINTER INTO THE TVSATTR BUFFER
+*.                                  TO THE # OF TVSes IDENTIFIED IN THE
+*.                                  CURRENT VOLUME SCAN (A NEGATIVE #
+*.                                  INDICATES MORE THAN THE MAX. ALLOWED WERE
+*.                                  FOUND)
+*.    G   TRFRCATR      I*4         (CONSTANT)Data Buffer Type: Track Forecast
+*.                                  Attributes.
+*.    G   TVSATTR       I*4         (CONSTANT)Buffer Data Type: TVS Attributes
+*.                                  buffer
+*.    C   IETVS         I*4         Number of Elevated TVS (ETVS) features
+*.                                  identified by the Tornado Detection
+*.                                  Algorithm.
+*.    C   ITVS          I*4         Number of TVS features detected identified
+*.                                  by the Tornado Detection Algorithm.
+*.
+*.    *   OUTPUT   TYPE        DESCRIPTION
+*.    -   ------   ----        -----------
+*.    C   BFLGETVS L*4         Flag indicating the number of ETVSs that TDA
+*.                             identified was greater than the adaptable
+*.                             threshold number specified.
+*.    C   BFLGTVS  L*4         Flag indicating the number of TVSs that TDA
+*.                             identified was greater than the adaptable
+*.                             threshold number specified.
+*.    C   DT_VOLNO I*4         Volume scan number
+*.    C   FEATCNT  I*4         Number of TVSs + ETVSs detected by the Tornado
+*.                             Detection Algorithm.
+*.    C   IETVS    I*4         Number of Elevated TVS (ETVS) features
+*.                             identified by the Tornado Detection Algorithm.
+*.    C   ITVS     I*4         Number of TVS features detected identified by
+*.                             the Tornado Detection Algorithm.
+*.    C   TVSIDX   I*4         TVS product output buffer index for pointing to
+*.                             next location in array BUF.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    G   MEM               I*4         Array in RPG shared memory set aside
+*.                                      for buffer sharing.
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME    TYPE        DESCRIPTION
+*.    ----    ----        -----------
+*.    BNT     I*4         Offset pointer of the location of the number of
+*.                        storms in the storm track/forecast output buffer.
+*.    BSI     I*4         Offset pointer for location of each storm type,
+*.                        numerical ID, and number of volumes tracked in the
+*.                        storm track/forecast output buffer
+*.    BSM     I*4         Offset pointer for the location of storm motion
+*.                        vectors and errors in the storm track/forecast
+*.                        output buffer in global memory.
+*.    SIPTR   I*4         Offset to location of storm cell tracking attribute
+*.                        buffer in global memory returned from call to
+*.                        A31211__GET_INBUF.
+*.    SISTAT  I*4         Status of obtaining storm cell tracking buffer
+*.                        returned from call to A31211__GET_INBUF.
+*.    STYPIN  I*4         Variable returned from call to A31211__GET_INBUF
+*.                        indicating DATATYPE of the returned buffer
+*.    TISTAT  I*4         The return status for getting the TVS Attribute
+*.                        input buffer
+*.    TOPTR   I*4         Offset to location of TDA product buffer in global
+*.                        memory returned by A31215__GET_OUTBUF
+*.    TOSTAT  I*4         Status flag returned by A31215__GET_OUTBUF
+*.                        indicating if requested output buffer space for TDA
+*.                        product was obtained from global memory.
+*.    TPTR    I*4         Starting pointer of the TVS Attribute buffer
+*.                        returned from a call to A31211_GET_INBUF
+*.    TSIZOUT I*4         Maximum expected size of the TDA product output
+*.                        buffer in halfwords.
+*.    TTYPIN  I*4         Data type of buffer returned from call to
+*.                        A31211__GET_INBUF
+*.    TVSPROD I*4         Data Buffer Type: Tornado Vortex Signature Product.
+*.    ZERO    I*4         Program parameter for 0.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD00
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    TVSINDEX
+*.    XTIME
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     THIS MODULE IS COMPILED USING THE COMP18.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     THIS MODULE IS LINKED USING THE LINK18.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C   CPC NO.18 - KINEMATIC PRODUCTS -- PRIMARY MODULE NO.5,
+C    A318Q1--TVS BUFFER CONTROL
+      IMPLICIT NONE
+C   MEMORY
+$INCLUDE A309.INC/G,**A3PM00 (NEND NLIST)
+$INCLUDE A309.INC/G,**A3PM07 (NEND NLIST)
+C   DEFINITIONS FOR CPC-12
+$INCLUDE A309.INC/G,**A3CD00 (NEND NLIST)
+C    PARAMETERS AND OFFSETS FOR TVS ALGORITHM
+$INCLUDE A317BUF.INC/G,**A317TP9 (NLIST)
+$INCLUDE A317BUF.INC/G,**A317PTAD (NLIST NEND)
+C    PARAMETERS AND OFFSETS FOR STORM POSITION FORCAST
+$INCLUDE A315BUF.INC/G,**A315P7F (NEND NLIST)
+C    PARAMETERS AND OFFSETS FOR PRODUCT HEADER BLOCK
+$INCLUDE A309.INC/G,**A3PM01 (NEND NLIST)
+$INCLUDE A318.INC/G,**A318TVS1 (NEND NLIST)
+C   LOCAL DECLARATIONS:
+      INTEGER*4 TSIZOUT,TOPTR,TOSTAT,PARAM,ZERO
+      PARAMETER(TSIZOUT=7424, ZERO=0)
+      INTEGER*4 SIPTR,STYPIN,SISTAT
+      INTEGER*4 TPTR,TTYPIN,TISTAT
+C   LOCAL COMMON
+****************************************************************
+      INTEGER*2  PGNO,PLNGTH,IPIX,JPIX
+      INTEGER*4  NDX,PNDX,GPHLNG,WIND,N1,N2,K1,K2,KI
+      COMMON/BLKB/NDX,PNDX,GPHLNG,WIND,N1,N2,K1,K2,KI,
+     >           IPIX,JPIX,PLNGTH,PGNO
+C
+      INTEGER*4  A31218__BUF_VOL
+C
+      INTEGER*4  DT_VOLNO
+      COMMON/XTIME/DT_VOLNO
+***************************************************************
+C   EXECUTABLE CODE:
+***************************************************************
+C
+C   INITIALIZE COMMON
+C
+      TVSIDX = ZERO
+C REQUEST TVS OUTPUT BUFFER
+C
+      CALL A31215__GET_OUTBUF(TVSPROD,TSIZOUT,TOPTR,TOSTAT)
+C
+C   SET FLAG FOR TVS REQUIRED
+C
+      IF (TOSTAT.EQ.NORMAL) THEN
+C
+C   GET TVS ALGORITHM OUTPUT
+C
+         CALL A31211__GET_INBUF(TVSATTR,TPTR,TTYPIN,TISTAT)
+         IF(TISTAT.EQ.NORMAL) THEN
+C
+C
+C   GET STORMS ALGOR
+            DT_VOLNO = A31218__BUF_VOL(TPTR)
+            CALL A31211__GET_INBUF(TRFRCATR,SIPTR,STYPIN,SISTAT)
+C
+C   CHECK STORM ALGOR RECEIVED
+C
+            IF (SISTAT.EQ.NORMAL) THEN
+C
+C   SET UP FLAGS AND POSITIVE COUNTS OF TVSs/ETVSs
+C
+C
+              BFLGTVS = .FALSE.
+              BFLGETVS = .FALSE.
+              IF(MEM(TPTR+TNT) .LT. ZERO) BFLGTVS = .TRUE.
+              ITVS = IABS(MEM(TPTR+TNT))
+              IF(MEM(TPTR+TNE) .LT. ZERO) BFLGETVS = .TRUE.
+              IETVS = IABS(MEM(TPTR+TNE))
+              FEATCNT = ITVS + IETVS
+C
+C
+C
+C   GET SUBROUTINE TO CORRELATE STORMS ID
+C
+              CALL A318QC__TVS_CORSTR(MEM(SIPTR+BSM),MEM(SIPTR+BNT),
+     >        MEM(SIPTR+BSI),MEM(TPTR+TAM), MEM(TPTR+TAD+TDA_SAD-1))
+C
+C  RELEASE STORMTRACK INPUT
+C
+               CALL A31212__REL_INBUF(SIPTR)
+C
+C   BUILD TVS PRODUCT
+C
+C
+               CALL A318QF__TVS_PROCESSING(TPTR,TOPTR)
+C
+C   RELEASE TVS OUTPUT BUFFER
+C
+               CALL A31216__REL_OUTBUF(TOPTR,FORWARD)
+C
+            ELSE
+C
+C   SISTAT NOT NORMAL, RELEASE TOPTR WITH DESTROY
+C
+               CALL A31216__REL_OUTBUF(TOPTR,DESTROY)
+               CALL A31145__ABORT_ME
+            ENDIF
+C
+C   RELEASE INPUT BUFFER TPTR
+C
+            CALL A31212__REL_INBUF(TPTR)
+         ELSE
+C
+C   TISTAT NOT NORMAL, RELEASE TOPTR WITH DESTROY
+C
+            CALL A31216__REL_OUTBUF(TOPTR,DESTROY)
+            CALL A31145__ABORT_ME
+         ENDIF
+      ELSE
+C
+C  NO OUTPUT BUFFERS
+C
+        IF (TOSTAT .EQ. NO_MEM) THEN
+          CALL A31168__ABORT_ME_BECAUSE(PROD_MEM_SHED)
+        ELSE
+          CALL A31145__ABORT_ME
+        END IF
+      ENDIF
+C
+      RETURN
+      END

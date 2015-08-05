@@ -1,0 +1,366 @@
+#!/bin/sh
+
+# RCS info
+# $Author: ccalvert $
+# $Locker:  $
+# $Date: 2012/01/10 22:12:26 $
+# $Id: install_rda_gui,v 1.13 2012/01/10 22:12:26 ccalvert Exp $
+# $Revision: 1.13 $
+# $State: Exp $
+
+
+#**************************************************************************
+#
+# Title:	install_rda_gui
+#
+# Description:	Updates RDA files
+#
+#**************************************************************************
+
+INTERACTIVE_FLAG=YES
+CD_DIR=
+DEBUG_MODE=NO
+TASK_NAME=`basename $0`
+
+#**************************************************************************
+#**************************************************************************
+#
+# Start of Functions
+#
+#**************************************************************************
+#**************************************************************************
+
+#**************************************************************************
+# PRINT_USAGE: Display "help" to screen.
+#**************************************************************************
+
+print_usage ()
+{
+  echo
+  echo
+  echo "************************************************"
+  echo "This script installs the latest RDA files."
+  echo
+  echo "The following are valid flags."
+  echo
+  echo "-h - help"
+  echo "-N - non-interactive (invoked from script)"
+  echo "-x - debug mode"
+  echo "************************************************"
+  echo
+  echo
+}
+
+#**************************************************************************
+# ECHO_STDOUT: Echo to stdout.
+#**************************************************************************
+
+echo_stdout ()
+{
+  echo -e $1
+  if [ -n "$LE_LOG_CMD" ]
+  then
+    echo -e $1 | $LE_LOG_CMD
+  fi
+}
+
+#**************************************************************************
+# ECHO_DEBUG: Echo if in debug mode.
+#**************************************************************************
+
+echo_debug ()
+{
+  if [ $DEBUG_MODE = YES ]
+  then
+    echo_stdout "DEBUG: $1"
+  fi
+}
+
+#**************************************************************************
+# ECHO_INT: Echo if interactive. Output does not go to log file.
+#**************************************************************************
+
+echo_int ()
+{
+  if [ $INTERACTIVE_FLAG = "YES" ]
+  then
+    echo -e $1
+  fi
+}
+
+#**************************************************************************
+# ECHO_ERROR: Echo error message and exit.
+#**************************************************************************
+
+echo_error ()
+{
+  echo_int
+  echo_int
+  echo_int "IN SCRIPT: $0"
+  echo -e "ERROR: $1" >&2
+  if [ -n "$LE_ERR_CMD" ]
+  then
+    echo -e "ERROR: $1" | $LE_ERR_CMD
+  fi
+  echo_int "Use -h option for help"
+  echo_int
+  echo_int
+
+  exit 1
+}
+
+#**************************************************************************
+# INIT_LE_LOG: Initialize logging.
+#**************************************************************************
+
+init_le_log ()
+{
+  LE_NUM_LINES=100
+
+  cmd="id -u"
+  echo_debug "CMD: $cmd"
+  if ! USER_UID=`$cmd 2> /dev/null`
+  then
+    echo_error "CMD: $cmd failed"
+  elif [ -z "$USER_UID" ]
+  then
+    echo_error "USER_UID undefined"
+  fi
+  echo_debug "USER UID: $USER_UID"
+
+  cmd="id -g"
+  echo_debug "CMD: $cmd"
+  if ! USER_GID=`$cmd 2> /dev/null`
+  then
+    echo_error "CMD: $cmd failed"
+  elif [ -z "$USER_GID" ]
+  then
+    echo_error "USER_GID undefined"
+  fi
+  echo_debug "USER GID: $USER_GID"
+
+  if ! `which le_pipe > /dev/null 2>&1`
+  then
+    echo_error "Task le_pipe not found"
+  fi
+
+  LE_LOG_CMD="le_pipe -t $TASK_NAME -n $LE_NUM_LINES -w $USER_UID -g $USER_GID"
+  LE_ERR_CMD="$LE_LOG_CMD -e GL_ERROR"
+  echo_debug "LE LOG CMD: $LE_LOG_CMD"
+  echo_debug "LE ERR CMD: $LE_ERR_CMD"
+}
+
+#**************************************************************************
+# PARSE_INPUT: Parse command line input.
+#**************************************************************************
+
+parse_input ()
+{
+  # Parse input options/arguments. If option doesn't have an argument (and
+  # requires one) or option isn't valid, print message and exit.
+
+  while getopts hNx optionflag
+  do
+    case $optionflag in
+       h) print_usage; exit 0;;
+       N) INTERACTIVE_FLAG=NO;;
+       x) DEBUG_MODE=YES;;
+      \?) echo_error "Invalid input flag."
+    esac
+  done
+}
+
+#**************************************************************************
+# INITIALIZE_VARIABLES: Set initial variables.
+#**************************************************************************
+
+initialize_variables ()
+{
+  # Make sure tasks can be found
+  for task_name in medcp rpg_ps mnttsk_rda_alarms_tbl
+  do
+    if ! `which $task_name > /dev/null 2>&1`
+    then
+      echo_error "Task $task_name not found"
+    fi
+  done
+
+  # Get node
+  rpg_install_info_file=$RPGHOME/cfg/rpg_install.info
+  if [ ! -f $rpg_install_info_file ]
+  then
+    echo_error "File $rpg_install_info_file not found"
+  fi
+
+  NODE=`cat $rpg_install_info_file | grep TYPE: | awk '{print $2}'`
+  if [ -z $NODE ]
+  then
+    echo_error "Node type not found in $rpg_install_info_file"
+  elif [ $NODE != "MSCF" -a $NODE != "RPGA" -a $NODE != "RPGB" ]
+  then
+    echo_error "Node type invalid ($NODE)"
+  fi
+
+  # Mount CD
+  echo_stdout "Mounting RDA Update CD"
+  cmd="medcp -pm cd"
+  echo_debug "CMD: $cmd"
+  if ! CD_DIR=`$cmd 2> /dev/null`
+  then
+    echo_error "Unable to mount CD"
+  elif [ -z "$CD_DIR" ]
+  then
+    echo_error "CD directory undefined"
+  fi
+}
+
+#**************************************************************************
+# UPDATE_FILES: Updates RDA files.
+#**************************************************************************
+
+update_files ()
+{
+  echo_debug "Task name: $TASK_NAME"
+
+  for update_file in `find $CD_DIR -type f`
+  do
+    echo_debug "Update file: $update_file"
+
+    # Don't copy this script over
+    if [ `basename $update_file` = $TASK_NAME ]
+    then
+      echo_debug "Do not copy this file over"
+      continue
+    fi
+
+    # Create target file name
+    target_file=`echo $update_file | sed "s|$CD_DIR|$HOME|"`
+    echo_debug "Target file: $target_file"
+
+    # Make sure directory of target file exists
+    target_dir=`dirname $target_file`
+    echo_debug "Target dir: $target_dir"
+    if [ ! -d $target_dir ]
+    then
+      cmd="mkdir -p $target_dir"
+      echo_debug "CMD: $cmd"
+      if ! `$cmd > /dev/null 2>&1`
+      then
+        echo_error "CMD: $cmd failed"
+      fi
+    fi
+
+    # Copy target file over
+    cmd="cp -f $update_file $target_file"
+    echo_debug "CMD: $cmd"
+    if ! `$cmd > /dev/null 2>&1`
+    then
+      echo_error "CMD: $cmd failed"
+    fi
+
+    # Set ownership
+    cmd="chown $USER_UID:$USER_GID $target_file"
+    echo_debug "CMD: $cmd"
+    if ! `$cmd > /dev/null 2>&1`
+    then
+      echo_error "CMD: $cmd failed"
+    fi
+
+    # Set permissions
+    cmd="chmod 755 $target_file"
+    echo_debug "CMD: $cmd"
+    if ! `$cmd > /dev/null 2>&1`
+    then
+      echo_error "CMD: $cmd failed"
+    fi
+  done
+
+  if [ $NODE = "RPGA" ]
+  then
+    if rpg_ps > /dev/null 2>&1
+    then
+      cmd="mnttsk_rda_alarms_tbl -t clear"
+      echo_debug "CMD: $cmd"
+      if ! `$cmd > /dev/null 2>&1`
+      then
+        echo_error "CMD: $cmd failed"
+      fi
+
+      cmd="mnttsk_rda_alarms_tbl -t startup"
+      echo_debug "CMD: $cmd"
+      if ! `$cmd > /dev/null 2>&1`
+      then
+        echo_error "CMD: $cmd failed"
+      fi
+    else
+      echo_stdout "MRPG not running. Skipping maintenance task."
+    fi
+  fi
+}
+
+#**************************************************************************
+# CLEANUP_FUNCTION: Clean up loose ends.
+#**************************************************************************
+
+cleanup_function ()
+{
+  echo_stdout "Unmount and eject RDA Update CD"
+
+  # Change directory to make sure CD unmounts/ejects
+  cmd="cd"
+  echo_debug "CMD: $cmd"
+  if ! `$cmd > /dev/null 2>&1`
+  then
+    # Nothing can be done at this point, so only print in debug mode
+    echo_debug "CMD: $cmd failed" 
+  fi
+
+  # Unmount CD
+  cmd="medcp -u cd"
+  echo_debug "$CMD: $cmd"
+  if ! `$cmd 2> /dev/null`
+  then
+    # Nothing can be done at this point, so only print in debug mode
+    echo_debug "CMD: $cmd failed" 
+  fi
+
+  # Eject CD
+  cmd="eject -t"
+  echo_debug "$CMD: $cmd"
+  if ! `$cmd 2> /dev/null`
+  then
+    # Nothing can be done at this point, so only print in debug mode
+    echo_debug "CMD: $cmd failed" 
+  fi
+}
+
+#**************************************************************************
+#**************************************************************************
+#
+# End of Functions
+#
+#**************************************************************************
+#**************************************************************************
+
+#**************************************************************************
+#**************************************************************************
+#
+# Main Body of Script
+#
+#**************************************************************************
+#**************************************************************************
+
+parse_input "$@"
+init_le_log
+initialize_variables
+update_files
+cleanup_function
+
+echo_int
+echo_int
+echo_stdout "Successful update of RDA files."
+echo_int
+echo_int
+
+exit 0
+

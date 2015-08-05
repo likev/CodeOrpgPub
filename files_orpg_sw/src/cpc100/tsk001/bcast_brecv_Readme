@@ -1,0 +1,210 @@
+
+
+broadcast.c and receive.c are non-reliable broadcast tools which does not
+include packet check and retransmission. They are the old version I developed.
+This version has been acquired by Garry Blackburn.
+
+Later I developed a new tool, which is implemented in bcast.c and brecv.c.
+The new tool supports reliable broadcast of messages. It has been used 
+for playback radar data communication. Brief technical descriptions can be
+found in the *.c files.
+
+
+What is the BCAST tool?
+
+BCAST is a convenient tool designed for quasi-reliably broadcasting messages 
+(or data records) to multiple hosts. The message size can be variable and does 
+not have an upper limit. Because the tool uses UDP packets to broadcast the messages there is no limit on the number of hosts that can receive the 
+messages. The bandwidth needed only slightly increases as the number of hosts 
+increases (Extra bandwidth is needed for resending lost UDP packets).
+
+BCAST relies on storing a certain amount of the latest messages segments in 
+the broadcaster and re-broadcast lost message packets to minimize the message loss. If the messages segment buffer is sufficiently large and the message 
+rate does not cause excessive packet loss, the message loss rate can be many
+order-of-magnitude lower than a tool without retransmission. As a matter of 
+fact, when the data rate approaches the usable bandwidth, reliable data 
+communication (without loss of data) is impossible in a real time environment 
+where data is generated constantly.
+
+BCAST does not use any registration based model. A receiver does not need to 
+tell the broadcaster that it comes and wants to listen or it is going to quit. 
+The broadcaster does not no who is going to listen and who is listening. The 
+broadcaster, as well as any receiver, can terminate and restart at any time 
+without interrupting the message broadcasting. This simplifies the system 
+configuration and is particularly convenient in a fault tolerant system that 
+needs to be dynamically reconfigurable.
+
+This tools has been used to send real time radar data to multiple users on a 
+general-purpose LAN (10 Mb ether net) that supports about 50 everyday users. No 
+message loss was observed. The average usage of the bandwidth is between 10 to 
+30 per sent without the radar data broadcasting, which uses an additional 15 to 
+20 percent bandwidth.
+
+BCAST runs on any of the major brand of UNIX workstations: SUN, HP, IBM, DEC and 
+SGI. It is believed that it can be ported to a Microsoft WINDOWS environment.
+
+How does BCAST work?
+
+BCAST contains two executable programs, the broadcast, bcast, and the receiver, 
+brecv. bcast, running in the background, reads incoming user messages from a 
+Linear Buffer (a shared memory based message passing tool) on the local host. It 
+then divides the messages into segments and broadcasts the message segments via 
+UDP packets using a socket port. Each message segment has a header containing a 
+unique sequence number and other control fields in addition to the message 
+segment. The broadcasted message segments are stored in a circular buffer for 
+later retransmission. A receiving task runs on each host receiving the UDP 
+packets. The received packets are assembled according to the header information 
+to regenerate the messages. The regenerated messages are then written to a 
+Linear Buffer for local tasks to retrieve. If a message segment is detected to 
+be lost by a receiver, the receiver sends, by broadcasting, a retransmission 
+request message immediately. Upon receiving a retransmission request, bcast 
+re-broadcasts the lost message segment if it is still in the buffer. The 
+receiver, while receiving normal packets and storing them in a local buffer, 
+keeps sending the retransmission request in certain frequency until the 
+retransmitted message segment is received. In case that the lost segment can 
+not be received while the receiver's buffer is full, the message with the lost 
+segment is discarded and a message loss is declared.
+
+In an typical application, one runs bcast on a host. The user application, that 
+generates the messages, writes the messages into the bcast's Linear Buffer. Each 
+receiving host has a brecv running in background. The applications that need the 
+messages read the messages from the brecv's Linear Buffer, as if they are 
+reading directly from the Linear Buffer on the bcast's host. There is no 
+specific order in which bcast, brecv and user applications are started.
+
+The buffer sizes on both bcast and brecv sides should be set according to the 
+expected message size and rate. They are set through command line options of 
+bcast and brecv. The UDP port number used is also a command line option. No 
+other configuration file is needed to set up the bcast environment. bcast and 
+brecv can, by option, output packet statistics. The Linear Buffer library 
+functions are provided for user applications to access messages in a Linear 
+Buffer.
+
+07/2/96:
+
+Further work on the bcast tools. It is found that the UDP receiving buffer
+size must be large enough to hold the packet. In congestion situation, the
+brecv application may not be scheduled for several seconds and cause large
+number of packets stored in the buffer. Additional packets may lost in 
+large trunk of contiguous packets. I added also timer for each individual
+packets for better retransmission control. One thing I did not do is to
+use a second socket for retransmitted packets. This is needed because when
+there is a congestion, there will be large amout of packets in the buffer
+and the retransmitted packets have to be after those packets. This will 
+tend to make the retransmitted packets lost again. Flow control also added
+to the bcast.
+
+A truly reliable bcast tool must use positive acknowledgment. I consider
+the following new reliable bcast tool:
+
+a. Using UDP broadcast for sending each packet only once (except for 
+   repeating the last packet). If a necessary acknowledgment is not 
+   received from a brecv and the buffer is full, bcast will stop sending
+   new packets. If there is no brecv connected, bcast will stop
+   broadcasting messages.
+
+   Using a TCP connection to each brecv for acknowledgment, retransmission
+   request and retransmitted packets. Retransmission request for a lost 
+   packet and retransmitting the packet need to be performed only once.
+
+b. The tools is reliable in the sense that, any message sent by the broadcast
+   tool will be guaranteed to be received by the receiver in the right
+   sequence. In case of congestion, the massage passing rate is reduced,
+   which eases the congestion condition.
+
+c. To simplify the tools, we use a simple exception handling scheme:
+
+   If brecv started before bcast, brecv will retry until bcast starts and
+   a connection is made to bcast.
+
+   We assume that bcast always lasts longer than all brecvs. This means that 
+   brecv will simply exit if the TCP connection to bcast is broken.
+
+   To make sure all receivers get the same message, one can first start bcast 
+   and all brecvs and then start the message source for bcast.
+
+   To eliminate undetectable broken brecv, which can hold the broadcast, we
+   use a tool to send a message to bcast to terminate service to a specified 
+   client host.
+
+   If there are too many brecvs connected to bcast, bcast will reject the 
+   new brecv.
+
+   brecv discard a new message if it fails to write in its output LB.
+
+d. Detailed design:
+
+   Two channels (sockets) are used to implement the reliable broadcast tools.
+   A broadcast (UDP) is used for primary packet broadcast and a TCP socket
+   is built between the broadcast tool (bcast) and each receiver (brecv)
+   for passing acknowledgement/request messages and retransmitting lost
+   packets.
+
+   Both bcast and brecv employ a packet buffer to improve the performance
+   (by reducing the number of retransmitted packets). bcast and brecv use 
+   the same size of buffers. bcast sends the buffer size as the first message 
+   after the TCP connection is set. The message length is a 4 byte integer.
+   All other messages from the bcast are packets.
+
+   bcast reads messages from an input Linear Buffer (LB), breaks them into 
+   packets and sends packets via the UDP channel. It keeps a copy of every 
+   transmitted packet in its packet buffer for later retransmission until 
+   the buffer is full. A packet in the buffer is 
+   discarded and the space is freed when all brecv acknowledge its reception. 
+   Upon receiving a retrans. request, it will resend the lost packets to the 
+   brecv through the TCP connection immediately. bcast must check 
+   acknowledgment messages unless the last packet acknowledgments from all 
+   brecvs are received. It must check them frequently.
+
+   bcast does not need to wait for acknowledgment of receiving retransmitted
+   packets after retransmitting them. This however may require brecv to have 
+   a larger buffer to hold the extra outstanding packets (bcast updates its 
+   cr_seq, the sequence number of the packet in processing, after retrans.
+   and started to send more but brecv yet to receive the retransmitted 
+   packets and update its cr_seq. These new packets may need to stay in the 
+   socket buffer otherwise). We set the UDP receiving socket buffer size to 
+   be the half of the packet buffer size.
+
+   brecv reads packets from the broadcast port or the packet buffer, recovers 
+   the original messages and sends them to an output LB. brecv first checks
+   its packet buffer for the next required packet. If it is not there, it 
+   reads the next packet from the UDP socket. If the packet read is the 
+   next required one, it copies to a buffer that holds the latest message to 
+   be sent to the output LB. If it is a out-off-sequence packet and the 
+   sequence number is larger than the required sequence number, it is stored 
+   in the buffer.
+
+   brecv uses two constants, NEED_REQUEST and REQUEST_TRIG, to control 
+   sending retrans. requests, where 0 < NEED_REQUEST < REQUEST_TRIG < N_buf
+   and N_buf is the packet buffer size in number of packets. In the following
+   two situations a request is sent. First, if max_seq >= REQUEST_TRIG, a
+   request is sent with all missing packets of sequence numbers between 
+   req_seq and NEED_REQUEST in the request, where max_seq and req_seq are
+   respectively the maximum sequence number received and the sequence number 
+   of the next required packet. Second, if there is no broadcast packet 
+   received for QUIET_TIME, a request is sent with all missing packets in 
+   the request.
+
+   brecv waits for retransmitted packets until all of them are received after 
+   sending a request. While waiting for the retransmitted packets, brecv also 
+   try to read the broadcasted packets to avoid socket buffer full and losing 
+   packets. The packets read from both the broadcast and the TCP ports are 
+   stored in the buffer. Because all retransmitted packets are stored in 
+   buffer, the routine check whether the requested packet is in the buffer 
+   must be in the loop of geting the next packet.
+
+   If not all messages acknowledging the reception of the last packet and 
+   there is no new message to send, bcast re-broadcast the last packet.
+
+   acknowledgment/request message format (4 bytes each field):
+
+   msg_size  max_seq_processed  seq_n to retrans. (#1)  #2  ...
+
+   The packet sequence number starts from 1 (MIN_SEQ). In the above message, 
+   if the second field (max_seq_processed) is 0 (CONTROL_MSG), it is a control 
+   message. Available control messages are:
+
+	Third field = 1 (TERMINATE_HOST): Stop serving a client on host, 
+					  which address is in the forth field.
+
+

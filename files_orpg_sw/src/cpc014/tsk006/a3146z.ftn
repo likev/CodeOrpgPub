@@ -1,0 +1,195 @@
+C
+C RCS info
+C $Author: ccalvert $
+C $Locker:  $
+C $Date: 2003/07/01 19:05:31 $
+C $Id: a3146z.ftn,v 1.4 2003/07/01 19:05:31 ccalvert Exp $
+C $Revision: 1.4 $
+C $State: Exp $
+C
+      SUBROUTINE A3146Z__DPA_SUPPL_DATA( BUF_INDX, PBUFF ) 
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3146Z__DPA_SUPPL_DATA
+*.
+*.  MODULE VERSION: 0010
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       08 23 90      0000      Paul Jendrowski      SPR# 90899
+*.       11 05 90      0001      PAUL JENDROWSKI      SPR# 91255
+*.       12 03 91      0002      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0003      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0004      Toolset              SPR 91895
+*.       03/25/93      0005      Toolset              SPR NA93-06801
+*.       01/28/94      0006      Toolset              SPR NA94-01101
+*.       03/03/94      0007      Toolset              SPR NA94-05501
+*.       04/11/96      0008      Toolset              CCR NA95-11802
+*.       12/23/96      0009      Toolset              CCR NA95-11807
+*.       03/16/99      0010      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A3146Z__DPA_SUPPL_DATA(BUF_INDX, PBUFF) 
+*.
+*.  MODULE FUNCTION:
+*.
+*.      This module formats Rate Scan times in the product buffer
+*.   and computes totals of supplemental data values for the scans
+*.   that are in the current hour.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT          TYPE        DESCRIPTION
+*.    -   -----          ----        -----------
+*.    C   NEWEST_RS_INDX I*4         Index in database of newest rate scan.
+*.    C   OLDEST_RS_INDX I*4         Index in database of oldest rate scan.
+*.    C   SUP_DB         I*4         Supplemental database array.
+*.    C   USE_RS         L*4         Flag array indicating which rate scans
+*.                                   are used in the hourly period.
+*.    C   MAX_RATESCANS  I*4         (CONSTANT)Maximum number of rate scans in
+*.                                   database.
+*.    C   NI2_LN         I*4         (CONSTANT)Number of halfwords for
+*.                                   NCHAR_LN.
+*.    C   RS_DATE        I*4         (CONSTANT)Offset in SUP_DB for rate scan
+*.                                   date.
+*.    C   RS_TIME        I*4         (CONSTANT)Offset in SUP_DB for rate scan
+*.                                   time.
+*.    P   BUF_INDX       I*4         LAST BUFFER INDEX WRITTEN TO
+*.
+*.    *   OUTPUT   TYPE        DESCRIPTION
+*.    -   ------   ----        -----------
+*.    P   BUF_INDX I*4         LAST BUFFER INDEX WRITTEN TO
+*.    P   PBUFF    I*2         PRODUCT BUFFER
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE: NONE
+*.
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME       TYPE        DESCRIPTION
+*.    ----       ----        -----------
+*.    I          I*4         Do loop index.
+*.    INC        I*4         PARAMETER FOR 1
+*.    NCHAR_LN   I*4         Parameter for number of characters in a line in
+*.                           block 3.
+*.    NSCANS     I*4         COUNT OF SCANS USED
+*.    NULL       I*4         PARAMETER FOR 0
+*.    SCALE_FCTR R*4         SCALE FACTOR FOR BI-SCAN RATIO
+*.    SCAN       I*4         DATABASE SCAN INDEX
+*.    TB_RSD     I*4         BEGIN TAB FOR RATE SCAN DATE
+*.    TB_RST     I*4         BEGIN TAB FOR RATE SCAN TIME
+*.    TE_NRS     I*4         END TAB FOR RATE SCAN NUMBER
+*.    TE_RSD     I*4         END TAB FOR RATE SCAN DATE
+*.    TE_RST     I*4         END TAB FOR RATE SCAN TIME
+*.    TIME_CHR   CHAR*80     TIME CHARACTER STRING
+*.    TIME_I2S   I*2         EQUIVALENCED TO TIME_CHR TO FORMAT
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3146CD
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS: None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK14.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+      IMPLICIT NONE
+C
+$INCLUDE A313HBUF.INC/G,**A313HYPP (NEND NLIST)
+$INCLUDE A3146.INC, **A3146PD (NEND NLIST)
+$INCLUDE            **A3146CD (NEND NLIST)
+$INCLUDE            **A3146PU (NEND NLIST)
+C
+      INTEGER BUF_INDX
+      INTEGER*2 PBUFF(*)
+      INTEGER SCAN, NSCANS
+      INTEGER NULL, INC
+      PARAMETER (NULL=0, INC=1)
+      REAL    SCALE_FCTR
+      PARAMETER (SCALE_FCTR=1000.)
+C
+      CHARACTER TIME_CHR*(NCHAR_LN)
+      INTEGER*2 TIME_I2S(NI2_LN)
+      EQUIVALENCE (TIME_CHR,TIME_I2S)
+      DATA TIME_CHR/
+     $'RATE SCAN    DATE:        TIME:             '/
+C
+      INTEGER TB_NRS, TE_NRS, TB_RSD, TE_RSD, TB_RST, TE_RST
+      PARAMETER (TB_NRS=11, TE_NRS=12, TB_RSD=19, TE_RSD=25)
+      PARAMETER (TB_RST=32, TE_RST=36)
+C
+C********************************************************************
+C
+X     TYPE *,' ENTER A3146Z: BUFFER INDEX = ',BUF_INDX
+C
+C** INITIALIZE VALUES
+C
+      NSCANS=NULL
+C
+C** LOOP THROUGH ALL RATE SCANS IN THE DATABASE
+C
+      SCAN = OLDEST_RS_INDX - INC
+  10  CONTINUE
+        SCAN = SCAN + INC
+        IF (SCAN.GT.MAX_RATESCANS) SCAN = INC
+C
+C** USE ONLY SCANS IN THE HOUR
+C
+        IF (USE_RS(SCAN)) THEN
+          NSCANS = NSCANS + INC
+C
+C** FORMAT THE RATE SCAN'S DATE AND TIME
+C
+          WRITE(TIME_CHR(TB_NRS:TE_NRS),11) NSCANS
+          WRITE(TIME_CHR(TB_RSD:TE_RSD),12) SUP_DB(RS_DATE,SCAN)
+          WRITE(TIME_CHR(TB_RST:TE_RST),13) SUP_DB(RS_TIME,SCAN)
+C
+C** FORMAT STATEMENTS
+C
+  11      FORMAT(I2)
+  12      FORMAT(I7)
+  13      FORMAT(I5)
+C
+C** INSERT CHARACTER LINE INTO BUFFER USING EQUIVALENCE
+C
+          DO 20 I=INC,NI2_LN
+            BUF_INDX=BUF_INDX + INC
+            PBUFF(BUF_INDX) = TIME_I2S(I)
+  20      CONTINUE
+C
+X         TYPE *,' FORMATTED RATE SCAN ',SCAN,' (END INDEX=',BUF_INDX,
+     $                      '):'
+X         TYPE *,'  ',TIME_CHR
+
+        END IF
+C
+C** SIMULATE DO UNTIL WITH A GO TO
+C
+      IF (SCAN.NE.NEWEST_RS_INDX) GO TO 10
+C
+      END

@@ -1,0 +1,395 @@
+C
+C RCS info
+C $Author: steves $
+C $Locker:  $
+C $Date: 2004/01/12 16:46:00 $
+C $Id: a3146k.ftn,v 1.4 2004/01/12 16:46:00 steves Exp $
+C $Revision: 1.4 $
+C $State: Exp $
+C
+      SUBROUTINE A3146K__PROD81_LAYER1_RLE(STAT40,LFM_GRID40,
+     +         PRODBUF,START_RLE40,LYR3ST,MAXIND,ERRCODE,VSNUM)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3146K__PROD81_LAYER1_RLE
+*.
+*.  MODULE VERSION: 0015
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       06 13 89      0000      BRADLEY SUTKER       SPR# 90348
+*.       03 28 90      0001      DAVE HOZLOCK         SPR# 90697
+*.       08 28 90      0002      PAUL JENDROWSKI      SPR# 90899
+*.       02 14 91      0003      PAUL JENDROWSKI      SPR# 91255
+*.       12 03 91      0004      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0005      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0006      Toolset              SPR 91895
+*.       10/20/92      0007      BRADLEY SUTKER       CCR NA92-28001
+*.       03/25/93      0008      Toolset              SPR NA93-06801
+*.       01/28/94      0009      Toolset              SPR NA94-01101
+*.       03/03/94      0010      Toolset              SPR NA94-05501
+*.       07/06/94      0011      C. STEPHENSON        CCRNW-94-101-02
+*.       04/11/96      0012      Toolset              CCR NA95-11802
+*.       12/23/96      0013      Toolset              CCR NA95-11807
+*.       03/16/99      0014      Toolset              CCR NA98-23803
+*.       10/23/02      0015      Dennis A. Miller     CCR NA02-27502
+*.
+*.  CALLING SEQUENCE: CALL A3146K__PROD81_LAYER1_RLE(STAT40,LFM_GRID40,
+*.                       PRODBUF,START_RLE40,LYR3ST,MAXIND,ERRCODE,VSNUM)
+*.
+*.  MODULE FUNCTION:
+*.
+*.     This module run-length-encodes Hydromet products in raster
+*.     format. Input data grid is processed one row at a time,
+*.     referencing the Color Data Table to determine color levels.
+*.     Then, run-length-encoded data is stored in the product output
+*.     buffer.
+*.     This module also does a boundary check to insure that the
+*.     buffer boundaries are not overwritten. If there is not enough
+*.     room to complete the run-length-encoding, control is returned
+*.     to the calling module with a status flag value of 'incomplete'.
+*.
+*.  MODULES CALLED: A3146R__GET_RATESCANS, ISBYTE 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT       TYPE        DESCRIPTION
+*.    -   -----       ----        -----------
+*.    G   BLOCKIDOFF  I*4         (CONSTANT)Product block ID offset.
+*.    G   DIV2OFF     I*4         (CONSTANT)Product block offset: Second
+*.                                divider.
+*.    G   FRBOFF      I*4         (CONSTANT)Display header offset (for
+*.                                radially formatted products):Range to first
+*.                                bin.
+*.    G   HYZ_LFM40   I*4         (CONSTANT)Sizing parameter. Number of boxes
+*.                                along 1/40 LFM grid side.
+*.    G   ICNTOFF     I*4         (CONSTANT)Display header offset (For
+*.                                radially formatted products): I Center of
+*.                                sweep.
+*.    G   JCNTOFF     I*4         (CONSTANT)Display header offset (for
+*.                                radially formatted products): J Center of
+*.                                sweep.
+*.    G   LYRDIVOFF   I*4         (CONSTANT)PRODUCT BLOCK OFFSET: LAYER
+*.                                DIVIDER
+*.    G   LYRLLSWOFF  I*4         (CONSTANT)Product block offset:  Layer
+*.                                length (LSW).
+*.    G   LYRLMSWOFF  I*4         (CONSTANT)Product block offset: Layer length
+*.                                (MSW).
+*.    G   NLYROFF     I*4         (CONSTANT)Product block offsets: Number of
+*.                                layers.
+*.    G   NRBOFF      I*4         (CONSTANT)Display header offset (For
+*.                                radially formatted products): Number of
+*.                                range bins.
+*.    G   OPCDOFF     I*4         (CONSTANT)Display header offset (For
+*.                                radially formatted products): Operation
+*.                                code.
+*.    G   OPRLSWOFF   I*4         (CONSTANT)Product header offset
+*.                                descriptions: Offset to product length (LSW)
+*.    G   OPRMSWOFF   I*4         (CONSTANT)Product header offset
+*.                                descriptions: Offset to product length (MSW)
+*.    G   PHEADLNG    I*4         (CONSTANT)Number of half words in product
+*.                                header (its length).
+*.    C   INCRMENT    I*4         (CONSTANT)Parameter used to increment by
+*.                                one.
+*.    P   ERRCODE     I*4         ERROR CODE FOR FORMATTING 1/4 LFM
+*.    P   LFM_GRID40  I*4         1/40 LFM hourly accumulation
+*.    P   LYR3ST      I*4         Starting index of layer 3
+*.    P   MAXIND      I*4         Max I2 outbuf index for 1st DPA layer
+*.    P   PRODBUF     I*2         Product Buffer space
+*.    P   START_RLE40 I*4         Starting index in product buffer
+*.    P   VSNUM       I*4         VOLUME SCAN NUMBER (1-80)
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    P   LYR3ST  I*4         Starting index of layer 3
+*.    P   PRODBUF I*2         Product Buffer space
+*.    P   STAT40  I*4         Status for 1/40 LFM grid RLE'ing
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    P   LYR3ST            I*4         Starting index of layer 3
+*.    P   PRODBUF           I*2         Product Buffer space
+*.
+*.  DATABASE/FILE REFERENCE:  NONE
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME       TYPE        DESCRIPTION
+*.    ----       ----        -----------
+*.    BLKID      I*4         Block ID
+*.    BLK_HDRLNG I*4         Block header length
+*.    COL        I*4         Loop Control Variable to keep track
+*.    COMPLETE   I*4         Parameter indicating that there is enough room
+*.                           for the product in the buffer.
+*.    DIVIDER    I*4         Parameter for block divider
+*.    FIRST      I*4         =1, used to reference first row and first column.
+*.    FIRSTPIX   L*4         Flag for 1st pixel in row or after run
+*.    I4WORD     I*4         Equivalenced to I2WORD, used to assign I*4 word
+*.                           into an I*2 product buffer.
+*.    INCOMPLETE I*4         Buffer status showing not enough room to complete
+*.                           run-length encodind in buffer
+*.    LEFTBYTE   I*4         Reference to left (most significant) byte in I*2
+*.                           word
+*.    MAXROW_LN  I*4         MAXimum run-length encoded ROW
+*.    MIN_LAYERS I*4         MIN. NO. OF DATA LAYERS IN PRODUCT
+*.    NCOL40     I*4         1st dimension of 1/40 LFM grid
+*.    NEWPIX     I*4         The NEW PIXel's color data level,
+*.    NI2        I*4         Ratio of I*4 bytes to I*2 bytes
+*.    NRLEI240   I*4         I*2 length of RLE'ed 1/40 LFM grid
+*.    NRLEW      I*4         Number of run-length encoded words in
+*.    NROW40     I*4         2nd dimension of 1/40 LFM grid
+*.    NSCANS     I*4         NO. OF 1/4 LFM RATE SCANS IN PRODUCT
+*.    NULL       I*4         0, used to initialize variables
+*.    OBFRIND    I*4         Present output buffer index.
+*.    OLDPIX     I*4         The last (OLD) PIXel's color data
+*.    OPCODE40   I*4         1/40 LFM grid packet code
+*.    RGTBYTE    I*4         Used to reference the right (least significant
+*.                           byte)
+*.    ROW        I*4         Variable which keeps track of which ROW is being
+*.                           run-length encoded.
+*.    RUN        I*4         Keeps track of how many pixels
+*.    RUNLIM     I*4         RUN size LIMIT = 255
+*.    SOBUFFIND  I*4         Saves OBUFFIND to be used later to store NFLEW
+*.                           for this now.
+*.    STARTRUN   I*4         Used to initialize RUN.
+*.    START_RLE4 I*4         Starting index for 1/4 LFM grid
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK14.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+
+C...'X' IN COLUMN-1 INDICATES CONDITIONALLY COMPILED DEBUG CODE...
+C
+      IMPLICIT NONE
+C
+C **** include offsets in product header:
+C
+$INCLUDE A309.INC/G,**A3PM01 (NEND NLIST)
+C
+C HYDROMET VARIABLES
+C
+$INCLUDE A313HBUF.INC/G,**A313HYPP    (NLIST)
+$INCLUDE A3146.INC,**A3146P1        (NLIST)
+$INCLUDE           **A3146LFP       (NLIST)
+C
+C-----------------------------
+C
+      INTEGER    START_RLE4, ERRCODE,
+     +           NROW40,NCOL40,STAT40,NRLEI240,START_RLE40,
+     +           OPCODE40,MAXIND, COL, ROW, MAXROW_LN,
+     +           OBFRIND,SOBUFFIND,OLDPIX,NEWPIX,RUN,NRLEW,LYR3ST
+C
+C
+      INTEGER    LEFTBYTE, RGTBYTE, NULL, FIRST, LFM40_FAC,
+     +           STARTRUN, RUNLIM, DIVIDER, BLKID,
+     +           COMPLETE, INCOMPLETE
+      PARAMETER (LEFTBYTE=0,RGTBYTE=1,NULL=0,FIRST=1,
+     +           STARTRUN=1,RUNLIM=255,DIVIDER=-1,
+     +           LFM40_FAC=10, COMPLETE=0, INCOMPLETE=1, BLKID=1 )
+      PARAMETER (NROW40=HYZ_LFM40, NCOL40=NROW40, OPCODE40=17)
+C
+      INTEGER    NSCANS, MIN_LAYERS
+      PARAMETER ( MIN_LAYERS = 2 )
+      INTEGER    NI2,BLK_HDRLNG
+      PARAMETER (BLK_HDRLNG=5, NI2=2 )
+C
+      INTEGER    I4WORD, LFM_GRID40(NCOL40*NROW40)
+C
+      LOGICAL   FIRSTPIX
+      INTEGER*2 PRODBUF(*)
+C
+      INTEGER  VSNUM
+c
+C*******************************************************************
+C
+C** Executable code:
+C
+C** SET OUTPUT BUFFER INDEX TO PASSED IN INDEX
+C
+      OBFRIND   = START_RLE40
+      MAXROW_LN = NCOL40 + INCRMENT
+      STAT40 = COMPLETE
+C
+C** INITIALIZE RUN LENGTH ENCODING VARIABLES
+C
+      FIRSTPIX  = .TRUE.
+      RUN       = NULL
+      OLDPIX    = NULL
+      NEWPIX    = NULL
+      NRLEI240  = NULL
+      ROW       = FIRST
+C
+C** Fill in product header offset to run-length-encoding block:
+C
+      call RPG_set_product_int( PRODBUF(OPRMSWOFF), PHEADLNG )
+C
+C** Fill in raster header for 1/40 LFM run-length-encoding
+C
+      PRODBUF(OPCDOFF) = OPCODE40
+      PRODBUF(FRBOFF ) = NULL
+      PRODBUF(NRBOFF ) = NULL
+      PRODBUF(ICNTOFF) = NCOL40
+      PRODBUF(JCNTOFF) = NROW40
+C
+C** Do for all rows in the input buffer  as long as the run-
+C** length encoding doesn't exceed allowable length
+C
+ 103  IF((ROW.LE.NROW40).AND.
+     +   (OBFRIND.LE.((MAXIND-MAXROW_LN)+INCRMENT)))THEN
+         SOBUFFIND = OBFRIND
+         OBFRIND   = OBFRIND + INCRMENT
+         NRLEW     = NULL
+C
+C** Do for all grid columns
+C
+         DO 102 COL = FIRST,NCOL40
+C
+C*** Perform color table look-up for this pixel:
+C
+C  DELETED IF BLOCK                                                     9410102
+             NEWPIX = LFM_GRID40((ROW-1)*NCOL40+COL)
+C
+C** first pixel in the row, or first pixel
+C** after a run of fifteen:
+C
+            IF (FIRSTPIX) THEN
+               RUN = STARTRUN
+               OLDPIX = NEWPIX
+               FIRSTPIX = .FALSE.
+C
+C** intermediate pixel:
+C
+            ELSEIF (NEWPIX.EQ.OLDPIX) THEN
+               RUN = RUN + INCRMENT
+C
+C** New color level --> store last run
+C**    store run count on left & color level on right
+C
+            ELSE
+               CALL ISBYTE(RUN   ,PRODBUF(OBFRIND),LEFTBYTE)
+               CALL ISBYTE(OLDPIX,PRODBUF(OBFRIND),RGTBYTE)
+               OBFRIND = OBFRIND + INCRMENT
+               RUN     = STARTRUN
+               OLDPIX  = NEWPIX
+C
+C** Increment count of RLE'd words
+C
+               NRLEW   = NRLEW + INCRMENT
+               NRLEI240 = NRLEI240 + INCRMENT
+            ENDIF
+C
+C RUN OF 255 PIXELS DETECTED
+C
+            IF (RUN.EQ.RUNLIM) THEN
+               CALL ISBYTE(RUN   ,PRODBUF(OBFRIND),LEFTBYTE)
+               CALL ISBYTE(OLDPIX,PRODBUF(OBFRIND),RGTBYTE)
+               OBFRIND = OBFRIND + INCRMENT
+               RUN     = NULL
+C
+C** Increment count of RLE'd words
+C
+               NRLEW   = NRLEW + INCRMENT
+               NRLEI240 = NRLEI240 + INCRMENT
+               FIRSTPIX = .TRUE.
+            ENDIF
+102      CONTINUE
+C
+C  END OF ROW IN GRID...
+C
+         CALL ISBYTE(RUN   ,PRODBUF(OBFRIND),LEFTBYTE)
+         CALL ISBYTE(OLDPIX,PRODBUF(OBFRIND),RGTBYTE)
+         OBFRIND = OBFRIND + INCRMENT
+         RUN     = NULL
+C
+C** Increment count of RLE'd words
+C
+         NRLEW   = NRLEW + INCRMENT
+         NRLEI240 = NRLEI240 + INCRMENT
+         FIRSTPIX = .TRUE.
+C
+C Calculate Run-length-encoded bytes for raster packet
+C
+         PRODBUF(SOBUFFIND) = NRLEW*NI2
+         NRLEI240 = NRLEI240 + INCRMENT
+         FIRSTPIX = .TRUE.
+C
+C** Next pixel will be the first pixel (of the new row).
+C
+         ROW = ROW + INCRMENT
+         GOTO 103
+C
+C** Above GOTO used to simulate while loop
+C
+      else
+         prodbuf(jcntoff) = row-1
+c
+      ENDIF
+C
+      IF (ROW.LE.NROW40) THEN
+C
+C** Not enough buffer space for run-length encoding - product
+C** incomplete:
+C
+         STAT40 = INCOMPLETE
+C
+      ENDIF
+C 
+C** FILL IN LAYER LENGTH FOR 1/40-LFM R.L.E.
+C
+      I4WORD = (OBFRIND - START_RLE40 + BLK_HDRLNG)*NI2
+      call RPG_set_product_int( PRODBUF(LYRLMSWOFF), I4WORD )
+C
+C********************************
+C
+C** GET STARTING INDEX FOR 1/4 LFM GRID RUN-LENGTH-ENCODING
+C
+      START_RLE4 = OBFRIND - INCRMENT
+C
+C** ADD ALL RATE SCANS IN THE HOUR TO THE BUFFER.
+C
+      IF (ERRCODE.EQ.NULL) THEN
+C
+        CALL A3146R__GET_RATESCANS(START_RLE4, NSCANS,
+     $               LYR3ST, PRODBUF)
+      ELSE
+C
+C** NO 1/4 LFM SCANS TO ADD, SET NUMBER OF SCANS AND END DATA INDEX
+C
+        NSCANS = NULL
+        LYR3ST = START_RLE4
+      END IF
+C
+C** FILL IN BLOCK HEADER
+C
+      PRODBUF(DIV2OFF   ) = DIVIDER
+      PRODBUF(BLOCKIDOFF) = BLKID
+      PRODBUF(NLYROFF   ) = NSCANS + MIN_LAYERS
+      PRODBUF(LYRDIVOFF ) = DIVIDER
+C
+      RETURN
+      END

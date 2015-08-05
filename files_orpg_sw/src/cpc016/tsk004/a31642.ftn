@@ -1,0 +1,421 @@
+C
+C RCS info
+C $Author: ccalvert $
+C $Locker:  $
+C $Date: 2004/02/05 23:00:51 $
+C $Id: a31642.ftn,v 1.8 2004/02/05 23:00:51 ccalvert Exp $
+C $Revision: 1.8 $
+C $State: Exp $
+C
+      SUBROUTINE A31642__HAIL_TABULAR(NUMHAIL,HAILSTATS,BUF)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A31642__HAIL_TABULAR
+*.
+*.  MODULE VERSION: 0016
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       10 18 85      0000      JSGROMMONS
+*.       05 01 86      0001      JSGROMMONS           SPR# 60124
+*.       06 03 86      0002      JSGROMMONS           SPR# 60313
+*.       10 02 86      0003      J GROMMONS           SPR# 60346
+*.       08 22 88      0004      VALERIE HOLDEN       SPR# 80248
+*.       06 01 89      0005      TERRI LEWIS          SPR# 90322
+*.       01 30 91      0006      David M. Lynch       SPR# 91257
+*.       12 03 91      0007      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0008      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0009      Toolset              SPR 91895
+*.       03/25/93      0010      Toolset              SPR NA93-06801
+*.       01/28/94      0011      Toolset              SPR NA94-01101
+*.       03/03/94      0012      Toolset              SPR NA94-05501
+*.       04/01/95      0013      Toolset              CCR NA95-11802
+*.       04/06/95      0014      C. STEPHENSON        CCR NA94-35301
+*.       04/21/95      0014      STEVE SMITH          CCR NA94-26301
+*.       12/23/96      0015      Toolset              CCR NA95-11807
+*.       03/16/99      0016      Toolset              CCR NA98-23803
+*.       12/09/03      0017      CHRIS CALVERT        CCR NA03-30002
+*.
+*.  CALLING SEQUENCE:
+*.     CALL A31642__HAIL_TABULAR(NUMHAIL,HAILSTATS,BUF)
+*.
+*.  MODULE FUNCTION:
+*.     BUILDS THE TABULAR BLOCK
+*.
+*.
+*.  MODULES CALLED: A31644__WRITE_LINES, A31645__MOVE_CHARACTERS, 
+*.                  A3164B__HAIL_TAB_HEAD 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT              TYPE        DESCRIPTION
+*.    -   -----              ----        -----------
+*.    G   MAX_HI_ALPHA_CELLS I*4         The Maximum number of Cells in the
+*.                                       Hail (HI) Alphanumeric Product
+*.                                       threshold in adaptation data.
+*.    G   SIRPGID            I*4         Site Adaptation - RPG ID Number.
+*.    G   H_CID              I*4         (CONSTANT)Index to the cell ID, the
+*.                                       sixth position, in the HAILSTATS
+*.                                       arrays.
+*.    G   NBLKSOFF           I*4         (CONSTANT)Product header offset:
+*.                                       Number of blocks in product.
+*.    G   NHAL_MAX           I*4         (CONSTANT)A sizing parameter equal to
+*.                                       the max. number of cells processed by
+*.                                       the hail algorithm.
+*.    G   NHAL_STS           I*4         (CONSTANT)A sizing parameter equal to
+*.                                       the number of hail attributes stored
+*.                                       in the HAILSTATS array.
+*.    G   OGLSWOFF           I*4         (CONSTANT)Product header offset:
+*.                                       graphic attributes (LSW).
+*.    G   OGMSWOFF           I*4         (CONSTANT)Product header offset:
+*.                                       graphic attributes (MSW).
+*.    G   OPRLSWOFF          I*4         (CONSTANT)Product header offset
+*.                                       descriptions: Offset to product
+*.                                       length (LSW)
+*.    G   OPRMSWOFF          I*4         (CONSTANT)Product header offset
+*.                                       descriptions: Offset to product
+*.                                       length (MSW)
+*.    G   OTADLSWOFF         I*4         (CONSTANT)Product header offset:
+*.                                       offset to tabular/adaptation data
+*.                                       (LSW)
+*.    G   OTADMSWOFF         I*4         (CONSTANT)Product header offset:
+*.                                       offset to tabular/adaptation (MSW)
+*.    C   GPHOFF             I*4         Offset to beginning of graphics
+*.                                       block.
+*.    C   N1                 I*4         Lower limit of lines to be written.
+*.    C   N2                 I*4         Upper limit of lines to be written.
+*.    C   NDX                I*4         Working subscript for moving data.
+*.    C   NP                 I*4         Number of pages to be written.
+*.    C   OFFGPH             I*2         Offset to attributes, entered in BUF
+*.                                       (output buffer); equivalence to
+*.                                       GPHOFF.
+*.    C   OFFTDPT            I*2         Variable equivalenced to TDPTOFF
+*.                                       (which is the ofsett to beginning of
+*.                                       hail adaptation page within the
+*.                                       tabular block).
+*.    C   PNDX               I*4         Pointer into output buffer.
+*.    C   SORTED_CELLS       I*2         Cell ID of hail storms sorted
+*.                                       according to POSH, then POH.
+*.    C   SVTIDX             I*4         Saved value of index to tabular
+*.                                       block.
+*.    C   TABLNG             I*4         Length of tabular block in halfwords.
+*.    C   TABOFF             I*4         Offset to beginning of tabular block.
+*.    C   TDPTOFF            I*4         Offset to beginning of hail
+*.                                       adaptation page within the tabular
+*.                                       block.
+*.    C   DIVIDER            I*2         (CONSTANT)Tabular block divider for
+*.                                       output buffer.
+*.    C   NCOLS              I*4         (CONSTANT)Used as a dimension of a
+*.                                       one-dimensional array.
+*.    C   PRDOFF             I*4         (CONSTANT)Offset to product header.
+*.    C   SYMBOFF            I*4         (CONSTANT)Length of symbology block
+*.                                       in halfwords.
+*.    C   TBLKID             I*2         (CONSTANT)Tabular block ID.
+*.    C   TLOFF              I*4         (CONSTANT)Offset to beginning of
+*.                                       tabular line within page.
+*.    C   TPOFF              I*4         (CONSTANT)Offset to beginning of
+*.                                       first tabular page.
+*.    C   TPROFF             I*4         (CONSTANT)Offset to beginning of
+*.                                       tabular product block.
+*.    P   BUF                I*2         OUTPUT BUFFER
+*.    P   HAILSTATS          R*4         HAIL STATISTICS ARRAY
+*.    P   NUMHAIL            I*4         The number of storm cells with hail
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    C   GPHOFF  I*4         Offset to beginning of graphics block.
+*.    C   IT      I*4         Pointer into operator messages for line number.
+*.    C   N1      I*4         Lower limit of lines to be written.
+*.    C   N2      I*4         Upper limit of lines to be written.
+*.    C   NDX     I*4         Working subscript for moving data.
+*.    C   NOLNS   I*4         Number of lines written.
+*.    C   NP      I*4         Number of pages to be written.
+*.    C   OFFGPH  I*2         Offset to attributes, entered in BUF (output
+*.                            buffer); equivalence to GPHOFF.
+*.    C   OFFTDPT I*2         Variable equivalenced to TDPTOFF (which is the
+*.                            ofsett to beginning of hail adaptation page
+*.                            within the tabular block).
+*.    C   PNDX    I*4         Pointer into output buffer.
+*.    C   SVTIDX  I*4         Saved value of index to tabular block.
+*.    C   TABLNG  I*4         Length of tabular block in halfwords.
+*.    C   TABOFF  I*4         Offset to beginning of tabular block.
+*.    C   TDPTOFF I*4         Offset to beginning of hail adaptation page
+*.                            within the tabular block.
+*.    P   BUF     I*2         OUTPUT BUFFER
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    G   SIRPGID           I*4         Site Adaptation - RPG ID Number.
+*.    P   BUF               I*2         OUTPUT BUFFER
+*.    P   HAILSTATS         R*4         HAIL STATISTICS ARRAY
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME         TYPE        DESCRIPTION
+*.    ----         ----        -----------
+*.    BL           I*4         NO OF CHARACTERS PER LINE
+*.    BLNGTH       I*4         LENGTH OF PACKET DATA INCLUDING OVERHEAD IN
+*.                             BYTES.
+*.    CHARIDTABLE  CHAR*2      Character table of storm IDs.
+*.    I            I*4         Loop index variable.
+*.    IK           I*4         NO OF DATA FIELDS MOVED INTO
+*.    IKK          I*4         Used in building lines.
+*.    J            I*4         Do loop counter
+*.    JJ           I*4         Sorted Cell ID index
+*.    K            I*4         SUBSCRIPT FOR HAIL DATA
+*.    NPGS         I*2         NO OF PAGES WRITTEN IN BUF
+*.    NPX          I*4         INTERMEDIATE NO OF PAGES
+*.    NUM_BLOCKS   I*2         (Constant) number of blocks.
+*.    OFFPRD       I*2         Offset to TAB/ADAPT, entered into BUF (output
+*.                             buffer).
+*.    STID         CHAR*2      Hail ID array for writing storm ID.
+*.    TLNGTHX      I*4         LENGTH OF TABULAR BLOCK AS AN I*4 WORD
+*.    TOTAL_STORMS I*4         The total number of storm cells displayed in
+*.                             the Hail Tabular Alphanumeric
+*.    TUPLIM       I*4         (Constant) Tabular number of lines of data per
+*.                             page.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    SITEADP
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3164B
+*.    A3164D
+*.    A3164E
+*.    A3164PM
+*.    A316SRT
+*.    CELL_PROD
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP16.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK16.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+      IMPLICIT NONE
+#IFDEF LINUX
+      INTEGER*4  I,K,IK,IKK,J,JJ
+#ENDIF
+C
+$INCLUDE A315BUF.INC/G,**A315P9H (NEND NLIST)
+$INCLUDE A315BUF.INC/G,**A315PHAD (NEND NLIST)
+$INCLUDE A309.INC/G,**A3PM00 (NEND NLIST)
+$INCLUDE A309.INC/G,**A3PM01 (NEND NLIST)
+$INCLUDE A309.INC/G,**A3PM06 (NEND NLIST)
+$INCLUDE A309.INC/G,**A3CD00 (NEND NLIST)
+$INCLUDE A309.INC/G,**A3CD05 (NEND NLIST)
+$INCLUDE A309.INC/G,**A3CD08 (NEND NLIST)
+$INCLUDE A309.INC/G,**A3CD08D (NEND NLIST)
+$INCLUDE A309ADPT.INC/G,**A3CD70CA   (NEND  NLIST)
+$INCLUDE A309ADPT.INC/G,**A3CD70_CELL_PROD   (NEND  NLIST)
+C
+C** HAIL DEFINITIONS (A315D7,A315D9)
+C
+      REAL  HAILSTATS(NHAL_STS,NHAL_MAX)
+      INTEGER*4 NUMHAIL,TOTAL_STORMS
+C
+C** LOCAL COMMON
+C
+$INCLUDE A316.INC/G,**A3164P4 (NLIST)
+C
+C** LOCAL DEFINITIONS
+C
+      INTEGER*2  BUF(*),NUM_BLOCKS
+      INTEGER*2  NPGS
+C
+      INTEGER*4  BL,BLNGTH,NPX,TLNGTHX,OFFPRD
+#IFDEF LINUX
+C     NOTHING
+#ELSE
+      INTEGER*4  I,K,IK,IKK,J,JJ
+#ENDIF
+C
+      CHARACTER*2  STID(NCOLS)
+      PARAMETER  (NUM_BLOCKS=3)
+C
+C.................................................................
+C
+C** INITIALIZE FOR TABULAR BLOCK
+C
+      SVTIDX = NDX
+      TABOFF = NDX - 1
+C
+C** MOVE PRODUCT HEADER AND DESCRIPTION TO TABULAR BLOCK
+C
+      CALL A3164B__HAIL_TAB_HEAD(BUF)
+      TABLNG = TABLNG + TPOFF
+      NDX = NDX + TLOFF
+C
+C** CHECK FOR PRESENCE OF HAIL
+C
+      IF (NUMHAIL .GT. 0) THEN
+C
+C** DEVELOP HAIL TABULAR BLOCK
+C
+         PNDX = NDX
+         N1 = 1
+         NOLNS = 0
+C
+C** INITIALIZE LINE NO
+C
+         IT = 0
+         BLNGTH = 0
+         K = 0
+         IK = 1
+C
+C** LIMIT THE NUMBER OF STORM CELLS IN PRODUCT
+C
+         TOTAL_STORMS = MIN(MAX_HI_ALPHA_CELLS,NUMHAIL)
+C
+C** DETERMINE NUMBER OF PAGES OF HAIL
+C
+         NP = TOTAL_STORMS / TUPLIM
+         NPX = TUPLIM*NP
+         IF (NPX .LT. TOTAL_STORMS) THEN
+            NP = NP + 1
+         ENDIF
+C
+C** BUILD PAGES FOR HAIL
+C
+         DO 150  I = 1, NP
+            N2 = TOTAL_STORMS - IK + 1
+            IF (N2 .GT. 0) THEN
+               IF (N2 .GT. TUPLIM) THEN
+                  N2 = TUPLIM
+               ENDIF
+C
+C** BUILD LINES
+C
+               IKK = IK
+               K = IKK
+               IK = IK + N2
+C
+C** GET STORM ID IN ASCII
+C
+               DO 175  J = N1,N2
+C
+C** GET SORTED CELL ID.
+C
+                  JJ = SORTED_CELLS(K)
+C
+                  STID(J) = CHARIDTABLE(INT(HAILSTATS(H_CID,JJ)))
+C
+C** INCREMENT DATA ACCESS INDEX
+C
+                  K = K+1
+C
+  175          CONTINUE
+C
+C** RESET K
+C
+                K = IKK
+C
+C** WRITE DATA LINES
+C
+               CALL A31644__WRITE_LINES(K,STID,SIRPGID,BL,HAILSTATS)
+C
+C** END OF HAIL LINE WRITES
+C
+            ENDIF
+C
+C** MOVE CHARACTERS TO OUTPUT BUFFER
+C
+            CALL A31645__MOVE_CHARACTERS(BUF,BLNGTH,BL)
+C
+C** DETERMINE TOTAL NUMBER OF I*2 WORD, NO PAGES
+C
+            TABLNG = TABLNG + BLNGTH
+            NPGS = NP
+C
+C** END OF HAIL
+C
+  150    CONTINUE
+C
+      ELSE
+         TOTAL_STORMS = 0
+         BUF(NBLKSOFF) = NUM_BLOCKS
+      ENDIF
+C
+C** DETERMINE LENGTH OF TABULAR BLOCK LESS OVERHEAD
+C
+         TABLNG = TABLNG + TLOFF
+         TLNGTHX = (TABLNG - TPROFF) * 2
+         TDPTOFF = SVTIDX - 1
+C
+C** STORE LENGTH IN PRODUCT HEADER PORTION OF TABULAR BLOCK
+C
+         PNDX = SVTIDX + TPROFF + PRDOFF - 1
+         call RPG_set_product_int( BUF(PNDX), TLNGTHX )
+C
+C** STORE OFFSETS IN PROD HEADER PORTION OF TABULAR BLOCK
+C
+         OFFPRD = SYMBOFF
+         BUF(TABOFF+NBLKSOFF) = NUM_BLOCKS
+C
+C** STORE OFFSETS IN PROD HEADER BLOCK
+C
+C
+C** OFFSET TO PRODUCT
+C
+         call RPG_set_product_int( BUF(OPRMSWOFF), OFFPRD )
+C
+C** OFFSET TO ATTRIBUTES
+C
+         call RPG_set_product_int( BUF(OGMSWOFF), GPHOFF )
+C
+C** OFF SET TO TAB/ADAPT
+C
+         call RPG_set_product_int( BUF(OTADMSWOFF), TDPTOFF )
+C
+C** SET POINTER FOR NO HAIL
+C
+      IF (TOTAL_STORMS .EQ. 0) THEN
+C
+C** OFFSET TO PRODUCT
+C
+         call RPG_set_product_int( BUF(OPRMSWOFF), 0 )
+C
+C** OFF SET TO TAB/ADAPT
+C
+         call RPG_set_product_int( BUF(OTADMSWOFF), OFFPRD )
+
+      ENDIF
+C
+C** STORE TABULAR BLOCK DIVIDER
+C
+      TLNGTHX = TABLNG * 2
+      PNDX = SVTIDX
+      BUF(PNDX) = DIVIDER
+C
+C** STORE BLOCK ID, LENGTH
+C
+      PNDX = PNDX + 1
+      BUF(PNDX) = TBLKID
+      PNDX = PNDX + 1
+      call RPG_set_product_int( BUF(PNDX), TLNGTHX )
+C
+C** RETURN TO CALLER ROUTINE
+C
+      RETURN
+      END

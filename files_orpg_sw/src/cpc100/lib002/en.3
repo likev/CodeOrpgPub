@@ -1,0 +1,406 @@
+
+NAME
+    EN_register, EN_control, EN_post_event, EN_post_msgevent, EN_event_lost, 
+    EN_sender_id, 
+
+SYNOPSIS
+    #include <infr>
+
+    int EN_register (EN_id_t event, 
+			void (*notify_func)(EN_id_t, char *, int, void*));
+
+    int EN_control (int cntl_function, ...);
+
+    int EN_post_msgevent (EN_id_t event, const char *msg, int msg_len);
+
+    int EN_post_event (EN_id_t event);
+
+    int EN_event_lost ();
+
+    int EN_sender_id ();
+
+DESCRIPTION
+
+    This is the Event Notification (EN) module. EN allows the applications to
+    publish events and be notified when certain events are published. To
+    receive an event, one registers a callback function associated with the
+    event. When the specified event is published (by this or another
+    application), the application is interrupted and the callback is called.
+    Two types of event notification are currently supported: The LB update
+    event notificatin (UN) and the application defined event notification (AN)
+    are currently supported. This module contains the EN infrastucture software
+    and the AN interface. See lb(3) for addtional info about the LB event
+    notification.
+
+    The EN service is an asynchronous function call, which may interrupt any
+    function in the application. If, in the EN callback, one calls the function
+    that has been interupted, the interrupted function is reentered. Note that
+    not all functions are reentrant. One of the non-reentrant functions is
+    malloc. Any function that uses malloc (e.g. fgets) is also non-reentrant.
+    If an application is expected to be interrupted by EN callbacks, one should
+    consider blocking EN before entering critical sections containing
+    non-reentrant function calls and unblocking EN upon exiting those sections.
+    Another technique is not to use any non-reentrant function in EN callbacks.
+
+    Many of the LB functions can be called within the EN callback except
+    LB_open, LB_close, LB_remove, LB_UN_register, EN_register, LB_lock and
+    LB_stat. In particular, LB_read and LB_write can be used in the EN callback
+    except LB_read with LB_ALLOC_BUF which calls malloc.
+
+    The EN is network transparent, reliable and non-blocking. After a
+    registration call returns (with success), any such event happening anywhere
+    in the network will be guaranteed to be delivered to the process provided
+    that the network service is available and the event receiver can catch up
+    with the incoming event rate. The EN service, however, does not block the
+    EN sender because of a slow receiver. Each event receiver has its own event
+    queue. When the queue is full, new events are stored in a separate buffer
+    for future delivery. However, only the latest event for each event type
+    (e.g. the same AN event number or the same "fd" and "msgid" for UN) is
+    saved and later delivered (in case of UN registration with "msgid" =
+    EN_ANY, a notification with "msgid" = EN_ANY is sent to the user). In case
+    of event lost, messages are reported to the application through the EN
+    error reporting service. In the EN callback function one can call
+    EN_event_lost to get the number of lost events for the current event type.
+    The only case in which events can be lost is in the final delivery stage to
+    the client. In case of resource shortage (e.g. network congestion or malloc
+    failure in EN servers), the event senders will be slowed down and no EN
+    events will be lost.
+
+    If an application expects to receive all events it registered, it should
+    not block the event delivery for prolonged time in terms of the expected
+    event incoming rate. Note that the callback itself blocks the delivery too.
+
+    The notification delivery on the receiving side can be temporarily
+    suspended (blocked) with the EN_control function call, in which case all
+    events are queued up and will be delivered when delivery is resumed. Refer
+    to EN_control.
+
+    The EN service is a per-process service. There is only one connection to
+    the EN server. In a multi-threaded application only one thread will receive
+    any given event. Event blocking is per-thread. A new thread inherits the
+    event blocking status from the thread that spawns it. Those threads that
+    block the EN will not be interrupted by incoming event. All threads can
+    register callback functions. Callback functions, however, are per-process.
+    That is a callback function is called from a thread that receives the event
+    signal (It may not be the thread that have registered the callback). Event
+    registration does not pass to a process's child. One needs to re-register
+    any event as needed in a child process.
+
+    EN services needs rssd running on each host. rssd on a host can be started
+    at any time as long as it starts before any local applications that use the
+    NTF service. All client hosts defined in rssd's configuration file are
+    included in the notification service network. If the configuration is
+    updated while rssd is running, the network is adjusted immediately
+    according to the new configuration.
+
+    EN_register registers a function "notify_func" for an application defined
+    event identified by an event number (an unsigned integer) "event". Function
+    "notify_func" is called when somebody posts event "event" (through EN_post
+    call). "event" can take value "EN_ANY", which means any message. An
+    application event, when it is posted, can have a message going with it.
+    There is a limit on the size of the AN message that can be posted or
+    received by an application. Any AN message of size larger than the limit is
+    discarded. The AN message size limit has a default value of 1024 bytes and
+    can be changed by calling EN_control.
+
+    Function notify_func has the following interface:
+
+	void notify_func (EN_id_t event, char *msg, int msg_len, void *arg);
+
+    where "event" is the event number and "msg" is the associated message
+    coming with the event. The length of the message is "msg_len". "arg" is a
+    user registered argument for this callback function. See EN_control
+    (EN_PUSH_ARG, ...) for how to register "arg".
+
+    Duplicated registration is ignored. Multiple "notify_func" can be
+    registered for the same event. When "notify_func" is called, further
+    delivery of event to this user is temporarily blocked.
+
+    To remove a previous registration, one can call EN_control (EN_DEREGISTER)
+    immediately before calling LB_UN_register or EN_register. In this case, if
+    notify_func is NULL, all previously callback functions for the event are
+    removed. When "fd" is closed, all UN registrations for the "fd" are
+    removed. If a fatal IPC error is detected or the EN server crashes, all EN
+    registrations may be removed. Error messages are reported through the EN
+    error reporting service.
+
+    EN_register return 0 on success or a negative error code.
+
+    EN_post_msgevent posts (publishes) event "event" with message "msg" of
+    length "msg_len" bytes. If "msg" is NULL or "msg_len" is zero, no message
+    is sent with the event. EN_post_event posts event "event" with any
+    messages. It is equivalent to EN_post_msgevent (event, NULL, 0). These
+    functions return 0 on success or a negative error code.
+
+    EN_event_lost returns the number of lost events for the current event type.
+
+    Function EN_sender_id returns the EN sender's ID when it is called in the
+    EN callback. See EN_control for further descriptions on the EN sender's ID.
+
+    EN_control provides control functions for the EN service. The control
+    function is specified by "cntl_function". Available control functions are:
+
+	EN_BLOCK: Suspends EN delivery.
+
+	EN_UNBLOCK: Resumes EN delivery.
+
+	EN_GET_BLOCK_STATE: Returns EN delivery block state.
+
+	EN_WAIT: Resumes EN and suspends the application until an event comes.
+
+	EN_SET_SENDER_ID: Sets the EN sender's ID.
+
+	EN_SET_ERROR_FUNC: Registers an error callback function.
+
+	EN_SET_SIGNAL: Sets an alternative EN signal.
+
+	EN_DEREGISTER: De-registers an EN.
+
+	EN_SET_UN_SEND_STATE: Turns on/off of UN sending from LB_write.
+
+	EN_PUSH_ARG: Pushes a callback argument into the stack.
+
+	EN_TO_SELF_ONLY: The next AN posted will be sent to this 
+			 process only.
+
+	EN_NOT_TO_SELF: The next AN posted will not be sent to this 
+			   process.
+
+	EN_REDELIVER: Requests the event to be re-delivered.
+
+	EN_GET_N_RHOSTS: Gets the number of remote hosts in latest
+			 AN registration.
+
+	EN_SET_AN_GROUP: Resets the current AN group.
+
+	EN_GET_AN_GROUP: Gets the AN sender's group.
+
+	EN_SET_AN_SIZE: Sets the AN message size limit.
+
+	EN_GET_NTF_FD: Gets the socket fd to local EN server.
+
+	EN_SET_PROCESS_MSG_FUNC: Sets a message processing function.
+
+	EN_GET_IN_CALLBACK: Returns the "in callback" status;
+
+    EN_control (EN_BLOCK) and EN_control (EN_UNBLOCK) sets and resets the EN
+    block state respectively. After EN_control (EN_BLOCK) call, EN delivery is
+    suspended and all events are queued. When EN_control (EN_UNBLOCK) is
+    called, all queued events are delivered in their arriving sequence. When
+    EN_control (EN_WAIT, ms) is called, if there are queued events, it resets
+    the EN block state and returns immediately. Otherwise, it resets the EN
+    block state and suspends process execution until an event is received. It
+    is guaranteed that any event is blocked after resetting the EN block state
+    and before suspending process execution. It suspends process execution for
+    at most "ms" milliseconds. EN_control (EN_WAIT, *) can not be called while
+    in the EN callback routine (EN_NOT_SUPPORTED is returned if called).
+    EN_control (EN_BLOCK) and EN_control (EN_UNBLOCK) however can be called
+    within a callback function. If multiple callback functions register for the
+    same event, all of them will be called before the event is blocked.
+
+    If EN_control (EN_BLOCK) is called while the the event has been blocked,
+    the block count is increased. Each subsequent EN_control (EN_UNBLOCK)
+    decreases the block count. The event is unblocked only when the block count
+    reaches 0. EN_control (EN_WAIT) always unblocks the event regardless of the
+    block count.
+
+    EN_control (EN_BLOCK) and EN_control (EN_UNBLOCK), return the block state
+    before this call (1 if blocked or 0 otherwise). EN_control
+    (EN_GET_BLOCK_STATE) returns the current block state without changing it.
+
+    EN_control (EN_REDELIVER), called within an EN callback function will cause
+    the event delivery blocked and the current event redelivered later after
+    event delivery unblocked. If multiple callback functions register for the
+    same event, all of them will be called before the event is blocked. The
+    event will be re-delivered only to those callbacks that asked for it by
+    calling EN_control (EN_REDELIVER).
+
+    EN_control (EN_SET_SENDER_ID, sender_id) sets the process's EN sender's ID
+    to "sender_id". The EN service passes a sender's ID from the EN initiating
+    process to the EN receiving processes. The sender calls this function to
+    set its EN sender's ID. An EN receiver then can get this ID by calling
+    EN_sender_id. The event sender's ID allows a receiver to identify who
+    generated this event. The sender's ID is a two-byte unsigned integer with
+    the default value of 0.
+
+    EN_control (EN_SET_ERROR_FUNC, notify_error) registers an callback function
+    "notify_error" for errno reporting. Function "notify_error" of the form,
+
+	void notify_error (char *err_msg);
+
+    will be called if an error is detected in registering or delivering an
+    event. notify_error passes an ASCII error message string to the user's
+    error function. The ASCII message provides the error information. For
+    example, if LB_write cannot notify a remote host, the error message
+    contains the remote host's IP address.
+
+    EN_control (EN_SET_SIGNAL, (int) new_signal) directs the EN to use signal
+    "new_signal". This function can only be called when there is no EN
+    registered. The signal is a client side feature. Each client can choose a
+    different signal. If the default SIGPOLL is used, the server does not need
+    to send signals to the clients for EN. If environmantal variable
+    EN_DEFAULT_SIGUSR1 is set (to any value), the default signal is SIGUSR1.
+
+    "new_signal" can also take the value of EN_NTF_NO_SIGNAL, which sets the
+    synchronous notification mode. In this mode, there is no signal to
+    interrupt the application. All incoming events are queued until EN_control
+    (EN_WAIT, ms) is called. EN_control (EN_WAIT, ms) causes all pending events
+    to be delivered and returns immediately. If there is no pending event,
+    EN_control (EN_WAIT, ms) blocks the application until an event comes. It
+    then causes the event to be delivered and returns. The blocking times out
+    after "ms" milliseconds.
+
+    EN_control (EN_DEREGISTER) makes the next LB_UN_register or EN_register
+    call to function as de-registration.
+
+    EN_control (EN_SET_UN_SEND_STATE, (int) 1/0) turns on/off the UN message
+    sending in LB_write. The default is on. This call returns the previous
+    state (1 for true/0 for false). EN_control (EN_SET_UN_SEND_STATE,
+    EN_UN_SEND_TMP_DISABLE) disables the UN for next immediate LB_write only.
+
+    EN_control (EN_PUSH_ARG, (void *)arg) pushes a callback argument, "arg",
+    onto the stack. It will be used by the next EN register function call. It
+    is removed from the stack after EN register is called.
+
+    EN_control (EN_TO_SELF_ONLY) sets that the next AN posted by this process
+    will be sent to the this process only.
+
+    EN_control (EN_NOT_TO_SELF) sets that the next AN posted by this process
+    will not be sent to this process.
+
+    When EN_TO_SELF_ONLY or EN_NOT_TO_SELF is used, the sender ID in the event
+    will not be the value set by EN_control (EN_SET_SENDER_ID, ...).
+
+    EN_control (EN_GET_N_RHOSTS) returns the number of remote hosts in latest
+    AN registration. This function should be used after a successful EN
+    register call and the event has not been currently registered. This
+    function can be used for determining whether all anticipated remote rssds
+    are ready.
+
+    EN_control (EN_SET_AN_GROUP, int new_group_number) sets/resets the current
+    AN group number. The AN supports grouped AN mode in which group info is
+    added to the event numbers and an application only registers and posts ANs
+    within current group. In order to use this feature, one needs to call this
+    function or specify a default group number in the environmental variable
+    "RMTPORT" in format "port_number@group" (e.g. "50543@1"). The group number
+    must be in the range of [0, MAX_AN_GROUP_NUM (15)]. In the grouped AN mode,
+    all AN event numbers must be in the range of [0, AN_GROUP_MASK (0xfffff)].
+    Any event number out of this range is treated as group-independent.
+    If "new_group_number" is not valid, the current AN group number keeps
+    unchanged. EN_control (EN_SET_AN_GROUP, ...) returns the current group
+    number. It is suggested that, all hosts for a distributed application
+    should be consistent in using the grouped AN mode.
+
+    EN_control (EN_GET_AN_GROUP) returns the AN sender's group.
+
+    EN_control (EN_SET_AN_SIZE, int new_limit) sets the AN message size limit
+    to "new_limit" bytes. The default is 1024. Any incoming AN message with
+    size larger than the limit is discarded. Posting an AN message with size
+    larger than the limit will fail. EN_control (EN_SET_AN_SIZE, .) resets the
+    limit only if it is called before any other EN function calls.
+
+    EN_control (EN_GET_NTF_FD) returns the socket fd to local EN server. It
+    then can be used for custom polling.
+
+    EN_control (EN_SET_PROCESS_MSG_FUNC, Process_message) registers an callback
+    function "Process_message" for processing user event message. Function
+    "Process_message" of the form,
+
+	char *Process_message (int where, EN_id_t event, 
+						char *msg, int msg_len);
+
+    will be called (with "where" = EN_MSG_OUT) before an event is sent to the
+    server in event post functions. It is also called (with "where" =
+    EN_MSG_IN) before any event is delivered via the callback function. By
+    registering a message processing function, for example, one can perform
+    byte swapping of event message fields. Process_message returns a pointer
+    to a buffer that contains the processed message. Contents in "msg" are
+    not changed when "where" = EN_MSG_OUT. EN does not free the returned 
+    buffer.
+
+    EN_control (EN_GET_IN_CALLBACK) returns non-zero if the code is in the
+    EN callback function or 0 otherwise.
+
+    EN_control returns 0, except as described elsewhere, or a negative EN error
+    number.
+
+    EN provides the following service functions:
+
+    EN_register (EN_REPORT, Print_rssd_report) registers a function for
+    receiving rssd EN activity reports. Each report message is a NULL
+    terminated ASCII text message. If more than one process register for
+    receiving this, only one of them will receive reports.
+
+    EN_post_event (EN_REP_REG_TABLE) posts a special message that will let rssd
+    to report the entire registration table in it through the rssd EN activity
+    report service described in previous section.
+
+    EN_post_msgevent (EN_DISC_HOST, ip_address, sizeof (unsigned int)) posts a
+    special message for directing the local rssd to disconnect connections to
+    host of IP address "ip_address". This event will cause rssd to do the
+    following: Terminating all rssd child processes serving clients on the
+    disconnected host; Disconnecting the AN service to the disconnected host;
+    Appending a message to file $HOME/.rssd.disc to record this disconnection
+    event; Sending signal SIGUSR2 to all local applications that register for
+    at least one event. Upon receiving the signal, all applications that
+    register for at least one event disconnects its RMT messaging connections
+    to the disconnected remote hosts. "ip_address" is in the network byte 
+    order.
+
+    EN_QUERY_HOSTS is a special event generated by rssd to report the IP
+    addresses and connection status of remote hosts. All local applications
+    that register for event EN_QUERY_HOSTS will receive the report. The first
+    report comes before EN_register returns. A new report is received when the
+    connection status changes. The report is an ASCII message of format
+    "Remote_hosts: n_rhosts IP s IP s ...", where IP is in format
+    "129.15.57.65" and "s" is 1 if connected or 0 if not. The remote hosts are
+    event hosts only (wild card RPC hosts are not included). One can post
+    EN_QUERY_HOSTS without a message. It will cause rssd to send the report to
+    all registered local applications.
+
+
+    EN provides the following functions for backward compatibility:
+
+    int EN_deregister (EN_id_t event, void (*encallback)());
+    
+    int EN_register_obj (EN_id_t event, void (*encallback)(), void *obj_ptr);
+
+    int EN_post (EN_id_t event, const void *msg, int msglen, int msg_flags);
+
+    int EN_cntl(int cmd, ...);
+
+    int EN_cntl_block (void);
+   
+    int EN_cntl_block_with_resend (void);
+    
+    int EN_cntl_get_state (void);
+    
+    int EN_cntl_unblock (void);
+    
+    int EN_cntl_wait (unsigned int wait_sec);
+
+    EN_deregister removes a registration of callback routine "encallback" for
+    event "event" by calling EN_control and EN_register.
+
+    EN_register_obj registers callback routine "encallback" for event "event"
+    with argument "obj_ptr" by calling EN_control and EN_register.
+
+    EN_post posts event "event" with event message "msg" of length "msglen" by
+    calling EN_control and EN_post_msgevent. Flag "msg_flags" specifies the
+    options. It can be 0 (no option), EN_POST_FLAG_DONT_NTFY_SENDER or
+    EN_POST_FLAG_NTFY_SENDER_ONLY.
+
+    EN_cntl_block blocks the event delivery. EN_cntl_unblock unblocks (resumes)
+    the event delivery. EN_cntl_block_with_resend, called in an EN callback
+    function, returns the event for later re-delivery. EN_cntl_get_state
+    returns the current EN blocking state (EN_STATE_BLOCKED or
+    EN_STATE_UNBLOCKED). EN_cntl_wait suspends the calling process until an
+    event comes for at most "wait_sec" seconds. These functions call
+    EN_control.
+
+SEE ALSO
+
+    rssd(1), lb_nt(1), lb(3), rmt(3)
+
+
+

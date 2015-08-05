@@ -1,0 +1,254 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/17 18:26:35 $
+C $Id: a3187a.ftn,v 1.3 2002/12/17 18:26:35 christie Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A3187A__FIT_WAVE( VAD_DATA_AZM, BPTR, VADBUF )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3187A__FIT_WAVE
+*.
+*.  MODULE VERSION: 0013
+*.
+*.  MODULE LANGUAGE:  FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       10 27 89      0000      BILL EIDSON          SPR # 80273
+*.       05 20 90      0001      JOHN DEPHILIP        SPR # 90697
+*.       08 07 90      0002      MIKE ISTOK           SPR # 90928
+*.       02 22 91      0003      CHARLIE BAUMHER      SPR # 91259
+*.       12 21 90      0003      B. JOHNSTON          SPR # 91564
+*.       10 22 91      0004      EDWARD WENDOWSKI     SPR # 92410
+*.       12 03 91      0005      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0006      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0007      Toolset              SPR 91895
+*.       03/25/93      0008      Toolset              SPR NA93-06801
+*.       01/28/94      0009      Toolset              SPR NA94-01101
+*.       03/03/94      0010      Toolset              SPR NA94-05501
+*.       04/11/96      0011      Toolset              CCR NA95-11802
+*.       12/23/96      0012      Toolset              CCR NA95-11807
+*.       03/16/99      0013      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A3187A__FIT_WAVE(VAD_DATA_AZM,BPTR,VADBUF)
+*.
+*.  MODULE FUNCTION:
+*.
+*.       THIS MODULE PRODUCES A VELOCITY CURVE FROM THE DERIVED
+*.    VAD ALGORITHM FOURIER COEFFICIANTS FROM THE LEAST SQUARES
+*.    FIT OF THE VELOCITY DATA POINTS AT THE SLANT RANGE USED.
+*.    THE ROUTINE USES THE COEFFICIANTS AND CALCULATES A WIND SPEED
+*.    AND DIRECTION.  THE VALUES ARE THEN USED TO PRODUCE VELOCITY
+*.    VALUES FOR 120 DATA POINTS AROUND A 360 DEGREE CIRCLE
+*.    THE OUTPUT IS A LINKED VECTOR PACKET OF A SINE WAVE.
+*.
+*.  MODULES CALLED: A3187F__COLV_PCKTS 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT      TYPE        DESCRIPTION
+*.    -   -----      ----        -----------
+*.    G   MPS_TO_KTS R*4         (CONSTANT)SCALING FACTOR FOR METERS PER
+*.                               SECOND TO KNOTS
+*.    C   CF1        R*4         Fourier coefficient #1, extracted from the
+*.                               height based data for use in drawing a sine
+*.                               wave.
+*.    C   CF2        R*4         Fourier coefficient #2, extracted from the
+*.                               height based data for use in drawing a sine
+*.                               wave.
+*.    C   CF3        R*4         Fourier coeficient #3, extracted from the
+*.                               height based data for use in drawing a sine
+*.                               wave.
+*.    C   HWD        R*4         Horizontal wind direction.
+*.    C   PPKT       R*4         Number of pixels per knot.
+*.    C   SHW        R*4         Speed of horizontal wind (of LSF curve).
+*.    C   AZ0PIX     R*4         (CONSTANT)Zero degree azimuth position in
+*.                               screen coordinates.
+*.    C   PPDEG      R*4         (CONSTANT)Number of pixels per degree.
+*.    C   VEL0PIX    R*4         (CONSTANT)Zero knots velocity position in
+*.                               screen coordinates.
+*.    C   XMAX       R*4         (CONSTANT)Maximum screen coordinate of
+*.                               X-axis.
+*.    C   XMIN       R*4         (CONSTANT)Minimum screen coordinate of
+*.                               X-axis.
+*.    C   YMAX       R*4         (CONSTANT)Maximum screen coordinate of
+*.                               Y-axis.
+*.    P   BPTR       I*4         OUTPUT BUFFER POINTER
+*.    P   VADBUF     I*2         ARRAY USED AS OUTPUT BUFFER SIZE=*
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    C   HWD     R*4         Horizontal wind direction.
+*.    C   SHW     R*4         Speed of horizontal wind (of LSF curve).
+*.    P   BPTR    I*4         OUTPUT BUFFER POINTER
+*.    P   VADBUF  I*2         ARRAY USED AS OUTPUT BUFFER SIZE=*
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    P   BPTR              I*4         OUTPUT BUFFER POINTER
+*.    P   VADBUF            I*2         ARRAY USED AS OUTPUT BUFFER SIZE=*
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME       TYPE        DESCRIPTION
+*.    ----       ----        -----------
+*.    AZM        I*4         LOOP VARIABLE
+*.    AZMR       R*4         REAL VALUE OF THE AZIMUTH ANGLE TO CALCULATE FIT
+*.                           VELOCITY POINT
+*.    DTR        R*4         DEGREES TO RADIANS CONVERSION VALUE.
+*.    FIT        R*4         VELOCITY VALUE CALCULATED
+*.    LOOPINC    I*4         VALUE USED TO INCREMENT LOOP COUNTER
+*.    NEGONER    R*4         MINUS ONE
+*.    NEW        L*4         FLAG USED TO INDICATE NEW PACKET FLAG
+*.    ONEHALF    R*4         VALUE USED TO TAKE SQUARE ROOT
+*.    ONER       R*4         Parameter value for a real one
+*.    ONE_DEGREE I*4         CONSTANT VALUE OF 1 DEGREES
+*.    PI         R*4         Mathematical constant (3.1415.....).
+*.    PIDEGREES  I*4         NUMBER OF DEGREES IN A CIRCLE
+*.    SECOND     R*4         VALUE USED TO SQUARE REAL NUMBERS
+*.    TWOPI      R*4         TWO TIMES PI
+*.    X          R*4         AZIMUTH VALUE IN SCREEN COORDINATES
+*.    Y          R*4         VELOCITY VALUE IN SCREEN COORDINATES
+*.    YES        L*4         VALUE USED TO SET LOGICAL FLAGS
+*.    YMIN       R*4         Y-axis screen coordinate boundary (minimum).
+*.    ZEROI      I*4         INTEGER VALUE OF ZERO
+*.    ZEROR      R*4         REAL VALUE OF ZERO
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A318C7
+*.
+*.  ERROR CONDITIONS:  NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  NONE
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP18.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK18.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+C
+C* GLOBAL DECLARATIONS.
+C
+$INCLUDE A309.INC/G,**A3PM50 (NLIST)
+$INCLUDE A309ADPT.INC/G,**A3CD70C7 (NLIST)
+$INCLUDE A317BUF.INC/G,**A317VP (NLIST)
+$INCLUDE **A317VD (NLIST)
+$INCLUDE A318.INC,**A318C7 (NLIST)
+C
+C* LOCAL DECLARATIONS;
+C
+      INTEGER BPTR, AZM
+      INTEGER*2 VADBUF(*)
+      LOGICAL NEW
+      REAL SECOND, ONEHALF, TWOPI, X, Y
+      REAL FIT, AZMR, PI, DTR
+      REAL ZEROR, ONER, NEGONER
+      INTEGER ZEROI, LOOPINC, PIDEGREES, ONE_DEGREE
+      LOGICAL YES
+C
+X     LOGICAL PRINTED
+X     DATA PRINTED /.FALSE./
+C
+      PARAMETER (PI = 3.141592)
+      PARAMETER (TWOPI = PI * 2.0)
+      PARAMETER (DTR = PI/180.0)
+      PARAMETER (SECOND = 2.0, ONEHALF = 0.5)
+      PARAMETER (PIDEGREES = 360, ONE_DEGREE = 1)
+      PARAMETER (ZEROR = 0.0, ONER = 1.0, NEGONER = -1.0)
+      PARAMETER (LOOPINC = 2, ZEROI = 0)
+      PARAMETER (YES = .TRUE.)
+X     TYPE *,'7A: ENTERED HERE....',BPTR,CF1,CF2,CF3
+C
+C* SET THE NEW VECTOR FLAG AT THE BEGINNING. THIS IS TO ALLOW
+C* ALL FUTURE VECTORS TO BE DRAWN LINKED TOGETHER.
+C
+      NEW = YES
+C
+C* IF EITHER OF THE COEFFICIANTS FOR 1ST ORDER FOURIER IS 0 THEN
+C* SET THE HORIZONTAL WIND DIRECTION TO ZERO. OTHERWISE, CALCULATE
+C* THE HORIZONTAL WIND DIRECTION.
+C
+      IF (CF3.NE.ZEROR .AND. CF2.NE.ZEROR) THEN
+         HWD = PI - ATAN2(CF3,CF2)
+      ELSE
+         HWD = ZEROR
+      ENDIF
+C
+C* WHEN THE HORIZONTAL WIND DIRECTION IS IN THE WRONG QUADRANT,
+C* (I.E. NEGATIVE) MODIFY ITS VALUE TO BE POSITIVE IN THE CORRECT
+C* QUADRANT.
+C
+      IF (HWD .LT. ZEROI) HWD = HWD + TWOPI
+C
+C* CONVERT THE HORIZONTAL WIND DIRECTION TO DEGREES.
+C
+      HWD = HWD / DTR
+C
+C* CALCULATE THE SPEED OF THE HORIONTAL WIND
+C
+      SHW = (CF2**SECOND + CF3**SECOND)**ONEHALF
+C
+C* DO FOR ALL THE DATA POINTS IN THE FIT CURVE.
+C
+      DO 1000 AZM=ONE_DEGREE, PIDEGREES, LOOPINC
+C
+C* USING THE REAL VALUE OF THE AZIMUTH ANGLE, CALCULATE THE FIT VALUE
+C* AND THEN CALCULATE THE DATA POINTS SCREEN COORDINATES.
+C
+        AZMR = ONER * AZM
+        FIT = (NEGONER*COS((AZMR-HWD)*DTR)*SHW) + CF1
+        X = AZ0PIX + PPDEG*AZMR
+        Y = VEL0PIX - PPKT*FIT*MPS_TO_KTS
+C
+X     IF (.NOT. PRINTED) THEN
+X     WRITE(14,*)'A3187A: VALUES IN CALCULATION LINE 259 '
+X     WRITE(14,*)'Y = VEL0PIX - PPKT * FIT * MPS_TO_KTS '
+X     WRITE(14,*)'VEL0PIX EQUALS ',VEL0PIX
+X     WRITE(14,*)'PPKT EQUALS ',PPKT
+X     WRITE(14,*)'FIT EQUALS ',FIT
+X     WRITE(14,*)'MPS_TO_KTS EQUALS ',MPS_TO_KTS
+X     WRITE(14,*)'A3187A: RESULTS OF CALCULATION ',Y
+X     PRINTED = .TRUE.
+X     ENDIF
+C
+X     TYPE *,'7A: X,Y=',X,Y,' FIT=',FIT,' FIT IN KTS=',FIT*MPS_TO_KTS
+C
+C* MODIFY ANY X OR Y COORDINATE IF IT IS OUT OF BOUNDS
+C
+        IF (X.LT.XMIN) X=XMIN
+        IF (X.GT.XMAX) X=XMAX
+        IF (Y.LT.YMIN) Y=YMIN
+        IF (Y.GT.YMAX) Y=YMAX
+C
+C* PLOT THE POINT
+C
+        CALL A3187F__COLV_PCKTS(NEW, X, Y, X, Y, BPTR, VADBUF)
+ 1000 CONTINUE
+X     TYPE *,'7A: EXIT HERE HWD=',HWD,' SHW=',SHW,' BPTR=',BPTR
+C
+C* EXIT THE ROUTINE
+C
+      RETURN
+      END

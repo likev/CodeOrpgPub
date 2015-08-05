@@ -1,0 +1,154 @@
+C 
+C RCS info 
+C $Author: nolitam $ 
+C $Locker:  $ 
+C $Date: 2002/11/27 15:17:02 $ 
+C $Id: a3146t.ftn,v 1.4 2002/11/27 15:17:02 nolitam Exp $ 
+C $Revision: 1.4 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A3146T__CNVTIME(SECONDS,JULIAN,CHAR_DATE_TIME)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3146T__CNVTIME
+*.
+*.  MODULE VERSION: 0011
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       06/01/89      0000      BRADLEY SUTKER       SPR# 90348
+*.       03/28/90      0001      DAVE HOZLOCK         SPR# 90697
+*.       11 05 90      0002      PAUL JENDROWSKI      SPR# 91255
+*.       12/10/91      0003      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0004      Toolset              SPR 91895
+*.       03/25/93      0005      Toolset              SPR NA93-06801
+*.       01/28/94      0006      Toolset              SPR NA94-01101
+*.       03/03/94      0007      Toolset              SPR NA94-05501
+*.       04/11/96      0008      Toolset              CCR NA95-11802
+*.       12/23/96      0009      Toolset              CCR NA95-11807
+*.       03/16/99      0010      Toolset              CCR NA98-23803
+*.       01/31/02      0011      Dennis A. Miller     CCR NA01-27501
+*.
+*.  CALLING SEQUENCE:  CALL A3146T__CNVTIME (SECONDS,JULIAN,
+*.                                           CHAR_DATE_TIME)
+*.
+*.  MODULE FUNCTION:
+*.
+*.  THIS MODULE CONVERTS TIME AND DATE IN SECONDS SINCE MDT AND
+*.  JULIAN DATE TO HOURS, MINUTES AND SECONDS AND MONTH, DATE AND
+*.  YEAR IN A CHARACTER FORMAT.
+*.
+*.  MODULES CALLED: A3CM38__JULIAN2DATE
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT   TYPE        DESCRIPTION
+*.    -   -----   ----        -----------
+*.    P   JULIAN  I*4         JULIAN DATE
+*.    P   SECONDS I*4         SECONDS SINCE MIDNIGHT
+*.
+*.    *   OUTPUT         TYPE        DESCRIPTION
+*.    -   ------         ----        -----------
+*.    P   CHAR_DATE_TIME CHAR*14     DATE AND TIME
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME       TYPE        DESCRIPTION
+*.    ----       ----        -----------
+*.    COLON      CHAR*1      Colon character.
+*.    DATE       I*2         DATE ARRAY
+*.    DATE_ELEMS I*4         Number of date elements
+*.    DT         I*4         Positional parameter for day
+*.    HR         I*4         Hours decoded from input SECONDS
+*.    JULIAN_I2  I*2         I*2 VALUE OF JULIAN
+*.    MIN        I*4         Minutes decoded from input SECONDS
+*.    MO         I*4         Positional parameter for month
+*.    SEC        I*4         Seconds decoded from input SECONDS
+*.    SECPHR     I*4         SECONDS-PER-HOUR (=3600)
+*.    SECPMIN    I*4         SECONDS-PER-MINUTE (=60)
+*.    SLASH      CHAR*1      "/"
+*.    YR         I*4         Positional parameter for year
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK14.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+ 
+      IMPLICIT NONE
+C...
+      INTEGER*4 HR,MIN,SEC,SECONDS,DATE_ELEMS,MO,DT,YR
+      PARAMETER (DATE_ELEMS=3,MO=2,DT=1,YR=3)
+      INTEGER*4 JULIAN
+      INTEGER*2 DATE(DATE_ELEMS),JULIAN_I2
+      CHARACTER*14 CHAR_DATE_TIME
+C...
+      INTEGER*4 SECPHR,SECPMIN
+      PARAMETER (SECPHR=3600,SECPMIN=60)
+C...
+      CHARACTER*1 SLASH,COLON
+      PARAMETER (SLASH='/', COLON=':')
+C...
+X     TYPE *,'a3146t: Seconds; Julian date to be converted:',
+X    $             SECONDS, JULIAN
+C
+C COMPUTE THE NUMBER OF HOURS
+C
+      HR=SECONDS/SECPHR
+C
+C COMPUTE THE REMAINING NUMBER OF MINUTES
+C
+      MIN=(SECONDS-HR*SECPHR)/SECPMIN
+C
+C COMPUTE THE REMAINING NUMBER OF SECONDS
+C
+      SEC=SECONDS-HR*SECPHR-MIN*SECPMIN
+C
+C GET DAY,MONTH AND YEAR
+C
+      JULIAN_I2 = JULIAN
+      CALL A3CM38__JULIAN2DATE(JULIAN_I2,DATE)
+C
+C WRITE OUT DATE AND TIME IN A CHARACTER STRING
+C
+      WRITE (CHAR_DATE_TIME,100)DATE(MO),SLASH,DATE(DT),SLASH,
+     $                          DATE(YR),HR,COLON,MIN
+ 100  FORMAT(I2.2,A1,I2.2,A1,I2.2,1X,I2.2,A1,I2.2)
+C
+X     TYPE *,'MONTH DATE YEAR:',DATE(2),DATE(1),DATE(3)
+c
+X     write(6,99) char_date_time
+X99   format(' a3146t: character date & time = ',a14)
+c
+X     TYPE *,'A3146T: EXIT HR, MIN, SEC  ',HR,MIN,SEC
+C
+      RETURN
+      END

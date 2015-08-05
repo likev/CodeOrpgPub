@@ -1,0 +1,60 @@
+#!/bin/sh
+
+# $Author: jing $
+# $Locker:  $
+# $Date: 2007/08/03 18:48:39 $
+# $Id: lb2f,v 1.1 2007/08/03 18:48:39 jing Exp $
+# $Revision: 1.1 $
+# $State: Exp $
+#
+
+##################################################
+# print usage info
+##################################################
+
+print_usage () {
+  echo "Usage: `basename $0` -l input_LB -f output_file [options]"
+  echo "    Copy a message in LB \"input_LB\" to file \"output_file\". The message"
+  echo "    ID in the LB is specified by the -i option. The default is LB_NEXT."
+  echo "    Options:"
+  echo "    -h (Print usage information)"
+  echo "    -i msg_id (Message ID to read)"
+}
+
+#
+# The main function starts here
+#
+input_lb=
+output_file=
+msg_id=
+
+# read options
+while getopts f:l:hi: input
+do
+    case $input in
+	f) output_file="$OPTARG" ;;
+	l) input_lb="$OPTARG" ;;
+	i) msg_id="$OPTARG" ;;
+	h) print_usage; exit 0 ;;
+	\?) print_usage; exit 1 ;;
+    esac
+done
+
+# Validate input argments
+if [ -z "$input_lb" ]
+then
+    echo "Input LB name is required"
+    exit 1
+fi
+if [ -z "$output_file" ]
+then
+    echo "Output file name is required"
+    exit 1
+fi
+
+if [ -z "$msg_id" ]
+then
+    lb_cat $input_lb > $output_file
+else
+    lb_cat -i $msg_id $input_lb > $output_file
+fi

@@ -1,0 +1,135 @@
+
+NAME
+    ORPGMISC_is_low_bandwidth, ORPGMISC_read_options, ORPGMISC_set_compression, 
+    ORPGMISC_system_endian_type, ORPGMISC_local_endian_type, 
+    ORPGMISC_change_endian_type, ORPGMISC_init, ORPGMISC_le_init, ORPGMISC_LE_init, 
+    ORPGMISC_vol_scan_num, ORPGMISC_vol_seq_num
+
+SYNOPSIS
+    #include <orpg.h>
+
+    int ORPGMISC_is_low_bandwidth ();
+
+    int ORPGMISC_read_options (int argc, char **argv);
+
+    void ORPGMISC_set_compression (int data_id);
+
+    int ORPGMISC_system_endian_type ();
+
+    int ORPGMISC_local_endian_type ();
+
+    int ORPGMISC_change_endian_type (char *buf, int data_id, int msg_id);
+
+    int ORPGMISC_init(int argc, char *argv[], int n_msgs,
+                   int lb_type, int instance, int no_system_log );
+
+    int ORPGMISC_le_init (int argc, char **argv, int instance);
+
+    int ORPGMISC_LE_init (int argc, char *argv[], int n_msgs, 
+			int lb_type, int instance, int no_system_log);
+
+    int ORPGMISC_vol_scan_num (unsigned int vol_seq_num);
+
+    unsigned int ORPGMISC_vol_seq_num (int vol_quotient, int vol_scan_num);
+
+    void ORPGMISC_send_multi_line_le (int code, char *msg);
+
+DESCRIPTION
+    orpgmisc consists of the ORPG Library Miscellaneous (MISC) routines.
+
+    ORPGMISC_is_low_bandwidth () returns TRUE if this application is running in
+    low bandwidth mode, otherwise FALSE. If the "-l" switch is set at the
+    command line and ORPGMISC_read_options () is called, then the bandwidth
+    flag is set. A call to the function ORPGMISC_set_compression () will then
+    set the compression flag at the RSS level so that any reference to the
+    specified linear buffer will result in it's compression/decompression
+    before/after it is passed across the interface. The main purpose of this
+    compression is to support users with low-bandwidth MSCF connections to the
+    ORPG.
+
+    ORPGMISC_read_options () provides a common routine for parsing command line
+    options. The following options are supported at this time:
+
+	-l 	Identifies a process to be run in low-bandwidth
+		mode.
+		
+	-h	display the command line options and do not
+		execute process.
+		
+    ORPGMISC_read_options () returns 0 if the "-h" switch set, otherwise 1 is
+    returned.
+
+    ORPGMISC_set_compression () identifies a particular ORPGDA data store, as
+    indicated by the argument "data_id", for compression/decompression
+    depending on the state of the compression flag (as determined from
+    ORPGMISC_is_low_bandwidth ()).
+
+    ORPGMISC_system_endian_type () identifies the endian type used for all
+    internal ORPG data stores. Possible values are: BIG_ENDIAN and
+    LITTLE_ENDIAN.
+
+    ORPGMISC_local_endian_type () identifies the endian type of the local
+    system. Possible values are: BIG_ENDIAN and LITTLE_ENDIAN.
+
+    ORPGMISC_change_endian_type () changes the endianness of a specified
+    message (msg_id) in a specified ORPG data store (data_id). A 0 is returned
+    on success, otherwise 1 is returned (usually indicating no byte swapping
+    supported for the specified message).
+
+	EXAMPLES
+
+	Use data compression for passing alert threshold data from the ORPG
+	to the task.
+
+	main (int argc, char **argv)
+.
+	ORPGMISC_read_options (argc, argv);
+	ORPGMISC_set_compression (data_id);
+.
+	In the above example, data are compressed only if the "-l" option
+	was specified in the command line.
+
+    ORPGMISC_init is a convenience function.  It calls other function such
+    as ORPGMISC_LE_init() and ORPGMISC_deau_init() so the caller doesn't have
+    to call these functions individually.  This function returns 0 on success
+    or a negative error code on failure.   See ORPGMISC_LE_init and 
+    ORPGMISC_deau_init for possible error return values.   ORPGMISC_init has
+    the same arguments as ORPGMISC_LE_init.
+
+    ORPGMISC_LE_init creates the ORPG log LB for the application, initializes
+    the log LB and then sets the LE callback function for processing the ORPG
+    status and error logs. Each ORPG application should call this function to
+    initialize the LE service. The first and second parameters, "argc" and 
+    "argv", are the number or command line arguments and the command line
+    arguments, respectively. Parameter "n_msgs" specifies the size of the 
+    application's log file (the maximum number of log messages). If 0 is 
+    specified, the default number of 100 is used. Parameter "lb_type" specifies
+    the log LB types. Use 0 for default types. Parameter "instance" specifies
+    the instance number of the process. It must be -1 if the application is a 
+    single instance process. If parameter "no_system_log" is non-zero, no 
+    message is sent to the ORPG system LOG.
+
+    ORPGMISC_LE_init returns 0 on success, -1 or other LE error code on 
+    failure.
+
+    ORPGMISC_le_init calls ORPGMISC_LE_init (argv[0], 100, 0, instance, 0).
+
+    ORPGMISC_vol_scan_num converts volume scan sequence number to volume scan 
+    number. Volume scan sequence number is monotonically increasing whereas 
+    volume scan number is in the range 1 - MAX_SCAN_SUM_VOLS.
+
+    ORPGMISC_vol_seq_num converts volume scan number to volume scan sequence 
+    number.
+
+    ORPGMISC_send_multi_line_le sends each line in "msg" using an individual 
+    LE_send_msg call. Except the first line, 4 spaces are inserted in front of
+    each line.
+
+SEE ALSO
+    orpg(3), le(3)
+
+NOTES
+    The following functions are no longer supported: ORPGMISC_is_rpg_status,
+    ORPGMISC_rpg_oper, ORPGMISC_rpg_restart, ORPGMISC_rpg_standby, 
+    ORPGMISC_rpg_test, ORPGMISC_deliverable, ORPGMISC_get_pid
+

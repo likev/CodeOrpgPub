@@ -1,0 +1,349 @@
+C 
+C RCS info 
+C $Author: steves $ 
+C $Locker:  $ 
+C $Date: 2006/04/11 20:35:13 $ 
+C $Id: rpg_a312.ftn,v 1.4 2006/04/11 20:35:13 steves Exp $ 
+C $Revision: 1.4 $ 
+C $State: Exp $ 
+C 
+C*******************************************************************
+C
+C   Description: This is the emulated A31210__CHECK_DATA function. 
+C      This function checks whether the requested datatype is 
+C      being generated.
+C
+C*******************************************************************
+      SUBROUTINE A31210__CHECK_DATA( DATATYPE, OPSTAT )
+
+      IMPLICIT NONE
+
+$INCLUDE RPG_PORT.INC,**rpg_port
+
+      INTEGER DATATYPE,OPSTAT
+      INTEGER*2 USER_ARRAY(UA_NUM_FIELDS)
+
+      call PRQ_check_data( DATATYPE, USER_ARRAY, OPSTAT );
+
+      return;
+      end
+C 
+C*******************************************************************
+C
+C   Description: This is the emulated A31211__GET_INBUF function. 
+C      This function pass the MEM array to the underlining C
+C      function for processing. Refer to IB_get_inbuf for further
+C      descriptions.
+C
+C*******************************************************************
+      SUBROUTINE A31211__GET_INBUF( REQDATA, BUFPTR, DATATYPE, OPSTAT )
+
+      IMPLICIT NONE
+      INTEGER REQDATA,DATATYPE,OPSTAT,BUFPTR
+
+$INCLUDE a309.inc,**A3CD00 
+
+      call IB_get_inbuf( MEM, REQDATA, BUFPTR, DATATYPE, OPSTAT );
+
+      return;
+      end
+C 
+C*******************************************************************
+C
+C   Description: This is the emulated A31211__GET_INBUF function. 
+C      This function pass the MEM array to the underlining C
+C      function for processing. Refer to IB_get_inbuf for further
+C      descriptions.
+C
+C*******************************************************************
+      SUBROUTINE A31211__GET_INBUF_BY_NAME( REQNAME, BUFPTR, DATATYPE,
+     >                                      OPSTAT )
+
+      IMPLICIT NONE
+      INTEGER REQDATA,DATATYPE,OPSTAT,BUFPTR
+      CHARACTER*32 REQNAME
+
+$INCLUDE a309.inc,**A3CD00 
+
+      call IB_get_id_from_name( REQNAME, REQDATA )
+      call IB_get_inbuf( MEM, REQDATA, BUFPTR, DATATYPE, OPSTAT );
+
+      return;
+      end
+
+
+C*******************************************************************
+C
+C   Description: This is the emulated A31212__REL_INBUF function. 
+C      Refer to IB_rel_inbuf for further details.
+C
+C*******************************************************************
+      SUBROUTINE A31212__REL_INBUF( BUFPTR )
+
+      IMPLICIT NONE
+      INTEGER BUFPTR
+
+      call IB_rel_inbuf( BUFPTR )
+
+      return;
+      end
+
+C********************************************************************
+C
+C   Description: This function emulates the PRG A31215__GET_OUTBUF 
+C      function, which is for Allocate a buffer for the calling 
+C      task to use in the generation of algorithm or product output. 
+C      Refer to OB_get_outbuf for further descriptions.
+C
+C********************************************************************
+      SUBROUTINE A31215__GET_OUTBUF( DATATYPE, BUFSIZE,
+     >                               BUFPTR, OPSTAT )
+
+      IMPLICIT NONE
+
+$INCLUDE rpg_port.inc,**rpg_port
+
+      ;** argument list variable definitions
+      INTEGER DATATYPE,OPSTAT,BUFPTR,BUFSIZE
+
+      ;** internal variables
+      INTEGER I
+      INTEGER*2 USER_ARRAY(UA_NUM_FIELDS)
+
+$INCLUDE a309.inc,**A3PM00
+$INCLUDE a309.inc,**A3CD00
+
+      ;** initialize OPSTAT to NORMAL
+      OPSTAT = NORMAL
+
+      ;** initialize the USER_ARRAY elements
+      do 1 I = 1, UA_NUM_FIELDS
+           USER_ARRAY(I) = 0
+ 1    continue
+
+      ;** check if datatype is to be generated.  OPSTAT will
+      ;** return as NOT_REQD is not required, otherwise
+      ;** NORMAL.  SCARTCH buffers are not considered.
+      if( DATATYPE .ne. SCRATCH ) then
+           call PRQ_check_data( DATATYPE, USER_ARRAY, OPSTAT )
+      end if
+ 
+      ;** get requested buffer on NORMAL
+      if( OPSTAT .eq. NORMAL ) then
+           call OB_get_outbuf( MEM, DATATYPE, BUFSIZE, BUFPTR, OPSTAT )
+      end if
+
+      ;** copy the request information "USER_ARRAY" to buffers 
+      ;** product header.
+      if( (OPSTAT .eq. NORMAL) .and. (DATATYPE .ne. SCRATCH) ) then
+           call OB_tag_outbuf_wreq( BUFPTR, USER_ARRAY )
+      end if
+
+      return
+      end
+
+C********************************************************************
+C
+C      Description:  This function emulates the PRG A31215__GET_OUTBUF 
+C      function, which is for Allocate a buffer for the calling task 
+C      to use in the generation of algorithm or product output. Refer 
+C      to OB_get_outbuf for further descriptions.
+C 
+C       NOTE:  This function is intended to be called in conjuction
+C              with A3CM24__.  
+C
+C********************************************************************
+      SUBROUTINE A31215__GET_OUTBUF_FOR_REQ( DATATYPE,BUFSIZE, BUFPTR, 
+     >                                       USER_ARRAY, OPSTAT )
+
+      IMPLICIT NONE
+
+$INCLUDE rpg_port.inc,**rpg_port
+
+      ;** argument list variable definitions
+      INTEGER DATATYPE,OPSTAT,BUFPTR,BUFSIZE
+      INTEGER*2 USER_ARRAY(UA_NUM_FIELDS)
+
+$INCLUDE a309.inc,**A3PM00
+$INCLUDE a309.inc,**A3CD00
+      
+      ;** initialize OPSTAT to NORMAL
+      OPSTAT = NORMAL
+
+      ;** check if datatype is to be generated.  OPSTAT will
+      ;** return as NOT_REQD is not required, otherwise
+      ;** NORMAL.  SCARTCH buffers are not considered.
+      if( DATATYPE .ne. SCRATCH ) then
+           call PRQ_check_req( DATATYPE, USER_ARRAY, OPSTAT )
+      end if
+
+      ;** get requested buffer on NORMAL
+      if( OPSTAT .eq. NORMAL ) then
+           call OB_get_outbuf( MEM, DATATYPE, BUFSIZE, BUFPTR, OPSTAT )
+      end if
+
+      ;** copy the request information "user_array" to buffers 
+      ;** product header.
+      if( (OPSTAT .eq. NORMAL) .and. (DATATYPE .ne. SCRATCH) ) then
+           call OB_tag_outbuf_wreq( BUFPTR, USER_ARRAY )
+      end if
+
+      return
+      end
+
+C********************************************************************
+C
+C   Description: This function emulates the PRG A31215__GET_OUTBUF
+C      function, which is for Allocate a buffer for the calling
+C      task to use in the generation of algorithm or product output.
+C      Refer to OB_get_outbuf for further descriptions.
+C
+C********************************************************************
+      SUBROUTINE A31215__GET_OUTBUF_BY_NAME( DATANAME, BUFSIZE,
+     >                                       BUFPTR, OPSTAT )
+
+      IMPLICIT NONE
+
+$INCLUDE rpg_port.inc,**rpg_port
+
+      ;** argument list variable definitions
+      INTEGER DATATYPE,OPSTAT,BUFPTR,BUFSIZE
+      CHARACTER*32 DATANAME
+
+      call OB_get_id_from_name( DATANAME, DATATYPE )
+      call A31215__GET_OUTBUF( DATATYPE, BUFSIZE, BUFPTR,
+     >                         OPSTAT )
+
+      return
+      end
+
+C********************************************************************
+C
+C      Description:  This function emulates the PRG A31215__GET_OUTBUF
+C      function, which is for Allocate a buffer for the calling task
+C      to use in the generation of algorithm or product output. Refer
+C      to OB_get_outbuf for further descriptions.
+C
+C       NOTE:  This function is intended to be called in conjuction
+C              with A3CM24__.
+C
+C********************************************************************
+      SUBROUTINE A31215__GET_OUTBUF_BY_NAME_FOR_REQ( DATANAME, BUFSIZE, 
+     >                                               BUFPTR, USER_ARRAY,
+     >                                               OPSTAT )
+
+      IMPLICIT NONE
+
+$INCLUDE rpg_port.inc,**rpg_port
+
+      ;** argument list variable definitions
+      INTEGER DATATYPE,OPSTAT,BUFPTR,BUFSIZE
+      INTEGER*2 USER_ARRAY(UA_NUM_FIELDS)
+
+
+      CHARACTER*32 DATANAME
+
+      call OB_get_id_from_name( DATANAME, DATATYPE )
+      call A31215__GET_OUTBUF_FOR_REQ( DATATYPE, BUFSIZE, BUFPTR,
+     >                                 USER_ARRAY, OPSTAT )
+
+      return
+      end
+
+C********************************************************************
+C
+C   Description: This function simulates the A31216__REL_OUTBUF function.
+C      Refer to OB_rel_outbuf for further descriptions.
+C
+C********************************************************************
+      SUBROUTINE A31216__REL_OUTBUF( BUFPTR, DISPOSITION )
+
+      IMPLICIT NONE
+      INTEGER BUFPTR,DISPOSITION
+
+      call OB_rel_outbuf( BUFPTR, DISPOSITION )
+
+      return
+      end
+
+C********************************************************************
+C
+C   Description: This function returns the volume number associated 
+C   with the input buffer pointer. 
+C
+C********************************************************************
+      INTEGER FUNCTION A31218__BUF_VOL( BUFPTR )
+
+      IMPLICIT NONE
+      INTEGER BUFPTR
+      INTEGER vol_num
+
+      character*80 text
+
+$INCLUDE a309.inc,**A3PM06
+
+      ;** NOTE: These calls should be reversed at some point in the
+      ;** future.  Should call RPG_get_buffer_vol_num() first, then 
+      ;** use PS_get_current_vol_num() as a backup.  
+      call PS_get_current_vol_num( vol_num )
+
+      if( (vol_num .lt. 0) .or. 
+     >    (vol_num .gt. MAX_VSCANS) ) then
+
+         write( text, 1000 ) vol_num
+ 1000    format( 1x,'Buffer Volume Number OOR (',I10,') $' )
+         call RPG_send_msg( text )
+
+         call RPG_get_buffer_vol_num( BUFPTR, vol_num )
+
+      end if
+
+      A31218__BUF_VOL = vol_num
+      END
+
+C********************************************************************
+C
+C   Description: This function returns the current elevation index 
+C      (not the cut number). It returns 0 on failure.
+C
+C********************************************************************
+      INTEGER FUNCTION A31219__BUF_ELEV( BUFPTR )
+
+      IMPLICIT NONE
+      INTEGER BUFPTR
+      integer index
+
+      character*80 text
+
+$INCLUDE a309adpt.inc,**A3CD70P8
+
+      ;** NOTE: These calls should be reversed at some point in the
+      ;** future.  Should call RPG_get_buffer_elev_index() first, then 
+      ;** use PS_get_current_elev_index() as a backup.  
+      call PS_get_current_elev_index( index )
+
+      if( (index .lt. 0) .or.
+     >    (index .gt. ECUTMAX) ) then
+
+         write( text, 1000 ) index
+ 1000    format( 1x,'Buffer Elev Index OOR (',I10,') $' )
+         call RPG_send_msg( text )
+
+         call RPG_get_buffer_elev_index( BUFPTR, index )
+
+      end if
+
+      A31219__BUF_ELEV = index
+      END
+
+C********************************************************************
+
+C   Description:  This function does absolutely nothing. 
+
+C********************************************************************
+      SUBROUTINE A31238__DONE_SET
+
+      IMPLICIT NONE
+ 
+      RETURN
+      END

@@ -1,0 +1,177 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/17 16:06:36 $
+C $Id: a317l9.ftn,v 1.2 2002/12/17 16:06:36 christie Exp $
+C $Revision: 1.2 $
+C $State: Exp $
+C
+      SUBROUTINE A317L9__SORT_TVS( )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A317L9__SORT_TVS
+*.
+*.  MODULE VERSION: 0001
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       05/29/97      0000      DAVE ZITTEL          CCR NA95-21503
+*.       03/16/99      0001      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A317L9__SORT_TVS
+*.
+*.  MODULE FUNCTION:
+*.
+*.  Sorts the 3D TVS features by type ( TVSs and then ETVSs).
+*.  Next each type is sorted by strength of the delta velocity on the
+*.  lowest elevation.  And last by the maximum delta velocity at any
+*.  elevation.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT    TYPE        DESCRIPTION
+*.    -   -----    ----        -----------
+*.    G   TV_LDV   I*4         (CONSTANT)INDEX INTO TVS_MAIN TO THE TVS
+*.                             FEATURE LOW-LEVEL DELTA VELOCITY (IN M/S)
+*.    G   TV_MDV   I*4         (CONSTANT)INDEX INTO TVS_MAIN TO THE TVS
+*.                             FEATURE MAXIMUM DELTA VELOCITY (IN M/S)
+*.    G   TV_TYP   I*4         (CONSTANT)INDEX INTO TVS_MAIN TO THE TVS
+*.                             FEATURE TYPE (TVS=1 OR ETVS=2)
+*.    C   ETVCOUNT I*4         Counter for number of ETVSs detected
+*.    C   NBRTVS   I*4         Sum of number of TVSs and ETVSs detected.
+*.    C   TVORDER  I*4         TVS/ETVS rank-order array; first TVSs then
+*.                             ETVSs.  Each sorted by max low-level delta
+*.                             velocity in descending order.
+*.    C   TVS3D    R*4         Array of attributes of three-dimensional
+*.                             features that are either TVSs or ETVSs.
+*.    C   TVSCOUNT I*4         Counter for number of TVSs detected.
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    C   NBRTVS  I*4         Sum of number of TVSs and ETVSs detected.
+*.    C   TVORDER I*4         TVS/ETVS rank-order array; first TVSs then
+*.                            ETVSs.  Each sorted by max low-level delta
+*.                            velocity in descending order.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME   TYPE        DESCRIPTION
+*.    ----   ----        -----------
+*.    I      I*4         Do loop index for the combined number of TVSs/ETVSs
+*.                       and used to initialize array TVORDER
+*.    T1     I*4         Temporary variable to hold the rank of the TVS/ETVS
+*.                       feature pointed to by the outer do loop for sorting.
+*.    T2     I*4         Temporary variable to hold the rank of the TVS/ETVS
+*.                       feature pointed to by the inner do loop for sorting.
+*.    TINDX  I*4         Inner do loop index for sorting TVS/ETVS features by
+*.                       type, then by low-level delta velocity, and last by
+*.                       maximum delta velocity.
+*.    TV_NDX I*4         Outer do loop index for sorting TVS/ETVS features by
+*.                       type, then by low-level delta velocity, and last by
+*.                       maximum delta velocity.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A317C3DB
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:
+*.
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     Compiled using COMP17.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     Linked using LINK17.CSS
+*.
+*.  MISC:  None
+*.
+C********************************************************************
+C
+C             TDA 3D PROCESSING: SORT 2D FEATURES SUBROUTINE
+C
+C********************************************************************
+C
+C
+      IMPLICIT NONE
+C
+C**Attach internal common block (CPCC)
+$INCLUDE A317BUF.INC/G, **A317TP9 (NLIST)
+$INCLUDE A317.INC/G, **A317TP2 (NLIST)
+$INCLUDE A317.INC/G, **A317TC2 (NLIST)
+$INCLUDE A317.INC/G, **A317C3DA (NLIST)
+$INCLUDE A317.INC/G, **A317P3DB (NLIST)
+$INCLUDE A317.INC/G, **A317C3DB (NLIST)
+C
+C*********************** LOCAL DECLARATIONS *************************
+C
+      INTEGER I, TINDX, T1, T2, TV_NDX
+C
+C****************** BEGIN MAIN PROCESSING SECTION *******************
+C
+      NBRTVS = TVSCOUNT + ETVCOUNT
+C
+C***  Initialize the array containing the order of the TVS/ETVSs
+C
+      DO 10 I = 1, NBRTVS
+        TVORDER(I) = I
+ 10   CONTINUE
+C
+C***  Set up the outer loop for sorting
+C
+      DO 20 TV_NDX = 1, NBRTVS - 1
+C
+C***  Set up the inner loop for sorting
+C
+        DO 30 TINDX = TV_NDX + 1, NBRTVS
+C
+C***  First check if TVS types are the same.  If not, move a TVS
+C     ahead of an ETVS.
+C
+          T1 = TVORDER(TV_NDX)
+          T2 = TVORDER(TINDX)
+          IF(TVS3D(TV_TYP,T2) .LT. TVS3D(TV_TYP,T1))THEN
+            TVORDER(TV_NDX) = T2
+            TVORDER(TINDX) = T1
+C
+C***  Both features are the same, so compare low-level delta velocity
+C
+          ELSEIF((TVS3D(TV_TYP,T1) .EQ. TVS3D(TV_TYP,T2)).AND.
+     >          (TVS3D(TV_LDV,T2) .GT. TVS3D(TV_LDV,T1)))THEN
+            TVORDER(TV_NDX) = T2
+            TVORDER(TINDX) = T1
+C
+C***  Both features are same type and have same Low-level delta vel.
+C***  So swap pointers if max delta velocity of 2nd is > 1st feature.
+C
+          ELSEIF((TVS3D(TV_TYP,T1) .EQ. TVS3D(TV_TYP,T2)).AND.
+     >          (TVS3D(TV_LDV,T2) .EQ. TVS3D(TV_LDV,T1)).AND.
+     >          (TVS3D(TV_MDV,T2) .GT. TVS3D(TV_MDV,T1)))THEN
+            TVORDER(TV_NDX) = T2
+            TVORDER(TINDX) = T1
+          ENDIF
+ 30     CONTINUE
+ 20   CONTINUE
+      RETURN
+      END

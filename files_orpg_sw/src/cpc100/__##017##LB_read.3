@@ -1,0 +1,57 @@
+LB_read(3) 		   ORPG SDD Manpage   		LB_read(3)
+
+NAME
+LB_read - read a message from a Linear Buffer (LB) file
+
+SYNOPSIS
+#include <lb.h>
+int LB_read (int lbd, char *buf, int buflen, LB_id_t id) 
+
+DESCRIPTION
+LB_read reads the message of message id "id" and copies it to the 
+buffer "buf" if the size of the buffer "buflen" is sufficient for 
+the message. If the message does not exist, it fails and returns 
+an error code. If there are multiple messages in the LB with the 
+same "id", the latest one is read.
+
+If "buflen" is smaller than the message length, the first "buflen" 
+bytes of the message is copied to "buf" and LB_read returns 
+LB_BUF_TOO_SMALL. This feature can be used for reading the first 
+part of a message.
+
+If "id" is LB_NEXT, LB_read reads the message pointed 
+by the read-pointer (the next message in sequential reading). If 
+the next message is not yet available, the function returns 
+LB_TO_COME, which is 0. If the message is expired, it returns 
+LB_EXPIRED.
+
+If LB_read is successful or it is failed due to LB_BUF_TOO_SMALL or  
+LB_EXPIRED, the read pointer will be set to pointing to the next 
+message.
+
+On success, LB_read returns the length of the message read. On 
+failure, it returns LB_TO_COME as described earlier or a negative 
+value indicating one of the following error conditions:
+
+	LB_NOT_FOUND:		The message of "id" was not found.
+	LB_BAD_ARGUMENT:	One of the arguments does not make 
+				sense.
+	LB_BAD_DESCRIPTOR:	Unopened or closed LB descriptor is 
+				used.
+	LB_INTERNAL_ERROR:	An internal inconsistency is found. 
+				The LB is damaged due to unknown reason.
+	LB_EXPIRED:		The message is expired.
+	LB_BUF_TOO_SMALL:	"buflen" is smaller than the message 
+				length.
+	LB_PARITY_ERROR:	The user's LB data structure (not the 
+				LB) is corrupted by 
+				the caller due to a memory leak.
+	LB_SHMDT_FAILED:	Failed in shmdt system call.
+	LB_LOCK_FAILED:		Failed in a lock system call.
+	LB_MMAP_FAILED:		Failed in mmap system call.
+	LB_MPROTECT_FAILED:	Failed in mprotect system call.
+
+SEE ALSO
+LB_clear(3), LB_close(3), LB_direct(3), LB_list(3), LB_mark(3), LB_open(3),
+LB_previous_msgid(3), LB_remove(3), LB_seek(3), LB_size(3), LB_stat(3),
+LB_write(3), lb(3), lb_create(1), lb_info(1), lb_rm(1)

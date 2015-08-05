@@ -1,0 +1,41 @@
+# RCS info
+# $Author: cmn $
+# $Locker:  $
+# $Date: 2013/04/11 16:11:07 $
+# $Id: ifcfg-eth0.tmpl,v 1.9 2013/04/11 16:11:07 cmn Exp $
+# $Revision: 1.9 $
+# $State: Exp $
+#
+# This template is used for generating site-dependent ifcfg-eth0
+SET _gdc_include = rpg_net_vars.def
+SET _gdc_set_interpreting = !-# 
+IF ADMSCF: {
+    SET _gdc_install_file = /etc/sysconfig/network-scripts/ifcfg-eth0 on rpga rpgb
+}
+ELSE:  SET _gdc_install_file = /etc/sysconfig/network-scripts/ifcfg-eth0
+#
+
+SET O3 = $SUBNET_ID
+IF NODE_NAME==mscf: {
+    IF ADMSCF:  SET O4 = 23
+    ELSE: {
+        SET O3 = $MSCF_IP_O3
+        SET O4 = $MSCF_IP_O4
+    }
+}
+IF NODE_NAME==rpga: {
+    IF FAA_CH2: SET O4 = 71
+    ELSE:    SET O4 = 1
+}
+IF NODE_NAME==rpgb: {
+    IF FAA_CH2: SET O4 = 83
+    ELSE:    SET O4 = 22
+}
+
+DEVICE=eth0
+BOOTPROTO=static
+IPADDR=172.25.$O3.$O4
+NETMASK=$SUBNET_MASK
+ONBOOT=yes
+TYPE=Ethernet
+

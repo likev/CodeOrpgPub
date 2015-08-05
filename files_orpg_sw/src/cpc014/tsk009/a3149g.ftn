@@ -1,0 +1,202 @@
+C 
+C RCS info 
+C $Author: steves $ 
+C $Locker:  $ 
+C $Date: 2004/01/21 22:48:59 $ 
+C $Id: a3149g.ftn,v 1.7 2004/01/21 22:48:59 steves Exp $ 
+C $Revision: 1.7 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A3149G__MAX_REF_MAP ( MAXMAX, POLGRID, REFLAY )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3149G__MAX_REF_MAP
+*.
+*.  MODULE VERSION: 0002
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       03/03/97      0000      Steven D. Smith      CCR NA96-17804
+*.       03/16/99      0001      Toolset              CCR NA98-23803
+*.       05/17/99      0002      Mike Istok           CCR NA96-17803
+*.
+*.  CALLING SEQUENCE: CALL A3149G__MAX_REF_MAP ( MAXMAX, POLGRID,
+*.                                               REFLAY)
+*.
+*.  MODULE FUNCTION:
+*.
+*.     Map the maximum polar data onto a Cartesian grid.
+*.
+*.  MODULES CALLED: A3149F__LAY_REF_MAP 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT             TYPE        DESCRIPTION
+*.    -   -----             ----        -----------
+*.    G   RDMSNG            I*4         (CONSTANT)Flag value indicating
+*.                                      Missing sample bin
+*.    C   MAX_APR_RANGE     I*4         (CONSTANT)Maximum reflectivity bin
+*.                                      number to use for layer composite
+*.                                      reflectivity - AP removed polar grid
+*.                                      generation.
+*.    C   NCOLS             I*4         (CONSTANT)Number of columns in layer
+*.                                      composite reflectivity - AP removed
+*.                                      Cartesian grid.
+*.    C   APR_NRADS         I*4         (CONSTANT)Number of radials in layer
+*.                                      composite reflectivity - AP removed
+*.                                      polar grid.
+*.    C   NROWS             I*4         (CONSTANT)Number of rows in layer
+*.                                      composite reflectivity - AP removed
+*.                                      Cartesian grid
+*.    P   MAXMAX            I*2         The layer Maximum-Maximum
+*.                                      Reflectivities in dBZ
+*.    P   POLGRID           I*2         Polar grid portion of polar grid
+*.                                      buffer.
+*.    P   REFLAY            I*2         Array holding a radial of biased
+*.                                      reflectivity values.
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    P   MAXMAX  I*2         The layer Maximum-Maximum Reflectivities in dBZ
+*.    P   REFLAY  I*2         Array holding a radial of biased reflectivity
+*.                            values.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME             TYPE        DESCRIPTION
+*.    ----             ----        -----------
+*.    AZ               R*4         Azimuth angle at a polar grid index
+*.    DELTA_AZIMUTH    R*4         Parameter for the change in azimuth in the
+*.                                 polar grid (1 degree)
+*.    HALFCOL          I*4         Center of Grid column position
+*.    HALFROW          I*4         Center of grid row position
+*.    I                I*4         The I box start position.
+*.    IH               I*2         The I axis cartesian mapping variable.
+*.    J                I*4         The J box start position.
+*.    JH               I*2         J axis cartesian mapping variable.
+*.    LAYEND           I*4         The end bin number of the current layer.
+*.    LAYSTART         R*4         The start of the layer in kms
+*.    NBIN             I*4         Do loop variable for 3-D Box
+*.    NRAD             I*4         Do loop variable for number of radials in
+*.                                 the polar grid
+*.    POWER2           I*4         An I*4 shift factor.
+*.    STARTING_AZIMUTH R*4         Starting azimuth in the polar grid
+*.    STPOS            R*4         The position of the first good radial bin
+*.                                 being mapped, in km
+*.    XAZFUNC          I*4         An initial x-axis Cartesian mapping
+*.                                 parameter, in 1/km.
+*.    YAZFUNC          I*4         An internal Y-axis cartesian mapping
+*.                                 parameter, in 1/KM
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK14.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+      IMPLICIT NONE
+C
+$INCLUDE A304.INC/G,**A304P4             (NLIST)
+$INCLUDE A314BUF.INC/G,**A3148P3         (NLIST)
+$INCLUDE A314BUF.INC/G,**A3148P4         (NLIST)
+C
+C  Passed Arguments
+C
+      INTEGER*2 POLGRID(MAX_APR_RANGE, APR_NRADS)
+      INTEGER*2 MAXMAX, REFLAY(NCOLS,NROWS)
+C
+C  Local declarations
+C
+      REAL      AZ, STPOS
+      INTEGER*4 I, IH, J, JH, NRAD, NBIN, XAZFUNC, YAZFUNC, LAYEND
+
+      INTEGER*4 POWER2
+      REAL      LAYSTART, STARTING_AZIMUTH, DELTA_AZIMUTH
+      PARAMETER( STARTING_AZIMUTH = -0.5, DELTA_AZIMUTH = 1.0 )
+      PARAMETER( LAYSTART = 0.5, POWER2 = 65536 )
+
+C
+C DO FOR ALL polar grid azimuths
+C
+      AZ = STARTING_AZIMUTH
+      DO 20  NRAD = 1, APR_NRADS
+C
+C  Calculate azimuth angle at this polar grid index
+C
+         AZ = AZ + DELTA_AZIMUTH
+         CALL A3149F__LAY_REF_MAP ( AZ, LAYEND, XAZFUNC, YAZFUNC )
+C
+C  Initialize mapping parameters
+C
+         STPOS = LAYSTART
+C
+         I = ((HALFCOL+1)*POWER2)+(XAZFUNC*STPOS)
+         J = ((HALFROW+1)*POWER2)-(YAZFUNC*STPOS)
+C
+C Do for all 3-D BOXes
+C
+         DO 10 NBIN = 1, LAYEND
+C
+            call RPG_set_mssw_to_uint( I, IH )
+            call RPG_set_mssw_to_uint( J, JH )
+C
+C If box still has init value (256) set it to 0
+C
+            IF (REFLAY(IH,JH) .EQ. RDMSNG) THEN
+               REFLAY(IH,JH) = 0
+            ENDIF
+C
+C Find the current maximum reflectivity by comparing it to
+C the previous 3-D BOX maximum in layer
+C
+            IF (POLGRID(NBIN,NRAD) .GT. REFLAY(IH,JH)) THEN
+C
+C Set the current maximum reflectivity
+C
+               REFLAY(IH,JH) = POLGRID(NBIN,NRAD)
+C
+C Get the current maximum-maximum
+C
+               IF ( REFLAY(IH,JH) .GT. MAXMAX ) THEN
+                  MAXMAX = REFLAY(IH,JH)
+               ENDIF
+            END IF
+C
+C Increment I and J counters
+C
+            I = I + XAZFUNC
+            J = J - YAZFUNC
+ 10      CONTINUE
+
+ 20   CONTINUE
+
+      RETURN
+      END

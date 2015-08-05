@@ -1,0 +1,144 @@
+C 
+C RCS info 
+C $Author: nolitam $ 
+C $Locker:  $ 
+C $Date: 2002/12/11 20:00:37 $ 
+C $Id: a3cm25.ftn,v 1.6 2002/12/11 20:00:37 nolitam Exp $ 
+C $Revision: 1.6 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A3CM25__GET_DATE_TIME(CURR_DATE,CURR_TIME)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3CM25__GET_DATE_TIME
+*.
+*.  MODULE VERSION: 0007
+*.
+*.
+*.  MODULE LANGUAGE:  FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       03 24 86      0000      DENNIS MILLER
+*.       02 22 91      0001      T. LYNCH             SPR # 91250
+*.       01 28 91      0001      EDWARD WENDOWSKI     SPR # 91661
+*.       12/10/91      0002      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0003      Toolset              SPR 91895
+*.       03/25/93      0004      Toolset              SPR NA93-06801
+*.       03/03/94      0005      Toolset              SPR NA94-05501
+*.       12/23/96      0006      Toolset              CCR NA95-11807
+*.       03/16/99      0007      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:
+*.
+*.     CALL A3CM25__GET_DATE_TIME(CURR_DATE,CURR_TIME)
+*.
+*.  MODULE FUNCTION:
+*.
+*.     GET JULIAN DATE, CURRENT TIME IN SECONDS
+*.
+*.  MODULES CALLED: DATE, ICLOCK, T41194__GETTIME 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT     TYPE        DESCRIPTION
+*.    -   -----     ----        -----------
+*.    P   CURR_TIME I*4         CURRENT CLOCK TIME IN SECONDS
+*.
+*.    *   OUTPUT    TYPE        DESCRIPTION
+*.    -   ------    ----        -----------
+*.    P   CURR_DATE I*4         CURRENT CLOCK DATE AS JULIAN
+*.    P   CURR_TIME I*4         CURRENT CLOCK TIME IN SECONDS
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    P   CURR_TIME         I*4         CURRENT CLOCK TIME IN SECONDS
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME     TYPE        DESCRIPTION
+*.    ----     ----        -----------
+*.    DA       I*4         DAY
+*.    DATEVALS I*4         Current date as YR, MO, DAY.
+*.    HMS      R*8         PACKED HOUR,MONTH,SECOND
+*.    HR       I*4         Hours portion of current time.
+*.    IMSEC    I*4         Milliseconds of day.
+*.    JULN     I*2         Julian date.
+*.    MIN      I*4         MINIMUM VALUE
+*.    MO       I*4         MONTH
+*.    REF      R*8         Packed reference date.
+*.    SEC      I*4         SECONDS
+*.    TIMVALS  I*4         Current time in hours, minutes, seconds.
+*.    YMDHMS   R*8         Packed current data and time (year, month, day,
+*.                         hour, minute, second).
+*.    YR       I*4         YEAR
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP09.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK09.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+C
+      REAL*8 YMDHMS,HMS,REF
+      INTEGER*4 TIMVALS(3)
+      INTEGER CURR_DATE
+      INTEGER CURR_TIME
+      INTEGER YR,MO,DA,IMSEC
+      INTEGER*2 JULN
+      INTEGER  HR,MIN,SEC
+      INTEGER DATEVALS (3)
+#IFDEF LINUX
+      EQUIVALENCE (DATEVALS(1),DA)
+      EQUIVALENCE (DATEVALS(2),MO)
+      EQUIVALENCE (DATEVALS(3),YR)
+#ELSE
+      EQUIVALENCE (DATEVALS(1),YR)
+      EQUIVALENCE (DATEVALS(2),MO)
+      EQUIVALENCE (DATEVALS(3),DA)
+#ENDIF
+      EQUIVALENCE (TIMVALS(1),HR)
+      EQUIVALENCE (TIMVALS(2),MIN)
+      EQUIVALENCE (TIMVALS(3),SEC)
+C
+      DATA REF/700100.0000/
+C
+#IFDEF LINUX
+      CALL IDATE(DATEVALS)
+#ELSE
+      CALL DATE(DATEVALS)
+#ENDIF
+      CALL ICLOCK(2,CURR_TIME)
+      CALL ICLOCK(0,TIMVALS)
+      HMS=(HR*10000.D0+MIN*100.D0+SEC)/1.0D6
+      YMDHMS= YR*10000.D0+MO*100.D0+DA+HMS
+C
+      CALL T41194__GETTIME(YMDHMS,REF,IMSEC,JULN)
+      CURR_DATE=JULN
+C
+      RETURN
+      END

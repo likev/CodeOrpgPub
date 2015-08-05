@@ -1,0 +1,268 @@
+
+NAME
+    sdqs - the Simple Data Query Server.
+
+SYNOPSIS
+    sdqs [-novdh] [-c config_name]
+
+DESCRIPTION
+    The Simple Data Query Server, sdqs, is a server that provides content based
+    access to messages in Linear Buffers (LB). For more info on LB, refer to
+    "man lb". sdqs keeps track of message updating activities in specified LBs
+    for providing message content query support for other client applications.
+    It builds and updates index trees and performing searches. It uses the CSS
+    module for client/server support. CSS is a part of libinfr. Refer to "man
+    css" for additional info.
+
+    sdqs provides efficient searching service by storing queryable info in
+    memory and building index trees using red-black tree technique. It supports
+    heterogeneous distributed environment. For example, clients can run on
+    platforms with different byte order from that of the server host.
+
+    sdqs assumes that the queryable info in the LB message can be extracted
+    from a header defined by a C structure called the source structure. The
+    queryable info is another C structure called the SDB record structure. sdqs
+    reads the message header, when it first starts or when any message is
+    updated, extracts the queryable info, puts it in a SDB record structure and
+    stores it in memory for searching. An array of the SDB record structures is
+    built for each specified LB. Index trees then are built on top of the array
+    for high performance searching.
+
+    sdqs performs appropriate byte swapping on the LB message header if the
+    endianness of the LB data is specified (See later). If the data endianness
+    is not specified, the LB message header is assumed to be in the SMIA
+    serialization format and SMIA_deserialize is called to create the source
+    structure from the LB message header. Thus the header can be any of the
+    variable size structures supported by SMIA. When serialization is used, the
+    data is stored in the LB's local host's byte order.
+
+    sdqs reads a configuration file for info about the LB name, message
+    structure and SDB structure, queryable fields, index trees and so on. The
+    default configuration file is $CFG_DIR/sdqs.conf. The configuration file is
+    an ASCII file in CS format. CS is part of libinfr. Refer to "man cs" for
+    details about CS. Each section in the sdqs configuration file defines a
+    content queryable data store (LB) also called an SDB (Simple Data Base)
+    table or simply an SDB. The following example defines a SDB table:
+
+    table_name {
+	src_struct	msg_header_t	# source (msg in LB) data struct 
+	sdb_struct	Rec_t		# SDB struct
+	src_lb		lb_path
+
+	index_trees {
+	    prod_code elev vol_t
+	    vol_t prod_code
+	    reten_t
+	}
+    }
+
+    Each section is lead by the name of the SDB. In this case, the name is
+    "table_name". Key words "src_struct", "sdb_struct" and "src_lb"
+    specify the source structure, the SDB record structure and the path of the
+    LB storing the messages. In this example they are "msg_header_t", "Rec_t"
+    and "lb_path" respectively. The source structure and the SDB record
+    structure must be defined somewhere in include files. The LB path should
+    a full path and host name can be included. The "index_trees" subsection
+    specifies a number of index trees for accelerating search. Each line in
+    the subsection defines an index tree. The tokens in each line must be
+    valid field name of the SDB record structure. They must also be queryable
+    fields (See next). Each index tree is the SDB record info sorted based on
+    the fields listed. If multiple fields are used for an index, the records
+    are sorted first in terms of the first field. Then all records with the
+    same first field are sorted in terms of the second fields. This goes on for
+    all fields in the index tree. Section of "index_trees" is optional. If
+    no index tree is specified, there will be no index tree built for
+    accelerating searching.
+
+    sdqs uses smipp to get field name and type info for the source structure 
+    and the SDB record structure. Refer to "man smipp" for further info about 
+    it. This info then is used for building functions for extracting the 
+    SDB record from the message header and for byte swapping. These functions
+    then are dynamically loaded for server operation.
+
+    The following optional key words, as shown by examples, can be used for
+    specifying additional items for each SDB section:
+
+	src_data_store DATA_STORE_MACRO
+	src_data_size 512
+	data_input {
+	    time: sdb->time = convert_to_time (sdb_src->date, sdb_src->time);
+	    ......
+	}
+	data_input_func RPGDBM_get_record
+	query_fields field1 field2 ...
+	house_keep_func house_keeping_func_name
+	data_endian big/little/local
+
+    Instead of specifying the LB path with "src_lb" one can specify a data
+    store ID (number) for the message LB with key "src_data_store". The data
+    store ID can be a integer number or a macro name. If a macro name is used,
+    it must be defined in one of the include files.
+
+    If all queryable info is contained in the first part of the messages, one
+    can use optional key word "src_data_size" to specify the number of bytes to
+    read when extracting the SDB record. An integer value must follow the key.
+    This will improve performance because only a part of each message is read.
+    If this option is not specified, the entire message is read.
+
+    sdqs extracts SDB record from the LB message. It, by default, assumes that
+    the field names of the SDB record can be found in the source structure and
+    the types are identical. If the field is of type "char[]" or "char *", it 
+    is assumed to be a null terminated character string. sdqs allocates
+    the appropriate space and does a string copy. For other types, it simply
+    makes an assignment to the SDB field using the message field value. The
+    "data_input" key word allows custom calculation of SDB fields. In the above
+    example, SDB field "time" depends on two fields "date" and "time" in the
+    source structure and is computed via function "convert_to_time". Function
+    "convert_to_time" must be implemented in one of the libraries to be linked
+    (See later explanations). Note the reserved words of "sdb" and "sdb_src"
+    and the "->" symbol used here. sdqs also accepts an optional expression for
+    specifying the size malloced for the field. For example "field_name: [size]
+    expression".
+
+    If one needs to do more than simply calculating the SDB fields in
+    extracting a SDB record, one can specify a custom function for extracting
+    the SDB record by key word "data_input_func" (shown in the above example is
+    function "RPGDBM_get_record"). The extracting function has the following
+    interface:
+
+	int func_name (char *src, LB_id_t msg_id, char *sdb);
+
+    where "src" is the pointer to the source structure and "sdb" is a pointer
+    to the returning SDB structure. "msg_id" is the message ID for the source
+    structure. This function should return 0 on success or -1 on failure.
+
+    Key word "query_fields" leads the list of query field names which must be a
+    subset of the SDB fields. Only query fields are subject to query. If all
+    SDB fields are query fields (i.e. queryable), one does not need to specify
+    the query field list.
+
+    Key word "house_keep_func" specifies an optional house keeping function for
+    further customizing the SDB management. The house keeping function is
+    called in the initialization stage and periodically (every few seconds) in
+    the server's operational stage. A house keeping function can be used, for
+    example, for deleting messages in the SDB that are no longer needed. The
+    house keeping function has the following interface:
+
+	int func_name (int state, int n_records, int lb_fd, void *db_id);
+
+    Where "state" is the current server state which is one of the following
+    enum values: 0: Server initialization started; 1: A record to be added
+    while building data base; 2. A record to be added after initialization; 3.
+    Server initialization completed; 4. Periodic house keeping call.
+    "n_records" is the current number of records in the SDB except when "state"
+    = 0 where it is the maximum number of records. "lb_fd" and "db_id" are
+    respectively the LB file descriptor and the record ID.
+    func_name must return the updated number of records (if, for example, it
+    deletes any records using SDQM functions). If the number of records does
+    not change, it has to return the value of "n_records".
+
+    Key "data_endian" specifies the endian format of the LB message header.
+    Word "big", "little" or "local" must follow the key word. If this is not 
+    specified, the LB message header is assumed to be in the SMIA serialization
+    format. "local" means that the data endianness will be the same as that of
+    the host on which the LB is located.
+
+    "SDQS_port" outside any SDB section specifies the port number used to
+    access sdqs query service. The port number must be either a number or a
+    macro that defines a number. If a macro is used, it must be defined in one
+    of the include files. "SDQS_port" is optional. If it is not specified,
+    rmtport + 2 is used where "rmtport" is the port number defined by
+    environmental variable "RMTPORT" (See "man rmt" for more details). Finally,
+    if "RMTPORT" is not defined, SDQ_DEFAULT_PORT is used.
+
+    A special section lead by "SDQS_ENV" is used for specifying additional
+    environmental info needed by sdqs for compiling purpose. It is not needed
+    if the sdqs's -n option is used. The following items can be specified in
+    this section.
+
+    "work_dir" specifies a directory where sdqs puts its temporary files.
+    "libsdqs_location" specifies a directory where the dynamic load library
+    (DLL, named libsdqs.so) will be located. The directory must be one of the 
+    DLL directories (defined by LD_LIBRARY_PATH on Solaris). "work_dir" and 
+    "libsdqs_location" are optional with default value of the current 
+    directory.
+
+    The following optional items are used to compile the DLL. "include_files"
+    specifies the include files that define the macros, functions and data
+    structures used in sdqs.conf. The default is non. "compiler" specifies the
+    compiler for generating the DLL. The default is "gcc". "include_options"
+    specifies the directories for locating include files. The default is non.
+    "lib_options" specifies the location and names of libraries needed for
+    creating the DLL. sdqs uses default compiler flags for creating the DLL
+    according to the compiler specified. "compile_options" allows the user to
+    specify explicitly the compiler flags required. sdqs uses default flags for
+    invoking smipp according to the compiler specified. "smipp_options" allows
+    the user to specify explicitly the smipp flags required. The latter two are
+    useful if the user chooses a compiler sdqs does not recognize. Note that a
+    single string is used after all "*_options" and the compiler option
+    letters, such as -L, -I and so on, must be included.
+
+    "SDQS_ENV" section may be host dependent. In the sdqs configuration file,
+    one can have multiple "SDQS_ENV" sections, each of which is designated for
+    a unique compiling environment. Each additional section must be lead by key
+    "SDQS_ENV.environ_name" where "environ_name" is a unique name for the 
+    environment. The -e option is used by sdqs to pick the right section. See
+    an example latter.
+
+    The sdqs DLL (e.g. libsdqs.so) also contains a function, named 
+    SDQS_SMI_get_info, that returns the SMI (struct meta info) for the source 
+    and SDB record structures of all SDB tables. This can be used by sdqs 
+    clients, for example, for data serialization purpose. See smipp man-page 
+    for further info about the SMI_get_info function.
+
+    If the message read size is known (either "src_data_size" is specified or
+    the src_struct is of fixed size) and it is larger than the sizeof
+    sdb_struct and sdb_struct does not have any variable-sized field, sdqs will
+    save all existing records in the LB upon termination. Using the saved
+    records, the sdqs initialization can be much faster when the LB holds a
+    large number of messages of large sizes.
+
+OPTIONS
+    -c	configuration_file_name
+	Specifies the configuration file name. If the configuration file name
+	is not specified, sdqs will run without compilation (using the existing
+	shared library - the compiler and compiling environment are not 
+	needed).
+
+    -e  environ_name
+	Specifies a environment name that is used for reading the appropriate
+	SDQS_ENV section in the sdqs configuration file.
+
+    -s	shared_library_name
+	Specifes a name for the shared library. The default is "sdqs". If we 
+	need to run multiple instances of sdqs with the same port number, we 
+	must assign a unique shared library name for each instance. Because we
+	cannot run multiple instances of sdqs with the same port number on the
+	same host anyway, this option is needed only if we run sdqs with the
+	same port number on different hosts.
+
+    -p	port_number
+	This is used only when sdqs runs without compiling. The port number is
+	used to locate the shared library. The default value is defined by 
+	"RMTPORT" or 60245 if "RMTPORT" is not defined.
+
+    -o	Terminates after compiling. This is the compiling only option.
+
+    -v	Turns on verbose mode - LE verbose level is set to 3.
+
+    -d	Displays LE messages on stderr also. This is useful for debugging.
+
+    -h	Prints usage message and terminates.
+
+
+EXAMPLES
+
+    sdqs -e linux -c ./sdqs.conf
+
+	starts sdqs. The configuration file of ./sdqs.conf is used. The section
+	of "SDQS_ENV.linux" is used for the environmental options. It first
+	generates the DLL and then starts operation as a server.
+
+EXIT STATUS
+    0:		Terminated normally. 
+
+    non-zero:	Terminated because an error was detected.
+
+SEE ALSO
+    lb(3), css(3), cs(3), smipp(1)

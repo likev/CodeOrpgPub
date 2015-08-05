@@ -1,0 +1,207 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/16 20:36:31 $
+C $Id: a3164h.ftn,v 1.3 2002/12/16 20:36:31 christie Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A3164H__PACKET_WRITE(STID,AZ,RAN,HT0C,HTM20C,
+     >      HOUR, MIN, DAY, MONTH, YEAR, FLD1, FLD3, BL)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3164H__PACKET_WRITE
+*.
+*.  MODULE VERSION: 0016
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       10 18 85      0000      JSGROMMONS
+*.       05 01 86      0001      JSGROMMONS           SPR#  60124
+*.       06 03 86      0002      JSGROMMONS           SPR#  60313
+*.       10 02 86      0003      J GROMMONS           SPR # 60346
+*.       06 02 89      0004      TERRI LEWIS          SPR # 90322
+*.       11 06 90      0005      David M. Lynch       SPR # 91257
+*.       10 14 91      0006      EDWARD WENDOWSKI     SPR # 92410
+*.       12 03 91      0007      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0008      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0009      Toolset              SPR 91895
+*.       03/25/93      0010      Toolset              SPR NA93-06801
+*.       01/28/94      0011      Toolset              SPR NA94-01101
+*.       03/03/94      0012      Toolset              SPR NA94-05501
+*.       04/01/95      0013      Toolset              CCR NA95-11802
+*.       04/22/95      0014      STEVE SMITH          CCR NA94-26301
+*.       12/23/96      0015      Toolset              CCR NA95-11807
+*.       03/16/99      0016      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:
+*.     CALL A3164H__PACKET_WRITE(STID,AZ,RAN,HT0C,HTM20C,FLD1,FLD3,
+*.                               BL)
+*.
+*.  MODULE FUNCTION:
+*.     FORMAT THE PACKET LINES FOR THE GRAPHIC BLOCK
+*.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT    TYPE        DESCRIPTION
+*.    -   -----    ----        -----------
+*.    G   KM_TO_NM R*4         (CONSTANT)DEFINES THE SCALING FACTOR FOR
+*.                             KILOMETER TO NAUTICAL MILES PARAMETER
+*.    C   IT       I*4         Pointer into operator messages for line number.
+*.    C   K1       I*4         Lower limit of fields to be written.
+*.    C   K2       I*4         Upper limit of fields to be written.
+*.    C   NCOLS    I*4         (CONSTANT)Used as a dimension of a
+*.                             one-dimensional array.
+*.    P   AZ       I*4         AZ ARRAY FOR WRITING PACKET
+*.    P   DAY      I*4         Date stamp of Hail Temperature Altitudes
+*.    P   FLD1     CHAR*9      Character array representing hail status.
+*.    P   FLD3     CHAR*9      Field 3 in line
+*.    P   HOUR     I*4         Hour of the Hail Temeprature Altitude Time
+*.                             Stamp in adaptation data
+*.    P   HT0C     R*4         The Hail 0 degree C altitude in adaptation data
+*.    P   HTM20C   R*4         The -20 degree C altitude in adaptation data
+*.    P   MIN      I*4         Minute from Hail Temperature Date/Time Stamp
+*.    P   MONTH    I*4         The Month of the Hail Temperature Altitude Date
+*.                             Stamp in adaptation data
+*.    P   RAN      R*4         RAN ARRAY FOR WRITING PACKET
+*.    P   STID     CHAR*2      Hail ID array for writing storm ID.
+*.    P   YEAR     I*4         The Year of the Hail Temperature Altitude Date
+*.                             Stamp in adaptation data
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    C   IT      I*4         Pointer into operator messages for line number.
+*.    C   TBUF    I*2         Character lines.
+*.    C   TXCHR   CHAR*80     Text character lines.
+*.    P   BL      I*4         NO OF CHARACTERS PER LINE
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME  TYPE        DESCRIPTION
+*.    ----  ----        -----------
+*.    BCHAR I*4         CONSTANT 80 FOR NO OF CHARACTERS
+*.    IRAN  I*4         TEMP ARRAY OF RANGE IN NM
+*.    J     I*4         SUBSCRIPT
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3164A
+*.    A3164B
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP16.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK16.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+      IMPLICIT NONE
+C
+C** LOCAL COMMON
+C
+$INCLUDE A309.INC/G,**A3PM50 (NLIST)
+$INCLUDE A315BUF.INC/G, **A315P9H (NLIST)
+$INCLUDE A316.INC/G,**A3164P4 (NLIST)
+C
+C** LOCAL DEFINITIONS:
+C
+      INTEGER*4  BL,J,K
+      INTEGER*4  BCHAR
+      INTEGER*4  AZ(NCOLS),IRAN(NCOLS)
+      INTEGER HOUR, MIN, DAY, MONTH, YEAR
+C
+      CHARACTER*9 FLD1(NCOLS), FLD3(NCOLS)
+C
+      REAL  RAN(NCOLS),HT0C,HTM20C
+C
+      CHARACTER*2   STID(NCOLS)
+      CHARACTER*80  TXCHR(NCOLS)
+C
+      PARAMETER  (BCHAR=80)
+C
+      EQUIVALENCE  (TBUF(1,1),TXCHR)
+C
+C** CONVERT RAN TO INTEGER
+C
+      DO 100  J=K1,K2
+         IRAN(J) = NINT(RAN(J)*KM_TO_NM)
+  100 CONTINUE
+C
+C** INITIALIZE LINE NO
+C
+      IT = 1
+C
+C** WRITE LINE 1
+C
+      WRITE(TXCHR(IT),901)  (STID(J), J=K1,K2)
+C
+C** WRITE LINE 2
+C
+      IT = IT + 1
+      WRITE(TXCHR(IT),902)  (AZ(J), IRAN(J), J=K1,K2)
+C
+C** LINE 3
+C
+      IT = IT + 1
+      WRITE(TXCHR(IT),903)  (FLD1(J), J=K1,K2)
+C
+C** WRITE LINE 4
+C
+      IT = IT + 1
+      WRITE(TXCHR(IT),904)  (FLD3(J), J=K1,K2)
+C
+C** WRITE LINE 5 (HAIL TEMPERATURES)
+C
+      IT = IT + 1
+      WRITE(TXCHR(IT),905) HT0C, HTM20C, HOUR,
+     $    MIN, MONTH, DAY, YEAR
+C
+C** DETERMINE NO I*2 WORDS OF CHARACTERS PER LINE
+C
+      BL = BCHAR / 2
+C
+C** FORMAT STATEMENTS
+C
+  901 FORMAT(2X,'STORM ID     ',6(7X,A2))
+  902 FORMAT(2X,'AZ/RAN       ',6(2X,I3,'/',I3))
+  903 FORMAT(2X,'POSH/POH     ',6(A9))
+  904 FORMAT(2X,'MAX HAIL SIZE',6(A9))
+C 905 FORMAT(2X,'HAIL TEMP ALT',
+C    >          '     0 DEG C ',F4.1,' KFT (MSL)',
+C    >          '   -20 DEG C ',F4.1,' KFT (MSL)')
+  905 FORMAT(2X,'0/-20 C TEMP ALT ',F4.1,'/',F4.1,
+     >          ' KFT(MSL) - LAST CHANGED ',I2.2,':',
+     >          I2.2,' ',I2.2,'/',I2.2,'/',I2.2)
+C
+C** RETURN TO CALLER ROUTINE
+C
+      RETURN
+      END

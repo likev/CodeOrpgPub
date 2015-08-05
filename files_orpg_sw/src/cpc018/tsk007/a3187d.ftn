@@ -1,0 +1,171 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/17 18:26:38 $
+C $Id: a3187d.ftn,v 1.3 2002/12/17 18:26:38 christie Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A3187D__VAD2_NOHTS( VADBUF )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3187D__VAD2_NOHTS
+*.
+*.  MODULE VERSION: 0011
+*.
+*.  MODULE LANGUAGE:  FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       10 27 89      0000      BILL EIDSON          SPR # 80273
+*.       05 20 90      0001      JOHN DEPHILIP        SPR # 90697
+*.       11 07 90      0002      CHARLIE BAUMHER      SPR # 91259
+*.       12 03 91      0003      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0004      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0005      Toolset              SPR 91895
+*.       03/25/93      0006      Toolset              SPR NA93-06801
+*.       01/28/94      0007      Toolset              SPR NA94-01101
+*.       03/03/94      0008      Toolset              SPR NA94-05501
+*.       04/11/96      0009      Toolset              CCR NA95-11802
+*.       12/23/96      0010      Toolset              CCR NA95-11807
+*.       03/16/99      0011      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A3187D__VAD2_NOHTS(VADBUF)
+*.
+*.  MODULE FUNCTION:
+*.
+*.       THIS MODULE PERFORMS THE FUNCTION OF BUILDING AN ERROR
+*.    MESSAGE PRODUCT IF THE PUP OPERATOR SELECTS AN ALTITUDE NOT
+*.    USED BY THE VAD ALGORITHM.  THE ROUTINE BUILDS A TEXT MESSAGE
+*.    AND PRODUCT HEADER ONTO THE OUTPUT BUFFER
+*.
+*.  MODULES CALLED: A31878__HEADER, A3187G__GEN_COCHR_PKCTS, 
+*.                  A3CM25__GET_DATE_TIME 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT    TYPE        DESCRIPTION
+*.    -   -----    ----        -----------
+*.    G   BLKOVRHD I*4         (CONSTANT)SIZE OF OVERHEAD PORTION OF PRODUCT
+*.                             SYMBOLOGY BLOCK, IN BYTES
+*.    G   PHBYTES  I*4         (CONSTANT)Number of bytes in product header.
+*.    C   LABELS   I*2         (CONSTANT)Color value to use for message.
+*.    P   VADBUF   I*2         OUTPUT BUFFER SIZE (*)
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    P   VADBUF  I*2         OUTPUT BUFFER SIZE (*)
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    P   VADBUF            I*2         OUTPUT BUFFER SIZE (*)
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME        TYPE        DESCRIPTION
+*.    ----        ----        -----------
+*.    BPHW        R*4         CONVERSION FACTOR, BYTES PER HALFWORD
+*.    BPTR        I*4         OUTPUT BUFFER POINTER
+*.    CDATE       I*4         CURRENT DATE
+*.    COLUMN      R*4         COLUMN NUMBER TO PLACE MESSAGE
+*.    CTIME       I*4         CURRENT TIME
+*.    LENPSD      I*4         LENGTH OF THE PRODUCT SYMBOLOGY DATA
+*.    MESSAGE     CHAR*60     MESSAGE INDICATING NO ALTITUDE
+*.    MESSAGE_LEN I*2         LENGTH OF ACTUAL MESSAGE
+*.    OFFPSD      I*4         OFSET TO PRODUCT SYMBOLOGY DATA
+*.    PHRASE      CHAR*60     CHARACTER ARRAY USED TO PASS MESSAGE ONTO
+*.                            FORMATTING ROUTINE
+*.    PHRASEI2    I*2         ARRAY EQUIVALENCED TO PHRASE USED AS AN ARGUMENT
+*.                            TO CALL A3187G.
+*.    PHRASE_LEN  I*2         LENGTH OF PHRASE IN BYTES
+*.    ROW         R*4         ROW NUMBER TO PLACE MESSAGE
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  NONE
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP18.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK18.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+C
+C* GLOBAL DECLARATIONS:
+C
+$INCLUDE A309ADPT.INC/G,**A3CD70C7 (NLIST)
+$INCLUDE A309.INC/G,**A3PM01 (NLIST)
+$INCLUDE A317BUF.INC/G,**A317VP (NLIST)
+$INCLUDE **A317VD (NLIST)
+$INCLUDE A318.INC,**A318C7 (NLIST)
+C
+C* LOCAL DECLARATIONS:
+C
+      REAL ROW, COLUMN, BPHW
+      INTEGER BPTR, LENPSD, OFFPSD, CDATE, CTIME
+      INTEGER*2 PHRASEI2(30), PHRASE_LEN, MESSAGE_LEN
+      CHARACTER*60 PHRASE, MESSAGE
+      PARAMETER  (MESSAGE = 'ALTITUDE SELECTED NOT USED BY VAD. ')
+      EQUIVALENCE (PHRASE, PHRASEI2(1))
+      PARAMETER (MESSAGE_LEN = 34, ROW = 250.0, COLUMN = 100.0)
+      PARAMETER (BPHW = 2)
+      INTEGER*2 VADBUF(*)
+X     TYPE *,'7D: ENTERED HERE ...'
+C
+C* SET THE MISSING HEIGHTS MESSAGE
+C
+      PHRASE = MESSAGE
+      PHRASE_LEN = MESSAGE_LEN
+C
+C* SET UP THE OUTPUT BUFFER POINTER TO THE BEGINNING OF THE PRODUCT
+C* SYMBOLOGY DATA.
+C
+      BPTR = (PHBYTES + BLKOVRHD) / BPHW
+      OFFPSD = BPTR
+C
+C* BUILD THE MESSAGE ONTO THE OUTPUT BUFFER.
+C
+C$DELETE
+      CALL A3187G__GEN_COCHR_PCKTS(ROW,COLUMN,LABELS,PHRASEI2,
+     +PHRASE_LEN, BPTR, VADBUF)
+C$ENDDELETE
+C$INSERT      CALL A3187G__GEN_COCHR_PKCTS(ROW,COLUMN,LABELS,PHRASEI2,
+C$INSERT     +PHRASE_LEN, BPTR, VADBUF)
+C
+C* CALCULATE THE LENGTH OF THE PRODUCT SYMBOLOGY DATA.
+C
+      LENPSD = (BPTR - OFFPSD) * BPHW
+C
+C* EXTRACT THE GENERATION DATE AND TIME FROM THE SYSTEM CLOCK
+C
+      CALL A3CM25__GET_DATE_TIME(CDATE, CTIME)
+C
+C* BUILD A PRODUCT HEADER ONTO THE PRODUCT BUFFER.
+C
+      CALL A31878__HEADER(VADBUF, CDATE, CTIME, BPTR, LENPSD)
+X     TYPE *,'7D: EXIT HERE ...'
+C
+C* EXIT THE ROUTINE PRODUCT.
+C
+      RETURN
+      END

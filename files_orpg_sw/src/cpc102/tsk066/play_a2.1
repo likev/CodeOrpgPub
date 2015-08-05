@@ -1,0 +1,357 @@
+play_a2 (1) 		   	ORPG Manpage   			play_a2(1)
+
+    
+NAME
+    play_a2
+    
+SYNOPSIS
+    play_a2 [options]
+    
+DESCRIPTION
+
+    "play_a2" performs the following functions:
+
+	a. Reads WSR-88D Level II archive data from compressed (bzip2 or
+	compress) files on disk (or CD) and ingests the data into the ORPG. 
+
+	b. Reads WSR-88D Level II archive tape and ingests the data into the 
+	ORPG. 
+
+	c. Reads WSR-88D Level II archive tape and creates compressed volume 
+	files that can be read by this tool for playback (function a).
+
+	d. Writes selected volume files to writable and re-writable CD.
+
+    In playback mode, the default behavior is to write the data in real-time to
+    the ORPG radial data input data store. Radial data messages as well as all
+    ICD RDA messages are passed to the ORPG. If a start-of-volume radial status
+    is found in the middle of a volume, the radial status flag is reset to
+    start-of-elevation. The -o option can be used to specify an alternative
+    playback data store.
+
+    "play_a2" is an interactive tool using text-based menus. When the tool
+    waits for an input, one can type ctrl-c to cancel the current selection and
+    return to the menu. "play_a2" also supports command line mode operation
+    when used for playing back volume files.
+
+    To start the tool in interactive mode, one can do the following:
+
+	Set the environment variable A2_OPTIONS (See later) and type
+	"play_a2". This will start play_a2 in volume file playback mode. No
+	options can be specified in this case. Any option except -i and -a will
+	start "play_a2" in non-interactive mode.
+
+	Type "play_a2 -i". This will start play_a2 in volume file playback
+	mode. The -i option allows the user to use additional options, such as
+	-x and -d.
+
+	Type "play_a2 -a". This will start play_a2 in tape playback mode.
+	Additional options, such as -x, can be supplied.
+
+    In the interactive mode, one can switch from file playback mode to tape
+    playback mode and vice versa by going to the "Options" sub-menu. To write
+    to CD, one needs also to go to the "Options" sub-menu.
+
+    The volume file name must be in one of the following forms:
+
+	prefix_yyyy?mm?dd?hh?mm?ss*Suffix
+	prefixyyyymmdd_hhmmssSuffix
+	prefix_yyyymmdd?hhmmss*Suffix
+
+    where "prefix" is the first part (often used for the radar label). "prefix"
+    must not contain character "_". "yyyy", the first "mm", "dd", "hh", the
+    second "mm' and "ss" are respectively the year, month, day, hour, minute
+    and second of the volume time. "?" can be any non-digit character and "*"
+    can be any string. The first character of "*" must not be a digit. "Suffix"
+    can be either ".bz2" or ".Z" which indicates the compression type.
+
+    The data directory is specified by the -d option and/or the environmental
+    variable AR2_DIR. Denote the -d option, the AR2_DIR and the present working
+    directory by respectively "Odir", "Edir" and "Pwd". The data directory is
+    determined by the following rules:
+
+	If "Odir" exists and it is a complete path, it is used as the DD (data
+	directory). Otherwise if "Edir" exists, "Edir" is inserted in front of
+	"Odir" ("" is used if "Odir" is not specified) to form the DD. If the
+	path is still not complete, "Pwd" is inserted in front of it to
+	complete the path. A string of single character "." or a string
+	starting with "./" is accepted and treated as the present working
+	directory.
+
+    In the interactive mode, one can select a new data directory from the file
+    playback mode's main menu.
+
+    In the file playback mode, "play_a2" generates a list of all files, that
+    conform to the volume file naming convention, by searching the data
+    directory and its subdirectories of up to 3 levels. Identical files are not
+    taken. The files are sorted based on first the prefix (radar label) and
+    then the volume time for files of the same prefix. Files then are selected
+    from this list for playback or written to CD.
+
+    In the interactive file playback mode, all volume files are organized into
+    data sessions based on that the time gap between two consecutive volumes
+    are not larger than a specified time (with default of 15 minutes). Then one
+    can select a session to playback. Following the menu, one can do the
+    following: Select a new data directory; Select a radar data session, the
+    first volume and the number of volumes to playback; Set the playback speed;
+    Set the repeated playback mode; Choose a pause mode; Select a maximum
+    volume time gap which is used to identify the sessions. While the playback
+    is in progress, one can stop (pause) the playback. While it is stopped, one
+    can choose to either continue or abort the current playback session. One
+    can choose to initiate (with ctrl-c) the pause at the end of the current
+    radial, the current elevation or the current volume.
+
+    After a session is selected, one can specify a volume in the session to
+    start with. In responding to "Enter start vol time (yy:mm:dd:hh:mn or
+    hh:mn) or index (1 to 2) and, optionally (separated by space), # volumes:",
+    the following inputs, for example, are all acceptable:
+
+	1994:10:16:02:27
+	02:27
+	3
+	1994:10:16:02:27 4
+	02:27 4
+	3 4
+
+    The first three specify only the starting volume. The number of volumes to
+    play is all available volumes. The second line specifies the hour and
+    minute of the starting volume. This format works for specifying a time that
+    is within 24 hours of the session start time. The third line specifies the
+    volume index of the first playback volume. The index of the first volume in
+    the session is 1. The lines 4 through 6 are the same as the first three
+    lines except that the number of the volumes to playback is specified. The
+    number will be adjusted to fit to the available volume files in the
+    session.
+
+    In the tape playback mode, by following the menu, one can do the following:
+    Rewind the tape; Start playback at current tape position; Search to a
+    specific volume and start to playback; Advance the tape to skip forward a
+    number of volumes; Sets playback speed; Select save volume mode. 
+
+    To change the tape in the drive without terminating play_a2: 1. Select "Go
+    to volume file playback mode" in the "Options" menu. 2. Change the tape and
+    wait until the drive settles sown. 3. Select "Go to tape playback mode" in
+    the "Options" menu.
+
+    When responding to "Enter: start time (yy:mm:dd:hh:mn or hh:mn) or volume
+    #:", one can choose to enter in one of the three ways: A long time format
+    starting with year, a short time format of only hour and minute or a volume
+    number.
+
+    In the tape playback mode, one can select the save volume mode (from the
+    "Option" menu). In this mode the data read from tape are used to generate
+    volume files instead of being sent to the ORPG. Volume files are generated
+    on the working directory defined by environment variable "WORK_DIR". If
+    "WORK_DIR" is not defined, "/tmp" is used. One can also enter an
+    alternative directory by selecting "Select a new dir to save volume" in the
+    "Options" menu. Volume files generated use the volume file naming
+    convention and are compressed with bzip2. These files can be played by this
+    tool or saved on CD. If the tool cannot figure out the radar label, the
+    user has to enter the radar label (one of the selections in the "options"
+    menu).
+
+    Volume files read in the file playback mode or read from the tape in tape
+    playback mode can be written to a CD. This selection is in the "Options"
+    menu. In CD write mode, volume files are organized into sessions (the
+    maximum time gap between consecutive volumes are 15 minutes). One then
+    selects sessions that are to be written to the CD. One can use the "Select
+    session" and "Deselect session" to select the desired sessions. After
+    sessions are selected, one can select "Write CD" to start writing CD.
+
+    "play_a2" supports non-interactive volume file playback. In this mode, the
+    volume files to playback can be specified with two different options: The
+    command line option and the play list option.
+
+    The command line option uses the following "play_a2" options to specify
+    the files to playback. -d is used to specify the data directory as
+    described earlier. -r is used to select a "prefix" (e.g. radar). -s is used
+    to specify the first volume to start with (and the prefix as well). -n is
+    used to specify the number of volumes to playback. The playback is
+    performed sequentially in terms of the sorted volume list (described
+    earlier). If -s option is not specified, the first volume for the selected
+    radar is used. If the -r option is not specified, volumes from all radars
+    are selected. In the latter case, the playback will go through all volumes
+    of a radar and then continue to the next radar.
+
+    The play list option (-p option) allows one to use a file to list all
+    volume files to playback. In this option volume files will be read in the
+    listed order and do not need to follow a standard naming convention.
+    Options -s and -r are ignored. In the file, each line specifies a volume
+    file name. The first line can, by option, specify a directory where the
+    data files are located. This directory is used as if it comes from the -d
+    option and the -d option, if specified, is ignored. If the directory is not
+    specified, the directory is determined in the normal way: -d option,
+    AR2_DIR and/or pwd. Empty lines are allowed. Leading and trailing spaces
+    and tabs are allowed. All file names without a complete path are assumed to
+    be in the data directory. A sample play list file is given later in this
+    man-page.
+
+    Options -x can be used to control the playback speed. The speed is
+    specified as a multiple of the real time data rate. For example, .5 means
+    half of the read time speed and 2 means a speed of twice of the real
+    time. This option can be used for all modes: interactive, non-interactive
+    and tape playback. The playback speed only applies to data within a volume
+    scan by default. If option "-T" is selected, the playback speed applies to
+    each entire playback session (The time gaps between volumes are simulated).
+    The playback speed is limited by how fast the data can be read from the
+    storage and decompressed and, thus, may be slower than specified.
+
+
+    Option -c can be used to set the repeated playback mode. The "-t" option
+    directs "play_a2" to only print the file names that would be played back
+    instead of performing the playback. These two options are used only for
+    non-interactive mode.
+
+    Options -r, -s, -c, -n, -t, -q and -p are ignored in interactive mode. 
+
+    "play_a2" invokes "mkisofs" to create a file system and "cdrecord" to write
+    the CD. Before one can write CD, one needs to find out the local device ID
+    (something looks like 1,5,0) of the CD drive. This can be done by running
+    "cdrecord -scanbus". One needs also to find out the appropriate writing
+    speed. One can optionally (See the next paragraph), let "play_a2" convert
+    all files, that are compressed with "compress", to be compressed with bzip2
+    before writing to CD.
+
+    "play_a2" uses environmental variable "A2_OPTIONS" for specifying the CD
+    device ID and certain options. The format of this environmental variable is
+    "KEY=value;KEY=value;...". Each field is specified with a KEY and a VALUE.
+    Fields are separated by ";" or ":". Accepted keys are CDW_DEVICE,
+    CDW_SPEED, TAPE_DEVICE and CONVERT_TO_BZ2. They are used for specifying
+    respectively the CD devise ID, the CD writing speed, the tape device and
+    whether converting to the bzip2 format before CD writing. CONVERT_TO_BZ2
+    does not require a value. CDW_DEVICE is required and others are optional
+    with default values of TAPE_DEVICE="/dev/rmt/0mb", CDW_SPEED=4 and
+    CONVERT_TO_BZ2 not defined. An example is
+
+	"TAPE_DEVICE=/dev/rmt/0mb;CDW_DEVICE=1,5,0;CDW_SPEED=8;CONVERT_TO_BZ2"
+
+    "play_a2" also uses the working directory (described earlier) for storing
+    temporary files when writing CD and playing back certain data formats.
+
+    "play_a2" may create a file, called play_a2.log, in the working directory
+    for logging status and error messages. Specifically, in the writing CD
+    procedure, all outputs from "cdrecord" and "mkisofs" go to that file. One
+    can, by reading the file, find out why, for example, CD writing failed.
+
+
+OPTIONS
+    "play_a2" recognizes the following options:
+
+	-i			Starts play_a2 in interactive file playback 
+				mode.
+
+	-a			Starts play_a2 in interactive tape playback 
+				mode.
+    
+    	-d DIR			Specifies the data directory containing volume 
+				files to play. Either a complete path or a path
+				relative to AR2_DIR can be specified.
+
+        -o LB_name		Specifies the name of playback output LB. The 
+				default is the ORPG radial data ingest data 
+				store. If LB_name is not a complete path, 
+				"$ORPGDIR/LB_name" is used.
+    
+    	-x speed		Multiplier for playback speed. A positive real 
+    				number. Default: Play in real-time (1.0).
+
+        -R			Resets playback data time to the current time.
+
+	-T			Simulates playback speed in the entire session
+				(time gaps between volume scan are simulated).
+
+	-q			Runs with less status reporting.
+
+    	-h			Show this usage information.
+
+    Options used for non-interactive file playback mode:
+
+    	-p play_list		File listing which volume files to play, 
+				otherwise command line options -s, -r, -n, -d
+				are used to indicate which files to play. (see
+				EXAMPLES for sample play_list formats).
+    				   
+    	-s first_file           Play files starting with this filename that 
+				contain the same name prefix (see EXAMPLES).
+				Not compatible with the -p option. Default:
+				Play all files in the directory.
+
+    	-r PREFIX		Play files whose name begin with the prefix 
+				specified. Default: Play all files in the
+				directory. Not compatible with the -p option.
+
+    	-n N			Play only N volumes. Not compatible with the 
+				-p option. Default: Play all volume files in 
+				the sequence.
+        
+    	-c			Continuous loop mode; stop play_a2 with 
+				ctrl-C.
+				Default: OFF
+
+    	-t			No files ingested into the ORPG, only prints 
+				which files would have been played.
+    				Default: Normal Execution
+
+    
+EXAMPLES
+
+    play_a2
+
+	- Starts "play_a2" in interactive file playback mode if A2_OPTIONS is
+	defined. Starts "play_a2" in non-interactive file playback mode 
+	(playing all files) if A2_OPTIONS is not defined.
+
+    play_a2 -i -d .
+
+	- Starts "play_a2" in interactive file playback mode and the starting 
+	data directory is the current directory.
+  
+    play_a2 -a
+
+	- Starts "play_a2" in tape playback mode.
+
+    The following examples are running "play_a2" in non-interactive mode.
+    
+    play_a2 -s TAPE_1999:08:27:06:15:00.ar2.bz2 -n 10 -x 1.5
+
+	- Reads 10 volumes, starting with volume 
+	TAPE_1999:08:27:06:15:00.ar2.bz2. Playback speeds is 1.5x.
+
+    play_a2 -r KTLX -n 10 -x 1.5
+
+	- Reads 10 volumes, starting with the first volume of radar "KTLX".
+	Playback speed is 1.5x.
+
+    play_a2 -t -r KTLX -n 10
+
+	- Prints files names instead of actually playing them in the above
+	example.
+
+    play_a2 -p play_list -x 2
+
+	- Plays files listed in file "play_list". Playback speed is 2x.
+
+    The following are examples of play list files.
+
+    Play list file with the optional PATH specifier (absolute path):
+        
+	PATH = /noaa/home/cd1_150/TEST_FILES
+	volume_file1
+	volume_file2
+
+    Play list file with the optional PATH specifier (relative path):
+        
+	PATH = TEST_FILES
+	volume_file1
+	volume_file2
+		
+    Play list file without the optional PATH specifier:
+        
+	TEST_FILES/volume_file1
+	TEST_FILES/volume_file2
+	
+        
+SEE ALSO
+    mkisofs (1), cdrecord (1), bzip2 (1), compress (1)
+    
+    				

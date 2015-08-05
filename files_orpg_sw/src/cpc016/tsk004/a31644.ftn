@@ -1,0 +1,363 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/16 20:36:18 $
+C $Id: a31644.ftn,v 1.4 2002/12/16 20:36:18 christie Exp $
+C $Revision: 1.4 $
+C $State: Exp $
+C
+      SUBROUTINE A31644__WRITE_LINES(K,STID,RADAR_ID,BL,HAILSTATS)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A31644__WRITE_LINES
+*.
+*.  MODULE VERSION: 0019
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       10 18 85      0000      JSGROMMONS
+*.       05 01 86      0001      JSGROMMONS           SPR # 60157
+*.       06 03 86      0002      JSGROMMONS           SPR # 60313
+*.       10 02 86      0003      J GROMMONS           SPR # 60346
+*.       03 20 87      0004      JO STALEY            SPR # 70146
+*.       08 22 88      0005      VALERIE HOLDEN       SPR # 80248
+*.       05 30 89      0006      TERRI LEWIS          SPR # 90322
+*.       01 30 91      0007      David M. Lynch       SPR # 91257
+*.       10 14 91      0008      EDWARD WENDOWSKI     SPR # 92410
+*.       12 03 91      0009      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0010      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0011      Toolset              SPR 91895
+*.       03/25/93      0012      Toolset              SPR NA93-06801
+*.       01/28/94      0013      Toolset              SPR NA94-01101
+*.       03/03/94      0014      Toolset              SPR NA94-05501
+*.       05/04/94      0015      Steve Smith          CCR 93011-002A00
+*.       04/01/95      0016      Toolset              CCR NA95-11802
+*.       04/21/95      0017      STEVE SMITH          CCR NA94-26301
+*.       12/23/96      0018      Toolset              CCR NA95-11807
+*.       03/16/99      0019      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:
+*.    CALL A31644__WRITE_LINES(K,STID,RADAR_ID,BL,HAILSTATS)
+*.
+*.  MODULE FUNCTION:
+*.     WRITE THE DATA LINES FOR THE TABULAR BLOCK
+*.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT        TYPE        DESCRIPTION
+*.    -   -----        ----        -----------
+*.    G   H_MHS        I*4         (CONSTANT)Index to the MEHS, the third
+*.                                 position, in the HAILSTATS arrays.
+*.    G   H_POH        I*4         (CONSTANT)Index to the POH, the first
+*.                                 position, in the HAILSTATS arrays.
+*.    G   H_PSH        I*4         (CONSTANT)Index to the PSH, the second
+*.                                 position, in the HAILSTATS arrays.
+*.    G   NHAL_MAX     I*4         (CONSTANT)A sizing parameter equal to the
+*.                                 max. number of cells processed by the hail
+*.                                 algorithm.
+*.    G   NHAL_STS     I*4         (CONSTANT)A sizing parameter equal to the
+*.                                 number of hail attributes stored in the
+*.                                 HAILSTATS array.
+*.    G   UNKNOWN      I*4         (CONSTANT)Flag value for the POSH and POH
+*.                                 indicating the cell is beyond processing
+*.                                 range.
+*.    C   IT           I*4         Pointer into operator messages for line
+*.                                 number.
+*.    C   N1           I*4         Lower limit of lines to be written.
+*.    C   N2           I*4         Upper limit of lines to be written.
+*.    C   NMSTRMS      I*4         Number of storms.
+*.    C   RDATE        I*4         Report date.
+*.    C   RTIME        I*4         Report time (1:Hours; 2:Minutes;
+*.                                 3:Seconds).
+*.    C   SORTED_CELLS I*2         Cell ID of hail storms sorted according to
+*.                                 POSH, then POH.
+*.    C   NCOLS        I*4         (CONSTANT)Used as a dimension of a
+*.                                 one-dimensional array.
+*.    C   NOI2         I*2         (CONSTANT)Number of halfwords for 80
+*.                                 character line.
+*.    C   TNOLNS       I*4         (CONSTANT)Total number of lines written.
+*.    P   HAILSTATS    R*4         HAIL STATISTICS DATA ARRAY
+*.    P   K            I*4         SUBSCRIPT FOR HAIL DATA
+*.    P   RADAR_ID     I*4         RADAR ID
+*.    P   STID         CHAR*2      Hail ID array for writing storm ID.
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    C   IT      I*4         Pointer into operator messages for line number.
+*.    C   NOLNS   I*4         Number of lines written.
+*.    C   TBUF    I*2         Character lines.
+*.    C   TXCHR   CHAR*80     Text character lines.
+*.    P   BL      I*4         NO OF CHARACTERS PER LINE
+*.    P   K       I*4         SUBSCRIPT FOR HAIL DATA
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME              TYPE        DESCRIPTION
+*.    ----              ----        -----------
+*.    BLANK             CHAR*1      PROGRAM PARAMETER FOR A BLANK.
+*.    GREATER_THAN      CHAR*1      Program parameter for the greater than
+*.                                  symbol.
+*.    HAILSIZE          R*4         Maximum expected hail size for the current
+*.                                  storm cell.
+*.    I                 I*4         Loop index variable.
+*.    IDB               I*4         Starting position within text string for
+*.                                  Storm Cell ID
+*.    IDE               I*4         Ending position within text string for
+*.                                  Storm Cell ID
+*.    II                I*4         First value in Do loop.
+*.    J                 I*4         Do loop counter
+*.    LESS_THAN         CHAR*1      Program parameter value for LESS THAN
+*.                                  symbol
+*.    MAX_HAIL_SIZE     R*4         Maximum expected hail size to report on
+*.                                  product.
+*.    MIN_HAIL_SIZE     R*4         Minimum expected hail size to report
+*.    MIN_REPORTED_SIZE R*4         The smallest expected hail size, if
+*.                                  greater than zero, to report on a product
+*.    MXSZB             I*4         Starting position within text string for
+*.                                  Max Hail Size
+*.    MXSZE             I*4         Ending position within text string for Max
+*.                                  Hail Size
+*.    NULL              I*4         Parameter value of zero.
+*.    POHB              I*4         Beginning position within text string oa
+*.                                  line for the POH
+*.    POHE              I*4         Ending position within text string on a
+*.                                  line for the POH
+*.    POSHB             I*4         Beginning position within text string oa
+*.                                  line for the POSH
+*.    POSHE             I*4         Ending position within text string for
+*.                                  POSH data.
+*.    PROB_HAIL         I*4         Probability of hail for the current storm
+*.                                  cell.
+*.    PROB_SEVERE       I*4         Probablity of Severe Hail for a storm cell
+*.    QUALIFIER         CHAR*1      Qualifier for hail size (either Blank, >
+*.                                  or <)
+*.    UNKNOWN_TEXT      CHAR*7      Parameter indicating hail information for
+*.                                  the storm cell is unknown.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3164A
+*.    A3164B
+*.    A3164C
+*.    A316SRT
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP16.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK16.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+      IMPLICIT NONE
+#IFDEF LINUX
+      INTEGER*4  K,BL,RADAR_ID,II,I,J
+#ENDIF
+C
+$INCLUDE A315BUF.INC/G,**A315PHAD (NEND NLIST)
+$INCLUDE A315BUF.INC/G,**A315P9H (NEND NLIST)
+$INCLUDE A309.INC/G,**A3PM50 (NLIST)
+$INCLUDE            **A3CD08 (NLIST)
+$INCLUDE A309.INC/G,**A3CD08D (NEND NLIST)
+C
+C   LOCAL COMMON
+$INCLUDE A316.INC/G,**A3164P4 (NLIST)
+C
+C   LOCAL DEFINITIONS:
+C
+#IFDEF LINUX
+C     NOTHING
+#ELSE
+      INTEGER*4  K,BL,RADAR_ID,II,I,J
+#ENDIF
+      REAL  HAILSTATS(NHAL_STS,NHAL_MAX)
+C
+      INTEGER*4  PROB_SEVERE, PROB_HAIL, NULL
+      REAL       MAX_HAIL_SIZE, MIN_REPORTED_SIZE, MIN_HAIL_SIZE
+      PARAMETER (MAX_HAIL_SIZE = 4.0, MIN_REPORTED_SIZE = 0.50)
+      PARAMETER (MIN_HAIL_SIZE = 0.0, NULL = 0)
+C
+      CHARACTER*1   QUALIFIER, BLANK, LESS_THAN, GREATER_THAN
+      PARAMETER (BLANK = ' ', GREATER_THAN ='>', LESS_THAN = '<')
+      CHARACTER*2   STID(NCOLS)
+      CHARACTER*7   UNKNOWN_TEXT
+      PARAMETER (UNKNOWN_TEXT = 'UNKNOWN')
+      CHARACTER*80  TXCHR(NCOLS)
+C
+      EQUIVALENCE  (TBUF(1,1),TXCHR)
+C
+      INTEGER*4 IDB, IDE
+      PARAMETER (IDB = 9, IDE = 10)
+      INTEGER*4 POSHB, POSHE
+      PARAMETER (POSHB = 20, POSHE = 26)
+      INTEGER*4 POHB, POHE
+      PARAMETER (POHB = 41, POHE = 47)
+      INTEGER MXSZB, MXSZE
+      PARAMETER (MXSZB = 62, MXSZE = 68)
+C
+      REAL HAILSIZE
+C
+C...................................................................
+C
+C** WRITE REPORT HEADING (IT=1,6)
+C
+      IT = 0
+C
+C** WRITE REPORT HEADING DATA
+C
+      IT = IT + 1
+      WRITE(TXCHR(IT),901)
+C
+      IT = IT + 1
+      WRITE(TXCHR(IT),902)  RADAR_ID,RDATE(1),RDATE(2),
+     >      RDATE(3),RTIME(1),RTIME(2),RTIME(3),NMSTRMS
+C
+C** WRITE BLANK LINE
+C
+      IT = IT + 1
+      WRITE(TXCHR(IT),900)
+C
+C** WRITE COLUMN HEADINGS
+C
+      IT = IT + 1
+      WRITE(TXCHR(IT),904)
+      IT = IT + 1
+      WRITE(TXCHR(IT),905)
+C
+C** WRITE BLANK LINE
+C
+      IT = IT + 1
+      WRITE(TXCHR(IT),900)
+C
+C** WRITE DATA LINES N1,N2  (IT=7,16)
+C
+      DO 200  I=N1,N2
+C
+C** EXTRACT THE POSH, POH, AND MAX HAIL SIZE FROM THE HAILSTATS
+C** BUFFER
+C
+         J = SORTED_CELLS(K)
+C
+         PROB_HAIL = INT(HAILSTATS(H_POH,J))
+         PROB_SEVERE = INT(HAILSTATS(H_PSH,J))
+         HAILSIZE = HAILSTATS(H_MHS,J)
+C
+C** BEFORE INSERTING ANY DATA, FILL LINE WITH BLANKS
+C
+         IT = IT + 1
+         WRITE(TXCHR(IT),900)
+C
+C** WRITE STORM ID
+C
+         TXCHR(IT)(IDB:IDE) = STID(I)
+C
+C** CHECK FOR DATA OUTSIDE PRODUCT RANGE.  SET POSH, POH, AND MAX
+C** HAIL SIZE TO 'UNKNOWN' IN THIS CASE.
+C
+         IF (PROB_HAIL.EQ.UNKNOWN .OR. PROB_SEVERE.EQ.UNKNOWN) THEN
+            TXCHR(IT)(POSHB:POSHE) = UNKNOWN_TEXT
+            TXCHR(IT)(POHB:POHE) = UNKNOWN_TEXT
+            TXCHR(IT)(MXSZB:MXSZE) = UNKNOWN_TEXT
+         ELSE
+C
+C** DATA WITHIN PRODUCT RANGE.  WRITE POSH AND POH.
+C
+            WRITE(TXCHR(IT)(POSHB:POSHE),906) PROB_SEVERE
+            WRITE(TXCHR(IT)(POHB:POHE),906) PROB_HAIL
+C
+C** CHECK HAIL SIZE
+C
+            IF (PROB_SEVERE .EQ. NULL .AND. PROB_HAIL .EQ. NULL) THEN
+C
+C** SET HAILSIZE TO ZERO.
+C
+               HAILSIZE = MIN_HAIL_SIZE
+               QUALIFIER = BLANK
+            ELSE IF ((HAILSIZE .LT. MIN_REPORTED_SIZE) .AND.
+     >         (HAILSIZE .GE. MIN_HAIL_SIZE) .AND.
+     >         (PROB_HAIL .GT. NULL .OR. PROB_SEVERE .GT. NULL)) THEN
+C
+C** SIZE LESS THAN MINIMUM. SET TO MINIMUM AND QUALIFY SIZE.
+C
+               HAILSIZE = MIN_REPORTED_SIZE
+               QUALIFIER = LESS_THAN
+            ELSE IF (HAILSIZE .LT. MIN_HAIL_SIZE) THEN
+C
+C** SIZE IS NEGATIVE.  MUST BE MAXIMUM SIZE.  SET TO MAXIMUM AND
+C** QUALIFY SIZE.
+C
+               HAILSIZE = MAX_HAIL_SIZE
+               QUALIFIER = GREATER_THAN
+            ELSE
+C
+C** NO QUALIFIER ON HAIL SIZE.
+C
+               QUALIFIER = BLANK
+            END IF
+C
+C** WRITE HAIL SIZE WITH APPROPRIATE QUALIFIER.
+C
+            WRITE(TXCHR(IT)(MXSZB:MXSZE),907)  QUALIFIER, HAILSIZE
+         END IF
+C
+C** STEP K
+C
+         K = K + 1
+  200 CONTINUE
+C
+      IF (IT .LT. TNOLNS)  THEN
+         II = IT + 1
+         DO 250  IT = II,TNOLNS
+            WRITE(TXCHR(IT),900)
+  250    CONTINUE
+      ENDIF
+C
+C** DETERMINE NO OF CHARACTERS WRITTEN
+C
+      BL = NOI2
+      NOLNS = TNOLNS
+C
+C** FORMAT STATEMENTS
+C
+  900 FORMAT(5H        )
+  901 FORMAT(38X,'HAIL ')
+  902 FORMAT(5X,'RADAR ID ',I3,3X,'DATE/TIME ',2(I2.2,':'),I2.2,'/',
+     >       2(I2.2,':'),I2.2,3X,'NUMBER OF STORM CELLS ',I3)
+  904 FORMAT(6X,'STORM',7X,'PROBABILITY OF',7X,'PROBABILITY OF',
+     >       7X,'MAX EXPECTED')
+  905 FORMAT(6X,'  ID ',7X,'SEVERE HAIL (%)',6X,'   HAIL (%)   ',
+     >       6X,'HAIL SIZE (IN)')
+  906 FORMAT(4X,I3)
+  907 FORMAT(2X,A1,F4.2)
+C
+C** RETURN TO CALLER ROUTINE
+C
+      RETURN
+      END

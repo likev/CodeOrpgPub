@@ -1,0 +1,322 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/16 20:36:37 $
+C $Id: a31654.ftn,v 1.4 2002/12/16 20:36:37 christie Exp $
+C $Revision: 1.4 $
+C $State: Exp $
+C
+      SUBROUTINE A31654__WRITE_LINES(K,STORMID,RADAR_ID,STORMAIN,
+     >                               BL)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A31654__WRITE_LINES
+*.
+*.  MODULE VERSION: 0020
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       10 18 85      0000      JSGROMMONS
+*.       05 29 86      0002      JSGROMMONS           SPR # 60313
+*.       10 02 86      0003      J GROMMONS           SPR # 60346
+*.       03 20 87      0004      JO STALEY            SPR # 70146
+*.       08 22 88      0005      VALERIE HOLDEN       SPR # 80248
+*.       11 30 88      0006      JO STALEY            SPR # 80501
+*.       05 11 89      0007      TERRI LEWIS          SPR # 80612
+*.       08 10 90      0008      MARY LOU ECKERLE     SPR # 90827
+*.       01 30 91      0009      David M. Lynch       SPR # 91257
+*.       10 14 91      0010      EDWARD WENDOWSKI     SPR # 92410
+*.       10 14 91      0010      EDWARD WENDOWSKI     SPR # 92598
+*.       12 03 91      0011      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0012      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0013      Toolset              SPR 91895
+*.       03/25/93      0014      Toolset              SPR NA93-06801
+*.       01/28/94      0015      Toolset              SPR NA94-01101
+*.       03/03/94      0016      Toolset              SPR NA94-05501
+*.       03/30/94      0017      Steve Smith          CCR 92289-001A00
+*.       04/20/95      0018      STEVE SMITH          CCR NA94-26302
+*.       12/23/96      0019      Toolset              CCR NA95-11807
+*.       03/16/99      0020      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:
+*.                   CALL A31654__WRITE_LINES(K,STORMID,RADAR_ID,
+*.                                            STORMAIN,BL)
+*.
+*.  MODULE FUNCTION:
+*.     FORMAT REPORT LINES
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT    TYPE        DESCRIPTION
+*.    -   -----    ----        -----------
+*.    G   KM_TO_NM R*4         (CONSTANT)DEFINES THE SCALING FACTOR FOR
+*.                             KILOMETER TO NAUTICAL MILES PARAMETER
+*.    G   M_TO_FT  R*4         (CONSTANT)SCALING FACTOR FOR METERS TO FEET
+*.    G   STM_AZM  I*4         (CONSTANT)Index to centroid's azimuth in
+*.                             centroid array.
+*.    G   STM_BAS  I*4         (CONSTANT)Index to centroid's base in centroid
+*.                             array.
+*.    G   STM_LCB  I*4         (CONSTANT)Index to flag value indicating storm
+*.                             base is from lowest elevation cut in centroid
+*.                             array.
+*.    G   STM_LCT  I*4         (CONSTANT)Index to flag value indicating storm
+*.                             top is from highest elevation cut in centroid
+*.                             array.
+*.    G   STM_MRF  I*4         (CONSTANT)Index to maximum refelctivity in
+*.                             cetroids array.
+*.    G   STM_RAN  I*4         (CONSTANT)Index to centroid's range in
+*.                             centroids array.
+*.    G   STM_RFH  I*4         (CONSTANT)Index to height in centroids array.
+*.    G   STM_TOP  I*4         (CONSTANT)Index to storm top in array of
+*.                             centroid data.
+*.    G   STM_VIL  I*4         (CONSTANT)Index to cell based VIL in array of
+*.                             centroid data.
+*.    C   IT       I*4         Pointer into operator messages for line number.
+*.    C   N1       I*4         Lower limit of lines to be written.
+*.    C   N2       I*4         Upper limit of lines to be written.
+*.    C   NMSTRMS  I*4         Number of storms.
+*.    C   RDATE    I*4         Report data.
+*.    C   RTIME    I*4         Report time (1:Hours; 2:Minutes; 3:Seconds).
+*.    P   K        I*4         SUBSCRIPT FOR MESO_STORM_ID,DATA
+*.    P   RADAR_ID I*4         RADAR ID
+*.    P   STORMAIN R*4         2-d array of Storm Cell attributes
+*.    P   STORMID  I*4         Array of Storm Cell IDs
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    C   IT      I*4         Pointer into operator messages for line number.
+*.    C   NOLNS   I*4         Number of lines written.
+*.    C   TBUF    I*2         ARRAY OF I*2 CHARACTER LINES
+*.    C   TXCHR   CHAR*80     ARRAY OF 80 CHARACTER LINES
+*.    P   BL      I*4         NO OF CHARACTERS PER LINE
+*.    P   K       I*4         SUBSCRIPT FOR MESO_STORM_ID,DATA
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME        TYPE        DESCRIPTION
+*.    ----        ----        -----------
+*.    CHARIDTABLE CHAR*2      Character table of storm IDs.
+*.    FLD1A       I*4         Integer array 1 used for writing packet lines.
+*.    FLD2A       I*4         Integer array 2 used for writing packet lines.
+*.    FLD3X       R*4         Real arrays used for writing packet lines.
+*.    FLD4X       R*4         Real array 4 used for writing packet lines.
+*.    FLD5A       I*4         Integer array 5 used for writing packet lines.
+*.    FLD6A       I*4         Integer array 6 used for writing packet lines.
+*.    FLD7X       R*4         Field for Storm Cell Height in line of text
+*.    I           I*4         Loop index variable.
+*.    IDNX        I*4         SUBSCRIPT FOR STORM ID
+*.    NCOLS       I*4         2nd dimension of TBUF array.
+*.    NOI2        I*4         Number of halfwords for 80 character line.
+*.    NROWS       I*4         First dimension of TBUF.
+*.    NSID        I*4         Dimension of ASCII character table.
+*.    QB          I*4         Index into Qualifier inidicating which character
+*.                            should be used to flag the Storm Base
+*.    QT          I*4         Index into Qualifier indicating which character
+*.                            should be used to flag the Storm Top
+*.    QUALIFIER   CHAR*3      Qualifier for STORM TOP (blank or >).  indexed
+*.                            by QI
+*.    SID         I*2         EQUIVALENT TO CHARIDTABLE
+*.    STID        I*2         STORM ID ARRAY FOR WRITING
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3165A
+*.    A3165B
+*.    A3165C
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP16.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK16.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+$INCLUDE A315BUF.INC/G,**A315P5C (NEND NLIST)
+$INCLUDE               **A315P8T (NEND NLIST)
+$INCLUDE A315BUF.INC/G,**A315D5 (NEND NLIST)
+$INCLUDE               **A315D8 (NEND NLIST)
+$INCLUDE A315BUF.INC/G,**A315PSAD (NEND NLIST)
+$INCLUDE A309.INC/G,**A3PM50 (NLIST)
+$INCLUDE A309.INC/G,**A3CD08 (NEND NLIST)
+C
+$INCLUDE A316.INC/G, **A3165B (NLIST NEND)
+$INCLUDE             **A3165C (NLIST NEND)
+C
+C** LOCAL DEFINITIONS:
+C
+      INTEGER*4  NROWS,NCOLS,NSID
+      PARAMETER  (NROWS=40,NCOLS=55,NSID=260)
+C
+      INTEGER*2  STID
+      INTEGER*2  TBUF(NROWS,NCOLS)
+      INTEGER*2  SID(NSID)
+C
+      INTEGER*4  BL,K,I,NOI2,IDNX,RADAR_ID,QT,QB
+      INTEGER*4  FLD1A,FLD2A,FLD5A,FLD6A
+C
+      REAL  FLD3X,FLD4X,FLD7X
+C
+      CHARACTER*80  TXCHR(NCOLS)
+      CHARACTER*3   QUALIFIER
+      DATA QUALIFIER/' ><'/
+C
+      PARAMETER  (NOI2=40)
+C
+      EQUIVALENCE  (TBUF(1,1),TXCHR)
+      EQUIVALENCE  (SID(1),CHARIDTABLE(1))
+C
+$INCLUDE A309.INC/G,**A3CD08D (NEND NLIST)
+C
+      COMMON/A3165A/TBUF
+C
+C................................................................
+C
+C** WRITE REPORT HEADING (IT=1,6)
+C
+C** WRITE REPORT HEADING DATA
+C
+      IT = IT + 1
+      WRITE(TXCHR(IT),901)
+C
+      IT = IT + 1
+      WRITE(TXCHR(IT),902)  RADAR_ID,RDATE(2),RDATE(1),
+     >      RDATE(3),RTIME(1),RTIME(2),RTIME(3),NMSTRMS
+C
+C** WRITE BLANK LINE
+C
+      IT = IT + 1
+      WRITE(TXCHR(IT),900)
+C
+C** WRITE COLUMN HEADINGS
+C
+      IT = IT + 1
+      WRITE(TXCHR(IT),903)
+C
+      IT = IT + 1
+      WRITE(TXCHR(IT),904)
+C
+C** WRITE BLANK LINE
+C
+      IT = IT + 1
+      WRITE(TXCHR(IT),900)
+C
+C** WRITE DATA LINES N1,N2  (IT=7,16)
+C
+      DO 200  I=N1,N2
+         K = K + 1
+C
+C** DETERMINE STORM ID
+C
+         IDNX = STORMID(K)
+         STID = SID(IDNX)
+C
+C** CONVERT CENTROID RANGE FROM KILOMETERS TO NEAREST NAUTICAL MILE
+C
+         FLD2A = NINT(STORMAIN(STM_RAN,K)*KM_TO_NM)
+C
+C** CONVERT CENTROID AZIMUTH TO NEAREST DEGREE. IF ZERO, REPORT AS
+C** 360 DEGREES.
+C
+         FLD1A = NINT(STORMAIN(STM_AZM,K))
+         IF ( FLD1A .EQ. 0 ) FLD1A = 360
+C
+C** CONVERT BASE FROM KILOMETERS TO K FEET
+C
+         FLD3X = STORMAIN(STM_BAS,K)*M_TO_FT
+C
+C** DETERMINE IF STORM BASE IS FROM LOWEST ELEVATION CUT
+C
+         IF (STORMAIN(STM_LCB,K) .LT. 0.0) THEN
+C
+C** STORM BASE FROM LOWEST ELEVATION CUT.  ADD QUALIFIER.
+C
+           QB = 3
+         ELSE
+           QB = 1
+         END IF
+C
+C** CONVERT TOP FROM KILOMETERS TO K FEET
+C
+         FLD4X = STORMAIN(STM_TOP,K)*M_TO_FT
+C
+C** DETERMINE IF STORM TOP IS FROM HIGHEST ELEVATION CUT
+C
+         IF (STORMAIN(STM_LCT,K) .LT. 0.0) THEN
+C
+C** STORM TOP FROM HIGHEST ELEVATION CUT.  ADD QUALIFIER.
+C
+           QT = 2
+         ELSE
+           QT = 1
+         END IF
+C
+C** STORE CELL BASED VIL
+C
+         FLD5A = NINT(STORMAIN(STM_VIL,K))
+C
+C** STORE MAXIMUM REFLECTIVITY
+C
+         FLD6A =  NINT(STORMAIN(STM_MRF,K))
+C
+C** CONVERT HGT FROM KILOMETERS TO K FEET
+C
+         FLD7X = STORMAIN(STM_RFH,K)*M_TO_FT
+C
+C** WRITE LINE OF DATA
+C
+         IT = IT + 1
+         WRITE(TXCHR(IT),905)  STID,FLD1A,FLD2A,QUALIFIER(QB:QB),
+     >                         FLD3X,QUALIFIER(QT:QT),FLD4X,FLD5A,
+     >                         FLD6A,FLD7X
+C
+  200 CONTINUE
+C
+C** DETERMINE NO OF CHARACTERS WRITTEN
+C
+      BL = NOI2
+      NOLNS = IT
+C
+C* FORMAT STATEMENTS
+C
+  900 FORMAT(5H        )
+  901 FORMAT(32X,'STORM STRUCTURE ')
+  902 FORMAT(5X,'RADAR ID ',I3,3X,'DATE/TIME ',2(I2.2,':'),I2.2,'/',
+     >       2(I2.2,':'),I2.2,3X,'NUMBER OF STORM CELLS ',I3)
+  903 FORMAT(3X,'STORM      AZRAN      BASE     TOP',4X,
+     >       'CELL BASED VIL',4X,'MAX REF    HEIGHT')
+  904 FORMAT(3X,'  ID      DEG/NM       KFT     KFT',4X,
+     >       '   KG/M**2    ',4X,'  DBZ        KFT ')
+  905 FORMAT(5X,A2,6X,I3,'/',I3,4X,A1,F4.1,3X,A1,F4.1,9X,I3,13X,I2,
+     >       7X,F4.1)
+C
+C** RETURN TO CALLER ROUTINE
+C
+      RETURN
+      END

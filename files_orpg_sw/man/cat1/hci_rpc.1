@@ -1,0 +1,157 @@
+hci_rpc(1) 		   ORPG SUM Man page   		hci_rpc(1)
+
+NAME
+
+hci_rpc
+
+SYNOPSIS
+
+hci_rpc [options]
+
+DESCRIPTION
+
+The "hci_rpc" command invokes the stand-alone RPG Control task for for the RPG.
+It is a GUI based task which runs in an X Windows/Motif environment.  It is
+part of the Human-Computer Interface family (HCI) of tasks, functionally 
+identical to the RPG Control function in the RPG Control/Status task (refer to
+man page hci(1)).  It can be run as a stand-alone application from the command
+line.
+
+OPTIONS
+
+hci_rpc recognizes the following options:
+
+	-h	      print usage message and exit
+	
+	-l	      low bandwidth mode; compress data passed to/from
+		      ORPG data stores.
+
+	-iconic	      start in an iconic state
+	
+	-m <name>     RPG computer name
+	
+	-name <title> Window title
+	
+	-s <rate>     Set the simulated baud rate
+
+OVERVIEW
+
+The RPG Control task provides a graphical user interface to change the state of
+the RPG.  When activated, the RPG Control window is displayed.  It contains a
+collection of buttons and status labels.
+
+Selecting the "Close" button exits the task.
+
+If the local configuration supports RMS, a check box with the label "Lock RMS"
+is displayed just to the right of the "Close" button.  If this check box is
+set, RPG control commands from the RMS are disabled.
+
+At the top of the window are two color-coded status labels indicating the RPG
+operational state and mode.  The following RPG operational states are defined:
+
+	OPERATE    (green)
+	STANDBY    (red)
+	SHUTDOWN   (red)
+	TRANSITION (yellow)
+	FAILED     (red)
+	POWERFAIL  (red)
+	UNKNOWN    (red)
+
+The transition state occurs when the RPG is changing between the other states.
+If the RPG Control/Status window is open, identical operational state
+information is displayed above the RPG container (refer to the man page 
+hci(1)).
+
+The following RPG modes are defined:
+
+	OPERATE    (green)
+	TEST (RDA) (yellow)
+	TEST (RPG) (yellow)
+	UNKNOWN    (red)
+	
+There are two test modes defined, "TEST (RDA)" and "TEST (RPG)".  The "TEST
+(RDA)" mode occurs when the RPG goes into test mode as a result of the RDA
+going to maintenance mode.  In this mode, if the RDA goes to operate mode, the
+RPG will automatically go back to operate ("OPERATE") mode.  The "TEST (RPG)"
+mode occurs as a result of the RPG operator commanding the RPG to test mode.
+If the RDA control state is remote, then the RPG will command the RDA into
+maintenance mode.  If the RPG Control/Status window is open, identical
+operational mode information is displayed above the RPG container (refer to
+the man page hci(1)).
+
+Restart
+-------
+
+Selecting the "All Tasks" button starts all non-HCI RPG tasks.  A confirmation
+popup window is displayed for verification.  If the RPG is currently in an
+"Operate" state, selecting the "All Tasks" button issues a restart command.
+This causes the RPG to go to a standby state and then back to operate.  If the
+RPG is currently in a "Standby" state, selecting the "All Tasks" button issues
+a restart command.  If the RPG is currently in a "Shutdown" state, selecting
+the "All Tasks" button issues a startup command.
+
+Selecting the "Options" button activates the RPG Init Options window.  It
+contains a set of buttons and a list of check boxes with which the user can
+perform various initialization procedures.  These procedures are defined in a
+special configuration file named "rpg_options" (refer to the man page
+rpg_options(4) for more information).  Setting and activating any of these
+initialization options require a password.  A lock button is provided for
+unlocking the window.  When a valid password has been entered and the RPG is
+in a state defined for a configuration option, the check box for the option
+is sensitized.  Selecting the "Activate" button activates all selected init
+options.  A confirmation popup window is first displayed.
+
+Shutdown
+--------
+
+Selecting the "Off" button stops all non-HCI RPG tasks and puts the RPG in a
+shutdown state.  A confirmation popup window is displayed for verification.
+While tasks are being shutdown, the RPG state is reported as "TRANSITION".
+Once all tasks are shutdown, the RPG state is reported as "SHUTDOWN".  When the
+RPG is started from a shutdown state, all non-persistent RPG data stores are
+reinitialized.  NOTE:  The "Shutdown" button can be selected when the RPG state
+is "STANDBY" so that when the RPG is started, non-persistent data stores will
+be reinitialized.
+
+Selecting the "Standby" button stops all non-HCI RPG tasks and puts the RPG in
+a standby state.  A confirmation popup window is displayed for verification.
+While tasks are being shutdown, the RPG state is reported as "TRANSITION".
+Once all tasks are shutdown, the RPG state is reported as "STANDBY".  When the
+RPG is started from a standby state, RPG non-persistent RPG data stores are not
+reinitialized.  NOTE:  The "Standby" button can be selected when the RPG state
+is "SHUTDOWN" so that when the RPG is restarted, non-persistent data stores
+will not be reinitialized.
+
+Mode
+----
+
+Selecting the "Operate" button changes the RPG mode from test to operate.  If
+the current RPG mode is "OPERATE", the "Operate" button is desensitized.  If
+the current RPG mode is "TEST (RPG)", selecting the "Operate" button will
+change the RPG mode to "OPERATE" only if the RDA is in operate mode or if the
+RDA control state is remote and an operational VCP is active.  If the RDA is
+running a maintenance VCP, the RPG cannot go to operate.  If the RPG mode is
+"TEST (RPG)", selecting the "Operate" button will change the RPG mode to
+"TEST (RDA)" as long as a maintenance VCP is in use.  As soon as an operational
+VCP is active and the RDA operational mode is operate, the RPG mode will
+automatically change to "OPERATE".  When the "Operate" button is selected, a
+confirmation popup window is displayed for verification.
+
+Selecting the "Test" button changes the RPG mode from operate to test
+("TEST (RPG)").  If the current RPG mode is "TEST (RPG)", the "Test" button is
+desensitized.  If the current RPG mode is "TEST (RDA)" the "Test" button is
+sensitized.  Selecting it at this time will change the RPG mode to "TEST (RPG)".
+When the "Test" button is selected, a confirmation popup window is displayed
+for verification.
+
+NOTES
+
+In FAA redundant configurations, the label "(FAA:x)" is appended to the window
+title ("x" is the RDA channel number).  Refer to the header file "mrpg.h" for
+more information on RPG states and modes.
+
+SEE ALSO
+
+orpg(3) hci(1)
+
+				$Revision: 1.8 $

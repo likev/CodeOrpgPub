@@ -1,0 +1,99 @@
+use_resource (1) 		ORPG Manpage   			use_resource(1)
+
+    
+NAME
+    use_resource
+    
+SYNOPSIS
+    use_resource [options]
+    
+DESCRIPTION
+
+    "use_resource" is a tool for testing RPG resource (CPU, memory and IO)
+    utilization and reserve. It simulates an ORPG application that consumes
+    specified amount of resources.
+
+    CPU: To simulate CPU utilization, "use_resource" calls a routine that
+    performs a set of numerical operations. It calls the routine appropriate
+    times to consume specified CPU amount. The CPU consumption of this routine
+    depends on the machine. In order to determine the speed of the local
+    machine, one needs to run "use_resource -t" one time before using
+    "use_resource" for testing. This should be run while the system is
+    minimumly CPU loaded. Although "use_resource" tries to consume the
+    specified CPU, it may not be able to do it when the system is CPU
+    overloaded.
+
+    Memory: "use_resource" allocates the specified memory space and tries to
+    keep the allocated memory active by accessing some bytes in each page.
+
+    IO: The data input is simulated by reading a random message at the start of
+    each elevation from an input LB which is created and filled in with
+    messages of the specified size when "use_resource" is started.
+    "use_resource" can also simulate reading the radial base data. The data
+    output is simulated by writing a product of the specified size to the RPG
+    product database LB. The product has no meaningful data in it. Its product
+    ID is 2900. The data output occurs at the end of each elevation.
+
+    "use_resource" adds specified number of instances to the system. If it is
+    running in foreground, typing "control-c" will terminate all instances.
+
+    In a typical test, one starts with a fully loaded RPG. multiple instances
+    of "use_resource" with specified CPU, memory and IO loads are added to the
+    system until the RPG fails to work or its performance degrades to
+    unacceptable level (e.g. the product generation delay is too large). Note
+    that "use_resource" instances may fail before RPG fails. The failure of any
+    "use_resource" instances should be considered as a overloaded condition.
+    Tools such as "prod_delay" and "top" can be used to monitor the system
+    performance in the testing.
+
+    The key messages from "use_resource" are lead with "$$".
+
+OPTIONS
+    "use_resource" recognizes the following options:
+
+	-c cpu_load 		Specifies the CPU load in percent of the 
+				machine capacity. The default is 0.
+
+	-m memory_load 		Specifies the memory load in MB. The default is
+				0.
+
+	-i input_load		Specifies input load in KB per elevation. The 
+				default is 0.
+
+	-r 			Turns on base radial data input. The default 
+				is no radial input.
+
+	-o output_load		Specifies the output load in KB per elevation.
+				The default is 0.
+
+	-d max_init_delay	Specified the maximum delay in seconds before 
+				an instance to start. When this is specified, 
+				each instance will wait for a random time 
+				between 0 and this before starting to operate. 
+				The default is 0 - no delay.
+
+	-n num_of_instances	Specifies the number of instances started. The 
+				default is 1.
+
+	-t			Tests CPU capability and then terminates.
+
+	-v			Turns on verbose mode.
+
+	-h 			Prints usage info.
+	  
+EXAMPLES
+
+    use_resource -m 100
+
+	- Tests adding 100 MB memory load to the system.
+
+    use_resource -c 5 -m 10 -i 100 -r -o 500 -n 5
+
+	- Starts 5 instances of "use_resource" each of which consumes 5 percent
+	CPU, 10 MB memory, 100 KB input and 500 KB output per elevation. It 
+	also consumes radial base data as input.
+
+SEE ALSO
+    top (1), prod_delay (1), iostat (1)
+
+

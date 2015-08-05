@@ -1,0 +1,196 @@
+mscf1.conf(4)            MSCF Configuration File	    mscf1.conf(4)
+
+NAME
+    mscf1.conf - configuration file for mscf.1 application (NWS).
+
+DESCRIPTION
+    mscf1.conf is a cs.3 format file.  Comments are allowed.
+
+    The "Start_rpg_command:"  entry contains a command that will start the RPG
+    HCI when the RPG HCI button is selected on the mscf screen.
+
+    The "Start_rda_command:" entry contains a command that will start
+    the RDA HCI when the RDA HCI button is selected on the mscf screen.
+
+    The "Start_bdds_command:"  entry contains a command that will start the BDDS
+    HCI when the BDDS HCI button is selected on the mscf screen.
+
+    The "Output_file_name:" entry contains the path of a temporary file
+    used by the mscf application.  The temporary file is used to store
+    the results of various SNMP commands executed in the mscf application.
+
+    The "Power_control_device_address:" entry contains the name or IP address
+    of the power control administrator.  This address is used as the first
+    %s parameter of Pc_cmd for up to 8 power outlets.
+
+    The "Pc_cmd:"  entry contains the command that will be issued whenever the
+    user chooses an "On", "Off", or "Reboot" command for any of the 8 power
+    outlets on the power control screen.  This command string can contain up to
+    three parameters supplied by the mscf application.  "%s" identifies each
+    string parameter.  "%d" identifies each integer parameter.  The first
+    parameter is a string that is the address of the power administrator (- the
+    contents of the "Power_control_device_address" entry).  The second parameter
+    is an integer power outlet number (1-8).  The third parameter is the outlet
+    command (1=on, 2=off, 3=reboot).  Zero or more parameters may be specified
+    in the command string in the correct order.
+
+    The "Pc_key:" and "Pc_ret_strs:" entries contain the outlet label text and the
+    outlet command response strings returned when each power control command is
+    executed.  Each power control command is expected to return outlet label text
+    followed by an outlet number which is then followed by outlet command information.
+    For example, if "Pc_key:" equals "outlet" and "PC_ret_strs:" contains "outletOn(",
+    "outletOff(", "outletReboot(", then the results of an "on" command should be
+    of the form "outlet N outletOn(".  N is the outlet number.  outletOn( indicates
+    the on command was executed.
+
+    The "Pn_cmd:"  entry specifies the command that will get the names of the
+    power outlets.  The "Pn_key:"  entry is the text that precedes the returned
+    power outlet names when the command is executed.  For example, if "Pn_cmd:"
+    is equal to "get_power_controller_names" and "Pn_key:"  is "names", then the
+    mscf application will retrieve the outlet names by executing the
+    "get_power_controller_names" command.  It will expect a string of the form
+    "names outlet1 outlet2 ..."  where outlet1, outlet2 are the names of the 8
+    power controller outlets separated by spaces.
+
+    The "Ps_cmd:", "Ps_ret_strs:", and "Ps_key:" entries specify the command to
+    retrieve power status information, the status return strings, and a key
+    string the precedes the power status information for each outlet.  For
+    example, if "Ps_cmd:" is set to "get_power_status", "Ps_ret_strs:" is set
+    to "on" "off", and "Ps_key:" is set to "outlet_status.", then the mscf
+    application would execute the "get_power_status" command every time
+    power status information was needed (typically every 10 seconds).  It
+    would expect power status results of the form "outlet_status.1 on
+    outlet_status.2 off ... outlet_status.8 on".  Each Ps_key: entry is
+    followed by an outlet number and one of the possible Ps_ret_strs: values.
+
+    The Pc_host_name_N:, Pc_host_shutdown_cmd_N:, and Pc_host_shutdown_delay_N:
+    entries are optional entries that provide command information for gracefully
+    shutting down a machine that is connected to power outlet N.  If specified,
+    the Pc_host_shutdown_cmd_N:  will be executed whenever power outlet N is
+    rebooted or turned off.  If the Pc_host_shutdown_cmd_N:  contains a %s, the
+    %s will be replaced with the value of the "Pc_host_name_N:"  entry.  Once
+    the graceful shutdown command has been executed, the mscf application will
+    wait M seconds before executing the actual power outlet reboot or off
+    command where M is the value of the Pc_host_shutdown_delay_N:  entry.  For
+    example, if power outlet 3 was connected to machine xyz, and the command for
+    gracefully shutting down the xyz machine was powerdown_host -m xyz, and the
+    xyz machine needs 30 seconds to gracefully shutdown before the power is cut
+    off to the machine, then the following settings could be used to force a
+    graceful shutdown of the xyz machine:
+
+    #  Gracefully power down the xyz machine before rebooting or turning of the
+    #  master switch for outlet 3
+    Pc_host_name_1: xyz
+    Pc_host_shutdown_cmd_1: "powerdown_host -m %s"
+    Pc_host_shutdown_delay_1: 30
+
+    The Pc_cmd_disable_N:  entries are optional entries for disabling one or
+    more power control commands for power outlet N.  Each entry contains a list
+    of the commands that will be disabled for outlet N.  "on" disables the turn
+    outlet on command.  "off" disables the turn outlet off command.  "reboot"
+    disables the reboot outlet command.  For example, the settings to disable
+    the on and off command on outlets 3 and 4, and disable all commands on
+    outlet 7 would be:
+
+    #  Disable on and off for outlets 3 and 4
+    Pc_cmd_disable_3: "on off"
+    Pc_cmd_disable_4: "on off"
+    Pc_cmd_disable_7: "on off reboot"
+
+    The Hsw_file_name:  entry is the name of the le.3 log file that contains
+    hardware trap information that is reported on the main masc trap screen.
+    Just like other log files, the location of the trap log file is controlled
+    by LE_DIR_EVENT environment variable.  The mscf application checks to see if
+    the trap log is updated every second.  Any new trap information is placed
+    into the scroll list on the main screen.
+
+    The Hsw_buf_size:  entry controls the size of the circular buffer that
+    contains trap information reported on the mscf main screen.
+
+    The Hsw_max_data_size: entry is obsolete.
+
+    The Red_hsw_patterns: entry contains a list of one more strings that will cause
+    a trap to be highlighted in red.  If a trap entry contains any of the strings
+    specified in this entry, it will be highlighted red.
+
+    The Green_hsw_patterns: entry contains a list of one more strings that will cause
+    a trap to be highlighted in green.  If a trap entry contains any of the strings
+    specified in this entry, it will be highlighted green.
+
+    The Show_selections:  entry contains a list of "filter" entries shown on the
+    bottom of the mscf screen.  Each filter entry contains a title and a list of
+    filter values.  Each title will be shown in the filter drop down box.  When
+    a filter is selected from the drop down box, trap log messages with the
+    specified filter values are shown on the mscf screen.  For example, the
+    entries below would put filters for "All_Messages" and "Critical" messages
+    in the filter drop down box.  The "All_messages" filter would select all
+    traps that contain an empty string (in other words, all traps).  The
+    "Critical" messages filter would select all traps that contained "Link Up"
+    or "Link Down".
+
+       # entries in the "Show" selection
+       Show_selections:
+       {
+
+          # All messages are selected
+          All_Messages	""
+
+          # HSW critical info pattern
+          Critical		"Link Down" "Link Up"
+       }
+
+    The Cs_device_N entries contain title and command information for each
+    communications device monitored by the mscf.1 application.  The Name:  entry
+    of each Cs_device_N entry will be shown in the Device drop down list on
+    Comms Status screen in the mscf.1 application.  The Command:  entry and one
+    or more "Col_0:"  through "Col_16:"  entries are used to describe the
+    command(s) and information returned for each piece of comms status
+    information.  The Command:  entry contains the base command used to retrieve
+    each piece of status information.  Each Col_M:  entry contains the title and
+    specific command for a particular piece of comm status information.  The
+    specific command information is appended to the base command to build a
+    command to retreive each piece of comms status information.  The retrieved
+    status information will be shown in a column with the specified title.  For
+    example, the configuration text below defines a "CISCO Switch" comms device
+    with a base command "get_comms_status" and 4 specific comm status
+    information commands to get specific comms status fields:
+
+     Cs_device_1:
+     {
+         Name:	"CISCO Router"
+         Command:	"get_comms_status"
+         Col_0:	"             Device Name"	DeviceName
+         Col_1:	" OpStatus"			OperateStatus
+         Col_2:	"         Description"		Description
+         Col_3:	"  Collisions"			Collisions
+     }
+
+   This configuration will cause 4 commands to be executed by the mscf.1
+   application every time comms status information is needed for the
+   "CISCO Router" comms device:
+
+	get_comms_status DeviceName
+        get_comms_status OperateStatus
+        get_comms_status Description
+        get_comms_status Collisions
+
+   Each command will return information that will be shown in the
+   following columns on the screen:
+
+	"             Device Name"
+	"      Op Status	 "
+        "     Description        "
+        "     Collisions"
+
+EXAMPLES
+    An example mscf1.conf file can be found in the RPG software
+    distribution.
+
+FILES
+     $HOME/cfg/mscf1.conf
+
+SEE ALSO
+     mscf(1), powerdown_host(1)
+
+
+

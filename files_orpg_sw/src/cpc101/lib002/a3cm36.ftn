@@ -1,0 +1,483 @@
+C 
+C RCS info 
+C $Author: ryans $ 
+C $Locker:  $ 
+C $Date: 2006/02/28 16:51:09 $ 
+C $Id: a3cm36.ftn,v 1.7 2006/02/28 16:51:09 ryans Exp $ 
+C $Revision: 1.7 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A3CM36__BUILD_CHARLINES(CAT_NUM_STORMS,CAT_FEAT,
+     >            COMB_ATT,NUM_FPOSITS,FORCST_POSITS,CHARLINE)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3CM36__BUILD_CHARLINES
+*.
+*.  MODULE VERSION: 0017
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       09 15 85      0000      A.Weinstein
+*.       10 02 86      0001      J GROMMONS           SPR # 60346
+*.       04 07 87      0002      JO STALEY            SPR # 70142
+*.       05 18 87      0003      JO STALEY            SPR # 70253
+*.       05 29 87      0003      JO STALEY            SPR # 70379
+*.       10 26 89      0004      JOSEPH WHEELER       SPR # 90301
+*.       08 09 90      0005      MARY LOU ECKERLE     SPR # 90827
+*.       10 03 90      0005      TOM LYNCH            SPR # 90775
+*.       02 22 91      0006      J. WHEELER           SPR # 91250
+*.       12 14 90      0006      JOHN DEPHILIP        SPR # 91551
+*.       02 15 91      0006      JOHN DEPHILIP        SPR # 91762
+*.       10 15 91      0007      EDWARD WENDWOSKI     SPR # 92410
+*.       10 15 91      0007      EDWARD WENDOWSKI     SPR # 92598
+*.       12 03 91      0008      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0009      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0010      Toolset              SPR 91895
+*.       03/25/93      0011      Toolset              SPR NA93-06801
+*.       03/03/94      0012      Toolset              SPR NA94-05501
+*.       06/11/94      0013      Steve Smith          CCR 92289-001A00
+*.       04/01/95      0014      Toolset              CCR NA95-11802
+*.       04/29/95      0015      STEVE SMITH          CCR NA94-26302
+*.       03/16/99      0016      Toolset              CCR NA98-23803
+*.       11/10/05      0017      Brian Klein          CCR NA05-23001
+*.
+*.  CALLING SEQUENCE: CALL A3CM36__BUILD_CHARLINES(CAT_NUM_STORMS,
+*.                    CAT_FEAT,COMB_ATT,NUM_FPOSITS,FORCST_POSITS,
+*.                    CHARLINE)
+*.
+*.  MODULE FUNCTION: GENERATE CHARACTER TABLE OF COMBINED ATTRIBUTES.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT          TYPE        DESCRIPTION
+*.    -   -----          ----        -----------
+*.    G   CAT_AZ         I*4         (CONSTANT)Combined attributes index for
+*.                                   Azimuth of storm centroid.
+*.    G   CAT_FDIR       I*4         (CONSTANT)Combined attributes index for
+*.                                   storm forecast direction.
+*.    G   CAT_FSPD       I*4         (CONSTANT)Combined attributes index for
+*.                                   storm forecast speed.
+*.    G   CAT_HMXZ       I*4         (CONSTANT)Combined attributes index for
+*.                                   height of maximum reflectivity
+*.    G   CAT_MEHS       I*4         (CONSTANT)Offset in combined attributes
+*.                                   table of Maximum Hail Size
+*.    G   CAT_MESO       I*4         (CONSTANT)Combined attributes features
+*.                                   index for presence of meso or shear.
+*.    G   CAT_MDA        I*4         (CONSTANT)Combined attributes features
+*.                                   index for presence of an MDA feature.
+*.    G   CAT_MXSTMS     I*4         (CONSTANT)Combined attributes features
+*.                                   index for maximum number of storms.
+*.    G   CAT_MXZ        I*4         (CONSTANT)Combined attributes index for
+*.                                   storm maximum reflectivity.
+*.    G   CAT_POH        I*4         (CONSTANT)Offset in combined attributes
+*.                                   table for Probability of Hail
+*.    G   CAT_POSH       I*4         (CONSTANT)Offset in combined attributes
+*.                                   table for Probability of Severe Hail
+*.    G   CAT_RNG        I*4         (CONSTANT)Combined attributes index for
+*.                                   projected range of storm centroid.
+*.    G   CAT_SID        I*4         (CONSTANT)Combined attributes features
+*.                                   index for storm ID.
+*.    G   CAT_STP        I*4         (CONSTANT)Combined attributes index for
+*.                                   height of storm top
+*.    G   CAT_TVS        I*4         (CONSTANT)Combined attributes features
+*.                                   index for presence of TVS.
+*.    G   CAT_TYPE       I*4         (CONSTANT)Offset in combined attributes
+*.                                   table Storm Cell Type (new or
+*.                                   continuing).
+*.    G   CAT_VIL        I*4         (CONSTANT)Offset in combined attributes
+*.                                   table for Cell-based VIL
+*.    G   KM_TO_NM       R*4         (CONSTANT)DEFINES THE SCALING FACTOR FOR
+*.                                   KILOMETER TO NAUTICAL MILES PARAMETER
+*.    G   MPS_TO_KTS     R*4         (CONSTANT)SCALING FACTOR FOR METERS PER
+*.                                   SECOND TO KNOTS
+*.    G   M_TO_FT        R*4         (CONSTANT)SCALING FACTOR FOR METERS TO
+*.                                   FEET
+*.    P   CAT_FEAT       I*4         Table of associated severe features.
+*.    P   CAT_NUM_STORMS I*4         Number of storms processed for the
+*.                                   combined attributes table.
+*.    P   COMB_ATT       R*4         Table of combined attributes.
+*.
+*.    *   OUTPUT   TYPE        DESCRIPTION
+*.    -   ------   ----        -----------
+*.    P   CHARLINE CHAR*72     CHARACTER LINE TABLE
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  CHARLINE   CHARACTER TABLE
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME              TYPE        DESCRIPTION
+*.    ----              ----        -----------
+*.    CAT_IDX           I*4         Index for storm number in combined
+*.                                  attributes tables.
+*.    CAZE              I*4         OFFSET FOR AZIMUTH END
+*.    CAZS              I*4         OFFSET FOR AZIMUTH START
+*.    CBVILE            I*4         Ending position within text string for
+*.                                  cell-based VIL data.
+*.    CBVILS            I*4         Starting position within text string for
+*.                                  cell-based VIL data.
+*.    CDBZME            I*4         OFFSET FOR DBZM END
+*.    CDBZMS            I*4         OFFSET FOR DBZM START
+*.    CFDIRE            I*4         OFFSET FOR CURRENT FORCAST DIRECTN END
+*.    CFDIRS            I*4         OFFSET FOR CUR FORCAST DIRECTION START
+*.    CFSPDE            I*4         OFFSET FOR FORCAST SPEED END
+*.    CFSPDS            I*4         OFFSET FOR FORCAST SPEED START
+*.    CHARPL            I*4         PLACE OF CHARACTER WITHIN ARRAY
+*.    CHMXZE            I*4         OFFSET FOR MAX Z END VALUE
+*.    CHMXZS            I*4         OFFSET FOR MAX Z START VALUE
+*.    CO3DYES           I*4         Parameter for 3D Correleated feature
+*.    CO3D_YES          CHAR*4      Character representation for 3D Correlated
+*.                                  feature in Combined Attributes table
+*.    CQSE              I*4         OFFSET FOR STORM TOP QUALIFIER
+*.    CRNGE             I*4         OFFSET FOR RANGE END
+*.    CRNGS             I*4         OFFSET FOR RANGE START
+*.    CSTPE             I*4         OFFSET FOR STORM TOP END
+*.    CSTPS             I*4         OFFSET FOR STORM TOP START
+*.    C_AZ              I*4         Azimuth data item.
+*.    C_DBZM            I*4         Used in maximum reflectivity processing.
+*.    C_FDIR            I*4         FORECAST DIRECTION DATA ITEM
+*.    C_FSPD            I*4         Feature direction and speed processing
+*.                                  data item.
+*.    C_HMXZ            R*4         Height data item
+*.    C_RNG             I*4         Range data item.
+*.    C_STP             R*4         STORM TOP
+*.    C_VIL             I*4         Cell-based VIL.
+*.    ETVSYES           I*4         Parameter for Elevated TVS
+*.    ETVS_YES          CHAR*4      Character representation ETVS in Combimed
+*.                                  Attribute Table
+*.    FIRST             I*4         PARAMETER VALUE OF 1.
+*.    GREATER_THAN      CHAR*1      Parameter indicating GREATER THAN.
+*.    HAILSIZE          R*4         Maximum expected hail size for the current
+*.                                  storm cell.
+*.    HLINE             I*4         OFFSET FOR LINE TO BE PRINTED
+*.    I                 I*4         LOOP COUNTER
+*.    J                 I*4         Do loop counter
+*.    LESS_THAN         CHAR*1      Program parameter value for LESS THAN
+*.                                  symbol.
+*.    MAX_HAIL_SIZE     R*4         Maximum expected hail size to report on
+*.                                  product.
+*.    MESOE             I*4         OFFSET FOR MESO END INFO
+*.    MESOS             I*4         OFFSET FOR MESO START INFO
+*.    MESOYES           I*4         Parameter for feature being a meso
+*.    MESO_YES          CHAR*4      Character representation for MESO in Meso
+*.                                  field for the comined attributes table
+*.    MIN_HAIL_SIZE     R*4         Minimum expected hail size
+*.    MIN_REPORTED_SIZE R*4         The smallest expected hail size, if
+*.                                  greater than zero, to report on product.
+*.    MXSZE             I*4         Ending position within text string for
+*.                                  MEHS data.
+*.    MXSZS             I*4         Starting position within text string for
+*.                                  MEHS data.
+*.    NEW_STORM         CHAR*7      Text string indicating that the storm cell
+*.                                  in question was first detected in the
+*.                                  current volume.
+*.    NEW_STORM_TYPE    I*4         Parameter indicating that the storm cell
+*.                                  in question was first detected in the
+*.                                  current volume.
+*.    NONE              CHAR*4      Character representation for NONE in Meso
+*.                                  field for the comined Attribute table.
+*.    NULL              I*4         Program parameter for zero.
+*.    POHE              I*4         Ending position within text string for POH
+*.                                  data.
+*.    POHS              I*4         Starting position within text string for
+*.                                  POH data.
+*.    POSHE             I*4         Ending position within text string for
+*.                                  POSH data.
+*.    POSHS             I*4         Starting position within text string for
+*.                                  POSH data.
+*.    PROB_HAIL         I*4         Probability of hail for the current storm
+*.                                  cell.
+*.    PROB_SEVERE       I*4         Probability of severe hail for the current
+*.                                  storm cell.
+*.    SCALEHAIL         R*4         The resolution of the hail size.
+*.    SIDE              I*4         OFFSET FOR STORM ID END
+*.    SIDS              I*4         OFFSET FOR STORM ID START
+*.    SPACE             CHAR*1      CHARACTER REPRESENTATION OF ' '
+*.    SPACER            CHAR*1      Parameter indicating spacer.
+*.    STM_ID            CHAR*2      STORM ID CHAR EQUIVALENT
+*.    S_ID              I*4         INTEGER EQUIVALENT OF STORM ID.
+*.    TITLE_LINE        CHAR*72     TITLE LINE FORMAT
+*.    TITLE_LINE1       CHAR*37     Title line 1
+*.    TITLE_LINE2       CHAR*35     Title line 2
+*.    TVSE              I*4         OFFSET FOR ENDING TVS INFORMATION
+*.    TVSS              I*4         OFFSET FOR STARTING TVS INFORMATION
+*.    TVSYES            I*4         Parameter to indicate that category
+*.                                  feature is a TVS
+*.    TVS_YES           CHAR*4      Character representation of TVS
+*.    UCORYES           I*4         Parameter indicating that the feature
+*.                                  category is Uncorelated Shear
+*.    UCOR_YES          CHAR*4      Character representation in the Combined
+*.                                  Attribute table for Uncorelated Shear
+*.    UNKNOWN           I*4         Program parameter indicating hail
+*.                                  statistics are unknown.
+*.    UNKNOWN_TEXT      CHAR*13     Parameter indicating hail information for
+*.                                  the current storm cell is unknown.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  NONE
+*.
+*.  DEVIATION FROM STANDARDS:  NONE
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.        THIS MODULE IS COMPILED USING THE COMP09.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.        THIS MODULE IS LINKED USING THE LINK09.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+
+      IMPLICIT NONE
+C
+C** DECLARATIONS :
+C   ------------
+$INCLUDE A309.INC/G,**A3PM00 (NEND NLIST)
+$INCLUDE            **A3PM50 (NLIST)
+$INCLUDE A308BUF.INC/G,**A308P3 (NEND NLIST)
+$INCLUDE               **A308D3 (NEND NLIST)
+C
+      INTEGER INPTR, OPSTAT
+      INTEGER I, J, INDX, CAT_IDX
+      INTEGER C_AZ,C_RNG,C_DBZM,C_FDIR,C_FSPD,C_VIL
+      INTEGER  S_ID
+      REAL C_HMXZ,C_STP
+C
+      INTEGER CHARPL, HLINE, FIRST, NULL, NEW_STORM_TYPE
+      PARAMETER (CHARPL=72, HLINE=37, FIRST=1, NULL = 0)
+      PARAMETER (NEW_STORM_TYPE = 1)
+C
+      CHARACTER CHARLINE(CAT_MXSTMS+1)*72,  TITLE_LINE*72, STM_ID*2
+      CHARACTER TITLE_LINE1*37, TITLE_LINE2*35
+C
+      CHARACTER NEW_STORM*7
+      PARAMETER (NEW_STORM = '  NEW  ')
+C
+      CHARACTER TVS_YES*4, ETVS_YES*4
+      CHARACTER MESO_YES*4, CO3D_YES*4, UCOR_YES*4, NONE*4
+      CHARACTER LESS_THAN*1, GREATER_THAN*1, SPACE*1
+      PARAMETER (LESS_THAN = '<', GREATER_THAN = '>', SPACE = ' ')
+      PARAMETER (TVS_YES = 'TVS', ETVS_YES = 'ETVS')
+      PARAMETER (MESO_YES = 'MESO', CO3D_YES = '3DCO')
+      PARAMETER (UCOR_YES = 'UNCO', NONE = 'NONE')
+C
+      CHARACTER SPACER*1, UNKNOWN_TEXT*13
+      PARAMETER (SPACER = '/', UNKNOWN_TEXT = '   UNKNOWN   ')
+C
+      REAL MIN_HAIL_SIZE, MAX_HAIL_SIZE, MIN_REPORTED_SIZE
+      REAL SCALEHAIL
+      PARAMETER (MIN_HAIL_SIZE = 0.0, MAX_HAIL_SIZE = 4.0)
+      PARAMETER (MIN_REPORTED_SIZE = 0.50, SCALEHAIL = 0.25)
+C
+      INTEGER*4 PROB_HAIL, PROB_SEVERE, UNKNOWN
+      REAL HAILSIZE
+      PARAMETER (UNKNOWN = -999)
+C
+      EQUIVALENCE ( S_ID, STM_ID )
+C
+C** OFFSETS FOR PLACES WITHIN CHARACTER LINE:
+C
+      INTEGER SIDS,CAZS,CRNGS,TVSS,MESOS,POSHS,CDBZMS,CHMXZS
+      INTEGER SIDE,CAZE,CRNGE,TVSE,MESOE,POSHE,CDBZME,CHMXZE
+      INTEGER CSTPS,CFDIRS,CFSPDS,CBVILS,CQSE,POHS,POHE
+      INTEGER CSTPE,CFDIRE,CFSPDE,CBVILE,MXSZS,MXSZE
+      INTEGER MDAS,MDAE
+C
+      PARAMETER(SIDS=5,CAZS=9,CRNGS=13,TVSS=17,MESOS=22,POSHS=28,
+     1          CDBZMS=49,CHMXZS=52,MDAS=22)
+      PARAMETER(SIDE=6,CAZE=11,CRNGE=15,TVSE=20,MESOE=25,POSHE=30,
+     1          CDBZME=50,CHMXZE=55,MDAE=25)
+      PARAMETER(CSTPS=58,CFDIRS=64,CFSPDS=68,CBVILS=44)
+      PARAMETER(CSTPE=61,CFDIRE=66,CFSPDE=70,CBVILE=46)
+      PARAMETER(CQSE=57,POHS=32,POHE=34,MXSZS=37,MXSZE=40)
+C
+      INTEGER TVSYES,ETVSYES
+      PARAMETER(ETVSYES=2,TVSYES=1)
+C.....ORPG Razor Issue #171
+      DATA TITLE_LINE1 /' STM ID  AZ/RAN TVS  MDA  POSH/POH/MX'/
+      DATA TITLE_LINE2 /' SIZE VIL DBZM  HT  TOP  FCST MVMT '/
+
+      INTEGER MESOYES,CO3DYES,UCORYES
+      PARAMETER(MESOYES=1,CO3DYES=2,UCORYES=3)
+      
+      INTEGER MDANO
+      PARAMETER(MDANO=0)
+C
+C** EXECUTABLE CODE :
+C   ---------------
+C
+C** PURGE WHOLE CHAR ARRAY WITH BLANKS
+C
+      DO 20 J=1,CAT_MXSTMS+1
+         DO 40 I=1,CHARPL
+            CHARLINE(J)(I:)=SPACE
+40       CONTINUE
+20    CONTINUE
+C
+C** PUT IN TITLE LINE
+C
+      TITLE_LINE(FIRST:HLINE)= TITLE_LINE1
+      TITLE_LINE(HLINE+1:CHARPL)= TITLE_LINE2
+      CHARLINE(FIRST) = TITLE_LINE
+C
+C** SET UP THE COMBINED ATTRIBUTES IN A CHARACTER-FORMAT LINE:
+C   ---------------------------------------------------------
+      DO 60 CAT_IDX=1,CAT_NUM_STORMS
+C
+         J=CAT_IDX+1
+C
+C** STORM ID PROCESSING
+C
+         S_ID = CAT_FEAT(CAT_SID,CAT_IDX)
+         CHARLINE(J)(SIDS:SIDE) = STM_ID
+C
+C** AZMUTH PROCESSING
+C
+         C_AZ = NINT(COMB_ATT(CAT_AZ,CAT_IDX))
+         WRITE(CHARLINE(J)(CAZS:CAZE),'(I3)') C_AZ
+         CHARLINE(J)(CAZE+1:CAZE+1) = SPACER
+C
+C** RANGE PROCESSING
+C
+         C_RNG = NINT(COMB_ATT(CAT_RNG,CAT_IDX)*KM_TO_NM)
+         WRITE(CHARLINE(J)(CRNGS:CRNGE),'(I3)') C_RNG
+C
+C** TORNADO VORTEX SIGNATURE PROCESSING
+C
+         IF (CAT_FEAT(CAT_TVS,CAT_IDX).EQ.TVSYES) THEN
+            CHARLINE(J)(TVSS:TVSE) = TVS_YES
+         ELSE IF(CAT_FEAT(CAT_TVS,CAT_IDX).EQ.ETVSYES) THEN
+            CHARLINE(J)(TVSS:TVSE) = ETVS_YES
+         ELSE
+            CHARLINE(J)(TVSS:TVSE) = NONE
+         ENDIF
+C
+C** MDA PROCESSING
+C
+         IF (CAT_FEAT(CAT_MDA,CAT_IDX).NE.MDANO) THEN
+            WRITE (CHARLINE(J)(MDAS:MDAE),'(I4)') 
+     1                    CAT_FEAT(CAT_MDA,CAT_IDX)
+         ELSE
+            CHARLINE(J)(MDAS:MDAE) = NONE
+         ENDIF
+C
+C** HAIL PROCESSING
+C
+         PROB_HAIL = CAT_FEAT(CAT_POH,CAT_IDX)
+         PROB_SEVERE = CAT_FEAT(CAT_POSH,CAT_IDX)
+         HAILSIZE = CAT_FEAT(CAT_MEHS,CAT_IDX)*SCALEHAIL
+C
+         IF (PROB_HAIL.EQ.UNKNOWN .OR. PROB_SEVERE.EQ.UNKNOWN) THEN
+C
+C** IF PROBABILITIES ARE FLAG VALUE, MARK AS UNKNOWN
+C
+            CHARLINE(J)(POSHS:MXSZE) = UNKNOWN_TEXT
+         ELSE
+C
+C** PROBABILITIES ARE VALID
+C
+            WRITE  (CHARLINE(J)(POSHS:POSHE),'(I3)') PROB_SEVERE
+            WRITE  (CHARLINE(J)(POHS:POHE),'(I3)') PROB_HAIL
+C
+C** IF POSH AND POH BOTH 0, SET HAILSIZE TO MINIMUM SIZE.
+C
+            IF (PROB_SEVERE .EQ. NULL .AND. PROB_HAIL .EQ. NULL) THEN
+C
+C** BOTH ZERO, SIZE IS MINIMUM.
+C
+               CHARLINE(J)(MXSZS-1:MXSZS-1) = SPACE
+               HAILSIZE = MIN_HAIL_SIZE
+C
+C** PUT QUALIFIER ON HAIL SIZE.  LIMIT SIZE BETWEEN 0.50 AND 4.0
+C** INCHES, INCLUSIVE
+C
+            ELSE IF (HAILSIZE .LT. MIN_REPORTED_SIZE .AND. HAILSIZE
+     >          .GE. MIN_HAIL_SIZE .AND. PROB_HAIL .GT. NULL) THEN
+C
+C** LESS THAN MINIMUM SIZE
+C
+               CHARLINE(J)(MXSZS-1:MXSZS-1) = LESS_THAN
+               HAILSIZE = MIN_REPORTED_SIZE
+            ELSE IF (HAILSIZE .LT. MIN_HAIL_SIZE) THEN
+C
+C** SIZE IS NEGATIVE.  MUST BE GREATER THAN MAXIMUM SIZE
+C
+               CHARLINE(J)(MXSZS-1:MXSZS-1) = GREATER_THAN
+               HAILSIZE = MAX_HAIL_SIZE
+            END IF
+            WRITE  (CHARLINE(J)(MXSZS:MXSZE),'(F4.2)') HAILSIZE
+C
+C** ADD SPACERS
+C
+            CHARLINE(J)(POSHE+1:POSHE+1) = SPACER
+            CHARLINE(J)(POHE+1:POHE+1) = SPACER
+         END IF
+C
+C** CELL-BASED VIL PROCESSING
+C
+         C_VIL = NINT(COMB_ATT(CAT_VIL,CAT_IDX))
+         WRITE(CHARLINE(J)(CBVILS:CBVILE),'(I3)') C_VIL
+C
+C** MAX REFLECTIVITY PROCESSING
+C
+         C_DBZM = NINT(COMB_ATT(CAT_MXZ,CAT_IDX))
+         WRITE(CHARLINE(J)(CDBZMS:CDBZME),'(I2)') C_DBZM
+C
+C** HEIGHT DATA PROCESSING
+C
+         C_HMXZ = COMB_ATT(CAT_HMXZ,CAT_IDX)*M_TO_FT
+         WRITE(CHARLINE(J)(CHMXZS:CHMXZE),'(F4.1)') C_HMXZ
+C
+C** STORM TOP PROCESSING
+C
+         C_STP = COMB_ATT(CAT_STP,CAT_IDX)*M_TO_FT
+C
+C** IF STORM TOP IS NEGATIVE, TOP WAS DETECTED ON HIGHEST ELEVATION
+C** CUT.
+C
+         IF (C_STP .LT. 0.0) THEN
+            CHARLINE(J)(CQSE:CQSE) = GREATER_THAN
+            C_STP = ABS(C_STP)
+         ENDIF
+         WRITE(CHARLINE(J)(CSTPS:CSTPE),'(F4.1)') C_STP
+C
+C** FEATURE DIRECTION AND SPEED PROCESSING
+C
+C** IF THE STORM CELL TYPE IS NEW, SPECIFY "NEW".  OTHERWISE,...
+C
+         IF (CAT_FEAT(CAT_TYPE,CAT_IDX) .EQ. NEW_STORM_TYPE) THEN
+            CHARLINE(J)(CFDIRS:CFSPDE) = NEW_STORM
+         ELSE
+            C_FDIR = NINT(COMB_ATT(CAT_FDIR,CAT_IDX))
+            WRITE(CHARLINE(J)(CFDIRS:CFDIRE),'(I3)') C_FDIR
+C
+            C_FSPD = NINT(COMB_ATT(CAT_FSPD,CAT_IDX)*MPS_TO_KTS)
+            WRITE(CHARLINE(J)(CFSPDS:CFSPDE),'(I3)') C_FSPD
+C
+C** ADD SPACER
+C
+            CHARLINE(J)(CFDIRE+1:CFDIRE+1) = SPACER
+         END IF
+C
+  60  CONTINUE
+C
+C** RETURN TO CALLER ROUTINE
+C
+      RETURN
+      END

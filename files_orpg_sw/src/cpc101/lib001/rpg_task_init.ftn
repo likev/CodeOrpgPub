@@ -1,0 +1,142 @@
+C
+C RCS info
+C $Author: steves $
+C $Locker:  $
+C $Date: 2005/12/27 16:09:40 $
+C $Id: rpg_task_init.ftn,v 1.3 2005/12/27 16:09:40 steves Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+C***********************************************************************
+
+C    Description: This file contains the task_initialize subroutine.
+
+C***********************************************************************
+
+
+
+C***********************************************************************
+
+C	This subroutine sends the command line argument to a C function
+C	for interpretation.  It then calls RPG_task_init_c to register
+C	the process name and what_based attribute.
+
+C***********************************************************************
+
+      subroutine RPG_task_init( what_based )
+
+      implicit none
+      integer what_based
+
+      call Parse_args()
+      call RPG_task_init_c( what_based )
+
+      return
+      end
+
+C***********************************************************************
+
+C	This subroutine sends the command line argument to a C function
+C	for interpretation.  It then calls RPG_init_log_services_c to 
+C       register the process name and what_based attribute.
+
+C***********************************************************************
+
+      subroutine RPG_init_log_services()
+
+      implicit none
+
+      call Parse_args()
+      call RPG_init_log_services_c()
+
+      return
+      end
+
+C***********************************************************************
+
+C       This subroutine sends the command line argument to a C function
+C       for interpretation.  It then calls RPG_reg_inputs to register
+C       inputs and OB_reg_outputs to register outputs.
+
+C***********************************************************************
+
+      subroutine RPG_reg_io()
+
+      implicit none
+      integer status
+
+      call Parse_args()
+      call IB_reg_inputs( status )
+      call OB_reg_outputs( status )
+
+      return
+      end
+
+C***********************************************************************
+
+C       This subroutine sends the command line argument to a C function
+C       for interpretation.  It then calls RPG_reg_inputs to register 
+C       inputs.
+
+C***********************************************************************
+
+      subroutine RPG_reg_inputs()
+
+      implicit none
+      integer status
+
+      call Parse_args()
+      call IB_reg_inputs( status )
+
+      return
+      end
+
+C***********************************************************************
+
+C       This subroutine sends the command line argument to a C function
+C       for interpretation.  It then calls RPG_reg_outputs to register 
+C       outputs.
+
+C***********************************************************************
+
+      subroutine RPG_reg_outputs()
+
+      implicit none
+      integer status
+
+      call Parse_args()
+      call OB_reg_outputs( status )
+
+      return
+      end
+
+C***********************************************************************
+
+C       This subroutine sends the command line argument to a C function
+C       for interpretation.  It then calls RPG_reg_outputs to register 
+C       outputs.
+
+C***********************************************************************
+      subroutine Parse_args( )
+
+      implicit none
+      character*64 argv
+      integer status, iargc, i, m
+      integer args_parsed/0/
+
+      ;** Only need to parse the arguments once.
+      if( args_parsed .eq. 1 ) return
+
+      ;** Parse the arguments
+      m = iargc()
+      do 10 i = 0, m                   ; send all argv to the c module
+         call getarg( i, argv )
+         call INIT_process_argv( argv, 64 )
+10    continue
+
+      args_parsed = 1
+
+      return
+      end
+
+      

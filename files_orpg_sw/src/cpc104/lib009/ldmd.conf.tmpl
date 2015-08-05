@@ -1,0 +1,121 @@
+# RCS info
+# $Author: cm $
+# $Locker:  $
+# $Date: 2013/09/04 14:29:54 $
+# $Id: ldmd.conf.tmpl,v 1.19 2013/09/04 14:29:54 cm Exp $
+# $Revision: 1.19 $
+# $State: Exp $
+#
+# This template is used for generating site-dependent ldmd.conf.modify
+SET _gdc_include = rpg_net_vars.def
+SET _gdc_set_interpreting = !-#
+SET _gdc_install_file = cfg/ldmd.conf  on rpgb rpga mscf
+
+# Line needed for LDM to work
+ALLOW ANY ^((localhost|loopback)|(127\.0\.0\.1\.?$)) .*
+
+SET SITE_W_FR_LDM = NO
+IF DOD: {
+  # Account for DOD Frame Relay sites
+  IF NOT DAN1 KEOX KEYX KHPX KMBX KMXX KPOE KVAX KVBX KFDR KVNX: SET SITE_W_FR_LDM = YES
+}
+IF FAA: {
+  # Account for FAA Frame Relay sites
+  IF FOP1 TJUA PHKI PHKM PHMO PHWA: SET SITE_W_FR_LDM = YES
+}
+IF SITE_W_FR_LDM: {
+  # Account for typical Frame Relay cases
+  ALLOW NEXRAD2 172.25.$MSCF_IP_O3.32
+}
+IF KFDR: {
+  # Account for special KFDR Frame Relay cases
+  ALLOW NEXRAD2 172.25.134.32
+}
+IF KVNX: {
+  # Account for special KVNC Frame Relay cases
+  ALLOW NEXRAD2 172.25.134.33
+}
+IF DAN1: {
+  # Account for special DAN1 Frame Relay cases
+  ALLOW NEXRAD2 172.25.174.32
+}
+
+SET RPGA1_IP = 172.25.$SUBNET_ID.1
+SET RPGA2_IP = 172.25.$SUBNET_ID.71
+SET RPGB1_IP = 172.25.$SUBNET_ID.22
+SET RPGB2_IP = 172.25.$SUBNET_ID.83
+SET MSCF_IP = 172.25.$MSCF_IP_O3.$MSCF_IP_O4
+SET DED_IP1 = 192.168.$SUBNET_ID.23
+SET DED_IP2 = 192.168.$SUBNET_ID.24
+SET DED_IP3 = 192.168.$SUBNET_ID.25
+SET DED_IP4 = 192.168.$SUBNET_ID.26
+SET NL2_IP1 = 172.23.255.2
+SET NL2_IP2 = 172.23.255.3
+SET NL2_IP3 = 172.23.255.130
+SET NL2_IP4 = 172.23.255.131
+
+IF NODE_NAME==rpga: {
+  # RPGA:
+  # Allow RPGB to pull any data from RPGA on same channel
+  IF FAA_CH2: {
+    ALLOW ANY $RPGB2_IP
+  }
+  ELSE: {
+    ALLOW ANY $RPGB1_IP
+  }
+  # Allow dedicated connections on VLAN to pull level-II radar data only
+  ALLOW NEXRAD2 $DED_IP1
+  ALLOW NEXRAD2 $DED_IP2
+  ALLOW NEXRAD2 $DED_IP3
+  ALLOW NEXRAD2 $DED_IP4
+  # Allow National Level-II System to pull any data
+  ALLOW ANY $NL2_IP1
+  ALLOW ANY $NL2_IP2
+  ALLOW ANY $NL2_IP3
+  ALLOW ANY $NL2_IP4
+  IF NWS:  {
+    # FOR SONICWALL ELIMINATION
+    ALLOW NEXRAD2 172.23.$SUBNET_ID.60
+  } 
+  IF KLGX: {
+    # For KLGX Test ECP Field Test
+    ALLOW NEXRAD2 172.23.$SUBNET_ID.24
+  }
+  # Write LB msgs to LDM product queue, but only on RPGA
+  IF FAA_CH2: {
+    EXEC "/bin/sh -c \"roc_ldm_keepalive_task -e RMTPORT=/home/rpg/:50000@2 -e ORPGDIR=/home/rpg/data -e CFG_DIR=/home/rpg/cfg -L -t '/home/rpg/bin/lnux_x86/lb_to_ldm -i 3059 -p rpga2'\""
+  }
+  ELSE: {
+    EXEC "/bin/sh -c \"roc_ldm_keepalive_task -e RMTPORT=/home/rpg/:50000 -e ORPGDIR=/home/rpg/data -e CFG_DIR=/home/rpg/cfg -L -t '/home/rpg/bin/lnux_x86/lb_to_ldm -i 3059 -p rpga1'\""
+  }
+}
+ELSEIF NODE_NAME==rpgb: {
+  # RPGB:
+  # Request from RPGA on same channel. This is required since convert_ldm
+  # runs on RPGA but only RPGB can connect to the National Level-II servers.
+  IF FAA_CH2: {
+    REQUEST ANY ".*" $RPGA2_IP
+  }
+  ELSE: {
+    REQUEST ANY ".*" $RPGA1_IP
+  }
+  # Allow dedicated connections on VLAN to pull level-II radar data only
+  ALLOW NEXRAD2 $DED_IP1
+  ALLOW NEXRAD2 $DED_IP2
+  ALLOW NEXRAD2 $DED_IP3
+  ALLOW NEXRAD2 $DED_IP4
+  # Allow National Level-II System to pull any data
+  ALLOW ANY $NL2_IP1
+  ALLOW ANY $NL2_IP2
+  ALLOW ANY $NL2_IP3
+  ALLOW ANY $NL2_IP4
+  IF NWS:  {
+    # FOR SONICWALL ELIMINATION
+    ALLOW NEXRAD2 172.23.$SUBNET_ID.60
+  } 
+  IF KLGX: {
+    # For KLGX Test ECP Field Test
+    ALLOW NEXRAD2 172.23.$SUBNET_ID.200
+  }
+}
+

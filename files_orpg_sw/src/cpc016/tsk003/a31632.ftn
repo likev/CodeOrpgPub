@@ -1,0 +1,331 @@
+C
+C RCS info
+C $Author: steves $
+C $Locker:  $
+C $Date: 2004/01/12 16:55:06 $
+C $Id: a31632.ftn,v 1.4 2004/01/12 16:55:06 steves Exp $
+C $Revision: 1.4 $
+C $State: Exp $
+C
+      SUBROUTINE A31632__FORMAT_TRK(NTOTPRED,STORMIDTYP,STORMOTION,
+     >                              STORMFORW,STORMBACK,FORCADAP,
+     >                              BUFOUT)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A31632__FORMAT_TRK
+*.
+*.  MODULE VERSION: 0015
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       07 22 85      0000      M.JO STALEY          Part 2, RPG Build 1
+*.       04 22 86      0001      M.JO STALEY          SPR # 60118
+*.       06 26 86      0002      A.WEINSTEIN          SPR # 60313
+*.       10 02 86      0003      J GROMMONS           SPR # 60346
+*.       04 27 87      0004      JO STALEY            SPR # 70244
+*.       02 22 91      0005      David M. Lynch       SPR # 91257
+*.       02 15 91      0005      JOHN DEPHILIP        SPR # 91762
+*.       12 03 91      0006      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0007      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0008      Toolset              SPR 91895
+*.       03/25/93      0009      Toolset              SPR NA93-06801
+*.       01/28/94      0010      Toolset              SPR NA94-01101
+*.       03/03/94      0011      Toolset              SPR NA94-05501
+*.       04/01/95      0012      Toolset              CCR NA95-11802
+*.       06/09/95      0013      STEVE SMITH          CCR NA94-26302
+*.       12/23/96      0014      Toolset              CCR NA95-11807
+*.       03/16/99      0015      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A31632__FORMAT_TRK(NTOTPRED,STORMIDTYP,
+*.                                 STORMOTION,STORMFORW,STORMBACK,
+*.                                 FORCADAP,BUFOUT)
+*.
+*.  MODULE FUNCTION:
+*.
+*.     THIS MODULE IS CALLED BY THE BUFFER CONTROL MODULE.  IT
+*.     MANAGES THE FORMATTING OF THE GRAPHIC PRODUCT . IT CALLS
+*.     MODULES TO FORMAT THE SPECIAL SYMBOL AND VECTOR PACKETS.
+*.
+*.  MODULES CALLED: A31634__BLD_PACKET, A31635__STM_ID, A31636__BLD_VECT, 
+*.                  A3163G__SLOW_PACKET 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT      TYPE        DESCRIPTION
+*.    -   -----      ----        -----------
+*.    G   BLKOVRHD   I*4         (CONSTANT)SIZE OF OVERHEAD PORTION OF PRODUCT
+*.                               SYMBOLOGY BLOCK, IN BYTES
+*.    G   BLOCKIDOFF I*4         (CONSTANT)Product block ID offset.
+*.    G   DIV2OFF    I*4         (CONSTANT)Product block offset: Second
+*.                               divider.
+*.    G   LRLSWOFF   I*4         (CONSTANT)Product block offset: Length of
+*.                               product block portion of product (LSW).
+*.    G   LRMSWOFF   I*4         (CONSTANT)Product block offset: Length of
+*.                               product block portion of product (MSW).
+*.    G   LYRDIVOFF  I*4         (CONSTANT)PRODUCT BLOCK OFFSET: LAYER DIVIDER
+*.    G   LYRLLSWOFF I*4         (CONSTANT)Product block offset:  Layer length
+*.                               (LSW).
+*.    G   LYRLMSWOFF I*4         (CONSTANT)Product block offset: Layer length
+*.                               (MSW).
+*.    G   NLYROFF    I*4         (CONSTANT)Product block offsets: Number of
+*.                               layers.
+*.    G   PHBYTES    I*4         (CONSTANT)Number of bytes in product header.
+*.    G   PHEADLNG   I*4         (CONSTANT)Number of half words in product
+*.                               header (its length).
+*.    G   STA_NFOR   I*4         (CONSTANT)Offset to the Number of (Forecast)
+*.                               Intervals in the adaptation data part of the
+*.                               centroids & tracking/forecast output buffers.
+*.    G   STA_PVOL   I*4         (CONSTANT)Offset to the Number of Past
+*.                               Volumes in the adaptation data part of the
+*.                               centroids & tracking/forecast output buffers.
+*.    G   STF_ID     I*4         (CONSTANT)Offset to the cell ID index in the
+*.                               STORMIDTYP part of the tracking/forecast
+*.                               output buffer.
+*.    G   STF_SPD    I*4         (CONSTANT)Offset to the cell speed (m/s) in
+*.                               the STORMOTION part of the tracking/forecast
+*.                               output buffer.
+*.    G   STF_TYP    I*4         (CONSTANT)Offset to the cell type in the
+*.                               STORMIDTYP part of the tracking/forecast
+*.                               output buffer.
+*.    G   STF_XB     I*4         (CONSTANT)Offset to the past x locations in
+*.                               the STORMBACK part of the tracking/forecast
+*.                               output buffer.
+*.    G   STF_XF     I*4         (CONSTANT)Offset to the forecasted x
+*.                               locations (km) in the STORMBACK part of the
+*.                               tracking/forecast output buffer.
+*.    G   STF_YB     I*4         (CONSTANT)Offset to the past y locations in
+*.                               the STORMBACK part of the tracking/forecast
+*.                               output buffer.
+*.    G   STF_YF     I*4         (CONSTANT)Offset to the forecasted y
+*.                               locations (km) in the STORMBACK part of the
+*.                               tracking/forecast output buffer.
+*.    G   TYP_CON    I*4         (CONSTANT)Flag that indicates that a storm
+*.                               cell has a history of at least two volume
+*.                               scans.
+*.    G   UNDEF      R*4         (CONSTANT)Value that shows that storm cell
+*.                               attributes of motion cannot be calculated
+*.                               because there is no storm cell history.
+*.    C   OPTRIDX    I*4         Output buffer index for Storm Track
+*.                               Information product.
+*.    P   BUFOUT     I*2         THE FORMATTED OUTPUT PRODUCT BUFFER
+*.    P   FORCADAP   I*4         Array of Storm Series Adaptation Data.
+*.    P   NTOTPRED   I*4         TOTAL NUMBER OF STORMS.
+*.    P   STORMBACK  R*4         Three dimensional array of storm back
+*.                               positions.
+*.    P   STORMFORW  R*4         Three dimensional array of forcast positions.
+*.    P   STORMIDTYP I*4         2-D array of supplementary storm desciption
+*.                               information per volume scan
+*.    P   STORMOTION R*4         2-D array of storm cell motion attributes.
+*.
+*.    *   OUTPUT      TYPE        DESCRIPTION
+*.    -   ------      ----        -----------
+*.    C   BACK_POSITS L*4         Flag, if set, indicates there is past
+*.                                position data for the current storm cell.
+*.    C   FORW_POSITS L*4         Flag, if set, indicates there is forecast
+*.                                position data for the current storm cell.
+*.    C   OPTRIDX     I*4         Output buffer index for Storm Track
+*.                                Information product.
+*.    P   BUFOUT      I*2         THE FORMATTED OUTPUT PRODUCT BUFFER
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    P   BUFOUT            I*2         THE FORMATTED OUTPUT PRODUCT BUFFER
+*.    P   FORCADAP          I*4         Array of Storm Series Adaptation Data.
+*.    P   STORMBACK         R*4         Three dimensional array of storm back
+*.                                      positions.
+*.    P   STORMFORW         R*4         Three dimensional array of forcast
+*.                                      positions.
+*.    P   STORMIDTYP        I*4         2-D array of supplementary storm
+*.                                      desciption information per volume scan
+*.    P   STORMOTION        R*4         2-D array of storm cell motion
+*.                                      attributes.
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME           TYPE        DESCRIPTION
+*.    ----           ----        -----------
+*.    BACKPOS_PACKET I*4         Packet code indicating Back Position data
+*.                               packet
+*.    BACKSYM        I*4         SPECIAL SYMBOL FOR BACK-POSITIONS
+*.    CURRSYM        I*4         SPECIAL SYMBOL FOR CURRENT POSITION
+*.    DIVIDER        I*4         PROGRAM PARAMETER FOR HEADER DIVIDER
+*.    FORWPOS_PACKET I*4         Packet code indicating Forward Position data
+*.                               packet
+*.    FORWSYM        I*4         SPECIAL SYMBOL FOR FORECAST POSITIONS
+*.    J              I*4         Loop control.
+*.    K              I*4         Loop control index variables.
+*.    NUMLYRS        I*4         NUMBER OF LAYERS IN PRODUCT BUFFER
+*.    SAVE_OUT_INDEX I*4         Temporary storage for output buffer index for
+*.                               use in packet length calculation
+*.    SYMBLKID       I*4         SYMBOL BLOCK ID
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A316C3
+*.
+*.  ERROR CONDITIONS:  NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP16.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK16.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+      IMPLICIT NONE
+C
+$INCLUDE A315BUF.INC/G,**A315P7F (NEND NLIST)
+$INCLUDE A315BUF.INC/G,**A315D7 (NEND NLIST)
+$INCLUDE A315BUF.INC/G,**A315PSAD (NEND NLIST)
+$INCLUDE A309.INC/G,**A3PM01 (NEND NLIST)
+$INCLUDE A316.INC/G,**A316C3 (NEND NLIST)
+C
+      INTEGER BACKSYM,CURRSYM,FORWSYM,BACKPOS_PACKET,FORWPOS_PACKET
+      PARAMETER(BACKSYM=X'2120', CURRSYM=X'2220', FORWSYM=X'2320')
+      PARAMETER(BACKPOS_PACKET=23, FORWPOS_PACKET=24)
+      INTEGER*2 BUFOUT(*)
+      INTEGER I,J,K,NUMLYRS,DIVIDER,SYMBLKID,SAVE_OUT_INDEX
+      PARAMETER(NUMLYRS=1,DIVIDER=-1,SYMBLKID=1)
+C
+C..................................................................
+C
+C**  PROCESS ALL THE CONTINUING STORM CELLS FOR GRAPHIC SCREEN.
+C
+      IF(NTOTPRED .NE. 0 ) THEN
+C
+C**  STORE THE BLOCK OVERHEAD STUFF.
+C
+         BUFOUT(DIV2OFF) = DIVIDER
+         BUFOUT(BLOCKIDOFF) = SYMBLKID
+         BUFOUT(NLYROFF) = NUMLYRS
+         BUFOUT(LYRDIVOFF) = DIVIDER
+C
+C**  INITIALIZE THE POINTER INTO OUTPUT BUFFER.
+C
+         OPTRIDX=PHEADLNG+BLKOVRHD/2
+C
+         DO 100 K=1,NTOTPRED
+C
+C**  PROCESS THE CURRENT POSITION PACKETS.
+C
+            CALL A31634__BLD_PACKET(STORMOTION(STF_XB,K),
+     >                          STORMOTION(STF_YB,K),CURRSYM,BUFOUT)
+C
+C**  BUILD THE STORM-ID PACKET FOR CURRENT POSITON.
+C
+            CALL A31635__STM_ID(STORMIDTYP(STF_ID,K),
+     >             STORMOTION(STF_XB,K),STORMOTION(STF_YB,K),BUFOUT)
+C
+C**  IF THIS STORM CELL IS NOT "SLOW", THEN...
+C
+            IF ( (STORMIDTYP(STF_TYP,K) .EQ. TYP_CON) .AND.
+     >           (STORMOTION(STF_SPD,K) .GT. 0.0) ) THEN
+C
+C**  INITIALIZE FORWARD AND BACK POSITIONS FLAGS TO FALSE.
+C
+               BACK_POSITS=.FALSE.
+               FORW_POSITS=.FALSE.
+C
+C**  STORE PACKET CODE INDICATING BACK POSITION DATA PACKET.  SAVE
+C**  OUTPUT BUFFER INDEX FOR FUTURE PACKET LENGTH CALCULATION.
+C
+               BUFOUT(OPTRIDX+1) = BACKPOS_PACKET
+               OPTRIDX = OPTRIDX + 2
+               SAVE_OUT_INDEX = OPTRIDX
+C
+C**  PROCESS ALL THE BACK POSTIONS OF CONTINUING STORM CELLS.
+C
+               DO 200 J=1,FORCADAP(STA_PVOL)
+                  IF (STORMBACK(STF_XB,J,K) .NE. UNDEF) THEN
+C
+C**  HAVE A CONTINUING STORM CELL WITH POSITION DEFINED.
+C
+                     CALL A31634__BLD_PACKET(STORMBACK(STF_XB,J,K),
+     >                          STORMBACK(STF_YB,J,K),BACKSYM,BUFOUT)
+                     BACK_POSITS=.TRUE.
+                  ENDIF
+ 200           CONTINUE
+C
+C**  PROCESS VECTOR PACKETS FOR BACK POSITION TRACK.
+C
+               CALL A31636__BLD_VECT(STORMOTION,STORMFORW,STORMBACK,
+     >                               FORCADAP,BUFOUT,K)
+C
+C**  STORE BACK POSITION DATA PACKET LENGTH IN OUTPUT BUFFER.
+C
+               BUFOUT(SAVE_OUT_INDEX) = (OPTRIDX-SAVE_OUT_INDEX)*2
+C
+C**  IF THERE IS AT LEAST ONE FORECAST POSITION OF THIS STORM CELL,
+C**  STORE PACKET CODE INDICATING FORWARD POSITION DATA PACKET.  SAVE
+C**  OUTPUT BUFFER INDEX FOR FUTURE PACKET LENGTH CALCULATIONS.
+C
+               IF (STORMFORW(STF_XF,1,K) .NE. UNDEF) THEN
+                  BUFOUT(OPTRIDX+1) = FORWPOS_PACKET
+                  OPTRIDX = OPTRIDX + 2
+                  SAVE_OUT_INDEX = OPTRIDX
+               END IF
+C
+C**  PROCESS THE FORCAST POSTIONS FROM THE CONTINUING STORM CELLS.
+C
+               DO 300 J=1,FORCADAP(STA_NFOR)
+                  IF (STORMFORW(STF_XF,J,K) .NE. UNDEF) THEN
+C
+C**  HAVE A CONTINUING STORM WITH POSITION DEFINED.
+C
+                     CALL A31634__BLD_PACKET(STORMFORW(STF_XF,J,K),
+     >                         STORMFORW(STF_YF,J,K),FORWSYM,BUFOUT)
+                     FORW_POSITS=.TRUE.
+                  ENDIF
+ 300           CONTINUE
+C
+C**  PROCESS VECTOR PACKETS FOR FORWARD POSITION TRACK.
+C
+               CALL A31636__BLD_VECT(STORMOTION,STORMFORW,STORMBACK,
+     >                               FORCADAP,BUFOUT,K)
+C
+C**  STORE FORWARD POSITION DATA PACKET LENGTH IN OUTPUT BUFFER.
+C
+               BUFOUT(SAVE_OUT_INDEX) = (OPTRIDX-SAVE_OUT_INDEX)*2
+C
+            ELSE
+               IF (STORMOTION(STF_SPD,K) .LE. 0.0) THEN
+C
+C**  IF STORM CELL SPEED IS LESS THAN ZERO, IT MUST BE A SLOW MOVER.
+C
+                  CALL A3163G__SLOW_PACKET(STORMOTION(STF_XB,K),
+     >                         STORMOTION(STF_YB,K),BUFOUT)
+               END IF
+            END IF
+ 100     CONTINUE
+C
+C**  CALCULATE AND STORE THE BLOCK LENGTHS (SYMBOLOBY BLOCK).
+C
+         call RPG_set_product_int( BUFOUT(LYRLMSWOFF), 
+     1                             OPTRIDX*2-PHBYTES-BLKOVRHD )
+         call RPG_set_product_int( BUFOUT(LRMSWOFF), 
+     1                             (OPTRIDX-PHEADLNG)*2 )
+      ENDIF
+C
+C**  RETURN TO CALLER.
+C
+      RETURN
+      END

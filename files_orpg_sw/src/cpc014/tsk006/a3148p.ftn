@@ -1,0 +1,172 @@
+C 
+C RCS info 
+C $Author: ryans $ 
+C $Locker:  $ 
+C $Date: 2006/02/09 20:38:17 $ 
+C $Id: a3148p.ftn,v 1.4 2006/02/09 20:38:17 ryans Exp $ 
+C $Revision: 1.4 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A3148P__BIAS_ARRAY(SCALING, MAXVAL, IN_DATA, OUT_PROD)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3148P__BIAS_ARRAY
+*.
+*.  MODULE VERSION: 0003
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       05/10/95      0000      TIM O'BANNON         CCR 94-33207
+*.       12/23/96      0001      Toolset              CCR NA95-11807
+*.       03/16/99      0002      Toolset              CCR NA98-23803
+*.       11/16/05      0003      C. Pham              CCR NA05-21401
+*.
+*.  CALLING SEQUENCE: CALL A3148P__BIAS_ARRAY(SCALING,MAXVAL,IN_DATA,OUT_PROD)
+*.
+*.  MODULE FUNCTION:
+*.    This module finds the maximum data value in the input array, then it
+*.    converts from I*4 to I*2 and biases the output array of values for the
+*.    precipitation color tables.  If the values are non-zero, they are
+*.    converted from from the input resolution (millimeters for OHP, 100ths
+*.    of an inch for STP or THP) to either 10ths of an inch (for STP) or
+*.    20ths of an inch (for OHP and THP) using the SCALING factor passed
+*.    through the call to this subroutine.  The data are then truncated to
+*.    integer and a bias (=1) is added to ensure no zero values are sent
+*.    the color lookup table.  All values greater than the maximum table
+*.    value of 255 are set equal to 255.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT       TYPE        DESCRIPTION
+*.    -   -----       ----        -----------
+*.    G   MAX_ADJBINS I*4         (CONSTANT)Maximum number of range bins
+*.                                (index into output buffer of adjusted
+*.                                values).
+*.    G   MAX_AZMTHS  I*4         (CONSTANT)Maximum number of azimuths in a
+*.                                scan (index into output buffer of adjusted
+*.                                values).
+*.    C   IBEG        I*4         (CONSTANT)Parameter used as loop control
+*.                                variable (initial value).
+*.    C   IINIT       I*4         (CONSTANT)Parameter indicating initial
+*.                                value.
+*.    P   IN_DATA     I*2         Input data array.  Varies, see A3148P.FTN
+*.    P   MAXVAL      I*4         Maximum value in input array
+*.    P   OUT_PROD    I*2         Output product array
+*.    P   SCALING     R*4         Factor used to convert input data to output
+*.                                product  Varies, see A3148P.FTN
+*.
+*.    *   OUTPUT   TYPE        DESCRIPTION
+*.    -   ------   ----        -----------
+*.    P   MAXVAL   I*4         Maximum value in input array
+*.    P   OUT_PROD I*2         Output product array
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME        TYPE        DESCRIPTION
+*.    ----        ----        -----------
+*.    MAX_TBL_VAL I*4         (CONSTANT)Maximum color table value
+*.    OFFSET      I*4         Constant used to ensure all output product
+*.                            values exceed zero  Color table values
+*.    X           I*4         Index in DO loop incremented along radial bins
+*.    Y           I*4         Index in DO loop incremented along azimuthal
+*.                            radials
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING THE COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING THE LINK14.CSS
+*.
+*.  MISC:  N/A
+*.
+*.*******************************************************************
+C
+C** 'X' IN COLUMN-1 INDICATES CONDITIONALLY COMPILED DEBUG CODE...
+C
+      IMPLICIT NONE
+C
+C
+$INCLUDE A3146.INC/G,**A3146P1 (NLIST)
+$INCLUDE A313HBUF.INC/G, **A313HYPP (NLIST)
+C
+C
+      INTEGER*2 IN_DATA(MAX_ADJBINS,MAX_AZMTHS)
+      INTEGER*2 OUT_PROD(MAX_ADJBINS,MAX_AZMTHS)
+      INTEGER X,Y, MAX_TBL_VAL, MAXVAL
+      PARAMETER (MAX_TBL_VAL = 255)
+      REAL SCALING
+      INTEGER OFFSET
+      PARAMETER (OFFSET=1)
+C
+C
+C*************** EXECUTABLE **********************
+C
+C  DO FOR ENTIRE PRODUCT ARRAY
+C
+X     WRITE(5,99) (IN_DATA(X,97),X=90,105)
+X 99  FORMAT('A3148P: UNBIASED DATA (X=90-105,Y=97):',/,16I5)
+C
+      DO 110 Y = IBEG, MAX_AZMTHS
+         DO 100 X = IBEG, MAX_ADJBINS
+C
+            IF (IN_DATA(X,Y) .GT. IINIT) THEN
+C
+C  FOR INPUT DATA VALUES GREATER THAN ZERO (IINIT)
+C  1. CHECK FOR MAXIMUM VALUE OF INPUT DATA
+C
+               IF (IN_DATA(X,Y) .GT. MAXVAL) MAXVAL = IN_DATA(X,Y)
+C
+C  2. USE SCALING FACTOR TO CONVERT INPUT DATA TO 10THS OR 20THS OF AN INCH
+C  THEN BIAS ALL VALUES SO THEY ARE GREATER THAN ZERO
+C
+C * Note: Changed for LINUX: Added AINT function to fix truncation issue
+C
+               OUT_PROD(X,Y) = AINT(IN_DATA(X,Y)*SCALING) + OFFSET
+C
+C  3. CAP THE OUTPUT IF THE VALUE EXCEEDS THE MAXIMUM COLOR TABLE VALUE (255)
+C
+               IF (OUT_PROD(X,Y) .GT. MAX_TBL_VAL)
+     $             OUT_PROD(X,Y) = MAX_TBL_VAL
+C
+            ELSE
+C
+               OUT_PROD(X,Y) = IINIT
+C
+            END IF
+C
+ 100     CONTINUE
+ 110  CONTINUE
+C
+X     WRITE(5,111) (OUT_PROD(X,97),X=90,105)
+X111  FORMAT('A3148P: BIASED DATA (X=90-105,Y=97):',/,16I5)
+C
+X     TYPE *,'A3148P: MAXVAL=',MAXVAL,' IN INPUT UNITS'
+C
+      RETURN
+      END

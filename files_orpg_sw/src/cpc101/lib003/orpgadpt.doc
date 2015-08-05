@@ -1,0 +1,58 @@
+orpgadpt.doc				NOTES					orpgadpt.doc
+
+	Originally, the ORPGADPT api was built as a simple C wrapper around the
+	IOCNamedObjStore API.  Later, because save and restore functionality needed
+	to operate remotely,  this API was split into client, server and shared modules.
+	Also, because the static meta information contained in the adaptation data dictionary
+	had a large memory footprint across all algorithms, the adaptation meta information
+	was moved to the libadapt library in cpc026.  libadapt.so is now dynamically loaded
+	whenever the client accesses adaptation objects.  Since the algorithms do not access
+	objects, the amount of memory required for each algorithm was reduced.  To further
+	reduce the algorithm memory footprint by moving the dependency on libobjcore to the
+	server, work was started to RPC all functions in the api.  This work was not
+	completed and the amount of gain from this is unclear.  The RPC_ADAPT define
+	causes the full RPC version to be compiled instead of the object only RPC version.
+	The full version has not been tested and it may not compile.
+
+
+
+	FILE		   	DESCRIPTION
+	orpgadpt.cpp		ORPGADPT functions that are not implemented in the server.
+	orpgadptsv.cpp		Server functions for the ORPGADPT api.  These functions are called
+				using the RSS_rpc function from other orpgadpt* modules.  For remote
+				calls, the liborpg++.so library is dynamically loaded into an rssd
+				server.  ORPGADPT_save, restore, install, and get_archive_name generally call
+				RPC functions implemented in this server.  Some supporting functions
+				are also implemented in the server.  Other ORPGADPT functions
+				functions are implemented locally in orpgadpt.cpp.
+	orpgadpt.h              Public prototypes for the ORPGADPT api.
+	orpgadpt_def.h          Non-public functions shared by the various orpgadpt* modules.
+	orpgadptc.c             RPC wrappers that call the corresponding routines in the
+			        orpgadptsv.cpp module.  This includes some support routines
+				for determining the local host and building RPC function
+				strings.
+	orpgadpt_shared.c 	C routines that are accessed from the server and client
+				modules.
+	orpgadpt.h (cpc000) 	Public include file for the ORPGADPT api.
+
+
++++API
+
+DATA IN
+    ORPGDAT_ADAPT.4
+    ORPGDAT_ADAPTATION.4
+    ORPGDAT_BASELINE_ADAPTATION.4
+    ORPGDAT_BASELINE_ADAPT.4
+    "orpg adaptation archive"
+
+DATA OUT
+    ORPGDAT_ADAPT.4
+    ORPGDAT_ADAPTATION.4
+    ORPGDAT_BASELINE_ADAPTATION.4
+    ORPGDAT_BASELINE_ADAPT.4
+    "orpg adaptation archive"
+
+APIs USED
+    RSS.3, orpgadptsv.3, IOCNamedObjStore.3
+
+---

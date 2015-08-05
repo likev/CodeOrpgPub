@@ -1,0 +1,110 @@
+hci_agent.doc		 	   NOTES		   hci_agent.doc
+
+
+This file contains information about the HCI Agent task.  It is intended to be
+used by those interested in how the software is designed rather than by a
+typical user.  More detailed information about data stores and events used by
+this task is presented.
+
+Design
+------
+
+The Agent task was created as a sub task in the HCI family of tasks.  It is
+run as an RPG control task providing support to other HCI family tasks.  It
+does not have a user interface like the other HCI family tasks.  Its primary
+purpose is to monitor various RPG data stores and publish information which
+can be used by other RPG (specifically HCI) tasks.  It also is responsible for
+initializing and maintaining product support data for the Clutter Regions
+Editor and PRF Selection tasks.
+
+One of the functions of the HCI Agent task is to monitor changes to the RPG
+task table and publish a list of failed tasks.  The RPG task table is a fairly
+large file and would require significant bandwidth to read from low bandwidth
+sites.  The failed task list can be viewed from the RPG Status task (refer to
+the man page hci_status(1)).
+
+Another HCI Agent function is to monitor changes to the RPG system status log
+and publish the latest status and alarm messages.  This is especially useful
+to the RPG Control/Status task when it is run at low bandwidth sites.
+
+At startup, the HCI Agent task checks for the existence of the 
+HCI_CCZ_TASK_DATA_MSG_ID and HCI_PRF_TASK_DATA_MSG_ID messages in the
+ORPGDAT_HCI_DATA LB.  If they do not exist, they are initialized from the
+"hci_task_data" configuration file.  These messages contain information about
+products which are required to support the display of background products
+in the Clutter Regions Editor and PRF Selection tasks.  The HCI Agent task
+reads these messages and builds and sends an RPS list to the ORPGDAT_RT_REQUEST
+LB at startup or whenever it detects a change to the aforementioned data
+messages.  Since a line index is required, the HCI Agent uses line 0.  IT IS 
+MPORTANT THAT LINE 0 IS NOT USED BY ANY NARROWBAND USER!
+
+Testing
+-------
+
+To test this function, one needs to have the RPG running.  The HCI RPG Status
+and RPG Control/Status windows should be open.  As new system log messages are
+generated, one should veriy that the latest status and alarm messages are
+displayed at the bottom of the RPG Control/Status window.  The RPG Status
+window will contain a display of all messages for verification.  One can test
+the failed task functionality by killing an RPG control task and then verifying
+with the RPG Status task that the "Failed Tasks" label is red and that the
+Failed Task list contains the killed task.
+
+To test the background product support function one should use the
+"prod_stat -p" command to verify that the products defined in the Clutter
+Regions Editor and PRF Selection tasks configuration data are scheduled for
+generation.
+
+SOURCE FILES
+------------
+
+	hci_agent.c
+			This module contains all of the source code for the
+			HCI Agent task.
+				
++++ PROC
+
+DATA IN
+
+	ORPGDAT_SYSLOG.4
+	ORPGDAT_HCI_DATA.4
+	ORPGDAT_TASK_STATUS.4
+
+DATA OUT
+
+	ORPGDAT_HCI_DATA.4
+	ORPGDAT_RT_REQUEST.4
+	ORPGDAT_SYSLOG_LATEST.4
+
+EVENTS IN
+
+	ORPGEVT_RMS_CHANGE
+	
+EXENTS OUT
+
+	ORPGEVT_RT_REQUEST
+									
+APIs USED
+
+	orpg.3
+	
+		ORPGDAT.3
+		ORPGPAT.3
+		ORPGTAT.3
+		ORPGMISC.3
+		ORPGCFG.3
+		ORPGTASK.3
+
+	cs.3
+	
+	hci.1
+
+---
+	
+SEE ALSO
+
+hci(1) hci_agent(1) hci_ccz(1) hci_prf(1) hci(3) orpg(3) orpgdat(3) 
+orpgtat(3) orpgcfg(3) orpgtask(3)
+
+
+hci_agent.doc						          hci_agent.doc

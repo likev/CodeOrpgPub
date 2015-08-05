@@ -1,0 +1,184 @@
+
+
+rms_util - Library routines used by ORPG RMS to do conversions on the unsigned
+bytes used in the FAA/RMMS messages. Other routines are used to retrieve
+application data and do general housekeeping for the ORPG/RMS interface.
+
+FILENAMES and CALLS:
+        rms_conv.c
+                int conv_intgr (UNSIGNED_BYTE *buf_ptr);
+                ushort conv_ushrt (UNSIGNED_BYTE *buf_ptr);
+                short conv_shrt (UNSIGNED_BYTE *buf_ptr);
+                float conv_real(UNSIGNED_BYTE *buf_ptr);
+                void conv_char (UNSIGNED_BYTE *buf_ptr, char *temp_char, int num_bytes);
+                void conv_int_unsigned(UNSIGNED_BYTE *buf_ptr,int *num);
+                void conv_ushort_unsigned(UNSIGNED_BYTE *buf_ptr,ushort *num);
+                void conv_short_unsigned(UNSIGNED_BYTE *buf_ptr,short *num);
+                void conv_char_unsigned (UNSIGNED_BYTE *buf_ptr, char *temp_char, int num_bytes);
+                void conv_real_unsigned(UNSIGNED_BYTE *buf_ptr, float *in_flt);
+                void init_buf(UNSIGNED_BYTE in_buf[]);
+                int swap_bytes(UNSIGNED_BYTE *in_buf, int msg_size);
+
+        rms_nb_status.c
+                int rms_get_user_status(Nb_status *user_ptr);
+                short rms_get_user_id(int line_num);
+                short rms_get_line_index(int line_num);
+                int rms_read_user_info ();
+
+        rms_nb_cfg.c
+                int rms_get_nb_cfg (Nb_cfg* cfg_ptr,short line_num, short uid);
+
+        rms_security.c
+                int rms_validate_password (char* password);
+                int rms_get_lock_status( int command);
+                int rms_rda_rpg_lock(int command, int state);
+
++++ API
+DATA IN
+                ORPGDAT_PROD_INFO(4)
+                ORPGDAT_PROD_USER_STATUS(4)
+                rms_status(4)
+
+DATA OUT
+                ORPGDAT_PROD_INFO(4)
+                rms_status(4)
+
+APIs USED
+                ORPGRDA(3)
+                LB(3)
+                ORPGNBC(3)
+                ORPGGST_PRODUCT_INFO(3)
+		ORPGGST_RDA_INFO(3)
+                ORPGCMI(3)
+---
+
+The library consists of the following sources:
+
+conv_intgr( ) is passed the buffer pointer, takes the next four unsigned bytes
+in the buffer, and places them into an interger which is returned to the calling
+routine.
+
+conv_ushrt( ) is passed the buffer pointer, takes the next two unsigned bytes in
+the buffer, and places them into an unsigned short which is returned to the
+calling routine.
+
+conv_shrt( ) is passed the buffer pointer, takes the next two unsigned bytes in
+the buffer, and places them into an short which is returned to the calling
+routine.
+
+conv_real( ) is passed the buffer pointer, takes the next four unsigned bytes in
+the buffer, and places them into an float which is returned to the calling
+routine.
+
+conv_char( ) is passed the buffer pointer, a pointer to a character type and the
+number of bytes to convert.  The process than places the number of unsigned
+bytes into the character as indicated by the number of bytes argument.
+
+conv_int_unsigned() is passed an integer and the buffer pointer. The integer is
+placed into the buffer as a sequence of four unsigned bytes.
+
+conv_ushort_unsigned() is passed an unsigned short and the buffer pointer. The
+unsigned short is placed into the buffer as a sequence of two unsigned bytes.
+
+conv_short_unsigned( ) is passed a short and the buffer pointer. The short is
+placed into the buffer as a sequence of two unsigned bytes.
+
+conv_char_unsigned( ) is passed the buffer pointer, a pointer to a character
+type and the number of bytes to convert.  The process than places the number of
+characters as unsigned bytes into the buffer as indicated by the number of bytes
+argument.
+
+conv_real_unsigned( ) is passed a float and the buffer pointer. The float is
+placed into the buffer as a sequence of four unsigned bytes.
+
+init_buf( ) is passed a pointer to a message buffer and fills it with NULLs to
+clear out any unwanted data.
+
+swap_bytes( ) is passed a buffer pointer and message size.  It swaps the bytes
+in a message and is used only for big endian/little endian conflicts.
+
+rms_get_user_status( ) is passed a pointer to an array of Nb_status structures.
+The routine reads the ORPGDAT_PROD_USER_STATUS linear buffer and collects status
+information for all narrowband lines.  It places the status for each line in a
+structure of the array.
+The Nb_status STRUCTURE ELEMENTS are:
+                                LINE_ NUM (Integer)
+                                NB_STATUS
+                                        Line Connected (5)
+                                        Line Noisy (8)
+                                        Line Failed (7)
+                                        Connect Pending (1)
+                                        Solicited Disconnect (3)
+                                        Unsolicited Disconnect (4)
+                                NB_UTILIZATION (ushort)
+                                USER_ID (short)
+
+
+rms_get_user_id( ) is passed a line number and reads the
+ORPGDAT_PROD_USER_STATUS linear buffer using the line number as the index.  If
+the user is found the user id is returned to the calling routine.
+
+rms_get_line_index( ) is passed a line number and uses ORPGGST to retrieve
+product distribution information.  The line number is then used to index the
+PD_LINE_INFO entry.  If the line is found the routine returns the line index to
+the calling routine.
+
+rms_read_user_info ( ) reads user information from the ORPG_PROD_INFO linear
+buffer for every user in the ORPG adaptation data.  The information is placed in
+a series of arrays.  These arrays are accessed by the calling routine using the
+"extern" designator.  This way the calling routine can use only those arrays
+containing the information it needs.
+The USER INFO arrays are:
+                                Num_users (*)
+                                *User_info (*)
+                                User_size (*)
+                                User_name (**)
+                                User_password (**)
+                                User_line_index (**)
+                                User_type (**)
+                                User_class (**)
+                                User_info_ptr (**)
+                                User_id (**)
+                                User_distri (**)
+                                User_max_time (**)
+                                User_pms_list (**)
+                                User_defined (**)
+
+Note: (*) indicates this is a single value and not an array.
+(**) indicates an array of information using USER_TBL_SIZE to size the array.
+
+rms_get_nb_cfg( ) is passed a line number and a pointer to a structure of Nb_cfg
+type, it then uses ORPGGST to retrieve product distribution information. The
+line number is then used to index the PD_LINE_INFO entry.  a call to
+rms_read_user_info obtains user information about the line. The routine combines
+information from both the line info and user info, then places it into the
+structure using the pointer argument.
+The Nb_cfg STRUCTURE ELEMENTS are:
+                                PASSWORD
+                                NAME
+                                RATE
+                                DISTRI_TYPE
+                                LINE_CLASS
+                                LINE_TYPE
+                                CONNECT TIME
+
+rms_validate_password( ) receives a password from the calling routine. The
+process compares it against the known passwords and returns whether or not the
+password is valid and if valid what level password it is. Passwords can be
+LEVEL1, LEVEL2, or LEVEL3.
+
+rms_get_lock_status( ) is passed an argument that indicates whether to check the
+RDA or ORPG command buffer lock status.  After retrieving the information the
+lock status is returned to the calling routine. The lock status of the RDA and
+ORPG command buffers are stored in the rms_status linear buffer.
+
+rms_rda_rpg_lock( ) is passed two arguments. The first argument indicates which
+command buffer is affected and the second argument indicates whether to lock or
+unlock the buffer. The only two that can be locked or unlocked are the RDA and
+ORPG command buffers.  The results of the locking process is stored in the
+rms_status linear buffer.
+
+SEE ALSO  rms_util(3) rms_util.h
+
+$Revision: 1.4 $
+

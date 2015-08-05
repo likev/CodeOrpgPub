@@ -1,0 +1,321 @@
+C 
+C RCS info 
+C $Author: steves $ 
+C $Locker:  $ 
+C $Date: 2004/01/21 23:01:22 $ 
+C $Id: a31485.ftn,v 1.3 2004/01/21 23:01:22 steves Exp $ 
+C $Revision: 1.3 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A31485__REJECT_IF( REF_DATA, VEL_DATA, WID_DATA,
+     1                              POLGRID_CR, POLGRID_PR )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A31485__REJECT_IF
+*.
+*.  MODULE VERSION: 0002
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       02/24/97      0000      Steve Smith          CCR NA96-17903
+*.       03/16/99      0001      Toolset              CCR NA98-23803
+*.       05/17/99      0002      Mike Istok           CCR NA96-17803
+*.
+*.  CALLING SEQUENCE: CALL A31485__REJECT_IF( REF_DATA, VEL_DATA,
+*.                                            WID_DATA, POLGRID_CR,
+*.                                            POLGRID_PR )
+*.  MODULE FUNCTION:
+*.
+*.  MODULES CALLED: A3148F__CLUT_BLOOM_DILATION_PHASE 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT                TYPE        DESCRIPTION
+*.    -   -----                ----        -----------
+*.    G   RDBLTH               I*4         (CONSTANT)Flag value indicating
+*.                                         sample bin Below Threshold
+*.    G   RDRNGF               I*4         (CONSTANT)Flag value indicating
+*.                                         sample bin Range Folded
+*.    C   ACCEPT_HIGH_VEL      I*4         Maximum positive velocity threshold
+*.                                         for the ACCEPT_IF region
+*.    C   ACCEPT_LOW_VEL       I*4         Maximum negitive velocity threshold
+*.                                         for the ACCEPT_IF region
+*.    C   ADACPTWID_L          I*4         Local copy of ACCEPT_IF region
+*.                                         spectrum width threshold
+*.                                         (ADACPTWID)
+*.    C   ADIFEXTND_L          L*4         Local copy of ADIFEXTND (Flag
+*.                                         indicating whether clutter
+*.                                         bloom/dilation phase is to be
+*.                                         performed)
+*.    C   ADMINDBZ_L           I*4         Local copy of ADMINDBZ (Mimimum dBZ
+*.                                         threshold below which reflectivity
+*.                                         is not considered clutter)
+*.    C   ADREJWID_L           I*4         Local copy of ADREJWID (REJECT_IF
+*.                                         region spectrum width threshold )
+*.    C   FST_CLUT_BIN         I*4         First clutter bin in a radial
+*.    C   MAX_DOPBIN           I*4         Maximum bin number of
+*.                                         velocity/spectrum width along a
+*.                                         radial.
+*.    C   REGION_END_BIN       I*4         Bin number for the end of the
+*.                                         current processing region.
+*.    C   REGION_START_BIN     I*4         Bin number for the start of the
+*.                                         current processing region.
+*.    C   REJECT_HIGH_VEL      I*4         Maximum positive velocity threshold
+*.                                         for the REJECT_IF region
+*.    C   REJECT_LOW_VEL       I*4         Maximum negative velocity threshold
+*.                                         for the REJECT_IF region
+*.    C   DOP_BINS_PER_REF_BIN I*4         (CONSTANT)Number of velocity bins
+*.                                         per reflectivity bin
+*.    C   MAX_ALGO_RANGE       I*4         (CONSTANT)Maximum reflectivity bin
+*.                                         number that the AP editing algorithm
+*.                                         is designed to process.
+*.    P   POLGRID_CR           I*2         Current radial in polar grid that
+*.                                         is reflectivity is being checked.
+*.    P   POLGRID_PR           I*2         Previous radial in polar grid from
+*.                                         which reflectivity is being checked
+*.    P   REF_DATA             I*2         Base reflectivity radial
+*.    P   VEL_DATA             I*2         A radial of base velocity data
+*.    P   WID_DATA             I*2         A radial of spectrum width data
+*.
+*.    *   OUTPUT       TYPE        DESCRIPTION
+*.    -   ------       ----        -----------
+*.    C   FST_CLUT_BIN I*4         First clutter bin in a radial
+*.    P   POLGRID_CR   I*2         Current radial in polar grid that is
+*.                                 reflectivity is being checked.
+*.    P   POLGRID_PR   I*2         Previous radial in polar grid from which
+*.                                 reflectivity is being checked
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    P   POLGRID_CR        I*2         Current radial in polar grid that is
+*.                                      reflectivity is being checked.
+*.    P   POLGRID_PR        I*2         Previous radial in polar grid from
+*.                                      which reflectivity is being checked
+*.    P   REF_DATA          I*2         Base reflectivity radial
+*.
+*.  DATABASE/FILE REFERENCE: NONE
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME          TYPE        DESCRIPTION
+*.    ----          ----        -----------
+*.    CLUTTER       L*4         Flag indicating that the reflectivity data
+*.                              should be classified  as clutter
+*.    DOPPLER_VALID I*4         An array indicating if that the reflectivity
+*.                              data is weather and not clutter
+*.    I             I*4         Do loop index
+*.    IS_CLUTTER    I*4         An array indicating whether the reflectivity
+*.                              data is clutter or not
+*.    J             I*4         The doppler start bin
+*.    K             I*4         Do loop index
+*.    NO            I*4         Parameter to represent false condition
+*.    RANGE_FOLDED  I*4         Parameter for range-folded value
+*.    WEATHER       L*4         Flag indicating that the reflectivity data
+*.                              should be classified as weather
+*.    YES           I*4         Flag value for true (i.e. clutter exists).
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3148C1
+*.    A3148C3
+*.
+*.  ERROR CONDITIONS: NONE.
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP07.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK07.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+      IMPLICIT NONE
+C
+$INCLUDE A309.INC/G,   **A3PM02   (NLIST)
+$INCLUDE A304.INC/G,   **A304P4   (NLIST)
+$INCLUDE A314BUF.INC/G,**A3148P2  (NLIST)
+$INCLUDE A314BUF.INC/G,**A3148P3  (NLIST)
+$INCLUDE A314BUF.INC/G,**A3148C1  (NLIST)
+$INCLUDE               **A3148C3  (NLIST)
+C
+C***  PASSED ARGUEMENTS
+C
+      INTEGER*2 REF_DATA(*), VEL_DATA(*), WID_DATA(*)
+      INTEGER*2 POLGRID_CR(*), POLGRID_PR(*)
+C
+C*** LOCAL DECLARATIONS:
+C
+      INTEGER*4 I, J, K
+C
+      INTEGER*4 IS_CLUTTER(MAX_ALGO_RANGE)
+      INTEGER*4 DOPPLER_VALID(MAX_ALGO_RANGE)
+
+      LOGICAL WEATHER, CLUTTER
+      INTEGER*4 BELOW_THRESHOLD, RANGE_FOLDED
+      INTEGER*4 NO, YES
+      PARAMETER( BELOW_THRESHOLD = RDBLTH )
+      PARAMETER( RANGE_FOLDED = RDRNGF )
+      PARAMETER( NO = 0, YES = 1 )
+C
+C********************************************************************
+C** EXECUTABLE CODE
+C
+C....................................................................
+C
+C**  THE ALGORITHM FOR THE REJECT_IF REGION IS AS FOLLOWS:
+C
+C**     The REJECT_IF region is a region where reflectivity data is
+C**     considered free of clutter unless indicated otherwise by a
+C**     small radial velocity and a small spectrum width.
+C
+C**     Reject a reflectivity ONLY IF at least one corresponding
+C**     velocity/spectrum width range gate has both:
+C
+C**        1) a velocity less than a certain velocity threshold, and
+C**        2) a spectrum width less than a certain width threshold.
+C
+C**     NOTE:  If the velocity and/or spectrum width data is not
+C**            available because of below SNR threshold or range
+C**            ambiguous, the reflectivity is accepted as representing
+C**            weather.
+C
+C.....................................................................
+C
+C** BUILD LAYER COMPOSITE REFLECTIVITY WITH AP REMOVED FOR THE
+C** REJECT_IF REGION
+C
+C**   INITIALIZE THE FIRST CLUTTER BIN ALONG RADIAL
+C
+      FST_CLUT_BIN = REGION_END_BIN + 1
+C
+C**   DO FOR ALL REFLECTIVITY BINS IN THE REJECT_IF REGION ..
+C
+      DO 40 I = REGION_START_BIN, REGION_END_BIN
+C
+C**      INITIALIZE THE DOPPLER DATA AS NOT CLUTTER AND NOT
+C**      WEATHER.
+C
+         WEATHER = .FALSE.
+         CLUTTER = .FALSE.
+C
+C**      INITIALIZE THE REFLECTIVITY DATA AS NOT CLUTTER AND
+C**      THE DOPPLER DATA AS NOT VALID.
+C
+         IS_CLUTTER( I ) = NO
+         DOPPLER_VALID(I) = NO
+C
+C**      INITIALIZE THE DOPPLER START BIN
+C
+         J = MIN0( ((I-1)*DOP_BINS_PER_REF_BIN + 1), MAX_DOPBIN )
+C
+C**      DO FOR ALL CORRESPONDING DOPPLER BINS ..
+C
+         DO 41 K = J, MIN0(J + DOP_BINS_PER_REF_BIN - 1, MAX_DOPBIN)
+C
+C**         THE FOLLOWING CODE IS IMPLEMENTED TO SUPPORT THE CLUTTER
+C**         BLOOM/DILATION PHASE EDITTING, IF ENABLED.
+C
+            IF( .NOT. ADIFEXTND_L ) GO TO 42
+C
+C**         IF VELOCITY IS GREATER THAN THE RANGE-FOLDED VALUE AND
+C**         THE SPECTRUM WIDTH IS GREATER THAN THE RANGE_FOLDED
+C**         VALUER, THEN....
+C
+            IF( VEL_DATA( K ) .GT. RANGE_FOLDED .AND.
+     1          WID_DATA( K ) .GT. RANGE_FOLDED ) THEN
+C
+C**            VELOCITY VALUE DOES NOT INDICATE POTENTIAL CLUTTER,
+C**            SO MARK AS WEATHER.
+C
+               IF( VEL_DATA( K ) .LE. ACCEPT_LOW_VEL .OR.
+     1             VEL_DATA( K ) .GE. ACCEPT_HIGH_VEL  ) THEN
+
+               WEATHER = .TRUE.
+
+C
+C**               IF SPECTRUM WIDTH GREATER THAN SOME THRESHOLD
+C**               MINIMUM, MARK AS WEATHER.
+C
+               ELSE IF ( WID_DATA( K ) .GE. ADACPTWID_L ) THEN
+
+                  WEATHER = .TRUE.
+C
+C**               BOTH VELOCITY AND SPECTRUM WIDTH INDICATE
+C**               CLUTTER, SO MARK AS CLUTTER.
+C
+               ELSE
+
+                  CLUTTER = .TRUE.
+
+               END IF
+
+            END IF
+C
+C**         IF REFLECTIVITY ABOVE THRESHOLD, ...
+C
+ 42         IF( REF_DATA( I ) .GT. ADMINDBZ_L ) THEN
+C
+C**            IF VELOCITY AND SPECTRUM WIDTH INDICATE CLUTTER,
+C**            MARK AS CLUTTER.
+C
+               IF( VEL_DATA( K ) .GT. RANGE_FOLDED .AND.
+     1             VEL_DATA( K ) .GT. REJECT_LOW_VEL .AND.
+     2             VEL_DATA( K ) .LT. REJECT_HIGH_VEL ) THEN
+
+                  IF( WID_DATA( K ) .GT. RANGE_FOLDED .AND.
+     1                WID_DATA( K ) .LT. ADREJWID_L ) THEN
+C
+C**                  FLAG REFLECTIVITY AS CLUTTER AND SAVE THE
+C**                  LOCATION OF THIS BIN IF FIRST CLUTTER BIN
+C**                  IN THIS REGION.
+C
+                     IS_CLUTTER( I ) = YES
+                     FST_CLUT_BIN = MIN0(I, FST_CLUT_BIN)
+
+                  END IF
+
+               END IF
+
+            END IF
+
+ 41      CONTINUE
+C
+C**      THE DOPPLER_VALID FLAG IS SET IF VELOCITY DATA INDICATES
+C**      WEATHER AND NOT CLUTTER RETURN.  THIS IS USED TO SUPPORT
+C**      CLUTTER BLOOM/DILATION PHASE EDITTING.
+C
+         IF( .NOT. CLUTTER .AND. WEATHER ) THEN
+
+            DOPPLER_VALID( I ) = YES
+
+         END IF
+
+ 40   CONTINUE
+C
+C**   PERFORM CLUTTER BLOOM/DILATION PHASE IF NECESSARY, THEN MAP
+C**   REFLECTIVITIES TO POLAR GRID.
+C
+      CALL A3148F__CLUT_BLOOM_DILATION_PHASE( REF_DATA, IS_CLUTTER,
+     1                                        DOPPLER_VALID,
+     2                                        POLGRID_CR, POLGRID_PR)
+C
+C**   RETURN TO BUFFER CONTROL ROUTINE
+C
+      RETURN
+      END

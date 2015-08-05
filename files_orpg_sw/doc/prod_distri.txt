@@ -1,0 +1,1132 @@
+
+    File: prod_distri.txt
+
+    This file describes the subsystem level design of the ORPG product 
+    distribution CPC.
+
+    1.  Design goals:
+
+	The ORPG Distribute Products CPC implements the product distribution 
+	functions described in "3.2.4 Function 4, Distribute products" of B5. 
+
+	The choice of the narrow band communication equipment is kept open. 
+	The ORPG will be able to support several communication equipments: 
+	The communication subsystem used in the current RPG; The communication 
+	subsystem under development in ISL; COTS communication servers or 
+	communication cards. The development effort needed for adding support 
+	for a new communication service, protocol and hardware should be 
+	minimized. For example, support for users on the LAN and the INTERNET 
+	can be easily implemented. Different communication hardware can be used 
+	simultaneously in a single ORPG system. 
+
+	The ORPG Distribute Products CPC supports dynamic resource 
+	relocation in a distributed environment. For example, if a host 
+	machine fails, the product servers running on that host can be 
+	relocated to other hosts without shutting down the ORPG. 
+
+	The ORPG Distribute Products CPC uses a modular design, which 
+	supports future system expansion and performance upgrades. The 
+	software is portable to a variety of different hardware platforms.
+
+	Note that the archive III and acquire rain gage data functions 
+	are not implemented in this CPC. The function of acquiring rain gage 
+	data is not logically a part of distributing products to the users. 
+	It uses different procedures, data formats and message structures from 
+	those used in product distribution. The function of acquiring rain 
+	gage data will likely be extended to include acquiring other external 
+	data as well. Thus it makes sense to implement an acquire external 
+	data CPC in ORPG. The archive III function will be implemented in ORPG 
+	as a separate CPC.
+
+	A user profile based product distribution control approach is adopted 
+	in the ORPG design to replace the user class based approach in the 
+	current RPG. In ORPG, each product user accesses selected ORPG product 
+	distribution services specified in the user's user profile. The user 
+	profile based product distribution control approach simplifies the 
+	software while providing flexibility to meet potential future ORPG 
+	product users' requirements. 
+
+    2.  Product distribution tasks
+
+	Distribute products CPC consists of six tasks, each of which 
+	implements a bubble in the data flow diagram. In the diagram, "Manage 
+	Communication" and "Serve Products" are implemented with multiple 
+	instances of the tasks comm_manager and p_server respectively. 
+	"Transform Products", "Schedule Routine Products" and "Schedule 
+	One_time Products" are implemented with single instances of the tasks 
+	p_reformator and ps_routine and ps_onetime respectively. "Initialize 
+	Product Information" is an off-line tool implemented via task init_pi.
+
+	Message communication among tasks is implemented by using LB (Linear 
+	Buffer) data stores. Events are posted when time-critical and 
+	non-routine messages are generated. This will provide timely response 
+	without high frequency polling while supporting non-interrupted 
+	resource relocation and fail-save recovery of host or task failure.
+
+	All tasks report log/error messages to the "ORPG_Log_Error" data 
+	store.
+
+	The adaptation data stored in "Adaptation_Data" is in the current RPG 
+	format and used only for supporting certain ported RPG modules. The 
+	new ORPG modules use multiple adaptation data sets implementing the 
+	ORPG localized distributed adaptation control concept.
+
+    3.  comm_manager (Implementing Manage Communication)
+
+	This task, interfacing with the communication server or implementing 
+	the communication protocols, provides communication services for the 
+	ORPG product distribution. The protocol currently used is x.25. 
+	comm_manager supports both HDLC and x.25 PVC links. It may support 
+	other protocols as well, such as the TCP/IP protocol.
+
+	comm_manager is the only task that is communication hardware and 
+	protocol dependent. A different version of comm_manager may need to be 
+	developed to support a different protocol and different communication 
+	hardware. 
+
+	comm_manager provides services through an Application Programming 
+	Interface (API) that is independent of any particular communication 
+	service, protocol or hardware. Thus the remaining parts of the ORPG 
+	product distribution are fully isolated from any communication specific 
+	characteristics. Multiple heterogeneous communication devices and 
+	protocols can be supported simultaneously, in which case multiple 
+	instances of comm_manager may be executed. This makes the ORPG 
+	product distribution capacity extensible. For example, when there is 
+	a need for servicing additional users or a communication service of 
+	higher bandwidth becomes available, the ORPG capacity can be extended 
+	by adding new equipments and running appropriate comm_manager for the 
+	new lines.
+
+	comm_manager does not implement any ORPG product distribution specific 
+	procedures. It can be used for acquiring external data and the RDA wide 
+	band data, for supporting communication needs on the users' (e.g PUP) 
+	side or for building other systems other than ORPG. The developer 
+	of this task does not need to have a detailed knowledge about the ORPG 
+	products, procedures and messages.
+
+	A comm_manager process may support a single or multiple communication 
+	links depending on the protocol and the communication subsystem used.
+	Multiple instances of comm_manager are spawned for managing all ORPG
+	WAN links.
+
+	comm_manager provides the following services:
+
+	    Building a connection by dialing out a call or answering an 
+		incoming call; 
+	    Terminating a connection; 
+	    Sending and receiving user messages; 
+	    Monitoring line status. 
+
+	The user requests services by sending request messages to comm_manager. 
+	Service requests and data to be sent on the links are put in the 
+	"Comm_Req_Resp" data stores. Each instance of comm_manager has a 
+	Comm_Req_Resp data store for receiving requests.
+
+	comm_manager accepts the following requests:
+
+	    CM_CONNECT: Make a connection to the user on a link. The line is 
+		assumed to be either dedicated or dial-in. If the link has been 
+		connected, nothing is done and RET_SUCCESS is responded. This 
+		request cleans up any left over resources.
+
+	    CM_DIAL_OUT: Dial out and make a connection to the user on a link. 
+		The requirements is the same as that for CM_CONNECT.
+
+	    CM_DISCONNECT: Terminate an existing connection to the user on a 
+		link. If the link has been disconnected, nothing is done and 
+		RET_SUCCESS is responded. This request will terminate any 
+		on-going CM_CONNECT request on the same link. This request 
+		cleans up any left over resources.
+
+	    CM_WRITE: Send a message of specified length to the user on a link. 
+		Prioritized message sending is supported. In case of HDLC, the 
+		data length must be no larger than the packet size as specified 
+		in the link configuration.
+
+	    CM_STATUS: Return the line status of a link, such as recently 
+		achieved baud rate, noise level and the reason of previous 
+		connection failure. 
+
+	    CM_CANCEL: Cancel one or all previous requests that have yet to be 
+		processed.
+
+	Requests are processed in terms of their priorities. Requests of the 
+	same priority are processed sequentially. The CM_CANCEL request has the 
+	highest priority. The CM_WRITE request can use one of a set of 
+	specified priorities. All other requests have the same priority that 
+	is lower than CM_CANCEL and no lower than CM_WRITE.
+
+	comm_manager responses to each request with a responding message sent 
+	to a Comm_Req_Resp data store. Each request has a unique request 
+	number, which is returned in the responding message for correlating 
+	the request and the response. Each user has its own Comm_Req_Resp data 
+	store for receiving responding messages. The time used in processing 
+	the request is returned. Is this useful if we can return actual baud
+	rate?
+
+	Messages (data) from the users on the links are also put in the 
+	appropriate Comm_Req_Resp data stores together with response messages. 
+
+	A failed request can not resume.
+
+	Unexpected requests or CM_WRITE requests that do not have appropriate 
+	data following the header are discarded. 
+
+	On the following conditions comm_manager will terminate: malloc failed; 
+	Failure in opening or reading a data store;
+
+	comm_manager processes message segmentation when large messages are 
+	sent or received.
+
+	Events are posted when requests/responses are generated. 
+
+	comm_manager reads link configuration information from the "Link_Info" 
+	data store. The configuration information, in the ASCII text form, is 
+	stored in a file.
+
+	The following items specified for each link are used by comm_manager:
+
+	    comm_user number for identifying the comm user;
+	    comm_manager number for identifying the comm manager;
+	    physical device number;
+	    physical port number;
+	    link type (dedicated, dial in or dial in/out);
+	    line rate;
+	    communication subsystem (SIMPACT, UCONX, ISL, FORMATION, etc)
+	    maximum packet size;
+	    protocol (PVC or HDLC);
+	    number of PVC stations on the link.
+
+	X.25 configuration information is stored in other files which are
+	communication subsystem dependent. Link_Info provides references to 
+	those files.
+
+	To change the link configuration, one needs to change the relevant
+	configuration files and restart affected comm_managers.
+
+	comm_manager implements the following B5 shalls in addition to the 
+	basic services described above: 1 and 2, page 3-28; 10 and 10a, page 
+	3-31.
+
+
+    4.  p_server (Implementing Serve Products)
+
+	p_server, the product server, implements the product distribution 
+	procedures described in "3.2.4 Function 4, Distribute products" of B5. 
+
+	An instance of p_server may serve multiple users. p_server serves each 
+	user independently as required by shall 8. p_server uses a separate 
+	thread for each user. This will minimize the interferences among users. 
+	Multiple instances of p_server can be initiated for providing 
+	additional robustness. When one p_server instance fails, only users 
+	that are served by that instance will be affected. Using fewer 
+	instances of p_server may offer certain performance advantage while 
+	being less robust. Only one version of p_server is developed for 
+	serving all users. 
+
+	p_server performs the following tasks for each user: 
+ 
+	    It builds and maintains the link connection to the user. 
+	    It performs the user authentication procedure. 
+	    It distributes alert messages and alert products to the user. 
+	    It receives the product and alert requests from the user and 
+		distributes ORPG products to the user. 
+	    It checks product distribution permissions. 
+	    It sends General Status Messages, product lists, request 
+		response messages, background maps, annotation data and 
+		other messages to the user. 
+	    It reports user and connection status to the ORPG control 
+		and HCI (Human Computer Interface). 
+	    It performs Narrow Band load shed when congestion 
+		conditions are detected on the distribution queue. 
+	    It processes RCM (Radar Coded Message) distribution. 
+	    It performs disconnection procedures. 
+ 
+	Upon receiving a product request, for one-time or routine 
+	products, p_server passes the request to respectively the one-time 
+	and the routine product schedulers for product generation 
+	scheduling.
+
+	p_server is independent of the communication systems and the protocols 
+	used for the links. Each link has one, and only one, p_server process 
+	to serve it.
+
+	Product distribution control and user profile information is 
+	read from data stores "Product Information" and "User Profiles". Data 
+	in these stores can be dynamically updated by the HCI. For example, 
+	new users can be added to the ORPG while it is in operation. 
+
+	p_server builds and maintains the link connections to the users and 
+	performs the user authentication procedure.
+
+	p_server reads product requests and other messages from the user on a 
+	link, composes appropriate return messages and sends them to the user 
+	on the link via a comm_manager. 
+
+	When a user requests a routine product set, a one-time product 
+	or setting alert thresholds, p_server sends the request to "Schedule 
+	Products" for further processing. When a requested product (routine or 
+	one-time) is ready, it sends the product to the user. Alerts are 
+	processed as products with a higher priority. In ORPG each type of 
+	routine product is stored in a separate data store. All one-time 
+	products generated are stored in a separate data store.
+
+	p_server builds a routine product distribution table for each user. 
+	When a routine product is generated, p_server directly reads it from 
+	the corresponding LB and sends it to the users according to the table.
+
+	p_server gets the RDA and RPG status information from the 
+	"RDA_RPG_Status" data store, product generation and availability 
+	information from "Prod_Status" data store. It formats the general 
+	status messages and sends them to the users.
+
+	Upon receiving an RDA and RPG status change event, p_server checks 
+	the new status and performs appropriate action. For example, enters in 
+	or exits from the test mode.
+
+	Product distribution control commands are sent to p_server through
+	message PD_LINE_INFO_MSG_ID in LB ORPGDAT_PROD_INFO. These commands
+	may issued by HCI or the RPG manager. p_server processes the following 
+	commands:
+
+	    Request PUP/RPGOP Status Command;
+	    Enable/Disable Narrow band Interface;
+	    RPG Control Commands (e.g. RPG shut-down and line connection);
+
+	p_server generates the following information and stores it in 
+	"Prod_User_Status" data store:
+
+	    Narrow band comm status;
+	    Bad User ID;
+	    PUP/RPGOP status;
+	    Link quality information.
+	    
+	PUP/RPGOP status requests are received from the "Distribution_Cmds" 
+	data store and processed by sending corresponding requests to the user. 
+	The user returned status is then sent to the "Prod_User_Status" data 
+	store.
+
+	If a product needs to be transformed to a different format, p_server 
+	sends it to the "Trans_Req_Resp" data store for being processed by the 
+	"Transform Products" task. The transformed products then are received 
+	in the same data store and sent to the user.
+
+	All text and annotation messages received from the user are stored in 
+	the "Text_Annotation" data store. They are then sent to the appropriate 
+	users according to the requirements.
+
+	Background maps are read from the "Back_Maps" data store and sent to 
+	the user according to the requirements.
+
+	User and product distribution information is retrieved from the 
+	"Prod_Distri_Info" data store. This information is stored in a set 
+	of data structures, which can be modified dynamically by the UCP. 
+	"Initialize Product Information" initializes this data store.
+
+	The "Prod_Distri_Info" data store contains
+
+	    link control information,
+	    user information (user IDs, passwords and others),
+	    the product distribution control table (in terms of user classes), 
+	    product distribution priority and frequency, 
+	    link load shed priority,
+	    maps distributed with the products. 
+
+	Events are posted or expected when
+
+	    Prod_Distri_Info is updated;
+	    Prod_User_Status is updated;
+	    RDA_RPG_Status is changed;
+	    A new command in "Distribution_Cmds" is received;
+	    A One-time product request is acknowledged;
+	    A transform request/response occurs;
+	    An alert is generated;
+
+	p_server builds a distribution queue for each user. Only one request
+	of each priority can be pending in comm_server. The product data is 
+	kept in the LB and only the size, after transformation, and location 
+	of the data are stored in the queue. The size is needed for NB load 
+	shed.
+
+	p_server implements the following B-5 "shall"s:
+
+	    The product distribution procedures as described in B5, 3.2.4;
+
+	    Transform products (shall (1), page 3-28)
+
+	    Update the narrow band communications status (shall (2a - 2c), 
+	    p3-29).
+
+	    Line connect/disconnect procedures: shalls 2d, 2e, 2f, 2fa, 2fb, 
+	    2fc, 2g and 2h.
+
+	    Annotation data (shall 3)
+
+	    RPG product list messages sent to an associated PUP or RPGOP (shall 
+	    3a).
+
+	    Free text messages received from the RPGOP are stored and sent to 
+	    the designated user (shall 3b).
+
+	    The start-up, shut-down and line connection procedures as described 
+	    in shalls 4, 5, 6, 7 and 7a.
+
+	    User authentication as described in shall 7b.
+
+	    The test mode procedure as described in shall 9. 
+
+	    p_server requests line quality information from comm_manager, 
+	    generates appropriate messages and publish them in the 
+	    "Prod_User_Status" data store when line status changes (shalls 10, 
+	    10a, 10aa). p_server will publish an appropriate message in that 
+	    store when one of the events described in shall 10b occurs. An 
+	    event is posted when such a message is generated. 
+	    Q: Is this the same as shall 2a - 2c?
+
+	    p_server generates messages described in shalls 11 and 11a and 
+	    sends them to the users in the specified priorities.
+
+	    Narrow Band load shed as described in shalls 11b and 11c.
+
+	    Routine product requests (shalls 12 and 13).
+
+	    One-time product requests (shalls 14 - 17, 17a, 17b).
+
+	    When a requested product can not be distributed, a message, as 
+	    described in shall 18, will be generated and sent to the user.
+
+	    Background maps will be sent to the user in terms of shalls (19 - 
+	    21).
+	
+	    Line authentication as described in shalls 22 - 24.
+
+	    Product list information will be sent to the users as described in 
+	    shalls 25 and 26.
+
+	    The connection time out as described in shalls 27 - 31.
+
+	    Disconnection procedures described in shalls 32 - 33.
+
+	    Configuration update (shalls 34 - 37).
+
+	    The RCM (shalls 38 - 40).
+
+
+    5.  ps_routine (Implementing Schedule Routine Products)
+
+	ORPG task ps_routine implements "Schedule Routine Products". It 
+	performs two functions, maintaining a real time product information 
+	source and controlling routine product generation according to all user 
+	requests and the directions from the ORPG operator (through UCP).
+
+	ps_routine monitors the product generation messages and other messages 
+	sent by the algorithm/product tasks and updates the product information 
+	stored in "Product Status" data store which will be used by other ORPG 
+	tasks such as the product server, the UCP and the archive manager. The 
+	product information contains a list of all ORPG products, their current 
+	scheduling status and their generation history.
+
+	ps_routine controls product generation for all products that use the 
+	real-time radar data flow. In order to perform this task, ps_routine 
+	maintains a product generation table which is updated based on the 
+	current user requests, weather mode, default generation list and ORPG 
+	system load condition.
+
+	ps_routine reads product generation control information from the 
+	"Product Information" data store. The information includes the default 
+	product generation table which is weather mode dependent, the product 
+	dependence table and product generation load shed priority table. Data 
+	in "Product Information" can be dynamically updated by the UCP. For 
+	example, new products can be added to the ORPG while it is running in 
+	operational mode. 
+
+	ps_routine is the single task in ORPG that can directly control the 
+	product generation with real-time data stream. 
+ 
+	ps_routine performs two functions: Maintaining a real time routine 
+	product information source and controlling routine product generation 
+	according to the user requests and the directions from the RPG manager 
+	and the ORPG operator (through UCP). 
+
+	ps_routine monitors the product generation messages and other messages 
+	sent by the algorithm/product tasks and updates the routine product 
+	information tables stored in "Prod_Status" data store. It also monitors 
+	the "Text_Annotations" data store for new annotation messages. The 
+	"Prod_Status" information will be used by other ORPG tasks such as the 
+	product server, the UCP and the archive manager. The tables include:
+
+	    A list of products scheduled for routine generation;
+
+	    A list of routine products not generated because of load shed and 
+	    other problems;
+
+	    A list of generated routine products for each product type;
+
+	    A list of annotation messages;
+
+	Products of the same type but different elevations or windows are 
+	treated as different products in the above lists.
+
+	ps_routine reads product generation control information from the 
+	"Prod_Gen_Info" data store which can be dynamically updated by UCP. 
+	The information includes the weather-mode-dependent default product 
+	generation list, the product dependence table and product generation 
+	load shed priority. When weather mode changes, the default product 
+	generation list for the new weather mode is used and any user 
+	modification to the list is discarded.
+
+	UCP can change the default setting by modifying the text in the 
+	"Prod_Info" data store.
+
+	A routine product generation table is maintained by the routine product 
+	scheduler. The table is weather mode dependent. The UCP operator can 
+	modify the table. The modification is void when weather mode changes. 
+
+	ps_routine processes the user routine product requests stored in 
+	"Prod_Requests" data store. Based on the user requests, the weather 
+	mode, the default product generation and the product dependency 
+	information, and the ORPG status (such as the load shed status), 
+	ps_routine updates product generation control tables in 
+	"Prod_Gen_Control". These tables then in turn activate the appropriate 
+	algorithm and product generation tasks. 
+
+	A request for routine products is in effect until a new request is 
+	received from the same user. If a p_server terminates without sending 
+	a request to remove its users' routine products, those products will 
+	be kept on schedule. The RPG manager may send a request to ps_routine, 
+	when it detects a p_server failure, to cancel all requests from that 
+	p_server.
+
+	ps_routine sends a message to the "Prod_Responses" data store if an 
+	exception is detected.
+
+	UCP may send a request to start or stop generating certain products. 
+	For load shed purpose, RPG manager may also send product generation 
+	control request to ps_routine via "Prod_requests". ps_routine is the 
+	single task in ORPG that can directly control the routine product 
+	generation. Only a single instance of ps_routine can be initiated.
+
+	ps_onetime posts an event when a message is sent to the "Prod_Response" 
+	data store or an alert is generated.
+
+
+    6.  ps_onetime (Implementing Schedule One_time Products)
+ 
+	Task ps_onetime implements "Schedule One-time Products". Upon receiving 
+	a one-time distribution product request, p_server passes the request to 
+	ps_onetime for product scheduling. ps_onetime is responsible for 
+	providing the requested product by conducting the following steps. It 
+	first searches for the product in the current product storage. If the 
+	requested product is not found in the product storage, ps_onetime 
+	determines whether it should be generated using the real-time data flow 
+	or the play-back data. If the real-time data flow is used, it sends a 
+	message to ps_routine for generation scheduling. If the play-back data 
+	is used, ps_onetime activates appropriate product generation tasks to 
+	accomplish the job. 
+
+	ps_onetime sends a message to p_server in response to every requested 
+	one-time distribution product. The message contains the product 
+	information, if it is generated successfully and ready for shipping, or 
+	a failure response if the product did not exist and could not be 
+	generated. 
+
+	ps_onetime reads scheduling and generation information from "Product 
+	Status" data store for products generated by the real-time data flow. 
+	It reads product generation control information from the "Product 
+	Information" data store which can be dynamically updated by the ORPG 
+	operator (through HCI). 
+
+	ps_onetime controls one-time product generation according to the user 
+	requests and the directions from the RPG manager and the ORPG operator 
+	(through UCP). 
+
+	ps_onetime reads product generation control information from the 
+	"Prod_Gen_Info" data store which can dynamically updated by UCP. 
+
+	ps_onetime processes the user one-time product requests stored in 
+	"Prod_Requests" data store. ps_onetime sends a message to the 
+	"Prod_Responses" data store in response to every one-time product 
+	request. The message may contain the header information about the 
+	product, if it is generated successfully and ready for shipping, or a 
+	failure response. 
+
+	For a one-time product request, ps_onetime first checks if the 
+	product has already been generated and is still in the One_time_Prod 
+	data store. If it is in a data store, ps_onetime sends a response to 
+	"Prod_Responses". Otherwise, ps_onetime checks whether this product is 
+	already requested and scheduled for generation. It does not re-schedule 
+	for generating the same product. Otherwise, ps_onetime determines 
+	whether or not this product can be generated. If the product can not 
+	be generated, it sends an appropriate message to "Prod_Responses". 
+	Otherwise it activates the appropriate tasks to initiate the generation 
+	of the product. Upon receiving a notification of the product's 
+	completion, ps_onetime sends the product to "Prod_Responses". 
+	ps_onetime activates one-time product generators by sending messages to 
+	them or spawning necessary tasks if they are not already running.
+
+	UCP may send a request to start or stop generating certain products. 
+	For load shed purpose, RPG manager may also send product generation 
+	control request to ps_onetime via "Prod_requests". ps_onetime is the 
+	single task in ORPG that can directly control the one_time product 
+	generation. Only a single instance of ps_onetime can be initiated.
+
+	ps_onetime posts an event when a message is sent to the "Prod_Response" 
+	data store.
+
+	
+    7.  p_reformator (Implementing "Transform Products")
+
+	p_reformator converts products in one format to another format. The 
+	product to be processes are sent to the "Trans_Req_Resp" data store for 
+	being processed. p_reformator generates a response message for each 
+	input and puts it back in the "Trans_Req_Resp" data store. The response 
+	message may be either the transformed product or a failure report.
+
+
+    8.  init_pi (Implementing "Initialize Product Information")
+
+	This is an off-line tool which is developed for initializing the data
+	stores of "Prod_Distri_Info" and "Prod_Gen_Info". init_pi reads 
+	information from ASCII text files of "Link_Info", "Prod_Info" and 
+	"Prod_User_Info" and generates a default version of the product 
+	generation and distribution information in "Prod_Gen_Info" and 
+	"Prod_Distri_Info" respectively.
+
+    9.  User profile based procedure 
+ 
+	The current RPG services product users in terms of their classes. Users 
+	of each class receive their unique subset of the RPG product 
+	distribution services. Five distinct user classes are defined. They 
+	are 
+ 
+	    Class 1: Associated PUPs (FAA ARTCCs). 
+	    Class 2: Non-associated PUPs. 
+	    Class 3: Principal User External Systems (PUES). 
+	    Class 4: Other Users. 
+	    Class 5: NWS GDSSs/RFCs. 
+ 
+	Special procedures and rules are defined for each class user. These 
+	rules are implemented in the RPG software and are inconvenient to 
+	modify. 
+
+	A user profile based product distribution control approach is adopted 
+	in the ORPG design to replace the user class based approach in the 
+	current RPG. In ORPG, each product user accesses selected ORPG product 
+	distribution services specified in the user's user profile. 
+
+	A user profile specifies whether each of the following services is 
+	granted for the user: 
+ 
+	    Max connect time override privilege; 
+	    APUP status is available from the user; 
+	    RPGOP privilege; 
+	    Alert services (Alert and alert product distribution); 
+	    Communication load shed; 
+	    General status message distribution; 
+	    Map distribution; 
+	    Product generation list distribution; 
+	    Product distribution list distribution; 
+	    RCM distribution; 
+	    Disconnection after distribution completion; 
+	    Messages with different source IS on a dedicated line are 
+		allowed; 
+	    The user receives a Alert Adaptation Parameters message 
+		upon connection if the user does not use alerts 
+	    Immediate disconnection instead of waiting for distribution 
+		completion of the current product. 
+ 
+	A user profile also contains the following tables: 
+ 
+	    The distribution permission table; 
+	    The map table; 
+	    The default distribution table. 
+ 
+	"The distribution permission table" lists all products that can be 
+	requested by the user for routine and/or one-time distribution for each 
+	weather mode. "The map table" specifies the maps that will be 
+	transmitted to the user upon connection. "The default distribution 
+	table" defines a set of products that will be automatically distributed 
+	to the user after connection. 
+
+	A user profile also defines the maximum connection time for the user, 
+	the maximum number of products the user can request for routine 
+	distribution and the users name, ID and password. 
+
+	In ORPG each dedicated line has a pre-defined user profile. For dial 
+	users, each user must have a specific user profile associated with the 
+	users ID.
+
+	Although there is no predefined user classes in ORPG, the user profile 
+	based product distribution control approach provides full support for 
+	the current RPG product users. This is accomplished by creating 
+	special user profiles that emulating the legacy user classes. 
+
+	User profiles are stored in ORPG adaptation data base and can be 
+	modified while ORPG is in operation. New users can be added and 
+	existing user profiles can be modified through the HCI. An updated 
+	user profile will become effective at the next time the user is 
+	connected to ORPG. 
+
+	The user profile based product distribution control approach provides 
+	flexibility to meet potential future ORPG product users' requirements. 
+
+    10. Data Stores
+
+	-- Link_Info --
+
+	Purpose: Providing WAN communication link configuration.
+
+	Physical: A set of files.
+
+	Format: ASCII text.
+
+	Reader: comm_manager, init_pi.
+
+	Writer: Manually prepared.
+
+	Link_Info consists of a link configuration file and other protocol 
+	configuration files. The protocol configuration files are communication 
+	subsystem dependent. The link configuration file contains the following 
+	items:
+
+	For each link:
+
+	link number (0, 1, ...);
+	comm_user number (0, 1, ...);
+	comm_manager number (0, 1, ...);
+	physical device number (0, 1, ...);
+	physical port number (0, 1, ...);
+	link type (dedicated, dial in or dial in/out);
+	line rate (e.g. 56000);
+	communication subsystem (SIMPACT, UCONX, ISL, FORMATION, etc);
+	maximum packet size (number of bytes, >= 32);
+	number of PVC stations on the link; 0 for HDLC.
+
+	Protocol configuration file names.
+
+
+	-- Prod_User_Info --
+
+	Purpose: Providing product distribution control information.
+
+	Physical: A set of files.
+
+	Format: ASCII text.
+
+	Reader: init_pi.
+
+	Writer: Manually prepared.
+
+	Prod_User_Info consists of a product user configuration file and a
+	product distribution control file. They are used by init_pi to 
+	initialize the "Prod_Distri_Info" data store.
+
+	user class (I, II, III, IV, RGDAC (V-RGDAC), RFC (V-RFC));
+	distribution method (Other users only, 1,2,3,4);
+	maximum connection time (1-1440 minutes);
+	maximum connection time with override (30-1440 minutes);
+	number of connection retries (1-999);
+	port password (dial-in user only, 4 characters);
+	transaction time out (1 - 999 seconds);
+
+	The following configuration items are shared by all links:
+
+	overload_warning_threshold (5 - 100 percent);
+	overload_alarm_threshold (5 - 100 percent);
+
+
+	-- Prod_Distri_Info --
+
+	Purpose: Product distribution control information ready for p_servers.
+
+	Physical: An LB of replaceable type.
+
+	Format: Binary data structures.
+
+	Reader: p_servers, UCP.
+
+	Writer: init_pi, UCP.
+
+	Prod_Distri_Info contains product distribution control information 
+	that is ready for p_server to use. Prod_Distri_Info can be read by UCP 
+	for display. Certain contents in it can be modified by UCP while ORPG 
+	is operating. Prod_Distri_Info is initialized by init_pi when there 
+	is a need to initialize or bring it to the default setting defined by 
+	the configuration files in "Link_Info" and "Prod_User_Info". 
+	Prod_Distri_Info acts as a storage for the current product distribution 
+	control which can be modified dynamically. It can be passed over across 
+	ORPG sessions or saved for later use.
+
+	A detailed list of the data structures is to be added.
+
+
+	-- Distribution_Cmds --
+
+	Purpose: Storing commands that p_servers.
+
+	Physical: An LB.
+
+	Format: Binary message.
+
+	Reader: p_servers.
+
+	Writer: UCP, RPG manager.
+
+	Distribution_Cmds stores product distribution commands from the 
+	operator and possibly the RPG manager. These include, for example, 
+	requesting for PUP/RPGOP Status, enabling/disabling link interface and 
+	other ORPG control commands (e.g. ORPG shut-down).
+
+	A detailed list of the commands is to be added.
+
+
+	-- Prod_User_Status --
+
+	Purpose: Publishing product user status.
+
+	Physical: Sequential LBs.
+
+	Format: Binary data structure for each link.
+
+	Reader: UCP, RPG status monitor.
+
+	Writer: p_servers.
+
+	APUP/RPGOP status is published in an LB. Each message contains the 
+	APUP/RPGOP status of all current APUP/RPGOPs. A new message is 
+	generated every time when a new APUP/RPGOP status information is 
+	received or an APUP/RPGOP is disconnected.
+
+	Product distribution line and user status report is published in 
+	another LB. The report contains the following information:
+
+	    line quality information,
+	    bad user ID,
+	    line connection status (Connect Pending, Connected, Disconnected, 
+		Auto Dial Failure, Failed).
+
+	Each report contains a table indicating line quality and connection 
+	status of all lines. A new report is generated when any line status 
+	changes. A sequence of historical reports are stored in the LB.
+
+
+	-- Comm_Req_Resp --
+
+	Purpose: Storing communication service requests and responses.
+
+	Physical: A set of LBs. Each comm_manager has an LB for incoming 
+		requests and each comm user has an LB for responses.
+
+	Format: Binary messages.
+
+	Reader: comm_manager, p_servers and other WAN users.
+
+	Writer: comm_manager, p_servers and other WAN users.
+
+	The message formats are defined in comm_manager.h.
+
+
+	-- RDA_RPG_Status --
+
+	Purpose: Publishing the current RDA and ORPG status.
+
+	Physical: An LB of replaceable type.
+
+	Format: Binary data structures.
+
+	Reader: p_servers and others.
+
+	Writer: "Monitor and Control RDA", pbd.
+
+	Details are to be added.
+
+
+	-- Adaptation_Data --
+
+	Purpose: Contains adaptation data in current RPG format.
+
+	Physical: An LB of replaceable type.
+
+	Format: Binary data structures.
+
+	Reader: Ported RPG tasks.
+
+	Writer: UCP and others.
+
+	The adaptation data in this data store are used by ported RPG tasks.
+	Refer to RPG code for details.
+
+
+	-- Prod_Info --
+
+	Purpose: Providing default product generation information.
+
+	Physical: A file.
+
+	Format: ASCII text.
+
+	Reader: init_pi.
+
+	Writer: Manually prepared.
+
+	This data store contains information specifying the product dependency, 
+	product default generation and product generation load shed priorities.
+
+	Details are to be added.
+
+
+
+	-- Prod_Gen_Info --
+
+	Purpose: Product generation control information ready for ps_routine 
+	and ps_onetime.
+
+	Physical: An LB of replaceable type.
+
+	Format: Binary data structures.
+
+	Reader: ps_routine, ps_onetime, UCP.
+
+	Writer: init_pi, UCP.
+
+	Prod_Gen_Info contains product generation control information that is 
+	ready for ps_routine and ps_onetime to use. Prod_Gen_Info can be read 
+	by UCP for display. Certain contents in it can be modified by UCP while 
+	ORPG is operating. Prod_Gen_Info is initialized by init_pi when there 
+	is a need to initialize or bring it to the default setting defined by 
+	the configuration files in "Prod_Info". Prod_Gen_Info acts as a storage 
+	for the current product generation control which can be modified 
+	dynamically. It can be passed over across ORPG sessions or saved for 
+	later use.
+
+	A detailed list of the data structures is to be added.
+
+	-- Prod_Gen_Msgs --
+
+	Purpose: Reporting routine product generation.
+
+	Physical: An LB.
+
+	Format: Binary messages.
+
+	Reader: ps_routine and ps_onetime.
+
+	Writer: Product generators.
+
+	A product generator sends a message to this data store when a product 
+	is generated. ps_routine and ps_onetime read this to get the current 
+	product information.
+
+	The message format is defined in "orpgdat.h".
+
+
+	-- Prod_Gen_Control --
+
+	Purpose: Controlling product generators.
+
+	Physical: An LB of replaceable type.
+
+	Format: Binary data structures.
+
+	Reader: Product generators.
+
+	Writer: ps_routine and ps_onetime.
+
+	P_scheduler controls all routine product generation by modifying data 
+	structures in "Prod_Gen_Control".
+
+	The data structure is defined in "prod_request.h".
+
+
+	-- Prod_Status --
+
+	Purpose: Publishing the current product information.
+
+	Physical: An LB of replaceable type.
+
+	Format: Binary data structures.
+
+	Reader: p_server, UCP, ORPG monitor.
+
+	Writer: ps_routine.
+
+	Prod_Status store the current product generation information. It is 
+	updated by ps_routine in real time. It contains:
+
+	Products scheduled for routine generation; 
+	Products generated for each type of routine product (with product id, 
+	    code, data level, resolution, slice, data and time information - 
+	    B5 p3-26); 
+	Routine products not generated because of load shed, unavailable data 
+	    or other problems; 
+	Available annotation messages.
+
+	Details are to be added.
+
+
+	-- Text_Annotations --
+
+	Purpose: Storing text annotations and other user generated text 
+		messages.
+
+	Physical: An LB.
+
+	Format: ASCII text messages.
+
+	Reader: p_servers, ps_routine.
+
+	Writer: p_servers.
+
+	All user generated text messages are stored in "Text_Annotations".
+	These messages shall then be delivered to the appropriate users in 
+	terms of the requirements.
+
+	Details are to be added.
+
+
+	-- Products --
+
+	Purpose: Storing products.
+
+	Physical: A set of LBs.
+
+	Format: Binary data structures.
+
+	Reader: ps_routine, p_server and other product users.
+
+	Writer: product generators.
+
+	Each routine product type has a separate LB. Alerts and intermediate 
+	products are treated as products. One time products are stored in a 
+	separate LB.
+
+	Each ORPG product has a product header as defined in product.h. The 
+	original RPG product data then follow the header. Refer to RPG/PUP ICD 
+	for the original RPG product data structure definitions.
+
+
+	-- Trans_Req_Resp --
+
+	Purpose: Storing messages for format transform request/response.
+
+	Physical: An LB.
+
+	Format: Binary messages.
+
+	Reader: p_reformator, p_servers.
+
+	Writer: p_reformator, p_servers.
+
+	Original/transformed product data follows the request/response header.
+
+	Details are to be added.
+
+
+	-- Back_Maps --
+
+	Purpose: Storing background maps.
+
+	Physical: LBs or files.
+
+	Format: Binary data structure.
+
+	Reader: p_servers.
+
+	Writer: Prepared external to ORPG.
+
+	Details are to be added.
+
+
+	-- NB_Data --
+
+	Purpose: Messages sent to/received from product users.
+
+	Physical: WAN links.
+
+	Format: Binary messages.
+
+	Reader: comm_managers.
+
+	Writer: comm_managers.
+
+	These messages are formed and interpreted by p_servers. Refer to 
+	RPG/PUP ICD for details.
+
+
+	-- ORPG_Log_Error --
+
+	Purpose: Storing log/error messages.
+
+	Physical: One or several LBs.
+
+	Format: Binary messages.
+
+	Reader: ORPG monitor, UCP and ORPG manager.
+
+	Writer: All tasks.
+
+	ORPG_Log_Error is named as RPG_Stat_and_Perf in the ORPG top level 
+	design. I think ORPG_Log_Error is probably better for describing its 
+	purpose.
+
+	The message format is defined in le.h. The LE module provides function 
+	to handle this type of messages.
+
+
+	-- Prod_Requests --
+
+	Purpose: Messages requesting for product generation.
+
+	Physical: An LB.
+
+	Format: Binary messages.
+
+	Reader: ps_routine, ps_onetime.
+
+	Writer: p_servers, UCP, RPG manager.
+
+	p_servers send requests for routine and one-time products. UCP sends 
+	requests for enabling/disabling generation of certain products. RPG 
+	manager may also send request to stop generating certain products. 
+	ps_routine is the single place where actual routine product generation 
+	control is performed. ps_onetime is the single place where actual 
+	one-time product generation control is performed.
+
+	Details need to be added.
+
+
+	-- Prod_Responses --
+
+	Purpose: Messages responding to the request in Prod_Requests.
+
+	Physical: An LB.
+
+	Format: Binary messages.
+
+	Reader: p_servers.
+
+	Writer: ps_routine, ps_onetime.
+
+	A response message is generated for each one-time product request. 
+	Other messages may be generated regarding to exceptions in routine 
+	product generation.
+
+	Details need to be added.
+
+
+	-- One_Time_Prod --
+
+	Purpose: Storing one-time products.
+
+	Physical: An LB.
+
+	Format: Binary data structure.
+
+	Reader: p_servers.
+
+	Writer: ps_onetime.
+
+	Details are to be added.
+
+
+

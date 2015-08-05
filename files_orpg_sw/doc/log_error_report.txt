@@ -1,0 +1,263 @@
+
+ORPG log/error message processing
+
+1.  LE (Log/Error) message reporting.
+
+    Each ORPG task reports error and status messages by calling the LE_send_msg 
+    function in the LE infrastructure library. The messages are stored in a 
+    file or directed to the "stderr" port depending on a run time decision.
+
+    Every critical error condition encountered by an ORPG process must be
+    reported. Important status information can also be reported for 
+    monitoring purpose. The "-v" command line option is recommended for ORPG 
+    tasks for turning on/off additional debugging messages.
+
+    Issuing too many status messages makes them unreadable and may consume
+    excessive resources.
+
+    The following services are provided by the LE library.
+
+    Each process uses its own LE file. This protects the LE messages from
+    being flushed out by other processes that write excessive numbers of 
+    messages into the same LE file. The file name is associated with the 
+    process name. If a task is running in multiple instances, each instance 
+    can, by option, use its own LE file.
+
+    The Linear Buffer file is used for LE messages because it has controlled
+    size and older messages are expired automatically. The LB is convenient
+    for storing binary messages of variable sizes. It also provides the
+    desired data persistency and access efficiency. The LE LB files are 
+    pre-created. If an LE LB file does not exist, an error message is printed 
+    and the user LE messages from the corresponding process are redirected to 
+    the "stderr" port.
+   
+    The LE messages are in a binary data structure format when LB is used. 
+    This is more convenient for machine interpretation and more efficient in 
+    operational execution. They are converted to an ASCII message format
+    when the "stderr" port is used.
+
+    An event is posted when a critical message is sent. All processes share 
+    the same event number. The event message contains the sender's info
+    (host name, process name and optional instance number) and the message ID 
+    as stored in the LB. It also contains a copy of the entire LE message. 
+    With this we can achieve timely response to critical LE messages without 
+    high frequency polling of many LE files. The event is sent only when the 
+    LB is used.
+
+    The LE library is kept in the infrastructure level of the distributed
+    applications. It, thus, does not access the ORPG configuration info.
+    The LE uses an environment variable for specifying the directory for the
+    LE files and the event number for critical LE messages. If this 
+    environmental variable is not defined, the LE messages are redirected to 
+    the "stderr" port. This is convenient for debugging and testing. The 
+    "stderr" output can be further redirected to a file if necessary.
+
+    For further protection, LE library suppresses repeated messages. For a 
+    sequence of repeated messages, only certain number of the first part are 
+    written out. The remaining are written in samples with number of omissions. 
+    The last one in the sequence is always written. The LE also controls the 
+    number of critical messages that can be sent to prevent from overloading 
+    the event notification service. If excessive number of critical messages 
+    are received in a given time period, the LE will block the execution for 
+    a short time before sending each such message.
+
+    An LE message consists of two parts, an integer message code and a free 
+    ASCII text string. The code is used for machine interpretation and the text 
+    is primarily for human reading. One bit in the message code is used by the 
+    LE library for specifying the critical message type. Other bits are defined 
+    and used by the ORPG as described later.
+
+    The LE library adds the following info for each message.
+
+	The message time.
+	The process name and, by option, a user provided instance number.
+	The process ID (critical messages only).
+	The source file name and line number, from where a LE message is sent
+		(critical messages only).
+
+    Because LE messages are stored on the local host, the host name is not 
+    maintained by LE.
+
+    LE reporting examples:
+
+	LE_send_msg (GL_TERM | GL_OS, "fcntl failed (errno %d)", errno);
+	LE_send_msg (0, "Product generation rescheduled");
+
+    Refer to "man le" for further detail on the LE library functions.
+
+2.  ORPG message code
+
+    The message code is used in ORPG by the HCI and the ORPG manager processes.
+    Two fields are currently used. They are the "action" field, which specifies 
+    the action that ORPG task is going to take after reporting this message, 
+    and the "category" field, which specifies the LE massage category.
+
+    The message code must be correctly specified when the LE message reporting
+    function is called.
+
+    ORPG LE action code:
+
+	GL_TERM: The reporting ORPG process fails and will terminate.
+	GL_WAIT: The reporting ORPG process will wait until the situation 
+		      changes.
+	GL_CONT (Default): The reporting ORPG process will continue execution.
+
+    GL_TERM is a critical message. Each process should always send a GL_TERM
+    LE message before it terminates.
+
+    ORPG LE category code
+
+	GL_MEMORY: Memory allocation failure.
+	GL_FILE: File system resource exhausted.
+	GL_OS: Other OS problems except for memory and file resource errors.
+	GL_CONFIG: ORPG configuration and initialization errors. For instance 
+		   an LB is not created or not initialized appropriately.
+	GL_INPUT: An input data is not available or a fatal error is found in
+		  the input.
+	GL_COMMS: Data access failed because of a communication problem. 
+	GL_CODE: Coding error. 
+	GL_ERROR: The error category has been previously reported and/or no 
+		  category info is available at this point. 
+	GL_STATUS: A required status report.
+	GL_INFO (Default): Additional information report.
+
+    All above categories except GL_INFO are critical LE messages.
+
+    Example 1:
+
+	p = malloc (size);
+	if (p == NULL) {
+	    LE_send_msg (GL_TERM | GL_MEMORY, "malloc failed");
+	    exit (1);
+	}
+	
+    Example 2:
+
+	if (my_func () < 0) {
+	    LE_send_msg (GL_TERM | GL_ERROR, "my_func failed");
+	    exit (1);
+	}
+	else {
+	    LE_send_msg (GL_TERM, "process terminates");
+	    exit (0);
+	}
+	int my_func ()
+	{
+	    int ret;
+	    ret = EN_post (...);
+	    if (ret < 0) {
+		LE_send_msg (GL_EN (ret), "EN_post failed (ret %d)", ret);
+		return (-1)
+	    }
+	    return (0);
+	}
+
+    In Example 2, the process does not terminate immediately after encountering 
+    and EN_post error. Note that here, in this example, the process always 
+    sends an LE message before terminating.
+
+    It may be inconvenient to determine the LE category when an ORPG or 
+    infrastructure library function call fails. In this case one can use one 
+    of the following macros for the ORPG LE category code:
+
+	GL_LB (ret): An LB function call failed.
+	GL_EN (ret): An EN function call failed.
+	GL_MISC (ret): An MISC function call failed.
+	GL_RPG (ret): An RPG function call failed.
+	GL_ORPGDA (ret): An ORPGDA function call failed.
+	GL_ORPGCMI (ret): An ORPGCMI function call failed.
+	GL_UMC (ret): An UMC function call failed.
+	GL_MALRM (ret): An MALRM function call failed.
+
+    Where "ret" is the return code from the library function. All these are
+    critical messages. Note that we pass library name here instead of the 
+    library function name. This makes adding library functions easier 
+    (GL_ macros do not need to be updated). We let the LE message user figure
+    out the LE message category when one of these macros is used.
+
+    Example:
+	
+	fd = LB_open (name, 0, NULL);
+	if (fd < 0) {
+	    LE_send_msg (GL_TERM | GL_LB (fd), "LB_open %s failed (ret %d)",
+								name, fd);
+	    exit (1);
+	}
+
+    For standard C functions, POSIX functions and some other UNIX system call
+    functions ORPG defines special macros that can be used in the LE code to 
+    replace the ORPG LE category field. For example
+
+	ret = open (name, ...);
+	if (ret < 0) {
+	    LE_send_msg (GLU_OPEN | GL_TERM, "open %s failed (errno %d)", 
+								name, errno);
+	    exit (1);
+	}
+
+	hdl = fopen (name, ...);
+	if (hdl == NULL) {
+	    LE_send_msg (GLC_FOPEN, "fopen %s failed", name);
+	    return (-1);
+	}
+
+    Note that, for standard C and POSIX/UNIX functions, we use prefix GLC_ and  
+    GLU_ respectively. The GLC_ and GLU_ macros add errno to the LE code. 
+    These macros are all critical messages.
+
+    In case LE category is not explicitly specified, it is left to the LE 
+    message user to determine the LE category based on the library name or 
+    function name as well as the return value or the errno. For UNIX calls 
+    the interpretation is OS dependent.
+
+    The GL_ macros are defined in orpgerr.h.
+
+3.  ORPG text message guidelines
+
+    OS system call errors: system_func_name failed (errno %d).
+    Infrastructure and ORPG library error: lib_func_name failed (ret %d).
+
+    Additional info may be added. For instance
+
+	LB_open %s failed (ret %d)
+
+    where the LB name is specified.
+
+4.  OPRG LE message display
+
+    In the operational execution, HCI is used for displaying all LE messages.
+    Display filters can be used for selecting, for example, messages based on
+    category, action, time and sender. Different colors or fonts may be used for
+    highlighting certain categories. Note that, if HCI want to access LE files 
+    directly, it must first determine process locations by looking up the ORPG 
+    process table. When processes are relocated, finding historical LE messages
+    can be difficult. To partially solve this problem, ORPG manager process will
+    publish a LE message summary, which will be stored in a single LB file and
+    replicated on a different host.
+
+    For the developers, the most convenient way of displaying LE messages is 
+    probably using the "stderr" port. 
+
+    For ORPG testing purpose, tools may be developed for displaying LE messages
+    in the LE files.
+
+5.  ORPG LE message processing
+
+    The ORPG LE messages are designed for both human and machine processing.
+    The ORPG manager process will monitor all critical LE messages. It will
+    conduct appropriate actions in responding to these messages in order to
+    recovering ORPG from exceptional conditions. These actions may include 
+    removing and restarting certain processes or purging files in case there 
+    is a resource problem. It may signal the operator in case a human 
+    intervention is necessary.
+
+    The ORPG manager also keeps tracking all LE messages and publishes an LE         message summary for HCI display.
+
+6.  ORPG uses the exclusive write access feature of the LE LB file to prevent
+    from running multiple instances of the same task. To do this:
+
+	All ORPG LE LBs must be created as of LE_SINGLE_WRITER type.
+
+	An ORPG task checks the LE_init return value. If an error is detected 
+	in LE_init, the task should send an LE message and terminates.
+    

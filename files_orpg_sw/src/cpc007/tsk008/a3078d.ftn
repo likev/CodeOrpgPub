@@ -1,0 +1,167 @@
+C
+C RCS info
+C $Author: steves $
+C $Locker:  $
+C $Date: 2009/02/25 19:18:02 $
+C $Id: a3078d.ftn,v 1.5 2009/02/25 19:18:02 steves Exp $
+C $Revision: 1.5 $
+C $State: Exp $
+C
+      SUBROUTINE A3078D__HDR_INFO ( HDR, AZ, EL, BEG_RBIN, END_RBIN,
+     $                    BEG_VBIN, END_VBIN )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3078D__HDR_INFO
+*.
+*.  MODULE VERSION: 0010
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       10 25 85      0000      CHARLIE BAUMHER      SPR # 80271
+*.       02 13 91      0001      MARK FRESCH          SPR # 91248
+*.       12 03 91      0002      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0003      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/20/92      0004      Toolset              SPR 91895
+*.       03/25/93      0005      Toolset              SPR NA93-06801
+*.       01/28/94      0006      Toolset              SPR NA94-01101
+*.       03/03/94      0007      Toolset              SPR NA94-05501
+*.       04/11/96      0008      Toolset              CCR NA95-11802
+*.       12/23/96      0009      Toolset              CCR NA95-11807
+*.       03/16/99      0010      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A3078D__HDR_INFO( HDR, AZ, EL,
+*.                    BEG_RBIN, END_RBIN, BEG_VBIN, END_VBIN )
+*.
+*.  MODULE FUNCTION:
+*.
+*.     Get the radial status and azimuth from the radial header.
+*.     Get elevation number from call to A31219__BUF_ELEV.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT    TYPE        DESCRIPTION
+*.    -   -----    ----        -----------
+*.    G   AOFFSET1 I*4         (CONSTANT)Offset to angle measurement (first
+*.                             half of R*4) in preprocessed radial header.
+*.    G   AOFFSET2 I*4         (CONSTANT)Offset to angle measurement (second
+*.                             half of R*4) in preprocessed radial header.
+*.    G   EOFFSET1 I*4         (CONSTANT)Offset to elevation angle measurement
+*.                             (first half of R*4) in preprocessed radial
+*.                             header.
+*.    G   EOFFSET2 I*4         (CONSTANT)Offset to elevation angle measurement
+*.                             (second half of R*4) in preprocessed radial
+*.                             header.
+*.    G   NDOFFSET I*4         (CONSTANT)Offset to number of Doppler bins in
+*.                             preprocessed radial header (relative 1 from
+*.                             beginning) in halfwords.
+*.    G   NSOFFSET I*4         (CONSTANT)Offset to number of surveillance bins
+*.                             in preprocessed radial header (relative 1 from
+*.                             beginning) in halfwords.
+*.    G   PHEDSIZE I*4         (CONSTANT)Size of preprocessed base radial
+*.                             header.
+*.    G   RGFDBOFF I*4         (CONSTANT)Offset to range to first Doppler bin
+*.                             (in bins) in preprocessed radial header
+*.                             (relative 1 from beginning).
+*.    G   RGFSBOFF I*4         (CONSTANT)Offset to range to first surveillance
+*.                             bin (in bins) in preprocessed radial header
+*.                             (relative 1 from beginning).
+*.    P   BEG_RBIN I*4         FIRST GOOD REFL. BIN
+*.    P   BEG_VBIN I*4         FIRST GOOD VELOCITY BIN
+*.    P   HDR      I*2         The base data radial header.
+*.
+*.    *   OUTPUT   TYPE        DESCRIPTION
+*.    -   ------   ----        -----------
+*.    P   AZ       R*4         The radial azimuth angle.
+*.    P   BEG_RBIN I*4         FIRST GOOD REFL. BIN
+*.    P   BEG_VBIN I*4         FIRST GOOD VELOCITY BIN
+*.    P   EL       R*4         THE RADIAL ELEVATION
+*.    P   END_RBIN I*4         LAST GOOD REFL. BIN
+*.    P   END_VBIN I*4         LAST GOOD VELOCITY BIN
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME  TYPE        DESCRIPTION
+*.    ----  ----        -----------
+*.    AZE   R*4         Equivalenced Azimuth angle
+*.    AZX   I*2         I*2 Azimuth angle equivalenced to AZE
+*.    ELE   R*4         Equivalenced elevation angle
+*.    ELX   I*2         I*2 elevation angle equivalenced to ELE
+*.    ONE   I*4         Index to 1st word of I*2 angles
+*.    TWO   I*4         Index to 2nd word of I*2 angles
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+C
+C Include radial data parameter file
+C
+$INCLUDE A304.INC/G,**A304P4 (NLIST)
+C
+C Data declarations
+C
+      INTEGER*2       HDR(PHEDSIZE)
+      INTEGER*2       AZX(2), ELX(2)
+C
+      INTEGER*4       ONE, TWO, MAX_VBIN
+      INTEGER*4       BEG_RBIN, END_RBIN, BEG_VBIN, END_VBIN
+C
+      REAL*4          AZE, AZ
+      REAL*4          ELE, EL
+C
+      PARAMETER       ( ONE = 1 )
+      PARAMETER       ( TWO = 2 )
+      PARAMETER       ( MAX_VBIN = 920 )
+      EQUIVALENCE     (AZX(1),AZE)
+      EQUIVALENCE     (ELX(1),ELE )
+C
+C*********************************************************************
+C
+C GET THE AZIMUTH AND ELEVATION ANGLES
+C
+      AZX(ONE) = HDR(AOFFSET1)
+      AZX(TWO) = HDR(AOFFSET2)
+      AZ = AZE
+C
+      ELX(ONE) = HDR(EOFFSET1)
+      ELX(TWO) = HDR(EOFFSET2)
+      EL = ELE
+C
+C*  GET THE FIRST GOOD BIN FROM THE HEADER
+C
+      BEG_RBIN = HDR(RGFSBOFF)
+      BEG_VBIN = HDR(RGFDBOFF)
+C
+C*  CALCULATE LAST GOOD BIN FROM NUMBER OF GOOD BINS
+C
+      END_RBIN = BEG_RBIN + HDR(NSOFFSET) - ONE
+      END_VBIN = BEG_VBIN + HDR(NDOFFSET) - ONE
+      IF( END_VBIN .GT. MAX_VBIN )
+     >    END_VBIN = MAX_VBIN
+C
+      RETURN
+      END

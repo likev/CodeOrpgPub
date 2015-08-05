@@ -1,0 +1,440 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/16 20:36:15 $
+C $Id: a31641.ftn,v 1.5 2002/12/16 20:36:15 christie Exp $
+C $Revision: 1.5 $
+C $State: Exp $
+C
+      SUBROUTINE A31641__HAIL_CTL(PARAM)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A31641__HAIL_CTL
+*.
+*.  MODULE VERSION: 0017
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       10 18 85      0000      JSGROMMONS
+*.       05 01 86      0001      JSGROMMONS           SPR#  304
+*.       06 03 86      0002      JSGROMMONS           SPR#  60313
+*.       06 03 86      0002      JSGROMMONS           SPR#  60215
+*.       04 24 87      0003      JO STALEY            SPR # 70245
+*.       08 22 88      0004      VALERIE HOLDEN       SPR # 80248
+*.       10 11 88      0005      STEVE D SMITH        SPR # 80338
+*.       05 31 89      0006      TERRI LEWIS          SPR # 90322
+*.       11 06 90      0007      David M. Lynch       SPR # 91257
+*.       05 01 91      0007      VALERIE HOLDEN       SPR # 91910
+*.       12 03 91      0008      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0009      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0010      Toolset              SPR 91895
+*.       03/25/93      0011      Toolset              SPR NA93-06801
+*.       01/28/94      0012      Toolset              SPR NA94-01101
+*.       03/03/94      0013      Toolset              SPR NA94-05501
+*.       04/01/95      0014      Toolset              CCR NA95-11820
+*.       04/21/95      0015      STEVE SMITH          CCR NA94-26301
+*.       12/23/96      0016      Toolset              CCR NA95-11807
+*.       03/16/99      0017      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:  CALL A31641__HAIL_CTL(PARAM)
+*.
+*.  MODULE FUNCTION:
+*.
+*.     BUFFER CONTROL MODULE:  WHEN DATA BECOMES AVAILABLE, THIS
+*.     MODULE RECEIVES CONTROL.  IT ACQUIRES THE INPUT AND OUTPUT
+*.     BUFFERS, STORES DATA IN THE OUTPUT BUFFER BASED ON THE
+*.     INPUT DATA AND OTHER INFORMATION, AND RELEASES THE INPUT
+*.     AND OUTPUT BUFFERS.
+*.
+*.  MODULES CALLED: A31145__ABORT_ME, A31168__ABORT_ME_BECAUSE, 
+*.                  A31211__GET_INBUF, A31212__REL_INBUF, A31215__GET_OUTBUF, 
+*.                  A31216__REL_OUTBUF, A31218__BUF_VOL, A31642__HAIL_TABULAR, 
+*.                  A31643__HAIL_PRD_HEADER, A31646__TOTAL_LENGTH, 
+*.                  A31647__HAIL_ADAPT_PAGE, A31648__HAIL_SYMBOL, 
+*.                  A31649__HAIL_GRAPHIC, A3164E__STORE_DIVIDER, 
+*.                  A3164J__POSH_SORT, A3CM25__GET_DATE_TIME, 
+*.                  A3CM38__JULIAN2DATE 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT         TYPE        DESCRIPTION
+*.    -   -----         ----        -----------
+*.    G   MEM           I*4         Array in RPG shared memory set aside for
+*.                                  buffer sharing.
+*.    G   SUMMARY       I*4         Volume Scan Summary Table
+*.    G   BHA           I*4         (CONSTANT)Index within HAILATTR to the
+*.                                  HAILADAP (or HAIL_RADAP) array. (BHL +
+*.                                  NHAL_MAX)
+*.    G   BHS           I*4         (CONSTANT)Index within HAILATTR to the
+*.                                  HAILSTATS array.
+*.    G   BNH           I*4         (CONSTANT)Index within HAILATTR to the
+*.                                  number of hail storms
+*.    G   DESTROY       I*4         (CONSTANT)Mnemonic used as input to
+*.                                  A31216__REL_OUTBUF. Indicates "do not pass
+*.                                  data to other tasks".
+*.    G   FORWARD       I*4         (CONSTANT)Parameter to indicate that an
+*.                                  output buffer is to be forwarded to
+*.                                  successor tasks
+*.    G   HAILATTR      I*4         (CONSTANT)Data Buffer Type: Hail Attribute
+*.                                  Table.
+*.    G   NORMAL        I*4         (CONSTANT)Parameter which indicates normal
+*.                                  completion of requested operation to
+*.                                  acquire input or output buffer
+*.    G   NO_MEM        I*4         (CONSTANT)Parameter which indicates no
+*.                                  memory available on attempt to acquire
+*.                                  output buffer
+*.    G   PROD_MEM_SHED I*4         (CONSTANT)(CONSTANT)Parameter which
+*.                                  indicates that product aborted due to
+*.                                  memory load shedding
+*.    G   SCAN_DATE     I*4         (CONSTANT)Volume Scan Date index into Scan
+*.                                  Summary Table
+*.    G   SCAN_TIME     I*4         (CONSTANT)Volume Scan Time index into Scan
+*.                                  Summary Table
+*.    C   GPHLNG        I*4         Length of graphics block in halfwords.
+*.    C   NDX           I*4         Working subscript for moving data.
+*.    C   PRDLNG        I*4         Length of product header and description
+*.                                  in halfwords.
+*.    C   RTIME         I*4         Report time (1:Hours; 2:Minutes;
+*.                                  3:Seconds).
+*.    C   SYMLNG        I*4         Length of symbology block.
+*.    C   TABLNG        I*4         Length of tabular block in halfwords.
+*.    C   TABOFF        I*4         Offset to beginning of tabular block.
+*.    C   TOTLNG        I*4         Total length of product.
+*.    C   SYMBOFF       I*4         (CONSTANT)Length of symbology block in
+*.                                  halfwords.
+*.    C   TPOFF         I*4         (CONSTANT)Offset to beginning of first
+*.                                  tabular page.
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    G   MEM     I*4         Array in RPG shared memory set aside for buffer
+*.                            sharing.
+*.    C   GPHLNG  I*4         Length of graphics block in halfwords.
+*.    C   GPHOFF  I*4         Offset to beginning of graphics block.
+*.    C   IT      I*4         Pointer into operator messages for line number.
+*.    C   K1      I*4         Lower limit of fields to be written.
+*.    C   K2      I*4         Upper limit of fields to be written.
+*.    C   KI      I*4         Subscript for Hail ID.
+*.    C   N1      I*4         Lower limit of lines to be written.
+*.    C   N2      I*4         Upper limit of lines to be written.
+*.    C   NDX     I*4         Working subscript for moving data.
+*.    C   NMSTRMS I*4         Number of storms.
+*.    C   NOLNS   I*4         Number of lines written.
+*.    C   NP      I*4         Number of pages to be written.
+*.    C   PNDX    I*4         Pointer into output buffer.
+*.    C   PRDLNG  I*4         Length of product header and description in
+*.                            halfwords.
+*.    C   RDATE   I*4         Report date.
+*.    C   RTIME   I*4         Report time (1:Hours; 2:Minutes; 3:Seconds).
+*.    C   SVIDX   I*4         Saved value of OPTR (pointer to output buffer
+*.                            data).
+*.    C   SYMLNG  I*4         Length of symbology block.
+*.    C   TABLNG  I*4         Length of tabular block in halfwords.
+*.    C   TOTLNG  I*4         Total length of product.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    G   MEM               I*4         Array in RPG shared memory set aside
+*.                                      for buffer sharing.
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME     TYPE        DESCRIPTION
+*.    ----     ----        -----------
+*.    CDATE    I*4         SYSTEM DATE
+*.    CTIME    I*4         SYSTEM TIME
+*.    DAY      I*4         PROGRAM PARAMETER FOR DAY, = 1
+*.    FSTWD    I*4         PROGRAM PARAMETER FOR FIRST WORD, = 1
+*.    HAILCAT  I*4         Data Buffer Type: Hail Category Table.
+*.    HAIL_SIZ I*4         Size of the Hail Output buffer
+*.    IDATID1  I*4         DATA TYPE RETURNED BY GET_INBUF
+*.    IDNX     I*4         SUBSCRIPT FOR STORING INTO
+*.    IPR1     I*4         POINTER FOR HAILABEL BUFFER
+*.    ISTAT1   I*4         GET_INBUF OPERATION STATUS
+*.    LNGTH    I*4         TOTAL LENGTH
+*.    MONTH    I*4         PROGRAM PARAMETER FOR MONTH, = 2
+*.    NUM1     I*4         PROGRAM PARAMETER FOR 1
+*.    OPSTAT1  I*4         Internal variable used to hold operational status
+*.                         (call argument) of particular buffer.
+*.    OPTR     I*4         POINTER TO OUTPUT BUFFER DATA
+*.    R2DATE   I*2         Report date array.
+*.    SCNWD    I*4         PROGRAM PARAMETER FOR SECOND WORD, = 2
+*.    SECPHR   I*4         Seconds per hour.
+*.    SECPMIN  I*4         Seconds-per-minute.
+*.    TRDWD    I*4         PROGRAM PARAMETER FOR THIRD WORD, = 3
+*.    V2DATE   I*2         Volume Scan date to be converted
+*.    VDATE    I*4         Date used to load the product header date.
+*.    VOLNO    I*4         Volume scan number.
+*.    VTIME    I*4         Volume scan time.
+*.    YEAR     I*4         PROGRAM PARAMETER FOR YEAR, = 3
+*.    ZERO     I*4         PROGRAM PARAMETER FOR ZERO
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD00
+*.    A3CD05
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3164B
+*.    A3164C
+*.    A3164D
+*.    A3164PM
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP16.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK16.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+      IMPLICIT NONE
+C
+C *INCLUDE DATA TYPE CODES AND OTHER CONTROL PARAMETER DEFINITIONS
+$INCLUDE A309.INC/G,**A3PM00 (NEND NLIST)
+C
+C *INCLUDE MEM DEFINITION
+$INCLUDE A309.INC/G,**A3CD00 (NEND NLIST)
+C
+C * INCLUDE PRODUCT OFFSETS AND GLOBAL PARAMETERS
+$INCLUDE A309.INC/G,**A3PM01 (NEND NLIST)
+$INCLUDE A309.INC/G,**A3PM06 (NEND NLIST)
+$INCLUDE A309.INC/G,**A3PM07 (NEND NLIST)
+$INCLUDE A309.INC/G,**A3CD05 (NEND NLIST)
+$INCLUDE A309ADPT.INC/G,**A3CD70CA (NEND NLIST)
+C
+C *INCLUDE ALOGRITHM PARAMETERS
+$INCLUDE A317BUF.INC/G,**A317P5    (NEND NLIST)
+$INCLUDE A315BUF.INC/G,**A315P9H (NEND NLIST)
+$INCLUDE A315BUF.INC/G,**A315PHAD (NEND NLIST)
+C
+C** LOCAL COMMON
+$INCLUDE A316.INC/G,**A3164P4 (NLIST)
+C
+C   LOCAL PARAMETERS
+      INTEGER*2  V2DATE,R2DATE(3)
+      INTEGER*4  SECPHR,SECPMIN,VTIME,VDATE
+      INTEGER*4  A31218__BUF_VOL,VOLNO
+      PARAMETER  (SECPHR=3600,SECPMIN=60)
+
+      INTEGER*4  LNGTH,IDNX,PARAM
+C
+      INTEGER*4 HAIL_SIZ,OPTR,CDATE,CTIME,OPSTAT1
+      PARAMETER(HAIL_SIZ=7500)
+C
+      INTEGER*4  IPR1,IDATID1,ISTAT1
+      INTEGER*4  DAY,MONTH,YEAR,FSTWD,SCNWD,TRDWD,NUM1,ZERO
+      PARAMETER  (DAY=1,MONTH=2,YEAR=3,FSTWD=1,SCNWD=2,TRDWD=3)
+      PARAMETER  (NUM1=1,ZERO=0)
+C$INSERT      integer*4 orpg_mem_addr
+C....................................................................
+C
+C** GET OUTPUT BUFFER
+C
+      CALL A31215__GET_OUTBUF(HAILCAT,HAIL_SIZ,OPTR,OPSTAT1)
+      IF (OPSTAT1 .EQ. NORMAL)  THEN
+C
+C** OUTPUT BUFFER OBTAINED; NOW GET INPUT BUFFERS
+C
+C** FROM HAIL ALGORITHM
+C
+         CALL A31211__GET_INBUF(HAILATTR,IPR1,IDATID1,ISTAT1)
+         IF (ISTAT1 .EQ. NORMAL)  THEN
+C
+C** INPUT BUFFERS OBTAINED
+C
+C** SAVE INDEX AND INITIALIZE
+C
+            SVIDX = OPTR
+C$DELETE
+            NMSTRMS = MEM(IPR1+BNH)
+C$ENDDELETE
+C$INSERT            NMSTRMS = orpg_mem_addr( MEM(IPR1+BNH) )
+            NDX = NUM1
+C
+C** INITIALIZE LENGTHS
+C
+            TOTLNG = ZERO
+            PRDLNG = ZERO
+            SYMLNG = ZERO
+            GPHLNG = ZERO
+            TABLNG = ZERO
+C
+C** INITIALIZE POINTERS
+C
+            GPHOFF = ZERO
+            K1=ZERO
+            K2=ZERO
+            N1=NUM1
+            N2=ZERO
+            NOLNS=ZERO
+            KI=ZERO
+C
+C** INITIALIZE LINE NO, NO OF PAGES
+C
+            IT=ZERO
+            NP=ZERO
+            PNDX=ZERO
+C
+C** GET DATE/TIME FOR REPORT
+C
+            VOLNO=A31218__BUF_VOL(IPR1)
+            VDATE=SUMMARY(SCAN_DATE,VOLNO)
+            VTIME=SUMMARY(SCAN_TIME,VOLNO)
+            V2DATE = VDATE
+            CALL A3CM38__JULIAN2DATE(V2DATE,R2DATE)
+C
+C** GET REPORT DATE
+C
+            RDATE(FSTWD) = R2DATE(MONTH)
+            RDATE(SCNWD) = R2DATE(DAY)
+            RDATE(TRDWD) = R2DATE(YEAR)
+C
+C** GET REPORT TIME
+C
+            RTIME(FSTWD) = VTIME/SECPHR
+            RTIME(SCNWD) = (VTIME - RTIME(FSTWD)*SECPHR)/SECPMIN
+            RTIME(TRDWD) = VTIME-RTIME(FSTWD)*SECPHR-RTIME(SCNWD)
+     >                       *SECPMIN
+C
+C** GET DATE/TIME FOR PRODUCT HEADER
+C
+            CALL A3CM25__GET_DATE_TIME(CDATE,CTIME)
+C
+C** BUILD HAIL SYMBOLOGY BLOCK
+C
+            NDX = NDX + SYMBOFF
+C
+C** CHECK FOR HAIL:
+C
+            IF (MEM(IPR1+BNH) .GT. ZERO)  THEN
+C
+C** SORT STORM CELLS BASED ON POSH.  IF EQUAL POSH, THEN SORT ON
+C** POH.
+C
+               CALL A3164J__POSH_SORT(MEM(IPR1+BNH),MEM(IPR1+BHS))
+C
+C** BUILD SYMBOLOGY BLOCK
+C
+C** Product Symbology Block:  Header Information:     8
+C
+C**    NOTE:  Sizes are per storm cell detected
+C
+C** Display Data Packets:          Storm Cell ID:     5 halfwords
+C**                                  Hail Symbol:     7
+C
+C** Assumption:  Each Storm Cell has a POH and POSH greater than
+C**              zero.  For 100 storm cell, this block is 2416 bytes
+C**              in length.
+C
+               CALL A31648__HAIL_SYMBOL(MEM(IPR1+BNH),MEM(IPR1+BHS),
+     >                                  MEM(OPTR))
+C
+               TOTLNG = TOTLNG + SYMLNG
+C
+C** BUILD THE GRAPHIC PACKETS FOR HAIL
+C
+C** Graphic Alphanumeric Block: Header Information:   5 halfwords
+C
+C** For each page of the Block:                     289 halfwords
+C
+C**   NOTE:  Each page contains information for 6
+C**          storm cells.  Each page also includes
+C**          grid vectors outlining the data.  For
+C**          100 storm cells, this block is
+C
+               CALL A31649__HAIL_GRAPHIC(MEM(IPR1+BNH),MEM(IPR1+BHS),
+     >                 MEM(IPR1+BHA),MEM(OPTR),MEM(IPR1+BHA))
+C
+               TOTLNG = TOTLNG + GPHLNG
+C
+C** END OF HAIL
+C
+            ENDIF
+C
+C** BUILD HAIL PRODUCT HEADER AND DESCRIPTION BLOCKS
+C
+C** Message Header and Product Description Block:    60 halfwords
+C
+            CALL A31643__HAIL_PRD_HEADER(MEM(OPTR),IPR1,CDATE,CTIME)
+C
+            TOTLNG = TOTLNG + PRDLNG
+C
+C** BUILD HAIL TABULAR BLOCK
+C
+C** Tabular Alphanumeric Block:     Header Block:    66 halfwords
+C**                                    Each Page:   698 halfwords
+C
+            CALL A31642__HAIL_TABULAR(MEM(IPR1+BNH),MEM(IPR1+BHS),
+     >                                MEM(OPTR))
+C
+C** DEVELOP HAIL ADAPTATION PAGE
+C
+            CALL A31647__HAIL_ADAPT_PAGE(MEM(IPR1+BHA),MEM(OPTR))
+C
+C** STORE DIVIDER, NUMBER PAGES FOR TABULAR DATA
+C
+            IDNX = TABOFF + TPOFF + NUM1
+            CALL A3164E__STORE_DIVIDER(IDNX,MEM(OPTR))
+            TOTLNG = TOTLNG + TABLNG
+C
+C** DETERMINE TOTAL LENGTH OF DATA WRITTEN IN BYTES IN OUTPUT BUFFER
+C
+            LNGTH = TOTLNG
+            CALL A31646__TOTAL_LENGTH(LNGTH,MEM(OPTR))
+            IF (TOTLNG .GT. ZERO)  THEN
+C
+C** RELEASE BUFFERS
+C
+               CALL A31216__REL_OUTBUF(OPTR,FORWARD)
+            ELSE
+C
+C** NO DATA
+C
+               CALL A31216__REL_OUTBUF(OPTR,DESTROY)
+            ENDIF
+C
+C** RELEASE INPUT BUFFERS
+C
+            CALL A31212__REL_INBUF(IPR1)
+         ELSE
+C
+C** ISTAT1 NOT NORMAL
+C
+            CALL A31216__REL_OUTBUF(OPTR,DESTROY)
+            CALL A31145__ABORT_ME
+         ENDIF
+C
+C** OPSTAT1 NOT NORMAL, CHECK IF NO MEMORY CONDITION
+C
+      ELSE
+         IF (OPSTAT1 .EQ. NO_MEM) THEN
+            CALL A31168__ABORT_ME_BECAUSE(PROD_MEM_SHED)
+         ELSE
+            CALL A31145__ABORT_ME
+         END IF
+      ENDIF
+C
+C** RETURN TO CALLER ROUTINE
+C
+      RETURN
+      END

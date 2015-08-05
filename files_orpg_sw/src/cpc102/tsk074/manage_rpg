@@ -1,0 +1,372 @@
+#!/bin/sh
+
+# RCS info
+# $Author: ccalvert $
+# $Locker:  $
+# $Date: 2013/03/22 17:16:31 $
+# $Id: manage_rpg,v 1.1 2013/03/22 17:16:31 ccalvert Exp $
+# $Revision: 1.1 $
+# $State: Exp $
+
+ARCHIVE_DIR=
+LEVEL_II_DIR=
+CLEANUP_FLAG=NO
+LAUNCH_HCI_FLAG=YES
+STOP_RPG_FLAG=NO
+PLAYBACK_INFO_FILE=$HOME/PLAYBACK_INFO_FILE
+PRINT_DEFAULTS_FLAG=NO
+DEBUG_FLAG=NO
+
+#########################################################
+# ECHO_ERROR: Echo error message and exit.
+#########################################################
+
+echo_error ()
+{
+  echo
+  echo
+  echo "IN SCRIPT: $0"
+  echo "ERROR: $1"
+  echo "Stopping script"
+  echo "Use -h option for help"
+  echo
+  echo
+  exit 1
+}
+
+#########################################################
+# ECHO_DEBUG: Echo debug messages.
+#########################################################
+
+echo_debug ()
+{
+  if [ $DEBUG_FLAG = YES ]
+  then
+    echo "DEBUG: $1"
+  fi
+}
+
+#########################################################
+# PRINT_USAGE: Display "help" to screen.
+#########################################################
+
+print_usage ()
+{
+  echo
+  echo "Usage: `basename $0` [Options]"
+  echo
+  echo "Options:"
+  echo
+  echo "-h - help"
+  echo "-d - Print defaults after processing command line"
+  echo "-x - Turn debugging statements on"
+  echo "-A - Archive playback case to this directory"
+  echo "-D - Level-II data directory"
+  echo "-c - Clean start (reinitialize linear buffers)"
+  echo "-H - Do not launch HCI automatically"
+  echo "-S - Stop RPG and playback"
+  echo
+  echo "NOTE: RPG/playback started by default"
+  echo "      Stopping requires -S option"
+  echo
+}
+
+#########################################################
+# PARSE_CMDLINE: Parse command line arguments.
+#########################################################
+
+parse_cmdline ()
+{
+  while getopts hdxA:D:HSc option
+  do
+    case $option in
+      h) print_usage; exit 0;;
+      d) PRINT_DEFAULTS_FLAG=YES;;
+      x) DEBUG_FLAG=YES;;
+      A) ARCHIVE_DIR=$OPTARG; archive_playback;;
+      D) LEVEL_II_DIR=$OPTARG;;
+      H) LAUNCH_HCI_FLAG=NO;;
+      S) stop_rpg_playback;;
+      c) CLEANUP_FLAG=YES;;
+     \?) echo_error "Invalid input flag"
+    esac
+  done
+
+  echo_debug "ARCHIVE_DIR:          $ARCHIVE_DIR"
+  echo_debug "LEVEL_II_DIR:         $LEVEL_II_DIR"
+  echo_debug "LAUNCH_HCI_FLAG:      $LAUCH_HCI_FLAG"
+  echo_debug "CLEANUP_FLAG:         $CLEANUP_FLAG"
+  echo_debug "PRINT_DEFAULTS_FLAG:  $PRINT_DEFAULTS_FLAG"
+  echo_debug "DEBUG_FLAG:           $DEBUG_FLAG"
+
+  # Print defaults if needed.
+  if [ $PRINT_DEFAULTS_FLAG = YES ]
+  then
+    print_defaults
+    exit 0
+  fi
+
+  # Make sure level-II data directory is defined and exists.
+  if [ -z "$LEVEL_II_DIR" ]
+  then
+    echo_error "Option -D is required"
+  elif [ ! -d $LEVEL_II_DIR ]
+  then
+    echo_error "Directory $LEVEL_II_DIR doesn't exist"
+  fi
+
+  # Make sure ORPGDIR is defined and exists.
+  if [ -z "$ORPGDIR" ]
+  then
+    echo_error "Environmental variable \$ORPGDIR not defined"
+  elif [ ! -d $ORPGDIR ]
+  then
+    echo_error "Directory $ORPGDIR doesn't exist"
+  fi
+}
+
+#########################################################
+# PRINT_DEFAULTS: Print default values used by script
+#########################################################
+
+print_defaults ()
+{
+  echo
+  echo "ARCHIVE_DIR:          $ARCHIVE_DIR"
+  echo "LEVEL_II_DIR:         $LEVEL_II_DIR"
+  echo "LAUNCH_HCI_FLAG:      $LAUCH_HCI_FLAG"
+  echo "CLEANUP_FLAG:         $CLEANUP_FLAG"
+  echo "PRINT_DEFAULTS_FLAG:  $PRINT_DEFAULTS_FLAG"
+  echo "DEBUG_FLAG:           $DEBUG_FLAG"
+  echo
+}
+
+#########################################################
+# START_MRPG: Start manage RPG task.
+#########################################################
+
+start_mrpg ()
+{
+  # Make sure mrpg is in path
+  if ! which mrpg > /dev/null 2>&1
+  then
+    echo_error "Mrpg application not found"
+  fi
+
+  # Create command string depending on if clean start or not
+  if [ $CLEANUP_FLAG = YES ]
+  then
+    cmd="mrpg -p startup"
+  else
+    cmd="mrpg startup"
+  fi
+
+  # Start mrpg
+  echo "Starting RPG, please wait."
+  echo_debug "CMD: $cmd"
+  $cmd > /dev/null 2>&1
+}
+
+#########################################################
+# STOP_RPG_PLAYBACK: Terminate RPG and playback applications.
+#########################################################
+
+stop_rpg_playback ()
+{
+  # Append info to archive file
+  echo "Stopped at `date` for $LEVEL_II_DIR" >> $PLAYBACK_INFO_FILE
+
+  # Stop mrpg and playback tasks
+  echo "Stopping RPG, please wait."
+  echo_debug "CMD: mrpg cleanup"
+  mrpg cleanup > /dev/null 2>&1
+  echo_debug "CMD: stop_wbs_tasks"
+  stop_wbs_tasks
+
+  exit
+}
+
+#########################################################
+# STOP_WBS_TASKS: Stop all wideband simulator-related tasks.
+#########################################################
+
+stop_wbs_tasks ()
+{
+  # Stop RPG playback tasks
+  for task in play_a2 cm_tcp1 wb_simulator
+  do
+    sleep 2
+    if ps -U $USER | egrep -q "$task"
+    then
+      echo_debug "CMD: $prm -quiet -9 $task"
+      if ! prm -quiet -9 $task > /dev/null 2>&1
+      then
+        echo_error "Could not stop $task"
+      fi
+    fi
+  done
+}
+
+#########################################################
+# START_LOCAL_WBS: Start wideband simulator for local system
+#########################################################
+
+start_local_wbs ()
+{
+  wbs_dir=$ORPGDIR/comms
+  wbs_req_file=$wbs_dir/wbs_req.0
+  wbs_resp_file=$wbs_dir/wbs_resp.0
+  wbs_data_file=$wbs_dir/wbs_data.lb
+
+  echo_debug "wbs_dir:       $wbs_dir"
+  echo_debug "wbs_req_file:  $wbs_req_file"
+  echo_debug "wbs_resp_file: $wbs_resp_file"
+  echo_debug "wbs_data_file: $wbs_data_file"
+
+  # Make sure playback (and ancillary) tasks are in path
+  for task in lb_create cm_tcp1 wb_simulator play_a2
+  do
+    if ! which $task > /dev/null 
+    then
+      echo_error "Task $task not found"
+    fi
+  done
+
+  # Create wbs directory
+  echo_debug "CMD: mkdir -p $wbs_dir"
+  if ! mkdir -p $wbs_dir > /dev/null 2>&1
+  then
+    echo_error "Directory $wbs_dir not found"
+  fi
+
+  # Create wbs request LB
+  echo_debug "CMD: lb_create -n 100 $wbs_req_file"
+  if ! lb_create -n 100 $wbs_req_file
+  then
+    echo_error "lb_create -n 100 $wbs_req_file failed"
+  elif [ ! -f $wbs_req_file ]
+  then
+    echo_error "File $wbs_req_file not found"
+  fi
+
+  # Create wbs response LB
+  echo_debug "CMD: lb_create -n 500 $wbs_resp_file"
+  if ! lb_create -n 500 $wbs_resp_file
+  then
+    echo_error "lb_create -n 500 $wbs_resp_file failed"
+  elif [ ! -f $wbs_resp_file ]
+  then
+    echo_error "File $wbs_resp_file not found"
+  fi
+
+  # Create wbs ingest LB
+  echo_debug "CMD: lb_create -n 500 $wbs_data_file"
+  if ! lb_create -n 500 $wbs_data_file
+  then
+    echo_error "lb_create -n 500 $wbs_data_file failed"
+  elif [ ! -f $wbs_data_file ]
+  then
+    echo_error "File $wbs_data_file not found"
+  fi
+
+  # Stop any previously running tasks
+  echo_debug "CMD: stop_wbs_tasks"
+  stop_wbs_tasks
+
+  # Start playback tasks
+
+  wbs_req=`echo $wbs_req_file | sed 's/\.0$//'`
+  wbs_resp=`echo $wbs_resp_file | sed 's/\.0$//'`
+  echo_debug "wbs_req:  $wbs_req"
+  echo_debug "wbs_resp: $wbs_resp"
+
+  echo_debug "CMD: cm_tcp1 -l 1 -f wbs_comms.conf -c 1 -i $wbs_req -o $wbs_resp 0 &"
+  cm_tcp1 -l 1 -f wbs_comms.conf -c 1 -i $wbs_req -o $wbs_resp 0 > /dev/null 2>&1 &
+  sleep 2
+  if ! ps -U $USER | egrep -q 'cm_tcp1'
+  then
+    echo_error "Task cm_tcp1 did not launch"
+  fi
+
+  echo_debug "CMD: wb_simulator -v -q $wbs_req_file -r $wbs_resp_file -d $wbs_data_file &"
+  wb_simulator -v -q $wbs_req_file -r $wbs_resp_file -d $wbs_data_file > /dev/null 2>&1 &
+  sleep 2
+  if ! ps -U $USER | egrep -q 'wb_simulator'
+  then
+    echo_error "Task wb_simulator did not launch"
+  fi
+
+  # Launch HCI if needed
+  if [ $LAUNCH_HCI_FLAG = YES ]
+  then
+    echo_debug "CMD: hci &"
+    hci &
+  fi
+
+  echo "Started at `date` for $LEVEL_II_DIR" > $PLAYBACK_INFO_FILE
+
+  echo_debug "CMD: play_a2 -d $LEVEL_II_DIR -o $wbs_data_file" 
+  play_a2 -d $LEVEL_II_DIR -o $wbs_data_file > /dev/null 2>&1
+}
+
+#########################################################
+# ARCHIVE_PLAYBACK: Archive playback files
+#########################################################
+
+archive_playback ()
+{
+  # Make sure RPG is stopped
+  if ps -U $USER | egrep -q 'mrpg'
+  then
+    echo_error "Can only archive LB when RPG software is stopped"
+  fi
+
+  # Make archive directory if it doesn't exist
+  echo_debug "CMD: mkdir -p $ARCHIVE_DIR"
+  if ! mkdir -p $ARCHIVE_DIR > /dev/null
+  then
+    echo_error "Could not create $ARCHIVE_DIR directory"
+  fi
+
+  # Make sure archive directory is writable
+  if [ ! -w $ARCHIVE_DIR ]
+  then
+    echo_error "Directory $ARCHIVE_DIR doesn't have write permission"
+  fi
+
+  # Archive product database
+  echo_debug "CMD: cp $HOME/tmp/playback.*.lb $ARCHIVE_DIR"
+  if ! cp $HOME/tmp/playback.*.lb $ARCHIVE_DIR > /dev/null
+  then
+    echo "Copying playback product data base LBs to $ARCHIVE_DIR failed"
+  fi
+
+  # Archive playback info file
+  echo_debug "CMD: cp $PLAYBACK_INFO_FILE $ARCHIVE_DIR"
+  if ! cp $PLAYBACK_INFO_FILE $ARCHIVE_DIR > /dev/null
+  then
+    echo "Copying $PLAYBACK_INFO_FILE to $ARCHIVE_DIR failed"
+  fi
+
+  exit
+}
+
+####################################################################
+#
+# MAIN BODY OF SCRIPT
+#
+####################################################################
+
+# Read the command line options
+parse_cmdline $*
+
+# Start mrpg task
+start_mrpg
+
+# Start local wideband simulator
+start_local_wbs
+
+echo
+echo "Finished managing RPG"
+echo
+

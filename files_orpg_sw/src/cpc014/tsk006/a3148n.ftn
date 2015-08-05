@@ -1,0 +1,369 @@
+C 
+C RCS info 
+C $Author: ryans $ 
+C $Locker:  $ 
+C $Date: 2006/02/09 20:38:16 $ 
+C $Id: a3148n.ftn,v 1.6 2006/02/09 20:38:16 ryans Exp $ 
+C $Revision: 1.6 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A3148N__BUILD_3HOUR
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3148N__BUILD_3HOUR
+*.
+*.  MODULE VERSION: 0006
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       08/07/95      0000      TIM O'BANNON         CCR NA94-33207
+*.       12/23/96      0001      Toolset              CCR NA95-11807
+*.       01/31/97      0002      Tim O'Bannon         CCR NA97-03603
+*.       03/16/99      0003      Toolset              CCR NA98-23803
+*.       01/31/02      0004      Dennis A. Miller     CCR NA01-27501
+*.       12/09/03      0005      CHRIS CALVERT        CCR NA03-30002
+*.       10/26/05      0006      Cham Pham            CCR NA05-09504
+*.
+*.  CALLING SEQUENCE: CALL A3148N__BUILD_3HOUR
+*.
+*.  MODULE FUNCTION:
+*.    This module creates the 3-hour accumulation by adding the available
+*.    data on disk for the past 3 hours.  At least 2 hours must be available
+*.    before the product is produced.  The 3-hour product will be made even
+*.    if the scans have the zero data flag set.  The 3-hour sum is then
+*.    converted to 256 data levels, biased for the product look-up table,
+*.    run-length-encoded, and stored on disk for later use as required.
+*.
+*.  MODULES CALLED: A31215__GET_OUTBUF, A31216__REL_OUTBUF, A31468__PDB_IO,
+*.                  A3146Q__GET_SUM, A3148L__PPS_RUN_LENGTH_ENCODE,
+*.                  A3148P__BIAS_ARRAY
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT           TYPE      DESCRIPTION
+*.    -   -----           ----      -----------
+*.    G   MEM             I*4       Array in RPG shared memory set aside for
+*.                                  buffer sharing.
+*.    G   RESETBI         R*4       Reset Value of Bias.
+*.    G   RESMSQER        R*4       Reset Value of Mean Square Error for Bias.
+*.    G   DESTROY         I*4       (CONSTANT)Mnemonic used as input to
+*.                                  A31216__REL_OUTBUF. Indicates "do not pass
+*.                                  data to other tasks".
+*.    G   FLAG_CLEAR      I*4       (CONSTANT)Parameter for a cleared flag
+*.    G   FLAG_SET        I*4       (CONSTANT)Parameter for a set flag.
+*.    G   NORMAL          I*4       (CONSTANT)(CONSTANT)Parameter which
+*.                                  indicates normal completion of requested
+*.                                  operation to acquire input or output
+*.                                  buffer
+*.    G   PPHRLYNC        I*4       (CONSTANT)Color table index for
+*.                                  precipitation, 1 and 3HR products (Not
+*.                                  clear air).
+*.    G   SCRATCH         I*4       (CONSTANT)DATA BUFFER TYPE FOR TASK
+*.                                  SCRATCH DATA BUFFERS
+*.    C   B3_3HR_IDX      I*4       Index to Block 3 location in 3-hour
+*.                                  product
+*.    C   BIAS_ESTM_1HR   R*4       Radar bias estimate. One hour product
+*.                                  uses mean HYDRSUPL(CUR_BIAS).
+*.    C   BIAS_GRPSIZ_1HR R*4       Gage-Radar Pair estimate. One hour product
+*.                                  uses mean HYDRSUPL(CUR_GRPSIZ).
+*.    C   BIAS_MSPAN_1HR  R*4       Memory Span estimate. One hour product
+*.                                  uses mean HYDRSUPL(CUR_MSPAN).
+*.    C   BIAS_TOGGLE     L*4       Local adaptaion copy of BIAS_FLAG
+*.    C   FILE_REC        I*4       Array of file records where the hourly
+*.                                  scans are stored on disk. Accessed with
+*.                                  rotating indicies: Knewest, kmiddle,
+*.                                  koldest.
+*.    C   FIL_STAT        I*4       Status of disk file.
+*.    C   FLG_ZERO_HRLY   I*4       Array to save the flags for zero hourly
+*.                                  accumulations.
+*.    C   MXVAL_3HR       I*4       Maximum value in 3HR. product
+*.                                  accumulation.
+*.    C   SUM_TIMES       I*4       Temporary flag array indicating which
+*.                                  hourly periods went into 3 hr.
+*.                                  accumulation.
+*.    C   GOOD            I*4       (CONSTANT)Status flag value.
+*.    C   IBEG            I*4       (CONSTANT)Constant used as loop control
+*.                                  variable (initial value).
+*.    C   INCRMENT        I*4       (CONSTANT)Variable used to increment by 1.
+*.    C   KMISSING        I*4       (CONSTANT)Flag value when hourly data is
+*.                                  missing.
+*.    C   KPOLAR_WORDS    I*4       (CONSTANT)Scratch buffer size for polar
+*.                                  grid.
+*.    C   NSCANS          I*4       (CONSTANT)Number of scans that can go into
+*.                                  3HR accumulation.
+*.    C   READKODE        I*4       (CONSTANT)I/O code indicating input should
+*.                                  be read.
+*.    C   RINIT           R*4       (CONSTANT)Real constant zero for init.
+*.    C   RLE_REC         I*4       (CONSTANT)Disk record index for RLE data.
+*.    C   SCALE_78_79     R*4       (CONSTANT)Scaling parameter for converting
+*.                                  hundreths of inches to 20ths of inches for
+*.                                  quantizing the OHP/THP product.
+*.    C   WRITKODE        I*4       (CONSTANT)I/O code indicating write to
+*.                                  disk I/O operation should be performed.
+*.
+*.    *   OUTPUT          TYPE      DESCRIPTION
+*.    -   ------          ----      -----------
+*.    G   MEM             I*4       Array in RPG shared memory set aside for
+*.                                  buffer sharing.
+*.    C   B3_3HR_IDX      I*4       Index to Block 3 location in 3-hour
+*.                                  product
+*.    C   BIAS_ESTM_3HR   R*4       Radar bias estimate three hour average.
+*.    C   BIAS_GRPSIZ_3HR R*4       Effective sample size three hour average.
+*.    C   BIAS_MSPAN_3HR  R*4       Memory span three hour average.
+*.    C   FLG_ADJUST      I*4       Array of flags which when set indicate
+*.                                  data is not adjusted.
+*.    C   FLG_NO_3HR      I*4       Flag indicating, if set, that there is a
+*.                                  3 hr total on the disk.
+*.    C   MXVAL_3HR       I*4       Maximum value in 3HR. product
+*.                                  accumulation.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    G   MEM               I*4         Array in RPG shared memory set aside
+*.                                      for buffer sharing.
+*.    C   B3_3HR_IDX        I*4         Index to Block 3 location in 3-hour
+*.                                      product
+*.    C   MXVAL_3HR         I*4         Maximum value in 3HR. product
+*.                                      accumulation.
+*.
+*.  DATABASE/FILE REFERENCE: None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME          TYPE        DESCRIPTION
+*.    ----          ----        -----------
+*.    GOT_1HR       L*4         Flag that one-hour rainfall accumulation
+*.                              output buffer was obtained
+*.    GOT_3HR       L*4         Flag that three-hour rainfall accumulation
+*.                              output buffer was obtained
+*.    I             I*4         Do loop counter.
+*.    IOSTAT        I*4         Status message for disk I/O
+*.    NULL          I*4         (CONSTANT)Null parameter value
+*.    ONE_HR_PTR    I*4         Memory pointer to clock-hour rainfall
+*.                              accumulation buffer
+*.    ONE_HR_STAT   I*4         Status message for acquiring acquiring scratch
+*.                              buffer to hold clock-hour one-hour rainfall
+*.                              accumulations
+*.    RECNUM        I*4         Index to the one-hour rainfall accumulation
+*.                              files
+*.    SCAN_COUNT    I*4         Incremented counter of number of valid
+*.                              one-hour rainfall accumulations obtained
+*.    SUM_BIAS      R*4         Sum of hourly Bias values over three hour
+*.                              accumulation period of product.
+*.    SUM_GRPSIZ    R*4         Sum of hourly sample size estimates over three
+*.                              hour accumulation period of product.
+*.    SUM_MSPAN     R*4         Sum of memory spans (for Bias determination)
+*.                              over three hour accumulation period of product.
+*.    TNTHS_INCH    R*4         Constant parameter for conversion to .1 inch
+*.    THREE_HR_PTR  I*4         Memory pointer to three-hour rainfall
+*.                              accumulation scratch buffer
+*.    THREE_HR_STAT I*4         Status message for acquiring buffer to hold
+*.                              three-hour rainfall accumulation
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD00
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3146C2
+*.    A3146C3
+*.    A314C3
+*.    HYDROMET_ADJ
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING THE COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING THE LINK14.CSS
+*.
+*.  MISC:  N/A
+*.
+*.*******************************************************************
+C
+C** 'X' IN COLUMN-1 INDICATES CONDITIONALLY COMPILED DEBUG CODE...
+C
+      IMPLICIT NONE
+C
+C
+$INCLUDE A309.INC/G,**A3PM00 (NEND NLIST)
+$INCLUDE            **A3PM01 (NEND NLIST)
+$INCLUDE            **A3PM04 (NEND NLIST)
+$INCLUDE            **A3CD00 (NEND NLIST)
+$INCLUDE A309ADPT.INC/G,**A3CD70_HYDROMET_ADJ  (NEND NLIST)
+$INCLUDE A313HBUF.INC/G,**A313HYPP  (NEND NLIST)
+$INCLUDE A3146.INC/G,**A3146P1 (NEND NLIST)
+$INCLUDE             **A3146P2 (NEND NLIST)
+$INCLUDE             **A3146C2 (NEND NLIST)
+$INCLUDE             **A3146C3 (NEND NLIST)
+$INCLUDE             **A314C3 (NEND NLIST)
+C
+C
+C*************** L O C A L    D A T A *****************************
+C
+      INTEGER   ONE_HR_PTR, ONE_HR_STAT, THREE_HR_PTR, THREE_HR_STAT
+      REAL      SCALE_3HR, TNTHS_INCH, RINIT
+      INTEGER   MIN_FOR_PROD, SCAN_COUNT, I, NULL, RECNUM, IOSTAT
+      PARAMETER (MIN_FOR_PROD=2, NULL=0, TNTHS_INCH=10.)
+      PARAMETER (RINIT=0.)
+C
+      LOGICAL   GOT_1HR, GOT_3HR
+C
+C
+C*************** E X E C U T A B L E ******************************
+C
+C  INITIALIZE SOME LOCAL VARIABLES
+C
+      SCAN_COUNT = NULL
+      GOT_3HR = .FALSE.
+      GOT_1HR = .FALSE.
+      FLG_NO_3HR = FLAG_SET
+      MXVAL_3HR = NULL
+C
+X     TYPE *,'A3148N: UPDATE 3-HRLY TOTAL, NO. HRS=',HOURLY_BUFFERS
+C
+C  GET SCRATCH BUFFER TO BUILD THREE HOUR ARRAY
+C
+      CALL A31215__GET_OUTBUF(SCRATCH, KPOLAR_WORDS, THREE_HR_PTR,
+     $             THREE_HR_STAT)
+      IF (THREE_HR_STAT .EQ. NORMAL) THEN
+         GOT_3HR = .TRUE.
+C
+C  GET BUFFER TO BRING IN ONE HOUR TOTALS
+C
+         CALL A31215__GET_OUTBUF(SCRATCH, KPOLAR_WORDS, ONE_HR_PTR,
+     $                ONE_HR_STAT)
+         IF (ONE_HR_STAT .EQ. NORMAL) THEN
+            GOT_1HR = .TRUE.
+C
+C  CLEAR SCRATCH BUFFER FOR LATER SUMS
+C
+            DO 100 I=THREE_HR_PTR,THREE_HR_PTR+KPOLAR_WORDS-INCRMENT
+               MEM(I) = NULL
+  100       CONTINUE
+C
+C  GENERATE THREE HOUR TOTAL IN 100THS OF AN INCH
+C
+            SUM_BIAS   = NULL
+            SUM_GRPSIZ = NULL
+            SUM_MSPAN  = NULL
+            DO 300 I=IBEG,NSCANS
+C
+C  IF NOT ZERO DATA, READ HOURLY FILES AND SUM
+C
+               IF (FIL_STAT .EQ. GOOD .AND.
+     1             SUM_TIMES(I) .NE. KMISSING .AND.
+     2             FLG_ZERO_HRLY(I) .NE. FLAG_SET) THEN
+                  RECNUM = FILE_REC(I)
+CX                 TYPE *,'A3148N: READING HOURLY SCAN FROM RECORD= ',
+CX    $                            RECNUM
+C
+                  CALL A31468__PDB_IO(READKODE,RECNUM,MEM(ONE_HR_PTR),
+     $                         IOSTAT)
+                  IF (IOSTAT.EQ.GOOD) THEN
+                     SCAN_COUNT = SCAN_COUNT + INCRMENT
+                     CALL A3146Q__GET_SUM(MEM(ONE_HR_PTR),
+     $                            MEM(THREE_HR_PTR),BIAS_ESTM_1HR(I))
+                     SUM_BIAS   = SUM_BIAS   + BIAS_ESTM_1HR(I)
+                     SUM_GRPSIZ = SUM_GRPSIZ + BIAS_GRPSIZ_1HR(I)
+                     SUM_MSPAN  = SUM_MSPAN  + BIAS_MSPAN_1HR(I)
+                  ENDIF
+               ENDIF
+ 300        CONTINUE
+C
+C  CALCULATE THE AVERAGE BIAS, (EFFECTIVE) SAMPLE SIZE AND MEMORY SPAN
+C  FOR THE THREE HOUR PRODUCT
+C
+            IF (SCAN_COUNT .GT. 0) THEN
+               BIAS_ESTM_3HR   = SUM_BIAS   / SCAN_COUNT
+               BIAS_GRPSIZ_3HR = SUM_GRPSIZ / SCAN_COUNT
+               BIAS_MSPAN_3HR  = SUM_MSPAN  / SCAN_COUNT
+C
+            ELSE
+               BIAS_ESTM_3HR   = RESETBI
+               BIAS_GRPSIZ_3HR = RINIT
+               BIAS_MSPAN_3HR  = RINIT
+            END IF
+X           TYPE *,'A3148N: 3HR AVG BIAS = ',BIAS_ESTM_3HR,
+X    $                 ' 3HR AVG GRPSIZ = ',BIAS_GRPSIZ_3HR,
+X    $                 ' 3HR AVG MSPAN  = ',BIAS_MSPAN_3HR
+C
+         END IF
+         IF (FIL_STAT.EQ.GOOD) THEN
+C
+C  BIAS THE PRODUCT ARRAY VALUES FOR USE WITH THE COLOR TABLES
+C  USE THE ONE_HR BUFFER TO STORE THE I*2 OUTPUT
+C
+C  COMPUTE THE SCALING FACTOR (SCALE_3HR) FOR CONVERTING FROM
+C  100THS TO 10THS OF AN INCH USED IN THE PRECIPITATION COLOR TABLES
+C
+C  IF THE BIAS TOGGLE IS SET, THE GAGE BIAS ADJUSTMENT IS APPLIED
+C
+X            TYPE *,'A3148N: BIAS TOGGLE IS ',BIAS_TOGGLE
+C
+            IF (BIAS_TOGGLE) THEN
+               SCALE_3HR = SCALE_78_79*BIAS_ESTM_3HR
+            ELSE
+               SCALE_3HR = SCALE_78_79
+            ENDIF
+
+            CALL A3148P__BIAS_ARRAY(SCALE_3HR, MXVAL_3HR,
+     $                   MEM(THREE_HR_PTR), MEM(ONE_HR_PTR))
+C
+C  CONVERT MXVAL_3HR FROM 100THS OF AN INCH TO TENTHS OF AN INCH
+C
+            MXVAL_3HR = NINT(MXVAL_3HR / TNTHS_INCH)
+X           TYPE *,'A3148N: BACK FROM A3148P - MXVAL_3HR=',MXVAL_3HR
+C
+C  RUN-LENGTH-ENCODE THE OUTPUT ARRAY
+C  PUT THE OUTPUT INTO THE THREE_HR BUFFER
+C
+            CALL A3148L__PPS_RUN_LENGTH_ENCODE (MEM(ONE_HR_PTR),
+     $                   MEM(THREE_HR_PTR), B3_3HR_IDX, PPHRLYNC)
+X           TYPE *,'A3148N: CALLED A3148L...B3_3HR_IDX = ',B3_3HR_IDX
+C
+C  SET FLAG TO INDICATE WHETHER 3-HR PRODUCT WAS ADJUSTED FOR GAGE BIAS
+ 
+C
+            IF (BIAS_TOGGLE) THEN
+               FLG_ADJUST = FLAG_SET
+            ELSE
+               FLG_ADJUST = FLAG_CLEAR
+            ENDIF
+X           TYPE *,'A3148N: BIAS TOGGLE IS ',BIAS_TOGGLE,
+X    $                     ' FLG_ADJUST IS ',FLG_ADJUST
+C
+C  STORE RUN-LENGTH ENCODED 3-HR PRODUCT TO DISK
+C  Note...number of half-words is stored in a common block...A3146C2
+C
+            CALL A31468__PDB_IO(WRITKODE,RLE_REC,MEM(THREE_HR_PTR),
+     $                   IOSTAT)
+X           TYPE *,'A3148N: WROTE 3-HR SUM TO DISK, IOSTAT=',IOSTAT
+C
+C  CLEAR FLAG TO INDICATE A GOOD 3-HR GRID IS ON DISK
+C
+            IF (FIL_STAT.EQ.GOOD) FLG_NO_3HR = FLAG_CLEAR
+         ENDIF
+      ENDIF
+C
+C  RELEASE SCRATCH BUFFERS
+C
+      IF(GOT_1HR) CALL A31216__REL_OUTBUF(ONE_HR_PTR,DESTROY)
+      IF(GOT_3HR) CALL A31216__REL_OUTBUF(THREE_HR_PTR,DESTROY)
+X     TYPE *,'A3148N: EXITING, BUFFER STATUSES =',GOT_1HR, GOT_3HR
+C
+      RETURN
+      END

@@ -1,0 +1,172 @@
+#!/bin/sh
+#
+# RCS info
+# $Author: ccalvert $
+# $Locker:  $
+# $Date: 2011/05/23 17:19:34 $
+# $Id: make_rpg,v 1.46 2011/05/23 17:19:34 ccalvert Exp $
+# $Revision: 1.46 $
+# $State: Exp $
+
+usage="Usage: `basename $0` [-c] [-h] [-e] [-o] orpg_level\n
+               where: -h displays this message\n
+                      -e grants environment variables higher priority \n
+                          (see make)\n
+                      -o for a partial build for OPUP
+                                     \n
+               Example: `basename $0` xpit"
+
+if [ "$ARCH" = "slrs_spk" ] 
+then
+  USE_GCC=gcc
+  export USE_GCC
+fi
+
+# ensure that we point to GNU Make ...
+if [ "$ARCH" = "lnux_x86" ] 
+then
+  makecmd="make"
+else
+  makecmd="/cm/tools/bin/$ARCH/make"
+fi
+
+cleanup=1
+while getopts ceho input
+do
+   case $input in
+      c)
+	 cleanup=0 ;;
+      e)
+#        The -e switch gives higher priority to environment variables ...
+#        When this is used, the Build Master must ensure that he knows
+#        how his environment is setup
+         echo ""
+         echo "Using make -e option to allow environment variables to override"
+         echo "both description file macro definitions and internal (default)"
+         echo "definitions of make"
+         echo ""
+         makecmd="make -e" ;;
+      h)
+         echo $usage
+         exit 2 ;;
+      o)
+         OPUP_BLD=yes
+         export OPUP_BLD ;;
+   esac
+done
+
+shift `expr $OPTIND - 1`
+
+if [ "$OPUP_BLD" = "yes" ]
+  then
+  makecmd="make"
+fi
+
+RPG_LEVEL=$1
+export RPG_LEVEL
+
+if [ "$RPG_LEVEL" = "" ]
+then
+   echo "IMPROPER RPG_LEVEL: $RPG_LEVEL"
+   echo $usage
+   exit 1
+fi
+
+workdir=/$RPG_LEVEL
+if test -d $workdir
+then
+   echo "Making RPG at the $RPG_LEVEL level ..."
+else
+   echo "No such directory: $workdir ... RPG_LEVEL: $RPG_LEVEL"
+   exit
+fi
+
+echo RPG_LEVEL $RPG_LEVEL
+LD_LIBRARY_PATH=/$RPG_LEVEL/lib/$ARCH
+export LD_LIBRARY_PATH
+
+# Move to the working directory and start doing the build ...
+cd $workdir
+pwd
+
+# Set permissions of shared libraries ... must be able to overwrite ...
+# filename extensions ".sl" or ".so"
+chmod 0777 ./lib/$ARCH/*.s?
+
+echo "cleanup = $cleanup \n"
+
+if [ $cleanup = 1 ]
+then
+   echo "doing clean"
+   $makecmd clean
+fi
+
+if [ "$OPUP_BLD" = "yes" ] 
+then
+#  make libinfr
+   cd src/cpc100
+   $makecmd liball
+   $makecmd libinstall
+   cd ../..
+else
+   mkdir /$RPG_LEVEL/src/cpc904/lib001/sys
+   mkdir /$RPG_LEVEL/src/cpc904/tsk002/sys
+   mkdir /$RPG_LEVEL/src/cpc904/tsk003/sys
+   mkdir /$RPG_LEVEL/src/cpc105/tsk002/sys
+   ln -s /$RPG_LEVEL/src/cpc904 /$RPG_LEVEL/src/cpc904/lib001/sys/snet
+   ln -s /$RPG_LEVEL/src/cpc904 /$RPG_LEVEL/src/cpc904/tsk002/sys/snet
+   ln -s /$RPG_LEVEL/src/cpc904 /$RPG_LEVEL/src/cpc904/tsk003/sys/snet
+   ln -s /$RPG_LEVEL/src/cpc904 /$RPG_LEVEL/src/cpc105/tsk002/sys/snet
+
+#  We must build the Fortran Preprocessor (FTNPP) before attempting
+#  to compile the Fortran software ...
+   cd src/cpc102/tsk007
+   $makecmd install
+   cd ../../..
+
+#  make libinfr
+   cd src/cpc100
+   $makecmd liball
+   $makecmd libinstall
+   cd ../..
+
+#  build and install sdqs
+   cd src/cpc100/lib020
+   $makecmd install
+   cd ../../..
+#  build and install smipp
+   cd src/cpc100/lib019
+   $makecmd install
+   cd ../../..
+fi
+
+# Take this out because some libraries now have dependencies on other libraries
+# This requires libraries to be built in a single libinstall step
+
+$makecmd libinstall
+$makecmd all
+$makecmd install
+
+# Set permissions of shared libraries ... no write permissions for
+# performance reasons ... filename extensions ".sl" or ".so"
+chmod 0555 ./lib/$ARCH/*.s?
+
+# For XPIT, grant entire group read/write permissions ...
+if test "$RPG_LEVEL" = "xpit"
+then
+   chmod -R g+rw $workdir
+   chmod -R o-w $workdir
+else
+   chmod -R go-w $workdir
+fi
+
+# the library below is built only for inclusion into libinfr
+# the stand-alone library is liblb
+# libinfrlb has references that are only resolved when included in libinfr
+
+rm /$RPG_LEVEL/lib/$ARCH/libinfrlb.*
+
+# now create links for library routines to the library manpages
+cd man/cat3
+../../link_man_3
+cd ../..

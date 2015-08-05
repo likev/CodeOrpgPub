@@ -1,0 +1,70 @@
+C
+C RCS info
+C $Author: steves $
+C $Locker:  $
+C $Date: 2014/04/25 17:26:46 $
+C $Id: viletalg.ftn,v 1.14 2014/04/25 17:26:46 steves Exp $
+C $Revision: 1.14 $
+C $State: Exp $
+C
+	PROGRAM VILETALG__VIL_ET_MAIN
+C***********************************************************************
+C
+C	This file defines the "main" Vertically Integrated Liquid/
+C	Echo Tops algorithm routine.
+C
+C***********************************************************************
+
+
+	IMPLICIT NONE
+
+$INCLUDE rpg_port.inc,**rpg_port	;defines ELEVATION_BASED
+					;and adaptation common block ids
+C adaptation common blocks
+$INCLUDE a309adpt.inc,**A3CD70C8	;RDACNT
+$INCLUDE a309adpt.inc,**A3CD70_VIL_ECHO_TOPS
+$INCLUDE a309adpt.inc,**A3CD70_DEA_NAMES
+$INCLUDE a309adpt.inc,**A3CD70CA	;SITEADP
+
+$INCLUDE A309.INC/G,**A3PM00		;BASEDATA
+
+        INTEGER ALLOW_SUPPL_SCANS
+        COMMON/SAILS/ ALLOW_SUPPL_SCANS
+
+	INTEGER VIL_ECHO_TOPS_CALLBACK_FX     ;adapt callback f(x)
+	EXTERNAL VIL_ECHO_TOPS_CALLBACK_FX    ;adapt callback f(x)
+
+	;** specify inputs
+	call RPG_in_data(REFLDATA, RADIAL_DATA)
+
+	;** specify outputs
+	call RPG_out_data(ETTAB, VOLUME_DATA, INT_PROD)
+	call RPG_out_data(VILTABL, VOLUME_DATA, INT_PROD)
+
+	;** register adaptation blocks and the scan summary array
+	;** These calls will cause automatic adaptation and scan summary update
+	call RPG_reg_adpt(RDACNT_ID, RDACNT_FIRST,BEGIN_VOLUME)
+	call RPG_reg_scan_summary()
+
+	;** register adaptation blocks and the scan summary array
+	call RPG_reg_ade_callback( VIL_ECHO_TOPS_CALLBACK_FX,
+     $                             EBMWT,
+     $                             VIL_ECHO_TOPS_DEA_NAME,
+     $                             BEGIN_VOLUME )
+	call RPG_reg_site_info( SIRDALAT )
+
+        ;** tell system this task is volume-based.
+        call RPG_task_init(VOLUME_BASED)
+
+        ;** Set a global flag ... Is this task allowed to process
+        ;** SAILS cuts?
+        ALLOW_SUPPL_SCANS = 0
+        call RPG_allow_suppl_scans( ALLOW_SUPPL_SCANS );
+
+        ;** waiting for activation.
+10	call RPG_wait_act(WAIT_DRIVING_INPUT)
+	call A313A1__BUFFER_CONTROL()
+	goto 10
+
+	stop
+	end

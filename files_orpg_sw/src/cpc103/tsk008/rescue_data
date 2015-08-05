@@ -1,0 +1,119 @@
+#!/bin/sh
+
+# File: rescue_data
+#
+# Purpose:  Perform rescue operations after mrpg has detected
+#	    an abnormal shutdown 
+#
+#   Usage: refer to rescue_usage
+#
+# Returns: 
+#          as exit value - 0 upon success; otherwise, 1
+#
+# Example:
+#
+# RCS info
+# $Author: jing $
+# $Locker:  $
+# $Date: 2006/06/14 20:07:23 $
+# $Id: rescue_data,v 1.7 2006/06/14 20:07:23 jing Exp $
+# $Revision: 1.7 $
+# $State: Exp $
+#
+
+##################################################
+# PRINT_USAGE: Display script usage.
+##################################################
+
+print_usage ()
+{
+  echo
+  echo
+  echo "Usage: `basename $0` [options] save_restore_command"
+  echo "    This routine is called twice during the mrpg rescue sequence."
+  echo "    The first call saves any non-corrupt linear buffers before mrpg"
+  echo "    erases the $ORPGDIR directory. The second call restores any"
+  echo "    non-corrupt linear buffers after mrpg has re-created the linear"
+  echo "    buffers in the $ORPGDIR directory. Currently, the save command"
+  echo "    copies the latest installed adaptation archive into the"
+  echo "    $CFG_DIR/adapt directory for re-installation after linear"
+  echo "    buffers have been re-created. The restore command doesn't do"
+  echo "    anything."
+  echo
+  echo "    where save_restore_command is:"
+  echo "       save    - save linear buffers prior to removing the directory"
+  echo "       restore - restore linear buffers after re-creating directory"
+  echo
+  echo "    and options are:"
+  echo "        -h Print usage information"
+  echo "        -v verbose mode"
+  echo
+  echo
+}
+
+verbose=
+if [ $# -lt 1 ]
+then
+   echo "rescue_data error: save or restore option is required"
+   print_usage
+   exit 1
+fi
+
+if [ $# = 1 ]
+then
+   command=$1
+fi
+if [ $# = 2 ]
+then
+   command=$2
+   if [ "$1" = "-v" ]
+   then
+     verbose=true
+   else
+     echo "rescue_data error: \"$1\" is not a valid argument"
+     print_usage
+     exit 1
+   fi
+fi
+
+if [ "$command" = "-h" ]
+then
+   print_usage
+   exit 0
+fi
+
+if [ "$command" = "save" ]
+then
+   if [ -d "$CFG_DIR/adapt/installed" ]
+   then
+      archive=`ls $CFG_DIR/adapt/installed/*.Z 2>&1`
+      if [ "$?" != "0" ]
+      then
+	  archive=
+      fi
+   else
+      archive=
+   fi
+   if [ -n "$archive" -a -f "$archive" ]
+   then
+      if [ -n "$verbose" ]
+      then
+         echo "rescue_data: Copy $archive to $CFG_DIR/adapt"
+      fi
+      cp $archive $CFG_DIR/adapt
+      exit 0
+   else
+      echo "rescue_data: Saved adapt data not found"
+      exit 1
+   fi
+else
+  if [ "$command" != "restore" ]
+  then
+     echo "rescue_data error: missing save or restore command"
+     exit 1
+  fi
+fi
+
+exit 1
+
+

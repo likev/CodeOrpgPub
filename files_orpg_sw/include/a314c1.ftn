@@ -1,0 +1,172 @@
+C 
+C RCS info 
+C $Author: nolitam $ 
+C $Locker:  $ 
+C $Date: 2002/12/11 19:32:06 $ 
+C $Id: a314c1.ftn,v 1.2 2002/12/11 19:32:06 nolitam Exp $ 
+C $Revision: 1.2 $ 
+C $State: Exp $ 
+C 
+      BLOCK DATA A314C1__POLAR_TO_LFM_TABLES
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A314C1__POLAR_TO_LFM_TABLES
+*.
+*.  MODULE VERSION: 0003
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       10/13/92      0000       BRADLEY SUTKER      CCR# NA92-28001
+*.       10/26/92      0000       JOSEPH WHEELER      CCR# NA90-93082
+*.       03/25/93      0001      Toolset              SPR NA93-06801
+*.       01/28/94      0002      Toolset              SPR NA94-01101
+*.       03/03/94      0003      Toolset              SPR NA94-05501
+*.
+*.  CALLING SEQUENCE: N/A
+*.
+*.  MODULE FUNCTION:
+*.
+*.     INITIALIZE POLAR TO LFM CONVERSION TABLES
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT        TYPE        DESCRIPTION
+*.    -   -----        ----        -----------
+*.    G   BEYOND_GRID  I*4         (CONSTANT)FLAG INDICATING THAT THE AZIMUTH
+*.                                 AND RANGE OF A GIVEN BIN IS OUTSIDE THE
+*.                                 LOCAL LFM GRID DOMAIN
+*.    G   BEYOND_RANGE I*4         (CONSTANT)Flag value for points beyond 230
+*.                                 km. in the 1/4 LFM Rate scan grid.
+*.    G   FLAG_RNG     I*4         (CONSTANT)OFFSET IN THE LFMxxFLAG ARRAY TO
+*.                                 A RANGE INDEX USED TO: MARK THE COVERAGE
+*.                                 AREA DOMAIN, IDENTIFY MAPPING HOLES, AND TO
+*.                                 FILL MAPPING HOLES
+*.    G   MAX_AZMTHS   I*4         (CONSTANT)Maximum number of azimuths in a
+*.                                 scan (index into output buffer of adjusted
+*.                                 values).
+*.    G   MAX_RABINS   I*4         (CONSTANT)Maximum number of bins along a
+*.                                 radial in the rate scan.
+*.    G   NUM_LFM16    I*4         (CONSTANT)TOTAL NUMBER OF GRID BOXES IN THE
+*.                                 1/16 LFM GRID
+*.    G   NUM_LFM4     I*4         (CONSTANT)TOTAL NUMBER OF GRID BOXES IN THE
+*.                                 1/4 LFM GRID
+*.    G   NUM_LFM40    I*4         (CONSTANT)TOTAL NUMBER OF GRID BOXES IN THE
+*.                                 1/40 LFM GRID
+*.    G   RNG_LFM16    I*4         (CONSTANT)THE NUMBER OF RANGE BINS PER
+*.                                 AZIMUTH CONTAINED IN THE INPUT DATA FOR THE
+*.                                 1/16 LFM CONVERSION PROCESS
+*.
+*.    *   OUTPUT    TYPE        DESCRIPTION
+*.    -   ------    ----        -----------
+*.    G   END_LAT   I*4         SITE LATITUDE STORED AT THE END OF THE IMAGE
+*.                              OF THE LOCATION THE LFM LOOKUP TABLES ARE
+*.                              VALID FOR
+*.    G   END_LON   I*4         SITE LONGITUDE STORED AT THE END OF THE IMAGE
+*.                              OF THE LOCATION THE LFM LOOKUP TABLES ARE
+*.                              VALID FOR
+*.    G   GRID_LAT  I*4         SITE LATITUDE STORED AT THE BEGINNING OF THE
+*.                              IMAGE OF THE LOCATION THE LFM LOOKUP TABLES
+*.                              ARE VALID FOR
+*.    G   GRID_LON  I*4         SITE LONGITUDE STORED AT THE BEGINNING OF THE
+*.                              IMAGE OF THE LOCATION THE LFM LOOKUP TABLES
+*.                              ARE VALID FOR
+*.    G   LFM16FLAG I*2         FLAG ARRAY FOR 1/16 LFM GRID. FLAG ARRAY USED
+*.                              TO; MARK COVERAGE AREA DOMAIN, IDENTIFY
+*.                              MAPPING HOLES, IDENTIFY DATA USED TO FILL
+*.                              MAPPING HOLES
+*.    G   LFM16GRID I*2         LOOKUP TABLE TO CONVERT COMP. REFL. POLAR GRID
+*.                              DATA TO 1/16 LFM COORDS. EACH ENTRY CONTAINS
+*.                              1/16 LFM I & J COORDS. FOR GIVEN RANGE &
+*.                              AZIMUTH INDEX
+*.    G   LFM40FLAG I*2         FLAG ARRAY FOR 1/40 LFM GRID, USED TO MARK
+*.                              COVERAGE AREA DOMAIN, ID MAPPING HOLES AND ID
+*.                              DATA USED TO FILL MAPPING HOLES
+*.    G   LFM40GRID I*2         LOOKUP TABLE CONVERTS HYDROMET POLAR GRID DATA
+*.                              TO 1/40 LFM COORDS. EACH ENTRY CONTAINS 1/40
+*.                              LFM I & J COORD FOR GIVEN RANGE & AZIMUTH
+*.                              INDEX
+*.    G   LFM4FLAG  I*2         FLAG ARRAY FOR 1/4 LFM GRID, USED TO MARK
+*.                              COVERAGE AREA DOMAIN, ID MAPPING HOLES AND ID
+*.                              DATA USED TO FILL MAPPING HOLES
+*.    G   LFM4GRID  I*2         LOOKUP TABLE TO CONVERT HYDROMET POLAR GRID
+*.                              DATA TO 1/4 LFM I & J COORD. FOR A GIVEN RANGE
+*.                              & AZIMUTH INDEX
+*.    G   MAX82VAL  I*4         MAXIMUM RAINFAL RATE FOR PRODUCT 82
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME           TYPE        DESCRIPTION
+*.    ----           ----        -----------
+*.    LFM16_FLAG_SIZ I*4         SIZE OF THE 1/16 LFM FLAG TABLE
+*.    LFM16_GRID_SIZ I*4         (CONSTANT) LFM16 GRID SIZE VALUE
+*.    LFM40_FLAG_SIZ I*4         SIZE OF THE 1/40 LFM FLAG TABLE
+*.    LFM40_GRID_SIZ I*4         (CONSTANT) LFM40 GRID SIZE VALUE
+*.    LFM4_FLAG_SIZ  I*4         SIZE OF THE 1/4 LFM FLAG TABLE
+*.    LFM4_GRID_SIZ  I*4         (CONSTANT) LFM4 GRID SIZE VALUE
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A314C1
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS:  NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     THIS MODULE IS COMPILED USING THE COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     THIS MODULE IS LINKED USING THE LINK14.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+      IMPLICIT NONE
+$INCLUDE A313HBUF.INC/G,**A313HYPP (NLIST)
+$INCLUDE A3146.INC/G,**A3146LFP (NLIST)
+$INCLUDE A3146.INC/G,**A314C1   (NLIST)
+C
+      INTEGER*4 LFM4_GRID_SIZ, LFM16_GRID_SIZ, LFM40_GRID_SIZ
+      INTEGER*4 LFM4_FLAG_SIZ, LFM16_FLAG_SIZ, LFM40_FLAG_SIZ
+C
+      PARAMETER (LFM4_GRID_SIZ=MAX_RABINS*MAX_AZMTHS)
+      PARAMETER (LFM16_GRID_SIZ=MAX_AZMTHS*RNG_LFM16)
+      PARAMETER (LFM40_GRID_SIZ=MAX_RABINS*MAX_AZMTHS)
+      PARAMETER (LFM4_FLAG_SIZ=NUM_LFM4*FLAG_RNG)
+      PARAMETER (LFM16_FLAG_SIZ=NUM_LFM16*FLAG_RNG)
+      PARAMETER (LFM40_FLAG_SIZ=NUM_LFM40*FLAG_RNG)
+C
+C INITIALIZE CONVERSION TABLE DATA
+C
+      DATA GRID_LAT /0/
+      DATA GRID_LON /0/
+      DATA LFM4GRID   /LFM4_GRID_SIZ*BEYOND_GRID/
+      DATA LFM16GRID  /LFM16_GRID_SIZ*BEYOND_GRID/
+      DATA LFM40GRID  /LFM40_GRID_SIZ*BEYOND_GRID/
+      DATA LFM4FLAG   /LFM4_FLAG_SIZ*BEYOND_RANGE/
+      DATA LFM16FLAG  /LFM16_FLAG_SIZ*BEYOND_RANGE/
+      DATA LFM40FLAG  /LFM40_FLAG_SIZ*BEYOND_RANGE/
+      DATA MAX82VAL /0/
+      DATA END_LAT /0/
+      DATA END_LON /0/
+      END

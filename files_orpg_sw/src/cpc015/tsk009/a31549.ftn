@@ -1,0 +1,244 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/16 19:40:17 $
+C $Id: a31549.ftn,v 1.3 2002/12/16 19:40:17 christie Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A31549__COMPU_POH(COMPTOP,MAXREF,HT,MXZ_PRVORNXT,
+     $                        HT_PRVORNXT)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A31549__COMPU_POH
+*.
+*.  MODULE VERSION: 0002
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       06/20/95      0000      MARK FRESCH          CCR NA94-26301
+*.       12/23/96      0001      Toolset              CCR NA95-11807
+*.       03/16/99      0002      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: A31549__COMPU_POH( COMPTOP, MAXREF, HT,
+*.                                       MXZ_PRVORNXT, HT_PRVORNXT )
+*.
+*.  MODULE FUNCTION:
+*.
+*.  Computes the POH based on the difference in height between the
+*.  freezing level and the height of the (interpolated) minimum Ref-
+*.  lectivity POH Threshold (45 dBZ) for a component.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT        TYPE        DESCRIPTION
+*.    -   -----        ----        -----------
+*.    C   HT0_ARL      R*4         The height (ARL) of the 0 degrees C
+*.                                 isotherm in local commom adaptation data.
+*.    C   MR_POH_TH    I*4         The Threshold Minimum Reflectivity POH in
+*.                                 local adaptation data.
+*.    C   POHHDTH0     R*4         The POH Height Difference #0 Threshold in
+*.                                 local common adaptation data.
+*.    C   POHHDTH1     R*4         The POH Height Difference #1 Threshold in
+*.                                 local common.
+*.    C   POHHDTH2     R*4         The POH Height Difference #2 Threshold in
+*.                                 local common adaptation data.
+*.    C   POHHDTH3     R*4         The POH Height Difference #3 Threshold in
+*.                                 local common adaptation data.
+*.    C   POHHDTH4     R*4         The POH Height Difference #4 Threshold in
+*.                                 local common adaptation data.
+*.    C   POHHDTH5     R*4         1The POH Height Difference #5 Threshold in
+*.                                 local common adaptation data.
+*.    C   POHHDTH6     R*4         The POH Height Difference #6 Threshold in
+*.                                 local common adaptation data.
+*.    C   POHHDTH7     R*4         The POH Height Difference #7 Threshold in
+*.                                 local common adaptation data.
+*.    C   POHHDTH8     R*4         The POH Height Difference #8 Threshold in
+*.                                 local common adaptation data.
+*.    C   POHHDTH9     R*4         The POH Height Difference #9 Threshold in
+*.                                 local common adaptation data.
+*.    P   COMPTOP      L*4         A flag indicating whether the current
+*.                                 component is at the top of a cell.
+*.    P   HT           R*4         The height of the component being
+*.                                 processed.
+*.    P   HT_PRVORNXT  R*4         The height of the previous (lower) or next
+*.                                 (higher) component within the cell being
+*.                                 processed.  If the component is at the top
+*.                                 of the cell, it is the previ
+*.    P   MAXREF       R*4         The maximum reflectivity of the component
+*.                                 being processed.
+*.    P   MXZ_PRVORNXT R*4         The maximum reflectivity of the previous
+*.                                 (lower) or next (higher) component within
+*.                                 the cell being processed.  If the component
+*.                                 (being processed) is at the
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    C   POH     R*4         The Probability of Hail estimate for the cell
+*.                            being processed.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME     TYPE        DESCRIPTION
+*.    ----     ----        -----------
+*.    D1       R*4         The difference in the maximum reflectivities of the
+*.                         previous and current components.
+*.    D2       R*4         The difference in reflectivity of the Min. Ref. POH
+*.                         and the maximum reflectivity of the previous
+*.                         component.
+*.    D3       R*4         The difference in height of the current and
+*.                         previous components.  Since the components are
+*.                         ordered by height, this difference should always be
+*.                         positive.
+*.    D4       R*4         The difference in reflectivity of the Min. Ref. POH
+*.                         and the maximum reflectivity of the next component.
+*.    D5       R*4         The difference in maximum reflectivities of the
+*.                         current and next components.
+*.    D6       R*4         The difference in height of the current and next
+*.                         components.  Since the components are ordered by
+*.                         height, this difference should always be positive.
+*.    DIFHTPOH R*4         The difference in height between the freezing level
+*.                         (ARL) and the HT_POH, the (interpolated) height of
+*.                         the highest reflectivity which meet or exceeds
+*.    HINTRMED R*4         An interpolated height of the highest (maximum)
+*.                         reflectivity which meets or exceeds the Min. Ref.
+*.                         POH which considers the maximum reflectivities of
+*.                         this an
+*.    HT_POH   R*4         The (interpolated) height of the highest (maximum)
+*.                         reflectivity which meets or exceeds the Min. Ref.
+*.                         POH.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A315CHH
+*.    A315CIH
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.     THIS MODULE IS COMPILED USING THE COMP15.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.     THIS MODULE IS LINKED USING THE LINK15.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+      IMPLICIT NONE
+C
+$INCLUDE A315BUF.INC/G, **A315P9H (NLIST NEND)
+$INCLUDE                **A315CHH (NLIST NEND)
+$INCLUDE A315.INC/G,    **A315CIH (NLIST NEND)
+C
+C** VARIABLE AND PARAMETER DECLARATIONS
+C
+      REAL MAXREF, HT, MXZ_PRVORNXT, HT_PRVORNXT
+      REAL HT_POH, HINTRMED, DIFHTPOH
+      REAL D1, D2, D3, D4, D5, D6
+      LOGICAL COMPTOP
+C
+C** EXECUTABLE CODE
+C
+      HT_POH = 0.
+C
+C** COMPUTE THE HEIGHT OF THE HIGHEST PART OF THE STORM ABOVE
+C** THE FREEZING LEVEL WITH REFLECTIVITIES GREATER THAN THE
+C** MINIMUM POH REFLECTIVITY THRESHOLD
+C
+      IF (COMPTOP) THEN
+C
+C** IF THE COMPONENT IS AT THE TOP OF THE STORM, CALCULATE THE
+C** HEIGHT BY EXTRAPOLATING UP (PRVORNXT = PREV)
+C
+         HT_POH = HT + (HT - HT_PRVORNXT)/2
+         D1 = MXZ_PRVORNXT - MAXREF
+         D2 = MXZ_PRVORNXT - MR_POH_TH
+         D3 = HT - HT_PRVORNXT
+C
+C** CHECK IF THE MAX REFLECTIVITY OF THE COMPONENT BELOW IS LESS
+C** THAN OR EQUAL TO THE MAX REFLECTIVITY OF THIS (THE TOP) COMPONENT
+C
+         IF (D1 .LE. 0.) THEN
+            IF (MAXREF .EQ. MR_POH_TH) THEN
+               HT_POH = HT
+            END IF
+         ELSE
+            HINTRMED = D2 * D3/D1 + HT_PRVORNXT
+            IF (HINTRMED .LT. HT_POH) THEN
+               HT_POH = HINTRMED
+            END IF
+         END IF
+C
+C** THE COMPONENT IS NOT AT THE TOP OF THE STORM AND THE MAXIMUM
+C** REFLECTIVITY OF THE COMPONENT ABOVE IS LESS THAN THE MINIMUM POH
+C** REFLECTIVITY THRESHOLD. CALCULATE THE HEIGHT BY INTERPOLATING
+C** (PRVORNXT = NEXT)
+C
+      ELSE
+         D4 = MAXREF - MR_POH_TH
+         D5 = MAXREF - MXZ_PRVORNXT
+         D6 = HT_PRVORNXT - HT
+         IF (D5 .LT. 1.) THEN
+            D5 = 1.
+         END IF
+         HT_POH = D4 * D6/D5 + HT
+      END IF
+C
+C** IF THE HEIGHT HAS BEEN CALCULATED, COMPUTE THE HEIGHT DIFFERENCE
+C** BETWEEN THE HEIGHT OF THE FREEZING LEVEL AND THE HEIGHT OF THE
+C** PART OF THE STORM ABOVE THE FREEZING LEVEL WITH REFLECTIVITIES
+C** GREATER THAN THE MINIMUM POH REFLECTIVITY THRESHOLD
+C
+      IF (HT_POH .GT. 0.) THEN
+         DIFHTPOH = HT_POH - HT0_ARL
+C
+C** CALCULATE THE PROBABILITY OF HAIL BASED ON THE HEIGHT DIFFERENCE
+C
+         IF (DIFHTPOH .LE. POHHDTH1) THEN
+            POH = 0.
+         ELSE IF (DIFHTPOH .LE. POHHDTH2) THEN
+            POH = 10.
+         ELSE IF (DIFHTPOH .LE. POHHDTH3) THEN
+            POH = 20.
+         ELSE IF (DIFHTPOH .LE. POHHDTH4) THEN
+            POH = 30.
+         ELSE IF (DIFHTPOH .LE. POHHDTH5) THEN
+            POH = 40.
+         ELSE IF (DIFHTPOH .LE. POHHDTH6) THEN
+            POH = 50.
+         ELSE IF (DIFHTPOH .LE. POHHDTH7) THEN
+            POH = 60.
+         ELSE IF (DIFHTPOH .LE. POHHDTH8) THEN
+            POH = 70.
+         ELSE IF (DIFHTPOH .LE. POHHDTH9) THEN
+            POH = 80.
+         ELSE IF (DIFHTPOH .LE. POHHDTH0) THEN
+            POH = 90.
+         ELSE
+            POH = 100.
+         END IF
+      END IF
+C
+      RETURN
+      END

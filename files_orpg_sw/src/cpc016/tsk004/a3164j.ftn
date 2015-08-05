@@ -1,0 +1,168 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/16 20:36:33 $
+C $Id: a3164j.ftn,v 1.3 2002/12/16 20:36:33 christie Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A3164J__POSH_SORT(NUMHAIL, HAILSTATS)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3164J__POSH_SORT
+*.
+*.  MODULE VERSION: 0002
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       06 28 95      0000      STEVE SMITH          CCR NA94-26301
+*.       12/23/96      0001      Toolset              CCR NA95-11807
+*.       03/16/99      0002      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A3164J__POSH_SORT(NUMHAIL, HAILSTATS)
+*.
+*.  MODULE FUNCTION:
+*.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT        TYPE        DESCRIPTION
+*.    -   -----        ----        -----------
+*.    G   H_POH        I*4         (CONSTANT)Index to the POH, the first
+*.                                 position, in the HAILSTATS arrays.
+*.    G   H_PSH        I*4         (CONSTANT)Index to the PSH, the second
+*.                                 position, in the HAILSTATS arrays.
+*.    G   NHAL_MAX     I*4         (CONSTANT)A sizing parameter equal to the
+*.                                 max. number of cells processed by the hail
+*.                                 algorithm.
+*.    G   NHAL_STS     I*4         (CONSTANT)A sizing parameter equal to the
+*.                                 number of hail attributes stored in the
+*.                                 HAILSTATS array.
+*.    C   SORTED_CELLS I*2         Cell ID of hail storms sorted according to
+*.                                 POSH, then POH.
+*.    P   HAILSTATS    R*4         Array containing hail attribute information
+*.                                 for all cells.
+*.    P   NUMHAIL      I*4         The number of storm cells with hail
+*.
+*.    *   OUTPUT       TYPE        DESCRIPTION
+*.    -   ------       ----        -----------
+*.    C   SORTED_CELLS I*2         Cell ID of hail storms sorted according to
+*.                                 POSH, then POH.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME     TYPE        DESCRIPTION
+*.    ----     ----        -----------
+*.    CELL_NDX I*4         Do loop index for number of storm cells with hail
+*.    CINDX    I*4         Do loop index used for number of storms with hail
+*.    STINX    I*4         Second Storm Cell Index
+*.    STM_NDX  I*4         Storm Cell index in array SORTED_CELLS
+*.    TEMP_ID  I*4         Temporary storage for Storm Cell ID while swapping
+*.                         two cell
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A316SRT
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     Compiled using COMP15.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     Linked using LINK15.CSS
+*.
+*.  MISC:  None
+*.
+C********************************************************************
+C
+      IMPLICIT NONE
+C
+$INCLUDE A315BUF.INC/G,**A315P9H (NLIST)
+C
+$INCLUDE A316.INC/G, **A3164P4 (NLIST)
+C
+C*********************** DATA DECLARATIONS **************************
+C
+C** PASSED ARGUMENTS:
+C
+      INTEGER  NUMHAIL
+C
+      REAL     HAILSTATS(NHAL_STS, NHAL_MAX)
+C
+C** INTERNAL VARIABLES:
+C
+      INTEGER  STM_NDX, CELL_NDX, CINDX, TEMP_ID, STINX
+C
+C****************** BEGIN MAIN PROCESSING SECTION *******************
+C
+C** Make a list of storm cell IDs.
+C
+      DO 70 CELL_NDX = 1, NUMHAIL
+         SORTED_CELLS( CELL_NDX ) = CELL_NDX
+ 70   CONTINUE
+C
+C** Sort the cells by decreasing POSH, then sort by decreasing
+C** POH.
+C
+      DO 90 CELL_NDX = 1, NUMHAIL-1
+         DO 80 CINDX = CELL_NDX+1, NUMHAIL
+            STINX = SORTED_CELLS( CINDX )
+            STM_NDX = SORTED_CELLS( CELL_NDX )
+C
+C** Swap the two storm cells in list if the first cell has a lower
+C** POSH than the second cell.
+C
+            IF (HAILSTATS( H_PSH, STINX ) .GT.
+     >          HAILSTATS( H_PSH, STM_NDX )) THEN
+               TEMP_ID = SORTED_CELLS( CELL_NDX )
+               SORTED_CELLS( CELL_NDX ) = SORTED_CELLS( CINDX )
+               SORTED_CELLS( CINDX ) = TEMP_ID
+C
+C** If both storm cells have the same POSH, swap the cells if the
+C** first cell has a lower POH than the second.
+C
+            ELSE IF (HAILSTATS( H_PSH, STM_NDX ) .EQ.
+     >               HAILSTATS( H_PSH, STINX )) THEN
+C
+C** Same POSH, check POH.
+C
+               IF (HAILSTATS( H_POH, STINX ) .GT.
+     >             HAILSTATS( H_POH, STM_NDX )) THEN
+C
+C** Swap cells.
+C
+                  TEMP_ID = SORTED_CELLS( CELL_NDX )
+                  SORTED_CELLS( CELL_NDX ) = SORTED_CELLS( CINDX )
+                  SORTED_CELLS( CINDX ) = TEMP_ID
+               END IF
+            END IF
+ 80      CONTINUE
+ 90   CONTINUE
+C
+C************** END OF PROCESSING FOR SUBROUTINE ********************
+C
+      RETURN
+      END

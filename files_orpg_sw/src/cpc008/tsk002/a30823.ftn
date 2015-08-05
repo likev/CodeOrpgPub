@@ -1,0 +1,229 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/05 15:22:29 $
+C $Id: a30823.ftn,v 1.4 2002/12/05 15:22:29 christie Exp $
+C $Revision: 1.4 $
+C $State: Exp $
+C
+      SUBROUTINE A30823__RCM_CONTROL(SPLIT_DATE,HMTIME,IROW,ICOL,
+     $   VOLN,NBYTES,RCMGRID,RCMBUF)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A30823__RCM_CONTROL
+*.
+*.  MODULE VERSION: 0013
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       02 28 86      0000      Mike Istok           Part 2, RPG Build 1
+*.       04 28 86      0001      MIKE ISTOK           SPR# 60124
+*.       10 02 86      0002      J GROMMONS           SPR# 60346
+*.       02 17 88      0003      VALERIE HOLDEN       SPR# 80002
+*.       01 29 91      0004      VALERIE HOLDEN       SPR# 91249
+*.       12 03 91      0005      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0006      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/20/92      0007      Toolset              SPR 91895
+*.       03/25/93      0008      Toolset              SPR NA93-06801
+*.       01/28/94      0009      Toolset              SPR NA94-01101
+*.       03/03/94      0010      Toolset              SPR NA94-05501
+*.       04/11/96      0011      Toolset              CCR NA95-11802
+*.       12/23/96      0012      Toolset              CCR NA95-11807
+*.       03/16/99      0013      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A30823__RCM_CONTROL (SPLIT_DATE,HMTIME,
+*.                    IROW,ICOL,VOLN,NBYTES,RCMGRID,RCMBUF)
+*.
+*.  MODULE FUNCTION: GENERAL CONTROL ROUTINE FOR RADAR CODED MESSAGE
+*.                   PRODUCT GENERATION
+*.
+*.  MODULES CALLED: A30825__RCM_ENCODE, A30826__BLANK_PAD, A3082B__PARTA_HEADER 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT      TYPE        DESCRIPTION
+*.    -   -----      ----        -----------
+*.    C   COUNT_INT  I*4         Total number of reflectivity intensities
+*.                               reported in Part A, with a range of 0 to 16.
+*.    C   OPMODEOFF  I*4         Operational mode offset.
+*.    C   RCMOFF     I*4         Offset into Part-A for RADNE (no reportable
+*.                               reflectivity intensity values) and RADOM
+*.                               (radar down for maintenance) (from top of
+*.                               product buffer header).
+*.    C   END        I*4         (CONSTANT)Flag indicating that Radar Coded
+*.                               Message encoding is being done at either END
+*.                               of the LFM grid row.
+*.    C   NCOLS      I*4         (CONSTANT)Number of columns in Radar Coded
+*.                               Message LFM grid.
+*.    C   NROWS      I*4         (CONSTANT)Number of rows in Radar Coded
+*.                               Message LFM grid.
+*.    P   HMTIME     I*4         HOURS & MINUTES OF TIME DATA
+*.    P   ICOL       I*4         Input column number.
+*.    P   IROW       I*4         Call argument - used to hold Row number.
+*.    P   NBYTES     I*4         NUMBER OF BYTES
+*.    P   RCMBUF     I*2         RADAR CODED MESSAGE BUFFER SPACE
+*.    P   RCMGRID    I*2         RADAR CODED MESSAGE GRID SPACE
+*.    P   SPLIT_DATE I*2         DATE IN THREE I*2 WORDS
+*.    P   VOLN       I*4         VOLUME SCAN NUMBER
+*.
+*.    *   OUTPUT    TYPE        DESCRIPTION
+*.    -   ------    ----        -----------
+*.    C   COUNT_INT I*4         Total number of reflectivity intensities
+*.                              reported in Part A, with a range of 0 to 16.
+*.    P   ICOL      I*4         Input column number.
+*.    P   IROW      I*4         Call argument - used to hold Row number.
+*.    P   NBYTES    I*4         NUMBER OF BYTES
+*.    P   RCMBUF    I*2         RADAR CODED MESSAGE BUFFER SPACE
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    P   HMTIME            I*4         HOURS & MINUTES OF TIME DATA
+*.    P   ICOL              I*4         Input column number.
+*.    P   IROW              I*4         Call argument - used to hold Row
+*.                                      number.
+*.    P   NBYTES            I*4         NUMBER OF BYTES
+*.    P   RCMBUF            I*2         RADAR CODED MESSAGE BUFFER SPACE
+*.    P   SPLIT_DATE        I*2         DATE IN THREE I*2 WORDS
+*.    P   VOLN              I*4         VOLUME SCAN NUMBER
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME     TYPE        DESCRIPTION
+*.    ----     ----        -----------
+*.    CNINT    CHAR*8      ENCODE COUNTER FOR TOTAL INTENSITIES
+*.    COLON    CHAR*1      COLON CHARACTER
+*.    I        I*4         Index variable.
+*.    ICNINT   I*2         INDEX FOR TOTAL NUMBER OF INTENSITIES
+*.    INC1     I*4         INCREMENTAL VALUE OF 1
+*.    INIT1    I*4         INITIALIZED VALUE OF 1
+*.    IPPINE   I*2         INDEX PARAMETER
+*.    IST      I*4         Internal variable - used to hold I index value.
+*.    J        I*4         Loop control.
+*.    JST      I*4         J index variable saved.
+*.    LBL      L*4         MESSAGE SPACE
+*.    NUM2     I*4         Program parameter for 2.
+*.    NUM3     I*4         Program parameter for 3.
+*.    NUM4     I*4         Program parameter for 4.
+*.    NUM_INTS CHAR*3      Header for Number of Intensities
+*.    ONE      I*4         Program parameter value for one used as lower index
+*.                         in do loop.
+*.    POS      I*4         POSITION MARKER IN BUFFER
+*.    PPINE    CHAR*6      CHARACTERS RADNE
+*.    REPS     I*4         NUMBER OF REPETITIONS
+*.    RUN_VIP  I*4         RUN VALUE INDEX PARAMETER
+*.    ZERO     I*4         FLAG FOR NUMBER ZERO
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A308P2
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS: NONE
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     THIS MODULE IS COMPILED USING COMP08.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     THIS MODULE IS LINKED USING LINK02.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+C*
+$INCLUDE A308.INC,**A308P2 (NEND NLIST)
+C*
+      INTEGER*2     RCMGRID(NCOLS,NROWS),RCMBUF(*)
+      INTEGER*2     IPPINE(3),SPLIT_DATE(3),ICNINT(4)
+      INTEGER*4     REPS,I,IST,JST,RUN_VIP,POS,J,NBYTES,ICOL,IROW
+      INTEGER*4     VOLN,HMTIME,K,ZERO,INC1,INIT1,NUM2,NUM3,NUM4,ONE
+      PARAMETER     (ZERO=0,INC1=1,INIT1=1,NUM2=2,NUM3=3,NUM4=4)
+      PARAMETER     (ONE=1)
+      LOGICAL*4     LBL
+      CHARACTER*1   COLON
+      CHARACTER*3   NUM_INTS
+      CHARACTER*6   PPINE
+      CHARACTER*8   CNINT
+#IFDEF LINUX
+      EQUIVALENCE   (IPPINE,PPINE),(ICNINT,CNINT)
+#ENDIF
+      DATA          PPINE/' RADNE'/,NUM_INTS/'/NI'/,COLON/':'/
+#IFDEF LINUX
+C     NOTHING
+#ELSE
+      EQUIVALENCE   (IPPINE,PPINE),(ICNINT,CNINT)
+#ENDIF
+C*
+C*    INITIALIZE COUNTER FOR TOTAL NUMBER OF INTENSITIES TO BE
+C*    CALCULATED IN A30825 ROUTINE
+      COUNT_INT = ZERO
+C*
+C*    ENCODE PART A INDICATOR LINES
+      CALL A3082B__PARTA_HEADER(SPLIT_DATE,HMTIME,IROW,ICOL,
+     $   VOLN,NBYTES,RCMBUF)
+C*
+C*    DO FOR ALL ROWS IN THE RCMGRID
+      DO 10 J = ONE,NROWS
+         POS = END
+         RUN_VIP = RCMGRID(1,J)
+         REPS = INIT1
+         IST = INIT1
+         JST = J
+         LBL = .TRUE.
+C*
+C*    CHECK NEW RCMGRID VALUE AGAINST RUN_VIP FOR EACH COLUMN
+         DO 11 I = NUM2,NCOLS
+C*
+C*    IF VALUES ARE EQUAL, INCREMENT NUMBER OF REPETITIONS
+            IF (RCMGRID(I,J).EQ.RUN_VIP) THEN
+               REPS = REPS + INC1
+            ELSE
+C*
+C*    IF VALUES ARE DIFFERENT, CALL A30825 TO ENCODE RUN_VIP VALUE
+               CALL A30825__RCM_ENCODE(IST,JST,LBL,POS,RUN_VIP,REPS,
+     $            IROW,ICOL,NBYTES,RCMBUF)
+               RUN_VIP = RCMGRID(I,J)
+               REPS = INIT1
+               IST = I
+               JST = J
+            ENDIF
+ 11      CONTINUE
+         POS = END
+         CALL A30825__RCM_ENCODE(IST,JST,LBL,POS,RUN_VIP,REPS,IROW,
+     $      ICOL,NBYTES,RCMBUF)
+ 10   CONTINUE
+C*
+C*    IF NO DATA WAS FOUND ON THE CRPG, SET RADNE FLAG
+      IF (COUNT_INT.EQ.ZERO) THEN
+         DO 12 I = ONE,NUM3
+ 12         RCMBUF(RCMOFF/NUM2+I) = IPPINE(I)
+      ENDIF
+C*
+C*    WRITE TOTAL NUMBER OF INTENSITIES FOUND INTO /NI FIELD
+      WRITE(CNINT,20) NUM_INTS,COUNT_INT,COLON
+ 20   FORMAT(A3,I4.4,A1)
+      DO 22 I = ONE,NUM4
+ 22      RCMBUF(OPMODEOFF/NUM2+I) = ICNINT(I)
+C*
+C*    BLANK PAD REMAINDER OF LAST INTENSITY ROW
+      CALL A30826__BLANK_PAD(IROW,ICOL,NBYTES,RCMBUF)
+      IROW = IROW + INC1
+      ICOL = INIT1
+      RETURN
+      END

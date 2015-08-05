@@ -1,0 +1,280 @@
+C 
+C RCS info 
+C $Author: nolitam $ 
+C $Locker:  $ 
+C $Date: 2002/11/27 15:17:39 $ 
+C $Id: a31482.ftn,v 1.3 2002/11/27 15:17:39 nolitam Exp $ 
+C $Revision: 1.3 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A31482__HOURLY_PRODUCTS (VSNUM, ADJHRLY, HYDRADAP,
+     *                             HYDRSUPL, FLAG78, FLAG79, FLAG81)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A31482__HOURLY_PRODUCTS
+*.
+*.  MODULE VERSION: 0002
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       07 31 95      0000      TIM O'BANNON         CCR 94-33207
+*.       12/23/96      0001      Toolset              CCR NA95-11807
+*.       03/16/99      0002      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A31482__HOURLY_PRODUCTS(VSNUM,ADJHRLY,
+*.                         HYDRADAP,HYDRSUPL,FLAG78,FLAG79,FLAG81)
+*.
+*.  MODULE FUNCTION:
+*.     This routine determines which, if any, of the hourly-oriented
+*.     products (78 = 1-Hour Surface Rainfall Accumulation, 79 =
+*.     3-Hour Surface Rainfall Accumulation, 81 = Hourly Digital
+*.     Precipitation Array) have been selected to be produced, and
+*.     calls the corresponding routine to generate the product.
+*.
+*.  MODULES CALLED: A31169__ABORT_DATATYPE_BECAUSE, A31215__GET_OUTBUF, 
+*.                  A31216__REL_OUTBUF, A3146B__PROD81_1HR_DIG_ARRAY, 
+*.                  A31489__3HOUR_PROD79, A3148D__1HOUR_PROD78 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT         TYPE        DESCRIPTION
+*.    -   -----         ----        -----------
+*.    G   MEM           I*4         Array in RPG shared memory set aside for
+*.                                  buffer sharing.
+*.    G   DESTROY       I*4         (CONSTANT)Mnemonic used as input to
+*.                                  A31216__REL_OUTBUF. Indicates "do not pass
+*.                                  data to other tasks".
+*.    G   MAX_ADJBINS   I*4         (CONSTANT)Maximum number of range bins
+*.                                  (index into output buffer of adjusted
+*.                                  values).
+*.    G   MAX_AZMTHS    I*4         (CONSTANT)Maximum number of azimuths in a
+*.                                  scan (index into output buffer of adjusted
+*.                                  values).
+*.    G   NORMAL        I*4         (CONSTANT)Parameter which indicates normal
+*.                                  completion of requested operation to
+*.                                  acquire input or output buffer
+*.    G   PROD_MEM_SHED I*4         (CONSTANT)(CONSTANT)Parameter which
+*.                                  indicates that product aborted due to
+*.                                  memory load shedding
+*.    G   SCRATCH       I*4         (CONSTANT)DATA BUFFER TYPE FOR TASK
+*.                                  SCRATCH DATA BUFFERS
+*.    C   HY1HRACC      I*4         (CONSTANT)Constant indicating 1 hour
+*.                                  accumulation product buffer data type.
+*.    C   HY1HRDIG      I*4         (CONSTANT)Constant indicating digital
+*.                                  precipitation array product buffer data
+*.                                  type.
+*.    C   HY3HRACC      I*4         (CONSTANT)Constant indicating 3 hr.
+*.                                  accumulation product buffer data type.
+*.    C   KDENOM_WORDS  I*4         (CONSTANT)Number of fullwords in halfword
+*.                                  (I2) 232x232 denominator array.
+*.    P   ADJHRLY       I*2         Array used to hold adjusted hourly
+*.                                  precipitation accumulation
+*.    P   FLAG78        L*4         Flag that product 78 (ONE-HOUR
+*.                                  PRECIPITATION ACCUMULATION) has been
+*.                                  requested.
+*.    P   FLAG79        L*4         Flag that product 79 (THREE-HOUR
+*.                                  PRECIPITATION ACCUMULATION) has been
+*.                                  requested.
+*.    P   FLAG81        L*4         Flag that product 81 (DIGITAL HOURLY
+*.                                  PRECIPITATION ACCUMULATION) has been
+*.                                  requested.
+*.    P   HYDRADAP      R*4         Array of RPG adaptation parameters.
+*.    P   HYDRSUPL      I*4         Supplemental data array.
+*.    P   VSNUM         I*4         Volume scan number
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    G   MEM     I*4         Array in RPG shared memory set aside for buffer
+*.                            sharing.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    G   MEM               I*4         Array in RPG shared memory set aside
+*.                                      for buffer sharing.
+*.    P   ADJHRLY           I*2         Array used to hold adjusted hourly
+*.                                      precipitation accumulation
+*.    P   HYDRADAP          R*4         Array of RPG adaptation parameters.
+*.    P   HYDRSUPL          I*4         Supplemental data array.
+*.    P   VSNUM             I*4         Volume scan number
+*.
+*.  DATABASE/FILE REFERENCE: None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME            TYPE        DESCRIPTION
+*.    ----            ----        -----------
+*.    CARTBUF_STATUS  I*4         Status message for buffer that contains DHP
+*.                                data after conversion to Cartesian format.
+*.    CARTGRID_PTR    I*4         Pointer to location of buffer that contains
+*.                                DHP data after conversion to Cartesian
+*.                                format.
+*.    DENOMBUF_STATUS I*4         Status message for denominator buffer used
+*.                                in DHP conversion from polar to Cartesian.
+*.    DENOM_PTR       I*4         Pointer to location of denominator buffer
+*.                                used in DHP conversion from polar to
+*.                                Cartesian.
+*.    K2KM_WORDS      I*4         Number of fullwords in fullword (I4) 232x232
+*.                                cartesian grid (2 KM).
+*.    P78STAT         I*4         Status on getting product 78 output buffer
+*.    P79STAT         I*4         Status on obtaining Product 79 output buffer
+*.    P81STAT         I*4         Status on obtaining Product 81 output buffer
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD00
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK14.CSS
+*.
+*.  MISC:  N/A
+*.
+*.*******************************************************************
+C
+C
+C...'X' IN COLUMN-1 INDICATES CONDITIONALLY COMPILED DEBUG CODE...
+      IMPLICIT NONE
+C
+$INCLUDE A309.INC/G,**A3PM00 (NEND NLIST)
+$INCLUDE            **A3PM07 (NEND NLIST)
+$INCLUDE            **A3CD00 (NEND NLIST)
+$INCLUDE A3146.INC/G,**A3146P1 (NEND NLIST)
+$INCLUDE A313HBUF.INC/G,**A313HYPP (NEND NLIST)
+$INCLUDE                **A313HYDD (NEND NLIST)
+C
+C
+      INTEGER*2 ADJHRLY(MAX_ADJBINS,MAX_AZMTHS)
+      INTEGER VSNUM
+      LOGICAL FLAG78, FLAG79, FLAG81
+      INTEGER P78STAT,P79STAT,P81STAT
+      INTEGER DENOM_PTR,DENOMBUF_STATUS,CARTGRID_PTR,CARTBUF_STATUS
+C
+C
+C*************** EXECUTABLE ***********************
+C
+X     TYPE *,'A31482: ENTERING A31482, FLAGS 78, 79, 81 = ',
+X    $        FLAG78, FLAG79, FLAG81
+C
+C  IF 1-HR ACCUMULATION GRAPHIC PRODUCT IS REQUESTED, CREATE THE PRODUCT
+C
+      IF (FLAG78) THEN
+C
+X        TYPE *,'A31482: PROD78 REQUESTED... CALL A3148D'
+C
+         CALL A3148D__1HOUR_PROD78(ADJHRLY,HYDRADAP,HYDRSUPL,
+     $                 VSNUM,P78STAT)
+CX        TYPE *,'A31482: BACK FROM A3148D... P78STAT=',P78STAT
+C
+         IF (P78STAT.NE.NORMAL) THEN
+X           TYPE *,'A31482: P78STAT NOT NORMAL'
+X           TYPE *,'A31482: CALL A31169__ABORT_DATATYPE'
+C
+C  ABORT PRODUCT DATATYPE
+C
+         CALL A31169__ABORT_DATATYPE_BECAUSE(HY1HRACC,PROD_MEM_SHED)
+         ENDIF
+C
+      ENDIF
+C
+C
+C  IF THE 3-HR ACCUMULATION PRODUCT IS REQUESTED, DETERMINE IF IT CAN BE
+C  PRODUCED.  THERE MUST BE AT LEAST 2 OF THE HOURLY ACCUMULATIONS IN THE
+C  CURRENT SUMMARY ARRAY FOR THIS PRODUCT TO BE CREATED.
+C
+      IF (FLAG79) THEN
+C
+X        TYPE *,'A31482: PROD79 REQUESTED... CALL A31489'
+C
+         CALL A31489__3HOUR_PROD79(VSNUM, P79STAT, HYDRSUPL)
+CX        TYPE *,'A31482: BACK FROM A31489... P79STAT=',P79STAT
+C
+         IF (P79STAT.NE.NORMAL) THEN
+X           TYPE *,'A31482: P79STAT NOT NORMAL...'
+X           TYPE *,'A31482: CALL A31169__ABORT_DATATYPE'
+         CALL A31169__ABORT_DATATYPE_BECAUSE(HY3HRACC,PROD_MEM_SHED)
+         ENDIF
+C
+      ENDIF
+C
+C
+C  IF THE HOURLY DIGITAL PRECIPITATION ARRAY IS REQUESTED, ACQUIRE THE TWO
+C  SCRATCH BUFFERS USED IN THE CONVERSION OF THE HOURLY DATA FROM ITS POLAR
+C  ARRAY TO THE LFM-BASED CARTESIAN GRID.  ONE BUFFER IS USED TO CONTAIN THE
+C  DENOMINATORS CREATED IN THE CONVERSION PROCESS, AND THE OTHER CONTAINS
+C  THE DATA IN CARTESIAN GRID FORMAT AFTER THE CONVERSION IS PERFORMED.
+C
+      IF (FLAG81) THEN
+C
+X        TYPE *,'A31482: PROD81 IS REQUESTED'
+C
+         CALL A31215__GET_OUTBUF (SCRATCH, KDENOM_WORDS,
+     $                DENOM_PTR, DENOMBUF_STATUS)
+         CALL A31215__GET_OUTBUF (SCRATCH, K2KM_WORDS,
+     $                CARTGRID_PTR, CARTBUF_STATUS)
+C
+CX        TYPE *,'A31482: BACK FROM A31215 FOR CARTBUF & DENOMBUF'
+CX        TYPE *,'A31482: CARTSTAT=',CARTBUF_STATUS,
+CX    $                '  DENOMSTAT=',DENOMBUF_STATUS
+C
+         IF ((DENOMBUF_STATUS.EQ.NORMAL).AND.
+     $       (CARTBUF_STATUS .EQ. NORMAL)) THEN
+C
+CX           TYPE *,'A31482: BOTH CART & DENOM BUFFERS ACQUIRED'
+X           TYPE *,'A31482: CALL A3146B'
+C
+C  BUILD DIGITAL PRECIPITATION ARRAY PRODUCT
+C
+            CALL A3146B__PROD81_1HR_DIG_ARRAY(ADJHRLY,HYDRADAP,
+     1                   HYDRSUPL,VSNUM,MEM(CARTGRID_PTR),
+     2                   MEM(DENOM_PTR), P81STAT)
+CX           TYPE *,'A31482: BACK FROM A3146B... P81STAT=',P81STAT
+C
+            IF (P81STAT.NE.NORMAL) THEN
+X              TYPE *,'A31482: P81STAT NOT NORMAL...'
+X              TYPE *,'A31482: THEN CALL A31169__ABORT_DATATYPE'
+          CALL A31169__ABORT_DATATYPE_BECAUSE(HY1HRDIG,PROD_MEM_SHED)
+            ENDIF
+C
+         ELSE
+C
+C  SCRATCH BUFFERS NOT AVAILABLE?...NOTIFY SYSTEM
+C
+X           TYPE *,'A31489: NO SCRATCH BUFFER(S), ABORT DATATYPES'
+         CALL A31169__ABORT_DATATYPE_BECAUSE(HY1HRDIG, PROD_MEM_SHED)
+         ENDIF
+C
+C  RELEASE ANY SCRATCH BUFFERS WHICH WERE ACQUIRED.
+C
+         IF (CARTBUF_STATUS .EQ. NORMAL) THEN
+            CALL A31216__REL_OUTBUF (CARTGRID_PTR, DESTROY)
+CX           TYPE *,'A31482: DESTROYED CARTESIAN SCRATCH BUFFER'
+         ENDIF
+C
+         IF (DENOMBUF_STATUS .EQ. NORMAL) THEN
+            CALL A31216__REL_OUTBUF (DENOM_PTR, DESTROY)
+CX           TYPE *,'A31482: DESTROYED DENOMINATOR SCRATCH BUFFER'
+         ENDIF
+C
+      ENDIF
+C
+X     TYPE *,'A31482: EXITING'
+      RETURN
+      END

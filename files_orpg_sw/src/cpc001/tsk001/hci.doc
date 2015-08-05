@@ -1,0 +1,659 @@
+hci.doc				NOTES				hci.doc
+
+
+This file contains information about the HCI RPG Control/Status task.  It is
+intended to be used by those interested in how the software is designed and
+works rather than by a typical user.  More detailed information about data
+stores and events used by this task is presented.
+
+Design
+------
+
+The RPG Control/Status task is the primary RPG user interface application.
+It is the launching point of all other HCI family applications.  The HCI
+was designed as a collection of many stand-alone applications rather than
+one large application.  The main benefits to this approach are presented
+below.
+
+	1) Better Reliability - If one component fails, other components
+	   are unaffected.
+	   
+	2) Simpler to Maintain - Smaller applications are easier to debug
+	   and maintain.
+	   
+	3) Easier to Upgrade - If certain functions need to be enhanced or
+	   redesigned, a new application can be developed and easily
+	   integrated.
+	   
+	4) Better Performance - With many smaller-independent applications,
+	   only a small subset needs to be active at a time.  This reduces
+	   the memory requirements and increases overall system preformance.
+	   
+	5) Portability - Each application can be run directly from the
+	   command-line or integrated into other GUI applications.
+	   
+The RPG Control/Status task consists of many source files and is by far the
+largest HCI family application.  The software has been designed so that it
+should be relatively simple to add new features to the GUI.  The RPG
+Control/Status window consists of many objects.  These objects can be
+classified into two categories: active and passive.  Active objects can
+be selected using the mouse and perform some action.  Passive objects
+only display status information.  Active objects can be identified in the
+window by moving the cursor over them.  If the cursor changes to a hand
+shape, the object is active and can be selected.  All objects are defined
+in the header file "hci_control_panel.h".
+
+RPG Control/Status Objects
+--------------------------
+
+This section describes the active and passive set of objects which are
+contained in an enumerated list in "hci_control_panel.h" and are initialized
+in the source file "hci_control_panel.c".
+
+TOP_WIDGET - This macro defines the top level window shell object.  It is
+parent widget for this application.
+
+DRAW_WIDGET - This macro defines the top level drawing area widget for the
+window.  It is the immediate child of the TOP_WIDGET object.  All other
+window objects are descendents of this widget.  Window resize and expose
+events are handled through this object.
+
+RDA_BUTTON - This macro defines the RDA container object.  Its purpose is to
+provide a container for the RDA Control and RDA Alarms buttons and provide a
+set of coordinates to anchor the RDA category objects.  For example, RDA Power source, and tower objects are positioned relative
+to the RDA container object.
+
+RDA_CONTROL_BUTTON - This macro defines the pushbutton which activates the
+RDA Control window.  The pushbutton label is "Control" and is displayed inside
+the RDA container object. When a user clicks on the "Control" button,
+the hci_rdc task is launched. Refer to the man page and doc file for the
+"hci_rdc" task for more information.
+
+RDA_ALARMS_BUTTON - This macro defines the pushbutton which activates the
+RDA Alarms window.  The pushbutton label is "Alarms" and is displayed inside
+the RDA container object. When a user clicks on the "Alarms" button, the
+hci_rda task is launched. Refer to the man page and doc file for the
+"hci_rda" task for more information.
+
+RPG_BUTTONS_BACKGROUND - This macro defines the RPG container object.  Its
+purpose is to provide a container for the RPG Control, RPG Products, RPG
+Status, and RMS Control buttons and provide a set of coordinates to anchor the
+RPG category objects.
+
+RPG_CONTROL_BUTTON - This macro defines the pushbutton which activates the
+RPG Control window.  The pushbutton label is "Control" and is dislayed inside
+the RPG container object.  When selected, the task "hci_rpc" is activated.
+Refer to the man page and doc file for the "hci_rpc" task for more information.
+
+RPG_PRODUCTS_BUTTON - This macro defines the pushbutton which actives the RPG
+Products window.  The pushbutton label is "Products" and is displayed inside
+the RPG container object.  The source file "hci_RPG_products_button.c" contains
+the code which defines the RPG Products window and its actions.  This window
+does nothing other than to provide another set of pushbuttons to invoke RPG
+Products family applications
+
+This macro also defines the pushbutton which activates the RPG Product
+Generation Table Editor window.  The pushbutton label is "Generation List" and
+is displayed inside the RPG Products window.  When selected, the task
+"hci_prods" is activated.  Refer to the man page and doc file for the "hci_prod"
+task for more information.
+
+RPG_ALGORITHMS_BUTTON - This macro defines the pushbutton which activates the
+Algorithms window.  The pushbutton label is "Algorithms" and is displayed inside
+the RPG Products window.  When selected, the task "hci_algorithms" is activated.
+Refer to the man page and doc file for the "hci_algorithms" task for more
+information.
+
+ALERTS_BUTTON - This macro defines the pushbutton which activates the Alert
+Threshold Editor window.  The pushbutton label is "Alert/Threshold" and is
+displayed inside the RPG Products window.  When selected, the task "hci_alt"
+is activated.  Refer to the man page and doc file for the "hci_alt" task for
+more information.
+
+PRODUCT_PRIORITY_BUTTON - This macro defines the pushbutton which activates the
+RPG Product Priority (Load Shed Products) window.  The pushbutton label is
+"Load Shed Products" and is displayed inside the RPG Products window.  When
+selected, the task "hci_prod_priority" is activated.  Refer to the man page and
+doc file for the "hci_prod_priority" task for more information.
+
+PRODUCT_PARAMETERS_BUTTON - This macro defines the pushbutton which activates
+the Edit Selectable Product Parameters window.  The pushbutton label is
+"Selectable Parameters" and is displayed inside the RPG Products window.  When
+selected, the task "hci_spp" is activated.  Refer to the man page and doc file
+for the "hci_spp" task for more information.
+
+PRODUCT_STATUS_BUTTON - This macro defines the pushbutton which activates the
+Products in Database window.  The pushbutton label is "Products in Database"
+and is displayed inside the RPG Products window.  When selected, the task
+"hci_pstat" is activated.  Refer to the man page and doc file for the
+"hci_pstat" task for more information.
+
+RMS_CONTROL_BUTTON - This macro defines the pushbutton which activates the
+RMS Control window.  The pushbutton label is "RMS" and is displayed inside the
+RPG container object if the site is configured for RMS.  The source file
+"hci_RPG_rms_button.c" contains the code which defines the RMS Control window
+and its actions.
+
+RPG_STATUS_BUTTON - This macro defines the pushbutton which activates the
+RPG Status window.  The pushbutton label is "Status" and is displayed inside
+the RPG container object.  When selected, the task "hci_status" is activated.
+Refer to the man page and doc file for the "hci_status" task for more
+information.
+
+BASEDATA_BUTTON - This macro defines the pushbutton which activates the RPG
+Base Data Display window.  The pushbutton is dislayed as an icon containing
+the label "Base Data" and is displayed inside the Applications region of the
+RPG Control/Status window (right third of the window).  When selected, the task
+"hci_basedata" is activated.  Refer to the man page and doc file for the
+"hci_basedata" task for more information.
+
+CENSOR_ZONES_BUTTON - This macro defines the pushbutton which activates the
+Clutter Regions Editor window.  The pushbutton is displayed as an icon 
+containing the label "Clutter Regions" and is displayed inside the Applications
+region of the RPG Control/Status window (right third of the window).  When
+selected, the task "hci_ccz" is activated.  Refer to the man page and doc file
+for the "hci_ccz" task for more information.
+
+BYPASS_MAP_BUTTON - This macro defines the pushbutton which activates the
+Clutter Bypass Map Editor window.  The pushbutton is displayed as an icon
+containing the label "Bypass Map" and is displayed inside the Applications
+region of the RPG Control/Status window (right third of the window).  When
+selected, the task "hci_cbm" is activated.  Refer to the man page and doc file
+for the "hci_cbm" task for more information.
+
+PRF_CONTROL_BUTTON - This macro defines the pushbutton which activates the
+PRF Control (Modify Current VCP) window.  The pushbutton is displayed as an
+icon containing the label "PRF Control" and is displayed inside the
+Applications region of the RPG Control/Status window (right third of the
+window).  When selected, the task "hci_prf" is activated.  Refer to the man
+page and doc file for the "hci_prf" task for more information.
+
+RDA_PERFORMANCE_BUTTON - This macro defines the pushbutton which activates the
+RDA Performance Data window.  The pushbutton is displayed as an icon containing
+the label "RDA P/M Data" and is displayed inside the Applications region of
+the RPG Control/Status window (right third of the window).  When selected, the
+task "hci_perf" is activated.  Refer to the man page and doc file for the
+"hci_perf" task for more information.
+
+CONSOLE_MESSAGE_BUTTON - This macro defines the pushbutton which activates the
+Console Messages window.  The pushbutton is displayed as an icon containing
+the label "Console Messages" and is displayed inside the Applications region
+of the RPG Control/Status window (right third of the window).  The source file
+"hci_console_message_callback.c" contains the code which defines the Console
+Messages window and its actions.  If the Console Messages window is not
+active when a new console message is received at the RPG (RDA console message
+or PUP text message) it is automatically openned.  The module "hci_timer_proc.c"
+checks for the receipt of new console messages in 1/2 second intervals and
+activates/updates the Console Messages window if neccessary.
+
+ENVIRONMENTAL_WINDS_BUTTON - This macro defines the pushbutton which activates
+the Enivronmental Data Editor window.  The pushbutton is displayed as an icon
+containing the label "Environ Data" and is displayed inside the Applications
+region of the RPG Control/Status window (right third of the window).  When
+selected, the "hci_wind" task is activated.  Refer to the man page and doc file
+for the "hci_wind" task for more information.  NOTE: The border around the
+button is displayed in red if the last environmental winds update time is
+older than 12 hours.  The source file "hci_control_panel_environmental_winds.c"
+contains the code to check the last update time and set the border color.  The
+timeout value (12 hours) is controlled by algorithm adaptation data.  When
+environmental winds data are updated, the RPG Control/Status window is
+refreshed.  The event callback "hci_update_environmental_wind_data.c" controls
+this.
+
+HCI_PROPERTIES_BUTTON - This macro defines the pushbutton which activates the
+HCI Properties Manager window.  The pushbutton is displayed as an icon
+containing the label "HCI" and is displayed inside the Applications region of
+the RPG Control/Status window (right third of the window).  When selected,
+the task "hci_properties" is activated.  Refer to the man page and doc file
+for the "hci_properties" task for more information.
+
+USERS_BUTTON - This macro defines the USERS container object.  Its purpose is
+to provide a container for the Comms, Product Distribution, and PUP Status
+buttons and provide a set of coordinates to anchor the USERS category objects.
+
+COMMS_BUTTON - This macro defines the pushbutton which activates the Product
+Distribution Comms Status window.  The pushbutton label is "Comms" and is
+displayed in the USERS container object.  When selected, the task "hci_nb" is
+activated.  Refer to the man page and doc file for the "hci_nb" task for more
+information.
+
+DISTRIBUTION_CONTROL_BUTTON - This macro defines the pushbutton which activates
+the Product Distribution Control window.  The pushbutton label is "Products"
+and is displayed in the USERS container object.  When selected, the task
+"hci_pdc" is activated.  Refer to the man page and doc file for the "hci_pdc"
+task for more information.
+
+PUP_STATUS_BUTTON - This macro defines the pushbutton which activates the
+PUP/RPGOP Status window.  The pushbutton label is "Status" and is displayed
+in the USERS container object.  When selected, the task "hci_pup_status" is
+activated.  Refer to the man page and doc file for the "hci_pup_status" task
+for more information.
+
+RADOME_OBJECT - This macro defines the passive graphical object used to
+represent the radome.  It is used as a reference to other objects to display
+various status information.  The source file "hci_control_panel_radome.c"
+contains the code which defines the radome object and its properties.
+
+TOWER_OBJECT - This macro defines the passive graphical object used to
+represent the radar tower.  It is used as a reference to other objects to
+display various status information.  The source file "hci_control_panel_tower.c"
+contains the code which defines the tower object and its properties.
+
+POWER_OBJECT - This macro defines the active graphical object used to represent
+the RDA power source.  It is dependent on the RDA container object and is
+displayed to its left.  The display properties of the RDA power source object
+is dependent on the current RDA power source.  If the power source is utility,
+a set of power poles are displayed below which is displayed a label indicating
+the current power status.  If the power source is generator (auxilliary), a
+building and fuel tank are displayed below which is displayed a label
+indicating the current power status.  The fuel level in the tank is an accurate
+representation of the current fuel level as indicated from the latest RDA
+performance data message.  As long as the RDA power source remains generator,
+a request for new RDA performance data is made at the beginning of each
+new volume scan so the fuel level can be updated.  Selecting the object
+invokes a confirmation popup from which the user can continue and command a
+power source change or cancel the procedure.  The source file
+"hci_control_panel_power.c" contains the code which defines the RDA power
+source object and its properties.
+
+PRECIP_STATUS_OBJECT - This macro defines the active graphical object used to
+display the current precipitation category and activate the Precipitation
+Status window.  The object consists of a passive label, "Precip Status:",
+followed by an active color-coded label.  When selected, the task
+"hci_precip_status" is activated.  Refer to the man page and doc file for the
+"hci_precip_status" task for more information. The source file
+"hci_control_panel_status.c" contains the code which extracts and displays the
+current precipitation category and the source file "hci_control_panel_input.c"
+contains the code to initiate the action.
+
+PRFMODE_STATUS_OBJECT - This macro defines the active graphical object used to
+display and toggle the current PRF Mode flag state.  The object consists of a
+passive label, "PRF Mode:", followed by an active color-coded label indicating
+the current PRF Mode flag state (either "AUTO", "STORM" or "MANUAL"). Selecting
+the object invokes a confirmation popup from which the user can continue and
+change the PRF Mode flag state or cancel the procedure.  The source file 
+"hci_control_panel_status.c" contains the code which extracts and displays the
+current PRF Mode flag state and the source file "hci_control_panel_input.c"
+contains the code to initiate the action.
+
+ENW_STATUS_OBJECT - This macro defines the active graphical object used to
+display and toggle the current VAD update flag state.  The object consists of a
+passive label, "VAD Update:", followed by an active color-coded label indicating
+the current VAD update flag state (either "ON" or "OFF").  Selecting the object
+invokes a confirmation popup from which the user can continue and change the
+VAD update flag state or cancel the procedure.  The source file
+"hci_control_panel_status.c" contains the code which extracts and displays the
+current VAD update flag state and the source file "hci_control_panel_input.c"
+contains the code to initiate the action.
+
+LOAD_SHED_OBJECT - This macro defines the active graphical object used to
+display the current load shed state and activate the Load Shed Categories
+window.  The object consists of a passive label, "Load Shed:", followed by an
+active color-coded label indicating the most severe load shed state ("Normal",
+"Warning", "Alarm").  When selected, the task "hci_load_shed" is activated.
+Refer to the man page and doc file for the "hci_load_shed" task for more
+information on this task.  The source file "hci_control_panel_status.c"
+contains the code which extracts and displays the current load shed state and
+the source file "hci_control_panel_input.c" contains the code to initiate the
+action.
+
+RDA_ALARMX_OBJECT - This group of macros (where "X" is replaced by the numbers
+1-8) defines the pushbuttons used to define RDA devices with active alarms.
+As manay as 8 different devices can have an alarm at the same time for legacy
+RDA.  ORDA can have up to 7 different alarms at the same time. The
+mnemonic(s) for the device(s) with alarms is used for the button labels.
+These buttons are displayed to the left of the radome and tower.  Selecting a
+button sets the device filter property in the RDA Alarms window to that device
+and activates the RDA Alarms window (if it isn't currently active).  The
+source files "hci_control_panel_rda_alarms.c" and
+"hci_control_panel_orda_alarms.c" extract the alarm summary data from the latest
+RDA status message and builds the button labels.
+
+WIDEBAND_OBJECT - This macro defines the active graphical object used to
+display the current RDA/RPG wideband link state and activate the RDA/RPG
+Interface Control/Status window.  The object consists of either a label or
+a set of three bars representing the reflectivity, velocity, and spectrum
+width moments.  The label is displayed when the link is not in a connect state.
+When selected, the task "hci_rda_link" is activated.  Refer to the man page and
+doc file for the "hci_rda_link" task for more information on this task.  The
+source file "hci_control_panel_connections.c" extracts and displays the current
+wideband link state and the source file "hci_control_panel_input.c" contains
+the code to initiate the action.
+
+NARROWBAND_OBJECT - This macro defines the active graphical object used to
+display the state of the narrowband interface and activate the Product
+Distribution Comms Status window.  The object consists of a bar representing
+the state of the narrowband interface and, if the site is FAA redundant, a
+label indicating the state of the comms relay box.  If the RPG is not in an
+operate state, the object is blank.  When selected, the task "hci_nb" is
+activated.  Refer to the man page and doc file for the "hci_nb" task for more
+information on this task.  The source file "hci_control_panel_connections.c"
+extracts and displays the current narrowband link state and the source file
+"hci_control_panel_input.c" contains the code to initiate the action.
+
+MLOS_OBJECT -  This macro defines the pushbutton which activates the MLOS Status
+window if the site is configured for MLOS.  In all other configurations, this
+button is not defined.  The pushbutton is displayed with the label "MLOS" and is
+displayed to the right of the tower object in the RPG Control/Status window.
+When selected, the task "hci_mlos" is activated.  Refer to the man page and doc
+file for the "hci_mlos" task for more information.
+
+VCP_WX_MODE_OBJECT - This macro defines the pushbutton which activates the
+VCP Control window.  The pushbutton is displayed to the right of the radome
+object with the label containing the current VCP number and weather mode.  In
+addition, the VCP number is preceded by a character indicating whether the VCP
+is a local pattern (L) or remote (R).  The latest RDA status message is read
+to determine whether the pattern is local or remote (refer to the RDA/RPG ICD
+for more information on RDA status type messages).  When selected, the task
+"hci_vcp" is activated.  Refer to the man page and doc file for the "hci_vcp"
+task for more information.
+
+RDA_INHIBIT_OBJECT - This macro defines the active graphical object used to
+display and toggle the current RDA message inhibit state.  The object consists
+of a passive label, "RDA Messages:", followed by an active color-coded label.
+When selected, the RDA message inhibit state toggles between enabled and
+disabled.  When enabled, when new system status and alarm messages are
+generated, both RDA and RPG status and alarm messages are displayed in the
+status and alarm lines of the RPG Control/Status window.  When disabled, only
+RPG status and alarm messages are displayed.  The source file
+"hci_control_panel_status.c" contains the code which extracts and displays the
+current RDA message inhibit state and the source file
+"hci_control_panel_input.c" contains the code to initiate the action.
+
+FAA_REDUNDANT_OBJECT - This macro defines the active graphical object used to
+display the adaptation data synchronization state and force adaptation data
+update for FAA redundant configurations.  The object consists of a passive
+label, "Adapt Times:", followed by an active color-coded label.  The label is
+displayed as "MATCH" when the adaptation data on both channels are synchronized.
+If the label is "MISMATCH", then at least one of the adaptation data stores
+has been changed on one of the channels and not on the other.  Selecting this
+object causes all adaptation data on the local channel to be copied to the
+redundant channel.  This object is only selectable when both channels are
+non-controlling or if the local channel is controlling.  The source file
+"hci_control_panel_status.c" contains the code which extracts and displays the
+current RDA message inhibit state and the source file
+"hci_control_panel_input.c" contains the code to initiate the action.
+
+The timer procedure is activated in 1/4 second intervals.  Data flow markers
+are moved in 1/2 second intervals.  The antenna position data are updated
+whenever new radial data exists in the BASEDATA LB.  The system time display
+is updated every second.  The main window is refreshed under the following
+conditions:
+
+	The inhiit RDA messages flag changed
+	A new RDA status message has been detected
+	Wideband status has changed
+	Redundant status has changed (FAA redundant)
+	The comms relay state has changed (FAA redundant)
+	The PRF Mode flag has changed
+	The RPG mode has changed
+	The RPG state has changed
+	The precipitation category has changed
+	New RDA performance data have been detected
+	The RPG system log has been updated
+	The VCP has changed
+	
+Testing
+-------
+
+To completely test the RPG Control/Status task a fully functional system is
+needed.  However, various components can be tested using a variety of test
+tools.  The "rdastat" tool can be used to change RDA status.  The "wb_stat"
+tool can be used to change the RDA/RPG wideband status.  The "rdamsg" tool
+can be used to send an RDA console message to the RPG and force the Console
+Messages window to be displayed and updated.  The RDA simulator can be used
+to simulate connection to an RDA and update RDA status.
+	
+SOURCE FILES
+------------
+
+The hci task uses the following source files.
+
+	FILE			DESCRIPTION
+	---------------------------------------------------------------------
+	hci.c			
+				Contains the "main" function.  It registers
+				for events and LB updates.
+	hci_RPG_products_button.c
+				Contains the callback for the "Products" button
+				in the RPG container.  It creates the RPG
+				Products window.
+	hci_RPG_rms_button.c
+				Contains the callback for the "RMS" button in
+				the RPG Products window.
+	hci_console_message_callback.c
+				Contains the callback for the "Console Messages"
+				icon button.  It creates the Console Messages
+				window.
+	hci_control_panel.c
+				This is the module where most RPG Control/Status
+				window objects are defined.
+	hci_control_panel_applications.c
+				This module controls the placement of objects
+				in the Applications region of the RPG
+				Control/Status window.
+	hci_control_panel_build_id.c
+				This module creates and displays the build
+				version information in the RPG Control/Status
+				window.
+	hci_control_panel_buttons.c
+				This module manages the properties and placement
+				of pushbutton objects in the RPG Control/Status
+				window.
+	hci_control_panel_connections.c
+				This module manages the display of connection
+				objects between containers in the RPG
+				Control/Status window.
+	hci_control_panel_data_flow.c
+				This module manages the placement of data flow
+				markers in the connection objects.
+	hci_control_panel_environmental_winds.c
+				This module manages the winds timeout check
+				for the Environmental Data icon button.
+	hci_control_panel_expose.c
+				This module handles RPG Control/Status window
+				expose events.
+	hci_control_panel_input.c
+				This module handles mouse motion and button
+				events inside the RPG Control/Status window.
+	hci_control_panel_power.c
+				This module creates and manages the RDA power
+				source object in the RPG Control/Status window.
+	hci_control_panel_rda_alarms.c
+				This module creates and manages the RDA Alarms
+				hot pushbuttons in the RPG Control/Status
+				window for an RDA in legacy configuration.
+	hci_control_panel_orda_alarms.c
+				This module creates and manages the RDA Alarms
+				hot pushbuttons in the RPG Control/Status
+				window for an RDA in ORDA configuration.
+	hci_control_panel_rda_status.c
+				This module extracts and displays RDA status and
+				operability state information above the radome
+				in the RPG Control/Status window.
+	hci_control_panel_rpg_status.c
+				This module extracts and displays RPG state and
+				mode information above the RPG container in
+				the RPG Control/Status window.
+	hci_control_panel_resize.c
+				This module handles RPG Control/Status window
+				resize events.  It is the main module called
+				to populate the RPG Control/Status window.
+	hci_control_panel_set_tilt.c
+				This module displays the current elevation
+				cut angle inside the radome and updates the
+				VCP cuts graphic in the RPG Control/Status
+				window.
+	hci_control_panel_set_time.c
+				This module extracts and displays the current
+				RDA volume and RPG system times in the RPG
+				Control/Status window.
+	hci_control_panel_status.c
+				This module controls all objects in the status
+				block to the right of the RPG container in the
+				RPG Control/Status window.
+	hci_control_panel_system_log_messages.c
+				This module extracts the latest system log
+				status and alarm messages and displayes them
+				at the bottom of the RPG COntrol/Status window.
+	hci_control_panel_tps_status.c
+				This module extracts and displays the TPS
+				state (for site configured with transitional
+				power switch) inside the tower object in the
+				RPG Control/Status window.
+	hci_control_panel_tower.c
+				This module creates and displays the tower
+				object in the RPG Control/Status wndow.
+	hci_control_panel_vcp.c
+				This module updates the contents of the VCP
+				button label and displays graphically the
+				cuts associated with te current VCP number in
+				the RPG Control/Status window.
+	hci_define_bitmaps.c
+				This module creates the bitmaps for the icon
+				buttons in the Applications region of the RPG
+				Control/Status window.
+	hci_display_feedback_string.c
+				This module displays all messages that are
+				generated by the ORPGEVT_HCI_COMMAND_ISSUED
+				event in the feedback line of the RPG
+				Control/Status window.
+	hci_faa_redundant.c
+				This module is the callback used when the
+				force update object is selected.  It is only
+				available for FAA redundant configurations.
+	hci_free_txt_msg.c
+				This module creates a free text message from
+				a user specified string.  This function is
+				used by the Console Messages window to format
+				messages to be sent to narrowband users.
+	hci_timer_proc.c
+				This is the timer procedure to monitor changes
+				of numerous status types.  When changes are
+				detected, either the entire RPG Control/Status
+				window is updated or specific elements updated.
+	hci_update_antenna_position.c
+				This module is used to update the ring inside
+				of the radome object to indicate the current
+				azimuthal position of the radar antenna.
+	hci_update_environmental_wind_data.c
+				This module is the event handler for
+				environmental winds data updates.
+	hci_get_rms_status.c
+				This module is used to get the latest RMS
+				status for sites configured as RMS.
+	hci_rms_text_message_callback.c
+				This module handles RMS text messages for sites
+				configured with RMS.
+	hci_rms_inhibit_message_callback.c
+				This module is used to inhibit RMS text messages
+				for sites configured with RMS.
+
+				
++++ PROC
+
+PROC USED
+
+	hci_agent.1
+	hci_adapt.1
+	hci_alt.1
+	hci_basedata.1
+	hci_cbm.1
+	hci_ccz.1
+	hci_load.1
+	hci_mlos.1
+	hci_nb.1
+	hci_pdc.1
+	hci_perf.1
+	hci_precip_status.1
+	hci_prf.1
+	hci_prod.1
+	hci_prod_priority.1
+	hci_properties.1
+	hci_pstat.1
+	hci_pup_stat.1
+	hci_rda_link.1
+	hci_rpc.1
+	hci_spp.1
+	hci_status.1
+	hci_vcp.1
+	hci_wind.1
+	
+DATA IN
+
+	ORPGDAT_SYSLOG_LATEST.4
+	ORPGDAT_HCI_DATA.4
+	ORPGDAT_CM_RESPONSE.4
+	ORPGDAT_RDA_CONSOLE_MSG.4
+	ORPGDAT_PUP_TXT_MSG.4
+	ORPGDAT_PROD_INFO.4
+	ORPGDAT_RMS_TEXT_MSG.4
+	ORPGDAT_GSM_DATA.4
+	ORPGDAT_PRODUCTS.4
+	ORPGDAT_ADAPT.4
+	ORPGDAT_RDA_PERF_MAIN.4
+	ORPGDAT_LOAD_SHED_CAT.4
+	ORPGDAT_REDMGR_CHAN_MSGS.4
+	ORPGDAT_CM_RESPONSE.4
+	ORPGDAT_MLOS_STATUS.4
+	ORPGDAT_RPG_INFO.4
+	
+DATA OUT
+
+	ORPGDAT_HCI_DATA.4
+	ORPGDAT_SYSLOG_LATEST.4
+	ORPGDAT_RDA_COMMAND.4
+	ORPGDAT_REDMGR_CMDS.4
+	
+EVENTS IN
+
+	ORPGEVT_PD_USER
+	ORPGEVT_ENVWND_UPDATE
+	ORPGEVT_SCAN_INFO
+	ORPGEVT_HCI_COMMAND_ISSUED
+	ORPGEVT_HCI_CHILD_IS_STARTED
+	ORPGEVT_NO_STATUS_CHANGE
+	ORPGEVT_RMS_CHANGE
+	ORPGEVT_PRECIP_CAT_CHNG
+	ORPGEVT_PUP_TXT_MSG
+	ORPGEVT_PERF_MAIN_RECEIVED
+	
+EVENTS OUT
+
+	ORPGEVT_RMS_TEXT_MSG
+	ORPGEVT_HCI_COMMAND_ISSUED
+	ORPGEVT_RMS_INHIBIT_MSG
+	
+APIs USED
+
+	orpg.3
+	
+		orpgdbm.3
+		orpgpat.3
+		orpgmisc.3
+		orpgrda.3
+		orpgvst.3
+		orpgmgr.3
+		orpgred.3
+		orpgsite.3
+		orpginfo.3
+		orpgload.3
+		orpgadpt.3
+		orpginfo.3
+		
+	hci.3
+
+---
+	
+SEE ALSO
+
+hci(1) hci_agent(1) hci_adapt(1) hci_basedata(1) hci_cbm(1) hci_ccz(1)
+hci_load(1) hci_mlos(1) hci_nb(1) hci_pdc(1) hci_perf(1) hci_precip_status(1)
+hci_prf(1) hci_prod(1) hci_prod_priority(1) hci_properties(1) hci_pstat(1)
+hci_pup_stat(1) hci_rda(1) hci_rda_link(1) hci_rdc(1) hci_rpc(1) hci_spp(1)
+hci_status(1) hci_vcp(1) hci_wind(1) rdastat(1) rdamsg(1) rda_simulator(1)
+wb_stat(1) hci(3) orpg(3) orpgdbm(3) orpgpat(3) orpgmisc(3) orpgrda(3)
+orpgvst(3) orpgmgr(3) orpgred(3) orpgsite(3) orpginfo(3) orpgload(3)
+orpgadpt(3) orpginfo(3)
+
+hci.doc								hci.doc

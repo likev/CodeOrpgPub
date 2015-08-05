@@ -1,0 +1,60 @@
+#!/bin/sh
+#
+# File: start_rssd
+# Purpose: Start RSSD deamon
+#
+# RCS info
+# $Author: ccalvert $
+# $Locker:  $
+# $Date: 2005/08/11 15:48:02 $
+# $Id: start_rssd,v 1.17 2005/08/11 15:48:02 ccalvert Exp $
+# $Revision: 1.17 $
+# $State: Exp $
+#
+
+#######################################################
+# PRINT_USAGE: Print script usage.
+#######################################################
+
+print_usage ()
+{
+  echo
+  echo "usage: start_rssd [cmd]"
+  echo "       where cmd is:"
+  echo "          -r ... restart rssd"
+  echo "          -s ... start rssd (default)"
+  echo
+}
+
+#  Parse the command line arguments
+
+cmd="s" # Default is to start rssd
+
+while getopts hrs input
+do
+  case $input in
+     h) print_usage; exit 0 ;;
+     r) cmd="r" ;;
+     s) cmd="s" ;;
+    \?) echo
+        echo
+        echo
+        echo "Bad argument to `basename $0`"
+        echo
+        print_usage
+        exit 1
+        ;;
+  esac
+done
+       
+# If command is restart, then kill the existing rssd
+
+if [ $cmd = "r" ]
+then
+  prm -9 rssd
+fi
+
+# Start rssd
+
+rssd -c $HOME/.rssd.conf -f 256 -l $HOME/rssd.log 2> $HOME/rssd.stderr
+

@@ -1,0 +1,228 @@
+C
+C RCS info
+C $Author: nolitam $
+C $Locker:  $
+C $Date: 2002/12/11 20:01:24 $
+C $Id: t41194.ftn,v 1.2 2002/12/11 20:01:24 nolitam Exp $
+C $Revision: 1.2 $
+C $State: Exp $
+C
+      SUBROUTINE T41194__GETIME(YMDHMS,REF,IMSEC,MODJUL)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: T41194__GETIME
+*.
+*.  MODULE VERSION: 0006
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       10/04/84      0000      B.J.  KELLER         CODED
+*.       02/23/89      0001      K.    MARGRAFF       SPR # 90104
+*.       01/15/90      0002      TIMOTHY O. ELY       SPR # 90596
+*.       10/02/90      0003      K. MARGRAFF          SPR # 90825
+*.       11/05/90      0004      A. FELDMAN           SPR # 91272
+*.       12/18/90      0004      K. MARGRAFF          SPR # 91533
+*.       11/01/91      0005      ED NICHLAS           SPR 92640 PDL Removal
+*.       03/05/92      0006      Toolset              SPR 91898
+*.
+*.  CALLING SEQUENCE: CALL T41194__GETIME(YMDHMS,REF,IMSEC,MODJUL)
+*.
+*.  MODULE FUNCTION: Converts packed format time to milliseconds of
+*.                    day, and Julian Date.
+*.
+*.  MODULES CALLED: DFLOAT, T41192__JULIAN
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT  TYPE        DESCRIPTION
+*.    -   -----  ----        -----------
+*.    P   IMSEC  I*4         MILLISECONDS OF DAY
+*.    P   REF    R*8         P  PACKED REFERENCE DATE.
+*.    P   YMDHMS R*8         PACKED YEAR,MONTH,DAY,HOURS,MINUTES
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    P   IMSEC   I*4         MILLISECONDS OF DAY
+*.    P   MODJUL  I*2         MODIFIED JULIAN DATE.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE: NONE
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME      TYPE        DESCRIPTION
+*.    ----      ----        -----------
+*.    CENT      I*4         CENTURY OF DATE
+*.    CENT20    I*4         2OTH CENTURY ADDITION CONSTANT
+*.    CENT21    I*4         21TH CENTURY ADDITION CONSTANT
+*.    CONV1_HMS R*8         P  BIAS FOR CONVERSION OF HMS
+*.    CONV2_HMS R*8         P  BIAS FOR CONVERSION OF HMS
+*.    CONV_HOUR R*8         P  REAL SECONDS IN AN HOUR
+*.    CONV_MIN  R*8         P  CONVERSION FACTOR FOR MINUTES
+*.    CONV_MN   R*8         (CONSTANT) MINUTES CONVERSION FACTOR
+*.    CONV_TIME R*8         P  CONVERSION FACTOR FOR TIME CALCULATION
+*.    DUM       I*4         LOCAL WORK AREA
+*.    FYMD      R*8         P  LOCAL YEAR, MONTH, DAY
+*.    HMS       R*8         P  packed hours, minutes and seconds
+*.    ID        I*4         DAY
+*.    IDR       I*4         REFERENCE DAY
+*.    IH        I*4         hours
+*.    IKILO     I*2         INTEGER CONVERSION FACTOR FOR SEC.
+*.    IM        I*4         MONTH
+*.    IMIN      I*4         minute
+*.    IMR       I*4         REFERENCE MONTH
+*.    IY        I*4         YEAR
+*.    IYMD      I*4         year, month, day
+*.    IYR       I*4         REFERENCE YEAR
+*.    JULIAN    I*4         JULIAN DATE
+*.    KILO      R*8         P  REAL CONVERSION FACTOR FOR MILLISEC
+*.    MILLI     R*8         P  (CONSTANT) MILLISECONDS CONVERSION FACTOR
+*.    NHMS      I*4         LOCAL HOURS, MINUTE, SECONDS
+*.    REFDAY    R*8         P  Julian reference day
+*.    REF_CENT  I*4         CENTURY CORESPONDING TO THE REF. DATE
+*.    RJUL      R*8         P  Julian date
+*.    SEC       R*8         P  second
+*.    START_YR  I*4         1ST YEAR OF MODIFIED JULIAN DATE FOR NEXRAD
+*.                          PROJECT
+*.    T         R*8         P  temporary computing variable
+*.    TMSEC     R*8         P  milliseconds of day
+*.    YMD       R*8         P  packed year, month, day
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:
+*.
+*.       THIS MODULE ASSUMES THAT THE DATES PASSED TO THIS MODULE FOR
+*.       COVERTION WILL NOT BE PRIOR TO JAN. 1,1970 OR AFTER SEP 17,
+*.       2059.  ALL DATES THAT WILL FALL WITHIN THE USEFUL LIFE OF
+*.       NEXRAD (AS STATED IN SECTION 3.2.1.6 OF THE NTR) WILL
+*.       THEREFORE BE CONVERTED CORRECTLY.
+*.
+*.  DEVIATION FROM STANDARDS: NONE
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.      COMPILE USING B411COMP.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.      LINK USING B4COMLNK.CSS,B4ENVLNK.CSS,B4PEDLNK.CSS,
+*.          B4RADLNK.CSS
+*.
+*.  MISC: None
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+C
+      REAL*8 YMDHMS
+C
+      REAL*8 T,YMD,HMS,SEC,TMSEC,RJUL,REF,REFDAY, FYMD
+      REAL*8 CONV1_HMS, CONV2_HMS, CONV_MIN, CONV_TIME, MILLI
+      REAL*8 CONV_MN, CONV_HOUR, KILO
+C
+      INTEGER*4 CENT,REF_CENT,CENT20,CENT21,START_YR
+      INTEGER*4 ID,IDR,IH,IM,IMIN,IMR,IY,IYR
+      INTEGER*4 IYMD , NHMS , IMSEC
+      INTEGER*4 DUM, JULIAN
+      INTEGER*2 MODJUL, IKILO
+C
+      PARAMETER (CENT20 = 1900 , CENT21 = 2000  , START_YR = 70)
+      PARAMETER (CONV1_HMS=1.0D9, CONV2_HMS=1.0D-03, CONV_MIN=100.D0)
+      PARAMETER (CONV_TIME=10000.D0, MILLI=0.001, KILO=1000.D0)
+      PARAMETER (CONV_MN=60.0D0, CONV_HOUR=3600.0D0, IKILO=1000)
+C
+C **** BEGINING OF EXECUTABLE CODE ****
+C
+C
+C **** STRIP OUT THE DATE
+C
+      YMD  = YMDHMS
+      IYMD = YMDHMS
+      FYMD = DFLOAT(IYMD)
+C
+C **** STRIP OUT THE TIME OF DAY
+C
+      HMS  = YMD - FYMD
+      HMS  = HMS * CONV1_HMS
+      NHMS = IDNINT(HMS)
+      HMS  = NHMS
+      HMS  = HMS * CONV2_HMS
+C
+C
+C  DECOMPOSE YMD
+C
+C
+      IY= (YMD/CONV_TIME)
+      T  = YMD - IY*CONV_TIME
+      IM  = T/CONV_MIN
+      ID = T - IM*CONV_MIN
+C
+C   DECOMPOSE HMS
+C
+      IH = HMS/CONV_TIME
+      T =  HMS - IH*CONV_TIME
+      IMIN = T/CONV_MIN
+      SEC = T - IMIN*CONV_MIN
+C
+C   DECOMPOSE REFERENCE DATE
+C
+      IYR = (REF/CONV_TIME)
+      T = REF - IYR*CONV_TIME
+      IMR = T/CONV_MIN
+      IDR = T - IMR*CONV_MIN
+C
+C   FIGURE OUT CENTURY OF REFERENCE DATE
+C
+      IF (IYR.LT.START_YR) THEN
+         REF_CENT=CENT21
+      ELSE
+         REF_CENT=CENT20
+      ENDIF
+C
+C   FIGURE OUT CENTURY OF DATE TO BE CONVERTED
+C
+      IF (IY.LT.START_YR) THEN
+         CENT=CENT21
+      ELSE
+         CENT=CENT20
+      ENDIF
+C
+C   GET REFERENCE JULIAN DATE
+C
+      CALL T41192__JULIAN(IYR+REF_CENT,IMR,IDR,JULIAN)
+C
+      REFDAY = JULIAN
+C
+      CALL T41192__JULIAN(IY+CENT,IM,ID,JULIAN)
+C
+      RJUL = JULIAN
+C
+C **** CALCULATE THE JULIAN REF. DATE
+C
+      RJUL = RJUL - REFDAY
+C
+C **** CALCULATE MILLISECONDS OF DAY
+C
+      TMSEC= ( IH*CONV_HOUR  + IMIN*CONV_MN  + SEC ) * KILO
+C
+C **** STORE TIME TO COMMON DATA AREAS
+C
+      IMSEC =IDNINT(TMSEC)
+      MODJUL=RJUL
+      TMSEC = IMSEC * MILLI
+      DUM = IDNINT(TMSEC)
+      IMSEC = DUM * IKILO
+C
+      RETURN
+      END

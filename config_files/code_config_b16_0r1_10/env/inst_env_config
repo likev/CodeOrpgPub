@@ -1,0 +1,164 @@
+#!/usr/bin/ksh
+#################################################################
+# FILE: inst_env_config
+#
+# Script to replace selected environment configuration files 
+# for CODE environment
+#
+# New files must be in same directory as this script and named as 
+# the original file to be replaced with the ".new" extension
+#
+# The file[] array contains the names of the files being replaced
+# The path[] array contains the corresponding location in the 
+# orpg account home directory.  If the file to be replaced is in
+# the account home directory, enter "." for the path.
+#
+# Must be logged into the account in which the ORPG is installed
+#
+#################################################################
+
+print "\nINSTALLING CUSTOMIZED ENVIRONMENT CONFIGURATION FILES"
+print "INTO ACCOUNT HOME DIRECTORY $HOME \n"
+print "This script must be run AFTER extracting ORPG source code"
+print "and BEFORE compiling the ORPG \n"
+print "DO YOU WISH TO PROCEED, 'y/n' "
+
+read ans
+
+if [[ "$ans" == "y" || "$ans" == "Y" ]]
+then
+
+   CUR_DIR=`pwd`
+
+   print "\n"
+#################################################################
+
+
+   cd $CUR_DIR
+
+   # the ORPG build script
+   file[0]=make_rpg
+   path[0]=.
+
+   # script tests build environment
+   file[1]=test_make_cpc100
+   path[1]=.
+
+   # common ORPG makefile stuff
+   #file[2]=make.common
+   #path[2]=conf
+
+   # one file for the basic csh environment   
+   file[2]=.cshrc
+   path[2]=.
+   
+   # two files sourced by csh 
+   # contain CODE/ORPG specific environment     
+   file[3]=build_env_cshrc
+   path[3]=.   
+   file[4]=orpg_env_cshrc
+   path[4]=.
+
+   # two files for the basic bash environment   
+   file[5]=.bashrc
+   path[5]=.
+   file[6]=.bash_profile
+   path[6]=.
+
+   # two files sourced by bash 
+   # contain CODE/ORPG specific environment  
+   file[7]=build_env_profile
+   path[7]=.
+   file[8]=orpg_env_profile
+   path[8]=.
+
+   #number of files
+   i=${#file[*]}
+   
+#############################################################################   
+   print "\n****Replacing `expr $i ` Configuration Files****\n"
+
+   #make sure the $HOME/tools/bin directory exists
+   if [[ ! -d $HOME/tools ]] then 
+       mkdir $HOME/tools  
+       print creating directory $HOME/tools
+   fi
+   if [[ ! -d $HOME/tools/bin ]] then 
+       mkdir $HOME/tools/bin  
+       print creating directory $HOME/tools/bin
+   fi
+
+   n=0
+
+   while [[ n -lt i ]]
+     do  print REPLACING FILE `expr $n + 1`:  $HOME/${path[n]}/${file[n]}
+         if [[ -f $HOME/${path[n]}/${file[n]} ]] then
+             chmod u+w $HOME/${path[n]}/${file[n]}
+             mv $HOME/${path[n]}/${file[n]}  $HOME/${path[n]}/${file[n]}.OLD
+         fi
+         cp ./${file[n]}.new  $HOME/${path[n]}/${file[n]}
+         cp ./${file[n]}.new  $HOME/${path[n]}/${file[n]}.CODE
+         n=`expr $n + 1`
+     done
+     
+   chmod a+x $HOME/${path[0]}/${file[0]}
+
+##############################################################################
+
+   mfile[0]=cpc104_lib003.make
+   mpath[0]=src/cpc104/lib003
+
+   mfile[1]=cpc104_lib005.make
+   mpath[1]=src/cpc104/lib005
+   
+   mfile[2]=cpc104_lib006.make
+   mpath[2]=src/cpc104/lib006
+   
+   mfile[3]=cpc104_lib001.make
+   mpath[3]=src/cpc104/lib001
+
+   mfile[4]=cpc104_lib009.make
+   mpath[4]=src/cpc104/lib009
+
+   mfile[5]=cpc102.make
+   mpath[5]=src/cpc102
+
+   mfile[6]=src.make
+   mpath[6]=src
+   
+   j=${#mfile[*]}
+##############################################################################
+   print "\n****Replacing `expr $j ` Makefiles****\n"
+   
+   n=0
+
+   while [[ n -lt j ]]
+     do  print REPLACING FILE `expr $n + 1`:  $HOME/${mpath[n]}/${mfile[n]}
+         print and the associated makefile :  $HOME/${mpath[n]}/makefile
+         if [[ -f $HOME/${mpath[n]}/${mfile[n]} ]] then
+             chmod u+w $HOME/${mpath[n]}/${mfile[n]}
+             mv $HOME/${mpath[n]}/${mfile[n]}  $HOME/${mpath[n]}/${mfile[n]}.OLD
+         fi
+         cp ./${mfile[n]}.new  $HOME/${mpath[n]}/${mfile[n]}
+         cp ./${mfile[n]}.new  $HOME/${mpath[n]}/${mfile[n]}.CODE
+         
+         if [[ -f $HOME/${mpath[n]}/makefile ]] then
+             chmod u+w $HOME/${mpath[n]}/makefile
+             mv $HOME/${mpath[n]}/makefile  $HOME/${mpath[n]}/makefile.OLD
+        fi  
+        cp ./${mfile[n]}.new  $HOME/${mpath[n]}/makefile
+        cp ./${mfile[n]}.new  $HOME/${mpath[n]}/makefile.CODE
+         n=`expr $n + 1`
+      done
+
+    print "\nFILES REPLACED \n" 
+   
+############################################################################### 
+
+   print "\n  SCRIPT COMPLETE \n"
+   
+else
+
+   print "\nSCRIPT ABORTED, NO FILES REPLACED \n"
+   
+fi

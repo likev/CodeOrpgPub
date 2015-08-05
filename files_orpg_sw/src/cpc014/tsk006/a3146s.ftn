@@ -1,0 +1,484 @@
+C
+C RCS info
+C $Author: steves $
+C $Locker:  $
+C $Date: 2007/02/05 19:11:55 $
+C $Id: a3146s.ftn,v 1.7 2007/02/05 19:11:55 steves Exp $
+C $Revision: 1.7 $
+C $State: Exp $
+C
+      SUBROUTINE A3146S__FORMAT_BLOCK3 (PRODBUF,VSNUM,PRODCODE,
+     +                HYDRADAP, HYDRSUPL, ERRCODE, B3STIDX, B3ENIDX)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3146S__FORMAT_BLOCK3
+*.
+*.  MODULE VERSION: 0017
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       06 13 89      0000      BRADLEY SUTKER       SPR# 90348
+*.       03 28 90      0001      DAVE HOZLOCK         SPR# 90697
+*.       08 29 90      0002      PAUL JENDROWSKI      SPR# 90899
+*.       11 05 90      0003      PAUL JENDROWSKI      SPR# 91255
+*.       12 03 91      0004      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0005      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0006      Toolset              SPR 91895
+*.       03/25/93      0007      Toolset              SPR NA93-06801
+*.       01/28/94      0008      Toolset              SPR NA94-01101
+*.       03/03/94      0009      Toolset              SPR NA94-05501
+*.       08/05/94      0010      Cheryl Stephenson    CCR NW-94-084-02
+*.       04/01/95      0011      Toolset              CCR NA95-11802
+*.       12/23/96      0013      Toolset              CCR NA95-11807
+*        05/31/95      0012      ROBERT RIERSON       CCR NA94-35301 (SPR NA94-0
+*.       10/11/95      0012      Richard Fulton       CCR NA95-13201
+*.       12/23/96      0013      Toolset              CCR NA95-11807
+*.       03/16/99      0014      Toolset              CCR NA98-23803
+*.       01/31/02      0015      Dennis A. Miller     CCR NA01-27501
+*.       07/31/02      0016      C. Pham, D. Miller   CCR NA02-11605 
+*.       01/26/07      0017      Jihong Liu           CCR NA07-01702 
+*.
+*.  CALLING SEQUENCE: CALL A3146S__FORMAT_BLOCK3 (PRODBUF,VSNUM,
+*.                    PRODCODE,HYDRADAP,HYDRSUPL,ERRCODE,B3STIDX,
+*.                    B3ENIDX)
+*.
+*.  MODULE FUNCTION: BUILDS BLOCK3 OF PRODUCT BUFFER FOR
+*.                   PRODUCTS 78 & 80 (1-HR. ACCUMULATION AND
+*.                   STORM TOTAL) .
+*.
+*.  MODULES CALLED: A3146G__BLOCK3_HEADER, A3146T__CNVTIME
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT          TYPE        DESCRIPTION
+*.    -   -----          ----        -----------
+*.    G   SUMMARY        I*4         Volume Scan Summary Table
+*.    G   CUR_BIAS       I*4         (CONSTANT)Bias between rain gage and
+*.                                   radar estimates positional parameter.
+*.    G   CUR_GRPSIZ     I*4         (CONSTANT)Gage-Radar Pair (i.e., Bias
+*.                                   sample size) positional parameter.
+*.    G   CUR_MSPAN      I*4         (CONSTANT)Memory Span (hours) associated
+*.                                   with Bias positional parameter.
+*.    G   DIV2OFF        I*4         (CONSTANT)Product block offset: Second
+*.                                   divider.
+*.    G   FLG_SPOT_BLANK I*4         (CONSTANT)(Constant) Parameter for
+*.                                   position of Spot Blanking flag within
+*.                                   Supplemental Data array
+*.    G   HYZ_ADAP       I*4         (CONSTANT)Size of Adaptation Data array
+*.                                   in Hybrid Scan output buffer  ASIZ_PRE +
+*.                                   ASIZ_RATE + ASIZ_ACUM + ASIZ_ADJU (=
+*.                                   (14+12+7+12) = 45)
+*.    G   HYZ_SUPL       I*4         (CONSTANT)(CONSTANT)Size of Supplemental
+*.                                   Data array in Hybrid Scan output buffer.
+*.                                   SSIZ_PRE + SSIZ_RATE + SSIZ_ACUM +
+*.                                   SSIZ_ADJU (= (13+14+16+5) = 48)
+*.    G   LGLSWOFF       I*4         (CONSTANT)Product header offset: Length
+*.                                   of message (LSW).
+*.    G   LGMSWOFF       I*4         (CONSTANT)Product header offset: Length
+*.                                   of message (MSW).
+*.    G   SCAN_DATE      I*4         (CONSTANT)(CONSTANT)Volume Scan Date
+*.                                   index into Scan Summary Table
+*.    G   SCAN_TIME      I*4         (CONSTANT)(CONSTANT)Volume Scan Time
+*.                                   index into Scan Summary Table
+*.    C   BIAS_TOGGLE    L*4         Local adaptation copy of BIAS_FLAG
+*.    C   NUM_ST_SCANS   I*4         Number of volume scans in storm total.
+*.    C   STMTOT_SB      I*4         Storm Total Accumulation Product spot
+*.                                   blaning status
+*.    C   ST_SUM_BIAS    R*4         Sum of the biases in each scan in the
+*.                                   storm total.
+*.    C   ST_SUM_GRPSIZ  R*4         Sum of the gage-radar pair (sample) sizes
+*.                                   in each scan in the storm total.
+*.    C   ST_SUM_MSPAN   R*4         Sum of the memory spans (hours) in each
+*.                                   scan in the storm total.
+*.    C   CODE_STT       I*4         (CONSTANT)Storm total accumulation
+*.                                   product code.
+*.    C   IBEG           I*4         (CONSTANT)Constant used as loop control
+*.                                   variable (initial value).
+*.    C   INCRMENT       I*4         (CONSTANT)Variable used to increment by
+*.                                   1.
+*.    C   SOURCE_ID      CHAR*4      Bias source id 
+*.
+*.    P   B3STIDX        I*4         START INDEX OF BLOCK 3
+*.    P   ERRCODE        I*4         CODE IF PRODUCT NOT GENERATED
+*.    P   HYDRADAP       R*4         HYDROMET ADAPTATION DATA ARRAY
+*.    P   HYDRSUPL       I*4         HYDROMET SUPPLEMENTAL DATA ARRAY
+*.    P   PRODBUF        I*2         PRODUCT BUFFER
+*.    P   PRODCODE       I*4         PRODUCT CODE NUMBER
+*.    P   VSNUM          I*4         VOLUME SCAN NUMBER (1-80)
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    P   B3ENIDX I*4         BLOCK 3 ENDING INDEX
+*.    P   ERRCODE I*4         CODE IF PRODUCT NOT GENERATED
+*.    P   PRODBUF I*2         PRODUCT BUFFER
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    G   SUMMARY           I*4         Volume Scan Summary Table
+*.    P   B3STIDX           I*4         START INDEX OF BLOCK 3
+*.    P   PRODBUF           I*2         PRODUCT BUFFER
+*.    P   PRODCODE          I*4         PRODUCT CODE NUMBER
+*.    P   VSNUM             I*4         VOLUME SCAN NUMBER (1-80)
+*.
+*.  DATABASE/FILE REFERENCE: NONE.
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME           TYPE        DESCRIPTION
+*.    ----           ----        -----------
+*.    B3BIAS         R*4         Used to get real bias values packed in
+*.    B3HDROFF       I*4         INDEX TO BLOCK 3 HEADER
+*.    B3IDX          I*4         BLOCK 3 PRODUCT ARRAY INDEX
+*.    B3_NPGOFF      I*4         Offset for number of pages
+*.    BIAS_APPLIED   CHAR*4      Character information whether BIAS is applied
+*.                               to this product
+*.    BIAS_VAL       I*4         Positional parameter for Bias value in Block 3
+*.    BLANK_I2       I*2         Integer parameter for 2 ASCII blanks
+*.    BLK3LEN        I*4         Block 3 length
+*.    BLK3_CHARLN    CHAR*80     Block #3 character strings.
+*.    C3             I*4         Beginning column tab for adaptation data.
+*.    C4             I*4         Beginning column tab for bias values.
+*.    C5             I*4         Ending column tab for adaptation data.
+*.    C6             I*4         Ending column tab for bias values.
+*.    C7             I*4         Char parameter
+*.    CHAR           I*4         Index for character position
+*.    CHARLN_ERRS    CHAR*80     Character array with error message.
+*.    CHARLN_REASONS CHAR*80     Array of reasons for error message.
+*.    CHAR_DATE_TIME CHAR*14     Character date and time
+*.    CHAR_EQUIV     I*2         Array for 1 line of character data
+*.    CLEAR          I*4         Parameter for no product error
+*.    CNO            CHAR*4      (CONSTANT)Character representation of NO
+*.    CYES           CHAR*4      (CONSTANT)Character representation of YES
+*.    DIVIDER        I*4         Parameter for divider
+*.    ENDPG_FLAG     I*4         End page flag parameter
+*.    FSTPG          I*4         Parameter for first page
+*.    GRP_SIZ        I*4         Positional param for G-R Pair size in Block 3
+*.    IB3BIAS        I*4         Equivalence to B3BIAS to get real
+*.    INTLINE        I*2         Integer version of a line of characters.
+*.    L              I*4         For Block-3 of Hydromet Products.
+*.    LN             I*4         Index for line number
+*.    LN_SUM         I*4         Count of all lines on all pages
+*.    MEM_SPAN       I*4         Positional param for Memory Span in Block 3
+*.    NCHAR_LN       I*4         Parameter for number of characters in a line
+*.                               in block 3.
+*.    NI2            I*4         Ratio of I*4 bytes to I*2 bytes (2)
+*.    NI2CHAR_LN     I*4         (Constant) number of characters per line.
+*.    NLINES_PG      I*4         Array which contains preset number of lines
+*.                               per page.
+*.    NLN_ERRS       I*4         Constant used in building block3 message when
+*.                               there is not data due to probalem with
+*.                               STORM_TOTAL.
+*.    NPAGES         I*4         (Constant) Normal number of pages , used to
+*.                               set `number of pages in product' (NUM_PGS).
+*.    NPG_ERRS       I*4         Number of pages when there is an error, used
+*.                               in comparison with 'number of pages in
+*.                               product' (NUM_PGS).
+*.    NUM_PGS        I*4         Number of pages in product
+*.    OB3LLSW        I*4         Offset for LSW of BLK3LENX
+*.    OB3LMSW        I*4         Offset for MSW of BLK3LENX
+*.    PG             I*4         Do-loop index for pages
+*.    PG1            I*4         (Constant) Index for 1st page.
+*.    SB_VALUE       I*4         Spot Blanking Flag
+*.    TEMP_CHARLN    CHAR*80     Character string equivalenced to INTLINE.
+*.    TIM_EN         I*4         Ending column tab for CHAR_DATE_TIME
+*.    TIM_ST         I*4         Starting column tab for CHAR_DATE_TIME
+*.    TITLE_1HR      CHAR*80     One-hour product title.
+*.    TITLE_GEN      CHAR*80     DUMMY CHARACTER STRING FOR TITLE
+*.    TITLE_STT      CHAR*80     Storm total product title
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD05
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3146C2
+*.    A314C3
+*.
+*.  ERROR CONDITIONS: NONE.
+*.
+*.  ASSUMPTIONS/RESTRICTIONS: NONE.
+*.
+*.  DEVIATION FROM STANDARDS: NONE.
+*.
+*.  COMPILATION INSTRUCTIONS: NONE.
+*.
+*.  LINKAGE INSTRUCTIONS: NONE.
+*.
+*.  MISC: NONE.
+*.
+*.********************************************************************
+C
+C THIS MODULE BUILDS BLOCK-3 DATA FOR HYDROMET PRODUCTS...
+C
+C...SET COLUMNS WHICH ARE LEFT BLANK
+C...SET LINE TITLES
+C...SET UNITS MENTIONED AT END OF EACH LINE
+C...TRANSFER ADAPTATION DATA TO CHARACTER LINE
+C...WRITE CHARACTER LINE TO BLOCK-3 PART OF PRODUCT BUFFER
+C...SET BLOCK LENGTHS IN PRODUCT BUFFER
+C
+C----------------------------------
+C
+C...'X' IN COLUMN-1 INDICATES CONDITIONALLY COMPILED DEBUG CODE...
+C
+      IMPLICIT NONE
+C
+$INCLUDE A313HBUF.INC/G,**A313HYPP (NEND NLIST)
+C
+$INCLUDE A3146.INC/G,   **A3146P1  (NEND NLIST)
+$INCLUDE                **A3146C2  (NEND NLIST)
+$INCLUDE                **A3146PS  (NEND NLIST)
+$INCLUDE                **A314C3   (NEND NLIST)
+C
+$INCLUDE A309.INC/G,    **A3PM00   (NEND NLIST)
+$INCLUDE                **A3PM01   (NEND NLIST)
+$INCLUDE                **A3PM06   (NEND NLIST)
+$INCLUDE                **A3CD05   (NEND NLIST)
+C
+$INCLUDE A313H.INC,     **A3136P5 (NLIST)
+$INCLUDE                **A3136C5 (NEND NLIST)
+C
+      INTEGER*2 PRODBUF(*)
+      INTEGER   PRODCODE, VSNUM, ERRCODE, HYDRSUPL(HYZ_SUPL)
+      REAL      HYDRADAP(HYZ_ADAP)
+C
+      INTEGER      DIVIDER,CLEAR,NI2,LN_SUM,
+     &             LN,PG,CHAR,NUM_PGS
+      PARAMETER  ( DIVIDER=-1,CLEAR=0,NI2=2)
+C
+      REAL         B3BIAS(NBIAS_FLDS)
+      INTEGER     IB3BIAS(NBIAS_FLDS)
+      EQUIVALENCE (B3BIAS,IB3BIAS)
+C
+      INTEGER      BLK3LEN, SB_VALUE
+C
+      INTEGER      B3IDX,B3STIDX,B3ENIDX,TIM_ST,TIM_EN,
+     &             B3HDROFF,
+     &             OB3LMSW,OB3LLSW, DUMMY_LENGTH,
+     &             B3_NPGOFF, ENDPG_FLAG,FSTPG
+      PARAMETER   (OB3LMSW=2,OB3LLSW=3,
+     &             ENDPG_FLAG=-1,FSTPG=1,
+     &             DUMMY_LENGTH=10, TIM_ST=60, TIM_EN=73)
+C
+      CHARACTER*4 BIAS_APPLIED, CNO, CYES
+      PARAMETER (CNO = ' NO ', CYES = ' YES')
+C
+      INTEGER*2 CHAR_EQUIV(40), BLANK_I2
+      PARAMETER (BLANK_I2=X'2020')
+      CHARACTER*80 TITLE_1HR,TITLE_STT,TITLE_GEN
+      CHARACTER*14 CHAR_DATE_TIME
+      EQUIVALENCE (CHAR_EQUIV,TITLE_GEN)
+      DATA TITLE_1HR /'        1-HOUR PRECIPITATION ACCUMULATION'/
+      DATA TITLE_STT /'     STORM TOTAL PRECIPITATION ACCUMULATION'/
+C
+C-----------------
+C     EXECUTABLE
+C-----------------
+C
+C SET UP TITLE
+C
+      IF (PRODCODE.EQ.CODE_STT) THEN
+C
+C** STORM TOTAL PRODUCT: Set title index and compute Mean Bias and
+C** related fields (i.e., Gage-Radar Pair Size & Memory Span)
+C
+        TITLE_GEN = TITLE_STT
+        B3BIAS(BIAS_VAL) = ST_SUM_BIAS/NUM_ST_SCANS
+        B3BIAS(GRP_SIZ)  = ST_SUM_GRPSIZ/NUM_ST_SCANS
+        B3BIAS(MEM_SPAN) = ST_SUM_MSPAN/NUM_ST_SCANS
+C
+C** If BIAS_TOGGLE is true, then the product is adjusted.
+C
+        IF(BIAS_TOGGLE)THEN
+           BIAS_APPLIED = CYES
+        ELSE
+           BIAS_APPLIED = CNO
+        ENDIF
+C
+C** SET SPOT BLANK STATUS
+C
+        SB_VALUE = STMTOT_SB
+C
+      ELSE
+C
+C** ONE-HOUR ACCUM. PRODUCT: Set title index and retrieve current Bias
+C** and related fields (i.e., Gage-Radar Pair Size & Memory Span)
+C
+        TITLE_GEN = TITLE_1HR
+        IB3BIAS(BIAS_VAL) = HYDRSUPL(CUR_BIAS)
+        IB3BIAS(GRP_SIZ)  = HYDRSUPL(CUR_GRPSIZ)
+        IB3BIAS(MEM_SPAN) = HYDRSUPL(CUR_MSPAN)
+C
+C** If BIAS_TOGGLE is true, then the product is adjusted.
+C
+        IF(BIAS_TOGGLE)THEN
+           BIAS_APPLIED = CYES
+        ELSE
+           BIAS_APPLIED = CNO
+        ENDIF
+C
+C** SET SPOT BLANK STATUS
+C
+        SB_VALUE = HYDRSUPL(FLG_SPOT_BLANK)
+C
+      END IF
+C
+C GET DATE AND TIME IN A CHARACTER FORMAT
+C
+      CALL A3146T__CNVTIME(SUMMARY(SCAN_TIME,VSNUM),
+     $   SUMMARY(SCAN_DATE,VSNUM),CHAR_DATE_TIME)
+      TITLE_GEN(TIM_ST:TIM_EN) = CHAR_DATE_TIME
+C
+C ADD BLOCK 3 HEADER INFORMATION
+C
+      CALL A3146G__BLOCK3_HEADER (PRODBUF,B3HDROFF,B3STIDX,PRODCODE,
+     $                            VSNUM,SB_VALUE)
+C
+C  UP TO THIS POINT ALL PRODUCTS ARE THE SAME
+C
+C  CHECK IF STARTING INDEX FOR THIS BLOCK IS RIGHT AFTER THE
+C  PRODUCT HEADER ENDS, THEN THERE IS NO R.L.E DATA IN THE
+C  PRODUCT BUFFER, SO THERE MUST BE AN ERROR SOMEWHERE... IN
+C  SUCH CASES, THE ONLY CHARACTER INFO STORED IN BLOCK3 IS
+C  AN ERROR MESSAGE, AND NOT THE FULL ADAPTATION DATA TABLE.
+C
+      IF (ERRCODE.EQ.CLEAR) THEN
+C
+C Write to first page (i.e., Bias-related Supplemental data)
+C of character line table
+C
+         DO 20 L = IBEG, NBIAS_FLDS
+            WRITE(BLK3_CHARLN(L)(C4:C7),1000) B3BIAS(L)
+   20    CONTINUE
+ 1000    FORMAT (F8.3)
+C
+C WRITE BIAS ADJUSTMENT APPLIED TO THE CHARACTER LINES
+C
+         WRITE(BLK3_CHARLN(PG1)(C4:C7),1500) BIAS_APPLIED
+1500     FORMAT(A4)
+C
+C  WRITE ADAPTATION DATA TO THE CHARACTER LINES
+C
+         DO 40 L=IBEG,HYZ_ADAP
+            WRITE(BLK3_CHARLN(PG1+L)(C3:C5),2000) HYDRADAP(L)
+   40    CONTINUE
+ 2000    FORMAT (F8.2)
+C
+C WRITE BIAS SOURCE ID TO THE CHARACTER LINES
+C
+         WRITE(BLK3_CHARLN(PG1+HYZ_ADAP+1)(C4:C7),2500) SOURCE_ID
+2500     FORMAT(A4)
+
+         NUM_PGS = NPAGES
+C
+      ELSE
+C
+C    THERE IS A PROBLEM WITH THE R.L.E. DATA FOR THIS PRODUCTS,
+C    AND IT IS NOT IN THE PRODUCT BUFFER. IN THIS CASE, BLOCK3
+C    CONTAINS ONLY AN ERROR MESSAGE, AND NOT THE ADAPTATION DATA.
+C
+         CHARLN_ERRS(2) = CHARLN_REASONS(ERRCODE)
+         ERRCODE=CLEAR
+         NUM_PGS = NPG_ERRS
+      ENDIF
+C
+C COMPUTE BUFFER INDEX FOR NUMBER OF PAGES
+C
+      B3_NPGOFF = B3HDROFF + DIV2OFF + INCRMENT
+C
+C  SET SECOND DIVIDER AND NUMBER OF PAGES
+C
+      PRODBUF(B3_NPGOFF-INCRMENT) = DIVIDER
+      PRODBUF(B3_NPGOFF)  = NUM_PGS
+C
+C SET NUMBER OF CHARACTERS PER LINE IN BUFFER
+C
+      B3IDX=B3_NPGOFF+INCRMENT
+      PRODBUF(B3IDX) = NCHAR_LN
+C
+C TRANSFER PRODUCT TITLE TEXT TO FIRST PAGE IN BUFFER
+C
+      DO 46 CHAR=IBEG,NI2CHAR_LN
+        PRODBUF(B3IDX+CHAR)=CHAR_EQUIV(CHAR)
+ 46   CONTINUE
+      B3IDX = B3IDX + NI2CHAR_LN
+C
+C  INSERT 2 BLANK LINES
+C
+      DO 47 LN=IBEG,NI2
+        B3IDX=B3IDX+INCRMENT
+        PRODBUF(B3IDX) = NCHAR_LN
+        DO 48 CHAR=IBEG,NI2CHAR_LN
+          PRODBUF(B3IDX+CHAR)=BLANK_I2
+ 48     CONTINUE
+        B3IDX = B3IDX + NI2CHAR_LN
+ 47   CONTINUE
+C
+      LN_SUM = CLEAR
+C
+C  IF NUMBER OF PAGES IS FOR A PRODUCT
+C
+      IF(NUM_PGS .EQ. NPAGES)THEN
+C
+C  DO FOR ALL PAGES
+C
+        DO 50  PG=FSTPG,NUM_PGS
+         B3IDX = B3IDX + INCRMENT
+C
+C  DO FOR ALL LINES IN THIS PAGE
+C
+         DO 52 LN=IBEG,NLINES_PG(PG)
+            LN_SUM = LN_SUM + INCRMENT
+            PRODBUF(B3IDX) = NCHAR_LN
+            TEMP_CHARLN = BLK3_CHARLN(LN_SUM)
+C
+C  TRANSFER CHARACTER DATA TO PRODUCT BUFFER USING EQUIVALENCED ARRAY
+C
+            DO 51 CHAR=IBEG,NI2CHAR_LN
+                  PRODBUF(B3IDX+CHAR)=INTLINE(CHAR)
+  51        CONTINUE
+            B3IDX = B3IDX + NI2CHAR_LN + 1
+  52     CONTINUE
+         PRODBUF(B3IDX)= ENDPG_FLAG
+  50    CONTINUE
+C
+C  ONLY ONE PAGE FOR AN ERROR MESSAGE
+C  WITH 2 LINES.
+C
+      ELSE
+         B3IDX = B3IDX + INCRMENT
+C
+C  DO FOR ALL LINES IN THIS PAGE
+C
+         DO 62 LN=IBEG,NLN_ERRS
+            LN_SUM = LN_SUM + INCRMENT
+            PRODBUF(B3IDX) = NCHAR_LN
+            TEMP_CHARLN = CHARLN_ERRS(LN_SUM)
+C
+C  TRANSFER CHARACTER DATA TO PRODUCT BUFFER USING EQUIVALENCED ARRAY
+C
+            DO 61 CHAR=IBEG,NI2CHAR_LN
+                  PRODBUF(B3IDX+CHAR)=INTLINE(CHAR)
+  61        CONTINUE
+            B3IDX = B3IDX + NI2CHAR_LN + 1
+  62     CONTINUE
+         PRODBUF(B3IDX)= ENDPG_FLAG
+      ENDIF
+C
+C CALC LENGTH OF BLOCK 3
+C
+      B3ENIDX = B3IDX
+      BLK3LEN = (B3IDX-B3STIDX+INCRMENT)*NI2
+      call RPG_set_product_int( PRODBUF(B3STIDX+OB3LMSW), BLK3LEN )
+C
+      BLK3LEN = BLK3LEN - ((OB3LLSW + INCRMENT) * NI2)
+      call RPG_set_product_int( PRODBUF(B3HDROFF+LGMSWOFF), BLK3LEN )
+C
+      RETURN
+      END

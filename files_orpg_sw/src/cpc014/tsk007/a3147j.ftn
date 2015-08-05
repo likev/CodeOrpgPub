@@ -1,0 +1,160 @@
+C 
+C RCS info 
+C $Author: steves $ 
+C $Locker:  $ 
+C $Date: 2004/01/21 17:52:03 $ 
+C $Id: a3147j.ftn,v 1.4 2004/01/21 17:52:03 steves Exp $ 
+C $Revision: 1.4 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A3147J__USP_GRAPHIC(USPBUF)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3147J__USP_GRAPHIC
+*.
+*.  MODULE VERSION: 0003
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       10 19 95      0000      CHERYL STEPHENSON    CCR NA94-08462
+*.       12/23/96      0001      Toolset              CCR NA95-11807
+*.       07/20/98      0002      CHERYL STEPHENSON    CCR NA97-33901
+*.       03/16/99      0003      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:
+*.    CALL A3147J__USP_GRAPHIC(USPBUF)
+*.
+*.  MODULE FUNCTION:
+*.     BUILD THE USP GRAPHIC ATTRIBUTE BLOCK
+*.
+*.
+*.  MODULES CALLED: A3147K__USP_PAGES 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT   TYPE        DESCRIPTION
+*.    -   -----   ----        -----------
+*.    C   GPHLNG  I*4         Length of graphic attribute block in halfwords
+*.    C   NDX     I*4         Working subscript for moving data into output
+*.                            buffer
+*.    C   PGNO    I*2         Page Number of graphic attribute table
+*.    C   SVGIDX  I*4         Saved value of index to graphics block
+*.    C   DIVIDER I*2         (CONSTANT)Value used to delineate blocks in
+*.                            product output buffer (-1)
+*.    C   GPOFF   I*4         (CONSTANT)Offset to beginning of first graphic
+*.                            attribute page
+*.    P   USPBUF  I*2         USP product buffer
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    C   GPHLNG  I*4         Length of graphic attribute block in halfwords
+*.    C   GPHOFF  I*4         Offset to beginning of graphics block
+*.    C   IPIX    I*2         I pixel location for graphic packet (row)
+*.    C   JPIX    I*2         J pixel location for graphic packet (column)
+*.    C   NDX     I*4         Working subscript for moving data into output
+*.                            buffer
+*.    C   PNDX    I*4         Pointer into output buffer
+*.    C   SVGIDX  I*4         Saved value of index to graphics block
+*.    P   USPBUF  I*2         USP product buffer
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    P   USPBUF            I*2         USP product buffer
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME    TYPE        DESCRIPTION
+*.    ----    ----        -----------
+*.    GBLKID  I*2         (CONSTANT)Graphics Block ID (2)
+*.    GLNGTHX I*4         Length of block in bytes
+*.    NPGS    I*2         Total number of pages in graphic attribute table
+*.    ODX     I*4         Value of index for storing data
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3147C3
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK14.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+      IMPLICIT NONE
+C
+C   LOCAL COMMON
+$INCLUDE A3147.INC/G,**A3147P2 (NLIST)
+$INCLUDE             **A3147C3 (NLIST)
+$INCLUDE             **A3147C6 (NLIST)
+C
+C   LOCAL DEFINITIONS:
+      INTEGER*2  USPBUF(*)
+      INTEGER*2  NPGS
+C
+      INTEGER*4  I,ODX,GLNGTHX
+C
+C*************** E X E C U T A B L E ******************************
+C
+C   INITIALIZE
+C
+      SVGIDX = NDX
+      PNDX = NDX + GPOFF
+      GPHOFF = NDX -1
+C
+C   SET IPIX,JPIX
+C
+      IPIX = 0
+      JPIX = 1
+C
+C   BUILD USP PACKETS
+C
+      CALL A3147K__USP_PAGES(USPBUF)
+C
+C   DETERMINE TOTAL NO OF PAGES
+C
+      NPGS = PGNO
+      GPHLNG = GPHLNG + GPOFF
+      GLNGTHX = GPHLNG * 2
+C
+C   SET BLOCK DIVIDER, BLOCK ID
+C
+      ODX = SVGIDX
+      USPBUF(ODX) = DIVIDER
+      ODX = ODX + 1
+      USPBUF(ODX) = GBLKID
+      ODX = ODX + 1
+C
+C   SET OUTPUT BUFFER LENGTHS
+C
+      call RPG_set_product_int( USPBUF(ODX), GLNGTHX )
+      ODX = ODX + 2
+      USPBUF(ODX) = NPGS
+C
+C  ADJUST NDX TO POINT TO LAST HALFWORD
+C
+      NDX = NDX - 1
+C
+      RETURN
+      END

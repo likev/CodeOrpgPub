@@ -1,0 +1,76 @@
+
+NAME
+    lb_create - Creates an LB with specified attributes
+
+SYNOPSIS
+    lb_create [-snmrtubh] [LB_type ...] LB_name
+
+DESCRIPTION
+
+    lb_create creates an LB named "LB_name". If the named file or LB file
+    exists, lb_create will remove the file or LB before creating "LB_name". The
+    LB attributes can be specified with options: -s, -n, -m, -r, -t, -u and
+    "LB_type". The following LB types can be specified: LB_FILE, LB_MEMORY,
+    LB_NORMAL, LB_MUST_READ, LB_SINGLE_WRITER, LB_NOEXPIRE, LB_UNPROTECTED,
+    LB_DB. See lb.3 for more details. The default types are LB_FILE and
+    LB_NORMAL.
+
+    LB creation is not atomic. The result of simultaneously creating the same
+    LB from different applications is undefined.
+
+OPTIONS
+    -s	average_message_size
+	Specifies the average message size. The default is 0 which indicates
+	arbitrary message size.
+
+    -n	max_n_msgs
+	Specifies the maximum number of messages can be stored in the LB. The
+	default is 100 for sequential LB and 10 for database LB.
+
+    -m	access_mode
+	Specifies the LB access permission. The default is 0666. See man-page
+	of system function "open" for more about access permission.
+
+    -r	remark
+	Specifies the remark field in the LB. The default is an empty string.
+
+    -t	tag_size
+	Specifies the LB tag field size. The value must be in the range of 
+	[0, 32]. The default is 0 (No tag field is supported).
+
+    -u	notification_request_area_size
+	Specifies the LB update notification request area size in number of
+	requests. The default is 32 for sequential LB and 4 * max_n_msgs for 
+	database LB.
+
+    -b	Performs byte order swap in the control area of "LB_name". When an LB
+	is copied over from a host with different byte order, we can run
+	"lb_create -b LB_name" to convert the LB so it can be accessed.
+
+    -h	Prints usage information and terminates.
+
+
+EXAMPLES
+    Example 1: lb_create t.lb
+	Creates LB "t.lb" with default attributes in the current directory.
+
+    Example 2: lb_create LB_DB LB_FILE t.lb
+	Creates a database file LB "t.lb".
+
+    Example 3: lb_create -s 128 -n 14 -r "this is my remark" -t 12 /tmp/t.lb.
+	Creates LB "/tmp/t.lb" that is for up to 14 messages of size 128 bytes.
+	The tag size is 12 bits and string "this is my remark" is assigned to 
+	the remark field.
+
+    Example 4: lb_create LB_DB LB_FILE apple:/tmp/t.lb
+	Creates the same LB as in Example 2 on host "apple" in /tmp directory.
+	In order for this to work, rssd must be running on host "apple".
+   
+EXIT STATUS
+    0:		Terminated normally. 
+
+    non-zero:	Terminated because an error was detected.
+
+SEE ALSO
+    lb_info(1), lb_cat(1), lb_rm(1), lb_nt(1), lb_rep(1), lb(3), open(2)
+

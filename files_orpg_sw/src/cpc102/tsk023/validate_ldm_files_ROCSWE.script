@@ -1,0 +1,617 @@
+#!/bin/sh
+
+# RCS info
+# $Author: ccalvert $
+# $Locker:  $
+# $Date: 2012/05/25 15:18:09 $
+# $Id: validate_ldm_files_ROCSWE.script,v 1.1 2012/05/25 15:18:09 ccalvert Exp $
+# $Revision: 1.1 $
+# $State: Exp $
+
+# Description: Validate Level-II files (from RPG, not NCDC) in the
+#              pre-formatted ROC SWE directory structure where Level-II
+#              data is automatically saved. Output is a record of the
+#              relevant info contained within the Level-II file.
+
+DEFAULT_SEARCH_DIRECTORY=/import/level_2/levelII-spool
+SEARCH_ALL_FLAG=NO
+SEARCH_YEAR=`date +%Y`
+SEARCH_MONTH=`date +%m`
+SEARCH_DAY=`date +%d`
+RANGE_START_HOUR=00
+RANGE_STOP_HOUR=23
+RANGE_START_MINUTE=00
+RANGE_STOP_MINUTE=59
+VALIDATE_CMD=validate_ldm_file
+EASTERN_REGION_TAG=Eastern
+CENTRAL_REGION_TAG=Central
+SOUTHERN_REGION_TAG=Southern
+WESTERN_REGION_TAG=Western
+ROC_REGION_TAG=ROC
+OUTPUT_DIRECTORY=`pwd`
+DEBUG_MODE=NO
+ERROR_FLAG=1
+NO_ERROR_FLAG=0
+
+#####################################################################
+# ECHO_OUT: Echo message with timestamp.
+#####################################################################
+
+echo_out ()
+{
+  echo "$1"
+}
+
+#####################################################################
+# ECHO_ERROR: Echo error message and exit.
+#####################################################################
+
+echo_error ()
+{
+  if [ $# -eq 1 ]
+  then
+    exit_code=1
+  else
+    exit_code=$2
+  fi
+  echo -e "ERROR: $1" >&2
+  exit $exit_code
+}
+
+#####################################################################
+# ECHO_DEBUG: Echo message if debug flag is YES.
+#####################################################################
+
+echo_debug ()
+{
+  if [ $DEBUG_MODE = YES ]
+  then
+    echo_out "DEBUG: $1"
+  fi
+}
+
+#####################################################################
+# PRINT_USAGE: Display usage of this script
+#####################################################################
+
+print_usage ()
+{
+  echo_out
+  echo_out "Usage: `basename $0`"
+  echo_out "  -h       Print help"
+  echo_out "  -i ICAO: ICAO to search for (can be used multiple times)"
+  echo_out "  -E       Search NWS Eastern Region ICAOs"
+  echo_out "  -C       Search NWS Central Region ICAOs"
+  echo_out "  -S       Search NWS Southern Region ICAOs"
+  echo_out "  -W       Search NWS Western Region ICAOs"
+  echo_out "  -R       Search ROC ICAOs"
+  echo_out "  -I       Search for all ICAOs"
+  echo_out ""
+  echo_out "  -y yyyy: 4-digit search year (default: $SEARCH_YEAR)"
+  echo_out "  -m mm:   2-digit search month (01-12) (default: $SEARCH_MONTH)"
+  echo_out "  -a dd:   2-digit search day (01-31) (default: $SEARCH_DAY)"
+  echo_out "  -b HH:   2-digit range start hour (00-23) (default: $RANGE_START_HOUR)"
+  echo_out "  -B MM:   2-digit range stop hour (00-23) (default: $RANGE_STOP_HOUR)"
+  echo_out "  -f HH:   2-digit range start minute (00-59) (default: $RANGE_START_MINUTE)"
+  echo_out "  -F MM:   2-digit range stop minute (00-59) (default: $RANGE_STOP_MINUTE)"
+  echo_out "  -o dir:  Output directory (default: $OUTPUT_DIRECTORY)"
+  echo_out ""
+  echo_out "  -p       Print ICAO info"
+  echo_out "  -x       Debug mode (default: $DEBUG_MODE)"
+  echo_out
+}
+
+#####################################################################
+# PARSE_CMDLINE: Parse the command line arguments.
+#####################################################################
+
+parse_cmdline ()
+{
+  while getopts hi:ECSWRIy:m:a:b:B:f:F:o:px option
+  do
+    case $option in
+       h) print_usage; exit 0 ;;
+       i) add_ICAO $OPTARG ;;
+       E) add_region $EASTERN_REGION_TAG ;;
+       C) add_region $CENTRAL_REGION_TAG ;;
+       S) add_region $SOUTHERN_REGION_TAG ;;
+       W) add_region $WESTERN_REGION_TAG ;;
+       R) add_region $ROC_REGION_TAG ;;
+       I) SEARCH_ALL_FLAG=YES ;;
+       y) SEARCH_YEAR=$OPTARG ;;
+       m) SEARCH_MONTH=$OPTARG ;;
+       a) SEARCH_DAY=$OPTARG ;;
+       b) RANGE_START_HOUR=$OPTARG ;;
+       B) RANGE_STOP_HOUR=$OPTARG ;;
+       f) RANGE_START_MINUTE=$OPTARG ;;
+       F) RANGE_STOP_MINUTE=$OPTARG ;;
+       o) OUTPUT_DIRECTORY=$OPTARG ;;
+       p) print_ICAO_info; exit 0 ;;
+       x) DEBUG_MODE=YES ;;
+      \?) print_usage; exit 1 ;;
+    esac
+  done
+
+  # Make sure year/month/day/times are valid
+  if ! echo $SEARCH_YEAR | egrep -q '^[0-9][0-9][0-9][0-9]$'
+  then
+    echo_error "-y option ($SEARCH_YEAR) is invalid format"
+  fi
+  if ! echo $SEARCH_MONTH | egrep -q '^0[1-9]$|^1[0-2]$'
+  then
+    echo_error "-m option ($SEARCH_MONTH) is invalid format"
+  fi
+  if ! echo $SEARCH_DAY | egrep -q '^0[1-9]$|^[1-2][0-9]$|^3[0-1]$'
+  then
+    echo_error "-d option ($SEARCH_DAY) is invalid format"
+  fi
+  if ! echo $RANGE_START_HOUR | egrep -q '^[0-1][0-9]$|^2[0-3]$'
+  then
+    echo_error "-b option ($RANGE_START_HOUR) is invalid format"
+  fi
+  if ! echo $RANGE_STOP_HOUR | egrep -q '^[0-1][0-9]$|^2[0-3]$'
+  then
+    echo_error "-B option ($RANGE_STOP_HOUR) is invalid format"
+  fi
+  if ! echo $RANGE_START_MINUTE | egrep -q '^[0-5][0-9]$'
+  then
+    echo_error "-f option ($RANGE_START_MINUTE) is invalid format"
+  fi
+  if ! echo $RANGE_STOP_MINUTE | egrep -q '^[0-5][0-9]$'
+  then
+    echo_error "-F option ($RANGE_STOP_MINUTE) is invalid format"
+  fi
+
+  # Validate output directory
+  if [ ! -d $OUTPUT_DIRECTORY ]
+  then
+    echo_error "Directory: $OUTPUT_DIRECTORY does not exist"
+  fi
+
+  # Make sure validate command exists or is in path
+  if echo $VALIDATE_CMD | egrep -q '^[\./]'
+  then
+    if [ ! -f $VALIDATE_CMD ]
+    then
+      echo_error "Command: $VALIDATE_CMD not found"
+    elif [ ! -x $VALIDATE_CMD ]
+    then
+      echo_error "Command: $VALIDATE_CMD not executable"
+    fi
+  else
+    if ! which $VALIDATE_CMD > /dev/null 2>&1
+    then
+      echo_error "Command: $VALIDATE_CMD not in path"
+    fi
+  fi
+
+  echo_debug "SEARCH DIR:       $DEFAULT_SEARCH_DIRECTORY"
+  echo_debug "SEARCH ICAOS:     $SEARCH_ICAO_LIST"
+  echo_debug "SEARCH REGION:    $SEARCH_REGION_LIST"
+  echo_debug "SEARCH ALL:       $SEARCH_ALL_FLAG"
+  echo_debug "SEARCH YEAR:      $SEARCH_YEAR"
+  echo_debug "SEARCH MONTH:     $SEARCH_MONTH"
+  echo_debug "SEARCH DAY:       $SEARCH_DAY"
+  echo_debug "START HOUR:       $RANGE_START_HOUR"
+  echo_debug "START MINUTE:     $RANGE_START_MINUTE"
+  echo_debug "STOP HOUR:        $RANGE_STOP_HOUR"
+  echo_debug "STOP MINUTE:      $RANGE_STOP_MINUTE"
+  echo_debug "OUTPUT DIRECTORY: $OUTPUT_DIRECTORY"
+  echo_debug "VALIDATE COMMAND: $VALIDATE_CMD"
+}
+
+#####################################################################
+# ADD_ICAO: Add ICAO from command line option.
+#####################################################################
+
+add_ICAO ()
+{
+  icao_to_add=`echo $1 | tr '[a-z]' '[A-Z]'`
+  if ! print_ICAO_info | egrep -q "^$icao_to_add"
+  then
+    echo_error "ICAO: $icao_to_add not valid"
+  else
+    if [ -z "$SEARCH_ICAO_LIST" ]
+    then
+      SEARCH_ICAO_LIST=$icao_to_add
+    else
+      if ! echo $SEARCH_ICAO_LIST | egrep -q "$icao_to_add"
+      then
+        SEARCH_ICAO_LIST="$SEARCH_ICAO_LIST $icao_to_add"
+      fi
+    fi
+  fi
+}
+
+#####################################################################
+# ADD_REGION: Add region from command line option.
+#####################################################################
+
+add_region ()
+{
+  if [ -z "$SEARCH_REGION_LIST" ]
+  then
+    SEARCH_REGION_LIST=$1
+  else
+    if ! echo $SEARCH_REGION_LIST | egrep -q "$1"
+    then
+      SEARCH_REGION_LIST="$SEARCH_REGION_LIST $1"
+    fi
+  fi
+}
+
+#####################################################################
+# INITIALIZE_VARIABLES: Initialize and validate variables.
+#####################################################################
+
+initialize_variables ()
+{
+  # Set search range epochs
+  RANGE_START_TIME_STRING=`date -u --date="${SEARCH_YEAR}${SEARCH_MONTH}${SEARCH_DAY} ${RANGE_START_HOUR}:${RANGE_START_MINUTE}:00"`
+  RANGE_START_EPOCH=`date -u --date="$RANGE_START_TIME_STRING" +%s`
+  echo_debug "Range start time: $RANGE_START_TIME_STRING (epoch: $RANGE_START_EPOCH)"
+  RANGE_STOP_TIME_STRING=`date -u --date="${SEARCH_YEAR}${SEARCH_MONTH}${SEARCH_DAY} ${RANGE_STOP_HOUR}:${RANGE_STOP_MINUTE}:00"`
+  RANGE_STOP_EPOCH=`date -u --date="$RANGE_STOP_TIME_STRING" +%s`
+  echo_debug "Range stop time: $RANGE_STOP_TIME_STRING (epoch: $RANGE_STOP_EPOCH)"
+
+  # Build ICAO list to search for
+  if [ $SEARCH_ALL_FLAG = YES ]
+  then
+    IFS=$'\n'
+    for input_line in `print_ICAO_info`
+    do
+       input_icao=`echo $input_line | awk -F, '{print $1}'`
+       if ! echo $SEARCH_ICAO_LIST | egrep -q "$input_icao"
+       then
+         SEARCH_ICAO_LIST="$SEARCH_ICAO_LIST $input_icao"
+       fi
+    done
+    unset IFS
+  elif [ ! -z $SEARCH_REGION_LIST ]
+  then
+    for region in $SEARCH_REGION_LIST
+    do
+      echo_debug "Region to search: $region"
+      IFS=$'\n'
+      for input_line in `print_ICAO_info`
+      do
+         input_icao=`echo $input_line | awk -F, '{print $1}'`
+         input_region=`echo $input_line | awk -F, '{print $2}'`
+         if [ $region = "$input_region" ]
+         then
+           if ! echo $SEARCH_ICAO_LIST | egrep -q "$input_icao"
+           then
+             SEARCH_ICAO_LIST="$SEARCH_ICAO_LIST $input_icao"
+           fi
+         fi
+      done
+      unset IFS
+    done
+  fi
+  echo_debug "Search list: $SEARCH_ICAO_LIST"
+  if [ -z "$SEARCH_ICAO_LIST" ]
+  then
+    echo_error "No ICAOs listed to search for"
+  fi
+
+  # Set appropriate date command depending on local server's time zone.
+  if date +%Z | egrep 'GMT|UTC' > /dev/null
+  then
+    DATE_CMD="date"
+  else
+    DATE_CMD="date -u"
+  fi
+  echo_debug "Date command:                $DATE_CMD"
+}
+
+#####################################################################
+# FIND_AND_VALIDATE_FILES: Find level-II files and validate them.
+#####################################################################
+
+find_and_validate_files ()
+{
+  local local_search_dir=$1
+  echo_debug "Search directory: $local_search_dir"
+  if [ ! -d $local_search_dir ]
+  then
+    echo_debug "Directory: $local_search_dir not found"
+    return
+  fi
+
+  for base_name in `ls $local_search_dir`
+  do
+    if [ -d $local_search_dir/$base_name ]
+    then
+      echo_debug "Directory: $local_search_dir/$base_name"
+      find_and_validate_files $local_search_dir/$base_name
+    elif [ -f $local_search_dir/$base_name ]
+    then
+      if echo $base_name | egrep -q '[A-Z]{3}[A-Z0-9][0-9]{14}V0[0-9]\.raw'
+      then
+        echo_debug "Level-II file: $local_search_dir/$base_name"
+        file_stat_size=`stat --printf=%s $local_search_dir/$base_name`
+        echo_debug "File size: $file_stat_size"
+        file_name_ICAO=`echo $base_name | awk '{print substr($1,1,4);}'`
+        echo_debug "File name ICAO: $file_name_ICAO"
+        if [ $file_name_ICAO != $SEARCH_ICAO ]
+        then
+          echo_debug "ICAO mismatch: ($file_name_ICAO != $SEARCH_ICAO) ignore file"
+          continue
+        fi
+        # Time in file name is UTC
+        file_name_time_string=`echo $base_name | awk '{print substr($1,5,8)" "substr($1,13,2)":"substr($1,15,2)":"substr($1,17,2);}'`
+        file_name_time=`date -u --date="$file_name_time_string" +%s`
+        echo_debug "File name time string: $file_name_time_string (epoch: $file_name_time)"
+        if [ $file_name_time -ge $RANGE_START_EPOCH -a $file_name_time -le $RANGE_STOP_EPOCH ]
+        then
+          echo_debug "File name time: $file_name_time_string between $RANGE_START_TIME_STRING $RANGE_STOP_TIME_STRING"
+          file_stat_start_time=`$DATE_CMD -d@\`stat --printf="%X" $local_search_dir/$base_name\` +%s`
+          file_stat_stop_time=`$DATE_CMD -d@\`stat --printf="%Y" $local_search_dir/$base_name\` +%s`
+          echo_debug "File stat start time: $file_stat_start_time stop time: $file_stat_stop_time"
+          file_start_latency=`expr $file_stat_start_time - $file_name_time`
+          file_stop_latency=`expr $file_stat_stop_time - $file_name_time`
+          echo_debug "File start latency: $file_start_latency stop latency: $file_stop_latency"
+          ldm_version=`echo $base_name | awk '{print substr($1,19,3);}'`
+          validate_cmd_output=`cat $local_search_dir/$base_name | $VALIDATE_CMD 2>/dev/null`
+          if [ $? -eq 0 ]
+          then
+            # Non-spaced, csv output
+            printf "%s,%d,%d,%d,%d,%d,%s,%s,%s,%s,%s,%s\n" $base_name $file_name_time $file_stat_start_time $file_stat_stop_time $file_start_latency $file_stop_latency $ldm_version "$validate_cmd_output" "$NO_ERROR_FLAG" "$ICAO_REGION" "$ICAO_DESC" "$ICAO_STATE"
+            # Spaced, csv output
+            #printf "%25s,%10d,%10d,%10d,%4d,%4d,%3s,%s,%s,%8s,%s,%2s\n" $base_name $file_name_time $file_stat_start_time $file_stat_stop_time $file_start_latency $file_stop_latency $ldm_version "$validate_cmd_output" "$NO_ERROR_FLAG" "$ICAO_REGION" "$ICAO_DESC" "$ICAO_STATE"
+          else
+            # Non-spaced, csv output
+            printf "%s,%d,%d,%d,%d,%d,%s,%s,%s,%s,%s,%s\n" $base_name $file_name_time $file_stat_start_time $file_stat_stop_time $file_start_latency $file_stop_latency $ldm_version "$validate_cmd_output" "$ERROR_FLAG" "$ICAO_REGION" "$ICAO_DESC" "$ICAO_STATE"
+            # Spaced, csv output
+            #printf "%25s,%10d,%10d,%10d,%4d,%4d,%3s,%s,%s,%8s,%s,%2s\n" $base_name $file_name_time $file_stat_start_time $file_stat_stop_time $file_start_latency $file_stop_latency $ldm_version "$validate_cmd_output" "$ERROR_FLAG" "$ICAO_REGION" "$ICAO_DESC" "$ICAO_STATE"
+          fi
+        else
+          echo_debug "File name time: $file_name_time_string outside $RANGE_START_TIME_STRING $RANGE_STOP_TIME_STRING"
+        fi
+      else
+        echo_debug "File ignored: $local_search_dir/$base_name"
+      fi
+    else
+      echo_debug "Node ignored: $local_search_dir/$base_name"
+    fi
+  done
+}
+
+#####################################################################
+# PRINT_LDM_FILE_STATS_HEADER: Print header to LDM stats file.
+#####################################################################
+
+print_LDM_file_stats_header ()
+{
+  printf "%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n" "base_name" "name_time_epoch" "stat_start_epoch" "stat_stop_epoch" "beg_latency" "end_latency" "version" "ICAO" "first_radial_epoch" "last_radial_epoch" "VCP" "DP" "duration" "elevation" "Num_radials" "Compress_size_B" "Uncompress_size_B" "Compress_ratio" "total_size_B" "thruput_KB_s" "error" "NWS_region" "desc" "state"
+}
+
+#####################################################################
+# GET_LDM_FILE_STATS: Read LDM files and generate stats.
+#####################################################################
+
+get_LDM_file_stats ()
+{
+  # Loop through ICAOs to search for
+  for SEARCH_ICAO in $SEARCH_ICAO_LIST
+  do
+    echo_debug "Search ICAO: $SEARCH_ICAO YEAR: $SEARCH_YEAR/$SEARCH_MONTH/$SEARCH_DAY"
+    SEARCH_DIRECTORY=$DEFAULT_SEARCH_DIRECTORY/$SEARCH_ICAO/${SEARCH_ICAO}.${SEARCH_YEAR}.${SEARCH_MONTH}/${SEARCH_DAY}
+    echo_debug "Search directory: $SEARCH_DIRECTORY"
+    output_file=$OUTPUT_DIRECTORY/${SEARCH_ICAO}.${SEARCH_YEAR}.${SEARCH_MONTH}.${SEARCH_DAY}.csv
+    echo_debug "Output file: $output_file"
+    if [ $DEBUG_MODE = NO ]
+    then
+      if ! touch $output_file > /dev/null 2>&1
+      then
+        echo_out "Can't create file $output_file...skipping ICAO $SEARCH_ICAO"
+        continue
+      fi
+      print_LDM_file_stats_header > $output_file
+    fi
+    input_line=`print_ICAO_info | egrep "^$SEARCH_ICAO"`
+    echo_debug "Input line: $input_line"
+    ICAO_REGION=`echo $input_line | awk -F, '{print $2}'`
+    ICAO_DESC=`echo $input_line | awk -F, '{print $3}'`
+    ICAO_STATE=`echo $input_line | awk -F, '{print $4}'`
+    echo_debug "ICAO: $SEARCH_ICAO Region: $ICAO_REGION Desc: $ICAO_DESC State: $ICAO_STATE"
+    if [ $DEBUG_MODE = NO ]
+    then
+      find_and_validate_files $SEARCH_DIRECTORY >> $output_file
+    else
+      find_and_validate_files $SEARCH_DIRECTORY
+    fi
+  done
+}
+
+#####################################################################
+# PRINT_ICAO_INFO: Print ICAO information.
+#####################################################################
+
+print_ICAO_info ()
+{
+  # ER ICAOs
+  echo_out "KAKQ,Eastern,Wakefield,VA"
+  echo_out "KBGM,Eastern,Binghamton,NY"
+  echo_out "KBOX,Eastern,Boston,MA"
+  echo_out "KBUF,Eastern,Buffalo,NY"
+  echo_out "KCAE,Eastern,Columbia,SC"
+  echo_out "KCBW,Eastern,Caribou,ME"
+  echo_out "KCCX,Eastern,State College,PA"
+  echo_out "KCLE,Eastern,Cleveland,OH"
+  echo_out "KCLX,Eastern,Charleston,SC"
+  echo_out "KCXX,Eastern,Burlington,VT"
+  echo_out "KDIX,Eastern,Philadelphia/Mt Holly,PA"
+  echo_out "KDOX,Eastern,Dover AFB,DE"
+  echo_out "KENX,Eastern,Albany,NY"
+  echo_out "KFCX,Eastern,Blacksburg/Roanoke,VA"
+  echo_out "KGSP,Eastern,Greer,SC"
+  echo_out "KGYX,Eastern,Gray/Portland,ME"
+  echo_out "KILN,Eastern,Cincinnati/Wilmington,OH"
+  echo_out "KLTX,Eastern,Wilmington,NC"
+  echo_out "KLWX,Eastern,Sterling,VA"
+  echo_out "KMHX,Eastern,Moorehead City,NC"
+  echo_out "KOKX,Eastern,New York City,NY"
+  echo_out "KPBZ,Eastern,Pittsburgh,PA"
+  echo_out "KRAX,Eastern,Raleigh/Durham,NC"
+  echo_out "KRLX,Eastern,Charleston,WV"
+  echo_out "KTYX,Eastern,Ft Drum/Burlington,NY"
+  # CR ICAOs
+  echo_out "KABR,Central,Aberdeen,SD"
+  echo_out "KAPX,Central,Gaylord/Alpena,MI"
+  echo_out "KARX,Central,La Crosse,WI"
+  echo_out "KBIS,Central,Bismark,ND"
+  echo_out "KCYS,Central,Cheyenne,WY"
+  echo_out "KDDC,Central,Dodge City,KS"
+  echo_out "KDLH,Central,Duluth,MN"
+  echo_out "KDMX,Central,Des Moines,IA"
+  echo_out "KDTX,Central,Detroit/White Lake,MI"
+  echo_out "KDVN,Central,Davenport,IA"
+  echo_out "KEAX,Central,Kansas City/Pleasant Hill,MO"
+  echo_out "KFSD,Central,Sioux Falls,SD"
+  echo_out "KFTG,Central,Denver,CO"
+  echo_out "KGJX,Central,Grand Junction,CO"
+  echo_out "KGLD,Central,Goodland,KS"
+  echo_out "KGRB,Central,Green Bay,WI"
+  echo_out "KGRR,Central,Grand Rapids,MI"
+  echo_out "KHPX,Central,Ft Campbell,KY"
+  echo_out "KICT,Central,Wichita,KS"
+  echo_out "KILX,Central,Lincoln,IL"
+  echo_out "KIND,Central,Indianapolis,IN"
+  echo_out "KIWX,Central,Northern Indiana/North Webster,IN"
+  echo_out "KJKL,Central,Jackson,KY"
+  echo_out "KLNX,Central,North Platte,NE"
+  echo_out "KLOT,Central,Chicago,IL"
+  echo_out "KLSX,Central,St Louis,MO"
+  echo_out "KLVX,Central,Louisville,KY"
+  echo_out "KMBX,Central,Minot AFB,ND"
+  echo_out "KMKX,Central,Milwaukee,WI"
+  echo_out "KMPX,Central,Minneapolis,MN"
+  echo_out "KMQT,Central,Marquette,MI"
+  echo_out "KMVX,Central,Marquette,MI"
+  echo_out "KOAX,Central,Omaha,NE"
+  echo_out "KPAH,Central,Paducah,KY"
+  echo_out "KPUX,Central,Pueblo,CO"
+  echo_out "KRIW,Central,Riverton,WY"
+  echo_out "KSGF,Central,Springfield,MO"
+  echo_out "KTWX,Central,Topeka,KS"
+  echo_out "KUDX,Central,Rapid City,SD"
+  echo_out "KUEX,Central,Hastings,NE"
+  echo_out "KVWX,Central,Evansville,IN"
+  # SR ICAOs
+  echo_out "KABX,Southern,Albuquerque,NM"
+  echo_out "KAMA,Southern,Amarillo,TX"
+  echo_out "KAMX,Southern,Miami,FL"
+  echo_out "KBMX,Southern,Birmingham,AL"
+  echo_out "KBRO,Southern,Brownsville,TX"
+  echo_out "KBYX,Southern,Key West,FL"
+  echo_out "KCRP,Southern,Corpus Christi,TX"
+  echo_out "KDFX,Southern,Laughlin AFB,TX"
+  echo_out "KDGX,Southern,Jackson,MS"
+  echo_out "KDYX,Southern,Dyess AFB,TX"
+  echo_out "KEOX,Southern,Ft Rucker,AL"
+  echo_out "KEPZ,Southern,El Paso,TX"
+  echo_out "KEVX,Southern,Eglin AFB,FL"
+  echo_out "KEWX,Southern,Austin/San Antonio,TX"
+  echo_out "KFDR,Southern,Altus AFB,OK"
+  echo_out "KFDX,Southern,Canon AFB,NM"
+  echo_out "KFFC,Southern,Atlanta/Peachtree City,GA"
+  echo_out "KFWS,Southern,Dallas/Ft Worth,TX"
+  echo_out "KGRK,Southern,Ft Hood AFB,TX"
+  echo_out "KGWX,Southern,Columbus AFB,MS"
+  echo_out "KHDX,Southern,Holloman AFB,NM"
+  echo_out "KHGX,Southern,Houston/Galveston,TX"
+  echo_out "KHTX,Southern,Huntsville/Hytop,AL"
+  echo_out "KINX,Southern,Tulsa,OK"
+  echo_out "KJAX,Southern,Jacksonville,FL"
+  echo_out "KJGX,Southern,Robins AFB,GA"
+  echo_out "KLBB,Southern,Lubbock,TX"
+  echo_out "KLCH,Southern,Lake Charles,LA"
+  echo_out "KLIX,Southern,Slidell/New Orleans,LA"
+  echo_out "KLZK,Southern,Little Rock,AR"
+  echo_out "KMAF,Southern,Midland/Odessa,TX"
+  echo_out "KMLB,Southern,Melbourne,FL"
+  echo_out "KMOB,Southern,Mobile,AL"
+  echo_out "KMRX,Southern,Morristown/Knoxville/Tri-Cities,TN"
+  echo_out "KMXX,Southern,Maxwell AFB,AL"
+  echo_out "KNQA,Southern,Memphis,TN"
+  echo_out "KOHX,Southern,Nashville,TN"
+  echo_out "KPOE,Southern,Ft Polk,LA"
+  echo_out "KSHV,Southern,Shreveport,LA"
+  echo_out "KSJT,Southern,San Angelo,TX"
+  echo_out "KSRX,Southern,Fort Smith,AR"
+  echo_out "KTBW,Southern,Tampa Bay,FL"
+  echo_out "KTLH,Southern,Tallahassee,FL"
+  echo_out "KTLX,Southern,Oklahoma City/Twin Lakes,OK"
+  echo_out "KVAX,Southern,Moody AFB,GA"
+  echo_out "KVNX,Southern,Vance AFB,OK"
+  echo_out "TJUA,Southern,San Juan,PR"
+  # WR ICAOs
+  echo_out "KATX,Western,Seattle,WA"
+  echo_out "KBBX,Western,Beale AFB,CA"
+  echo_out "KBHX,Western,Eureka,CA"
+  echo_out "KBLX,Western,Billings,MT"
+  echo_out "KCBX,Western,Boise,ID"
+  echo_out "KDAX,Western,Sacremento,CA"
+  echo_out "KEMX,Western,Tuscon,AZ"
+  echo_out "KESX,Western,Las Vegas,NV"
+  echo_out "KEYX,Western,Edwards AFB,CA"
+  echo_out "KFSX,Western,Flagstaff,AZ"
+  echo_out "KGGW,Western,Glasgow,MT"
+  echo_out "KHNX,Western,San Joaquin/Hanford,CA"
+  echo_out "KICX,Western,Cedar City,UT"
+  echo_out "KIWA,Western,Phoenix,AZ"
+  echo_out "KLGX,Western,Langley Hill/Grays Harbor,WA"
+  echo_out "KLRX,Western,Elko,NV"
+  echo_out "KMAX,Western,Medford,OR"
+  echo_out "KMSX,Western,Missoula,MT"
+  echo_out "KMTX,Western,Salt Lake City,UT"
+  echo_out "KMUX,Western,San Francisco,CA"
+  echo_out "KNKX,Western,San Diego,CA"
+  echo_out "KOTX,Western,Spokane,WA"
+  echo_out "KPDT,Western,Pendleton,OR"
+  echo_out "KRGX,Western,Reno,NV"
+  echo_out "KRTX,Western,Portland,OR"
+  echo_out "KSFX,Western,Pocatello,ID"
+  echo_out "KSOX,Western,San Diego,CA"
+  echo_out "KTFX,Western,Great Falls,MT"
+  echo_out "KVBX,Western,Vandenberg AFB,CA"
+  echo_out "KVTX,Western,Los Angeles,CA"
+  echo_out "KYUX,Western,Yuma,AZ"
+  echo_out "PABC,Western,Bethel,AK"
+  echo_out "PAEC,Western,Nome,AK"
+  echo_out "PACG,Western,Juneau,AK"
+  echo_out "PAHG,Western,Anchorage,AK"
+  echo_out "PAIH,Western,Middleton Island,AK"
+  echo_out "PAKC,Western,King Salmon,AK"
+  echo_out "PAPD,Western,Fairbanks,AK"
+  echo_out "PHKI,Western,South Kauai,HI"
+  echo_out "PHKM,Western,Kamuela,HI"
+  echo_out "PHMO,Western,Molokai,HI"
+  echo_out "PHWA,Western,South Shore,HI"
+  # ROC ICAOs
+  echo_out "NOP3,ROC,NWS Single ROC,OK"
+  echo_out "NOP4,ROC,NWS Single ROC,OK"
+  echo_out "ROP3,ROC,NWS Red ROC,OK"
+  echo_out "ROP4,ROC,NWS Red ROC,OK"
+  echo_out "FOP1,ROC,FAA Red ROC,OK"
+  echo_out "DAN1,ROC,DoD Analog ROC,OK"
+  echo_out "DOP1,ROC,DoD FR ROC,OK"
+  echo_out "KOUN,ROC,NSSL ROC,OK"
+}
+
+####################################################################
+#
+# MAIN BODY OF SCRIPT
+#
+####################################################################
+
+# Read the command line options
+parse_cmdline $*
+
+# Initialize and validate variables
+initialize_variables
+
+# Validate level-II files
+get_LDM_file_stats
+

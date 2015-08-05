@@ -1,0 +1,280 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/16 19:40:46 $
+C $Id: a315j4.ftn,v 1.3 2002/12/16 19:40:46 christie Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A315J4__CLOSE_COMP( COMPFEAT )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A315J4__CLOSE_COMP
+*.
+*.  MODULE VERSION: 0016
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       08 16 85      0000      DENNIS MILLER        BUILD 2
+*.       05 07 86      0001      DENNIS MILLER        SPR # 304
+*.       07 10 86      0002      DENNIS MILLER        SPR # 60313
+*.       07 10 86      0002      DENNIS MILLER        SPR # 60367
+*.       04 10 89      0003      DAVID M. LYNCH       SPR # 90082
+*.       03 22 90      0004      PAUL U. PISANI       SPR # 90697
+*.       02 22 91      0005      DENNIS MILLER        SPR # 91256
+*.       02 15 91      0005      JOHN DEPHILIP        SPR # 91762
+*.       11 19 91      0006      PJ YELSHIN           SPR # 92505
+*.       12 03 91      0007      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0008      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0009      Toolset              SPR 91895
+*.       03/25/93      0010      Toolset              SPR NA93-06801
+*.       01/28/94      0011      Toolset              SPR NA94-01101
+*.       03/03/94      0012      Toolset              SPR NA94-05501
+*.       04/01/95      0013      Toolset              CCR NA95-11802
+*.       06/28/95      0014      STEVE SMITH          CCR NA94-26302
+*.       12/23/96      0015      Toolset              CCR NA95-11807
+*.       03/16/99      0016      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A315J4__CLOSE_COMP( COMPFEAT )
+*.
+*.  MODULE FUNCTION:
+*.
+*.  This routine analyses a completed component to determine whether
+*.  it should be saved to the output buffer.
+*.
+*.  MODULES CALLED: ABL 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT         TYPE        DESCRIPTION
+*.    -   -----         ----        -----------
+*.    G   ADPARETH      R*4         Array of area threshold for each
+*.                                  reflectivity threshold saved in Storm Data
+*.    G   ADPMPCMP      I*4         Adaptation data maximum potential
+*.                                  componets allowed stored in Storm Data.
+*.    G   ADPSEGMN      I*4         Minimum segment count
+*.    G   ONE_RADIAN    R*4         (CONSTANT)PARAMETER VALUE FOR ONE RADIAN
+*.    C   COMPCNT       I*4         Count of the number of components built
+*.                                  for each reflectivity level.
+*.    C   COSPHI_DLTAR3 R*4         Variable derived from the product of the
+*.                                  cosine of the elevation angle and the bin
+*.                                  length cubed.
+*.    C   DTHETA        R*4         Average azimuthal separation between
+*.                                  radials in radian measure for one complete
+*.                                  elevation scan.
+*.    C   IDSTACK       I*4         IDSTACK(NIDTOT*NCFRFLEV)  Circular stacks
+*.                                  of component IDs for each reflectivity
+*.                                  level.
+*.    C   LAB           I*4         ID label assigned to a new component.
+*.    C   MWA           R*4         Mass-weighted area of a component adjusted
+*.                                  for the bin length but doesn't include
+*.                                  adjustment for beam width.
+*.    C   MXC           R*4         Mass-weighted X-coordinate of a
+*.                                  component's centroid.
+*.    C   MYC           R*4         Mass-weighted Y-coordinate of a
+*.                                  component's centroid.
+*.    C   RINDX         I*4         Index used to point to current
+*.                                  reflectivity level for processing segment
+*.                                  index array and component arrays.
+*.    C   FEA_ARA       I*4         (CONSTANT)Location of a component's area
+*.                                  in CMPFEAT array.
+*.    C   FEA_AZM       I*4         (CONSTANT)Location in the CMPFEAT array of
+*.                                  the azimuth (radians) of a component's
+*.                                  centroid.
+*.    C   FEA_CNT       I*4         (CONSTANT)Location of the count of the
+*.                                  number of segments in a component in
+*.                                  CMPFEAT array.
+*.    C   FEA_MWA       I*4         (CONSTANT)Location of component's
+*.                                  mass-weighted area in CMPFEAT array.
+*.    C   FEA_RNG       I*4         (CONSTANT)Location in the CMPFEAT array of
+*.                                  the range (km) to a component's centroid.
+*.    C   FEA_XCN       I*4         (CONSTANT)Location of a component's
+*.                                  centroid's X coordinate in CMPFEAT array.
+*.    C   FEA_YCN       I*4         (CONSTANT)Location of a component's
+*.                                  centroid's Y coordinate in CMPFEAT array.
+*.    C   NCFCHR        I*4         (CONSTANT)Total number of component
+*.                                  feature characteristics (attributes).
+*.    P   COMPFEAT      R*4         An array of attributes for a componet
+*.                                  feature
+*.
+*.    *   OUTPUT   TYPE        DESCRIPTION
+*.    -   ------   ----        -----------
+*.    G   ADPARETH R*4         Array of area threshold for each reflectivity
+*.                             threshold saved in Storm Data
+*.    G   ADPMPCMP I*4         Adaptation data maximum potential componets
+*.                             allowed stored in Storm Data.
+*.    G   ADPSEGMN I*4         Minimum segment count
+*.    C   COMPCNT  I*4         Count of the number of components built for
+*.                             each reflectivity level.
+*.    C   COMPINDX I*4         Contains IDs of components in the order in
+*.                             which they are completed which may differ from
+*.                             the order assigned from the circular stack.
+*.    C   IDSTACK  I*4         IDSTACK(NIDTOT*NCFRFLEV)  Circular stacks of
+*.                             component IDs for each reflectivity level.
+*.    C   MWA      R*4         Mass-weighted area of a component adjusted for
+*.                             the bin length but doesn't include adjustment
+*.                             for beam width.
+*.    C   MXC      R*4         Mass-weighted X-coordinate of a component's
+*.                             centroid.
+*.    C   MYC      R*4         Mass-weighted Y-coordinate of a component's
+*.                             centroid.
+*.    P   COMPFEAT R*4         An array of attributes for a componet feature
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    C   IDSTACK           I*4         IDSTACK(NIDTOT*NCFRFLEV)  Circular
+*.                                      stacks of component IDs for each
+*.                                      reflectivity level.
+*.    C   LAB               I*4         ID label assigned to a new component.
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME       TYPE        DESCRIPTION
+*.    ----       ----        -----------
+*.    COMPAZ     R*4         The azimuth (radians) of a component's centroid
+*.    DLTAR2     R*4         Length of a range bin squared (km**2).
+*.    FULLCIRC   R*4         Real parameter for number of degrees in a full
+*.                           circle
+*.    ISTAT      I*4         Status of return from call to circular
+*.                           stack-manipulation routine.
+*.    MULT       R*4         Multiplication factor
+*.    ONE_DEGREE R*4         One degree
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A315CSAD
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A315COCC
+*.    A315CQCC
+*.    A315CSCC
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:
+*.
+*.     In the computation of the Width-Threshold or "Adjacency" of a
+*.   Component, the average-slant-range portion of the calculation
+*.   is taken as that to the Component's (x,y) centroid.
+*.
+*.     The lowest-allowed value of the Adjacency Threshold, (speci-
+*.   fied in the May '84 version of the NEXRAD Algorithm Report as an
+*.   explicit integer value (first 2.1 degrees, later changed to 1.0
+*.   degrees)) has been made into an Adaptable parameter in this
+*.   implementation.
+*.
+*.     The number of Components for which attributes may be stored in
+*.   the output buffer is limited to a value set via Adaptation Data.
+*.   If this number is exceeded, the Components are sorted on the
+*.   basis of their mass-weighted areas, and the smallest are omitted
+*.   from the output buffer.
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     Compiled using COMP15.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     Linked using LINK15.CSS
+*.
+*.  MISC:  None
+*.
+C********************************************************************
+C
+C               STORM COMPONENTS: CLOSE_COMP  SUBROUTINE
+C
+C********************************************************************
+C
+      IMPLICIT NONE
+C
+C**Attach local STORMS Adaptation Data parameter file:
+$INCLUDE A315BUF.INC/G, **A315PSAD (NLIST)
+$INCLUDE                **A315CSAD (NLIST)
+C
+C**Attach internal common area (COCC)
+$INCLUDE A315.INC/G, **A315COCC (NLIST)
+C
+C**Attach internal common area (CQCC)
+$INCLUDE A315.INC/G, **A315CQPC (NLIST)
+$INCLUDE             **A315CQCC (NLIST)
+C
+C**Attach internal common area (CSCC)
+$INCLUDE A315.INC/G, **A315CSCC (NLIST)
+C
+$INCLUDE A309.INC/G, **A3PM50 (NLIST NEND)
+C
+C*********************** DATA DECLARATIONS **************************
+C
+      INTEGER  ISTAT
+      REAL     COMPFEAT( NCFCHR ), MULT, COMPAZ
+      REAL     FULLCIRC, ONE_DEGREE
+      PARAMETER (FULLCIRC = 360.0, ONE_DEGREE = 1.0/ONE_RADIAN)
+C
+C********************** DATA INITIALIZATIONS ************************
+C
+C****************** BEGIN MAIN PROCESSING SECTION *******************
+C
+C** Test components against minimum segment count and area thresholds
+C** for each reflectivity threshold.
+C
+      COMPFEAT( FEA_ARA ) = COMPFEAT( FEA_ARA ) * DLTAR2 * DTHETA
+      IF (COMPFEAT( FEA_CNT ) .LT. ADPSEGMN .OR.
+     >    COMPFEAT( FEA_ARA ) .LT. ADPARETH( RINDX )) THEN
+C
+C** Omit component from further consideration and return label to
+C** stack.
+C
+         CALL ABL( LAB, IDSTACK( 1, RINDX ), ISTAT )
+      ELSE
+C
+C** Test against maximum number of potential components allowed.
+C
+         IF ( COMPCNT( RINDX ) .LT. ADPMPCMP ) THEN
+C
+C** Compute mass-weighted range and azimuth, etc.
+C
+            COMPCNT( RINDX ) = COMPCNT( RINDX ) + 1
+            COMPINDX( COMPCNT(RINDX), RINDX ) = LAB
+            MWA = COMPFEAT( FEA_MWA ) * DLTAR2
+C
+C** To save time, the MWA, MXC, and MYC are not multiplied by the
+C**  Average Delta Azimuth because in the centroid MXC and MYC
+C** computation, the ratio DTHETA/DTHETA would cancel itself
+C
+            MULT= COSPHI_DLTAR3 / MWA
+            MXC = COMPFEAT( FEA_XCN ) * MULT
+            MYC = COMPFEAT( FEA_YCN ) * MULT
+            COMPFEAT( FEA_RNG ) = SQRT(MXC*MXC + MYC*MYC)
+            COMPAZ = ATAN2( MXC, MYC ) * ONE_DEGREE
+            IF ( COMPAZ .LT. 0.0 ) COMPAZ = FULLCIRC + COMPAZ
+            COMPFEAT( FEA_AZM ) = COMPAZ
+            COMPFEAT( FEA_XCN ) = MXC
+            COMPFEAT( FEA_YCN ) = MYC
+C
+C** Now multiply the MWA by DTHETA
+C
+            COMPFEAT( FEA_MWA ) = COMPFEAT( FEA_MWA ) * DTHETA
+         ELSE
+C
+C** Omit component from further consideration and return label to
+C** stack.
+C
+            CALL ABL( LAB, IDSTACK( 1, RINDX ), ISTAT )
+         END IF
+      END IF
+C
+C**************** END OF PROCESSING FOR SUBROUTINE ******************
+C
+      RETURN
+      END

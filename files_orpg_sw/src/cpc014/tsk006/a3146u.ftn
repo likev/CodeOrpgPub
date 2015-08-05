@@ -1,0 +1,356 @@
+C
+C RCS info
+C $Author: ryans $
+C $Locker:  $
+C $Date: 2005/03/09 16:35:12 $
+C $Id: a3146u.ftn,v 1.8 2005/03/09 16:35:12 ryans Exp $
+C $Revision: 1.8 $
+C $State: Exp $
+C
+      SUBROUTINE A3146U__PROD81_LAYER3_ASCII(PRODBUF,VSNUM,HYDRADAP,
+     $                              HYDRSUPL,LYR3ST,LYR3EN,ERRCODE)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3146U__PROD81_LAYER3_ASCII
+*.
+*.  MODULE VERSION: 0016
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       06 13 89      0000      BRADLEY SUTKER       SPR# 90348
+*.       03 28 90      0001      DAVE HOZLOCK         SPR# 90697
+*.       08 24 90      0002      PAUL JENDROWSKI      SPR# 90899
+*.       11 05 90      0003      PAUL JENDROWSKI      SPR# 91255
+*.       12 03 91      0004      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0005      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0006      Toolset              SPR 91895
+*.       03/25/93      0007      Toolset              SPR NA93-06801
+*.       01/28/94      0008      Toolset              SPR NA94-01101
+*.       03/03/94      0009      Toolset              SPR NA94-05501
+*.       04/11/96      0010      Toolset              CCR NA95-11802
+*.       12/23/96      0011      Toolset              CCR NA95-11807
+*.       08/05/97      0012      ELLIOTT P. FRIEND    CCR NA96-18402
+*.       03/16/99      0013      Toolset              CCR NA98-23803
+*.       01/31/02      0014      Dennis A. Miller     CCR NA01-27501
+*.       06/30/03      0015      Cham Pham            CCR NA02-06508            
+*.       01/13/05      0016      Dennis A. Miller     CCR NA04-27811
+*.
+*.  CALLING SEQUENCE: CALL A3146U__PROD81_LAYER3_ASCII
+*.                  (PRODBUF,VSNUM,HYDRADAP,HYDRSUPL,LYR3ST,LYR3EN,ERRCODE)
+*.
+*.  MODULE FUNCTION: BUILDS LAST LAYER OF BLOCK3 (PRODUCT SYMBOLOGY)
+*.                   FOR DIGITAL PRECIPITATION ARRAY PRODUCT
+*.
+*.  MODULES CALLED: A3146O__MISSING_TIMES, A3146Z__DPA_SUPPL_DATA,
+*.                  A3148V__PROD81_APPEND_ADAP, A3148U__PROD81_APPEND_BIAS
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT      TYPE        DESCRIPTION
+*.    -   -----      ----        -----------
+*.    G   SUMMARY    I*4         Volume Scan Summary Table
+*.    G   CNT_BADSCN I*4         (CONSTANT)Position of bad scan count of
+*.                               precipitation rate in supplemental data
+*.                               array.
+*.    G   CUR_BIAS   I*4         (CONSTANT)Bias between rain gage and radar
+*.                               estimates positional parameter.
+*.    G   CUR_GRPSIZ I*4         (CONSTANT)Gage-Radar Pairs (effective sample
+*.                               size) positional parameter.
+*.    G   CUR_MSPAN  I*4         (CONSTANT)Memory Span (over which Bias
+*.                               determined) positional parameter.
+*.    G   END_HRDATE I*4         (CONSTANT)Positional parameter for end date
+*.                               of the input hourly scan.
+*.    G   END_HRTIME I*4         (CONSTANT)Positional parameter for ending
+*.                               time of hourly scan.
+*.    G   HYZ_SUPL   I*4         (CONSTANT)(CONSTANT)Size of Supplemental Data
+*.                               array in Hybrid Scan output buffer.  SSIZ_PRE
+*.                               + SSIZ_RATE + SSIZ_ACUM + SSIZ_ADJU (=
+*.                               (13+14+16+5) = 48)
+*.    G   LRLSWOFF   I*4         (CONSTANT)Product block offset: Length of
+*.                               product block portion of product (LSW).
+*.    G   LRMSWOFF   I*4         (CONSTANT)Product block offset: Length of
+*.                               product block portion of product (MSW).
+*.    G   NUM_INTOUT I*4         (CONSTANT)Offset into supplemental data array
+*.                               within the output buffer for number of
+*.                               interpolated outliers.
+*.    G   PHEADLNG   I*4         (CONSTANT)Number of half words in product
+*.                               header (its length).
+*.    G   SCAN_MODE  I*4         (CONSTANT)(CONSTANT)Weather Mode index into
+*.                               Scan Summary Table
+*.    G   SCAN_VCP   I*4         (CONSTANT)(CONSTANT)Volume Coverage Pattern
+*.                               index into Scan Summary Table
+*.    C   INCRMENT   I*4         (CONSTANT)Variable used to increment by 1.
+*.    C   NI2_LN     I*4         (CONSTANT)Number of halfwords for NCHAR_LN.
+*.    P   ERRCODE    I*4         PRODUCT DATA ERROR CODE
+*.    P   HYDRSUPL   I*4         SUPPLEMENTAL DATA ARRAY
+*.    P   LYR3EN     I*4         END INDEX OF LAYER 3
+*.    P   LYR3ST     I*4         START INDEX OF LAYER 3
+*.    P   PRODBUF    I*2         PRODUCT BUFFER
+*.    P   VSNUM      I*4         VOLUME SCAN NUMBER
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    P   LYR3EN  I*4         END INDEX OF LAYER 3
+*.    P   PRODBUF I*2         PRODUCT BUFFER
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    P   LYR3EN            I*4         END INDEX OF LAYER 3
+*.    P   PRODBUF           I*2         PRODUCT BUFFER
+*.
+*.  DATABASE/FILE REFERENCE: None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME          TYPE        DESCRIPTION
+*.    ----          ----        -----------
+*.    APCT_REDUC    I*4         Positional parameter into CHARLINE for area
+*.                              percent reduction.
+*.    BIAS          I*4         Positional parameter into CHARLINE for the
+*.                              mean field bias.
+*.    BI_SCAN_RAT   I*4         Positional parameter into CHARLINE for the
+*.                              bi-scan rato.
+*.    BLKLNOFF      I*4         Block length offset
+*.    CHARLINE      CHAR*80     Character line table.
+*.    DIVIDER       I*4         Parameter for layer divider
+*.    DIVOFF        I*4         Offset for layer divider
+*.    END_HDATE     I*4         Character-line offset for end-hour-date.
+*.    END_HTIME     I*4         Character-line offset for end-hour-time.
+*.    ERR_LINE      I*2         Array of error messages.
+*.    FWD           I*4         Full word variable used to put I*4
+*.    I             I*4         Do loop index.
+*.    ISTOFF        I*4         Parameter for Product buffer offset
+*.    ISUPP         I*4         Variable used to decode real value
+*.    JSTOFF        I*4         Parameter for Product buffer offset
+*.    LYR3LNG       I*4         Layer 3 length
+*.    LYRIDOFF      I*4         Offset for layer ID
+*.    LYRLNOFF      I*4         Offset for LYR3LNG
+*.    LYR_OVERHD    I*4         OVERHEAD IN BYTES OF LAYER DIVIDER
+*.    MEM_SPAN      I*4         Positional parameter into CHARLINE for the
+*.                              memory span (hours).
+*.    NI2           I*4         Ratio of I*4 bytes to I*2 bytes (2)
+*.    NLINES        I*4         (Constant) number of lines of ASCII data in
+*.                              product.
+*.    NULL          I*4         Parameter for integer 0
+*.    NUM_BADSCNS   I*4         (Constant) charline offset for number of bad
+*.                              scans.
+*.    NUM_GR_PAIR   I*4         Positional parameter into CHARLINE for the
+*.                              effective no. of gage-radar pairs.
+*.    PACKETID      I*4         Packet ID
+*.    PRODLINE      I*2         Array equivalenced to CHARLINE to assign
+*.                              character data to product.
+*.    RSUPP         R*4         Variable equivalenced to ISUPP to get
+*.    TAB3          I*4         (Constant) Beginning tab character-column
+*.                              number for supplemental values.
+*.    TAB4          I*4         (Constant) Ending tab character-column number
+*.                              for supplemental values.
+*.    VCP_OFF       I*4         (Constant) Positional parameter into CHARLINE
+*.                              for volume coverage pattern.
+*.    WXMODE_OFF    I*4         Positional parameter into charcter array for
+*.                              supplimental data (CHARLINE) for weather mode.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD05
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK14.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+C...'X' IN COLUMN-1 INDICATES CONDITIONALLY COMPILED DEBUG CODE...
+C
+      IMPLICIT NONE
+C
+C** Include global common data:
+C
+$INCLUDE A309.INC/G,**A3PM00 (NEND NLIST)
+$INCLUDE            **A3PM01 (NEND NLIST)
+$INCLUDE            **A3PM06 (NEND NLIST)
+$INCLUDE            **A3CD05 (NEND NLIST)
+C
+C** Include task-local common data:
+$INCLUDE A313HBUF.INC/G,**A313HYPP (NEND NLIST)
+C
+C** Define subroutine-local variable names used:
+C
+$INCLUDE A3146.INC/G,**A3146P1 (NEND NLIST)
+$INCLUDE             **A3146PD (NEND NLIST)
+$INCLUDE             **A3146PU (NEND NLIST)
+C
+      INTEGER*2  PRODBUF(*)
+      INTEGER*4  FWD
+      REAL       HYDRADAP(HYZ_ADAP)
+      INTEGER    HYDRSUPL(HYZ_SUPL)
+      INTEGER    ERRCODE, LYR_OVERHD
+      INTEGER    SUBLYR_OVERHD, SUBSTRT_SUPL, SUBSIZ_SUPL
+      PARAMETER (LYR_OVERHD = 4, SUBLYR_OVERHD = 4)
+      INTEGER    LYR3IDX,NI2,LYR3ST,VSNUM,LYR3EN,BLKLNOFF,
+     +           DIVOFF,LYRIDOFF,LYRLNOFF,ISTOFF,JSTOFF,
+     +           DIVIDER, LYR3LNG,PACKETID,NULL
+      PARAMETER (NI2=2,BLKLNOFF=5,
+     +           DIVOFF=1,LYRIDOFF=4,LYRLNOFF=3,ISTOFF=6,JSTOFF=7,
+     +           DIVIDER=-1, PACKETID=1, NULL=0 )
+      CHARACTER*8 SUBHDR_CHR
+      INTEGER*2   SUBHDR_I2S(SUBLYR_OVERHD)
+      EQUIVALENCE (SUBHDR_CHR,SUBHDR_I2S)
+C
+C** USE EQUIVALENCE TO DECODE REAL VALUE STORED IN INTEGER
+C** SUPPLEMENTAL DATA ARRAY
+C
+      INTEGER ISUPP
+      REAL    RSUPP
+      EQUIVALENCE (ISUPP,RSUPP)
+C
+C
+C**** EXECUTABLE ****
+C     ----------
+C
+      LYR3EN = LYR3ST + JSTOFF
+C
+C** Format ADAPTATION DATA before SUPPLEMENTAL DATA in Product Buffer Layer-3
+C
+        CALL A3148V__PROD81_APPEND_ADAP(HYDRADAP,LYR3EN,PRODBUF)
+C
+        CALL A3148U__PROD81_APPEND_BIAS(HYDRSUPL,LYR3EN,PRODBUF)
+C
+C** Format the SUPPLEMENTAL DATA into the PRODUCT BUFFER Layer-3 
+C
+C** ...Provide space for SUPPLEMENTAL Data sub-layer header line (Char*8)
+C
+      SUBSTRT_SUPL = LYR3EN
+      LYR3EN = LYR3EN + SUBLYR_OVERHD
+C
+C** Transfer the data from input to the Integer line
+C
+ 1001 FORMAT (I8)
+ 1002 FORMAT (F8.2)
+ 1003 FORMAT (F8.1)
+C
+C** FORMAT ONLY ERROR MESSAGE IF THE ERROR CODE IS NOT ZERO
+C
+      IF (ERRCODE.NE.NULL) THEN
+        DO 5 I=INCRMENT,NI2_LN
+          PRODBUF(LYR3EN+I)=ERR_LINE(I,ERRCODE)
+   5    CONTINUE
+C
+C** COMPUTE END INDEX
+C
+        LYR3EN = LYR3EN + NI2_LN
+      ELSE
+C
+C** GET TOTAL SUPPLEMENTAL DATA COUNTS AND FORMAT RATE SCAN TIMES IN
+C** THE PRODUCT BUFFER
+C
+        CALL A3146Z__DPA_SUPPL_DATA( LYR3EN, PRODBUF ) 
+C
+C** WRITE HOURLY ACCUMULATION END DATE/TIME TO CHARACTER ARRAY
+C
+        WRITE(CHARLINE(END_HDATE    )(TAB3:TAB4),1001)
+     $               HYDRSUPL(END_HRDATE)
+        WRITE(CHARLINE(END_HTIME    )(TAB3:TAB4),1001)
+     $               HYDRSUPL(END_HRTIME)
+C
+C** Write Preprocessing supplemental data to character array
+C
+        WRITE(CHARLINE(TB_NBLK      )(TAB3:TAB4),1001)
+     +    HYDRSUPL(BLKG_CNT   )
+C
+        WRITE(CHARLINE(TB_NCLT      )(TAB3:TAB4),1001)
+     +    HYDRSUPL(CLUTR_CNT)
+C
+        WRITE(CHARLINE(TB_BINF)(TAB3:TAB4),1001)
+     +    HYDRSUPL(TBIN_SMTH)
+C
+        ISUPP = HYDRSUPL(HYS_FILL)
+        WRITE(CHARLINE(TB_HYSF      )(TAB3:TAB4),1002) RSUPP
+C
+        ISUPP = HYDRSUPL(HIG_ELANG)
+        WRITE(CHARLINE(TB_HELA      )(TAB3:TAB4),1002) RSUPP
+C
+        ISUPP = HYDRSUPL(RAIN_AREA)
+        WRITE(CHARLINE(TB_NHRE      )(TAB3:TAB4),1003) RSUPP
+C
+C** WRITE NUMBER OF BAD SCANS AND INTERPOLATED HOURLY OUTLIERS
+C
+        WRITE(CHARLINE(NUM_BADSCNS  )(TAB3:TAB4),1001)
+     +   HYDRSUPL(CNT_BADSCN)
+C
+C** Use equivalence to get real bias, effective no. gage-radar pairs
+C** and memory span values
+C
+        ISUPP = HYDRSUPL(CUR_BIAS)
+        WRITE(CHARLINE(BIAS         )(TAB3:TAB4),1002) RSUPP
+        ISUPP = HYDRSUPL(CUR_GRPSIZ)
+        WRITE(CHARLINE(NUM_GR_PAIR  )(TAB3:TAB4),1002) RSUPP
+        ISUPP = HYDRSUPL(CUR_MSPAN)
+        WRITE(CHARLINE(MEM_SPAN     )(TAB3:TAB4),1002) RSUPP
+C
+        WRITE(CHARLINE(VCP_OFF      )(TAB3:TAB4),1001)
+     +   SUMMARY(SCAN_VCP,VSNUM   )
+        WRITE(CHARLINE(WXMODE_OFF   )(TAB3:TAB4),1001)
+     +   SUMMARY(SCAN_MODE,VSNUM  )
+C
+C** Transfer the data to the product buffer
+C
+        DO 10 I=1,NI2_LN*NLINES
+          LYR3EN = LYR3EN + 1
+          PRODBUF(LYR3EN) = PRODLINE(I)
+  10    CONTINUE
+C
+C** FORMAT ANY MISSING PERIOD TIMES INTO THE BUFFER
+C
+        CALL A3146O__MISSING_TIMES( LYR3EN, PRODBUF )
+C
+      END IF
+C
+C** Fill in SUPPLEMENTAL Data sub-layer header line (Char*8)
+C
+      SUBSIZ_SUPL = (LYR3EN-(SUBSTRT_SUPL+SUBLYR_OVERHD))/NI2_LN
+      WRITE (SUBHDR_CHR,'(A5,I2,A1)') 'SUPL(', SUBSIZ_SUPL, ')'
+C
+      DO I=1,SUBLYR_OVERHD
+        PRODBUF(SUBSTRT_SUPL+I) = SUBHDR_I2S(I)
+      ENDDO
+C
+C** Compute length of PRODUCT SYMBOLOGY BLOCK
+C
+      FWD = (LYR3EN - PHEADLNG)*NI2
+      call RPG_set_product_int( PRODBUF(LRMSWOFF), FWD )
+C
+C** Establish the size of this part of the output buffer
+C
+      LYR3LNG=(LYR3EN - LYR3ST - LYRLNOFF)*NI2
+C
+C** Set up layer header data:
+C
+      PRODBUF(LYR3ST + DIVOFF )  = DIVIDER
+      call RPG_set_product_int( PRODBUF(LYR3ST + LYRLNOFF - INCRMENT),
+     1                          LYR3LNG )
+      PRODBUF(LYR3ST + LYRIDOFF) = PACKETID
+      PRODBUF(LYR3ST + BLKLNOFF) = LYR3LNG - LYR_OVERHD
+      PRODBUF(LYR3ST + ISTOFF)   = NULL
+      PRODBUF(LYR3ST + JSTOFF)   = NULL
+C
+      RETURN
+      END

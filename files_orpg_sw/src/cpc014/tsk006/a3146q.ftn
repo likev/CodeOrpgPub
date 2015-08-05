@@ -1,0 +1,195 @@
+C 
+C RCS info 
+C $Author: ryans $ 
+C $Locker:  $ 
+C $Date: 2006/02/09 20:38:09 $ 
+C $Id: a3146q.ftn,v 1.4 2006/02/09 20:38:09 ryans Exp $ 
+C $Revision: 1.4 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A3146Q__GET_SUM(POLAR1,POLAR2, BIAS)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3146Q__GET_SUM
+*.
+*.  MODULE VERSION: 0013
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       06 30 89      0000      Paul Jendrowski      SPR# 90348
+*.       11 05 90      0001      PAUL JENDROWSKI      SPR# 91255
+*.       10 14 91      0002      EDWARD WENDOWSKI     SPR# 92410
+*.       12 03 91      0003      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0004      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0005      Toolset              SPR 91895
+*.       03/25/93      0006      Toolset              SPR NA93-06801
+*.       01/28/94      0007      Toolset              SPR NA94-01101
+*.       03/03/94      0008      Toolset              SPR NA94-05501
+*.       08/04/94      0009      C. Stephenson        CCR NW-94-084-02
+*.       04/11/96      0010      Toolset              CCR NA95-11802
+*.       12/23/96      0011      Toolset              CCR NA95-11807
+*.       03/16/99      0012      Toolset              CCR NA98-23803
+*.       10/26/05      0013      C. Pham              CCR NA05-21401
+*.
+*.  CALLING SEQUENCE: CALL A3146Q__GET_SUM(POLAR1,POLAR2, BIAS)
+*.
+*.  MODULE FUNCTION:  This module adds the values of the first
+*.            polar grid passed into this routine to the values
+*.            of the second polar grid, and returns the second
+*.            grid to the calling routine.  The values in the first
+*.            are converted to inches from MM before being summed
+*.            and the bias is applied.
+*.            The conversion is actually from input units of .1 MM
+*.            to output units of .01 inches.
+*.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT       TYPE        DESCRIPTION
+*.    -   -----       ----        -----------
+*.    G   IN_TO_MM    R*4         (CONSTANT)DEFINES SCALING FACTOR FOR INCH TO
+*.                                MILLIMETER PARAMETER
+*.    G   MAX_ADJBINS I*4         (CONSTANT)Maximum number of range bins
+*.                                (index into output buffer of adjusted
+*.                                values).
+*.    G   MAX_AZMTHS  I*4         (CONSTANT)Maximum number of azimuths in a
+*.                                scan (index into output buffer of adjusted
+*.                                values).
+*.    C   BIAS_TOGGLE L*4         Local adaptaion copy of BIAS_FLAG
+*.    C   IBEG        I*4         (CONSTANT)Parameter used as loop control
+*.                                variable (initial value).
+*.    C   IINIT       I*4         (CONSTANT)Parameter indicating initial
+*.                                value.
+*.    C   INCRMENT    I*4         (CONSTANT)Parameter used to increment by
+*.                                one.
+*.    P   BIAS        R*4         Bias between rain gage and radar
+*.    P   POLAR1      I*2         Source polar grid
+*.    P   POLAR2      I*2         Destination polar grid
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    P   POLAR2  I*2         Destination polar grid
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME          TYPE        DESCRIPTION
+*.    ----          ----        -----------
+*.    CONVERT       R*4         Conversion factor
+*.    CONV_AND_BIAS R*4         Conversion of mm to inch and gage Bias
+*.                              adjustment factor
+*.    TEMP          I*4         Variable used temporarily for summing
+*.    X             I*4         Do loop index
+*.    Y             I*4         Do loop index
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A314C3
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK14.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+
+
+C
+C** 'X' IN COLUMN-1 INDICATES CONDITIONALLY COMPILED DEBUG CODE...
+C
+      IMPLICIT NONE
+C
+$INCLUDE A309.INC/G,**A3PM50 (NLIST)
+$INCLUDE A313HBUF.INC/G,**A313HYPP (NLIST)
+$INCLUDE A3146.INC/G,**A3146P1 (NLIST)
+$INCLUDE       **A3146C2 (NEND NLIST)
+$INCLUDE       **A314C3 (NEND NLIST)
+C
+      INTEGER*2 POLAR1(MAX_ADJBINS,MAX_AZMTHS)
+      INTEGER*2 POLAR2(MAX_ADJBINS,MAX_AZMTHS)
+      INTEGER X,Y, TEMP
+      REAL CONVERT,CONV_AND_BIAS                                        9408402
+      REAL BIAS
+C
+C** CONVERT 10THS OF MM TO 100THS OF AN INCH
+C
+      PARAMETER (CONVERT=10./IN_TO_MM)
+C
+X     WRITE(14,*)'ENTERING A3146Q'                                      9408402
+X     WRITE(14,*)'A3146Q: INCH TO MILLIMETERS EQUALS ',IN_TO_MM
+C
+C------------------------
+C
+X      WRITE(14,91) (POLAR1(X,212),X=15,30)
+X 91   FORMAT(' A3146Q: POLAR1 ARRAY (AZ=212,R=15-30):',/,16I5)
+X      WRITE(14,93) (POLAR2(X,212),X=15,30)
+X 93   FORMAT(' A3146Q: POLAR2 ARRAY (AZ=212,R=15-30):',/,16I5)
+C                                                                       9408402
+C**  Set variable for conversion to 100th inch and gage bias            9408402
+C**  adjustment based on BIAS_TOGGLE                                    9408402
+C                                                                       9408402
+      IF(BIAS_TOGGLE) THEN                                              9408402
+         CONV_AND_BIAS = CONVERT*BIAS                                   9408402
+      ELSE                                                              9408402
+         CONV_AND_BIAS = CONVERT                                        9408402
+      ENDIF                                                             9408402
+CX    WRITE(14,95)CONV_AND_BIAS                                         9408402
+CX 95   FORMAT(1X,'A3146Q: COVERT AND BIAS PARAMETER EQUALS ',F8.4)     9408402
+C
+      DO 100 Y = IBEG, MAX_AZMTHS
+         DO 110 X = IBEG, MAX_ADJBINS
+C
+C** DO FOR NON-ZERO POINTS
+C
+           IF (POLAR1(X,Y).GT.IINIT) THEN
+C
+C** CONVERT FROM .1 MM TO .01 INCHES
+C
+C
+C** Note: Changed for LINUX - Used RPG_NINT library function instead
+C         of adding 0.5 for rounding to the nearest integer.
+
+             call RPG_NINT(POLAR1(X,Y)*CONV_AND_BIAS, TEMP)             9408402
+C
+C** Save in the grid that is stored on disk.
+C
+             POLAR2(X,Y) = POLAR2(X,Y) + TEMP
+C
+C** CONSERVE NON-ZERO DATA
+C
+             IF (POLAR2(X,Y).EQ.IINIT) POLAR2(X,Y) = INCRMENT
+           END IF
+C
+ 110     CONTINUE
+ 100  CONTINUE
+C
+X      WRITE(14,101) (POLAR2(X,212),X=15,30)
+X101   FORMAT(' A3146Q: SUMMED ARRAY (AZ=212,R=15-30):',/,16I5)
+C
+      RETURN
+      END

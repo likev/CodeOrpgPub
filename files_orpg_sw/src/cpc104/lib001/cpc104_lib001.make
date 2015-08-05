@@ -1,0 +1,56 @@
+
+# RCS info
+# $Author: ryans $
+# $Locker:  $
+# $Date: 2006/09/14 21:56:53 $
+# $Id: cpc104_lib001.make,v 1.25 2006/09/14 21:56:53 ryans Exp $
+# $Revision: 1.25 $
+# $State: Exp $
+
+# This is the parent makefile for the rda_simulator canned message files
+
+# 5/22/03 - Per Steve Smith's instructions, the DEAU attribute files were
+#	    added to this makefile. R. Solomon, RSIS.
+   
+# 5/23/03 - R. Solomon.  The attempted method of putting the DEAU files in the appropriate
+#	    subdirectory failed.  Corrected it by adding a conditional to create the 
+#	    subdirectory if it doesn't exist.  Also added the macro DEAUDATADIR for defining
+#	    the DEAU subdirectory.
+   
+
+DEAUDATADIR = dea
+
+include $(MAKEINC)/make.common
+include $(MAKEINC)/make.$(ARCH)
+
+install:: 
+	@if [ -d $(CFGDIR) ]; then set +x; \
+	else (set -x; $(MKDIR) $(CFGDIR)); fi
+	@if [ -d $(CFGDIR)/$(DEAUDATADIR) ]; then set +x; \
+	else (set -x; $(MKDIR) $(CFGDIR)/$(DEAUDATADIR)); fi
+	@if [ -d $(TOOLSCFGDIR) ]; then set +x; \
+	else (set -x; $(MKDIR) $(TOOLSCFGDIR)); fi
+	$(INSTALL) $(INSTDATFLAGS) bypass_map_msg.dat $(TOOLSCFGDIR)/bypass_map_msg.dat
+	$(INSTALL) $(INSTDATFLAGS) orda_bypass_map_msg.dat $(TOOLSCFGDIR)/orda_bypass_map_msg.dat
+	$(INSTALL) $(INSTDATFLAGS) loopback_msg.dat $(TOOLSCFGDIR)/loopback_msg.dat
+	$(INSTALL) $(INSTDATFLAGS) notchwidth_map_msg.dat $(TOOLSCFGDIR)/notchwidth_map_msg.dat
+	$(INSTALL) $(INSTDATFLAGS) orda_clutter_filter_map_msg.dat $(TOOLSCFGDIR)/orda_clutter_filter_map_msg.dat
+	$(INSTALL) $(INSTDATFLAGS) performance_msg.dat $(TOOLSCFGDIR)/performance_msg.dat
+	$(INSTALL) $(INSTDATFLAGS) orda_perf_maint_msg.dat $(TOOLSCFGDIR)/orda_perf_maint_msg.dat
+	$(INSTALL) $(INSTDATFLAGS) rda_adapt_data.dat $(TOOLSCFGDIR)/rda_adapt_data.dat
+	$(INSTALL) $(INSTDATFLAGS) orda_adapt_data_msg.dat $(TOOLSCFGDIR)/orda_adapt_data_msg.dat
+	$(INSTALL) $(INSTDATFLAGS) KCRI.hgt $(TOOLSCFGDIR)/KCRI.hgt
+	$(INSTALL) $(INSTDATFLAGS) DEAU_Bypass_Map_Msg.dat $(CFGDIR)/$(DEAUDATADIR)/DEAU_Bypass_Map_Msg.dat
+	$(INSTALL) $(INSTDATFLAGS) DEAU_Clutter_Censor_Zones_Msg.dat $(CFGDIR)/$(DEAUDATADIR)/DEAU_Clutter_Censor_Zones_Msg.dat
+	$(INSTALL) $(INSTDATFLAGS) DEAU_Clutter_Filter_Map_Msg.dat $(CFGDIR)/$(DEAUDATADIR)/DEAU_Clutter_Filter_Map_Msg.dat
+	$(INSTALL) $(INSTDATFLAGS) DEAU_Console_Msg.dat $(CFGDIR)/$(DEAUDATADIR)/DEAU_Console_Msg.dat
+	$(INSTALL) $(INSTDATFLAGS) DEAU_Dig_Radar_Msg.dat $(CFGDIR)/$(DEAUDATADIR)/DEAU_Dig_Radar_Msg.dat
+	$(INSTALL) $(INSTDATFLAGS) DEAU_Loop_Back_Msg.dat $(CFGDIR)/$(DEAUDATADIR)/DEAU_Loop_Back_Msg.dat
+	$(INSTALL) $(INSTDATFLAGS) DEAU_Message_Hdr.dat $(CFGDIR)/$(DEAUDATADIR)/DEAU_Message_Hdr.dat
+	$(INSTALL) $(INSTDATFLAGS) DEAU_Perf_Maint_Msg.dat $(CFGDIR)/$(DEAUDATADIR)/DEAU_Perf_Maint_Msg.dat
+	$(INSTALL) $(INSTDATFLAGS) DEAU_Rda_Adapt_Data_Msg.dat $(CFGDIR)/$(DEAUDATADIR)/DEAU_Rda_Adapt_Data_Msg.dat
+	$(INSTALL) $(INSTDATFLAGS) DEAU_Rda_Contr_Cmds.dat $(CFGDIR)/$(DEAUDATADIR)/DEAU_Rda_Contr_Cmds.dat
+	$(INSTALL) $(INSTDATFLAGS) DEAU_Rda_Status_Msg.dat $(CFGDIR)/$(DEAUDATADIR)/DEAU_Rda_Status_Msg.dat
+	$(INSTALL) $(INSTDATFLAGS) DEAU_Req_For_Data_Msg.dat $(CFGDIR)/$(DEAUDATADIR)/DEAU_Req_For_Data_Msg.dat
+	$(INSTALL) $(INSTDATFLAGS) DEAU_Vcp_Msg.dat $(CFGDIR)/$(DEAUDATADIR)/DEAU_Vcp_Msg.dat
+	$(INSTALL) $(INSTDATFLAGS) DEAU_Gen_Dig_Radar_Msg.dat $(CFGDIR)/$(DEAUDATADIR)/DEAU_Gen_Dig_Radar_Msg.dat

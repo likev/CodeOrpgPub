@@ -1,0 +1,327 @@
+C
+C RCS info
+C $Author: cmn $
+C $Locker:  $
+C $Date: 2004/04/21 13:41:29 $
+C $Id: a31633.ftn,v 1.7 2004/04/21 13:41:29 cmn Exp $
+C $Revision: 1.7 $
+C $State: Exp $
+C
+      SUBROUTINE A31633__STORM_TRK_HEADER(BUFOUT,IPTR,VOLNO,CDATE,
+     *                    CTIME,TOTAL_NUM_STORMS,STRT_GA,STRT_TA)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A31633__STORM_TRK_HEADER
+*.
+*.  MODULE VERSION: 0016
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       07 16 85      0000      M.JO STALEY
+*.       06 26 86      0001      A.WEINSTEIN          SPR # 60313
+*.       10 02 86      0002      J.GROMMONS           SPR # 60346
+*.       02 02 87      0003      A.WEINSTEIN          SPR # 70069
+*.       04 28 87      0004      JO STALEY            SPR # 70244
+*.       08 22 88      0005      VALERIE HOLDEN       SPR # 80248
+*.       01 30 91      0006      David M. Lynch       SPR # 91257
+*.       12 03 91      0007      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0008      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0009      Toolset              SPR 91895
+*.       03/25/93      0010      Toolset              SPR NA93-06801
+*.       01/28/94      0011      Toolset              SPR NA94-01101
+*.       03/03/94      0012      Toolset              SPR NA94-05501
+*.       04/01/95      0013      Toolset              CCR NA95-11802
+*.       04/06/95      0014      C. STEPHENSON        CCR NA94-35301
+*.       06/10/95      0014      STEVE SMITH          CCR NA94-26302
+*.       12/23/96      0015      Toolset              CCR NA95-11807
+*.       03/16/99      0016      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:
+*.     CALL A31633__STORM_TRK_HEADER(BUFOUT,IPTR,VOLNO,CDATE,CTIME,
+*.                        TOTAL_NUM_STORMS,STRT_GA,STRT_TA)
+*.
+*.  MODULE FUNCTION:
+*.
+*.     This module sets all the header fields in the STORM TRACK
+*.     Product.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT            TYPE        DESCRIPTION
+*.    -   -----            ----        -----------
+*.    G   SIRDAHGT         I*4         Site Adaptation - RDA Height.
+*.    G   SIRDALAT         I*4         Site Adaptation - RDA Latitude.
+*.    G   SIRDALON         I*4         Site Adaptation - RDA Longitude.
+*.    G   SIRPGID          I*4         Site Adaptation - RPG ID Number.
+*.    G   SUMMARY          I*4         Volume Scan Summary Table
+*.    G   DIV1OFF          I*4         (CONSTANT)Product header offset: First
+*.                                     divider.
+*.    G   GDPRDOFF         I*4         (CONSTANT)Product header offset:
+*.                                     generation date of product.
+*.    G   GTLSWOFF         I*4         (CONSTANT)Product header
+*.                                     offset:Generation time of product
+*.                                     (LSW).
+*.    G   GTMSWOFF         I*4         (CONSTANT)Product header offset.
+*.                                     Generation time of product (MSW).
+*.    G   LGLSWOFF         I*4         (CONSTANT)Product header offset: Length
+*.                                     of message (LSW).
+*.    G   LNLSWOFF         I*4         (CONSTANT)Product header offset:
+*.                                     Longitude of radar (LSW).
+*.    G   LNMSWOFF         I*4         (CONSTANT)Product header offset:
+*.                                     Longitude of radar (MSW).
+*.    G   LTLSWOFF         I*4         (CONSTANT)Product header offset:
+*.                                     Latitude of radar (LSW).
+*.    G   LTMSWOFF         I*4         (CONSTANT)Product header offset:
+*.                                     Latitude of radar (MSW)
+*.    G   MDL1OFF          I*4         (CONSTANT)Product header offset:
+*.                                     Maximum Data Level 1.
+*.    G   MESCDOFF         I*4         (CONSTANT)Product header offset:
+*.                                     Message code.
+*.    G   NBLKSOFF         I*4         (CONSTANT)Product header offset: Number
+*.                                     of blocks in product.
+*.    G   NMAPSOFF         I*4         (CONSTANT)Product header offset
+*.                                     descriptions: Number of maps.
+*.    G   OGLSWOFF         I*4         (CONSTANT)Product header offset:
+*.                                     graphic attributes (LSW).
+*.    G   OGMSWOFF         I*4         (CONSTANT)Product header offset:
+*.                                     graphic attributes (MSW).
+*.    G   OPRLSWOFF        I*4         (CONSTANT)Product header offset
+*.                                     descriptions: Offset to product length
+*.                                     (LSW)
+*.    G   OPRMSWOFF        I*4         (CONSTANT)Product header offset
+*.                                     descriptions: Offset to product length
+*.                                     (MSW)
+*.    G   OTADLSWOFF       I*4         (CONSTANT)Product header offset: offset
+*.                                     to tabular/adaptation data (LSW)
+*.    G   OTADMSWOFF       I*4         (CONSTANT)Product header offset: offset
+*.                                     to tabular/adaptation (MSW)
+*.    G   PHEADLNG         I*4         (CONSTANT)Number of half words in
+*.                                     product header (its length).
+*.    G   PRDCODOFF        I*4         (CONSTANT)Product header offset
+*.                                     descriptions: Product code.
+*.    G   RADHGTOFF        I*4         (CONSTANT)Product header offset
+*.                                     descriptions: Height of radar.
+*.    G   SBON             I*2         (CONSTANT)Spot Blanking flag indicating
+*.                                     it is enabled in product
+*.    G   SCAN_DATE        I*4         (CONSTANT)Volume Scan Date index into
+*.                                     Scan Summary Table
+*.    G   SCAN_MODE        I*4         (CONSTANT)Weather Mode index into Scan
+*.                                     Summary Table
+*.    G   SCAN_SB          I*4         (CONSTANT)Spot Blanking Flag index into
+*.                                     Volume Scan Summary Table
+*.    G   SCAN_TIME        I*4         (CONSTANT)Volume Scan Time index into
+*.                                     Scan Summary Table
+*.    G   SCAN_VCP         I*4         (CONSTANT)Volume Coverage Pattern index
+*.                                     into Scan Summary Table
+*.    G   SRCIDOFF         I*4         (CONSTANT)Product header offset: Source
+*.                                     ID-Number.
+*.    G   VCPOFF           I*4         (CONSTANT)Product header offset:
+*.                                     Volume coverage pattern.
+*.    G   VOL_SPOT_BLANK   I*2         (CONSTANT)Spot Blank field in Scan
+*.                                     Summary table definition
+*.    G   VSDATOFF         I*4         (CONSTANT)Product header offset: Volume
+*.                                     scan date.
+*.    G   VSNUMOFF         I*4         (CONSTANT)Product header offset
+*.                                     descriptions: Volume scan number.
+*.    G   VSTLSWOFF        I*4         (CONSTANT)Product header offset: Volume
+*.                                     scan time (LSW).
+*.    G   VSTMSWOFF        I*4         (CONSTANT)Product header offset:
+*.                                     Volume scan time (MSW).
+*.    G   WTMODOFF         I*4         (CONSTANT)Product header offset:
+*.                                     Weather mode.
+*.    C   OPTRIDX          I*4         Output buffer index for Storm Track
+*.                                     Information product.
+*.    P   BUFOUT           I*2         PRODUCT BUFFER SPACE
+*.    P   CDATE            I*4         CURRENT DATE
+*.    P   CTIME            I*4         CURRENT TIME
+*.    P   STRT_GA          I*4         Start index of the graphics.
+*.    P   STRT_TA          I*4         START TAB/ADAPT BLOCK
+*.    P   TOTAL_NUM_STORMS I*4         TOTAL NUMBER OF STORMS TO BE PROCESSED
+*.    P   VOLNO            I*4         VOLUME SCAN NUMBER
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    P   BUFOUT  I*2         PRODUCT BUFFER SPACE
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME           TYPE        DESCRIPTION
+*.    ----           ----        -----------
+*.    BLKS4          I*2         Header block # 4.
+*.    BLKS5          I*2         Header block # 5.
+*.    DIVIDER        I*2         Parameter used to seperate the blocks in the
+*.                               product (=-1)
+*.    IDX            I*4         loop control variable
+*.    INIT_VAL       I*2         parameter used to initialize header fields
+*.    NEW_VERSION    I*2         Parameter value indicating the version number
+*.    OFFPROD        I*4         offset to product data (2cnd divider)
+*.    STORM_TRK_CODE I*2         (Constant) Storm track code.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD05
+*.    SITEADP
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A316C3
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP16.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK16.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+C
+C* include product offsets:
+C
+$INCLUDE A309.INC/G,**A3PM00 (NEND NLIST)
+$INCLUDE            **A3PM01 (NEND NLIST)
+$INCLUDE            **A3PM06 (NEND NLIST)
+$INCLUDE            **A3CD05 (NEND NLIST)
+C
+C* include site adaptation data definitions:
+C
+$INCLUDE A309ADPT.INC/G,**A3CD70CA (NEND NLIST)
+C
+$INCLUDE A316.INC/G, **A316C3 (NLIST NEND)
+
+      INTEGER*4 IPTR,TOTAL_NUM_STORMS,CDATE,CTIME,VOLNO
+
+      INTEGER*4 ETINDX,OFFPROD,IDX,STRT_GA,STRT_TA
+
+      INTEGER*2 BUFOUT(*),STORM_TRK_CODE,DIVIDER,
+     1          ALL_ONES,NEW_VERSION,INIT_VAL ,BLKS4,BLKS5
+
+      PARAMETER(STORM_TRK_CODE=58,DIVIDER=-1,
+     1          ALL_ONES=X'FFFF', BLKS4=4,BLKS5=5,
+     2          INIT_VAL=0, NEW_VERSION=X'0100')
+
+      LOGICAL OS32BTESTS
+
+C..................................................................
+C
+C**  iinitialize product header to zeros:
+C
+      DO 101 IDX=1,PHEADLNG
+         BUFOUT(IDX) = INIT_VAL
+ 101  CONTINUE
+C
+C** assign values to product header:
+C
+C** header block:
+C
+C** message code:
+C
+      BUFOUT(MESCDOFF) = STORM_TRK_CODE
+C
+C** RPG ID:
+C
+      BUFOUT(SRCIDOFF) = SIRPGID
+C
+      IF(TOTAL_NUM_STORMS.EQ.0) THEN
+        BUFOUT(NBLKSOFF) = BLKS4
+      ELSE
+        BUFOUT(NBLKSOFF) = BLKS5
+      ENDIF
+C
+C** product description block:
+C
+      BUFOUT(DIV1OFF) = DIVIDER
+C
+C** site latitude:
+C
+      call RPG_set_product_int( BUFOUT(LTMSWOFF), SIRDALAT )
+C
+C** site longitude:
+C
+      call RPG_set_product_int( BUFOUT(LNMSWOFF), SIRDALON )
+C
+C** radar height:
+C
+      BUFOUT(RADHGTOFF) = SIRDAHGT
+      BUFOUT(PRDCODOFF) = STORM_TRK_CODE
+C
+C** weather mode and VCP number:
+C
+      BUFOUT(WTMODOFF) = SUMMARY(SCAN_MODE,VOLNO)
+      BUFOUT(VCPOFF) = SUMMARY(SCAN_VCP,VOLNO)
+C
+C** volume scan number:
+C
+      BUFOUT(VSNUMOFF) = VOLNO
+C
+C** volume scan date and time:
+C
+      BUFOUT(VSDATOFF) = SUMMARY(SCAN_DATE,VOLNO)
+      call RPG_set_product_int( BUFOUT(VSTMSWOFF), 
+     1                          SUMMARY(SCAN_TIME,VOLNO) )
+C
+C** store the generation date of product:
+C
+      BUFOUT(GDPRDOFF) = CDATE
+C
+C** store the generation time of product:
+C
+      call RPG_set_product_int( BUFOUT(GTMSWOFF), CTIME )
+C
+C** set the "new (product) version" indicator
+C
+      BUFOUT(NMAPSOFF) = NEW_VERSION
+C
+C** Set Spot blank status
+C
+      IF (OS32BTESTS(SUMMARY(SCAN_SB,VOLNO),VOL_SPOT_BLANK))
+     >    BUFOUT(NMAPSOFF) = BUFOUT(NMAPSOFF) + SBON
+C
+      BUFOUT(MDL1OFF) = TOTAL_NUM_STORMS
+C
+      IF(TOTAL_NUM_STORMS .EQ. 0 ) THEN
+        OFFPROD = 0
+      ELSE
+        OFFPROD = PHEADLNG
+      ENDIF
+C
+      call RPG_set_product_int( BUFOUT(OPRMSWOFF), OFFPROD )
+C
+C** Store the offset to the graphic attibutes and tabular/adaptation
+C** blocks.
+C
+      OFFPROD = STRT_GA-1
+      call RPG_set_product_int( BUFOUT(OGMSWOFF), OFFPROD )
+
+      OFFPROD = STRT_TA -1
+      call RPG_set_product_int( BUFOUT(OTADMSWOFF), OFFPROD )
+C
+C** Store the product total length
+C
+      call RPG_set_product_int( BUFOUT(LGMSWOFF), OPTRIDX*2 )
+C
+C** Return to buffer control routine:
+C
+      RETURN
+      END

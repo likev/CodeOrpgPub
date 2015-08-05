@@ -1,0 +1,53 @@
+C 
+C RCS info 
+C $Author: steves $ 
+C $Locker:  $ 
+C $Date: 2011/02/25 15:23:15 $ 
+C $Id: lcrap.ftn,v 1.8 2011/02/25 15:23:15 steves Exp $ 
+C $Revision: 1.8 $ 
+C $State: Exp $ 
+C 
+	PROGRAM REF_LAYCOMP_AP_REMOVED_MAIN
+C***********************************************************************
+C
+C	This file defines the "main" Layer Composite Reflectivity
+C	AP Removed Products routine.
+C
+C***********************************************************************
+	IMPLICIT NONE
+
+$INCLUDE rpg_port.inc,**rpg_port	
+
+C adaptation common blocks
+$INCLUDE a309adpt.inc,**A3CD70CA	;SITEADP
+$INCLUDE a309adpt.inc,**A3CD70C5	;COLRTBL
+
+$INCLUDE a309.inc, **A3PM00
+C Initialize Site Adaptation Data ...
+
+        integer*4 PARM
+
+	;**specify inputs
+	call RPG_in_data (RMXAPPG, VOLUME_DATA)
+
+	;**specify outputs
+	call RPG_out_data (RMXAPLYR, VOLUME_DATA, 67)
+
+	;** register adaptation blocks and the scan summary array
+	;** These calls will cause automatic adaptation and scan summary update
+	call RPG_reg_adpt(COLRTBL_ID, COLRTBL_FIRST,BEGIN_VOLUME)
+	call RPG_reg_scan_summary ()
+
+        ;** Register for site info adaptation data
+        call RPG_reg_site_info( SIRDALAT )
+
+        ;** tell system this task is volume-based
+	call RPG_task_init(VOLUME_BASED)
+
+        ;** waiting for activation
+10	call RPG_wait_act(WAIT_DRIVING_INPUT)
+	call A3149A__BUFFER_CONTROL ( PARM )
+	goto 10
+
+	stop
+	end

@@ -1,0 +1,137 @@
+
+orpgload(3)		ORPG SDD Manpage		orpgload(3)
+
+NAME
+
+orpgload - ORPGLOAD Library Functions.
+
+SYNOPSIS
+
+#include <orpg.h>
+#include <orpgload.h>
+
+int ORPGLOAD_read (int msg_id)
+int ORPGLOAD_write (int msg_id)
+int ORPGLOAD_io_status (int msg_id)
+int ORPGLOAD_update_flag (int msg_id)
+int ORPGLOAD_get_data (int category, int type, int *value)
+int ORPGLOAD_set_data (int category, int type, int value)
+
+DESCRIPTION
+
+The ORPGLOAD family of functions provide an API to reading and writing the
+load shed threshold (LOAD_SHED_THRESHOLD_MSG_ID) and status
+(LOAD_SHED_CURRENT_MSG_ID) messages in the Load Shed LB (ORPGDAT_LOAD_SHED_CAT).
+The load shed threshold message should be accessed read-only by all ORPG tasks
+other than the HCI.  This message contains the warning and alarm threshold
+adaptation data for the various load shed categories.  The load shed status
+message should be accessed read-only by the HCI.  It is the responsibility of
+the appropriate ORPG tasks to update specific load shed status category
+components.  The categories supported are:
+
+	LOAD_SHED_CATEGORY_CPU
+	LOAD_SHED_CATEGORY_PROD_DIST
+	LOAD_SHED_CATEGORY_PROD_STORAGE
+	LOAD_SHED_CATEGORY_INPUT_BUF
+	LOAD_SHED_CATEGORY_RDA_RADIAL
+	LOAD_SHED_CATEGORY_RPG_RADIAL
+	LOAD_SHED_CATEGORY_WB_USER
+
+NOTE:  The last two categories are retained only for RMS support.  They will
+probably be eliminated in the future.  The RDA_RADIAL and RPG_RADIAL categories
+are new to the ORPG.  They both tie into the INPUT_BUF category.  If either are
+set, INPUT_BUF is set.
+
+ORPGLOAD_read() is used to read the specified Load Shed message from the Load
+Shed LB.  The specified message ID should be either LOAD_SHED_THRESHOLD_MSG_ID
+or LOAD_SHED_CURRENT_MSG_ID.  Normally, this function is invoked internally
+when a call is made to the ORPGLOAD_get_data() function.  On success, a
+positive value is returned indicating the number of bytes read.  On failure, a
+negative value is returned.
+
+ORPGLOAD_io_status() returns the status of the last read operation read
+operation for the specified message.
+
+ORPGLOAD_update_flag() returns 0 if the specified load shed message has been
+updated since the last read, otherwise it returns 1 if has not been updated
+since the last read or -1 if an error occurred during the last attempted read.
+
+One would normally use this in an application to determine if any local data
+need to be updated.
+
+ORPGLOAD_get_data() gets the value for the specified load shed field.  The user
+specifies, as input, the category, the field type, and a pointer for the field
+value to be written to.  The category must be one of the following:
+
+	LOAD_SHED_CATEGORY_CPU
+	LOAD_SHED_CATEGORY_PROD_DIST
+	LOAD_SHED_CATEGORY_PROD_STORAGE
+	LOAD_SHED_CATEGORY_INPUT_BUF
+	LOAD_SHED_CATEGORY_RDA_RADIAL
+	LOAD_SHED_CATEGORY_RPG_RADIAL
+	LOAD_SHED_CATEGORY_WB_USER
+
+The field type must be one of the following:
+
+	LOAD_SHED_WARNING_THRESHOLD
+	LOAD_SHED_ALARM_THRESHOLD
+	LOAD_SHED_CURRENT_VALUE
+
+On success, 0 is returned.  On failure, ORPGLOAD_DATA_NOT_FOUND is returned.
+
+ORPGLOAD_set_data() sets the specified load shed field to the parameter
+"value".  The load shed category and field type parameters must be one of
+those listed previously.  On success, a number >= 0 is returned.  On failure,
+a negative value is returned.  NOTE: when an item in the
+LOAD_SHED_CURRENT_MSG_ID message is updated, the updated message is
+automatically written to the LB.  It is assumed that a task updating a value
+in this message will want to report the change right away.  This is not true
+for the load shed threshold message.  It is assumed that the task updating
+threshold values will want to make multiple changes before writing the message
+back to the LB.  In this case the application should issue its own
+ORPGLOAD_write() call.
+
+NOTE: When setting a load shed element, a check is made to determine whether
+the RPG alarm state should be changed.  If so, the appropriate call to
+ORPGINFO_statefl_rpg_alarm() is made to set/clear the alarm bit associated with
+the load shed category.
+
+EXAMPLES
+
+The following code segment reads the warning threshold value for CPU load
+shedding.
+
+	#include <orpg.h>
+	#include <orpgload.h>
+	.
+	.
+	int	warn;
+	int	status;
+	.
+	.
+	status = ORPGLOAD_get_data (LOAD_SHED_CATEGORY_CPU,
+				    LOAD_SHED_WARNING_THRESHOLD,
+				    &warn);
+
+	if (status < 0) {
+
+	    LE_send_msg (GL_ERROR,
+		"ERROR retrieving CPU warning threshold: (ret %d)\n",
+		status);
+
+	}
+	.
+	.
+
+	status = ORPGLOAD_write (LOAD_SHED_THRESHOLD_MSG_ID);
+
+	.
+	.
+	.
+
+SEE ALSO
+
+orpg(3) load_shed_table(4)
+
+
+				$Revision: 1.7 $

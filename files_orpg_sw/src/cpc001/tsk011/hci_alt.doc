@@ -1,0 +1,114 @@
+hci_alt.doc			    NOTES			  hci_alt.doc
+
+
+This file contains information about the HCI Alert Threshold Editor task.  It
+is intended to be used by those interested in how the software is designed
+rather than by a typical user.  More detailed information about data stores
+and events used by this task is presented.
+
+Design
+------
+
+The Alert Threshold Editor task was created as a sub task in the HCI family of
+tasks.  A typical user would normally activate it by selecting the
+"Alert/Threshold" pushbutton in the RPG Products submenu of the RPG
+Control/Status task.  However, as a stand-alone application, it can be launched
+from the command line using the "hci_alt" command or by invoking a system call
+in any other application wishing to launch it.  This modular approach has a
+number of benefits which are described in the doc file for the hci task
+(hci.doc).
+
+The Alert/Threshold Editor task provides functionality provided by the "Alert
+Threshold Edit Screen", the "Alert Threshold Values", and "Product Alert
+Pairing" menus in the legacy UCP.  A full description can be found in the man
+page hci_alt(1).
+
+The Alert Threshold Editor window cannot be resized directly by the user.  It
+is automatically resized to fit the number of entries in the selected alert
+threshold group.
+
+There is a requirement to restrict editing of alert threshold data to the URC
+level user.  A valid password must be entered before any editing can be
+performed.
+
+An advisory lock is placed on the data message corresponding to the alert
+threshold category message (ORPGALT_CATEGORY_MSG_ID) in the
+ORPGDAT_ALERT_THRESHOLD linear buffer when the window is unlocked for editing.
+If another instance of the task is running and unlocked, a warning popup is
+displayed advising the user that the message is currently being edited by
+another user.  When the  window is locked, the advisory lock is removed.
+
+The alert threshold category and group information are read from the
+configuration file "alert_table".
+
+Currently, an additional copy of the alert threshold data is maintained to
+support legacy algorithms.  Editing is done on the new data store and edits
+are automatically converted and copied to the legacy data store.
+
+The timer procedure is activated in 1/4 second intervals.  Its only function
+is to raise the window to the top of the window heirarchy when a selection is
+made from one of the paired product combo box menus (selecting a menu item
+which extends outside the domain of the Alert Threshold Editor window causes
+the focus to change to the window beneath the menu selection).
+
+Testing
+-------
+
+To test this function fully one must have a narrowband user connected so that
+paired products can be sent to them when a defined alert threshold value is
+reached.  Otherwise, to just test the GUI, no external connections are
+required.
+
+
+SOURCE FILES
+------------
+
+	hci_alert_threshold.c
+			This module contains all of the code to build and
+			manage and edit alert threshold adaptation data.
+				
++++ PROC
+
+DATA IN
+
+	ORPGDAT_REDMGR_CHAN_MSGS.4
+	ORPGDAT_ADAPTATION.4
+	ORPGDAT_ALERT_THRESHOLD.4
+	ORPGDAT_HCI_DATA.4
+	ORPGDAT_PROD_INFO.4
+
+DATA OUT
+
+	ORPGDAT_ALERT_THRESHOLD.4
+	
+EVENTS IN
+
+	ORPGEVT_SCAN_INFO
+
+EVENTS OUT
+
+	ORPGEVT_WX_ALERT_ADAPT_UPDATE
+	ORPGEVT_HCI_COMMAND_ISSUED
+			
+APIs USED
+
+	orpg.3
+	
+		ORPGRED.3
+		ORPGSITE.3
+		ORPGMISC.3
+		ORPGALT.3
+		ORPGEDLOCK.3
+		ORPGPAT.3
+
+	hci.3
+
+---
+	
+SEE ALSO
+
+hci(1) hci_alt(1) hci(3) orpg(3) orpgred(3) orpgsite(3) orpgalt(3)
+orpgmisc(3) orpgedlock(3) orpgpat(3)
+
+
+hci_alt.doc						     hci_alt.doc

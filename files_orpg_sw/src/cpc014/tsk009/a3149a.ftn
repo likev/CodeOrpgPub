@@ -1,0 +1,203 @@
+C 
+C RCS info 
+C $Author: nolitam $ 
+C $Locker:  $ 
+C $Date: 2002/11/27 15:14:49 $ 
+C $Id: a3149a.ftn,v 1.7 2002/11/27 15:14:49 nolitam Exp $ 
+C $Revision: 1.7 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A3149A__BUFFER_CONTROL( PARM )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3149A__BUFFER_CONTROL
+*.
+*.  MODULE VERSION: 0002
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       02 26 97      0000      STEVE D SMITH        CCR NA96-17804
+*.       03/16/99      0001      Toolset              CCR NA98-23803
+*.       05/17/99      0002      Mike Istok           CCR NA96-17803
+*.
+*.  CALLING SEQUENCE:  CALL  A3149A__BUFFER_CONTROL( PARM )
+*.
+*.  MODULE FUNCTION:
+*.
+*.  MODULES CALLED: A31145__ABORT_ME, A31211__GET_INBUF, A31212__REL_INBUF, 
+*.                  A31216__REL_OUTBUF, A31218__BUF_VOL, 
+*.                  A3149D__PROD_INIT, 
+*.                  A3149G__MAX_REF_MAP, A3149I__REF_LAY_INIT, 
+*.                  A3149Q__LAYCOMP_PRODS, A3CM25__GET_DATE_TIME 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT   TYPE        DESCRIPTION
+*.    -   -----   ----        -----------
+*.    G   MEM     I*4         Array in RPG shared memory set aside for buffer
+*.                            sharing.
+*.    G   DESTROY I*4         (CONSTANT)Mnemonic used as input to
+*.                            A31216__REL_OUTBUF. Indicates "do not pass data
+*.                            to other tasks".
+*.    G   NORMAL  I*4         (CONSTANT)Parameter which indicates normal
+*.                            completion of requested operation to acquire
+*.                            input or output buffer
+*.    C   CALIB   I*4         (CONSTANT)Index in the Layer Composite Polar
+*.                            Grid buffer to the Calibration constant
+*.    C   PGRID   I*4         (CONSTANT)Offset into layer composite
+*.                            reflectivity - AP removed polar grid task output
+*.                            buffer storing the polar grid data.
+*.    C   RMXAPPG I*4         (CONSTANT)Data Buffer Type for Layer Composite
+*.                            AP removed polar grid
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    G   MEM     I*4         Array in RPG shared memory set aside for buffer
+*.                            sharing.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    G   MEM               I*4         Array in RPG shared memory set aside
+*.                                      for buffer sharing.
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME       TYPE        DESCRIPTION
+*.    ----       ----        -----------
+*.    CDATE      I*4         Current Julian date
+*.    CTIME      I*4         Current time in seconds after midnight
+*.    DATTYP     I*4         The returned input data type from call to A31211
+*.    IPR        I*4         The input buffer pointer into MEM.
+*.    LHGT       I*4         Offset to the layer boundary in the buffer
+*.    MAXMAX     I*2         The layer Maximum-Maximum Reflectivities in dBZ
+*.    OSTAT      I*4         Status of output buffer request
+*.    PBUFSIZ    I*4         Product output buffer size in words
+*.    POPR       I*4         Product output buffer pointer
+*.    SOPR       I*4         Scratch Buffer Pointer
+*.    SUCCESSFUL L*4         Flag indicating whether the scratch buffers were
+*.                           successfully obtained.
+*.    VOLNO      I*4         Volume scan number
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD00
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK14.CSS
+*.
+*.  MISC:  None
+*.
+C*                                                         *
+C* LAYER COMPOSITE REFLECTIVITY AP REMOVED: BUFFER CONTROL *
+C* ROUTINE                                                 *
+C*                                                         *
+C***********************************************************
+C
+      IMPLICIT NONE
+C
+$INCLUDE A309.INC/G,**A3PM00           (NLIST)
+$INCLUDE            **A3PM02           (NLIST)
+$INCLUDE            **A3PM07           (NLIST)
+$INCLUDE            **A3CD00           (NLIST)
+$INCLUDE A314BUF.INC,**A3148P3         (NLIST)
+C
+C Passed Arguments
+C
+      INTEGER*4 PARM
+C
+C Define parameters & variables needed for buffer_control routines.
+C
+      INTEGER*4  IPR, DATTYP, PBUFSIZ, VOLNO, A31218__BUF_VOL
+      INTEGER*4  OSTAT, CDATE, CTIME, POPR, SOPR
+      INTEGER*2  MAXMAX
+      LOGICAL    SUCCESSFUL
+C
+C Variable initializations
+C
+      SUCCESSFUL = .TRUE.
+C
+C Acquire input buffer
+C
+C DO WHILE not the end of the volume scan
+C
+      CALL A31211__GET_INBUF( RMXAPPG, IPR, DATTYP, OSTAT )
+      IF ( OSTAT .EQ. NORMAL )  THEN
+C
+         CALL A3149D__PROD_INIT ( SOPR, POPR, PBUFSIZ, SUCCESSFUL )
+
+         IF( SUCCESSFUL ) THEN
+C
+C Initialize scratch buffer
+C
+            CALL A3149I__REF_LAY_INIT ( MEM(SOPR) )
+C
+C Get volume number for header routine
+C
+            VOLNO=A31218__BUF_VOL(IPR)
+C
+C If there are no products to be generated (due to no mem)...
+C
+         ELSE
+C
+C Abort processing, and exit.
+C
+            CALL A31145__ABORT_ME
+            GO TO 99
+
+         END IF
+C
+C Call max layer routine
+C
+         MAXMAX = 0
+         CALL A3149G__MAX_REF_MAP ( MAXMAX, MEM(IPR+PGRID), MEM(SOPR) )
+C
+C Call routine to finish-up algorithm part of the product
+C and then format product for output...also release scratch
+C buffers and output buffers
+C
+C
+C Get the date and time for the product header
+C
+         CALL A3CM25__GET_DATE_TIME ( CDATE, CTIME )
+         CALL A3149Q__LAYCOMP_PRODS ( PBUFSIZ, SOPR, POPR,
+     $                                CDATE, CTIME, MEM(IPR+CALIB),
+     $                                MEM(IPR+LHGT), VOLNO, MAXMAX )
+C
+C Done with input buffer..
+C
+         CALL A31212__REL_INBUF ( IPR )
+C
+C Non normal termination...ABORT
+C
+       ELSE
+
+          CALL A31145__ABORT_ME
+C
+        END IF
+C
+C If output buffer_status indicated output not needed, terminate
+C processing and return to trap_wait state; i.e. DO NOTHING.
+C
+99    RETURN
+      END

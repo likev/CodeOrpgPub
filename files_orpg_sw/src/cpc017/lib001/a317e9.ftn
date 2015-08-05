@@ -1,0 +1,211 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/17 14:57:55 $
+C $Id: a317e9.ftn,v 1.2 2002/12/17 14:57:55 christie Exp $
+C $Revision: 1.2 $
+C $State: Exp $
+C
+      SUBROUTINE A317E9__TVS_TYPE( )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A317E9__TVS_TYPE
+*.
+*.  MODULE VERSION: 0001
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       07/21/97      0000      DAVE ZITTEL          CCR NA95-21503
+*.       03/16/99      0001      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A317E9__TVS_TYPE( )
+*.
+*.  MODULE FUNCTION:
+*.
+*.  Determine if a TDA 3D feature satisfies the conditions for a TVS
+*.  or an elevated TVS.
+*.
+*.  MODULES CALLED: A317G9__SAVE_TVS 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT   TYPE        DESCRIPTION
+*.    -   -----   ----        -----------
+*.    G   ADPMLDV I*4         TDA MINIMUM 3D LOW-LEVEL DELTA VELOCITY
+*.                            THRESHOLD
+*.    G   ADPMTBE R*4         TDA MINIMUM TVS BASE ELEVATION (ANGLE) THRESHOLD
+*.    G   ADPMTBH R*4         TDA MINIMUM TVS BASE HEIGHT THRESHOLD
+*.    G   ADPMTDV I*4         TDA MINIMUM TVS DELTA VELOCITY THRESHOLD
+*.    G   ADPMTED R*4         TDA MINIMUM 3D FEATURE DEPTH THRESHOLD
+*.    C   FEAT3D  R*4         Array containing three-dimensional feature
+*.                            attributes
+*.    C   NUM3D   I*4         Counter for number of three-dimensional features
+*.                            having the required number (ADPMFPD) of
+*.                            two-dimensional features.
+*.    C   F3D_BAS I*4         (CONSTANT)Position of the base height attribute
+*.                            (km) of a three-dimensional feature in the array
+*.                            FEAT3D
+*.    C   F3D_BEL I*4         (CONSTANT)Index to the position of the base
+*.                            elevation attribute (degrees) of a
+*.                            three-dimensional feature in the array FEAT3D
+*.    C   F3D_DEP I*4         (CONSTANT)Position of the depth attribute (km)
+*.                            of a three-dimensional feature in the array
+*.                            FEAT3D
+*.    C   F3D_LDV I*4         (CONSTANT)Position of the base low-level delta
+*.                            velocity attribute (m/s) of a three-dimensional
+*.                            feature in the array FEAT3D
+*.    C   F3D_MDV I*4         (CONSTANT)Position of the maximum delta velocity
+*.                            attribute (m/s) of a three-dimensional feature
+*.                            in the array FEAT3D
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    G   ADPMLDV I*4         TDA MINIMUM 3D LOW-LEVEL DELTA VELOCITY
+*.                            THRESHOLD
+*.    G   ADPMTBE R*4         TDA MINIMUM TVS BASE ELEVATION (ANGLE) THRESHOLD
+*.    G   ADPMTBH R*4         TDA MINIMUM TVS BASE HEIGHT THRESHOLD
+*.    G   ADPMTDV I*4         TDA MINIMUM TVS DELTA VELOCITY THRESHOLD
+*.    G   ADPMTED R*4         TDA MINIMUM 3D FEATURE DEPTH THRESHOLD
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME     TYPE        DESCRIPTION
+*.    ----     ----        -----------
+*.    ETVS     I*4         Tag to show three-dimensional feature meets
+*.                         Elevated TVS criteria
+*.    IDX      I*4         Do loop index for pointing to a three-dimensional
+*.                         feature
+*.    NO_FEAT  I*4         Tag to show a three-dimensional feature is neither
+*.                         a TVS nor an ETVS.
+*.    TVS      I*4         Tag to show a three-dimensional feature meets TVS
+*.                         criteria.
+*.    TVS3DINX I*4         Counter for the number of three-dimensional
+*.                         features that meet TVS or ETVS criteria.
+*.    TVSTYPE  I*4         Indicates three-dimensional feature type (TVS,
+*.                         ETVS, or neither)
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A317CTAD
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A317C3DB
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     Compiled using COMP17.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     Linked using LINK17.CSS
+*.
+*.  MISC:  None
+*.
+C********************************************************************
+C
+C           TDA 3D PROCESSING: DETERMINE IF 3D FEATURE IS TVS OR ETVS
+C
+C********************************************************************
+C
+C
+      IMPLICIT NONE
+C
+$INCLUDE A317BUF.INC/G, **A317TP9 (NLIST)
+$INCLUDE A317BUF.INC/G, **A317PTAD (NLIST)
+$INCLUDE A317BUF.INC/G, **A317CTAD (NLIST)
+$INCLUDE A317.INC/G, **A317TP2 (NLIST)
+$INCLUDE A317.INC/G, **A317TC2 (NLIST)
+$INCLUDE A317.INC/G, **A317C3DA (NLIST)
+$INCLUDE A317.INC/G, **A317P3DB (NLIST)
+$INCLUDE A317.INC/G, **A317C3DB (NLIST)
+C
+C********************** LOCAL DECLARATIONS *************************
+C
+      INTEGER NO_FEAT, TVS, ETVS, TVSTYPE, IDX, TVS3DINX
+      PARAMETER (NO_FEAT = 0, TVS = 1, ETVS = 2)
+C
+C****************** BEGIN EXECUTABLE CODE ***************************
+C
+C
+C***   INITIALIZE TVS3DINX TO 0
+C
+      TVS3DINX = 0
+      DO 10 IDX = 1, NUM3D
+C
+C***  Initialize TVSTYPE as no feature
+C
+        TVSTYPE = NO_FEAT
+C
+C
+C*** Both a TVS and an ETVS must satisfy depth criteria
+C
+        IF( ABS(FEAT3D(F3D_DEP, IDX)) .GE. ADPMTED ) THEN
+C
+C***  Now check base and height to determine if the 3D feature
+C***  could be a TVS or an ETVS
+C
+          IF( ABS(FEAT3D(F3D_BAS,IDX)) .GT. ADPMTBH .AND.
+     >        FEAT3D(F3D_BEL,IDX) .GT. ADPMTBE ) THEN
+C
+C***  This feature can only be an elevated TVS
+C***  Check that it satisfies low altitude delta velocity requirement.
+C
+            IF(FEAT3D(F3D_LDV,IDX) .GE. ADPMLDV) THEN
+C
+C***  This feature is an elevated TVS, so type it as such
+C
+              TVSTYPE = ETVS
+C
+            ENDIF
+C
+          ELSE
+C
+C***  Either the base elevation is on the lowest elevation scan or
+C***  the height of the base is below the height threshold.  If it
+C***  passes the low altitude delta velocity or the maximum delta
+C***  velocity at any elevation it will be declared a TVS.
+C
+            IF(FEAT3D(F3D_LDV,IDX) .GE. ADPMLDV .OR.
+     >         FEAT3D(F3D_MDV,IDX) .GE. ADPMTDV ) THEN
+C
+C***  This feature is a TVS
+C
+              TVSTYPE = TVS
+C
+            ENDIF
+          ENDIF
+        ENDIF
+C
+C*** Call A317G9__SAVE [1_if the feature is a TVS or an elevated TVS
+C
+        IF(TVSTYPE .GT. NO_FEAT) THEN
+C
+C***  Increment the count of TVS and ETVSs combined
+C
+          TVS3DINX = TVS3DINX + 1
+          CALL A317G9__SAVE_TVS(TVSTYPE,TVS3DINX,IDX)
+        ENDIF
+C
+C***  Get the next 3D feature
+C
+ 10   CONTINUE
+      RETURN
+      END

@@ -1,0 +1,418 @@
+C 
+C RCS info 
+C $Author: nolitam $ 
+C $Locker:  $ 
+C $Date: 2002/11/27 15:14:58 $ 
+C $Id: a314a5.ftn,v 1.4 2002/11/27 15:14:58 nolitam Exp $ 
+C $Revision: 1.4 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A314A5__BUFFER_CONTROL
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A314A5__BUFFER_CONTROL
+*.
+*.  MODULE VERSION: 0015
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       09 25 85      0000      Bradley Sutker       RPG Build 3
+*.       04 21 86      0001      Bradley Sutker       SPR #304
+*.       10 04 88      0002      STEVE D SMITH        SPR # 70206
+*.       10 04 88      0002      STEVE D SMITH        SPR # 80338
+*.       10 17 88      0003      VALERIE HOLDEN       SPR # 80266
+*.       05 07 90      0004      JO STALEY            SPR # 90750
+*.       11 02 90      0005      MARK FRESCH          SPR# 91255
+*.       04 01 91      0005      MARK FRESCH          SPR # 91827
+*.       12 03 91      0006      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0007      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0008      Toolset              SPR 91895
+*.       03/25/93      0009      Toolset              SPR NA93-06801
+*.       01/28/94      0010      Toolset              SPR NA94-01101
+*.       03/03/94      0011      Toolset              SPR NA94-05501
+*.       04/11/96      0012      Toolset              CCR NA95-11802
+*.       12/23/96      0013      Toolset              CCR NA95-11807
+*.       08/27/97      0014      Cheryl Stephenson    CCR NA97-25502
+*.       03/16/99      0015      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:  CALL  A314A5__BUFFER_CONTROL
+*.
+*.  MODULE FUNCTION:
+*.
+*.     To handle input buffer requests and program initializations
+*.     at the beginning of a volume scan.  Also check radial
+*.     status flags for good/bad data.
+*.
+*.  MODULES CALLED: A31145__ABORT_ME, A31168__ABORT_ME_BECAUSE, 
+*.                  A31211__GET_INBUF, A31212__REL_INBUF, A31216__REL_OUTBUF, 
+*.                  A31218__BUF_VOL, A314D5__REQ_PROD, A314E5__ELEV_CONST, 
+*.                  A314F5__LAY_REF_MAP, A314G5__MAX_REF_MAP, 
+*.                  A314H5__AVG_REF_MAP, A314I5__REF_LAY_INIT, 
+*.                  A314L5__GET_STATUS, A314Q5__LAYCOMP_PRODS, 
+*.                  A3CM25__GET_DATE_TIME, A3CM53__WHAT_MOMENTS 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT                TYPE        DESCRIPTION
+*.    -   -----                ----        -----------
+*.    G   MEM                  I*4         Array in RPG shared memory set
+*.                                         aside for buffer sharing.
+*.    G   BADBVOL              I*4         (CONSTANT)Radial status flag: Bad
+*.                                         beginning of volume scan.
+*.    G   BASEDATA             I*4         (CONSTANT)DATA BUFFER COUNT OF
+*.                                         BUFFERS TYPE-BASE DATA
+*.    G   BENDVOL              I*4         (CONSTANT)Radial status flag: Bad
+*.                                         end of volume scan.
+*.    G   DESTROY              I*4         (CONSTANT)Mnemonic used as input to
+*.                                         A31216__REL_OUTBUF. Indicates "do
+*.                                         not pass data to other tasks".
+*.    G   GENDVOL              I*4         (CONSTANT)Radial status flag: Good
+*.                                         end of volume scan.
+*.    G   GOODBVOL             I*4         (CONSTANT)Radial status flag: Good
+*.                                         beginning of volume scan.
+*.    G   GOODTHRHI            I*4         (CONSTANT)Radial status flag:
+*.                                         Highest good status value.
+*.    G   HEDO                 I*4         (CONSTANT)Offset in base radial
+*.                                         header input buffer for
+*.                                         preprocessed base radial headers
+*.                                         (in words).
+*.    G   NORMAL               I*4         (CONSTANT)Parameter which indicates
+*.                                         normal completion of requested
+*.                                         operation to acquire input or
+*.                                         output buffer
+*.    G   PROD_DISABLED_MOMENT I*4         (CONSTANT)Abort status for moment
+*.                                         disabled product.
+*.    G   REFO                 I*4         (CONSTANT)Offset to base radial
+*.                                         reflectivity data in input buffer
+*.                                         (relative O from 'MEM(PTR)').
+*.    C   RSSKM                R*4         REFLECTIVITY SAMPLE RANGE INTERVAL
+*.                                         IN KM
+*.    C   LAYAVG               I*4         (CONSTANT)Flag signifying an "avg"
+*.                                         type product.
+*.    C   LAYMAX               I*4         (CONSTANT)Flag signifying a maximum
+*.                                         layer product.
+*.    C   MAXBUFS              I*4         (CONSTANT)The maximum number of
+*.                                         scratch buffers required when the
+*.                                         maximum number of products is
+*.                                         requested.
+*.    C   MAXPRODS             I*4         (CONSTANT)The maximum number of
+*.                                         products per volume.
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    G   MEM     I*4         Array in RPG shared memory set aside for buffer
+*.                            sharing.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    G   MEM               I*4         Array in RPG shared memory set aside
+*.                                      for buffer sharing.
+*.    C   RSSKM             R*4         REFLECTIVITY SAMPLE RANGE INTERVAL IN
+*.                                      KM
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME     TYPE        DESCRIPTION
+*.    ----     ----        -----------
+*.    AZ       R*4         AZIMUTH ANGLE IN DEGREES
+*.    CALCON1  I*2         RADAR CALIBRATION CONSTANT 1
+*.    CALCON2  I*2         RADAR CALIBRATION CONSTANT 2
+*.    CDATE    I*4         CURRENT DATE
+*.    COSEL    R*4         COSINE OF CURRENT ELEVATION ANGLE
+*.    CTIME    I*4         CURRENT TIME
+*.    DATTYP   I*4         The returned input data type from call to A31211
+*.    EL       R*4         ELEVATION ANGLE IN DEGREES
+*.    GOTOBUF  I*4         Flag indicating output buffer.
+*.    HALFCOL  R*4         CENTER OF GRID COLUMN POSITION
+*.    HALFROW  R*4         CENTER OF GRID ROW POSITION
+*.    HDRPTR   I*4         BASE DATA RADIAL HEADER POINTER
+*.    INC1     I*4         INCREMENTAL VALUE OF 1
+*.    INIT     I*4         INITIALIZED PROGRAM PARAMETER OF 0
+*.    IPR      I*4         BASE RADIAL DATA INPUT ADDRESS
+*.    LAY      I*4         ARRAY OF MAXIMUM OR AVERAGE PRODUCT FLAGS
+*.    LAYCODE  I*4         Array of product/message codes for the Layer
+*.                         Composite Reflectivy products
+*.    LAYEND   I*4         END BIN NUMBER OF THE CURRENT LAYER
+*.    LAYSTART I*4         START BIN NUMBER OF THE CURRENT LAYER
+*.    LAYTYPE  I*4         ARRAY OF MAXIMUM OR AVERAGE PRODUCT FLAGS
+*.    MAXMAX   I*2         ARRAY OF LAYER MAXIMUM-MAXIMUM REFLECTIVITIES IN
+*.                         DBZ
+*.    N        I*4         PROGRAM LOOP INDEX
+*.    NBUFS    I*4         NUMBER OF BUFFERS INDEX
+*.    NCOL     I*4         NUMBER OF CARTESIAN BOXES IN THE COLUMN DIRECTION
+*.                         (E-W)
+*.    NPRODS   I*4         TOTAL NUMBER OF REQUESTED PRODUCTS
+*.    NROW     I*4         NUMBER OF CARTESIAN BOXES IN THE ROW DIRECTION
+*.                         (N-S)
+*.    NSOPR    I*4         TOTAL NUMBER OF REQUESTED SCRATCH BUFFERS
+*.    NSTAT    I*2         RADIAL STATUS FLAG
+*.    OBUFLAG  I*4         OUTPUT BUFFER FLAG
+*.    ONE      I*4         Program parameter value for one used as lower index
+*.                         in do loop.
+*.    OSTAT    I*4         BUFFER CONTROL STATUS FLAG SIGNIFYING IF A PRODUCT
+*.                         IS REQUIRED OR NOT
+*.    PBUFSIZ  I*4         PRODUCT OUTPUT BUFFER SIZE
+*.    POPRX    I*4         ARRAY OF REQUESTED PRODUCT OUTPUT ADDRESSES
+*.    REFAV8   I*4         COLOR CODE LOOK-UP TABLE INDEX
+*.    REFMX8   I*4         COLOR CODE LOOK-UP TABLE INDEX
+*.    REF_FLAG L*4         FLAG FOR REFLECTIVITY AVAILABLE
+*.    SOPR1    I*4         OUTPUT BUFFER ADDRESS FOR AVG LAYER
+*.    SOPR2    I*4         OUTPUT BUFFER ADDRESS FOR MAX LAYER
+*.    SOPRX    I*4         ARRAY CONTAINING SCRATCH BUFFER ADDRESSES
+*.    VEL_FLAG L*4         FLAG FOR VELOCITY AVAILABLE
+*.    VOLNO    I*4         CURRENT VOLUME NUMBER
+*.    WID_FLAG L*4         FLAG FOR WIDTH AVAILABLE
+*.    XAZFUNC  I*4         ONE OF THE X AXIS CARTESIAN MAPPING PARAMETERS
+*.    YAZFUNC  I*4         ONE OF THE Y AXIS CARTESIAN MAPPING PARAMETERS
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD00
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A314C6
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK14.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C***********************************************************
+C*                                                         *
+C* LAYER COMPOSITE REFLECTIVITY: BUFFER CONTROL ROUTINE    *
+C*                                                         *
+C***********************************************************
+C
+      IMPLICIT NONE
+C
+$INCLUDE A309.INC/G,**A3PM00           (NLIST)
+$INCLUDE            **A3PM02           (NLIST)
+$INCLUDE            **A3PM07           (NLIST)
+$INCLUDE            **A3CD00           (NLIST)
+$INCLUDE A304.INC/G,**A304P4           (NLIST)
+$INCLUDE A314.INC,**A314P5             (NLIST)
+$INCLUDE          **A314C6             (NLIST)
+C
+C Define parameters & variables needed for buffer_control routines.
+C
+      INTEGER  IPR,DATTYP,NCOL,NROW,ONE,INC1,PBUFSIZ
+      INTEGER  VOLNO,A31218__BUF_VOL,INIT,GOTOBUF,OBUFLAG
+      INTEGER  OSTAT,NPRODS,N,SOPR1,SOPR2,LAYSTART,REFMX8,REFAV8
+      INTEGER  NSOPR,LAYEND,NBUFS,HDRPTR
+      INTEGER  CDATE,CTIME,XAZFUNC,YAZFUNC
+      INTEGER*2 NSTAT,CALCON1,CALCON2,MAXMAX(MAXPRODS)
+      REAL COSEL,AZ,EL,HALFCOL,HALFROW
+      INTEGER  LAYTYPE(MAXPRODS),LAY(MAXPRODS),POPRX(MAXPRODS)
+      INTEGER  LAYCODE(MAXPRODS),SOPRX(MAXBUFS)
+      PARAMETER(INIT=0,GOTOBUF=1,ONE=1,INC1=1)
+      LOGICAL REF_FLAG,VEL_FLAG,WID_FLAG
+C
+X     LOGICAL FIRST_PASS
+X     DATA FIRST_PASS/.TRUE./
+C Variable initializations
+C
+      NPRODS = INIT
+      NSOPR = INIT
+      OBUFLAG = INIT
+C
+C Acquire all needed input buffers to completely process a volume
+C scan ( on radial basis ).
+C
+C DO WHILE not the end of the volume scan
+C
+      CALL A31211__GET_INBUF( BASEDATA,IPR,DATTYP,OSTAT )
+      IF ( OSTAT .EQ. NORMAL )  THEN
+C
+C CHECK FOR DISABLED MOMENTS
+C
+           CALL A3CM53__WHAT_MOMENTS(MEM(IPR),REF_FLAG,VEL_FLAG,
+     >         WID_FLAG)
+           IF (.NOT. REF_FLAG) THEN
+C
+C REFLECTIVITY MOMENT DISABLED...DO ABORT PROCESSING
+C
+             CALL A31212__REL_INBUF( IPR )
+             CALL A31168__ABORT_ME_BECAUSE(PROD_DISABLED_MOMENT)
+             GO TO 99
+           END IF
+C
+      END IF
+C
+100     IF ( OSTAT .EQ. NORMAL )  THEN
+C
+          HDRPTR=HEDO+IPR
+C
+C Call routine to get radial status flag
+C
+          CALL A314L5__GET_STATUS ( MEM(HDRPTR),NSTAT )
+C
+C If the beginning of the volume...
+C
+          IF ( NSTAT.EQ.BADBVOL.OR.NSTAT.EQ.GOODBVOL ) THEN
+C
+C Call Subroutine to determine required products and
+C their scratch buffer addresses and sizes...if not done already
+C
+           IF ( OBUFLAG.NE.GOTOBUF ) THEN
+             OBUFLAG = GOTOBUF
+C
+X            TYPE *,'A:CALL A314D5'
+C$INSERTC            ORPG Issue 4
+C$INSERT             CALL A314D5__REQ_PROD ( MEM(HDRPTR),LAYTYPE,LAY,NPRODS,
+C$DELETE
+             CALL A314D5__REQ_PRODS ( MEM(HDRPTR),LAYTYPE,LAY,NPRODS,
+C$ENDDELETE
+     $        NSOPR,SOPRX,NCOL,NROW,REFMX8,REFAV8,POPRX,PBUFSIZ,
+     $        LAYCODE,CALCON1,CALCON2,HALFCOL,HALFROW )
+           END IF
+C
+C Initialize scratch buffers
+C
+           DO 300 N=ONE,NSOPR
+ 300         CALL A314I5__REF_LAY_INIT (MEM(SOPRX(N)),NCOL,NROW)
+C
+C Get the date and time for the product header
+C
+           CALL A3CM25__GET_DATE_TIME ( CDATE,CTIME )
+C
+C Get volume number for header routine
+C
+           VOLNO=A31218__BUF_VOL(IPR)
+C
+           DO 55 N=ONE,MAXPRODS
+ 55          MAXMAX(N)=INIT
+C
+C If there are no products to be generated (due to no mem)...
+C call routine to set up no prods housekeeping message...
+C set NSTAT to end of volume to stop processing and go to sleep
+C
+           IF ( NPRODS.EQ.INIT ) THEN
+             CALL A31145__ABORT_ME
+             NSTAT = BENDVOL
+           END IF
+C
+          END IF
+C
+C Check to see if good radial...if not...skip over processing
+C
+          IF ( NSTAT.LE.GOODTHRHI ) THEN
+C
+C Compute all elevation constant variables
+C
+X     IF(NSTAT.EQ.BADBVOL.OR.NSTAT.EQ.GOODBVOL)
+X    $   TYPE *,'A: CALLING A314E5'
+            CALL A314E5__ELEV_CONST (MEM(HDRPTR),COSEL,
+     $        AZ,EL,XAZFUNC,YAZFUNC)
+C
+C Do for the number of requested products
+C
+            NBUFS = INIT
+            DO 500 N=ONE,NPRODS
+X     IF(NSTAT.EQ.BADBVOL.OR.NSTAT.EQ.GOODBVOL)
+X    $   TYPE *,'A: CALLING A314F5- PRODUCT = ',N
+X     IF(FIRST_PASS)THEN
+X        TYPE *,'A: AZ =',AZ
+X        FIRST_PASS =.FALSE.
+X     ENDIF
+              CALL A314F5__LAY_REF_MAP (MEM(HDRPTR),AZ,EL,LAY(N),
+     $          LAYSTART,LAYEND,LAYTYPE(N))
+C
+              NBUFS=NBUFS+INC1
+              SOPR1=SOPRX(NBUFS)
+C
+C Is this a max product ?
+C
+              IF ( LAYTYPE(N).EQ.LAYMAX ) THEN
+C
+C Call max layer routine
+C
+                CALL A314G5__MAX_REF_MAP ( LAYSTART,AZRAD,RSSKM,COSEL,
+     $            LAYEND,NCOL,NROW,HALFCOL,HALFROW,XAZFUNC,YAZFUNC,
+     $            MAXMAX(N),MEM(IPR+REFO),MEM(SOPR1) )
+C
+              ELSE IF ( LAYTYPE(N).EQ.LAYAVG ) THEN
+C
+C Otherwise...must be average layer product !
+C
+                NBUFS=NBUFS+INC1
+                SOPR2=SOPRX(NBUFS)
+C
+                CALL A314H5__AVG_REF_MAP ( LAYSTART,AZRAD,RSSKM,COSEL,
+     $            LAYEND,NCOL,NROW,HALFCOL,HALFROW,XAZFUNC,YAZFUNC,
+     $            REFMX8,MEM(IPR+REFO),MEM(SOPR1),MEM(SOPR2) )
+              END IF
+C
+C
+  500       CONTINUE
+C
+          END IF
+C
+          CALL A31212__REL_INBUF ( IPR )
+C
+C If not the end of the volume keep cycling...If the end
+C do end of volume processing...release output buffers
+C
+          IF ( NSTAT.EQ.GENDVOL.OR.NSTAT.EQ.BENDVOL ) THEN
+C
+C Call routine to finish-up algorithm part of the product
+C and then format product for output...also release scratch
+C buffers and output buffers
+C
+            CALL A314Q5__LAYCOMP_PRODS ( PBUFSIZ,NPRODS,SOPRX,POPRX,
+     $        LAY,LAYTYPE,LAYCODE,REFAV8,REFMX8,NCOL,NROW,NBUFS,
+     $        CDATE,CTIME,CALCON1,CALCON2,VOLNO,MAXMAX )
+C
+          ELSE
+C
+C Otherwise get the next input buffer
+C
+C
+C    GO TO REQUIRED TO SIMULATE DO UNTIL CONSTRUCT
+C
+            CALL A31211__GET_INBUF(BASEDATA,IPR,DATTYP,OSTAT)
+            GO TO 100
+          END IF
+C
+C END DO ( while not the end of the volume scan )
+C
+        ELSE
+C
+C Non normal termination...ABORT
+C
+          CALL A31145__ABORT_ME
+C
+C Destroy all requested output buffers ( if any had been requested )
+C
+          DO 600 N=ONE,NPRODS
+ 600        CALL A31216__REL_OUTBUF( POPRX(N),DESTROY )
+C
+          DO 700 N=ONE,NSOPR
+ 700        CALL A31216__REL_OUTBUF( SOPRX(N),DESTROY )
+C
+        END IF
+C
+C If output buffer_status indicated output not needed, terminate
+C processing and return to trap_wait state; i.e. DO NOTHING.
+C
+99    RETURN
+      END

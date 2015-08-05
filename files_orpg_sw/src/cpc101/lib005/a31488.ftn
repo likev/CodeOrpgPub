@@ -1,0 +1,448 @@
+C 
+C RCS info 
+C $Author: nolitam $ 
+C $Locker:  $ 
+C $Date: 2002/12/11 20:00:22 $ 
+C $Id: a31488.ftn,v 1.5 2002/12/11 20:00:22 nolitam Exp $ 
+C $Revision: 1.5 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A31488__PRODUCT_GENERATION_CONTROL( HEADER, REF_DATA,
+     1                   VEL_DATA, WID_DATA, PHEADER, L1BNDKM,
+     2                    POLGRID, IPTR )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A31488__PRODUCT_GENERATION_CONTROL
+*.
+*.  MODULE VERSION: 0002
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       02/24/97      0000      Steve Smith          CCR NA96-17903
+*.       03/16/99      0001      Toolset              CCR NA98-23803
+*.       05/17/99      0002      Mike Istok           CCR NA96-17803
+*.
+*.  CALLING SEQUENCE: CALL A31488__PRODUCT_GENERATION_CONTROL
+*.                                 (HEADER,REF_DATA,VEL_DATA,WID_DATA,
+*.                                  PHEADER,L1BNDKM,POLGRID,IPTR)
+*.  MODULE FUNCTION:
+*.     Product Generation Control routine for LAYER COMPOSITE REFLECTIVITY
+*.     Polar Grid program
+*.
+*.  MODULES CALLED: A31219__BUF_ELEV, A31483__SET_RANGE_TABLE, 
+*.                  A31484__ACCEPT_IF, A31485__REJECT_IF, A31486__ACCEPT_ALL, 
+*.                  A31487__GET_SET_ADAPTDATA, A3148H__OMIT_ALL, 
+*.                  A3148E__MEDIAN_FILTERING
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT             TYPE        DESCRIPTION
+*.    -   -----             ----        -----------
+*.    G   AOFFSET1          I*4         (CONSTANT)Offset to angle measurement
+*.                                      (first half of R*4) in preprocessed
+*.                                      radial header.
+*.    G   AOFFSET2          I*4         (CONSTANT)Offset to angle measurement
+*.                                      (second half of R*4) in preprocessed
+*.                                      radial header.
+*.    G   BADBVOL           I*4         (CONSTANT)Radial status flag: Bad
+*.                                      beginning of volume scan.
+*.    G   BENDVOL           I*4         (CONSTANT)Radial status flag: Bad end
+*.                                      of volume scan.
+*.    G   GENDVOL           I*4         (CONSTANT)Radial status flag: Good end
+*.                                      of volume scan.
+*.    G   GOODBEL           I*4         (CONSTANT)Radial status flag: Good
+*.                                      beginning of elevation cut.
+*.    G   GOODBVOL          I*4         (CONSTANT)Radial status flag: Good
+*.                                      beginning of volume scan.
+*.    G   GOODTHRHI         I*4         (CONSTANT)Radial status flag: Highest
+*.                                      good status value.
+*.    G   GOODTHRLO         I*4         (CONSTANT)Radial status flag: Lowest
+*.                                      good status value.
+*.    G   POFFSET1          I*4         (CONSTANT)Offset to PSP scaling
+*.                                      constant (first half of R*4) in
+*.                                      preprocessed radial header (relative 1
+*.                                      from beginning).
+*.    G   POFFSET2          I*4         (CONSTANT)Offset to PSP scaling
+*.                                      constant (second half of R*4) in
+*.                                      preprocessed radial header (relative 1
+*.                                      from beginning).
+*.    G   RSOFFSET          I*4         (CONSTANT)Offset to radial status in
+*.                                      preprocessed radial header (relative 1
+*.                                      from beginning).
+*.    C   ADCRMEDIAN_L      I*4         Local copy of ADCRMEDIAN (Cross-range
+*.                                      distance threshold used for median
+*.                                      filter window)
+*.    C   ADIFMEDIAN_L      L*4         Local copy of ADIFMEDIAN (Flag
+*.                                      indicating whether median filtering is
+*.                                      to be performed)
+*.    C   ADPGDMEDIAN_L     R*4         Local copy of ADPGDMEDIAN (Ma Median
+*.                                      Filter Percent Good)
+*.    C   ADRNGMEDIAN_L     I*4         Local copy of ADRNGMEDIAN (:MA Maximum
+*.                                      Range Bin Difference)
+*.    C   BEGVSCAN          L*4         Flag set when radial status indicates
+*.                                      beginning of volume scan
+*.    C   PREV_RAD          I*4         Index into polar grid of the previous
+*.                                      radial processed.
+*.    C   REGION_START_BIN  I*4         Bin number for the start of the
+*.                                      current processing region.
+*.    C   ACCEPT_ALL        I*4         (CONSTANT)Index into range table for
+*.                                      start & end range of ACCEPT_ALL region
+*.    C   ACCEPT_IF         I*4         (CONSTANT)Index into range table for
+*.                                      starting and ending range of the
+*.                                      ACCEPT_IF region
+*.    C   BEG_RNG           I*4         (CONSTANT)Index into range table for
+*.                                      regions for the starting range bins
+*.                                      index
+*.    C   END_RNG           I*4         (CONSTANT)Index into range table for
+*.                                      regions for the ending range bin index
+*.    C   MAX_PRODUCT_RANGE I*4         (CONSTANT)Maximum reflectivity bin
+*.                                      number to use for layer composite
+*.                                      reflectivity - AP removed polar grid
+*.                                      generation.
+*.    C   MAX_RADS          I*4         Number of radials in layer composite
+*.                                      reflectivity - AP removed polar grid.
+*.    C   MISSING_FLAG      I*4         (CONSTANT)Value used to indicate bin
+*.                                      value in layer composite reflectivity
+*.                                      -AP removed polar grid is missing.
+*.    C   OMIT_ALL          I*4         (CONSTANT)Index into range table for
+*.                                      the OMIT_ALL region.
+*.    C   REJECT_IF         I*4         (CONSTANT)Index into range table for
+*.                                      REJECT_IF region.
+*.    P   HEADER            I*2         Base data radial header
+*.    P   IPTR              I*4         Pointer to basedata input buffer
+*.    P   PHEADER           I*4         Header portion of polar grid buffer.
+*.    P   L1BNDKM           R*4         TOP OF 1ST LAYER, IN KM
+*.    P   POLGRID           I*2         Polar grid portion of polar grid
+*.                                      buffer.
+*.    P   REF_DATA          I*2         Base reflectivity radial
+*.    P   VEL_DATA          I*2         A radial of base velocity data
+*.    P   WID_DATA          I*2         A radial of spectrum width data
+*.
+*.    *   OUTPUT           TYPE        DESCRIPTION
+*.    -   ------           ----        -----------
+*.    C   BEGVSCAN         L*4         Flag set when radial status indicates
+*.                                     beginning of volume scan
+*.    C   DELTABIN         I*4         Scaling parameter used for radial to
+*.                                     polar grid mapping.
+*.    C   ENDVSCAN         L*4         Flag set when end of volume scan radial
+*.                                     is received.
+*.    C   LAST_RAD         I*4         Index into polar grid of the last
+*.                                     radial of the elevation sweep
+*.    C   PREV_RAD         I*4         Index into polar grid of the previous
+*.                                     radial processed.
+*.    C   REGION_END_BIN   I*4         Bin number for the end of the current
+*.                                     processing region.
+*.    C   REGION_START_BIN I*4         Bin number for the start of the current
+*.                                     processing region.
+*.    C   START_RBIN       I*4         Start bin number of the layer composite
+*.                                     reflectivity polar grid - AP removed
+*.                                     for current region.
+*.    P   CRDIST           I*4         Cross-range distance
+*.    P   MFFLAG           L*4         Flag indicating whether median
+*.                                     filtering is to be performed.
+*.    P   PHEADER          I*4         Header portion of polar grid buffer.
+*.    P   POLGRID          I*2         Polar grid portion of polar grid
+*.                                     buffer.
+*.    P   PTSGOOD          I*4         Ma Median Filter Percent Good in the
+*.                                     output buffer
+*.    P   SLDIST           I*4         MA Maximum Range Bin Difference
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    P   HEADER            I*2         Base data radial header
+*.    P   IPTR              I*4         Pointer to basedata input buffer
+*.    P   PHEADER           I*4         Header portion of polar grid buffer.
+*.    P   POLGRID           I*2         Polar grid portion of polar grid
+*.                                      buffer.
+*.    P   REF_DATA          I*2         Base reflectivity radial
+*.    P   VEL_DATA          I*2         A radial of base velocity data
+*.    P   WID_DATA          I*2         A radial of spectrum width data
+*.
+*.  DATABASE/FILE REFERENCE: NONE
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME         TYPE        DESCRIPTION
+*.    ----         ----        -----------
+*.    AZ           I*2         I*2 array to obtain the azimuth for the radial
+*.                             data (Equivalenced to AZIMUTH)
+*.    AZMTH        R*4         Radial azimuth (equivalenced to AZ)
+*.    CALCONST     I*4         Radar Calibration Constant (Equivalenced to
+*.                             CALCONST)
+*.    CALCONST2    I*2         An I*2 array to obtain the Radar Calibration
+*.                             Constant from the radial header (Equivalenced
+*.                             to CALCONST)
+*.    COSINE_ELEV  R*4         Cosine of the current elevation
+*.    HALFBIN      R*4         Parameter to calculate coordinate of first bin
+*.                             in polar grid.
+*.    I            I*4         Do loop index
+*.    IRAD         I*4         Index to radial number being processed
+*.    L1BNDKM      R*4         TOP OF 1ST LAYER, IN KM
+*.    PTSGOOD_I    I*4         The real value of Ma Median Filter Percent Good
+*.                             (Equivalenced to PTSGOOD_I)
+*.    PTSGOOD_R    R*4         The real value of Ma Median Filter Percent Good
+*.                             (Equivalenced to PTSGOOD_I)
+*.    RADHGTKM     R*4         Radar height in KM
+*.    RBIN         R*4         Real variable used to calculate the start bin
+*.                             in a region
+*.    RNG_TAB      I*4         A table of ranges for the different regions
+*.    ROUNDUP      R*4         Rounding factor for bins in polar grid.
+*.    ROUNDUP2     R*4         Variable used to round up radial azimuth angle.
+*.    SCALED_DELTA R*4         The delta between centers of 2 neighboring bins
+*.                             in the grid
+*.    SCFACT       I*4         Scale factor for mapping radial bins to polar
+*.                             grid.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    RDACNT
+*.    STATFIL
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3148C1
+*.    A3148C3
+*.
+*.  ERROR CONDITIONS: NONE.
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK14.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+C*** A31488, FORM LAYER COMPOSITE REFLECTIVITY POLAR GRID,
+C***         PRODUCT GENERATION CONTROL ROUTINE:
+C
+C
+      IMPLICIT NONE
+C
+$INCLUDE A309ADPT.INC/G,**A3CD70P6 (NLIST)
+$INCLUDE                **A3CD70CA (NLIST)
+$INCLUDE                **A3CD70C8 (NLIST)
+$INCLUDE A309.INC/G,**A3PM00 (NLIST)
+$INCLUDE **A3PM02 (NLIST)
+$INCLUDE **A3PM06 (NLIST)
+$INCLUDE **A3PM07 (NLIST)
+$INCLUDE **A3CD00 (NLIST)
+$INCLUDE **A3CD07 (NLIST)
+$INCLUDE A304.INC/G,**A304P4 (NLIST)
+$INCLUDE A314BUF.INC/G,**A3148P2  (NLIST)
+$INCLUDE               **A3148P3  (NLIST)
+$INCLUDE A314BUF.INC/G,**A3148C1  (NLIST)
+$INCLUDE               **A3148C3  (NLIST)
+C
+C***  PASSED ARGUEMENTS
+C
+      INTEGER*2 HEADER(*),REF_DATA(*),VEL_DATA(*),WID_DATA(*)
+      INTEGER*2 POLGRID( MAX_PRODUCT_RANGE, MAX_RADS )
+      INTEGER*4 PHEADER(*), CRDIST, SLDIST, PTSGOOD, IPTR
+      INTEGER*4 PTSGOOD_I
+      INTEGER*2 RSTAT
+      LOGICAL   MFFLAG,FOUND
+      REAL      PTSGOOD_R
+C
+C*** LOCAL DECLARATIONS:
+C
+      INTEGER*2 AZ(2), CALCONST2(2)
+      INTEGER*4 IRAD, I
+      INTEGER*4 CALCONST, RNG_TAB( END_RNG, ACCEPT_ALL )
+C
+      REAL L1BNDKM, RADHGTKM, AZMTH, SCALED_DELTA, COSINE_ELEV
+      REAL RBIN, HALFBIN, ROUNDUP, ROUNDUP2
+C
+      DATA LAST_RAD/0/, IRAD/0/
+      PARAMETER (HALFBIN = 0.5)
+      PARAMETER (ROUNDUP2 = 1.0, ROUNDUP = SCFACT)
+C
+C*** EQUIVALENCED VARIABLES:
+C
+      EQUIVALENCE (AZMTH, AZ)
+      EQUIVALENCE (CALCONST, CALCONST2)
+      EQUIVALENCE (PTSGOOD_I, PTSGOOD_R)
+C
+C********************************************************************
+C*    EXECUTABLE CODE
+C
+C********************************************************************
+C*  BEGINNING OF PRODUCT INITIALIZATION:
+C
+C*    IF RADIAL STATUS IS BEGINNING-OF-VOLUME OR IF NO RADIALS
+C*    HAVE BEEN PROCESSED YET, THEN
+C
+      IF ( BEGVSCAN .OR. HEADER(RSOFFSET).EQ.GOODBVOL  .OR.
+     1     HEADER(RSOFFSET).EQ.BADBVOL ) THEN
+C
+C*        INITIALIZE POLAR GRID TO ZEROES
+C
+          DO 30 I = 1,MAX_RADS*MAX_PRODUCT_RANGE,1
+
+            POLGRID(I,1) = MISSING_FLAG
+
+  30      CONTINUE
+C
+C*        RESET BEGINNING-OF-VOLUME SCAN FLAG TO FALSE
+C
+          BEGVSCAN = .FALSE.
+C
+C*        SET CALIBRATION CONSTANT
+C
+          CALCONST2(1) = HEADER( POFFSET1 )
+          CALCONST2(2) = HEADER( POFFSET2 )
+          PHEADER(1) = CALCONST
+C
+C*        GET AND SET ADAPTABLE PARAMETERS
+C
+          CALL A31487__GET_SET_ADAPTDATA( HEADER,  RADHGTKM )
+C
+C*        SAVE PERTINENT ADAPTATION DATA FOR MEDIAN FILTERING.
+C
+          MFFLAG = ADIFMEDIAN_L
+          CRDIST = ADCRMEDIAN_L
+          SLDIST = ADRNGMEDIAN_L
+          PTSGOOD_R = ADPGDMEDIAN_L
+          PTSGOOD = PTSGOOD_I
+      ENDIF
+C
+C*   (END OF PRODUCT INITIALIZATION)
+C********************************************************************
+C*    PERFORM INDIVIDUAL RADIAL PROCESSING:
+C*    CHECK HEADER STATUS FLAG
+C
+      IF( HEADER(RSOFFSET).GE.GOODTHRLO .AND.
+     1    HEADER(RSOFFSET).LE.GOODTHRHI ) THEN
+C If at the beginning of an elevation cut
+C indicates radials are to be processed, get elev angle of the cut.
+C
+C
+C*        FIND POLAR GRID'S COORDINATE FOR EACH INCOMING RADIAL
+C
+          AZ(1) = HEADER(AOFFSET1)
+          AZ(2) = HEADER(AOFFSET2)
+          IRAD  =  IFIX(AZMTH+ROUNDUP2)
+C
+C*        SET-UP LAST_RAD AND PREV_RAD IF BEGIN OF ELEVATION
+C
+          IF (HEADER(RSOFFSET).EQ.GOODBVOL .OR.
+     1                    HEADER(RSOFFSET).EQ.GOODBEL) THEN
+             LAST_RAD = IRAD
+             PREV_RAD = IRAD
+C
+C*           GENERATE RANGE DEPENDENT TABLE
+C
+             CALL A31483__SET_RANGE_TABLE( IPTR, HEADER, L1BNDKM,
+     1                                     RADHGTKM, RNG_TAB,
+     2                                     COSINE_ELEV )
+C
+C*           FIND (SCALED) DELTA*INCREMENT FOR EACH BIN PROJECTED TO
+C*           POLAR GRID (PORTION OVER 2**16 IS INTEGER BIN NO.
+C*           PROJECTED TO).
+C
+             SCALED_DELTA = COSINE_ELEV * SCFACT
+             DELTABIN = IFIX( SCALED_DELTA )
+
+C
+          ELSE
+C
+C*           GENERATE RANGE DEPENDENT TABLE
+C
+             CALL A31483__SET_RANGE_TABLE( IPTR, HEADER, L1BNDKM,
+     1                                     RADHGTKM, RNG_TAB,
+     2                                     COSINE_ELEV )
+C
+C*           CALCULATE WHAT THE PREVIOUS RADIAL INDEX SHOULD BE
+C
+             PREV_RAD = IRAD - 1
+C
+             IF ( PREV_RAD .LT. 1 ) PREV_RAD = MAX_RADS
+          END IF
+C
+C********************************************************************
+C*  BUILD LAYER COMPOSITE REFLECTIVITY WITH AP REMOVED
+C
+C*        PROCESS OMIT_ALL REGION
+C
+          REGION_START_BIN = RNG_TAB( BEG_RNG, OMIT_ALL )
+          REGION_END_BIN = RNG_TAB( END_RNG, OMIT_ALL )
+          RBIN = (( REGION_START_BIN - HALFBIN ) * SCALED_DELTA )
+     1           + ROUNDUP
+          START_RBIN = IFIX( RBIN )
+          CALL A3148H__OMIT_ALL( REF_DATA, POLGRID( 1, IRAD ),
+     1                           POLGRID( 1, PREV_RAD ) )
+C
+C*        PROCESS ACCEPT_IF REGION
+C
+          REGION_START_BIN = RNG_TAB( BEG_RNG, ACCEPT_IF )
+          REGION_END_BIN = RNG_TAB( END_RNG, ACCEPT_IF )
+          RBIN = (( REGION_START_BIN - HALFBIN ) * SCALED_DELTA )
+     1           + ROUNDUP
+          START_RBIN = IFIX( RBIN )
+          CALL A31484__ACCEPT_IF( REF_DATA, VEL_DATA, WID_DATA,
+     1                            POLGRID( 1, IRAD ),
+     2                            POLGRID( 1, PREV_RAD ) )
+C
+C*        PROCESS REJECT_IF REGION
+C
+          REGION_START_BIN = RNG_TAB( BEG_RNG, REJECT_IF )
+          REGION_END_BIN = RNG_TAB( END_RNG, REJECT_IF )
+          RBIN = (( REGION_START_BIN - HALFBIN ) * SCALED_DELTA )
+     1           + ROUNDUP
+          START_RBIN = IFIX( RBIN )
+          CALL A31485__REJECT_IF( REF_DATA, VEL_DATA, WID_DATA,
+     1                            POLGRID( 1, IRAD ),
+     2                            POLGRID( 1, PREV_RAD ) )
+C
+C*        PROCESS ACCEPT_ALL REGION
+C
+          REGION_START_BIN = RNG_TAB( BEG_RNG, ACCEPT_ALL )
+          REGION_END_BIN = RNG_TAB( END_RNG, ACCEPT_ALL )
+          RBIN = (( REGION_START_BIN - HALFBIN ) * SCALED_DELTA )
+     1           + ROUNDUP
+          START_RBIN = IFIX( RBIN )
+          CALL A31486__ACCEPT_ALL( REF_DATA, POLGRID( 1, IRAD ),
+     2                             POLGRID( 1, PREV_RAD ) )
+C
+C*******************************************************************
+C*        TEST FOR LAST RADIAL IN THE VOLUME SCAN, AND SET END-OF-VOLUME
+C*        FLAG IF FOUND:
+C
+          IF ( HEADER(RSOFFSET).EQ.GENDVOL .OR.
+     1         HEADER(RSOFFSET).EQ.BENDVOL ) THEN
+
+             ENDVSCAN =.TRUE.
+C
+C Perform median filtering, if required.
+C
+             CALL A3148E__MEDIAN_FILTERING( MFFLAG, CRDIST, SLDIST, 
+     1               PTSGOOD, POLGRID( 1, 1 ) )
+C
+
+          ENDIF
+      END IF
+C
+C*    SAVE LAST RADIAL INDEX PROCESSED
+C
+999   continue
+      LAST_RAD = IRAD
+C
+C*    (END OF INDIVIDUAL RADIAL PROCESSING)
+C*******************************************************************
+C*    RETURN TO BUFFER CONTROL ROUTINE
+C
+      RETURN
+      END

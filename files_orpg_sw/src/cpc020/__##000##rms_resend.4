@@ -1,0 +1,39 @@
+rms_resend(4)               ORPG SUM Manpage                    rms_resend(4)
+
+NAME
+rms_resend - Stores messages that may be resent to the FAA/RMMS.
+
+
+DESCRIPTION
+
+        When the ORPG/RMS interface sends a message to the FAA/RMMS it
+        stores a copy of the message in this linear buffer.  The lb id of the
+        message is stored in a resend array until an acknowledgement is received
+        from the FAA/RMMS. When the FAA/RMMS acknowledges the message, the lb id
+        is removed from the resend array and the message is considered sent. The
+        message stored in this linear buffer can then be overwritten. If an
+        acknowledgement is not received, the ORPG/RMS will resend the message at
+        least 3 times, once every 20 seconds, until it is acknowledged or the
+        interface is considered down.
+
+        This is a local linear buffer used only by the ORPG/RMS interface. It is
+        created when the interface is initialized and removed when the interface
+        is shutdown. The linear buffer is cleared during a "reset" to remove any
+        old messages. The linear buffer is located in the "tmp" directory.
+
+ATTRIBUTES
+        remark, "RMS resend linear buffer"
+        mode = 0666;
+        msg_size = 2416;
+        maxn_msgs = 1500;
+        types = LB_UNPROTECTED;
+        tag_size = 0;
+        version = 0;
+
+EVENTS
+        ORPGEVT_RESET_RMS - When posted with an argument of "reset" the linear
+        buffer is cleared of all old messages. When posted with an argument of
+        "close" the linear buffer is removed.
+
+$Revision: 1.2 $
+

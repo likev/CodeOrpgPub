@@ -1,0 +1,275 @@
+C
+C RCS info
+C $Author: ccalvert $
+C $Locker:  $
+C $Date: 2003/07/01 19:05:28 $
+C $Id: a3146i.ftn,v 1.4 2003/07/01 19:05:28 ccalvert Exp $
+C $Revision: 1.4 $
+C $State: Exp $
+C
+       SUBROUTINE A3146I__UPDATE_DPA_DB(HYDRSUPL,LFM4GRD)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3146I__UPDATE_DPA_DB
+*.
+*.  MODULE VERSION: 0011
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       08/21/90      0000      PAUL JENDROWSKI      SPR# 90899
+*.       11 04 90      0001      PAUL JENDROWSKI      SPR# 91255
+*.       12 03 91      0002      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0003      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0004      Toolset              SPR 91895
+*.       03/25/93      0005      Toolset              SPR NA93-06801
+*.       01/28/94      0006      Toolset              SPR NA94-01101
+*.       03/03/94      0007      Toolset              SPR NA94-05501
+*.       04/11/96      0008      Toolset              CCR NA95-11802
+*.       12/23/96      0009      Toolset              CCR NA95-11807
+*.       03/16/99      0010      Toolset              CCR NA98-23803
+*.       06/30/03      0011      Cham Pham            CCR NA02-06508
+*.
+*.  CALLING SEQUENCE: CALL A3146I__UPDATE_DPA_DB(HYDRSUPL,LFM4GRD)
+*.
+*.  MODULE FUNCTION:
+*.
+*.      This module updates the DPA product database with algorithm
+*.   supplemental data, run-length encodes the 1/4 LFM grid Rate Scan
+*.   data and saves it to the database.  The database is not updated
+*.   if the flag for a bad Rate Scan is set.
+*.
+*.  MODULES CALLED: A31468__PDB_IO, A3CM22__RASTER_RUN_LENGTH 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT          TYPE        DESCRIPTION
+*.    -   -----          ----        -----------
+*.    G   AVG_SCNDAT     I*4         (CONSTANT)Average Scan Date index into
+*.                                   Hydromet Supplemental Data array
+*.    G   AVG_SCNTIM     I*4         (CONSTANT)Average Scan Time index into
+*.                                   Hydromet Supplemental Data array
+*.    G   BEG_MISDAT     I*4         (CONSTANT)Offset into precipitation
+*.                                   accumulation array pointing to the date
+*.                                   for the beginning time of the missing
+*.                                   period.
+*.    G   BEG_MISTIM     I*4         (CONSTANT)Offset into precipitation
+*.                                   accumulation array pointing to the
+*.                                   beginning time of the missing period.
+*.    G   END_MISDAT     I*4         (CONSTANT)Offset into supplemental data
+*.                                   array, within the output buffer, pointing
+*.                                   to the date of the ending time of the
+*.                                   missing period.
+*.    G   END_MISTIM     I*4         (CONSTANT)Offset into supplementary data
+*.                                   array withing the output buffer, printing
+*.                                   to the ending time of the missing period.
+*.    G   FLG_BADSCN     I*4         (CONSTANT)Indicator in hydromet scan that
+*.                                   data is bad.
+*.    G   HYZ_LFM4       I*4         (CONSTANT)Dimension of the 1/4 LFM rate
+*.                                   scan grid.
+*.    C   NEWEST_RS_INDX I*4         Index in database of newest rate scan.
+*.    C   OLDEST_RS_INDX I*4         Index in database of oldest rate scan.
+*.    C   RS_DB          I*2         Array containing run length encoded rate
+*.                                   scans in the database.
+*.    C   BLKG_CNT       I*4         (CONSTANT)Offset into Hydrsupl for total
+*.                                   no. of blockage bins rejected.
+*.    C   CLUTR_CNT      I*4         (CONSTANT)Offset into Hydrsupl for total
+*.                                   no. of clutter bins rejected.
+*.    C   HYS_FILL       R*4         (CONSTANT)Offset into Hydrsupl for the
+*.                                   Hybrid Scan percent bins filled.
+*.    C   HIG_ELANG      R*4         (CONSTANT)Offset into Hydrsupl for the 
+*.                                   Hybrid Scan highest elevation used (deg).
+*.    C   RAIN_AREA      R*4         (CONSTANT)Offset into Hydrsupl for total
+*.                                   rain area.
+*.    C   AS_BMPD        I*4         (CONSTANT)Offset in Sup_DB for the begin
+*.                                   missing period date.
+*.    C   AS_BMPT        I*4         (CONSTANT)Offset in SUP_DB for the begin
+*.                                   missing period time.
+*.    C   AS_EMPD        I*4         (CONSTANT)Offset in SUP_DB for the end
+*.                                   missing period date.
+*.    C   AS_EMPT        I*4         (CONSTANT)Offset in SUP_DB for the end
+*.                                   missing period time.
+*.    C   DPA_REC        I*4         (CONSTANT)Disk file record index for the
+*.                                   DPA database.
+*.    C   HS_BSRT        I*4         (CONSTANT)Offset into SUP_DB for BI-SCAN
+*.                                   ratio.
+*.    C   HS_NINT        I*4         (CONSTANT)Offset into SUP_DB for number
+*.                                   of interpolated outlier bins.
+*.    C   HS_NISO        I*4         (CONSTANT)Offset into SUP_DB for number
+*.                                   of Isolated Bins.
+*.    C   HS_NRPL        I*4         (CONSTANT)Offset into SUP_DB for number
+*.                                   of replaced outlier bins.
+*.    C   HS_PRED        I*4         (CONSTANT)Constant indicating 1 HR
+*.                                   accumulation product buffer data type.
+*.    C   MAX_RATESCANS  I*4         (CONSTANT)Maximum number of rate scans in
+*.                                   database.
+*.    C   RS_DATE        I*4         (CONSTANT)Offset in SUP_DB for rate scan
+*.                                   date.
+*.    C   RS_NRLE        I*4         (CONSTANT)Offset in SUP_DB for rate scan
+*.                                   RLE halfwords.
+*.    C   RS_TIME        I*4         (CONSTANT)Offset in SUP_DB for rate scan
+*.                                   time.
+*.    C   WRITKODE       I*4         (CONSTANT)I/O code indicating write to
+*.                                   disk I/O operation should be performed.
+*.    P   HYDRSUPL       I*4         Supplemental data array.
+*.    P   LFM4GRD        I*2         1/4 LFM grid array.
+*.
+*.    *   OUTPUT         TYPE        DESCRIPTION
+*.    -   ------         ----        -----------
+*.    C   NEWEST_RS_INDX I*4         Index in database of newest rate scan.
+*.    C   OLDEST_RS_INDX I*4         Index in database of oldest rate scan.
+*.    C   RS_DB          I*2         Array containing run length encoded rate
+*.                                   scans in the database.
+*.    C   SUP_DB         I*4         Supplemental database array.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    C   NEWEST_RS_INDX    I*4         Index in database of newest rate scan.
+*.    C   RS_DB             I*2         Array containing run length encoded
+*.                                      rate scans in the database.
+*.    P   LFM4GRD           I*2         1/4 LFM grid array.
+*.
+*.  DATABASE/FILE REFERENCE: NONE
+*.
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME       TYPE        DESCRIPTION
+*.    ----       ----        -----------
+*.    IEQV       I*4         USED TO DECODE REAL VALUE FROM I*4
+*.    INC        I*4         PARAMETER VALUE OF 1
+*.    IOSTAT     I*4         I/O OPERATION STATUS
+*.    MAX_RS_RLE I*4         Maximum number of RLE words.
+*.    NRLEI2     I*4         NUMBER OF RLE I*2 WORDS
+*.    NULL       I*4         PARAMETER FOR 0
+*.    PPQTRLFM   I*4         Color table index for 1/4 LFM grid rate scan.
+*.    REQV       R*4         Variable used to decode real data from HYDRSUPL
+*.                           array
+*.    RLESTAT    I*4         STATUS OF RUN LENGTH ENCODING
+*.    ROUND      R*4         ROUNDING PARAMETER
+*.    SCALE_FCTR R*4         SCALE FACTOR FOR AREA PERCENT
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3146CD
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS: None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK14.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+C
+      IMPLICIT NONE
+C
+$INCLUDE A313HBUF.INC/G,**A313HYPP (NEND NLIST)
+$INCLUDE                **A313HYDD (NEND NLIST)
+$INCLUDE A3146.INC, **A3146P1 (NEND NLIST)
+$INCLUDE            **A3146PD (NEND NLIST)
+$INCLUDE            **A3146CD (NEND NLIST)
+$INCLUDE A309.INC/G,**A3PM04 (NEND NLIST)
+C
+      INTEGER NULL, INC, RLESTAT, NRLEI2, IOSTAT, IEQV
+      REAL    REQV, SCALE_FCTR, ROUND
+      EQUIVALENCE (IEQV,REQV)
+      PARAMETER (NULL=0, INC=1, SCALE_FCTR=1000., ROUND=.5)
+C
+C** SAVE SUPPLEMENTAL DATA ONLY IF A GOOD SCAN
+C
+X     TYPE *,' ENTER A3146I: HYDRSUPL(FLG_BADSCN)=',HYDRSUPL(
+     $      FLG_BADSCN),', NEWEST INDEX=',NEWEST_RS_INDX,', OLDEST=',
+     $                                    OLDEST_RS_INDX
+C
+      IF (HYDRSUPL(FLG_BADSCN).EQ.NULL) THEN
+C
+C** UPDATE NEWEST RATE SCAN INDEX
+C
+        NEWEST_RS_INDX = NEWEST_RS_INDX + INC
+        IF (NEWEST_RS_INDX.GT.MAX_RATESCANS) THEN
+C
+X         TYPE *,' NEWEST INDEX TOO BIG, RESETTING TO 1'
+C
+          NEWEST_RS_INDX = INC
+        END IF
+C
+C** UPDATE THE OLDEST INDEX IF THE NEWEST IS OVERWRITING IT
+C
+        IF (NEWEST_RS_INDX.EQ.OLDEST_RS_INDX .OR. OLDEST_RS_INDX
+     $            .EQ.NULL) THEN
+C
+X         TYPE *,' UPDATING OLDEST INDEX'
+C
+          OLDEST_RS_INDX = OLDEST_RS_INDX + INC
+          IF (OLDEST_RS_INDX.GT.MAX_RATESCANS) THEN
+C
+X           TYPE *,' OLDEST INDEX TOO BIG, RESETTING TO 1'
+C
+            OLDEST_RS_INDX = INC
+          END IF
+        END IF
+C
+C** COPY SUPPLEMENTAL DATA TO DATABASE
+C
+        SUP_DB(RS_DATE,NEWEST_RS_INDX) = HYDRSUPL(AVG_SCNDAT)
+        SUP_DB(RS_TIME,NEWEST_RS_INDX) = HYDRSUPL(AVG_SCNTIM)
+        SUP_DB(HS_NBLK,NEWEST_RS_INDX) = HYDRSUPL(BLKG_CNT)
+        SUP_DB(HS_NCLT,NEWEST_RS_INDX) = HYDRSUPL(CLUTR_CNT)
+C
+C** USE EQUIVALENCE TO GET REAL VALUE FROM INTEGER ARRAY
+C
+        IEQV = HYDRSUPL(HYS_FILL)
+        SUP_DB(HS_HYSF,NEWEST_RS_INDX) = REQV
+X        TYPE *,'FILLPORTION= ', SUP_DB(HS_HYSF,NEWEST_RS_INDX)
+        IEQV = HYDRSUPL(HIG_ELANG)
+        SUP_DB(HS_HELA,NEWEST_RS_INDX) = REQV
+X        TYPE *,'HIGHEST ELEV ANGLE = ',SUP_DB(HS_HELA,NEWEST_RS_INDX)
+        IEQV = HYDRSUPL(RAIN_AREA)
+        SUP_DB(HS_NHRE,NEWEST_RS_INDX) = REQV
+C
+C** GET MISSING PERIOD DATES AND TIMES
+C
+        SUP_DB(AS_BMPD,NEWEST_RS_INDX) = HYDRSUPL(BEG_MISDAT)
+        SUP_DB(AS_BMPT,NEWEST_RS_INDX) = HYDRSUPL(BEG_MISTIM)
+        SUP_DB(AS_EMPD,NEWEST_RS_INDX) = HYDRSUPL(END_MISDAT)
+        SUP_DB(AS_EMPT,NEWEST_RS_INDX) = HYDRSUPL(END_MISTIM)
+C
+C** RUN LENGTH ENCODE THE 1/4 LFM RATE SCAN DATA
+C
+        CALL A3CM22__RASTER_RUN_LENGTH(HYZ_LFM4, HYZ_LFM4, RLESTAT,
+     $       LFM4GRD, PPQTRLFM, RS_DB(INC,NEWEST_RS_INDX), INC,
+     $       NRLEI2, MAX_RS_RLE)
+        SUP_DB(RS_NRLE,NEWEST_RS_INDX) = NRLEI2
+C
+X       TYPE *,' NUMBER OF RLE WORDS = ',NRLEI2
+C
+C** SAVE THE DATABASE TO DISK
+C
+        CALL A31468__PDB_IO(WRITKODE, DPA_REC, NEWEST_RS_INDX, IOSTAT)
+C
+X     ELSE
+X       TYPE *,' FLAG FOR BAD SCAN SET, DATABASE NOT UPDATED'
+      END IF
+C
+X     TYPE *,' EXIT A3146I: NEWEST INDEX = ',NEWEST_RS_INDX,
+     $                   ', OLDEST INDEX = ',OLDEST_RS_INDX
+C
+      END

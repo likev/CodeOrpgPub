@@ -1,0 +1,368 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/16 20:36:34 $
+C $Id: a31651.ftn,v 1.3 2002/12/16 20:36:34 christie Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A31651__STORM_STRCT_CTL(PARAM)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A31651__STORM_STRCT_CTL
+*.
+*.  MODULE VERSION: 0017
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       10 01 85      0000      JSGROMMONS
+*.       05 01 86      0001      JSGROMMONS           SPR#   304
+*.       05 01 86      0001      JSGROMMONS           SPR# 60120
+*.       05 29 86      0002      JSGROMMONS           SPR# 60313
+*.       10 02 86      0003      J GROMMONS           SPR # 60346
+*.       08 22 88      0004      VALERIE HOLDEN       SPR # 80248
+*.       10 10 88      0005      STEVE D SMITH        SPR # 80338
+*.       10 30 89      0006      JO STALEY            SPR # 80612
+*.       02 22 91      0007      David M. Lynch       SPR # 91257
+*.       01 14 91      0007      JOHN DEPHILIP        SPR # 91210
+*.       05 01 91      0007      VALERIE HOLDEN       SPR # 91910
+*.       12 03 91      0008      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0009      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0010      Toolset              SPR 91895
+*.       03/25/93      0011      Toolset              SPR NA93-06801
+*.       01/28/94      0012      Toolset              SPR NA94-01101
+*.       03/03/94      0013      Toolset              SPR NA94-05501
+*.       04/01/95      0014      Toolset              CCR NA95-11802
+*.       04/20/95      0015      STEVE SMITH          CCR NA94-26302
+*.       12/23/96      0016      Toolset              CCR NA95-11807
+*.       03/16/99      0017      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:  CALL A31651__STORM_STRCT_CTL(PARAM)
+*.
+*.  MODULE FUNCTION:
+*.
+*.     This is the Buffer Control Module.  When data becomes
+*.     available, this module receives control.  It acquires
+*.     the input and output buffers, stores data in the output
+*.     buffer based on input data and other information, and
+*.     releases the input & output buffers.
+*.
+*.  MODULES CALLED: A31145__ABORT_ME, A31168__ABORT_ME_BECAUSE, 
+*.                  A31211__GET_INBUF, A31212__REL_INBUF, A31215__GET_OUTBUF, 
+*.                  A31216__REL_OUTBUF, A31218__BUF_VOL, A31652__FORMAT_STRCT, 
+*.                  A31653__STORM_STRCT_HEADER, A31656__TOTAL_LENGTH, 
+*.                  A31657__STRCT_ADAPT_PARM, A31659__FORMAT_TREND_DATA, 
+*.                  A3165D__CNVTIME, A3CM25__GET_DATE_TIME, A3CM38__JULIAN2DATE 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT         TYPE        DESCRIPTION
+*.    -   -----         ----        -----------
+*.    G   MEM           I*4         Array in RPG shared memory set aside for
+*.                                  buffer sharing.
+*.    G   SUMMARY       I*4         Volume Scan Summary Table
+*.    G   BNR           I*4         (CONSTANT)Offset pointer of the location
+*.                                  of the number of storms in the storm trend
+*.                                  output buffer in global memory.
+*.    G   BRI           I*4         (CONSTANT)Offset pointer of the location
+*.                                  of the storm IDs in the storm trend output
+*.                                  buffer in global memory.
+*.    G   BSA           I*4         (CONSTANT)Offset in MEM buffer to Storm
+*.                                  Series Adaptation Data
+*.    G   BST           I*4         (CONSTANT)Offset to MEM buffer for Storm
+*.                                  Motion Attributes array
+*.    G   CENTATTR      I*4         (CONSTANT)Data buffer type: Storm centroid
+*.                                  attributes.
+*.    G   DESTROY       I*4         (CONSTANT)Mnemonic used as input to
+*.                                  A31216__REL_OUTBUF. Indicates "do not pass
+*.                                  data to other tasks".
+*.    G   FORWARD       I*4         (CONSTANT)Parameter to indicate that an
+*.                                  output buffer is to be forwarded to
+*.                                  successor tasks
+*.    G   NORMAL        I*4         (CONSTANT)Parameter which indicates normal
+*.                                  completion of requested operation to
+*.                                  acquire input or output buffer
+*.    G   NO_MEM        I*4         (CONSTANT)Parameter which indicates no
+*.                                  memory available on attempt to acquire
+*.                                  output buffer
+*.    G   PROD_MEM_SHED I*4         (CONSTANT)(CONSTANT)Parameter which
+*.                                  indicates that product aborted due to
+*.                                  memory load shedding
+*.    G   SCAN_DATE     I*4         (CONSTANT)Volume Scan Date index into Scan
+*.                                  Summary Table
+*.    G   SCAN_TIME     I*4         (CONSTANT)Volume Scan Time index into Scan
+*.                                  Summary Table
+*.    G   TRENDATR      I*4         (CONSTANT)Data Buffer Type: Trend data
+*.    C   GPHLNG        I*4         Length of graphics block in halfwords.
+*.    C   RTIME         I*4         Report time (1:Hours; 2:Minutes;
+*.                                  3:Seconds).
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    G   MEM     I*4         Array in RPG shared memory set aside for buffer
+*.                            sharing.
+*.    C   RDATE   I*4         Report data.
+*.    C   RTIME   I*4         Report time (1:Hours; 2:Minutes; 3:Seconds).
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    G   MEM               I*4         Array in RPG shared memory set aside
+*.                                      for buffer sharing.
+*.    C   RTIME             I*4         Report time (1:Hours; 2:Minutes;
+*.                                      3:Seconds).
+*.
+*.  DATABASE/FILE REFERENCE:  NONE
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME       TYPE        DESCRIPTION
+*.    ----       ----        -----------
+*.    CDATE      I*4         SYSTEM DATE
+*.    CTIME      I*4         SYSTEM TIME
+*.    DAY        I*4         PROGRAM PARAMETER FOR DAY, = 1
+*.    FSTWD      I*4         PROGRAM PARAMETER FOR 1ST WORD, = 1
+*.    IDATID1    I*4         DATA TYPE RETURNED BY GET_INBUF
+*.    IDATID2    I*4         DATA TYPE RETURNED BY GET_INBUF
+*.    IPR1       I*4         POINTER FOR CENTROIDS BUFFER
+*.    IPR2       I*4         POINTER FOR STRUCTURES BUFFER
+*.    ISTAT1     I*4         GET_INBUF OPERATION STATUS
+*.    ISTAT2     I*4         GET_INBUF OPERATION STATUS
+*.    MONTH      I*4         PROGRAM PARAMETER FOR MONTH, = 2
+*.    OPSTAT1    I*4         Internal variable used to hold operational status
+*.                           (call argument) of particular buffer.
+*.    OPTR       I*4         POINTER TO OUTPUT BUFFER DATA
+*.    R2DATE     I*2         Report date array.
+*.    SCNWD      I*4         PROGRAM PARAMETER FOR 2ND WORD, = 2
+*.    SSPROD_SIZ I*4         Storm Structure maximum product size
+*.    STRUCDAT   I*4         Data Buffer Type: Storm Structure Data.
+*.    TRDWD      I*4         PROGRAM PARAMETER FOR 3RD WORD, = 3
+*.    V2DATE     I*2         Volume Scan date to be converted
+*.    VDATE      I*4         Date used to load the report date.
+*.    VOLNO      I*4         Volume scan number.
+*.    VTIME      I*4         Volume scan time.
+*.    YEAR       I*4         PROGRAM PARAMETER FOR YEAR, = 3
+*.    ZERO       I*4         PROGRAM PARAMETER FOR ZERO
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD00
+*.    A3CD05
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3165B
+*.    A3165C
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP16.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK16.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+      IMPLICIT NONE
+C
+C** INCLUDE DATA TYPE CODES AND OTHER CONTROL PARAMETER DEFINITIONS
+$INCLUDE A309.INC/G,**A3PM00 (NEND NLIST)
+C
+C** INCLUDE NO MEMORY ABORT PARAMETERS
+$INCLUDE A309.INC/G,**A3PM07 (NEND NLIST)
+C
+C** INCLUDE SHARED MEMORY DEFINITION
+$INCLUDE A309.INC/G,**A3CD00 (NEND NLIST)
+C
+C** INCLUDE PRODUCT OFFSETS AND GLOBAL PARAMETERS
+$INCLUDE A309.INC/G,**A3PM01 (NEND NLIST)
+$INCLUDE A309.INC/G,**A3PM06 (NEND NLIST)
+$INCLUDE            **A3CD05 (NEND NLIST)
+C
+C** INCLUDE ALOGRITHM PARAMETERS
+$INCLUDE A315BUF.INC/G,**A315P5C (NEND NLIST)
+$INCLUDE A315BUF.INC/G,**A315P8T (NEND NLIST)
+C
+$INCLUDE A316.INC/G, **A3165B (NLIST NEND)
+$INCLUDE             **A3165C (NLIST NEND)
+C
+C**  LOCAL PARAMETERS
+C
+      INTEGER*2  GLNGTH(2),V2DATE,R2DATE(3)
+C
+      INTEGER*4  A31218__BUF_VOL,VDATE,VTIME,VOLNO,PARAM
+      INTEGER*4  SSPROD_SIZ,OPTR,CDATE,CTIME,OPSTAT1,GPHLNGX
+      INTEGER*4  DAY,MONTH,YEAR,FSTWD,SCNWD,TRDWD,ZERO
+C
+      PARAMETER(SSPROD_SIZ=9200,DAY=1,MONTH=2,YEAR=3)
+      PARAMETER(FSTWD=1,SCNWD=2,TRDWD=3,ZERO=0)
+C
+      INTEGER*4  IPR1,IDATID1,ISTAT1,IPR2,IDATID2,ISTAT2
+C
+      EQUIVALENCE (GPHLNGX,GLNGTH(1))
+C
+C....................................................................
+C
+C** GET OUTPUT BUFFER
+C
+      CALL A31215__GET_OUTBUF(STRUCDAT,SSPROD_SIZ,OPTR,OPSTAT1)
+      IF (OPSTAT1 .EQ. NORMAL)  THEN
+C
+C** OUTPUT BUFFER OBTAINED; NOW GET INPUT BUFFERS
+C
+C** FROM CENTROIDS ALGORITHM:
+C
+         CALL A31211__GET_INBUF(CENTATTR,IPR1,IDATID1,ISTAT1)
+C
+         IF (ISTAT1 .EQ. NORMAL)  THEN
+C
+C** FROM HAIL DETECTION ALGORITHM
+C
+            CALL A31211__GET_INBUF(TRENDATR,IPR2,IDATID2,ISTAT2)
+C
+            IF (ISTAT2 .EQ. NORMAL)  THEN
+C
+C** GET VOLUME SCAN NUMBER
+C
+               VOLNO = A31218__BUF_VOL(IPR2)
+C
+C** GET DATE/TIME FOR REPORT
+C
+               VDATE = SUMMARY(SCAN_DATE,VOLNO)
+               VTIME = SUMMARY(SCAN_TIME,VOLNO)
+               V2DATE = VDATE
+               CALL A3CM38__JULIAN2DATE(V2DATE,R2DATE)
+C
+C** SET REPORT DATE
+C
+               RDATE(FSTWD) = R2DATE(DAY)
+               RDATE(SCNWD) = R2DATE(MONTH)
+               RDATE(TRDWD) = R2DATE(YEAR)
+C
+C** GET REPORT TIME
+C
+               CALL A3165D__CNVTIME(VTIME,RTIME(FSTWD),RTIME(SCNWD),
+     >                              RTIME(TRDWD))
+C
+C** GET PRODUCT GENERATION DATE AND TIME
+C
+               CALL A3CM25__GET_DATE_TIME(CDATE,CTIME)
+C
+C** DEVELOP STORM STRUCTURES PRODUCT ALPHANUMERIC DATA
+C
+C** THE STAND-ALONE PRODUCT FORMAT CONSISTS OF:
+C
+C**    MESSAGE HEADER BLOCK       -   9 HALFWORDS
+C**    PRODUCT DESCRIPTION BLOCK  -  51 HALFWORD
+C
+C**    FOLLOWING THE PRODUCT DESCRIPTION BLOCK IS:
+C
+C**       BLOCK DIVIDER    -  1 HALFWORD
+C**       NUMBER OF PAGES  -  1 HALFWORD
+C
+C**       FOR EACH PAGE OF ALPHANUMERIC DATA:
+C
+C**          NUMBER OF CHARACTERS  -  1 HALFWORD
+C**          CHARACTER DATA        - 40 HALFWORDS
+C**                                  (16 LINES/PAGE, 80 BYTES/LINE)
+C**          END OF PAGE FLAG      -  1 HALFWORD
+C
+C** ASSUMING 10 STORM CELLS FIT ON EACH PAGE, FOR THE MAXIMUM
+C** NUMBER OF STORMS (100), THE MOST NUMBER OF PAGES IS 10.
+C
+               CALL A31652__FORMAT_STRCT(MEM(IPR2+BNR),MEM(IPR2+BRI),
+     >                                   MEM(IPR1+BST),MEM(OPTR))
+C
+C** STORE SITE ADAPTATION PARAMETERS
+C
+C
+C** STORM CELL IDENTIFICATION AND TRACKING CURRENTLY REQUIRES 3
+C** PAGES.  THE FORMAT IS AS DESCRIBED ABOVE.
+C
+               CALL A31657__STRCT_ADAPT_PARM(MEM(IPR1+BSA),MEM(OPTR))
+C
+C** DEVELOP STORM CELL TREND DATA.  (NOTE:  THE TREND DATA WILL
+C** RESIDE IMMEDIATELY FOLLOWING THE STAND-ALONE ALPHANUMERIC DATA.)
+C
+C** THE CELL TREND DATA IS DESCRIBED BY PACKET CODE 22 (VOLUME SCAN
+C** TIMES) AND PACKET CODE 21 (CELL TREND DATA).  THE TREND DATA IS
+C** POINTED TO BY THE GRAPHICS OFFSET FIELD OF THE DESCRIPTION BLOCK
+C** OF THE PRODUCT.
+C
+               CALL A31659__FORMAT_TREND_DATA(MEM(IPR2+BNR),
+     >                      MEM(IPR2+BRI),MEM(IPR1+BST),MEM(OPTR))
+C
+C** DEVELOP PRODUCT HEADER AND DESCRIPTION
+C
+               IF (GPHLNG .GT. ZERO)  THEN
+                  CALL A31653__STORM_STRCT_HEADER(MEM(OPTR),VOLNO,
+     >                                    CDATE,CTIME)
+C
+C** DETERMINE TOTAL LENGTH OF DATA WRITTEN IN BYTES IN OUTPUT BUFFER
+C
+                  CALL A31656__TOTAL_LENGTH(MEM(OPTR))
+C
+C** RELEASE OUTPUT BUFFER (FORWARD)
+C
+                  CALL A31216__REL_OUTBUF(OPTR,FORWARD)
+               ELSE
+C
+C** RELEASE OUTPUT BUFFER (DESTROY)
+C
+                  CALL A31216__REL_OUTBUF(OPTR,DESTROY)
+               ENDIF
+C
+C** RELEASE INPUT BUFFERS
+C
+               CALL A31212__REL_INBUF(IPR1)
+               CALL A31212__REL_INBUF(IPR2)
+            ELSE
+C
+C**  RELEASE INPUT BUFFER, RELEASE OUTPUT BUFFER (DESTROY)
+C
+               CALL A31212__REL_INBUF(IPR1)
+               CALL A31216__REL_OUTBUF(OPTR,DESTROY)
+               CALL A31145__ABORT_ME
+            ENDIF
+         ELSE
+C
+C**  CENTATTR NOT OBTAINED
+C
+            CALL A31216__REL_OUTBUF(OPTR,DESTROY)
+            CALL A31145__ABORT_ME
+         ENDIF
+      ELSE
+C
+C** OUTPUT BUFFER NOT OBTAINED
+C
+         IF (OPSTAT1 .EQ. NO_MEM) THEN
+C
+C** ABORT WITH REASON "PRODUCT MEMORY SHED"
+C
+            CALL A31168__ABORT_ME_BECAUSE(PROD_MEM_SHED)
+         ELSE
+C
+C** ABORT WITH NO REASON AT ALL
+C
+            CALL A31145__ABORT_ME
+         END IF
+      ENDIF
+C
+C** RETURN TO CALLER
+C
+      RETURN
+      END

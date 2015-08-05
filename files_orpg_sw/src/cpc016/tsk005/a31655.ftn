@@ -1,0 +1,170 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/16 20:36:38 $
+C $Id: a31655.ftn,v 1.3 2002/12/16 20:36:38 christie Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A31655__MOVE_CHARACTERS(BUF,BLNGTH,BL)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A31655__MOVE_CHARACTERS
+*.
+*.  MODULE VERSION: 0014
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       10 18 85      0000      JSGROMMONS
+*.       05 01 86      0001      JSGROMMONS           SPR# 60120
+*.       05 29 86      0002      JSGROMMONS           SPR# 60313
+*.       08 13 86      0003      JO STALEY            SPR# 60347
+*.       10 02 86      0003      J GROMMONS           SPR # 60346
+*.       10 30 89      0004      JO STALEY            SPR # 80612
+*.       02 22 91      0005      David M. Lynch       SPR # 91257
+*.       01 14 91      0005      JOHN DEPHILIP        SPR # 91210
+*.       12/10/91      0006      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0007      Toolset              SPR 91895
+*.       03/25/93      0008      Toolset              SPR NA93-06801
+*.       01/28/94      0009      Toolset              SPR NA94-01101
+*.       03/03/94      0010      Toolset              SPR NA94-05501
+*.       04/01/95      0011      Toolset              CCR NA95-11802
+*.       06/20/95      0012      STEVE SMITH          CCR NA94-26302
+*.       12/23/96      0013      Toolset              CCR NA95-11807
+*.       03/16/99      0014      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:  CALL A31655__MOVE_CHARACTERS(BUF,BLNGTH,BL)
+*.
+*.  MODULE FUNCTION:
+*.     MOVE FORMATTED LINES TO OUTPUT BUFFER
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT  TYPE        DESCRIPTION
+*.    -   -----  ----        -----------
+*.    C   NDX    I*4         Working subscript for moving data.
+*.    C   NOLNS  I*4         Number of lines written.
+*.    C   TBUF   I*2         ARRAY OF I*2 CHARACTER LINES
+*.    C   TXCHR  CHAR*80     ARRAY OF 80 CHARACTER LINES
+*.    P   BL     I*4         NO OF CHARACTERS PER LINE
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    C   NDX     I*4         Working subscript for moving data.
+*.    C   TBUF    I*2         ARRAY OF I*2 CHARACTER LINES
+*.    C   TXCHR   CHAR*80     ARRAY OF 80 CHARACTER LINES
+*.    P   BLNGTH  I*4         LENGTH OF PACKET BLOCK IN WORDS
+*.    P   BUF     I*2         OUTPUT BUFFER
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME      TYPE        DESCRIPTION
+*.    ----      ----        -----------
+*.    BDVDER    I*2         CONSTANT -1 FOR PAGE DIVIDER
+*.    I2S_PGDIV I*4         Parameter used to determine the number of I*2
+*.                          words for output buffer length (page divider = 1
+*.                          I*2 word)
+*.    IB        I*4         SUBSCRIPT FOR STORING CHARACTERS
+*.    JB        I*4         LINE NO INDEX FOR STORING
+*.    NCOLS     I*4         2nd dimension of TBUF array.
+*.    NOCHRS    I*2         CONSTANT 80 FOR NO CHAR PER LINE
+*.    NROWS     I*4         First dimension of TBUF.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3165A
+*.    A3165B
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP16.CSS
+*.
+*.     THE FOLLOWING FILES MUST BE ACCESSABLE TO THE COMPILER:
+*.           NONE
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK16.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+      IMPLICIT NONE
+C
+$INCLUDE A316.INC/G, **A3165B (NLIST NEND)
+C
+C** LOCAL DEFINITIONS:
+C
+      INTEGER*4  NROWS,NCOLS
+      PARAMETER  (NROWS=40,NCOLS=55)
+C
+      INTEGER*2  BUF(*)
+C
+      INTEGER*2  TBUF(NROWS,NCOLS)
+      INTEGER*2  BDVDER,NOCHRS
+      INTEGER I2S_PGDIV
+      PARAMETER (I2S_PGDIV=1)
+C
+      INTEGER*4  IB,JB,BL,BLNGTH
+C
+      CHARACTER*80  TXCHR(NCOLS)
+C
+      EQUIVALENCE  (TBUF(1,1),TXCHR)
+C
+      PARAMETER  (NOCHRS=80,BDVDER=-1)
+C
+      COMMON/A3165A/TBUF
+C
+*****************************************************************
+C
+C** MOVE NO CHAR/LINE, LINE OF CHARACTERS TO OUTPUT BUFFER
+C
+      DO 150  JB = 1,NOLNS
+         BUF(NDX) = NOCHRS
+         NDX = NDX + 1
+C
+C** MOVE LINE OF CHARACTERS TO OUTPUT BUFFER
+C
+         DO 140  IB = 1,BL
+            BUF(NDX) = TBUF(IB,JB)
+            NDX = NDX + 1
+  140    CONTINUE
+  150 CONTINUE
+C
+C** MOVE LINE DIVIDER TO OUTPUT BUFFER
+C
+      BUF(NDX) = BDVDER
+      NDX = NDX + 1
+C
+C** DETERMINE NO OF I*2 WORDS MOVE TO OUTPUT BUFFER
+C** LENGTH IS NO.LINES *40 +1 WORD FOR CHAR COUNT PER LINE + DIVIDER
+C
+      BLNGTH = (BL * NOLNS) + NOLNS + I2S_PGDIV
+C
+C** RETURN TO CALLER
+C
+      RETURN
+      END

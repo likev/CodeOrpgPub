@@ -1,0 +1,345 @@
+C
+C RCS info
+C $Author: steves $
+C $Locker:  $
+C $Date: 2006/07/12 17:42:33 $
+C $Id: a3147e.ftn,v 1.7 2006/07/12 17:42:33 steves Exp $
+C $Revision: 1.7 $
+C $State: Exp $
+C
+      SUBROUTINE A3147E__PROD_HDR_PT1(USPBUF,ENDPTR,ONE_CA)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3147E__PROD_HDR_PT1
+*.
+*.  MODULE VERSION: 0005
+*.
+*.  MODULE LANGUAGE:  FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       10/19/95      0000      Cheryl Stephenson    CCR NA94-08462
+*.       12/23/96      0001      Toolset              CCR NA95-11807
+*.       03/16/99      0002      Toolset              CCR NA98-23803
+*.       01/31/02      0003      Dennis A. Miller     CCR NA01-27501
+*.       07/31/02      0004      C. Pham D. Miller    CCR NA02-20602
+*.       10/26/05      0005      Cham Pham            CCR NA05-21401
+*.
+*.  CALLING SEQUENCE: CALL A3147E__PROD_HDR__PT1(USPBUF,ENDPTR,ONE_CA)
+*.
+*.  MODULE FUNCTION: This module fills in the first part of the USP
+*.  product header.  This includes the number of blocks depending on
+*.  whether it is a Null product or not.  It also includes spot blanking,
+*.  color thresholds and USP specific information.
+*.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT               TYPE        DESCRIPTION
+*.    -   -----               ----        -----------
+*.    G   THRESH              I*2         Adaptation Data for Color Data Table
+*.                                        Thresholds (color-level code, color
+*.                                        table number).
+*.    G   AZWINOFF            I*4         (CONSTANT)Product header offset:
+*.                                        Azimuth of window center.
+*.    G   CNTINTOFF           I*4         (CONSTANT)Product header offset
+*.                                        description: Contour interval.
+*.    G   DIV1OFF             I*4         (CONSTANT)Product header offset:
+*.                                        First divider.
+*.    G   DL1OFF              I*4         (CONSTANT)Product header offset:
+*.                                        data level 1.
+*.    G   EAZALOFF            I*4         (CONSTANT)Product header offset:
+*.                                        Elevation, Azimuth, or Altitude.
+*.    G   LGLSWOFF            I*4         (CONSTANT)Product header offset:
+*.                                        Length of message (LSW).
+*.    G   LGMSWOFF            I*4         (CONSTANT)Product header offset:
+*.                                        Length of message (MSW).
+*.    G   LRLSWOFF            I*4         (CONSTANT)Product block offset:
+*.                                        Length of product block portion of
+*.                                        product (LSW).
+*.    G   LRMSWOFF            I*4         (CONSTANT)Product block offset:
+*.                                        Length of product block portion of
+*.                                        product (MSW).
+*.    G   MDL1OFF             I*4         (CONSTANT)Product header offset:
+*.                                        Maximum Data Level 1.
+*.    G   MDL2OFF             I*4         (CONSTANT)Product header offset:
+*.                                        Maximum Data Level 2.
+*.    G   MDL3OFF             I*4         (CONSTANT)Product header offset:
+*.                                        Maximum Data Level 3.
+*.    G   MDL4OFF             I*4         (CONSTANT)Product header offset:
+*.                                        Maximum Data Level 4.
+*.    G   NBLKSOFF            I*4         (CONSTANT)Product header offset:
+*.                                        Number of blocks in product.
+*.    G   NMAPSOFF            I*4         (CONSTANT)Product header offset
+*.                                        descriptions: Number of maps.
+*.    G   OGLSWOFF            I*4         (CONSTANT)Product header offset:
+*.                                        graphic attributes (LSW).
+*.    G   OGMSWOFF            I*4         (CONSTANT)Product header offset:
+*.                                        graphic attributes (MSW).
+*.    G   OTADLSWOFF          I*4         (CONSTANT)Product header offset:
+*.                                        offset to tabular/adaptation data
+*.                                        (LSW)
+*.    G   OTADMSWOFF          I*4         (CONSTANT)Product header offset:
+*.                                        offset to tabular/adaptation (MSW)
+*.    G   PHEADLNG            I*4         (CONSTANT)Number of half words in
+*.                                        product header (its length).
+*.    G   PPHRLYNC            I*4         (CONSTANT)Color table index for
+*.                                        precipitation, 1 and 3HR products
+*.                                        (Not clear air).
+*.    G   RNWINOFF            I*4         (CONSTANT)Product header offset:
+*.                                        Range of window center.
+*.    G   SBON                I*2         (CONSTANT)Spot Blanking flag
+*.                                        indicating it is enabled in product
+*.    G   STDIROFF            I*4         (CONSTANT)Product header offset:
+*.                                        Storm direction.
+*.    G   STSPDOFF            I*4         (CONSTANT)Product header offset:
+*.                                        Data Storm speed.
+*.    C   BEG_INDX            I*2         Index into USDB_HRS_OLD for the
+*.                                        beginning hour of the USP product
+*.    C   BIAS_ESTM           R*4         The average bias estimate for the
+*.                                        USP product
+*.    C   BIAS_GRPSIZ         R*4         The average effective gage-radar
+*.                                        pair size associated with the bias
+*.                                        for the USP product
+*.    C   END_DATE            I*2         Modified Julian date indicating the
+*.                                        end date of the data in the User
+*.                                        Selectable Database
+*.    C   END_INDX            I*2         Index into USDB_HRS_OLD for the end
+*.                                        hour of USP product
+*.    C   MAXVAL              I*4         The maximum value in the USP product
+*.    C   NULL_PROD           L*4         Flag indicating whether the product
+*.                                        contains data or will a ASCII
+*.                                        message explaining why there is no
+*.                                        data
+*.    C   SCALE               I*4         Scale for threshold and color table
+*.                                        for run-length encoding this product
+*.    C   START_DATE          I*2         Modified Julian date indicating the
+*.                                        start date of the data in the User
+*.                                        Selectable Database
+*.    C   START_TIME          I*2         The start hour of the data in the
+*.                                        User Selectable Database
+*.    C   USDB_HRS_OLD        I*2         An array of indexs for the hourly
+*.                                        accumulation
+*.    C   USDB_SB_STATUS_HRLY I*4         An array of the flags indicating if
+*.                                        the hourly accumulation is spot
+*.                                        blanked
+*.    C   DIVIDER             I*2         (CONSTANT)Value used to delineate
+*.                                        blocks in product output buffer (-1)
+*.    C   END_HOUR            I*4         (CONSTANT)INDEX INTO CUSTOMIZING
+*.                                        ARRAY FOR END HOUR OF THE USP
+*.                                        PRODUCT
+*.    C   FRSTI2WD            I*4         (CONSTANT)Index for 1st I*2 words of
+*.                                        a pair which is equivalenced to one
+*.                                        I*4 word
+*.    C   SCNDI2WD            I*4         (CONSTANT)Index for 2nd word of a
+*.                                        pair of I*2 words equivalenced to
+*.                                        one I*4 word.
+*.    C   STMTOTNC            I*4         (CONSTANT)Storm total (Non clear
+*.                                        air) color table index.
+*.    C   TIME_SPAN           I*4         (CONSTANT)INDEX INTO CUSTOMIZING
+*.                                        ARRAY FOR TIME SPAN OF THE USP
+*.                                        PRODUCT
+*.    P   ENDPTR              I*4         Pointer to the end of the product
+*.    P   ONE_CA              I*2         A single customized request for USP
+*.                                        product
+*.    P   USPBUF              I*2         USP product buffer
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    C   SCALE   I*4         Scale for threshold and color table for
+*.                            run-length encoding this product
+*.    P   USPBUF  I*2         USP product buffer
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME       TYPE        DESCRIPTION
+*.    ----       ----        -----------
+*.    FLAG_SET   I*4         (CONSTANT)Parameter for setting flags
+*.    I          I*4         LOOP COUNTER
+*.    I4TOTLNG   I*4         Total length of product in bytes
+*.    IDX        I*4         Do loop index
+*.    INC1       I*4         (Constant) increment
+*.    MXLVLCOL   I*4         (CONSTANT) Maximum number of color levels (16)
+*.    NUM_BLOCKS I*4         Number of blocks in the USP product
+*.    NUM_BYTES  I*4         (CONSTANT)Number of bytes in a halfword
+*.    ONE        I*4         Parameter value of one.
+*.    RSCALE     R*4         (CONSTANT)Parameter used to scale bias and bias
+*.                           error variance to integer
+*.    ZERO       I*4         PARAMETER VALUE '0'
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    COLRTBL
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3147C2
+*.    A3147C6
+*.    A3147C9
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  NONE
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK14.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+C
+$INCLUDE A309ADPT.INC/G,**A3CD70P6 (NLIST)
+$INCLUDE A309ADPT.INC/G,**A3CD70P8 (NLIST)
+$INCLUDE A309ADPT.INC/G,**A3CD70CA (NLIST)
+$INCLUDE                **A3CD70C7 (NLIST)
+$INCLUDE                **A3CD70C5 (NLIST)
+$INCLUDE A309.INC/G,**A3PM00 (NLIST)
+$INCLUDE            **A3PM01 (NLIST)
+$INCLUDE            **A3PM04 (NLIST)
+$INCLUDE            **A3PM06 (NLIST)
+$INCLUDE            **A3CD05 (NLIST)
+$INCLUDE A3146.INC/G,**A3146P1 (NLIST)
+$INCLUDE A3147.INC/G,**A3147P1 (NLIST)
+$INCLUDE             **A3147P2 (NLIST)
+$INCLUDE             **A3147P4 (NLIST)
+$INCLUDE             **A3147P9 (NLIST)
+$INCLUDE             **A3147C1 (NLIST)
+$INCLUDE             **A3147C2 (NLIST)
+$INCLUDE             **A3147C3 (NLIST)
+$INCLUDE             **A3147C6 (NLIST)
+$INCLUDE             **A3147C9 (NLIST)
+C
+      INTEGER*2 USPBUF(*),ONE_CA(10)
+      INTEGER*4 ENDPTR, FLAG_SET
+      PARAMETER (FLAG_SET = 1)
+      INTEGER*4 NUM_BLOCKS
+      INTEGER*4 I4TOTLNG,IDX , I
+      INTEGER*4 ONE,INC1,ZERO,TEMP
+      INTEGER*4 NUM_BYTES,CHRS,BHRS
+      REAL RSCALE
+      PARAMETER (RSCALE = 100.0)
+      LOGICAL FLAG
+      PARAMETER (ZERO=0)
+      PARAMETER (ONE=1,INC1=1,NUM_BYTES=2)
+C------------------------- EXECUTABLE ---------------------------
+C
+C*    STORE INFORMATION INTO THE PRODUCT HEADER BLOCK
+C
+C     If there is a Null Product, it will not
+C     have a Graphic Attribute Block so number
+C     of blocks is 3 and the Graphic Offset will
+C     be zero.
+C
+      IF(NULL_PROD)THEN
+         NUM_BLOCKS = 3
+         call RPG_set_product_int( USPBUF(OGMSWOFF), ZERO )
+C
+C Set Null Product Color Table to One/Three Hour
+C
+         SCALE = PPHRLYNC
+      ELSE
+         NUM_BLOCKS = 4
+         call RPG_get_product_int( USPBUF(LRMSWOFF), I4TOTLNG )
+         I4TOTLNG = I4TOTLNG/2 +PHEADLNG
+         call RPG_set_product_int( USPBUF(OGMSWOFF), I4TOTLNG )
+      ENDIF
+      USPBUF(NBLKSOFF) = NUM_BLOCKS
+      USPBUF(DIV1OFF) = DIVIDER
+C
+C  Check for Spot Blanking if not a NULL Product
+C
+      IF(.NOT. NULL_PROD)THEN
+         DO 300 I=END_INDX,BEG_INDX,1
+            IDX = USDB_HRS_OLD(I)
+C
+C  Check Spot Blanking status for this hour.
+C  If Spot Blanking is true, then this product
+C  will be marked spot blanked.  Only need
+C  one hour to be spot blanked for the whole
+C  product.
+C
+               IF(USDB_SB_STATUS_HRLY(IDX) .EQ. FLAG_SET)THEN
+C
+C  Set Spot Blank flag
+                 USPBUF(NMAPSOFF)=SBON
+C
+C  Don't need to keep checking after one is found.
+C
+                 GO TO 301
+               ENDIF
+300        CONTINUE
+        ENDIF
+301     CONTINUE
+C
+C*    SET COLOR THRESHOLD TABLE VALUES DEPENDING
+C     WHAT THE SCALE IS.
+C              INDEX 22 = OHP, 23 = STP
+C
+      IF (SCALE .EQ. PPHRLYNC) THEN
+        DO 10 IDX=ONE,MXLVLCOL
+          USPBUF(DL1OFF+IDX-INC1)=THRESH(IDX, 22)
+ 10     CONTINUE
+      ELSEIF (SCALE .EQ. STMTOTNC)THEN
+         DO 20 IDX=ONE,MXLVLCOL
+          USPBUF(DL1OFF+IDX-INC1)=THRESH(IDX, 23)
+ 20     CONTINUE
+      ELSE
+        DO 30 IDX=ONE,MXLVLCOL
+          USPBUF(DL1OFF+IDX-INC1)=THRESH(IDX, 22)
+ 30     CONTINUE
+      ENDIF
+C
+C* STORE USP SPECIFIC INFORMATION
+C
+      USPBUF(RNWINOFF)=ONE_CA(TIME_SPAN)
+      USPBUF(AZWINOFF)=ONE_CA(END_HOUR)
+      IF(NULL_PROD)THEN
+        USPBUF(EAZALOFF)=1    ; NULL PROD FLAG
+        USPBUF(MDL1OFF)=ZERO         ; INCHES MAX RAINFALL
+        USPBUF(STDIROFF)=ZERO
+        USPBUF(CNTINTOFF)= ZERO
+      ELSE
+        USPBUF(EAZALOFF)=ZERO
+        USPBUF(MDL1OFF)=MAXVAL         ; INCHES MAX RAINFALL
+        USPBUF(MDL2OFF)= START_DATE    ; START DATE
+        USPBUF(MDL3OFF)= START_TIME*60  ; START TIME
+        USPBUF(MDL4OFF)=END_DATE       ; END DATE
+        USPBUF(STSPDOFF)=ONE_CA(END_HOUR)*60 ;END TIME
+C
+C** Note: Changed for LINUX - Used RPG_NINT library function instead
+C         of adding 0.5 for rounding to the nearest integer.
+C
+        call RPG_NINT(BIAS_ESTM*RSCALE, TEMP)
+        USPBUF(STDIROFF) = TEMP
+        call RPG_NINT(BIAS_GRPSIZ, TEMP)
+        USPBUF(CNTINTOFF) = TEMP
+      ENDIF
+C*
+C*    STORE OFFSET TO THE SITE ADAPTATION DATA BLOCK
+C
+      call RPG_set_product_int( USPBUF(OTADMSWOFF), ZERO )
+C*
+C*    STORE TOTAL LENGTH OF THE MESSAGE
+      I4TOTLNG = ENDPTR*NUM_BYTES
+      call RPG_set_product_int( USPBUF(LGMSWOFF), I4TOTLNG )
+
+      RETURN
+      END

@@ -1,0 +1,200 @@
+orpgpgt(3)			ORPG SUM Manpage		orpgpgt(3)
+
+NAME
+
+orpgpgt - ORPGPGT Library Functions
+
+SYNOPSIS
+
+#include <orpg.h>
+
+void ORPGPGT_error (void (*user_exception_callback)());
+
+int   ORPGPGT_read_tbl    (int table);
+int   ORPGPGT_write_tbl   (int table);
+int   ORPGPGT_copy_tbl    (int source_table, int destination_table);
+int   ORPGPGT_replace_tbl (int source_table, int destination_table);
+
+int   ORPGPGT_add_entry     (int table);
+int   ORPGPGT_delete_entry  (int table, int indx);
+char *ORPGPGT_get_tbl_ptr   (int table, int indx);
+int   ORPGPGT_get_tbl_num   (int table);
+int   ORPGPGT_get_tbl_size  (int table);
+int   ORPGPGT_buf_in_tbl    (int table, int prod_id);
+
+int   ORPGPGT_get_prod_id             (int table, int indx);
+int   ORPGPGT_get_archive_interval    (int table, int indx);
+int   ORPGPGT_get_generation_interval (int table, int indx);
+int   ORPGPGT_get_storage_interval    (int table, int indx);
+int   ORPGPGT_get_retention_period    (int table, int indx);
+int   ORPGPGT_get_parameter           (int table, int indx, int param);
+
+int   ORPGPGT_set_prod_id             (int table, int indx, int val);
+int   ORPGPGT_set_archive_interval    (int table, int indx, int val);
+int   ORPGPGT_set_generation_interval (int table, int indx, int val);
+int   ORPGPGT_set_storage_interval    (int table, int indx, int val);
+int   ORPGPGT_set_retention_period    (int table, int indx, int val);
+int   ORPGPGT_set_parameter           (int table, int indx, int param, int val);
+
+DESCRIPTION
+
+The ORPGPGT collection of functions are used to manipulate the contents of each
+of the product generation tables.  Currently there are 4 product generation
+tables: Current, Default Wx Mode A, Default Wx Mode B, and Default Maintenance
+Mode.  To access a specific table use the macros defined in header file
+"orpgpgt.h".  These are
+
+	Current                  - ORPGPGT_CURRENT_TABLE
+	Default Wx Mode A        - ORPGPGT_DEFAULT_A_TABLE
+	Default Wx Mode B        - ORPGPGT_DEFAULT_B_TABLE
+	Default Maintenance Mode - ORPGPGT_DEFAULT_M_TABLE
+
+Storage of these tables in memory is controlled within the ORPGPGT library so
+the user does not have to worry about allocating space within the application
+which uses these data.  Data are only allocated by the library for a specific
+table when information for that table is first requested.
+
+The four product generation tables are currently stored in the
+ORPGDAT_PROD_INFO LB as separate messages (refer to the header file
+"prod_distri_info.h" for specific message IDs).  Whenever the application
+updates a table (via ORPGPGT_write or ORPGPGT_copy), an ORPGEVT_PROD_LIST event
+is posted and the table which was modified is passed as an "int" within the
+event message.  The application which updated the table is blocked from
+receiving the event.
+
+ORPGPGT_error() registers a user callback function to bypass normal ORPGPGT
+error processing.
+
+ORPGPGT_read_tbl() is used to read one of the product generation tables.  The
+specific table is identified by the "table" argument.  Since the ORPGPGT
+library manages tables internally, an application should not have to explicitly
+call ORPGPGT_read_tbl() unless it wants to force an update of a specific table.
+On success, 0 is returned.  On failure, ORPGPGT_ERROR is returned.
+
+ORPGPGT_write_tbl() causes the data contained in the specified table (table) to
+be written to the product info LB (ORPGDAT_PROD_INFO).  An event is posted to
+inform other applications that the specified table has been updated.  Other
+applications can read the event message (single int) to determine which table
+has been updated.  On success, 0 is returned.  On failure, ORPGPGT_ERROR is
+returned.
+
+ORPGPGT_copy_tbl()  and ORPGPGT_replace_tbl() forces one table
+(destination_table) to be replaced by another (source_table).
+ORPGPGT_copy_tbl() replaces the stored message while ORPGPGT_replace_tbl() only
+replaces the internal buffer.  For ORPGPGT_copy_msg(), an event is posted to
+inform other applications that the specified destination table has been
+updated.  Other applications can read the event message (single int) to
+determine which table has been updated.  On success, 0 is returned.  On
+failure, ORPGPGT_ERROR is returned.
+
+ORPGPGT_add_entry() adds a new record to the product generation table specified
+by "table".  The index of the new record within the specified table is returned
+on success, ORPGPGT_ERROR on failure.
+
+ORPGPGT_delete_entry() removes a specified record (indx) from the product
+generation table specified by table.  0 is returned on success and
+ORPGPGT_ERROR on failure.
+
+ORPGPGT_get_tbl_ptr() returns a pointer to the requested record (indx) in the
+specified product generation table (table).  On success, a pointer to the start
+of a Pd_prod_entry is returned.  On failure, NULL is returned.
+
+ORPGPGT_get_tbl_num() returns the number of records contained in the specified
+product generation table (table).  If the table is empty or not initialized, 0
+is returned.
+
+ORPGPGT_get_tbl_size() returns the size (in bytes) of the specified product
+generation table.  If the table is empty or not initialized, 0 is returned.
+
+ORPGPGT_buf_in_tbl() returns the index of first occurrence of a product
+(prod_id) in the specified product generation table (table).  On success, an
+integer >= 0 is returned.  If the product is not found, -1 is returned.  On
+failure, ORPGPGT_ERROR is returned.
+
+ORPGPGT_get_prod_id() returns the product id associated with a record (indx) in
+the specified product generation table (table).  On success, a positive integer
+is returned.  On failure, ORPGPGT_ERROR is returned.
+
+ORPGPGT_get_archive_interval() returns the archive interval associated with a
+record (indx) in the specified product generation table (table).  On success,
+an integer in the range -20 to 20 is returned.  On failure, ORPGPGT_ERROR is
+returned.
+
+ORPGPGT_get_storage_interval() returns the storage interval associated with a
+record (indx) in the specified product generation table (table).  On success,
+an integer >= 0 is returned.  On failure, ORPGPGT_ERROR is returned.
+
+ORPGPGT_get_generation_interval() returns the generation interval associated
+with a record (indx) in the specified product generation table (table).  On
+success, an integer >= 0 is returned.  On failure, ORPGPGT_ERROR is returned.
+
+ORPGPGT_get_retention_period() returns the retention period, in minutes,
+associated with a record (indx) in the specified product generation table
+(table).  On success, a positive integer is returned.  On failure,
+ORPGPGT_ERROR is returned.
+
+ORPGPGT_get_parameter() returns a scaled parameter value  for the indicated
+parameter (param) associated with a record (indx) in the specified product
+generation table (table).  To unscale the returned value you should divide it
+by the value returned by the ORPGPAT function "ORPGPAT_get_parameter_scale().
+On success, a value other than ORPGPGT_ERROR is returned.  On failure,
+ORPGPGT_ERROR is returned.
+
+ORPGPGT_set_prod_id() sets the product id for the indicated record (indx) in
+the specified product generation table (table) to "val".  On success, "val" is
+returned.  On failure, ORPGPGT_ERROR is returned.
+
+ORPGPGT_set_archive_interval() sets the archive interval for the indicated
+record (indx) in the specified product generation table (table) to "val".  On
+success, "val" is returned.  On failure, ORPGPGT_ERROR or ORPGPGT_INVALID_DATA
+is returned.
+
+ORPGPGT_set_storage_interval() sets the storage interval for the indicated
+record (indx) in the specified product generation table (table) to "val".  On
+success, "val" is returned.  On failure, ORPGPGT_ERROR is returned.
+
+ORPGPGT_get_generation_interval() sets the generation interval for the
+indicated record (indx) in the specified product generation table (table) to
+"val".  On success, "val" is returned.  On failure, ORPGPGT_ERROR is returned.
+
+ORPGPGT_get_retention_period() sets the retention period for the indicated
+record (indx) in the specified product generation table (table) to "val".  On
+success, "val" is returned.  On failure, ORPGPGT_ERROR is returned.
+
+ORPGPGT_set_parameter() sets the parameter value for the indicated parameter
+(param) and record (indx) in the specified product generation table (table) to
+"val".  The parameter value should have been first scaled by the value returned
+by the ORPGPAT function "ORPGPAT_get_parameter_scale().  On success, "val" is
+returned.  On failure, ORPGPGT_ERROR is returned.
+
+
+EXAMPLES
+
+The following sample code segment illustrates how to add a new entry to the
+Current product generation table.
+
+    {
+	int	indx;
+	int	id;
+	int	gen;
+	int	arc;
+	int	sto;
+	int	len;
+	...
+
+	indx = ORPGPGT_add_entry (ORPGPGT_CURRENT_TABLE);
+
+	ret  = ORPGPGT_set_prod_id             (ORPGPGT_CURRENT_TABLE,indx,id);
+	ret  = ORPGPGT_set_archive_interval    (ORPGPGT_CURRENT_TABLE,indx,arc);
+	ret  = ORPGPGT_set_generation_interval (ORPGPGT_CURRENT_TABLE,indx,gen);
+	ret  = ORPGPGT_set_storage_interval    (ORPGPGT_CURRENT_TABLE,indx,sto);
+	ret  = ORPGPGT_set_retention_period    (ORPGPGT_CURRENT_TABLE,indx,len);
+	...
+    }
+
+SEE ALSO
+
+mnttsk_prod_gen(1) orpgpat(3) product_generation_tables(4)
+
+
+				$Revision: 1.7 $

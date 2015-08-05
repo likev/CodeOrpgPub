@@ -1,0 +1,51 @@
+MALRM_register(3) 		   ORPG SDD Manpage   		MALRM_register(3)
+
+NAME
+MALRM_register - register a Multiple Alarm Services (MALRM) alarm
+
+SYNOPSIS
+#include <malrm.h>
+int MALRM_register(malrm_id_t alarmid, void (*callback)())
+
+DESCRIPTION
+The specified MALRM alarm is registered.
+
+"alarmid" is assumed to be a valid alarm ID (zero is not a valid alarm ID).
+
+"callback" is a pointer to an MALRM alarm callback routine that the user
+wishes to have invoked upon occurrence of the specified alarm.
+
+This callback routine must be defined as follows (the name, of course,
+will be selected by the user):
+
+void callback(malrm_id_t alarmid)
+
+The scope of the MALRM alarm callback routine lies within the scope
+of an MALRM library signal handler, so accepted signal-handler design
+principles should be used when designing the callback routine.  All
+blockable POSIX signals are blocked while the MALRM library signal handler
+is executing.
+
+Any process using the "MALRM_register" library routine must not trap
+or otherwise interact with the signal corresponding to MALRM_ALARM_SIG.
+
+RETURN VALUES
+The number of registered alarms, or a negative value corresponding
+to one of the following macros on failure:
+
+MALRM_BAD_ALARMID	invalid alarm ID (e.g., '0')
+
+MALRM_DUPL_REG		attempt to re-register a registered alarm
+
+MALRML_SUSPECT_PTR	the callback routine pointer is suspect
+
+MALRM_TOO_MANY_ALARMS	attempt to register more than MALRM_MAX_ALARMS
+				alarms
+
+MALRM_SIGACTION_FAILED
+MALRM_SIGEMPTYSET_FAILED
+
+SEE ALSO
+MALRM_cancel(3), MALRM_deregister(3), MALRM_set(3), malrm(3)
+
+				$Revision: 1.1 $

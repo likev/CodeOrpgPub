@@ -1,0 +1,150 @@
+C 
+C RCS info 
+C $Author: nolitam $ 
+C $Locker:  $ 
+C $Date: 2002/12/11 20:00:14 $ 
+C $Id: a30749.ftn,v 1.2 2002/12/11 20:00:14 nolitam Exp $ 
+C $Revision: 1.2 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A30749__END_OF_PRODUCT_PROCESSING(CRPTR,RELSTAT,PFLAG)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A30749__END_OF_PRODUCT_PROCESSING
+*.
+*.  MODULE VERSION: 0011
+*.
+*.  MODULE LANGUAGE:  FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       04 15 85      0000      ATARA WEINSTEIN
+*.       08 04 86      0001      MIKE ISTOK           SPR# 60313
+*.       02 22 91      0002      MARK FRESCH          SPR# 91248
+*.       02 15 91      0002      JOHN DEPHILIP        SPR# 91762
+*.       12 03 91      0003      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0004      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/20/92      0005      Toolset              SPR 91895
+*.       03/25/93      0006      Toolset              SPR NA93-06801
+*.       01/28/94      0007      Toolset              SPR NA94-01101
+*.       03/03/94      0008      Toolset              SPR NA94-05501
+*.       04/11/96      0009      Toolset              CCR NA95-11802
+*.       12/23/96      0010      Toolset              CCR NA95-11807
+*.       03/16/99      0011      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:
+*.     CALL A30749__END_OF_PRODUCT_PROCESSING(CRPTR,RELSTAT,PFLAG)
+*.
+*.  MODULE FUNCTION:
+*.     Routine to release the product output buffer, and either
+*.     forward or destroy the buffer upon release, for the Composite
+*.     Reflectivity mapping program.
+*.
+*.  MODULES CALLED: A31216__REL_OUTBUF 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT   TYPE        DESCRIPTION
+*.    -   -----   ----        -----------
+*.    G   DESTROY I*4         (CONSTANT)Mnemonic used as input to
+*.                            A31216__REL_OUTBUF. Indicates "do not pass data
+*.                            to other tasks".
+*.    G   FORWARD I*4         (CONSTANT)Parameter to indicate that an output
+*.                            buffer is to be forwarded to successor tasks
+*.    P   CRPTR   I*4         Array of pointers to the output buffers for the
+*.                            Composite Reflectivity products
+*.    P   PFLAG   L*4         An array of flags to keep track of what products
+*.                            need to be generated
+*.    P   RELSTAT I*4         Flag for buffer's disposition upon release
+*.                            (forward/destroy)
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    P   CRPTR             I*4         Array of pointers to the output
+*.                                      buffers for the Composite Reflectivity
+*.                                      products
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME  TYPE        DESCRIPTION
+*.    ----  ----        -----------
+*.    N     I*4         Do loop index.
+*.    NBUFS I*4         Dimension of arrays CRPTR and PFLAG, and upper limit
+*.                      of do loop.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: NONE.
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  NONE
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP07.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK07.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+      IMPLICIT NONE
+C
+$INCLUDE A309.INC/G,**A3PM00 (NEND NLIST)
+C
+C*** LOCAL DECLARATIONS:
+C
+      INTEGER NBUFS, NBYTES, N
+      INTEGER RELSTAT
+C
+      PARAMETER (NBUFS=6)
+C
+      INTEGER CRPTR(NBUFS)
+      LOGICAL PFLAG(NBUFS)
+C
+C
+C*** EXECUTABLE CODE:
+C
+C*** IF BUFFER-STATUS-FLAG IS 'DESTROY', THEN
+C*** RELEASE AND DESTROY ALL PRODUCT BUFFERS OBTAINED, ELSE
+C*** RELEASE AND FORWARD ALL FINISHED PRODUCTS TO ON-LINE STORAGE:
+C
+      IF (RELSTAT .EQ. DESTROY) THEN
+        DO 10 N = 1,NBUFS
+           IF (PFLAG(N)) THEN
+***
+X        TYPE *,'A30749: DESTROYING OUTBUF FOR PRODUCT #',N
+***
+              CALL A31216__REL_OUTBUF(CRPTR(N),DESTROY)
+           ENDIF
+  10    CONTINUE
+      ELSE
+        DO 20 N = 1,NBUFS
+           IF (PFLAG(N)) THEN
+***
+X        TYPE *,'A30749: FORWARDING OUTBUF FOR PRODUCT #',N
+***
+              CALL A31216__REL_OUTBUF(CRPTR(N),FORWARD)
+           ENDIF
+  20    CONTINUE
+      ENDIF
+C
+C*** RETURN TO BUFFER CONTROL ROUTINE:
+C
+      END

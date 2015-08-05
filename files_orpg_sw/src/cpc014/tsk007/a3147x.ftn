@@ -1,0 +1,408 @@
+C 
+C RCS info 
+C $Author: nolitam $ 
+C $Locker:  $ 
+C $Date: 2002/11/27 15:17:37 $ 
+C $Id: a3147x.ftn,v 1.7 2002/11/27 15:17:37 nolitam Exp $ 
+C $Revision: 1.7 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A3147X__GC_PRODUCT(REQ)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3147X__GC_PRODUCT
+*.
+*.  MODULE VERSION: 0002
+*.
+*.  MODULE LANGUAGE:  FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.        01/15/96      0000     Cheryl Stephenson     CCR NA94-08462
+*.       12/23/96      0001      Toolset              CCR NA95-11807
+*.       03/16/99      0002      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A3147X__GC_PRODUCT
+*.
+*.  MODULE FUNCTION:
+*.         This module determines if one of the requests is for the
+*.   Generation and Control product.  If the request matchs the
+*.   Generation and Control product that is in the data base, it
+*.   is read off disk.  Part 2 of the product header is put on it.
+*.   And it is released.   If there is no product in the data base
+*.   or it is too old, the return flag is set false and the calling
+*.   Module will build the G&C product with the rest of the requests.
+*.
+*.
+*.  MODULES CALLED: A31215__GET_OUTBUF, A31216__REL_OUTBUF, A31478__USDB_IO, 
+*.                  A3147D__USP_NULL, A3147S__PROD_HDR_PT2, 
+*.                  A3CM25__GET_DATE_TIME, A3CM54__CUST_PROD_MEMSHED 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT            TYPE        DESCRIPTION
+*.    -   -----            ----        -----------
+*.    G   LAST_DATE_HRDB   I*2         The date of the latest hour that was
+*.                                     added to the USP 30 HR Precipitation
+*.                                     database.
+*.    G   LAST_TIME_HRDB   I*2         The time of the latest hour that was
+*.                                     added to the USP 30 HR Precipitation
+*.                                     database.
+*.    G   MEM              I*4         Array in RPG shared memory set aside
+*.                                     for buffer sharing.
+*.    G   PGCTABLE         I*2         Product Generation Control Adaptation
+*.                                     Data.
+*.    G   FORWARD          I*4         (CONSTANT)Parameter to indicate that an
+*.                                     output buffer is to be forwarded to
+*.                                     successor tasks
+*.    G   NORMAL           I*4         (CONSTANT)Parameter which indicates
+*.                                     normal completion of requested
+*.                                     operation to acquire input or output
+*.                                     buffer
+*.    G   UCPAZOFW         I*4         (CONSTANT)Row Index for PI of Product
+*.                                     ID in product generation control table.
+*.    G   UCPGENFRQ        I*4         (CONSTANT)Row Index for Generation
+*.                                     Frequency in product generation control
+*.                                     table.
+*.    G   UCPRANOFW        I*4         (CONSTANT)Row Index for P2 of Product
+*.                                     ID in product generation control table.
+*.    C   CA               I*2         Array of customized USP requests
+*.    C   DATE_GCPROD      I*2         Date of the USP product that match the
+*.                                     request from the Generation, Control
+*.                                     and Distribution list.
+*.    C   FLAG_NO_GCPROD   L*4         Flag indicating if there is a
+*.                                     Generation and Distribution Control
+*.                                     product in the USDB
+*.    C   NREQ             I*4         Number of customized USP products
+*.                                     requested
+*.    C   TIME_GCPROD      I*2         Time of the Generation and Distribution
+*.                                     Control product in the USDB, if -2
+*.                                     there is no product been created yet
+*.    C   TIME_SPAN_GCPROD I*2         Time Span for the USP product on the
+*.                                     GDCL list
+*.    C   USDB_FIL_STAT    I*4         Status of read or write operation on
+*.                                     the USDB file
+*.    C   BAD_FILE         I*4         (CONSTANT)Error code for when unable to
+*.                                     read or write to the User Selectable
+*.                                     data base
+*.    C   CCOPYNO          I*4         (CONSTANT)Index into user customizing
+*.                                     array for for volume scan index
+*.    C   CUSTIDX          I*4         (CONSTANT)Index in the Customizing
+*.                                     array for the second index to PGENCUT
+*.                                     in case the USP is load shed
+*.    C   DFLT_24H_RECNO   I*4         (CONSTANT)Record number for the default
+*.                                     Generation and Distribution Control
+*.                                     Product in the User Selectable Data
+*.                                     Base
+*.    C   DUP_POS          I*4         (CONSTANT)Index into Customizing array
+*.                                     to indicate whether this particular USP
+*.                                     product is a duplicate of another USP
+*.                                     product
+*.    C   END_HOUR         I*4         (CONSTANT)INDEX INTO CUSTOMIZING ARRAY
+*.                                     FOR END HOUR OF THE USP PRODUCT
+*.    C   GOOD             I*4         (CONSTANT)Status flag value.
+*.    C   HRS_24           I*2         (CONSTANT)Number of hours in a day
+*.    C   HYUSPACC         I*4         (CONSTANT)Data Buffer Type: USP product
+*.                                     buffer
+*.    C   KPOLAR_WORDS     I*4         (CONSTANT)Scratch buffer size for polar
+*.                                     grid.
+*.    C   NULL_POS         I*4         (CONSTANT)Index into Customizing array
+*.                                     to indicate that this particular USP is
+*.                                     a Null product
+*.    C   NUM_POLAR_BYTES  I*4         (CONSTANT)Number of polar bytes to read
+*.                                     or write  (KBINS*KRADS*2=82,800)
+*.    C   READKODE         I*4         (CONSTANT)I/O code indicating input
+*.                                     should be read.
+*.    C   TIME_SPAN        I*4         (CONSTANT)INDEX INTO CUSTOMIZING ARRAY
+*.                                     FOR TIME SPAN OF THE USP PRODUCT
+*.    C   USP_CODE         I*4         (CONSTANT)USP PRODUCT CODE
+*.    P   REQ              I*4         The request number of the customized
+*.                                     requests that matches the Generation &
+*.                                     Distribution Control USP product
+*.                                     request
+*.
+*.    *   OUTPUT    TYPE        DESCRIPTION
+*.    -   ------    ----        -----------
+*.    G   MEM       I*4         Array in RPG shared memory set aside for
+*.                              buffer sharing.
+*.    C   CA        I*2         Array of customized USP requests
+*.    C   GC_RDFLAG L*4         Flag indicating whether the Generation and
+*.                              Control USP was read from the User Selectable
+*.                              Data Base
+*.    P   REQ       I*4         The request number of the customized requests
+*.                              that matches the Generation & Distribution
+*.                              Control USP product request
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    G   MEM               I*4         Array in RPG shared memory set aside
+*.                                      for buffer sharing.
+*.    C   CA                I*2         Array of customized USP requests
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME          TYPE        DESCRIPTION
+*.    ----          ----        -----------
+*.    BUILD_GC_PROD L*4         Flag indicating whether it necessary to build
+*.                              a new Generation & Distribution USP product or
+*.                              can it be read from disk
+*.    CDATE         I*4         Current Julian clock date
+*.    CLEAR         I*4         Parameter used to clear flag or variable
+*.    CTIME         I*4         Current clock time in seconds
+*.    DATE_DIF      I*2         The difference between the latest database
+*.                              date and the generation date of the last
+*.                              Generation & Distribution Control USP product
+*.                              was written to the data
+*.    GC_END_HOUR   I*2         The end hour of the USP product defined on the
+*.                              Generation & Distribution Control Menu
+*.    GC_TIME_SPAN  I*2         The timespan of the USP product defined on the
+*.                              Generation & Distribution Control Menu
+*.    I             I*4         Do loop counter.
+*.    MATCH         L*4         Flag indicating that one of the customized
+*.                              request matches the Generation & Distribution
+*.                              product request
+*.    OPSTAT        I*4         Status of call to A31215 to get USP product
+*.                              buffer
+*.    OPTR          I*4         Output buffer pointer into MEM for the USP
+*.                              product buffer
+*.    SET           I*4         Parameter indicating a flag is set (value
+*.                              equal 1)
+*.    STATUS        I*4         Status
+*.    TIME_DIF      I*2         The difference between the latest database
+*.                              time and the generation time of the last
+*.                              Generation & Distribution Control USP product
+*.                              was written to the data
+*.    ZERO          I*4         PARAMETER VALUE '0'
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD00
+*.    A3CD07
+*.    STATFIL
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3147C1
+*.    A3147C8
+*.    A3147C9
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  NONE
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK14.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+C
+C* GLOBAL DECLARATIONS:
+C
+$INCLUDE A309ADPT.INC/G,**A3CD70PA  (NLIST)
+$INCLUDE                **A3CD70P6 (NLIST)
+$INCLUDE                **A3CD70P8 (NLIST)
+$INCLUDE A309.INC/G,**A3PM00 (NLIST)
+$INCLUDE            **A3PM01 (NLIST)
+$INCLUDE            **A3PM04 (NLIST)
+$INCLUDE            **A3PM06 (NLIST)
+$INCLUDE            **A3CD00 (NLIST)
+$INCLUDE            **A3CD05 (NLIST)
+$INCLUDE            **A3CD07 (NLIST)
+$INCLUDE A3146.INC/G,**A3146P1    (NLIST)
+$INCLUDE             **A3146P2    (NLIST)
+$INCLUDE A3147.INC/G,**A3147P1    (NLIST)
+$INCLUDE             **A3147P3    (NLIST)
+$INCLUDE             **A3147P4    (NLIST)
+$INCLUDE             **A3147P9    (NLIST)
+$INCLUDE             **A3147C1    (NLIST)
+$INCLUDE             **A3147C8    (NLIST)
+$INCLUDE             **A3147C9    (NLIST)
+C
+C----- LOCAL DATA ---------------
+C
+      INTEGER*2 GC_TIME_SPAN, GC_END_HOUR
+      INTEGER*2 DATE_DIF, TIME_DIF
+      INTEGER ZERO , SET
+      PARAMETER (ZERO = 0, SET = 1)
+      INTEGER*4 OPTR, OPSTAT
+      INTEGER*4 CDATE,CTIME, REQ,  STATUS
+      INTEGER*4 I
+      LOGICAL MATCH, BUILD_GC_PROD
+      LOGICAL CLEAR_SUM
+C$INSERT      INTEGER*2 PGCTABLE( PGCTAELM )
+
+C------------------------- EXECUTABLE ---------------------------
+X     Write(14,*)'ENTERING A3147X FOR G&C USP PRODUCT'
+C
+C  Initilization
+C
+      BUILD_GC_PROD = .FALSE.
+      MATCH         = .FALSE.
+      GC_RDFLAG     = .FALSE.
+      REQ           = ZERO
+      STATUS = ZERO
+C
+C$INSERTC
+C$INSERTC  Fill the product generation and control table with
+C$INSERTC  data from the default generation and distribution
+C$INSERTC  list
+C$INSERTC
+C$INSERT      CALL prcpuspt_fill_pgctable( USP_CODE, 1, PGCTABLE )
+C$DELETE
+      GC_TIME_SPAN  = PGCTABLE(UCPRANOFW,USP_CODE,1)
+      GC_END_HOUR   = PGCTABLE(UCPAZOFW,USP_CODE,1)
+C$ENDDELETE
+C$INSERT      GC_TIME_SPAN  = PGCTABLE(UCPRANOFW)
+C$INSERT      GC_END_HOUR   = PGCTABLE(UCPAZOFW)
+C
+X     WRITE(14,*)'7X:GC_TIME SPAN IS ',GC_TIME_SPAN,' HRS AND',
+X    &  ' GC_END HOUR IS ',GC_END_HOUR
+C
+C  Are any of the customized product requests for product on
+C  the Product Generation Control Table?
+C
+      DO 10 I=1,NREQ
+         IF(CA(END_HOUR,I) .EQ. GC_END_HOUR .AND. CA(TIME_SPAN,I)
+     $      .EQ. GC_TIME_SPAN)THEN
+X           WRITE(14,*)'7X:G&C PRODUCT REQUEST IS ', I
+            REQ = I
+            BUILD_GC_PROD = .TRUE.
+            GO TO 20
+         ENDIF
+10    CONTINUE
+20    CONTINUE
+C
+C  Is the Genration & Control product set for generation?
+C
+C$DELETE
+      IF (BUILD_GC_PROD .AND. (PGCTABLE(UCPGENFRQ,USP_CODE,1) .NE.
+C$ENDDELETE
+C$INSERT      IF (BUILD_GC_PROD .AND. (PGCTABLE(UCPGENFRQ) .NE.
+     $     ZERO))THEN
+             MATCH = .TRUE.
+X            WRITE(14,*)'7X: GENERATION LIST MATCHS CUSTOM REQUEST'
+      ENDIF
+C
+C  If they do match and there is a product in the database,
+C
+      IF (MATCH .AND. (.NOT.FLAG_NO_GCPROD)) THEN
+X        WRITE(14,*)'7X: MATCH TRUE AND FLAG_NO_GCPROD FALSE'
+C
+C  Determine if the product on the disk has the same time span
+C  and end hour as the product in the Generation and Control Table
+C
+         IF(CA(END_HOUR,REQ).EQ. TIME_GCPROD .AND. CA(TIME_SPAN,REQ)
+     $      .EQ. TIME_SPAN_GCPROD)THEN
+X          WRITE(14,*)'7C: PRODUCT IN DATABASE MATCHS REQUEST'
+C
+C  Check latest database date and time against
+C  the product date and time.
+C
+           DATE_DIF = LAST_DATE_HRDB - DATE_GCPROD
+           TIME_DIF = LAST_TIME_HRDB - TIME_GCPROD
+           TIME_DIF = DATE_DIF* HRS_24 + TIME_DIF
+X          WRITE(14,*)'7H: TIME DIFF =',TIME_DIF,'HRS'
+C
+C If time difference less than 24 hours read product off disk.
+C The Generation and Control product will only be built once
+C a day.
+C
+           IF (TIME_DIF .LT. HRS_24) THEN
+C
+C  Get product output buffer
+C
+             CALL A31215__GET_OUTBUF(HYUSPACC,KPOLAR_WORDS,OPTR,OPSTAT)
+             IF (OPSTAT.EQ.NORMAL) THEN
+X               WRITE(14,*)'7X: RECEIVED HYUSPACC BUFFER FOR G&C',
+X    &             ' REQUEST'
+C
+C  Get product from disk
+C
+                 IF (USDB_FIL_STAT.EQ.GOOD) THEN
+X                  WRITE(14,*)'7X: READ PRODUCT FROM DISK'
+                   CALL A31478__USDB_IO(READKODE,DFLT_24H_RECNO,
+     $             NUM_POLAR_BYTES,MEM(OPTR))
+                 ENDIF
+C
+C  Check for conditions that indicate the data is not available
+C
+                 IF (USDB_FIL_STAT.NE.GOOD) THEN
+X                  WRITE(14,*)'7X:BAD FILE,BUILD NULL'
+                   CA(NULL_POS,REQ) = BAD_FILE
+                   GC_RDFLAG = .TRUE.
+C$DELETE
+                   CALL A3147D__NULL(MEM(OPTR),CA(1,REQ))
+C$ENDDELETE
+C$INSERT                   CALL A3147D__USP_NULL(MEM(OPTR),CA(1,REQ))
+                   GO TO 888
+                 ELSE
+C
+C  Product data is good, clear error code. Set flag indicating
+C  Product was read from disk.
+C
+X                  WRITE(14,*)'7X: PRODUCT READ FROM DISK'
+                   GC_RDFLAG = .TRUE.
+                   CA(NULL_POS,REQ) = CLEAR
+                 END IF
+C
+C  Get the Generation time and date of this request from the system
+C  clock.
+C
+                 CALL A3CM25__GET_DATE_TIME(CDATE,CTIME)
+C
+C  Call routine to build second part of the product header
+C
+C
+                 CALL A3147S__PROD_HDR_PT2(MEM(OPTR),CDATE,
+     $                CTIME,CA(1,REQ))
+C
+C  Release and forward the G&C product buffer
+C
+                 CALL A31216__REL_OUTBUF (OPTR, FORWARD)
+             ELSE
+C
+C  Output product buffer not available. Buffer management was unable
+C  to allocate the output product memory for this request.  Call
+C  A3CM54 to clean up for this missing request so PUP user is
+c  informed of the missing product.  This also indicates a memory
+C  load shed condition is in effect.
+C
+X              WRITE(14,*)'7X: COULD NOT GET G&C PRODUCT BUFFER'
+               CALL A3CM54__CUST_PROD_MEMSHED
+     +              (CA(CUSTIDX,REQ),CA(CCOPYNO,REQ),OPSTAT)
+C
+C  If the next request is a duplicate of this request, need
+C  to call A3CM54 for it also
+C
+               IF(CA(DUP_POS,REQ+1) .EQ. SET)THEN
+                  CALL A3CM54__CUST_PROD_MEMSHED
+     +              (CA(CUSTIDX,REQ+1),CA(CCOPYNO,REQ+1),OPSTAT)
+               ENDIF
+
+             ENDIF
+X          ELSE
+X            WRITE(14,*)'7X:TIME DIFFERENCE TO LARGE, BUILD'
+X    &        ,' NEW PRODUCT'
+           ENDIF
+X        ELSE
+X            WRITE(14,*)'7X:BUILD G&C PRODUCT- NO MATCH OR NOT IN DB'
+         ENDIF
+      ENDIF
+888   CONTINUE
+X     WRITE(14,*)'LEAVE 7X'
+      RETURN
+      END

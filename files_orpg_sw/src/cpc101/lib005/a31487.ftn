@@ -1,0 +1,265 @@
+C 
+C RCS info 
+C $Author: ccalvert $ 
+C $Locker:  $ 
+C $Date: 2003/12/10 23:23:20 $ 
+C $Id: a31487.ftn,v 1.3 2003/12/10 23:23:20 ccalvert Exp $ 
+C $Revision: 1.3 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A31487__GET_SET_ADAPTDATA( HEADER,  RADHGTKM )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A31487__GET_SET_ADAPTDATA
+*.
+*.  MODULE VERSION: 0002
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       02/24/97      0000      Steve Smith          CCR NA96-17903
+*.       03/16/99      0001      Toolset              CCR NA98-23803
+*.       05/17/99      0002      Mike Istok           CCR NA96-17803
+*.       12/09/03      0003      CHRIS CALVERT        CCR NA03-30002
+*.
+*.  CALLING SEQUENCE: CALL A31487__GET_SET_ADAPTDATA( HEADER, RADHGTKM )
+*.
+*.  MODULE FUNCTION:
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT        TYPE        DESCRIPTION
+*.    -   -----        ----        -----------
+*.    G   ADACPTVEL    R*4         ACCEPT_IF region velocity threshold
+*.    G   ADACPTWID    R*4         ACCEPT_IF region spectrum width threshold
+*.    G   ADALTLIM1    I*4         Altitude limit for OMIT_ALL region
+*.    G   ADALTLIM2    I*4         Altitude limit for ACCEPT_IF region
+*.    G   ADCRMEDIAN   I*4         Cross-range distance threshold used for
+*.                                 median filter window
+*.    G   ADDBZDIFF    R*4         DBZ difference used in the clutter
+*.                                 bloom/dilation phase
+*.    G   ADDISLIM1    I*4         Distance limit for OMIT_ALL region
+*.    G   ADDISLIM2    I*4         Distance limit for ACCEPT_IF region
+*.    G   ADDISLIM3    I*4         Distance limit for REJECT_IF region
+*.    G   ADELVLIM1    R*4         Elevation angle limit for ACCEPT_IF region
+*.    G   ADELVLIM2    R*4         Elevation angle limit for REJECT_IF region
+*.    G   ADIFEXTND    L*4         Flag indicating whether clutter
+*.                                 bloom/dilation phase is to be performed
+*.    G   ADIFMEDIAN   L*4         Flag indicating whether median filtering is
+*.                                 to be performed
+*.    G   ADMINDBZ     R*4         Mimimum dBZ threshold below which
+*.                                 reflectivity is not considered clutter
+*.    G   ADPGDMEDIAN  R*4         Ma Median Filter Percent Good
+*.    G   ADREJVEL     R*4         REJECT_IF region velocity threshold
+*.    G   ADREJWID     R*4         REJECT_IF region spectrum width threshold
+*.    G   ADRNGGATE    I*4         CBD Maximum Number Of Range Bins
+*.    G   ADRNGMEDIAN  I*4         MA Maximum Range Bin Difference
+*.    G   SIRDAHGT     I*4         Site Adaptation - RDA Height.
+*.    G   DROFFSET     I*4         (CONSTANT)Offset to Doppler velocity
+*.                                 resolution in preprocessed radial header.
+*.    C   ADACPTVEL_L  R*4         The local copy of ACCEPT_IF region velocity
+*.                                 threshold
+*.    C   ADREJVEL_L   R*4         Local copy of ADREJVEL (REJECT_IF region
+*.                                 velocity threshold)
+*.    P   HEADER       I*2         Base data radial header
+*.
+*.    *   OUTPUT          TYPE        DESCRIPTION
+*.    -   ------          ----        -----------
+*.    C   ACCEPT_HIGH_VEL I*4         Maximum positive velocity threshold for
+*.                                    the ACCEPT_IF region
+*.    C   ACCEPT_LOW_VEL  I*4         Maximum negitive velocity threshold for
+*.                                    the ACCEPT_IF region
+*.    C   ADACPTVEL_L     R*4         The local copy of ACCEPT_IF region
+*.                                    velocity threshold
+*.    C   ADACPTWID_L     I*4         Local copy of ACCEPT_IF region spectrum
+*.                                    width threshold (ADACPTWID)
+*.    C   ADALTLIM1_L     I*4         Local copy of ADALTLIM1 (Altitude limit
+*.                                    for OMIT_ALL region)
+*.    C   ADALTLIM2_L     I*4         Local copy of ADALTLIM2 (Altitude limit
+*.                                    for ACCEPT_IF region)
+*.    C   ADCRMEDIAN_L    I*4         Local copy of ADCRMEDIAN (Cross-range
+*.                                    distance threshold used for median
+*.                                    filter window)
+*.    C   ADDBZDIFF_L     I*4         Local copy of ADDBZDIFF (DBZ difference
+*.                                    used in the clutter bloom/dilation
+*.                                    phase)
+*.    C   ADDISLIM1_L     I*4         Local copy of ADDISLIM1 (Distance limit
+*.                                    for OMIT_ALL region)
+*.    C   ADDISLIM2_L     I*4         Local copy of ADDISLIM2 (Distance limit
+*.                                    for ACCEPT_IF region)
+*.    C   ADDISLIM3_L     I*4         Local copy of ADDISLIM3 (Distance limit
+*.                                    for REJECT_IF region)
+*.    C   ADELVLIM1_L     R*4         Local copy of ADELVLIM1 (Elevation angle
+*.                                    limit for ACCEPT_IF region)
+*.    C   ADELVLIM2_L     R*4         Local copy of ADELVLIM2 (Elevation angle
+*.                                    limit for REJECT_IF region)
+*.    C   ADIFEXTND_L     L*4         Local copy of ADIFEXTND (Flag indicating
+*.                                    whether clutter bloom/dilation phase is
+*.                                    to be performed)
+*.    C   ADIFMEDIAN_L    L*4         Local copy of ADIFMEDIAN (Flag
+*.                                    indicating whether median filtering is
+*.                                    to be performed)
+*.    C   ADMINDBZ_L      I*4         Local copy of ADMINDBZ (Mimimum dBZ
+*.                                    threshold below which reflectivity is
+*.                                    not considered clutter)
+*.    C   ADPGDMEDIAN_L   R*4         Local copy of ADPGDMEDIAN (Ma Median
+*.                                    Filter Percent Good)
+*.    C   ADREJVEL_L      R*4         Local copy of ADREJVEL (REJECT_IF region
+*.                                    velocity threshold)
+*.    C   ADREJWID_L      I*4         Local copy of ADREJWID (REJECT_IF region
+*.                                    spectrum width threshold )
+*.    C   ADRNGGATE_L     I*4         Local copy of ADRNGGATE (CBD Maximum
+*.                                    Number Of Range Bins)
+*.    C   ADRNGMEDIAN_L   I*4         Local copy of ADRNGMEDIAN (:MA Maximum
+*.                                    Range Bin Difference)
+*.    C   REJECT_HIGH_VEL I*4         Maximum positive velocity threshold for
+*.                                    the REJECT_IF region
+*.    C   REJECT_LOW_VEL  I*4         Maximum negative velocity threshold for
+*.                                    the REJECT_IF region
+*.    P   RADHGTKM        R*4         Radar height in KM
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE: NONE
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME                 TYPE        DESCRIPTION
+*.    ----                 ----        -----------
+*.    BIASED_ZERO_VELOCITY I*4         Zero velocity in RPG Internal Velocity
+*.                                     Units
+*.    VEL_RESO             I*4         Velocity Resolution
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    LAYER_REF
+*.    SITEADP
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3148C1
+*.
+*.  ERROR CONDITIONS: NONE.
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK14.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+      IMPLICIT NONE
+C
+$INCLUDE A304.INC/G,   **A304P4   (NLIST)
+$INCLUDE A309.INC/G,   **A3PM50   (NLIST)
+$INCLUDE A314BUF.INC/G,**A3148P2  (NLIST)
+$INCLUDE A314BUF.INC/G,**A3148C1  (NLIST)
+$INCLUDE A309ADPT.INC/G, **A3CD70CA (NLIST)
+$INCLUDE A309ADPT.INC/G, **A3CD70_LAYER_REF (NLIST)
+C
+C*** PASSED ARGUMENTS
+C
+      INTEGER*2 HEADER(*)
+      REAL      RADHGTKM
+C
+C*** LOCAL DECLARATIONS:
+C
+      INTEGER*4 VEL_RESO
+C
+C*** PARAMETERIZED DATA:
+C
+      INTEGER*4 BIASED_ZERO_VELOCITY
+
+      PARAMETER ( BIASED_ZERO_VELOCITY = 129 )
+
+C****************************************************************
+C** EXECUTABLE CODE:
+C
+C** MAKE COPY OF ALL ADAPTABLE PARAMETERS.
+C** DERIVE ADAPTABLE VALUES WHEN NECESSARY.
+C
+C
+C**   CONVERT REFLECTIVITY IN DBZ TO RPG INTERNAL UNITS
+C
+      ADMINDBZ_L = NINT( 2.0 * ( ADMINDBZ + 32.0 ) ) + 2
+      ADDBZDIFF_L = NINT( 2.0 * ADDBZDIFF )
+C
+C**   ALTITUDE LIMIT THRESHOLDS ARE ALREADY IN THE PROPER
+C**   UNITS (KM)
+C
+      ADALTLIM1_L = ADALTLIM1
+      ADALTLIM2_L = ADALTLIM2
+C
+C**   DISTANCE LIMIT THRESHOLDS ARE IN NM. CONVERT TO KM.
+C
+      ADDISLIM1_L = ADDISLIM1
+      ADDISLIM2_L = ADDISLIM2
+      ADDISLIM3_L = ADDISLIM3
+C
+C**   ELEVATION LIMIT THRESHOLDS ARE IN DEGREES
+C
+      ADELVLIM1_L = ADELVLIM1
+      ADELVLIM2_L = ADELVLIM2
+C
+C**   DEFINE LOW AND HIGH REJECT VELOCITY THRESHOLD LIMITS IN
+C**   RPG INTERNAL VELOCITY UNITS.
+C
+      VEL_RESO = 3 - HEADER( DROFFSET )
+      ADREJVEL_L = ADREJVEL
+      REJECT_LOW_VEL = BIASED_ZERO_VELOCITY
+     1               - VEL_RESO * ADREJVEL_L
+      REJECT_HIGH_VEL = BIASED_ZERO_VELOCITY
+     1                + VEL_RESO * ADREJVEL_L
+C
+C**   DEFINE REJECT WIDTH THRESHOLD IN RPG INTERNAL WIDTH UNITS.
+C
+      ADREJWID_L = NINT( 2.0 * ( ADREJWID + 63.5 ) ) + 2
+C
+C**   DEFINE LOW AND HIGH ACCEPT VELOCITY THRESHOLD LIMITS.
+C
+      ADACPTVEL_L = ADACPTVEL
+      ACCEPT_LOW_VEL = BIASED_ZERO_VELOCITY
+     1               - VEL_RESO * ADACPTVEL_L
+      ACCEPT_HIGH_VEL = BIASED_ZERO_VELOCITY
+     1                + VEL_RESO * ADACPTVEL_L
+C
+C**   DEFINE ACCEPT WIDTH THRESHOLD IN RPG INTERNAL WIDTH UNITS.
+C
+      ADACPTWID_L = NINT( 2.0 * ( ADACPTWID + 63.5 ) ) + 2
+C
+C**   COPY ADAPTATION DATA FOR THE CLUTTER BLOOM/DILATION PHASE
+C
+      ADRNGGATE_L = ADRNGGATE
+      ADIFEXTND_L = ADIFEXTND
+C
+C**   COPY ADAPTATION DATA FOR THE MEDIAN FILTERING.
+C
+      ADIFMEDIAN_L = ADIFMEDIAN
+      ADRNGMEDIAN_L = ADRNGMEDIAN
+      ADCRMEDIAN_L = ADCRMEDIAN
+      ADPGDMEDIAN_L = ADPGDMEDIAN/100.0
+C
+C**   CALCULATE THE HEIGHT OF THE RADAR, IN KILOMETERS
+C
+      RADHGTKM = SIRDAHGT * FT_TO_KM
+C
+C**   RETURN TO CALLING ROUTINE
+C
+      RETURN
+      END

@@ -1,0 +1,70 @@
+C
+C RCS info
+C $Author: steves $
+C $Locker:  $
+C $Date: 2011/02/25 15:20:08 $
+C $Id: crapeprd.ftn,v 1.10 2011/02/25 15:20:08 steves Exp $
+C $Revision: 1.10 $
+C $State: Exp $
+C
+C***********************************************************************
+C
+C    The main function for the COMPOSITE REFLECTIVITY w/ AP EDITED
+C    CARTESIAN GRID product task.
+C
+C***********************************************************************
+C
+      IMPLICIT NONE
+
+$INCLUDE rpg_port.inc,**rpg_port
+
+      integer param            ;return value of A307C1
+      integer block_time/10/    ;wait time for COMBATTR 
+
+$INCLUDE A309.INC/G,**A3PM00
+
+$INCLUDE A309ADPT.INC/G,**A3CD70C5      ;COLRTBL
+$INCLUDE A309ADPT.INC/G,**A3CD70C8      ;RDACNT
+$INCLUDE A309ADPT.INC/G,**A3CD70CA      ;SITEADP
+
+$INCLUDE A309ADPT.INC/G,**A3CD70_CELL_PROD
+$INCLUDE A309ADPT.INC/G,**A3CD70_DEA_NAMES
+
+      INTEGER CELL_PROD_CALLBACK_FX   ;adapt callback f(x)
+      EXTERNAL CELL_PROD_CALLBACK_FX  ;adapt callback f(x)
+
+     ;** specify inputs and outputs
+      call RPG_in_data ( CRPGAPE, VOLUME_DATA )
+      call RPG_in_data ( COMBATTR, VOLUME_DATA )
+      call RPG_out_data ( CRPAPE95, VOLUME_DATA, 95 )
+      call RPG_out_data ( CRPAPE96, VOLUME_DATA, 96 )
+      call RPG_out_data ( CRPAPE97, VOLUME_DATA, 97 )
+      call RPG_out_data ( CRPAPE98, VOLUME_DATA, 98 )
+
+      ;** specify that COMBATTR is an optional input
+      call RPG_in_opt ( COMBATTR, block_time )
+
+      ;** register the scan summary array
+      call RPG_reg_scan_summary ()
+
+      ;** register adaptation data
+      call RPG_reg_adpt( COLRTBL_ID, COLRTBL_FIRST, BEGIN_VOLUME );
+      call RPG_reg_adpt( RDACNT_ID, RDACNT_FIRST, BEGIN_VOLUME );
+      call RPG_reg_ade_callback( CELL_PROD_CALLBACK_FX,
+     $                           MAX_STI_ALPHA_CELLS,
+     $                           CELL_PROD_DEA_NAME,
+     $                           BEGIN_VOLUME )
+
+      ;** register for site info adaptation data
+        call RPG_reg_site_info( SIRDALAT )
+
+      ;** tell system we are volume-based.
+      call RPG_task_init (VOLUME_BASED);
+
+      ;** waiting for activation.
+10    call RPG_wait_act (WAIT_DRIVING_INPUT)
+      call A307C1__BUFFER_CONTROL (param)
+      goto 10
+
+      stop
+      end

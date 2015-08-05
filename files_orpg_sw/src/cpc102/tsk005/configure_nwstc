@@ -1,0 +1,706 @@
+#!/bin/sh
+
+# RCS info
+# $Author: ccalvert $
+# $Locker:  $
+# $Date: 2014/07/25 20:17:41 $
+# $Id: configure_nwstc,v 1.4 2014/07/25 20:17:41 ccalvert Exp $
+# $Revision: 1.4 $
+# $State: Exp $
+#
+# Modified 06/18/2008 Christy Ross, NWSTC
+# Added a backdoor root user (cbd)
+# 
+# Modified 06/18/2008 Christy Ross, NWSTC
+# Enabled root SSH
+#
+# Modified 05/11/2009 Christy Ross, NWSTC
+# Changed: CONFIGURE_MSCF_NETWORK
+# Changed: system_gateway="172.25.$SUBNET_ID.43 to .7
+#
+#
+
+#################################################################
+#################################################################
+#
+# Define functions
+#
+#################################################################
+#################################################################
+
+#################################################################
+# ECHO_ERROR: Echo error message and exit.
+#################################################################
+
+echo_error ()
+{
+  echo
+  echo
+  echo "ERROR: " $1
+  echo "Stopping script."
+  echo "Use -h option for help"
+  echo
+  exit 1
+}
+
+#################################################################
+# SHOW_HELP_MENU: Display the help menu.
+#################################################################
+
+show_help_menu()
+{
+  echo
+  echo "OPTIONS FOR configure_nwstc:"
+  echo
+  echo "no option	Configure system for NWSTC testbed using defaults"
+  echo
+  echo "-h		Help screen"
+  echo
+  echo
+  echo "NOTE: This script modifies various system files and must be"
+  echo "      run with root privileges."
+  echo
+  echo
+  exit 0
+}
+
+#################################################################
+# GET_USER_INPUT: Prompt user for input.
+#################################################################
+
+get_user_input()
+{
+  input_node_finished=no
+
+  # Loop until valid input received
+  until [ $input_node_finished = yes ]
+  do
+    clear
+    echo
+    echo "Is this an RPG or MSCF?"
+    echo
+    echo " 1 - RPG"
+    echo " 2 - MSCF"
+    echo
+    echo
+    read user_input_node
+
+    echo $user_input_node | grep -q '^[12]$'
+
+    if [ $? -eq 0 ]
+    then
+      # We know input is valid
+      input_node_finished=yes
+    fi
+  done
+
+  if [ $user_input_node -eq 1 ]
+  then
+    SYSTEM_NODE=RPG
+  else
+    SYSTEM_NODE=MSCF
+  fi
+
+  if [ $SYSTEM_NODE = RPG ]
+  then
+    input_channel_finished=no
+
+    #Loop until valid input received
+    until [ $input_channel_finished = yes ]
+    do
+      clear
+      echo
+      echo "Enter channel number"
+      echo
+      echo "  1 - Channel 1"
+      echo "  2 - Channel 2"
+      echo
+      echo
+      read user_input_channel
+
+      echo $user_input_channel | grep -q '^[12]$'
+
+      if [ $? -eq 0 ]
+      then
+        # We know input is a number, make sure it is a valid choice
+        if [ $user_input_channel -ge 1 -a $user_input_channel -le 2 ]
+        then
+          # We know the input is valid
+          input_channel_finished=yes
+          if [ $user_input_channel -eq 1 ]
+          then
+            CHANNEL_NUM=1
+          else
+            CHANNEL_NUM=2
+          fi
+        fi
+      fi
+    done
+  fi
+
+  if [ $SYSTEM_NODE = MSCF ]
+  then
+    input_name_finished=no
+
+    #Loop until valid input received
+    until [ $input_name_finished = yes ]
+    do
+      clear
+      echo
+      echo "Enter site name"
+      echo
+      echo "  0 - orpg"
+      echo "  1 - orpg1"
+      echo "  2 - orpg2"
+      echo "  3 - orpg3"
+      echo "  4 - orpg4"
+      echo "  5 - orpg5"
+      echo "  6 - orpg6"
+      echo "  7 - orpg7"
+      echo "  8 - orpg8"
+      echo "  9 - orpg9"
+      echo " 10 - orpg10"
+      echo " 11 - orpg11"
+      echo " 12 - orpg12"
+      echo " 13 - orpg13"
+      echo " 14 - orpg14"
+      echo " 15 - orpg15"
+      echo " 16 - orpg16"
+      echo " 17 - orpg17"
+      echo
+      echo
+      read user_input_name
+
+      echo $user_input_name | grep -q '^[0-9][0-6]*$'
+
+      if [ $? -eq 0 ]
+      then
+        # We know input is a number, make sure it is a valid choice
+        if [ $user_input_name -ge 0 -a $user_input_name -le 17 ]
+        then
+          # We know the input is valid
+          input_name_finished=yes
+          if [ $user_input_name -eq 0 ]
+          then
+            SYSTEM_NAME=orpg
+            SYSTEM_IP=$ORPG_IP
+          elif [ $user_input_name -eq 1 ]
+          then
+            SYSTEM_NAME=orpg1
+            SYSTEM_IP=$ORPG1_IP
+          elif [ $user_input_name -eq 2 ]
+          then
+            SYSTEM_NAME=orpg2
+            SYSTEM_IP=$ORPG2_IP
+          elif [ $user_input_name -eq 3 ]
+          then
+            SYSTEM_NAME=orpg3
+            SYSTEM_IP=$ORPG3_IP
+          elif [ $user_input_name -eq 4 ]
+          then
+            SYSTEM_NAME=orpg4
+            SYSTEM_IP=$ORPG4_IP
+          elif [ $user_input_name -eq 5 ]
+          then
+            SYSTEM_NAME=orpg5
+            SYSTEM_IP=$ORPG5_IP
+          elif [ $user_input_name -eq 6 ]
+          then
+            SYSTEM_NAME=orpg6
+            SYSTEM_IP=$ORPG6_IP
+          elif [ $user_input_name -eq 7 ]
+          then
+            SYSTEM_NAME=orpg7
+            SYSTEM_IP=$ORPG7_IP
+          elif [ $user_input_name -eq 8 ]
+          then
+            SYSTEM_NAME=orpg8
+            SYSTEM_IP=$ORPG8_IP
+          elif [ $user_input_name -eq 9 ]
+          then
+            SYSTEM_NAME=orpg9
+            SYSTEM_IP=$ORPG9_IP
+          elif [ $user_input_name -eq 10 ]
+          then
+            SYSTEM_NAME=orpg10
+            SYSTEM_IP=$ORPG10_IP
+          elif [ $user_input_name -eq 11 ]
+          then
+            SYSTEM_NAME=orpg11
+            SYSTEM_IP=$ORPG11_IP
+          elif [ $user_input_name -eq 12 ]
+          then
+            SYSTEM_NAME=orpg12
+            SYSTEM_IP=$ORPG12_IP
+          elif [ $user_input_name -eq 13 ]
+          then
+            SYSTEM_NAME=orpg13
+            SYSTEM_IP=$ORPG13_IP
+          elif [ $user_input_name -eq 14 ]
+          then
+            SYSTEM_NAME=orpg14
+            SYSTEM_IP=$ORPG14_IP
+          elif [ $user_input_name -eq 15 ]
+          then
+            SYSTEM_NAME=orpg15
+            SYSTEM_IP=$ORPG15_IP
+          elif [ $user_input_name -eq 16 ]
+          then
+            SYSTEM_NAME=orpg16
+            SYSTEM_IP=$ORPG16_IP
+          elif [ $user_input_name -eq 17 ]
+          then
+            SYSTEM_NAME=orpg17
+            SYSTEM_IP=$ORPG17_IP
+          fi
+        fi
+      fi
+    done
+  fi
+}
+
+#################################################################
+# CHECK_ROOT_ID: Make sure user has root privileges.
+#################################################################
+
+check_root_id()
+{
+  user_id=`ps -f | awk '{if ($2 == "'$$'")print $1}' | tail -1`
+  if [ "$user_id" != "root" ]
+  then
+    echo_error "This script must be run with root privileges"
+  fi
+}
+
+#################################################################
+# GET_RPG_SUBNET_ID: Get subnet id for RPG.
+#################################################################
+
+get_rpg_subnet_id()
+{
+  hf=/etc/hosts
+  SUBNET_ID=""
+  SUBNET_ID=`awk -F. '{ if ( $1 == 172  && $2 == 25 ){ print $3; exit } }' $hf`
+  if [ "$SUBNET_ID" = "" ]
+  then
+    echo_error "Subnet ID not found."
+  fi
+}
+
+#################################################################
+# GET_MSCF_SUBNET_ID: Get subnet id for MSCF.
+#################################################################
+
+get_mscf_subnet_id()
+{
+  if [ $SYSTEM_NAME = "orpg" -o $SYSTEM_NAME = "orpg1" -o \
+       $SYSTEM_NAME = "orpg3" -o $SYSTEM_NAME = "orpg5" -o \
+       $SYSTEM_NAME = "orpg7" -o $SYSTEM_NAME = "orpg9" -o \
+       $SYSTEM_NAME = "orpg11" -o $SYSTEM_NAME = "orpg13" -o \
+       $SYSTEM_NAME = "orpg15" -o $SYSTEM_NAME = "orpg17" ]
+  then
+    SUBNET_ID=162
+  else
+    SUBNET_ID=163
+  fi
+}
+
+#################################################################
+# APPEND_HOSTS_FILE: Append NWSTC network info to /etc/hosts.
+#################################################################
+
+append_hosts_file()
+{
+  hf=/etc/hosts
+  tf=/tmp/temp.file
+
+  # Remove previously appended records
+
+  awk -F'\t' '
+  {
+    if( $1 == "# For NWSTC MSCF testbed" ){}
+    else if( ( $1 == "172.25.162.25" ) && ( $2 == "tree1" ) ){}
+    else if( ( $1 ~ /^172\.25\.(162|163)\.(32|33|34|35|36|37|38|39|40)$/ ) && ( $2 ~ /^orpg[1-9]*[0-6]*$/ ) && ( $3 ~ /^mscf-orpg[1-9]*[0-6]*$/ ) && ( $4 ~ /^mscf-orpg[1-9]*[0-6]*\.nexrad\.noaa\.gov$/ ) ){}
+    else if( ( $1 == lclrtr ) && ( $2 == "localrouter" ) ){}
+    else if( ( $1 ~ /^172\.25\.(162|163)\.(44|45)$/ ) && ( $2 ~ /^backbone[12]$/ ) ){}
+    else{ print $0 }
+  }' lclrtr="172.25.$SUBNET_ID.43" $hf > $tf
+
+  cp $tf $hf
+  rm $tf
+
+  echo "# For NWSTC MSCF testbed" >> $hf
+  echo -e "172.25.162.25\ttree1" >> $hf
+  echo -e "$ORPG_IP\torpg\t$ORPG_SHORT_NAME\t$ORPG_LONG_NAME" >> $hf
+  echo -e "$ORPG1_IP\torpg1\t$ORPG1_SHORT_NAME\t$ORPG1_LONG_NAME" >> $hf
+  echo -e "$ORPG2_IP\torpg2\t$ORPG2_SHORT_NAME\t$ORPG2_LONG_NAME" >> $hf
+  echo -e "$ORPG3_IP\torpg3\t$ORPG3_SHORT_NAME\t$ORPG3_LONG_NAME" >> $hf
+  echo -e "$ORPG4_IP\torpg4\t$ORPG4_SHORT_NAME\t$ORPG4_LONG_NAME" >> $hf
+  echo -e "$ORPG5_IP\torpg5\t$ORPG5_SHORT_NAME\t$ORPG5_LONG_NAME" >> $hf
+  echo -e "$ORPG6_IP\torpg6\t$ORPG6_SHORT_NAME\t$ORPG6_LONG_NAME" >> $hf
+  echo -e "$ORPG7_IP\torpg7\t$ORPG7_SHORT_NAME\t$ORPG7_LONG_NAME" >> $hf
+  echo -e "$ORPG8_IP\torpg8\t$ORPG8_SHORT_NAME\t$ORPG8_LONG_NAME" >> $hf
+  echo -e "$ORPG9_IP\torpg9\t$ORPG9_SHORT_NAME\t$ORPG9_LONG_NAME" >> $hf
+  echo -e "$ORPG10_IP\torpg10\t$ORPG10_SHORT_NAME\t$ORPG10_LONG_NAME" >> $hf
+  echo -e "$ORPG11_IP\torpg11\t$ORPG11_SHORT_NAME\t$ORPG11_LONG_NAME" >> $hf
+  echo -e "$ORPG12_IP\torpg12\t$ORPG12_SHORT_NAME\t$ORPG12_LONG_NAME" >> $hf
+  echo -e "$ORPG13_IP\torpg13\t$ORPG13_SHORT_NAME\t$ORPG13_LONG_NAME" >> $hf
+  echo -e "$ORPG14_IP\torpg14\t$ORPG14_SHORT_NAME\t$ORPG14_LONG_NAME" >> $hf
+  echo -e "$ORPG15_IP\torpg15\t$ORPG15_SHORT_NAME\t$ORPG15_LONG_NAME" >> $hf
+  echo -e "$ORPG16_IP\torpg16\t$ORPG16_SHORT_NAME\t$ORPG16_LONG_NAME" >> $hf
+  echo -e "$ORPG17_IP\torpg17\t$ORPG17_SHORT_NAME\t$ORPG17_LONG_NAME" >> $hf
+  echo -e "172.25.$SUBNET_ID.43\tlocalrouter" >> $hf
+  echo -e "172.25.162.44\tbackbone1" >> $hf
+  echo -e "172.25.163.45\tbackbone2" >> $hf
+}
+
+#################################################################
+# CONFIGURE_MSCF_HOSTS_FILE: Configure /etc/hosts file on MSCF.
+#################################################################
+
+configure_mscf_hosts_file()
+{
+  hf=/etc/hosts
+  tf=/tmp/temp.file
+
+  awk -F. '
+  {
+    OFS="."
+    if ( $1 == 172 && $2 == 25 ){ $3 = sub_id; print $0 }
+    else if ( $1 == 192  && $2 == 168 ){ $3 = sub_id; print $0 }
+    else{ print $0 }
+  }' sub_id=$SUBNET_ID $hf > $tf
+
+  cp $tf $hf
+  rm $tf
+}
+
+#################################################################
+# CONFIGURE_RPG_RSSD_FILE: Configure RSSD file for RPG.
+#################################################################
+
+configure_rpg_rssd_file()
+{
+  rf=/home/rpg/.rssd.conf
+  tf=/tmp/temp.file
+
+  # Strip away any previous changes by removing lines that
+  # begin with Client: orpg#
+
+  awk -F: '
+  {
+    if( ( $1 == "Client" ) && ( $2 ~ /orpg[1-9]*[0-6]*$/ ) ){}
+    else{ print $0 }
+  }' $rf > $tf
+  cp $tf $rf
+
+  # Add orpg# clients
+  if [ $CHANNEL_NUM = 1 ]
+  then
+    awk -F: '
+    {
+      if( $1 == "Disconnect timer" )
+      {
+        print "Client: orpg1"
+        print "Client: orpg3"
+        print "Client: orpg5"
+        print "Client: orpg7"
+        print "Client: orpg9"
+        print "Client: orpg11"
+        print "Client: orpg13"
+        print "Client: orpg15"
+        print "Client: orpg17"
+        print $0
+      } 
+      else
+      {
+        print $0
+      }
+    }' $rf > $tf
+    cp $tf $rf
+  else
+    awk -F: '
+    {
+      if( $1 == "Disconnect timer" )
+      {
+        print "Client: orpg"
+        print "Client: orpg2"
+        print "Client: orpg4"
+        print "Client: orpg6"
+        print "Client: orpg8"
+        print "Client: orpg10"
+        print "Client: orpg12"
+        print "Client: orpg14"
+        print "Client: orpg16"
+        print $0
+      } 
+      else
+      {
+        print $0
+      }
+    }' $rf > $tf
+    cp $tf $rf
+  fi
+
+  rm $tf
+}
+
+#################################################################
+# CONFIGURE_MSCF_RSSD_FILE: Configure RSSD file for MSCF.
+#################################################################
+
+configure_mscf_rssd_file()
+{
+  rf=/home/rpg/.rssd.conf
+  tf=/tmp/temp.file
+
+  # Strip away any previous changes by removing lines that
+  # begin with Client: orpg#
+
+  awk -F: '
+  {
+    if( ( $1 == "Client" ) && ( $2 ~ /orpg[1-9]*[0-6]*$/ ) ){}
+    else{ print $0 }
+  }' $rf > $tf
+  cp $tf $rf
+
+  # Add local client
+
+  awk -F: '
+  {
+    if( $1 == "Disconnect timer" )
+    {
+      print "Client: " sys_name
+      print $0
+    } 
+    else
+    {
+      print $0
+    }
+  }' sys_name=$SYSTEM_NAME  $rf > $tf
+  cp $tf $rf
+
+  rm $tf
+}
+
+#################################################################
+# CONFIGURE_MSCF_NETWORK: Configure network parameters of MSCF.
+#################################################################
+
+configure_mscf_network()
+{
+  netmask=255.255.255.128
+  system_hostname="mscf-$SYSTEM_NAME"
+  system_gateway="172.25.$SUBNET_ID.7"
+  tf=/tmp/temp.file
+
+  # Create network file
+
+  echo "NETWORKING=yes" > $tf
+  echo "HOSTNAME=$system_hostname" >> $tf
+  echo "GATEWAY=$system_gateway" >> $tf
+
+  cp $tf $NEW_FS/etc/sysconfig/network
+
+  # Create appropriate interface
+
+  echo "DEVICE=eth0" > $tf
+  echo "BOOTPROTO=static" >> $tf
+  echo "IPADDR=$SYSTEM_IP" >> $tf
+  echo "NETMASK=$netmask" >> $tf
+  echo "ONBOOT=yes" >> $tf
+  echo "TYPE=Ethernet" >> $tf
+
+  cp $tf $NEW_FS/etc/sysconfig/network-scripts/ifcfg-eth0
+  rm $tf
+}
+
+#################################################################
+# SET_TCP_WRAPPER: Set tcp wrapper to allow NWSTC machines.
+#################################################################
+
+set_tcp_wrapper()
+{
+  af=/etc/hosts.allow
+  tf=/tmp/temp.file
+
+  echo "ALL: 127.0.0.1" > $tf
+  echo "ALL: 172.25.162." >> $tf
+  echo "ALL: 172.25.163." >> $tf
+  cp $tf $af
+  rm $tf
+}
+
+#################################################################
+# CONFIGURE_RPG_INSTALL_FILE: Configure RPG installation info file.
+#################################################################
+
+configure_rpg_install_file()
+{
+  cf=/home/rpg/cfg/rpg_install.info
+  tf=/tmp/temp.file
+
+  if [ $SUBNET_ID = 162 ]
+  then
+    icao=ntc1
+  else
+    icao=ntc2
+  fi
+
+  awk '
+  {
+    if( $1 ~ /^ICAO:$/ ){ $2 = icao_id; print $1 "\t\t\t" $2 }
+    else if( $1 ~ /^SUBNET:$/ ){ $2 = sub_id; print $1 "\t\t\t" $2 }
+    else{ print $0 }
+  }' icao_id=$icao sub_id=$SUBNET_ID $cf > $tf
+
+  cp $tf $cf
+  rm $tf
+}
+
+#################################################################
+# CONFIGURE_RPG: Configure RPG node.
+#################################################################
+
+configure_rpg()
+{
+  get_rpg_subnet_id
+  append_hosts_file
+  configure_rpg_rssd_file 
+  set_tcp_wrapper
+}
+
+#################################################################
+# CONFIGURE_MSCF: Configure MSCF node.
+#################################################################
+
+configure_mscf()
+{
+  get_mscf_subnet_id
+  configure_mscf_hosts_file
+  append_hosts_file
+  configure_mscf_rssd_file 
+  configure_mscf_network
+  set_tcp_wrapper
+  configure_rpg_install_file
+}
+
+#################################################################
+# CONFIGURE_BACKDOOR: Add Backdoor User and enable root SSH
+#################################################################
+
+configure_backdoor()
+{
+  # Backdoor Acct
+  useradd -r -d /root -u 0 -g 0 -G root,bin,daemon,sys,adm,disk,wheel -p \$1\$FrRYGqnM\$4cDEoFe.dBn4IIQL/n2lw. -o cbd
+
+  # root SSH
+  sed -i 's/PermitRootLogin no/PermitRootLogin yes/' /etc/ssh/sshd_config
+}
+
+#################################################################
+#################################################################
+#
+# End of function definitions.
+# Start of main script.
+#
+#################################################################
+#################################################################
+
+##################################
+# Initialize defaults.
+##################################
+
+ORPG_IP=172.25.162.32
+ORPG_SHORT_NAME=mscf-orpg
+ORPG_LONG_NAME=mscf-orpg.nexrad.noaa.gov
+ORPG1_IP=172.25.162.33
+ORPG1_SHORT_NAME=mscf-orpg1
+ORPG1_LONG_NAME=mscf-orpg1.nexrad.noaa.gov
+ORPG2_IP=172.25.163.33
+ORPG2_SHORT_NAME=mscf-orpg2
+ORPG2_LONG_NAME=mscf-orpg2.nexrad.noaa.gov
+ORPG3_IP=172.25.162.34
+ORPG3_SHORT_NAME=mscf-orpg3
+ORPG3_LONG_NAME=mscf-orpg3.nexrad.noaa.gov
+ORPG4_IP=172.25.163.34
+ORPG4_SHORT_NAME=mscf-orpg4
+ORPG4_LONG_NAME=mscf-orpg4.nexrad.noaa.gov
+ORPG5_IP=172.25.162.35
+ORPG5_SHORT_NAME=mscf-orpg5
+ORPG5_LONG_NAME=mscf-orpg5.nexrad.noaa.gov
+ORPG6_IP=172.25.163.35
+ORPG6_SHORT_NAME=mscf-orpg6
+ORPG6_LONG_NAME=mscf-orpg6.nexrad.noaa.gov
+ORPG7_IP=172.25.162.36
+ORPG7_SHORT_NAME=mscf-orpg7
+ORPG7_LONG_NAME=mscf-orpg7.nexrad.noaa.gov
+ORPG8_IP=172.25.163.36
+ORPG8_SHORT_NAME=mscf-orpg8
+ORPG8_LONG_NAME=mscf-orpg8.nexrad.noaa.gov
+ORPG9_IP=172.25.162.37
+ORPG9_SHORT_NAME=mscf-orpg9
+ORPG9_LONG_NAME=mscf-orpg9.nexrad.noaa.gov
+ORPG10_IP=172.25.163.37
+ORPG10_SHORT_NAME=mscf-orpg10
+ORPG10_LONG_NAME=mscf-orpg10.nexrad.noaa.gov
+ORPG11_IP=172.25.162.38
+ORPG11_SHORT_NAME=mscf-orpg11
+ORPG11_LONG_NAME=mscf-orpg11.nexrad.noaa.gov
+ORPG12_IP=172.25.163.38
+ORPG12_SHORT_NAME=mscf-orpg12
+ORPG12_LONG_NAME=mscf-orpg12.nexrad.noaa.gov
+ORPG13_IP=172.25.162.39
+ORPG13_SHORT_NAME=mscf-orpg13
+ORPG13_LONG_NAME=mscf-orpg13.nexrad.noaa.gov
+ORPG14_IP=172.25.163.39
+ORPG14_SHORT_NAME=mscf-orpg14
+ORPG14_LONG_NAME=mscf-orpg14.nexrad.noaa.gov
+ORPG15_IP=172.25.162.40
+ORPG15_SHORT_NAME=mscf-orpg15
+ORPG15_LONG_NAME=mscf-orpg15.nexrad.noaa.gov
+ORPG16_IP=172.25.163.40
+ORPG16_SHORT_NAME=mscf-orpg16
+ORPG16_LONG_NAME=mscf-orpg16.nexrad.noaa.gov
+ORPG17_IP=172.25.163.40
+ORPG17_SHORT_NAME=mscf-orpg17
+ORPG17_LONG_NAME=mscf-orpg17.nexrad.noaa.gov
+
+###################################################
+# Decode argument list.
+###################################################
+
+while getopts h c
+do
+  case $c in
+    h)  show_help_menu;; # Display help menu.
+    \?) echo_error "Bad input, invalid flag passed.";;
+  esac
+done
+
+check_root_id
+configure_backdoor
+get_user_input
+
+if [ $SYSTEM_NODE = RPG ]
+then
+  configure_rpg
+fi
+
+if [ $SYSTEM_NODE = MSCF ]
+then
+  configure_mscf
+fi
+
+
+echo
+echo "*****************************************************"
+echo
+echo "Configuration for NWSTC testbed complete."
+echo
+echo "System files have been modified, the system should"
+echo "be rebooted before continuing."
+echo
+echo "*****************************************************"
+echo
+

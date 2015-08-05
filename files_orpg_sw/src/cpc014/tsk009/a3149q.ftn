@@ -1,0 +1,211 @@
+C 
+C RCS info 
+C $Author: nolitam $ 
+C $Locker:  $ 
+C $Date: 2002/11/27 15:14:55 $ 
+C $Id: a3149q.ftn,v 1.4 2002/11/27 15:14:55 nolitam Exp $ 
+C $Revision: 1.4 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A3149Q__LAYCOMP_PRODS ( PBUFSIZ, SOPR, POPR, CDATE,
+     $                                   CTIME, CALCON, LAYER1_BNDRY,
+     $                                   VOLNO, MAXMAX )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3149Q__LAYCOMP_PRODS
+*.
+*.  MODULE VERSION: 0001
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       03/03/97      0000      Steven D. Smith      CC5 NA96-17804
+*.       03/16/99      0001      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A314Q5__LAYCOMP_PRODS( PBUFSIZ, SOPR, POPR,
+*.                          CDATE, CTIME, CALCON, LAYER1_BNDRY, VOLNO,
+*.                          MAXMAX)
+*.
+*.  MODULE FUNCTION:
+*.
+*.     Finish-up product routine...call product processing and formatting
+*.     routines...release product output buffers...release and destroy
+*.     scratch buffers.
+*.
+*.  MODULES CALLED: A31216__REL_OUTBUF, A3149S__END_PROCESS, 
+*.                  A3149T__LAYCOMP_HDR, A3CM22__RASTER_RUN_LENGTH 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT        TYPE        DESCRIPTION
+*.    -   -----        ----        -----------
+*.    G   MEM          I*4         Array in RPG shared memory set aside for
+*.                                 buffer sharing.
+*.    G   DESTROY      I*4         (CONSTANT)Mnemonic used as input to
+*.                                 A31216__REL_OUTBUF. Indicates "do not pass
+*.                                 data to other tasks".
+*.    G   FORWARD      I*4         (CONSTANT)Parameter to indicate that an
+*.                                 output buffer is to be forwarded to
+*.                                 successor tasks
+*.    G   RASTA_BEGIN  I*4         (CONSTANT)Product buffer beginning index
+*.                                 for storing raster run-length encoded data.
+*.                                 To be used for raster products only.
+*.    C   ALYCRFCL     I*4         (CONSTANT)Index into the color level table
+*.                                 COLDAT for all the color tables in the RPG:
+*.                                 Layer Composite Reflectivity Average
+*.                                 Product 8 Level clear air.
+*.    C   NCOLS        I*4         (CONSTANT)Number of columns in layer
+*.                                 composite reflectivity - AP removed
+*.                                 Cartesian grid.
+*.    C   NROWS        I*4         (CONSTANT)Number of rows in layer composite
+*.                                 reflectivity - AP removed Cartesian grid
+*.    P   CALCON       I*2         Radar Calibration Constant
+*.    P   CDATE        I*4         Current Julian date
+*.    P   CTIME        I*4         Current time in seconds after midnight
+*.    P   LAYER1_BNDRY I*4         he top boundary of the layer
+*.    P   MAXMAX       I*2         The layer Maximum-Maximum Reflectivities in
+*.                                 dBZ
+*.    P   PBUFSIZ      I*4         Product output buffer size
+*.    P   POPR         I*4         Product output buffer pointer
+*.    P   SOPR         I*4         Scratch Buffer Pointer
+*.    P   VOLNO        I*4         Volume scan number
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    G   MEM     I*4         Array in RPG shared memory set aside for buffer
+*.                            sharing.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    G   MEM               I*4         Array in RPG shared memory set aside
+*.                                      for buffer sharing.
+*.    P   CALCON            I*2         Radar Calibration Constant
+*.    P   CDATE             I*4         Current Julian date
+*.    P   CTIME             I*4         Current time in seconds after midnight
+*.    P   LAYER1_BNDRY      I*4         he top boundary of the layer
+*.    P   PBUFSIZ           I*4         Product output buffer size
+*.    P   POPR              I*4         Product output buffer pointer
+*.    P   SOPR              I*4         Scratch Buffer Pointer
+*.    P   VOLNO             I*4         Volume scan number
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME    TYPE        DESCRIPTION
+*.    ----    ----        -----------
+*.    BIAS    R*4         Parameter used for converting Biased Reflectivity
+*.                        data to dBZ
+*.    BUFSTAT I*4         Status of call for run-length encoding (i.e.
+*.                        complete or incomplete)
+*.    HALVE   R*4         Real Divisor used to obtain half of the value
+*.    INDEX   I*4         Color look-up Table Index
+*.    ISTAR2S I*4         Number of raster run-length encoded halfwords
+*.    MAXLAY  I*2         The maximum reflectivity in the layer in dBZ
+*.    MINIMUM I*4         Minimum reported reflectivity (-32 dBZ)
+*.    MXPOPRX I*4         Maximum output index
+*.    NPERI2  I*4         Number of Bytes per I*2 word
+*.    ROUND   R*4         Parameter used to round to integer
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD00
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK14.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+C
+$INCLUDE A309.INC/G,**A3PM00           (NLIST)
+$INCLUDE            **A3PM01           (NLIST)
+$INCLUDE            **A3PM02           (NLIST)
+$INCLUDE            **A3PM04           (NLIST)
+$INCLUDE            **A3CD00           (NLIST)
+$INCLUDE A314BUF.INC,**A3148P3         (NLIST)
+$INCLUDE A314BUF.INC,**A3148P4         (NLIST)
+C
+C Passed Arguments
+C
+      INTEGER*4  CDATE, CTIME, PBUFSIZ, VOLNO, SOPR, POPR
+      INTEGER*4  LAYER1_BNDRY
+      INTEGER*2  CALCON(*), MAXMAX
+C
+C Define parameters & variables needed for buffer_control routines.
+C
+      INTEGER*4  NPERI2, BUFSTAT, ISTAR2S, MXPOPRX, INDEX, MINIMUM, N
+      INTEGER*2  MAXLAY
+      REAL       HALVE,ROUND,BIAS
+      PARAMETER( HALVE = 0.5, ROUND = 0.5, BIAS = 33.0 )
+      PARAMETER( MINIMUM = -32, NPERI2 = 2 )
+C
+C Set the color look-up table index to the proper value
+C
+      INDEX=ALYCRFCL
+C
+C Get the maximum-maximum value
+C
+      IF ( MAXMAX .NE. 0 ) THEN
+         MAXLAY = ((MAXMAX*HALVE)-BIAS)+ROUND
+C
+C Else..set max to zero
+C
+      ELSE
+         MAXLAY = MINIMUM
+      END IF
+C
+C Format product header
+C
+      CALL A3149T__LAYCOMP_HDR ( MAXLAY, MEM(POPR), VOLNO, INDEX,
+     $                           CDATE, CTIME, CALCON, LAYER1_BNDRY,
+     $                           PBUFSIZ )
+C
+C Raster run length encode product
+C
+C Determine maximum output index...see if raster run length
+C overflows acceptable size
+C
+      MXPOPRX = PBUFSIZ * NPERI2
+C
+C Call routine to raster run length encode the product
+C
+      CALL A3CM22__RASTER_RUN_LENGTH ( NROWS, NCOLS, BUFSTAT,
+     $                                 MEM(SOPR), INDEX,
+     $                                 MEM(POPR), RASTA_BEGIN,
+     $                                 ISTAR2S, MXPOPRX )
+C
+C Call routine to finish product header
+C
+      CALL A3149S__END_PROCESS ( ISTAR2S, MEM(POPR),
+     $                           MAXLAY, PBUFSIZ )
+C
+C Call routine to release and forward output buffer
+C
+      CALL A31216__REL_OUTBUF ( POPR, FORWARD )
+C
+C Call routine to release and destroy Scratch buffer
+C
+      CALL A31216__REL_OUTBUF ( SOPR, DESTROY )
+C
+      RETURN
+      END

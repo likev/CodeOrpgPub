@@ -1,0 +1,85 @@
+#!/bin/sh
+#    File: build_install_adaptation
+#
+# Purpose: build the adaptation installation "tar" file
+#
+#          We currently support the following Operating System/Architecture
+#          combinations:
+#
+#          lnux_x86 - Linux X86
+#
+#   Notes:
+#       This script contains one or more script functions.  These functions
+#       are defined in alphabetical order at the top of this file (must
+#       precede the main body of the script).
+#
+# Changes:
+#    12Feb04 Chris Calvert - Initial.
+#    15Apr11 Steve Smith - Modified for non-development environment
+
+
+# RCS info
+# $Author: steves $
+# $Locker:  $
+# $Date: 2014/02/28 16:56:37 $
+# $Id: build_adapt_tarball,v 1.1 2014/02/28 16:56:37 steves Exp $
+# $Revision: 1.1 $
+# $State: Exp $
+
+#---------------SCRIPT BODY -----------------------------------------------
+
+usage="Usage: `basename $0` [options] -v thread_version \n
+       Options: \n
+               -h print usage message \n\n
+               -d workdir (build files using specified directory; default: current working directory)\n\n
+               -v version (name of version;) \n\n
+       For example: \n
+       \n
+       `basename $0` -v 1.7\n\n"
+
+workdir=`pwd`
+thread=
+version=
+
+while getopts d:hv: input
+do
+   case $input in
+      h) echo $usage
+        exit 0 ;;
+      d) workdir="$OPTARG";;
+      v) version="$OPTARG";;
+      \?) echo $usage
+          exit 1 ;;
+   esac
+done
+
+if [ -z "$version" ]
+then
+   echo $usage
+   exit 1
+fi
+
+# This is where the compressed installation file will be stored ...
+
+repository=$HOME
+
+#-------------------- Name the Build and Installation Files ---------------
+
+buildfile="adaptation_v"$version
+tarfile="orpg_"$buildfile".tar"
+
+cd $workdir
+
+#-------------------- Create Adaptation Tar File --------------------------
+
+# remove any old installation files ...
+rm -f orpg_adaptation_*
+
+echo "Building installation file: $tarfile at $workdir ..."
+rm -f $tarfile
+
+tar cf $tarfile -C src/cpc104/lib003 comms_link.conf user_profiles alert_table.dea load_shed_table hci_passwords site_info.dea
+
+echo "Compressing $tarfile ..."
+
+bzip2 $tarfile

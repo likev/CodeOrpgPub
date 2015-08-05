@@ -1,0 +1,77 @@
+epre(1)               ORPG SUM Manpage                  epre(1)
+
+NAME:
+        cpc013/tsk003 - Enhanced Precipitation Preprocessing Algorithm 
+
+DESCRIPTION :
+        Enhanced Precipitation Preprocessing (EPRE) Algorithm - This algorithm
+	takes Base Reflectivity data, as well as Clutter/AP Pct Likelihood data
+	and terrain-based Blockage data, to produce the Hybrid Scan intermediate
+	product, which is used by the downstream Precipitation Processing System
+ 	(PPS) algorithms and products as the basis for the determination of all
+ 	rainfall rates and accumulations.  It is a replacement for the original
+	Precipitation Preprocessing Algorithm, assembling the Hybrid Scan in
+	a somewhat different manner.  
+
+	The algorithm works on the fundamental premise that the lowest
+	unblocked, uncontaminated sample bin will be used at any {az;ran}
+	location.  Starting at the lowest elevation, a given sample bin is
+	tested first against a Blockage Threshold, then to see whether it is
+	contained within an Exclusion Zone, then to see whether its clutter
+	likelihood is less than a Clutter Threshold.  (Exclusion Zones are
+	user-defined regions to account for residual clutter due to man-made
+	objects such as buildings or wind farms, large tree growth, etc.)
+	If all tests are passed, then that bin's contributions to the adjacent
+	slots on the fixed, 1 degree-wide Hybrid Scan grid are weighted to
+	those slots and, ultimately, if the combined weight of contributions in
+	a given, fixed-grid sample bin location exceeds a Weight Threshold, then
+	that sample bin's reflectivity is used in the Hybrid Scan.  Otherwise,
+	processing continues at the next higher elevation until all tests are
+	passed at that {az;ran} location.  At the end of each elevation scan,
+	the percentage of fixed-grid bin locations filled in the Hybrid Scan
+	is tested against a Full Hybrid Scan Threshold and, if exceeded (or if
+	the next-to-highest elevation scan has been processed), the Hybrid Scan
+	is considered "full" and is released into the output, linear buffer for
+	use by the downstream, PPS tasks. (Note that all thresholds referred to,
+	above, are algorithm adaptation data.)
+ 	
+	Compared to the previous version of this algorithm (commonly known as
+	"PREPROC"), this version uses higher-resolution terrain blockage
+	information in determination of beam blockage; uses AP/Clutter
+	likelihood information to identify and remove clutter contamination;
+	allows the definition of Exclusion Zones (via adaptation data) to
+	enable identification and removal of areas of persistent, residual
+	clutter; spatially averages incoming radials into the fixed, 1 degree
+	wide slots of the Hybrid Scan, (rather than laterally moving them to
+	the nearest slot); and can build the Hybrid Scan "dynamically" by
+	accommodating the elevation strategy of any, operational NEXRAD
+	Volume Coverage Pattern (VCP), rather than being confined to the
+	fixed set of low-elevation angles shared by all the operational VCPs
+	in effect to date.
+
+	EPRE also differs from PREPROC in that it performs its own Rainfall
+	Identification function off of the fully-assembled Hybrid Scan,
+	analogous to that performed by the Precipitation Detection Function 
+	(PDF) off of base, reflectivity data.  The downstream PPS tasks now
+	respond to this Rainfall Identification from EPRE in determination
+	of the start/stop times of precipitation "events" (such as in the 
+	Storm Total Precip (STP) product), rather than the determinations
+	from PDF.  (Note that the PDF has not been removed and may still be
+	used in the determination of the official Precipitation Category,
+	the Weather Mode and the Pulse Repetition Frequency.)
+
+
+TASK ID:
+       1303
+
+DATA IN:
+        151 (REFLDATA_ELEV)
+        298 (RECDIGCLREF)
+
+DATA OUT:
+        101 (HYBRSCAN)
+
+SEE ALSO task_table(4)
+
+$Revision: 1.1 $
+

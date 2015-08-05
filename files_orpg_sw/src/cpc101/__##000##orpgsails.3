@@ -1,0 +1,122 @@
+
+orpgsails(3)		ORPG SDD Manpage		orpgsails(3)
+
+NAME
+
+orpgsails - ORPGSAILS Library Functions.
+
+SYNOPSIS
+
+#include <orpgsails.h>
+
+int ORPGSAILS_read_status()
+int ORPGSAILS_read_request()
+int ORPGSAILS_write_status()
+int ORPGSAILS_write_request()
+int ORPGSAILS_io_status()
+int ORPGSAILS_get_status()
+int ORPGSAILS_get_num_cuts()
+int ORPGSAILS_get_max_cuts()
+int ORPGSAILS_get_site_max_cuts()
+int ORPGSAILS_allowed()
+int ORPGSAILS_set_num_cuts( int num_cuts )
+int ORPGSAILS_get_req_num_cuts()
+int ORPGSAILS_set_req_num_cuts( int num_cuts )
+int ORPGSAILS_init()
+
+DESCRIPTION
+
+The ORPGSAILS family of functions provide an API to reading the 
+SAILS Status message (SAILS_STATUS_ID) component of the General 
+Status Message (ORPGDAT_GEN_STAT_MSG) LB as well as providing 
+other SAILS related information.
+
+ORPGSAILS_read_status() is used to read the SAILS Status message
+from the General Status Message LB.  Normally, this function is 
+invoked internally when a call is made to one of the get functions 
+and an internal flag is set indicating the message needs to be 
+initialized or updated.
+
+ORPGSAILS_read_request() is used to read the SAILS Request message 
+from the General Status Message LB.  Normally, this function is 
+invoked internally when a call is made to one of the get functions 
+and an internal flag is set indicating the message needs to be 
+initialized or updated.
+
+ORPGSAILS_write_status() is used to write the SAILS Status message 
+to the General Status Message LB.  Normally, this function is invoked 
+internally when a call is made to the ORPGSAIL_set_num_cuts() function.
+
+ORPGSAILS_write_request() is used to write the SAILS Request message 
+to the General Status Message LB.  Normally, this function is invoked 
+internally when a call is made to the ORPGSAIL_set_req_num_cuts() 
+function.
+
+ORPGSAILS_io_status() returns the status of the last SAILS Status 
+message read or write operation.
+
+ORPGSAILS_get_status() returns the current SAILS status.  The status 
+has values GS_SAILS_DISABLED, GS_SAILS_INACTIVE (SAILS enabled but 
+VCP does not support SAILS) and GS_SAILS_ACTIVE (SAILS enabled and 
+VCP supports SAILS).  On error, -1 is returned.
+
+ORPGSAILS_get_num_cuts() returns the number of SAILS cuts in the 
+currently executing VCP or if the RDA is in Standby, the last VCP
+to execute.   On error, -1 is returned.
+
+ORPGSAILS_get_req_num_cuts() returns the number of SAILS cuts 
+requested to be used for a SAILS VCP or 0 is SAILS is disabled.   
+This function is intended to be called from a man-machine interface 
+to view the number of requested SAILS cuts to be used for SAILS-enabled 
+VCPs.  The value returned changes in response to the number of SAILs 
+cuts requested via calls to ORPGSAILS_set_req_num_cuts().  On error, 
+-1 is returned.
+
+ORPGSAILS_get_max_cuts() returns the global maximum number of SAILS 
+cuts.  The actual maximum may be site-specific.  On error, -1 is 
+returned.
+
+ORPGSAILS_get_site_max_cuts() returns the site maximum number of 
+SAILS cuts.  Returns -1 on error.
+
+ORPGSAILS_allowed() returns 1 is SAILS allowed for the current VCP, 
+0 if SAILS not allowed for the current VCP or -1 on error.
+
+ORPGSAILS_set_req_num_cuts( int num_cuts ) sets the number of SAILS 
+cuts based on the value passed.  If num_cuts is 0, SAILS is disabled.  
+If num_cuts is greater than the site maximum number of SAILS cuts, -1 
+is returned.  This function then updates the number of SAILS cuts in 
+the SAILS Request Message.  If the write fails, -1 is returned.  This 
+function is intended to be called from a man-machine interface when 
+selecting SAILS enable/disable or number of SAILS cuts to be used for 
+SAILS-enabled VCPs.  
+
+ORPGSAILS_set_num_cuts( int num_cuts ) sets the number of SAILS cuts 
+actually in use for the current volume.  This function updates the 
+number of SAILS cuts in the SAILS Status Message.  If the write fails, 
+-1 is returned.
+
+ORPGSAILS_init() is intended to be called from a maintenance task.  
+It initializes the SAILS Status Message.  
+
+EXAMPLES
+
+The following code segment is used to retrieve the current ORPG operational
+mode.
+
+	#include <orpgsails.h>
+	.
+	.
+	int status;
+	.
+	.
+	mode = ORPGSAILS_get_status();
+	.
+	.
+
+SEE ALSO
+
+orpg(3)
+
+
+				$Revision: 1.4 $

@@ -1,0 +1,453 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/16 19:40:55 $
+C $Id: a315o4.ftn,v 1.3 2002/12/16 19:40:55 christie Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A315O4__INIT_SCAN( CMPAZPTR, AVG_ELEV, ELV_TIME,
+     >                              AVG_DAZM, RADCOUNT, SEGHIFLG,
+     >                              SEG_BUF_UNAVAIL, KEY, COMP_INDX,
+     >                              NUM_RAD_SEG )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A315O4__INIT_SCAN
+*.
+*.  MODULE VERSION: 0017
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       03 24 86      0000      DENNIS MILLER        BUILD 2
+*.       05 07 86      0001      DENNIS MILLER        SPR # 304
+*.       07 10 86      0002      DENNIS MILLER        SPR # 60313
+*.       07 10 86      0002      DENNIS MILLER        SPR # 60367
+*.       02 26 87      0003      DENNIS MILLER        SPR # 70106
+*.       06 06 89      0004      DAVID M. LYNCH       SPR # 90298
+*.       05 09 90      0005      STACY RONALD         SPR # 90712
+*.       07 31 90      0006      R. VISIOLI           SPR # 90775
+*.       11 07 90      0007      DENNIS MILLER        SPR # 91256
+*.       12 03 91      0008      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0009      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0010      Toolset              SPR 91895
+*.       03/25/93      0011      Toolset              SPR NA93-06801
+*.       01/28/94      0012      Toolset              SPR NA94-01101
+*.       03/03/94      0013      Toolset              SPR NA94-05501
+*.       04/01/95      0014      Toolset              CCR NA95-11802
+*.       06/27/95      0015      STEVE SMITH          CCR NA94-26302
+*.       12/23/96      0016      Toolset              CCR NA95-11807
+*.       03/16/99      0017      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:  CALL A31504__INIT_SCAN ( CMPAZPTR, AVG_ELEV,
+*.                               ELV_TIME, SEGHIFLG, SEG_BUF_UNAVIAL,
+*.                               KEY, AVG_DAZM, RADCOUNT)
+*.
+*.  MODULE FUNCTION:
+*.
+*.  This routine initializes variables and flags for a new elevation
+*.  scan.
+*.
+*.  MODULES CALLED: A315F4__INIT_STACK 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT        TYPE        DESCRIPTION
+*.    -   -----        ----        -----------
+*.    G   ADPDELAZ     R*4         Adaptation data maximum azimuthal
+*.                                 separation (radians) that segments in
+*.                                 adjacent radials can be separated by and be
+*.                                 part of the same componet.
+*.    G   ADPNLVLS     I*4         Adaptation data Ending Reflectivity
+*.                                 Threshold stored in Storm Data
+*.    G   SEG_BUF_LOCK L*4         If the lock is set to true for a half, then
+*.                                 that half of the image is in use by a task.
+*.                                 When a task is done accessing a half of the
+*.                                 image, the lock for th
+*.    G   ONE_RADIAN   R*4         (CONSTANT)PARAMETER VALUE FOR ONE RADIAN
+*.    C   COSPHI       R*4         Cosine of the elevation angle.
+*.    C   ELEVTABL     R*4         Table of averaged elevation angles for each
+*.                                 scan in radian measure.
+*.    C   LEV          I*4         Counter indicating the number of the
+*.                                 elevation being processed.
+*.    C   NEWVOL       L*4         Flag at start of new volume scan and used
+*.                                 to forward a local set of adaptable
+*.                                 parameters and initialize component count.
+*.    C   PHI          R*4         Elevation in radian measure of an elevation
+*.                                 scan.
+*.    C   REF_MAX_NDX  I*4         Lower limit of reflectivity index for
+*.                                 processing segments and components.
+*.    C   REF_MIN_NDX  I*4         Upper limit of reflectivity index for
+*.                                 processing segments and components.
+*.    C   RINDX        I*4         Index used to point to current reflectivity
+*.                                 level for processing segment index array
+*.                                 and component arrays.
+*.    C   HIGH         I*4         (CONSTANT)Index to logical array
+*.                                 SEG_BUF_LOCK for locking access to the high
+*.                                 area of the segment buffer.
+*.    C   LOW          I*4         (CONSTANT)Index to logical array
+*.                                 SEG_BUF_LOCK for locking access to the low
+*.                                 area of the segment buffer.
+*.    C   NCFRFLEV     I*4         (CONSTANT)Number of reflectivity levels at
+*.                                 which component features are identified.
+*.    C   SC_FIRST     I*4         (CONSTANT)Parameter indicating the first
+*.                                 radial of an elevation scan is being
+*.                                 processed.
+*.    P   AVG_DAZM     R*4         Average delta azimuth
+*.    P   AVG_ELEV     R*4         Average elevation angle
+*.    P   CMPAZPTR     I*4         Segment's azimuth pointer
+*.    P   ELV_TIME     I*4         Beginning Elevation Time
+*.    P   RADCOUNT     I*4         Radial count
+*.    P   SEGHIFLG     L*4         Flag to indicate whether to process high
+*.                                 segment buffer of the shared image or not.
+*.                                 If true - process high half (6000)of
+*.                                 segment data shared image.
+*.
+*.    *   OUTPUT          TYPE        DESCRIPTION
+*.    -   ------          ----        -----------
+*.    G   ADPDELAZ        R*4         Adaptation data maximum azimuthal
+*.                                    separation (radians) that segments in
+*.                                    adjacent radials can be separated by and
+*.                                    be part of the same componet.
+*.    G   ADPNLVLS        I*4         Adaptation data Ending Reflectivity
+*.                                    Threshold stored in Storm Data
+*.    G   SEG_BUF_LOCK    L*4         If the lock is set to true for a half,
+*.                                    then that half of the image is in use by
+*.                                    a task.  When a task is done accessing a
+*.                                    half of the image, the lock for th
+*.    C   AZ1             I*4         Points to first azimuth of elevation
+*.                                    scan in radial status arrays.
+*.    C   AZC             I*4         Points to current azimuth in radial
+*.                                    status arrays.
+*.    C   AZCOUNT         R*4         Count of the number of radials in an
+*.                                    elevation scan.
+*.    C   AZP             I*4         Points to previous azimuth in radial
+*.                                    status arrays.
+*.    C   AZT             I*4         Temporary pointer used for rotating the
+*.                                    indices for the radial status arrays.
+*.    C   BAZM_NDX        I*4         Beginning azimuthal position of segment
+*.                                    index array.
+*.    C   BEG_VOL_TIME    R*4         Beginning time of a volume scan in
+*.                                    milliseconds past midnight (Universal
+*.                                    Time Coordinated).
+*.    C   COMPCNT         I*4         Count of the number of components built
+*.                                    for each reflectivity level.
+*.    C   COSPHI          R*4         Cosine of the elevation angle.
+*.    C   COSPHI_DLTAR3   R*4         Variable derived from the product of the
+*.                                    cosine of the elevation angle and the
+*.                                    bin length cubed.
+*.    C   DAZMAVG         R*4         Average azimuthal separation between
+*.                                    radials in angulaR measure for one
+*.                                    complete elevation scan.
+*.    C   DELTAZM         R*4         Maximum azimuthal separation (radians)
+*.                                    that segments in adjacent radials can be
+*.                                    separated by and be part of the same
+*.                                    component.
+*.    C   EAZM_NDX        I*4         Ending azimuthal position of segment
+*.                                    index array.
+*.    C   ELEVTABL        R*4         Table of averaged elevation angles for
+*.                                    each scan in radian measure.
+*.    C   LEV             I*4         Counter indicating the number of the
+*.                                    elevation being processed.
+*.    C   NEWVOL          L*4         Flag at start of new volume scan and
+*.                                    used to forward a local set of adaptable
+*.                                    parameters and initialize component
+*.                                    count.
+*.    C   NVCOMP          I*4         Number of components per elevation
+*.                                    passed on to Centroids.
+*.    C   PHI             R*4         Elevation in radian measure of an
+*.                                    elevation scan.
+*.    C   REF_MAX_NDX     I*4         Lower limit of reflectivity index for
+*.                                    processing segments and components.
+*.    C   REF_MIN_NDX     I*4         Upper limit of reflectivity index for
+*.                                    processing segments and components.
+*.    C   RINDX           I*4         Index used to point to current
+*.                                    reflectivity level for processing
+*.                                    segment index array and component
+*.                                    arrays.
+*.    C   SCANCOND        I*4         Monitor which radial in an elevation
+*.                                    scan is being processed by components
+*.                                    and centroids
+*.    C   SINPHI          R*4         Sine of the elevation angle.
+*.    P   COMP_INDX       I*4         Componet Index array
+*.    P   KEY             I*4         A flag that toggles alternatively
+*.                                    between LOW and HIGH which points to
+*.                                    SEG_BUF_UNLOCK
+*.    P   NUM_RAD_SEG     I*4         Number of radial segments per
+*.                                    reflectivity threshold
+*.    P   SEG_BUF_UNAVAIL L*4         Flag indicating the segments buffer is
+*.                                    unavailable.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME      TYPE        DESCRIPTION
+*.    ----      ----        -----------
+*.    DLTAR3    R*4         Length of a range bin cubed (km**3).
+*.    ELEVANG   R*4         Elevation angle associated with an elevation cut
+*.                          (in degrees).
+*.    ELEVTIME  R*4         Time associated with an elevation cut
+*.                          (milliseconds; Julian day).
+*.    INDX1     I*4         Constant used to initialize variables AZC and AZ1
+*.                          to 1.
+*.    INDX2     I*4         Constant used to initialize variable AZP to 2.
+*.    IXX       I*4         Loop index
+*.    NCFMAX    I*4         Maximum number of component features that can be
+*.                          stored in component arrays per relectivity level.
+*.    NRDAZS    I*4         Number of radials whose segments are temporarily
+*.                          stored in RADSEG.
+*.    NRDRFLEV  I*4         Maximum number of reflectivity levels of segments
+*.                          that can be temporarily stored in RADSEG.
+*.    ONE_TENTH R*4         Real parameter value for (.1)
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A315CSAD
+*.    A315LOCK
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A315CNCC
+*.    A315COCC
+*.    A315CQCC
+*.    A315CRCC
+*.    A315CSCC
+*.    A315CVCC
+*.    A315CWCC
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     Compiled using COMP15.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     Linked using LINK15.CSS
+*.
+*.  MISC:  None
+*.
+C********************************************************************
+C
+C          STORM CELL COMPONENTS: INIT SCAN SUBROUTINE
+C
+C********************************************************************
+C
+C
+      IMPLICIT NONE
+C
+C**Attach local STORMS Adaptation Data parameter file:
+$INCLUDE A315BUF.INC/G,**A315PSAD (NLIST)
+$INCLUDE               **A315CSAD (NLIST)
+C
+$INCLUDE A315BUF.INC/G,**A315P5C (NLIST)
+$INCLUDE               **A315D5 (NLIST)
+C
+C**Attach segment buffer lock defintions.
+$INCLUDE A315BUF.INC/G, **A315LOCK (NLIST NEND)
+C
+C**Attach internal common area (CNCC)
+$INCLUDE A315.INC/G, **A315CNCC (NLIST)
+C
+C**Attach internal common area (COCC)
+$INCLUDE A315.INC/G, **A315COCC (NLIST)
+C
+C**Attach internal common area (CPCC)
+$INCLUDE A315.INC/G, **A315CPPC (NLIST)
+$INCLUDE             **A315CPCC (NLIST)
+C
+C**Attach internal common area (CSCC)
+$INCLUDE A315.INC/G, **A315CSCC (NLIST)
+C
+C**Attach internal common area (CRCC)
+$INCLUDE A315.INC/G, **A315CRPC (NLIST)
+$INCLUDE             **A315CRCC (NLIST)
+C
+C**Attach internal common area (CQCC)
+$INCLUDE A315.INC/G, **A315CQPC (NLIST)
+$INCLUDE             **A315CQCC (NLIST)
+C
+C**Attach internal common area (CVCC)
+$INCLUDE A315.INC/G, **A315CVPC (NLIST)
+$INCLUDE             **A315CVCC (NLIST)
+C
+C**Attach internal common area (CWCC)
+$INCLUDE A315.INC/G, **A315CWCC (NLIST)
+C
+$INCLUDE A309.INC/G, **A3PM50 (NLIST NEND)
+C
+C********************* DATA DECLARATIONS ****************************
+C
+C** Passed variables:
+C
+      INTEGER  NUM_RAD_SEG( NRDRFLEV*NRDAZS ), KEY
+      INTEGER  COMP_INDX( NCFMAX*NCFRFLEV )
+      INTEGER  CMPAZPTR, ELV_TIME, RADCOUNT
+      REAL     AVG_ELEV, AVG_DAZM
+      LOGICAL  SEGHIFLG, SEG_BUF_UNAVAIL
+C
+C** Local variables:
+C
+      INTEGER  IXX
+      REAL     ELEVTIME, ELEVANG, HLF_FCTR, ONE_TENTH
+C
+C*********************** DATA INITIALIZATIONS ***********************
+C
+      PARAMETER  (HLF_FCTR = 0.5, ONE_TENTH = 0.1)
+C
+C******************* BEGIN MAIN PROCESSING SECTION ******************
+C
+C** Check the segment buffer lock of the buffer this task is to
+C** to process.
+C
+      IF ( SEGHIFLG ) THEN
+C
+C** This flag indicates we are supposed to process the high
+C** segment buffer.
+C
+C** Is this buffer locked?
+C
+         IF ( SEG_BUF_LOCK( HIGH ) ) THEN
+C
+C** This buffer should not be locked!!!!  Let's abort.
+C
+            SEG_BUF_UNAVAIL = .TRUE.
+            GO TO 100
+         ELSE
+C
+C** This buffer is not locked, so let's lock it!
+C
+            SEG_BUF_LOCK( HIGH ) = .TRUE.
+            KEY = HIGH
+            SEG_BUF_UNAVAIL = .FALSE.
+         END IF
+      ELSE
+C
+C** This flag indicates we are supposed to process the low
+C** segment buffer.
+C
+C** Is this buffer locked?
+C
+         IF ( SEG_BUF_LOCK( LOW ) ) THEN
+C
+C** This buffer should not be locked!!!!  Let's abort.
+C
+            SEG_BUF_UNAVAIL = .TRUE.
+            GO TO 100
+         ELSE
+C
+C** This buffer is not locked, so let's lock it!
+C
+            SEG_BUF_LOCK( LOW ) = .TRUE.
+            KEY = LOW
+            SEG_BUF_UNAVAIL = .FALSE.
+         END IF
+      END IF
+C
+C** Set the Beginning of Elevation Time
+C
+      ELEVTIME = ELV_TIME
+      IF ( NEWVOL )  THEN
+C
+C** If the "New Volume" flag is set, set the beginning of volume
+C** time, reset the "New Volume" flag, and initialize the elevation
+C** slice counter.
+C
+         BEG_VOL_TIME = ELEVTIME
+         LEV = 0
+         NEWVOL = .FALSE.
+C
+C** Derive the azimuth separation threshold.
+C
+         DELTAZM = ADPDELAZ*ONE_RADIAN
+      END IF
+C
+C** Increment the elevation slice counter and initialize the number
+C** of components this elevation slice.
+C
+      LEV = LEV + 1
+      NVCOMP( LEV ) = 0
+C
+C** Store the elevation angle (radians) in the elevation angle table.
+C
+      ELEVANG = AVG_ELEV
+      ELEVTABL( LEV ) = ELEVANG*ONE_RADIAN
+C
+C** Compute the sine and cosine of the elevation angle.
+C
+      PHI = ELEVTABL( LEV )
+      COSPHI = COS(PHI)
+      SINPHI = SIN(PHI)
+      COSPHI_DLTAR3 = COSPHI*DLTAR3
+C
+C** Set the average radial delta (azimuth).
+C
+      DAZMAVG = AVG_DAZM*ONE_TENTH
+C
+C** Set the Segments table pointers for this elevation cut.
+C
+      BAZM_NDX = CMPAZPTR + 1
+      EAZM_NDX = CMPAZPTR + RADCOUNT
+C
+C** Reinitialize Label-Stack of Component-IDs:
+C
+      CALL A315F4__INIT_STACK
+C
+C** Initialize all counters & indices for elevation processing:
+C
+      AZCOUNT = 0.0
+C
+C** Set azimuth indices specifically for processing 1st azimuth:
+C
+      AZ1 = INDX1
+      AZC = INDX1
+      AZP = INDX2
+      AZT = INDX2
+C
+C** Set the beginning and ending reflectivity threshold indices.
+C
+      REF_MAX_NDX = 1
+      REF_MIN_NDX = ADPNLVLS
+C
+C** Set the scan condition flag.
+C
+      SCANCOND = SC_FIRST
+C
+C** Initialize the number of radial segments per reflectivity
+C** threshold to zero.
+C
+      DO 10  IXX = 1, NRDAZS*REF_MIN_NDX
+         NUM_RAD_SEG( IXX ) = 0
+ 10   CONTINUE
+C
+C** Initialize the component index.
+C
+      DO 11 IXX = 1, NCFMAX*REF_MIN_NDX
+         COMP_INDX( IXX ) = 0
+ 11   CONTINUE
+C
+C** Initialize the number of components per reflectivity threshold
+C** to zero.
+C
+      DO 12  RINDX = REF_MAX_NDX, REF_MIN_NDX
+         COMPCNT( RINDX ) = 0
+ 12   CONTINUE
+C
+C**************** END OF PROCESSING FOR SUBROUTINE ******************
+C
+ 100  CONTINUE
+      RETURN
+      END

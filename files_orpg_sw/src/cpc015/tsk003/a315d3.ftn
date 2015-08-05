@@ -1,0 +1,432 @@
+C
+C RCS info
+C $Author: ryans $
+C $Locker:  $
+C $Date: 2005/02/23 22:29:13 $
+C $Id: a315d3.ftn,v 1.4 2005/02/23 22:29:13 ryans Exp $
+C $Revision: 1.4 $
+C $State: Exp $
+C
+$INLINE A315Z3__REFLEC_ATTR,A315Z3.FTN
+      SUBROUTINE A315D3__DEF_SEGMENTS( BDPBREF, BDPBREF_un )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A315D3__DEF_SEGMENTS
+*.
+*.  MODULE VERSION: 0002
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       06 20 95      0000      DAVID ZITTEL         CCR NA94-26302
+*.       12/23/96      0001      Toolset              CCR NA95-11807
+*.       03/16/99      0002      Toolset              CCR NA98-23803
+*.       12/31/04      0003      Yukuan Song          CCR NA04-08301
+*.
+*.  CALLING SEQUENCE:  CALL A315D3__DEF_SEGMENTS( BDPBREF )
+*.
+*.  MODULE FUNCTION:
+*.
+*.
+*.  MODULES CALLED: A315Z3__REFLEC_ATTR 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT        TYPE        DESCRIPTION
+*.    -   -----        ----        -----------
+*.    G   SEGINDX      I*2         Array of indices to the 1st & last segments
+*.                                 for radials in the SEGMAIN array.  One half
+*.                                 is updated each elevation.
+*.    G   SEGMAIN      R*4         The segment attributes array in the segment
+*.                                 data shared image.  One half is updated
+*.                                 each elevation scan.
+*.    G   PREFSIZE     I*4         (CONSTANT)Size of preprocessed base radial
+*.                                 reflectivity data.
+*.    C   ADPNDROP     I*4         Dropout Count Threshold stored in segments
+*.                                 local common.
+*.    C   ADPNSGMX     I*4         Maximum # of Segments per Elevation
+*.                                 Threshold in segments
+*.    C   BAZM_NDX     I*4         Index to the segments of the 1st radial for
+*.                                 a ref. th. in the segment shared image for
+*.                                 an elevation.
+*.    C   BSEG_THR     R*4         The computed maximum number of segments
+*.                                 allowed for each reflectivity threshold per
+*.                                 elevation.
+*.    C   DROPRFBIAS   I*4         The derived dropout reflectivity threshold
+*.                                 in biased units.
+*.    C   FSURBIN      I*4         First good surveillance bin (number) in a
+*.                                 radial from the radial header, stored in
+*.                                 local common.
+*.    C   LSURBIN      I*4         Last good surveillance bin (number) in a
+*.                                 radial based on info from the radial
+*.                                 header, stored in local common.
+*.    C   MXSEGCNT     I*4         Last segment position in the current half
+*.                                 of the segment data shared image.
+*.    C   RADSGCNT     I*4         Radial count in segment
+*.    C   REFTHRBIAS   I*4         The reflectivity thresholds from adaptation
+*.                                 data converted to biased dBZ units.
+*.    C   REF_BASE_NDX I*4         The index of the lowest reflectivity
+*.                                 threshold.
+*.    C   REF_MAX_NDX  I*4         The index of the highest reflectivity
+*.                                 threshold.
+*.    C   REF_MIN_NDX  I*4         Upper limit of reflectivity index for
+*.                                 processing segments and components.
+*.    C   RFSEGSUM     I*4         An accumulating sum through the elevation
+*.                                 scan of the # of segments identified for
+*.                                 each reflectivity threshold.
+*.    C   SEGCOUNT     I*4         Incremental segment count for the elevation
+*.                                 scan offset by the SEGBFPTR (0 or 6000).
+*.    C   SEGLEN       I*4         Derived array of segment length thresholds
+*.                                 in bins for each reflectivity threshold.
+*.    C   SGBUFFLG     L*4         A flag indicating whether the segments data
+*.                                 shared image is full for segments of a
+*.                                 reflectivity threshold.
+*.    C   SEG_FBN      I*4         (CONSTANT)Index to the beginning range bin
+*.                                 in the segments attribute array in the
+*.                                 shared data image.
+*.    C   SEG_LBN      I*4         (CONSTANT)Index to ending range bin in
+*.                                 segments attribute array in the shared data
+*.                                 image.
+*.    C   SEG_LEN      I*4         (CONSTANT)Index to segments length in the
+*.                                 segments attribute array in the shared data
+*.                                 array.
+*.    P   BDPBREF      I*2         Preprocessed base reflectivity data.
+*.
+*.    *   OUTPUT       TYPE        DESCRIPTION
+*.    -   ------       ----        -----------
+*.    G   SEGINDX      I*2         Array of indices to the 1st & last segments
+*.                                 for radials in the SEGMAIN array.  One half
+*.                                 is updated each elevation.
+*.    G   SEGMAIN      R*4         The segment attributes array in the segment
+*.                                 data shared image.  One half is updated
+*.                                 each elevation scan.
+*.    C   BUFF_FULL    L*4         A flag indicating the segment data shared
+*.                                 image is full.
+*.    C   RADSGCNT     I*4         Radial count in segment
+*.    C   REF_BASE_NDX I*4         The index of the lowest reflectivity
+*.                                 threshold.
+*.    C   RFSEGSUM     I*4         An accumulating sum through the elevation
+*.                                 scan of the # of segments identified for
+*.                                 each reflectivity threshold.
+*.    C   SEGCOUNT     I*4         Incremental segment count for the elevation
+*.                                 scan offset by the SEGBFPTR (0 or 6000).
+*.    C   SGBUFFLG     L*4         A flag indicating whether the segments data
+*.                                 shared image is full for segments of a
+*.                                 reflectivity threshold.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    P   BDPBREF           I*2         Preprocessed base reflectivity data.
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME      TYPE        DESCRIPTION
+*.    ----      ----        -----------
+*.    BEG_BIN   I*4         Beginning Range Bin
+*.    BINDX     I*4         Do loop through radial bins
+*.    END_BIN   I*4         Ending range bin number of the segment
+*.    FRSTBIN   I*4         First good surveillance bin (number) in a segment
+*.    LASTBIN   I*4         Last good surveillance bin (number) in a segment
+*.    LEN       I*4         Segment length in bins
+*.    MINUS_ONE I*4         Parameter value for negative one
+*.    NDROPOUT  I*4         Number of dropouts
+*.    NEW_SGMT  L*4         Flag indicating whether this is a new segment
+*.    NRTH      I*4         Number of reflectivity thresholds
+*.    ONE       I*4         Parameter value of one.
+*.    PSEGCNT   I*4         Percent of SEGMAIN filled by segments at this
+*.                          reflectivity threshold
+*.    RADSEGSM  I*4         An array of the radial count of segments at the
+*.                          different reflectivity threshold
+*.    RINDX     I*4         Do loop variable for reflectivity thresholds
+*.    SEGFRAC   R*4         Current number of segments for this reflectivity
+*.                          threshold in SEGMAIN
+*.    SEG_NDX   I*4         Segment count
+*.    TWO       I*4         Program parameter value of 2.
+*.    ZERO      I*4         PARAMETER VALUE '0'
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    SGMTS09
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A315C3
+*.    A315CD
+*.    A315CG
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     Compiled using COMP15.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     Linked using LINK15.CSSSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+      IMPLICIT NONE
+C
+C     Includes
+C
+C**  Attach pointers for global memory for unpack radial
+$INCLUDE A304.INC/G,**A304P4 (NLIST)
+C
+C**  Attach pointers for segments buffer A3CD09
+$INCLUDE A315BUF.INC/G,**A315P3S (NLIST)
+C
+C**  Attach segment buffer A3CD09DZ
+$INCLUDE A309.INC/G,**A3CD09DZ (NLIST)
+C
+C** Attach buffer pointers for segments buffer
+$INCLUDE A315.INC/G,**A315C3S (NLIST)
+C
+C**  Attach derived adaptation data for segments
+$INCLUDE **A315CDS (NLIST)
+C
+C**  Attach internal common for segments
+$INCLUDE **A315CGS (NLIST)
+C
+C     Arguments
+
+      INTEGER*2 BDPBREF( PREFSIZE )
+      INTEGER*2 BDPBREF_un( PREFSIZE )
+
+C     Internal Variables
+
+      INTEGER END_BIN, BEG_BIN, MINUS_ONE, ZERO, ONE, TWO
+      INTEGER  FRSTBIN, LASTBIN, SEG_NDX, RINDX, BINDX
+      INTEGER LEN, RADSEGSM( NRTH )
+      INTEGER  PSEGCNT, NDROPOUT
+      REAL SEGFRAC
+      LOGICAL NEW_SGMT
+C
+C**  PARAMETER DECLARATIONS
+C
+      PARAMETER ( MINUS_ONE = -1, ZERO = 0, ONE = 1, TWO = 2 )
+C====================================================================
+C
+C**  Begin executable code
+C
+C**  Find the lowest reflectivity threshold whose portion of SEGMAIN
+C**  isn't full
+C
+
+      DO 31 RINDX = REF_MIN_NDX , REF_MAX_NDX , MINUS_ONE
+        IF( .NOT. SGBUFFLG( RINDX ) ) THEN
+          REF_BASE_NDX = RINDX
+          GO TO 32
+        ENDIF
+ 31   CONTINUE
+ 32   SEG_NDX = SEGCOUNT
+C
+C**  DO FOR ALL (THRESHOLDS(Reflectivity)):
+C
+
+      DO 30 RINDX = REF_BASE_NDX , REF_MAX_NDX , MINUS_ONE
+C
+C**  Initialize the radial count of segments at the current
+C**  reflectivity threshold and the current radial to zero.
+C
+        RADSEGSM( RINDX ) = ZERO
+C
+C**  Set the starting and ending bin positions for a segment to zero
+C
+ 21     BEG_BIN = ZERO
+        END_BIN = ZERO
+        IF ( RINDX .EQ. REF_BASE_NDX ) THEN
+C
+C**  If the reflectivity threshold is the lowest (dBZ value), set the
+C**  first and last surveillance sample volumes to analyze to the
+C**  first and last sample volumes in the radial.  Also initialize
+C**  the segment index to the current segment count.
+C
+          FRSTBIN = FSURBIN
+          LASTBIN = LSURBIN
+          SEG_NDX = SEGCOUNT
+        ELSE
+C
+C**  Process all segments established at the previous reflectivity
+C**  threshold.
+C
+          SEG_NDX =  SEG_NDX + ONE
+          IF ( SEG_NDX .GT. SEGINDX(TWO,RINDX+ONE,BAZM_NDX) ) THEN
+            SEG_NDX = SEGINDX(TWO,RINDX + ONE,BAZM_NDX)
+            GO TO 30
+          ENDIF
+C
+C**  Set the first and last samples volumes to analyze to the first
+C**  and last sample volumes of a previously defined segment of a
+C**  lower reflectivity threshold.
+C
+          FRSTBIN = SEGMAIN( SEG_FBN, SEG_NDX )
+          LASTBIN = SEGMAIN( SEG_LBN, SEG_NDX )
+        ENDIF
+C
+C**  Initialize the new segment flag and the dropout count.
+C
+        NEW_SGMT = .FALSE.
+        NDROPOUT = ZERO
+C
+C**  DO FOR ALL (SAMPLE VOLUMES):
+C
+        DO 20 BINDX = FRSTBIN,LASTBIN
+C
+          IF (.NOT. NEW_SGMT) THEN
+C
+C**  IF (REFLECTIVITY FACTOR(Sample Volume) is greater than or equal
+C**      to THRESHOLD(Reflectivity)) THEN
+C
+            IF (BDPBREF( BINDX ) .GE. REFTHRBIAS(RINDX)) THEN
+C
+C**  CASE 1:  Begin POTENTIAL CELL SEGMENT
+C
+              NEW_SGMT = .TRUE.
+C
+C**  COMPUTE (beginning RANGE(Segment)):
+C
+C**  NOTE: (Beginning RANGE(Segment)) is actually beginning range
+C**         bin number.  The bin number is converted to range (km)
+C**         within the COMPONENTS Algorithm.)
+C
+              BEG_BIN = BINDX
+C
+C**  COMPUTE (ending RANGE(Segment)):
+C
+C**  NOTE: (Ending RANGE(Segment)) is actually ending range bin
+C**         number.  The bin number is converted to range (km) within
+C**         the COMPONENTS Algorithm.)
+C
+              END_BIN = BINDX
+C
+C**  If the current sample volume is the ending sample volume of
+C**  a previously defined segment of a lower reflectivity threshold,
+C**  need to end the segment.
+C
+              IF (BINDX .EQ. LASTBIN) GO TO 300
+            END IF
+          ELSE
+C
+C**  IF (REFLECTIVITY FACTOR(Sample Volume) is greater than or equal
+C**      to THRESHOLD(Reflectivity)) THEN
+C
+            IF (BDPBREF( BINDX ) .GE. REFTHRBIAS(RINDX)) THEN
+C
+C**  CASE 2:  Continue POTENTIAL CELL SEGMENT
+C
+C**  Reset NUMBER OF DROPOUTS to zero.
+C
+              NDROPOUT = ZERO
+              END_BIN = BINDX
+              IF ( BINDX .LT. LASTBIN ) GO TO 20
+C
+C**  IF (REFLECTIVITY(Sample Volume) is greater than or equal to
+C**     (THRESHOLD(Reflectivity) - THRESHOLD(Dropout Reflectivity
+C**      Difference)) THEN
+C
+            ELSE IF ( BDPBREF( BINDX ).GE.DROPRFBIAS( RINDX ) .AND.
+     >                NDROPOUT .LT. ADPNDROP ) THEN
+C
+C**  CASE 3:  Continue POTENTIAL CELL SEGMENT.
+C
+C
+C**  COMPUTE (NUMBER OF DROPOUTS):
+C
+              NDROPOUT = NDROPOUT + ONE
+              IF ( BINDX .LT. LASTBIN ) GO TO 20
+            END IF
+C
+C**  CASE 4:  End POTENTIAL CELL SEGMENT.
+C
+ 300        NEW_SGMT = .FALSE.
+            NDROPOUT = ZERO
+C
+C**  COMPUTE (LENGTH(Segment)):
+C
+            LEN = END_BIN - BEG_BIN + ONE
+C
+C** IF (LENGTH(Segment) is greater than or equal to THRESHOLD(Segment
+C**     Length(Reflectivity Threshold))) THEN
+C
+            IF ( LEN .GE. SEGLEN(RINDX) ) THEN
+C
+C**  Label POTENTIAL CELL SEGMENT as CELL SEGMENT.
+C
+              SEGCOUNT = SEGCOUNT + ONE
+              RADSEGSM( RINDX ) = RADSEGSM( RINDX ) + ONE
+C
+C**  Save the beginning and ending range bin, and the segment length.
+C
+              SEGMAIN( SEG_FBN, SEGCOUNT ) = BEG_BIN
+              SEGMAIN( SEG_LBN, SEGCOUNT ) = END_BIN
+              SEGMAIN( SEG_LEN, SEGCOUNT ) = LEN
+C
+C**  Save the value of SEGCOUNT as an index for the starting and
+C**  ending locations for this particular reflectivity threshold
+C
+              IF ( SEGINDX( ONE, RINDX, BAZM_NDX ) .EQ. ZERO ) THEN
+                SEGINDX( ONE, RINDX, BAZM_NDX ) = SEGCOUNT
+                SEGINDX( TWO, RINDX, BAZM_NDX ) = SEGCOUNT
+              ELSE
+                SEGINDX( TWO, RINDX, BAZM_NDX ) = SEGCOUNT
+              END IF
+C
+              IF ( SEGCOUNT .GE. MXSEGCNT ) THEN
+                BUFF_FULL = .TRUE.
+                GO TO 200
+              END IF
+            END IF
+          END IF
+ 20     CONTINUE
+C
+        IF ( RINDX .NE. REF_BASE_NDX ) GO TO 21
+C
+ 30   CONTINUE
+C
+C**  This section computes the amount of buffer space filled by each
+C**  the number of segments for each reflectivity threshold.  If the
+C**  exceeds the space allotted in A3CD09, then SGBUFFLG flag for the
+C**  reflectivity threshold is set to .TRUE.  This prevents any more
+C**  segments from being identified for this reflectivity level.  The
+C**  tests are updated each radial and are reset at the beginning of
+C**  each elevation scan.
+C
+ 200  PSEGCNT = ZERO
+      RADSGCNT = ZERO
+      DO 100 RINDX = REF_MIN_NDX, REF_MAX_NDX, MINUS_ONE
+        IF ( .NOT. SGBUFFLG( RINDX ) ) THEN
+          RADSGCNT = RADSGCNT + RADSEGSM( RINDX )
+          RFSEGSUM( RINDX ) = RFSEGSUM( RINDX ) + RADSEGSM( RINDX )
+        ENDIF
+C
+C**  Compute the percent of SEGMAIN filled by segments at this
+C**  reflectivity threshold
+C
+        PSEGCNT = PSEGCNT + RFSEGSUM( RINDX )
+        SEGFRAC = FLOAT(PSEGCNT) / ADPNSGMX
+        IF ( SEGFRAC.GT.BSEG_THR( RINDX )) SGBUFFLG( RINDX )= .TRUE.
+ 100  CONTINUE
+C
+C**  Compute reflectivity attributes of segments.
+C
+      IF (RADSGCNT .GT. 0) CALL A315Z3__REFLEC_ATTR( BDPBREF, 
+     > BDPBREF_un )
+
+C
+C**  End of program unit body.
+C
+      RETURN
+      END

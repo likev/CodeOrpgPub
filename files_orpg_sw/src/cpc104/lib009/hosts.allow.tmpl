@@ -1,0 +1,52 @@
+# RCS info
+# $Author: cm $
+# $Locker:  $
+# $Date: 2012/03/06 21:55:14 $
+# $Id: hosts.allow.tmpl,v 1.9 2012/03/06 21:55:14 cm Exp $
+# $Revision: 1.9 $
+# $State: Exp $
+#
+# 05-Mar-12 S. F. Enders - (CCR NA12-00096, Issue R2-797) PGUA can't upload Frame
+#                          Relay Hub Router
+#
+# This template is used for generating site-dependent "hosts.allow.modify"
+SET _gdc_include = rpg_net_vars.def
+SET _gdc_set_interpreting = !-# 
+SET _gdc_install_file = /etc/hosts.allow
+#
+
+SET DMSCF_HOSTING_SITE = NO
+
+IF KABX KAKQ KBIS KBMX KCXX KDAX KDGZ KEPZ KESX KEWX \
+KFFC KFWS KJAX KLCH KMOB KPAH KSJT KTLH KTLX KVTX NFR4: SET DOD_DMSCF_HOSTING_SITE = YES
+
+SET TFTP-HOSTING_DMSCF = NO
+
+IF FOP1 FPSF PAHG PAPD PACG PHKM PGUA TJUA: SET TFTP-HOSTING_DMSCF = YES
+
+ALL: 127.0.0.1
+ALL: 172.25.187.
+ALL: 10.6.120.224/28
+ALL: 10.6.118.224/28
+
+IF DOD_DMSCF_HOSTING_SITE: {
+IF NOT KTLX:  ALL: 172.25.${SUBNET_ID}. EXCEPT 172.25.${SUBNET_ID}.32, 172.25.${SUBNET_ID}.35
+IF KTLX:  ALL: 172.25.${SUBNET_ID}. EXCEPT 172.25.${SUBNET_ID}.35, 172.25.${SUBNET_ID}.36, 172.25.${SUBNET_ID}.32, 172.25.${SUBNET_ID}.33
+}
+ELSE:  ALL: 172.25.${SUBNET_ID}.
+
+
+IF FAA DOD: {
+   IF NODE_NAME!=mscf:  ALL: 172.25.${MSCF_IP_O3}.${MSCF_IP_O4}
+   IF TFTP-HOSTING_DMSCF:  ALL: 172.25.${MSCF_IP_O3}.100
+}
+
+
+IF ROC: {
+    ALL: 10.20.58.
+    ALL: 10.20.62.
+    ALL: 10.20.63.
+    ALL: 10.20.65.
+    ALL: 10.5.
+}
+IF RSHI:  ALL: 10.5.84.

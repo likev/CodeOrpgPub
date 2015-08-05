@@ -1,0 +1,314 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/16 19:40:14 $
+C $Id: a31519.ftn,v 1.3 2002/12/16 19:40:14 christie Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+       SUBROUTINE A31519__BUFFER_CONTROL(PARAM)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A31519__BUFFER_CONTROL
+*.
+*.  MODULE VERSION: 0002
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       06/20/95      0000      MARK FRESCH          CCR NA94-26301
+*.       12/23/96      0001      Toolset              CCR NA95-11807
+*.       03/16/99      0002      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: A31519__BUFFER_CONTROL(PARAM)
+*.
+*.  MODULE FUNCTION:
+*.
+*.  This is the routine which is entered for the task in reponse to
+*.  a queued "wake-up" parameter, and which obtains & releases input
+*.  & output buffers (i.e.memory blocks within the shared RPG memory
+*.  buffer) as needed by the Hail Algorithm, enabling them to execute
+*.  in real time in coordination with the other tasks of the RPG.
+*.  The routine also performs high-level processing control for the
+*.  algorithm.
+*.
+*.  MODULES CALLED: A31145__ABORT_ME, A31168__ABORT_ME_BECAUSE, 
+*.                  A31169__ABORT_DATATYPE_BECAUSE, A31211__GET_INBUF, 
+*.                  A31212__REL_INBUF, A31215__GET_OUTBUF, A31216__REL_OUTBUF, 
+*.                  A31509__OUTPUT_ADAP, A31529__EVAL_HAIL, 
+*.                  A31569__STORE_HAILSTATS, A31579__STOR_TREND, 
+*.                  A31599__INIT_ALG 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT         TYPE        DESCRIPTION
+*.    -   -----         ----        -----------
+*.    G   MEM           I*4         Array in RPG shared memory set aside for
+*.                                  buffer sharing.
+*.    G   BHA           I*4         (CONSTANT)Index within HAILATTR to the
+*.                                  HAILADAP (or HAIL_RADAP) array. (BHL +
+*.                                  NHAL_MAX)
+*.    G   BHL           I*4         (CONSTANT)Index within HAILATTR to the
+*.                                  HAILABEL array.  601 (BHS + NHAL_STS *
+*.                                  NHAL_MAX)
+*.    G   BHS           I*4         (CONSTANT)Index within HAILATTR to the
+*.                                  HAILSTATS array.
+*.    G   BNH           I*4         (CONSTANT)Index within HAILATTR to the
+*.                                  number of hail storms
+*.    G   BNR           I*4         (CONSTANT)Offset pointer of the location
+*.                                  of the number of storms in the storm trend
+*.                                  output buffer in global memory.
+*.    G   BRI           I*4         (CONSTANT)Offset pointer of the location
+*.                                  of the storm IDs in the storm trend output
+*.                                  buffer in global memory.
+*.    G   BSI           I*4         (CONSTANT)Offset pointer of the location
+*.                                  of each storm type, numerical ID, and
+*.                                  number of volumes tracked in the storm
+*.                                  track/forecast output buffer in global
+*.                                  memory.
+*.    G   BST           I*4         (CONSTANT)Offset to MEM buffer for Storm
+*.                                  Motion Attributes array
+*.    G   CENTATTR      I*4         (CONSTANT)Data buffer type: Storm centroid
+*.                                  attributes.
+*.    G   DESTROY       I*4         (CONSTANT)Mnemonic used as input to
+*.                                  A31216__REL_OUTBUF. Indicates "do not pass
+*.                                  data to other tasks".
+*.    G   FORWARD       I*4         (CONSTANT)Parameter to indicate that an
+*.                                  output buffer is to be forwarded to
+*.                                  successor tasks
+*.    G   HAILATTR      I*4         (CONSTANT)Data Buffer Type: Hail Attribute
+*.                                  Table.
+*.    G   NORMAL        I*4         (CONSTANT)Parameter which indicates normal
+*.                                  completion of requested operation to
+*.                                  acquire input or output buffer
+*.    G   NO_MEM        I*4         (CONSTANT)Parameter which indicates no
+*.                                  memory available on attempt to acquire
+*.                                  output buffer
+*.    G   PROD_MEM_SHED I*4         (CONSTANT)(CONSTANT)Parameter which
+*.                                  indicates that product aborted due to
+*.                                  memory load shedding
+*.    G   TRENDATR      I*4         (CONSTANT)Data Buffer Type: Trend data
+*.    G   TRFRCATR      I*4         (CONSTANT)Data Buffer Type: Track Forecast
+*.                                  Attributes.
+*.    C   BNS           I*4         (CONSTANT)Offset in MEM buffer to number
+*.                                  of storm cells
+*.    C   BSK           I*4         (CONSTANT)Offset in MEM buffer to componet
+*.                                  stack
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    G   MEM     I*4         Array in RPG shared memory set aside for buffer
+*.                            sharing.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    G   MEM               I*4         Array in RPG shared memory set aside
+*.                                      for buffer sharing.
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME    TYPE        DESCRIPTION
+*.    ----    ----        -----------
+*.    IDATID1 I*4         A datatype arguement passed to buffer management
+*.                        during the acquiring of the CENTATTR input buffer.
+*.                        In this case no useful information is passed.
+*.    IDATID2 I*4         A datatype arguement passed to buffer management
+*.                        during the acquiring of the TRFRCATR input buffer.
+*.                        In this case no useful information is passed.
+*.    IPR1    I*4         A pointer (in MEM) returned by buffer management to
+*.                        the beginning of the CENTATTR input buffer.
+*.    IPR2    I*4         A pointer (in MEM) returned by buffer management to
+*.                        the beginning of the TRFRCATR input buffer.
+*.    ISTAT1  I*4         The status returned by buffer management of the
+*.                        acquiring of the CENTATTR input buffer.
+*.    ISTAT2  I*4         The status returned by buffer management of the
+*.                        acquiring of the TRFRCATR input buffer.
+*.    OPR1    I*4         A pointer (in MEM) returned by buffer management to
+*.                        the beginning of the TRENDATR output buffer.
+*.    OPR2    I*4         A pointer (in MEM) returned by buffer management to
+*.                        the beginning of the HAILATTR output buffer.
+*.    OSTAT1  I*4         The status returned by buffer management of the
+*.                        acquiring of the TRENDATR output buffer.
+*.    OSTAT2  I*4         The status returned by buffer management of the
+*.                        acquiring of the HAILATTR output buffer.
+*.    SIZ_HAL I*4         Size in fullwords of the HAILATTR buffer.  733 (BHA
+*.                        + NHAL_ADP)
+*.    SIZ_STR I*4         Size of Cell Trend Data output buffer
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD00
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.     THIS MODULE IS COMPILED USING THE COMP15.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.     THIS MODULE IS LINKED USING THE LINK15.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+       IMPLICIT NONE
+C
+C** MASTER PARAMETER FILE OF RPG DATA FILES
+C
+$INCLUDE A309.INC/G,**A3PM00 (NLIST NEND)
+C
+C** NO MEMORY ABORT PARAMETERS
+C
+$INCLUDE            **A3PM07 (NLIST NEND)
+C
+C** RPG MASTER SHARED MEMORY
+C
+$INCLUDE            **A3CD00 (NLIST NEND)
+C
+C** OFFSETS FOR CENTROIDS, TRACKING/FORECAST, AND HAIL BUFFERS
+C
+$INCLUDE A315BUF.INC/G,**A315P5C (NLIST NEND)
+$INCLUDE               **A315P7F (NLIST NEND)
+$INCLUDE               **A315P8T (NLIST NEND)
+$INCLUDE               **A315P9H (NLIST NEND)
+C
+C** VARIABLE AND PARAMETER DECLARATIONS
+C
+       INTEGER IDATID1, IDATID2, ISTAT1, ISTAT2, IPR1, IPR2
+       INTEGER PARAM, OSTAT1, OSTAT2, OPR1, OPR2
+C
+C** ACQUIRE OUTPUT BUFFER FOR CELL TREND DATA
+C
+       CALL A31215__GET_OUTBUF (TRENDATR,SIZ_STR,OPR1,OSTAT1)
+C
+C** CHECK THE STATUS OF THE OPERATION.  IF STATUS IS NO MEMORY, ABORT
+C** DATATYPE WITH REASON CODE PROD_MEM_SHED
+C
+       IF (OSTAT1 .EQ. NO_MEM) THEN
+          CALL A31169__ABORT_DATATYPE_BECAUSE(TRENDATR,PROD_MEM_SHED)
+       END IF
+C
+C** ACQUIRE HAIL OUTPUT BUFFER
+C
+       CALL A31215__GET_OUTBUF (HAILATTR,SIZ_HAL,OPR2,OSTAT2)
+C
+C** CHECK THE STATUS OF THE OPERATION.  IF STATUS IS NO MEMORY, ABORT
+C** DATATYPE WITH REASON CODE PROD_MEM_SHED
+C
+       IF (OSTAT2 .EQ. NO_MEM) THEN
+          CALL A31169__ABORT_DATATYPE_BECAUSE(HAILATTR,PROD_MEM_SHED)
+       END IF
+C
+C** IF AT LEAST ONE OF THE OUTPUTS IS AVAILABLE, THEN CONTINUE
+C** PROCESSING
+C
+      IF ((OSTAT1 .EQ. NORMAL) .OR. (OSTAT2 .EQ. NORMAL)) THEN
+C
+C** IF EITHER OUTPUT BUFFER IS SUCCESSFULLY ACQUIRED,
+C** GET THE CENTROIDS ATTRIBUTES INPUT BUFFER
+C
+          CALL A31211__GET_INBUF(CENTATTR,IPR1,IDATID1,ISTAT1)
+C
+          IF (ISTAT1 .EQ. NORMAL) THEN
+C
+C** IF CENTROIDS BUFFER IS SUCCESSFULLY ACQUIRED,
+C** GET THE TRACK/FORECAST INPUT BUFFER
+C
+             CALL A31211__GET_INBUF(TRFRCATR,IPR2,IDATID2,
+     $                               ISTAT2)
+C
+             IF (ISTAT2 .EQ. NORMAL) THEN
+C
+C** IF ALL BUFFERS HAVE BEEN SUCCESSFULLY ACQUIRED, PERFORM
+C** ALGORITHM PROCESSING - CALL A31599 TO INITIALIZE THE
+C** VARIABLES & ARRAYS & TO GET A LOCAL COPY OF ADAPTATION DATA
+C
+                CALL A31599__INIT_ALG(MEM(IPR1+BNS))
+C
+C** CALL A31529 TO CONTROL THE HAIL ALGORITHM PROCESSING
+C
+                CALL A31529__EVAL_HAIL(MEM(IPR1+BST),MEM(IPR1+BSK))
+C
+C** IF THE HAIL OUTPUT BUFFER STATUS IS NORMAL, CALL A31569 TO
+C** ASSIGN HAIL LABELS & STORE DATA IN THE OUTPUT BUFFER,
+C** CALL A31509 TO APPEND ADAPTATION DATA TO THE OUTPUT BUFFER,
+C** AND CALL A31216 TO RELEASE THE OUTPUT BUFFER
+C
+                IF (OSTAT2 .EQ. NORMAL) THEN
+                   CALL A31569__STORE_HAILSTATS(MEM(OPR2+BHS),
+     $                   MEM(OPR2+BHL),MEM(OPR2+BNH),MEM(IPR2+BSI))
+                   CALL A31509__OUTPUT_ADAP(MEM(OPR2+BHA),
+     $                                       MEM(OPR2+BHA))
+                   CALL A31216__REL_OUTBUF(OPR2,FORWARD)
+                END IF
+C
+C** IF THE STORM SUMMARY (STRUCTURE) OUTPUT BUFFER STATUS IS NORMAL,
+C** CALL A31579 TO STORE TREND DATA IN THE OUTPUT BUFFER
+C
+                IF (OSTAT1 .EQ. NORMAL) THEN
+                   CALL A31579__STOR_TREND(MEM(IPR2+BSI),
+     $                    MEM(OPR1+BRI),MEM(OPR1+BNR))
+                   CALL A31216__REL_OUTBUF(OPR1,FORWARD)
+                END IF
+C
+C** RELEASE THE TRACK/FORECAST INPUT BUFFER
+C
+                CALL A31212__REL_INBUF(IPR2)
+             ELSE
+C
+C** COULDN'T GET THE TRACK/FORECAST INPUT BUFFER - DESTROY ANY
+C** GOOD OUTPUT BUFFERS AND ABORT THE TASK PROCESSING
+C
+                IF (OSTAT1 .EQ. NORMAL) THEN
+                   CALL A31216__REL_OUTBUF(OPR1,DESTROY)
+                END IF
+                IF (OSTAT2 .EQ. NORMAL) THEN
+                   CALL A31216__REL_OUTBUF(OPR2,DESTROY)
+                END IF
+                CALL A31145__ABORT_ME
+             END IF
+C
+C** RELEASE THE CENTROIDS INPUT BUFFER
+C
+             CALL A31212__REL_INBUF(IPR1)
+          ELSE
+C
+C** COULDN'T GET THE CENTROIDS INPUT BUFFER - DESTROY ANY
+C** GOOD OUTPUT BUFFERS AND ABORT THE TASK PROCESSING
+C
+             IF (OSTAT1 .EQ. NORMAL) THEN
+                CALL A31216__REL_OUTBUF(OPR1,DESTROY)
+             END IF
+             IF (OSTAT2 .EQ. NORMAL) THEN
+                CALL A31216__REL_OUTBUF(OPR2,DESTROY)
+             END IF
+             CALL A31145__ABORT_ME
+          END IF
+       ELSE
+C
+C** COULDN'T GET THE OUTPUT BUFFER - ABORT THE TASK PROCESSING
+C
+          IF ((OSTAT1.EQ.NO_MEM) .AND. (OSTAT2.EQ.NO_MEM)) THEN
+             CALL A31168__ABORT_ME_BECAUSE(PROD_MEM_SHED)
+          ELSE
+             CALL A31145__ABORT_ME
+          END IF
+       END IF
+C
+C** RETURN TO CALLER MODULE
+C
+       RETURN
+       END

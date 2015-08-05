@@ -1,0 +1,256 @@
+C 
+C RCS info 
+C $Author: ryans $ 
+C $Locker:  $ 
+C $Date: 2007/05/09 17:19:34 $ 
+C $Id: a3cm3c.ftn,v 1.6 2007/05/09 17:19:34 ryans Exp $ 
+C $Revision: 1.6 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A3CM3C__PAF_ADAPT(RBUF,IBUF,OBUF,IDX,EIDX,FILKERSZ,
+     >				   FRACTREQ, FILTERON)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3CM3C__PAF_ADAPT
+*.
+*.  MODULE VERSION: 0001
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       04/24/95      0000      STEVE SMITH          CCR NA94-26302
+*.       12/23/96      0001      Toolset              CCR NA95-11807
+*.
+*.  CALLING SEQUENCE:
+*.
+*.     CALL A3CM3A__SEG_ADAPT(RBUF,IBUF,OBUF,IDX,EIDX)
+*.
+*.  MODULE FUNCTION:
+*.
+*.      THIS COMMON MODULE FORMATS THE STORMS CELL POSITION AND
+*.      FORECAST ADAPTATION DATA INTO THE USER SUPPLIED OUTPUT
+*.      BUFFER.
+*.
+*.      RBUF AND IBUF ARE THE SAME ARRAYS; SOME OF THE ADAPTATION
+*.      DATA IS DEFINED AS REAL AND SOME AS INTEGER.  THE
+*.      PARAMETER FILE A315BUF,**A315PSAD IS  INCLUDED TO OBTAIN
+*.      THE OFFSETS INTO THE INPUT BUFFER.
+*.
+*.      OBUF IS THE OUTPUT BUFFER THAT IS THE PRODUCT, TO PREVENT
+*.      ANY ALIGNMENT PROBLEMS THE USER INPUTS THE TOP OF THE
+*.      PRODUCT AND SUPPLIES AN INDEX (IDX) OF WHERE THE OUTPUT
+*.      IS TO BEGIN.  IDX IS NOT CHANGED BY THIS ROUTINE.  THE
+*.      INDEX OF THE LAST I*2 WORD STORED IS RETURNED IN ENDIDX.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT    TYPE        DESCRIPTION
+*.    -   -----    ----        -----------
+*.    G   STA_ALER I*4         (CONSTANT)Offset to the Allowable Error (m/s)
+*.                             in the adaptation data part of the centroids &
+*.                             tracking/forecast output buffers.
+*.    G   STA_COSP I*4         (CONSTANT)Offset to the Correlation Speed (m/s)
+*.                             in the adaptation data part of the centroids &
+*.                             tracking/forecast output buffers.
+*.    G   STA_DFDI I*4         (CONSTANT)Offset to the Default Direction (deg)
+*.                             in the adaptation data part of the centroids &
+*.                             tracking/forecast output buffers.
+*.    G   STA_DFSP I*4         (CONSTANT)Offset to the Default Speed (m/s) in
+*.                             the adaptation data part of the centroids &
+*.                             tracking/forecast output buffers.
+*.    G   STA_ERIN I*4         (CONSTANT)Offset to the Error Interval (min) in
+*.                             the adaptation data part of the centroids &
+*.                             tracking/forecast output buffers.
+*.    G   STA_FINT I*4         (CONSTANT)Offset to the Forecast Interval (min)
+*.                             in the adaptation data part of the centroids &
+*.                             tracking/forecast output buffers.
+*.    G   STA_MAXT I*4         (CONSTANT)Offset to the Time Maximum (min) in
+*.                             the adaptation data part of the centroids &
+*.                             tracking/forecast output buffers.
+*.    G   STA_NFOR I*4         (CONSTANT)Offset to the Number of (Forecast)
+*.                             Intervals in the adaptation data part of the
+*.                             centroids & tracking/forecast output buffers.
+*.    G   STA_PVOL I*4         (CONSTANT)Offset to the Number of Past Volumes
+*.                             in the adaptation data part of the centroids &
+*.                             tracking/forecast output buffers.
+*.    G   STA_SPMN I*4         (CONSTANT)Offset to the Speed Minimum (m/s) in
+*.                             the adaptation data part of the centroids &
+*.                             tracking/forecast output buffers.
+*.    P   EIDX     I*4         POINTER TO LAST WORD IN OUTPUT
+*.    P   IBUF     I*4         Input buffer as INTEGER.
+*.    P   IDX      I*4         BEGINNING OF OUTPUT BUFFER POINTER
+*.    P   RBUF     R*4         Input buffer as REAL.
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    P   EIDX    I*4         POINTER TO LAST WORD IN OUTPUT
+*.    P   OBUF    I*2         Output buffer.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME      TYPE        DESCRIPTION
+*.    ----      ----        -----------
+*.    CD        CHAR*80     Character array for lines of ASCII text.
+*.    DIVIDER   I*4         End of page divider.
+*.    I         I*4         LOOP COUNTER
+*.    IDAT      I*2         HALFWORD ARRAY FOR LINES OF ASCII TEXT
+*.    J         I*4         Do loop counter
+*.    NI2WDS    I*4         Number of halfwords in output buffer line.
+*.    NUM_CHAR  I*4         Number of characters in output buffer line.
+*.    NUM_LINES I*4         Number of lines in output buffer page.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.        THIS MODULE IS COMPILED USING THE COMP09.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.        THIS MODULE IS LINKED USING THE LINK09.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+C
+$INCLUDE A315BUF.INC/G,**A315PSAD (NEND NLIST)
+C
+      REAL RBUF(*)
+      INTEGER*4 IBUF(*), IDX, EIDX
+      INTEGER*2 OBUF(*)
+      REAL FILKERSZ
+      REAL FRACTREQ 
+      INTEGER*4 FILTERON 
+C
+      INTEGER J,I,NI2WDS,NUM_LINES,NUM_CHAR,DIVIDER
+      PARAMETER(NI2WDS=40,NUM_LINES=13,NUM_CHAR=80,DIVIDER=-1)
+      CHARACTER*80 CD(NUM_LINES)
+      INTEGER*2 IDAT(40,NUM_LINES)
+      EQUIVALENCE (IDAT(1,1),CD)
+C
+C** PURGE LINES WITH BLANKS
+C
+      DO 300 I=1,NUM_LINES
+          WRITE(CD(I),301)
+300   CONTINUE
+C
+C***  STORM CELL SEGMENTS ADAPTATION DATA PROCESSING
+C
+      WRITE(CD(1),900)
+C
+C***  WRITE LINE 3
+C
+      WRITE(CD(3),903) IBUF(STA_DFDI), RBUF(STA_SPMN)
+C
+C***  WRITE LINE 4
+C
+      WRITE(CD(4),904) RBUF(STA_DFSP), IBUF(STA_ALER)
+C
+C***  WRITE LINE 5
+C
+      WRITE(CD(5),905) IBUF(STA_MAXT), IBUF(STA_FINT)
+C
+C***  WRITE LINE 6
+C
+      WRITE(CD(6),906) IBUF(STA_PVOL), IBUF(STA_NFOR)
+C
+C***  WRITE LINE 7
+C
+      WRITE(CD(7),907) RBUF(STA_COSP), IBUF(STA_ERIN)
+C
+C**   WRITE LINE 8 and 9, blank lines
+C
+      WRITE(CD(8),301)
+      write(CD(9),301)
+
+C
+C*    WRITE line 10
+C
+      WRITE(CD(10),910)
+
+C
+C**   WRITE line 11
+C
+      WRITE(CD(11),301)
+
+C
+C**   WRITE LINE12 
+C
+      WRITE(CD(12),908) FILKERSZ, FRACTREQ
+
+C
+C**   WRITE LINE 13 
+C
+      if (FILTERON.EQ.1) then
+       WRITE(CD(13),9090)
+      else
+       WRITE(CD(13),9091)
+      endif
+
+C
+C** NOW STORE THE LINES OF ASCII TEXT INTO USERS BUFFER
+C
+C** BUT FIRST, INITIALIZE INDEX
+C
+      EIDX=IDX-1
+      DO 100 J=1,NUM_LINES
+         EIDX=EIDX+1
+         OBUF(EIDX)=NUM_CHAR
+         DO 200 I=1,NI2WDS
+C
+C** OBTAIN AND SAVE TEXT DATA
+C
+            EIDX=EIDX+1
+            OBUF(EIDX)=IDAT(I,J)
+200      CONTINUE
+100   CONTINUE
+C
+C** STORE THE END OF PAGE DIVIDER
+C
+      EIDX=EIDX+1
+      OBUF(EIDX)=DIVIDER
+C
+C** FORMAT STATEMENTS
+C
+301   FORMAT(80(' '))
+900   FORMAT(14X,'STORM CELL TRACKING/FORECAST ADAPTATION DATA')
+903   FORMAT(4X,I3,'   (DEG) DEFAULT (DIRECTION)   ',2X,F4.1,
+     >       '   (M/S) THRESH (MINIMUM SPEED)')
+904   FORMAT(3X,F4.1,'   (KTS) DEFAULT (SPEED)       ',4X,I2,
+     >       '    (KM) ALLOWABLE ERROR')
+905   FORMAT(2X,I5,'   (MIN) TIME (MAXIMUM)        ',4X,I2,
+     >       '   (MIN) FORECAST INTERVAL')
+906   FORMAT(5X,I2,'         NUMBER OF PAST VOLUMES',4X,I2,
+     >       '         NUMBER OF INTERVALS')
+907   FORMAT(3X,F4.1,'   (M/S) CORRELATION SPEED     ',4X,I2,
+     >       '   (MIN) ERROR INTERVAL')
+908   FORMAT(3X,F4.1,'   (KM)  FILTER KERNEL SIZE    ',2X,F4.1,
+     >       '         THRESH (FILTER FRACTION)')
+9090   FORMAT(4X,'Yes','         REFLECTIVITY FILTERED')
+9091   FORMAT(5X,'No','          REFLECTIVITY FILTERED')
+910   FORMAT(14X,'SCIT REFLECTIVITY MEDIAN FILTER')
+C
+C** RETURN TO CALLER ROUTINE
+C
+      RETURN
+      END

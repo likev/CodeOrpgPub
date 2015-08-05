@@ -1,0 +1,143 @@
+change_radar (1)	 	ORPG Manpage  			change_radar(1)
+
+    
+NAME
+
+    change_radar
+
+    
+SYNOPSIS
+
+    change_radar [options]
+
+    
+DESCRIPTION
+
+    The "change_radar" script changes various site adaptation data variables
+    on an RPG. The modified adaptation data includes:
+
+        site_info.rpg_name
+        site_info.rpg_id
+        site_info.rda_lat
+        site_info.rda_lon
+        site_info.rda_elev
+
+    If the environmental variable ORPG_NONOPERATIONAL is defined, then a
+    development environment is assumed. In this case, change_radar edits the
+    site_info.dea file (exits with error if the file doesn't exist). If the
+    environmental variable is not defined, then an operational environment is
+    assumed. In this case, change_radar edits the DEAU data already in memory
+    using the "edit_dea -n" command/option. Changes take effect after the next
+    RPG re-start. Changes can be verified after the re-start using print_dea.
+
+
+NOTE
+
+    The "change_radar" script should only be run after the dea database has
+    been initialized. This is done the first time the RPG software is started.
+
+
+OPTIONS
+
+    "change_radar" recognizes the following options:
+
+	-h			Displays the help menu.
+
+	-m			Runs the script in interactive mode. This
+				allows the user to manually configure the site
+				adaptation data settings. If this flag is
+				set, all other flags (except -h and -l) are
+				ignored. If -h and -l are also set, whichever
+				flag is set first will be in effect.
+
+	-l			Displays a list of supported radars. The radars
+				are read from the file change_radar.dat located
+				in the user's cfg (or tools/cfg) directory.
+    
+    	-r ICAO			Specifies the 4-letter ICAO of the radar site.
+				The ICAO must be of length 4.
+
+    	-i NUMERIC_ID		Specifies the numeric id of the radar site.
+				The id must be an integer of base 10. If both
+				-r and -i are set, then the -i flag is ignored.
+
+    	-S 			Optional flag that prevents an automatic
+				shutdown of the RPG software while the script is
+				running. If this flag is not set, the script
+				will shut down the RPG software using the
+				command 'mrpg shutdown'.
+
+    	-R 			Optional flag that prevents an automatic
+				restart of the RPG software when the script is
+				finished. If this flag is not set, the script
+				will restart the RPG software using the command
+				'mrpg startup'.
+
+    	-d DIR			Optional flag that specifies the data directory
+				containing the radar's blockage data file. If
+				this flag is set, the script ensures that both
+				the directory and blockage data file exist. If
+				either do not, the script exits with error. If
+				the script is to restart the RPG software,
+				the blockage data file is copied to the user's
+				cfg/bin directory. If the -R flag is set, then
+				the blockage data file is copied to the user's
+				data/precip directory.
+
+			
+EXAMPLES
+
+    change_radar -l
+
+	- Displays a list of supported radars.
+
+    change_radar -m -l
+
+	- Since the -m flag is first, the script will run in interactive mode.
+          The -l flag is ignored.
+
+    change_radar -i 304
+
+	- Changes the RPG site adaptation data to the site adaptation data of
+          the radar whose id is 304, if the id is supported. The RPG software
+          is stopped, the adaptation data is changed, then the RPG software is
+          restarted.
+
+    change_radar -r ktlx
+
+	- Changes the RPG site adaptation data to the site adaptation data of
+          radar ktlx, if the radar is supported. The RPG software is stopped,
+          the adaptation data is changed, then the RPG software is restarted.
+
+    change_radar -r ktlx -S
+
+	- Changes the RPG site adaptation data to the site adaptation data of
+          radar ktlx, if the radar is supported. In this case, the RPG software
+          is not stopped before the adaptation data is changed. The RPG software
+          is automatically restarted.
+
+    change_radar -r ktlx -S -R
+
+	- Changes the RPG site adaptation data to the site adaptation data of
+          radar ktlx, if the radar is supported. In this case, the RPG software
+          is not stopped before the adaptation data is changed. In addition,
+          the RPG software is not automatically restarted.
+
+    change_radar -r ktlx -d /mnt/cdrom
+
+	- Changes the RPG site adaptation data to the site adaptation data of
+          radar ktlx, if the radar is supported. The RPG software is stopped,
+          the adaptation data is changed, then the RPG software is restarted.
+          Before the RPG software is restarted, the radar's blockage data file
+          is copied from /mnt/cdrom to $HOME/data/precip/blockage.lb. Since
+          the RPG software will be automatically started (and thus wipe out
+          various linear buffers), the blockage data file is also copied to
+          $HOME/cfg/bin. The RPG software will automatically copy the blockage
+          data file from $HOME/cfg/bin to $HOME/data/precip at startup.
+
+       
+SEE ALSO
+
+  edit_dea (1), print_dea (1), deau (3), deau (4)
+ 
+    				

@@ -1,0 +1,517 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/04 14:37:49 $
+C $Id: a3078m.ftn,v 1.3 2002/12/04 14:37:49 christie Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A3078M__FORMAT_MAX_MIN(MAX, MIN, MAX_X, MAX_Y,
+     $               MIN_X, MIN_Y, I, REQTAB, BPTR, PROD_BUFF )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3078M__FORMAT_MAX_MIN
+*.
+*.  MODULE VERSION: 0012
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       10 05 89      0000      PAUL JENDROWSKI      SPR # 80271
+*.       05 09 90      0001      PAUL PISANI          SPR # 90697
+*.       10 18 90      0002      PAUL JENDROWSKI      SPR # 90901
+*.       02 13 91      0002      MARK FRESCH          SPR # 91248
+*.       10 11 91      0003      EDWARD WENDOWSKI     SPR # 92410
+*.       10 22 91      0003      EDWARD WENDOWSKI     SPR # 92598
+*.       12 03 91      0004      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0005      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/20/92      0006      Toolset              SPR 91895
+*.       03/25/93      0007      Toolset              SPR NA93-06801
+*.       01/28/94      0008      Toolset              SPR NA94-01101
+*.       03/03/94      0009      Toolset              SPR NA94-05501
+*.       04/11/96      0010      Toolset              CCR NA95-11802
+*.       12/23/96      0011      Toolset              CCR NA95-11807
+*.       03/16/99      0012      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A3078M__FORMAT_MAX_MIN( MAX, MIN, MAX_X,
+*.            MAX_Y, MIN_X, MIN_Y, I, REQTAB, BPTR, PROD_BUFF )
+*.
+*.  MODULE FUNCTION:
+*.
+*.     THIS MODULE INSERTS THE DISPLAY GRID INTO THE PRODUCT BUFFER
+*.     AND ADDS THE ANNOTATIONS FOR MAX AND MIN DATA VALUES, THE
+*.     TWO END POINTS THAT DEFINE THE CROSS-SECTION AND THE MID-POINT
+*.
+*.  MODULES CALLED: A3078C__CHAR_PKT, A3078N__LINE_AZ_RNG 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT        TYPE        DESCRIPTION
+*.    -   -----        ----        -----------
+*.    G   FT_TO_M      R*4         (CONSTANT)DEFINES THE SCALING FACTOR FOR
+*.                                 FEET TO METERS PARAMETERS
+*.    G   NM_TO_KM     R*4         (CONSTANT)SCALING FACTOR FOR NAUTICAL MILES
+*.                                 TO KILOMETERS
+*.    C   GRID_I2S     I*4         Number of I*2 words for each grid in the
+*.                                 GRID_VECTORS array.
+*.    C   GRID_VECTORS I*2         Pre-formatted grid vectors and labels.
+*.    C   GRID_XCOLS   I*4         Contains the number of Columns calculated
+*.                                 for each product.
+*.    C   GRID_YROWS   I*4         Contains the number of rows calculated for
+*.                                 each product.
+*.    C   INTERVAL     I*4         Nautical mile (nm) grid P1-P2 interval.
+*.    C   ORIG_PTS     R*4         Table of cross-setion end points for each
+*.                                 request.
+*.    C   P1P2_LENG    R*4         Length of P1-P2 plane.
+*.    C   BOXHGHT      R*4         (CONSTANT)Height of the cartesian grid box.
+*.    C   BOXWDTH      R*4         (CONSTANT)Width of the cartesian grid box.
+*.    C   HALF         R*4         (CONSTANT)Constant, value of one half.
+*.    C   ONE          I*4         (CONSTANT)Constant value of one.
+*.    C   P1_AZZ       I*4         (CONSTANT)Constant used as an index into
+*.                                 the buffer ORIG_PTS for P1's Azimuth.
+*.    C   P1_RAN       I*4         (CONSTANT)Constant used as an index into
+*.                                 the buffer ORIG_PTS for P1's Range.
+*.    C   P2_AZZ       I*4         (CONSTANT)Constant used as an index into
+*.                                 the buffer ORIG_PTS for P2's Azimuth.
+*.    C   P2_RAN       I*4         (CONSTANT)Constant used as an index into
+*.                                 the buffer ORIG_PTS for P2's Range.
+*.    C   PCODE        I*4         (CONSTANT)Constant used as an index to
+*.                                 requested product code from the request
+*.                                 table (REQTAB) buffer.
+*.    C   RAS_DATA_X   I*4         (CONSTANT)Starting X-Pixel position of
+*.                                 raster data.
+*.    C   REFLPROD16   I*4         (CONSTANT)Product code for Cross Section
+*.                                 (Reflectivity) 16 data levels.
+*.    C   REFLPROD8    I*4         (CONSTANT)Product code for Cross Section
+*.                                 (Reflectivity) 8 data levels
+*.    C   REQCOLS      I*4         (CONSTANT)Maximum number of request columns
+*.                                 in the request table.
+*.    C   REQROWS      I*4         (CONSTANT)Number of request rows
+*.                                 (parameters) in the request table.
+*.    C   VELOPROD16   I*4         (CONSTANT)Velocity PCODE data level 16.
+*.    C   VELOPROD8    I*4         (CONSTANT)Velocity PCODE data level 8.
+*.    C   XTITLE_Y     I*4         (CONSTANT)Y-Pixel location for X-Axis grid
+*.                                 title.
+*.    C   YTITLE_Y     I*4         (CONSTANT)Y-Pixel location for Y-Axis grid
+*.                                 title.
+*.    P   BPTR         I*4         BUFFER POINTER OF LAST WORD WRITTEN
+*.    P   I            I*4         Product requested index.
+*.    P   MAX          R*4         MAXIMUM DATA VALUE IN THE X-SECTION
+*.    P   MAX_X        I*4         HORIZONTAL GRID INDEX OF MAX VALUE
+*.    P   MAX_Y        I*4         VERTICAL GRID INDEX OF MAX VALUE
+*.    P   MIN          R*4         MINIMUM DATA VALUE IN THE X-SECTION
+*.    P   MIN_X        I*4         HORIZONTAL GRID INDEX OF MIN VALUE
+*.    P   MIN_Y        I*4         VERTICAL GRID INDEX OF MIN VALUE
+*.    P   PROD_BUFF    I*2         PRODUCT OUTPUT BUFFER
+*.    P   REQTAB       I*2         TABLE OF REQUEST INFORMATION
+*.
+*.    *   OUTPUT    TYPE        DESCRIPTION
+*.    -   ------    ----        -----------
+*.    P   BPTR      I*4         BUFFER POINTER OF LAST WORD WRITTEN
+*.    P   PROD_BUFF I*2         PRODUCT OUTPUT BUFFER
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    P   BPTR              I*4         BUFFER POINTER OF LAST WORD WRITTEN
+*.    P   I                 I*4         Product requested index.
+*.    P   PROD_BUFF         I*2         PRODUCT OUTPUT BUFFER
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME         TYPE        DESCRIPTION
+*.    ----         ----        -----------
+*.    ALT          I*4         ALTITUDE IN KFT OF MAX/MIN DATA
+*.    AZ           R*4         AZIMUTH OF MAX/MIN VALUE
+*.    CAL_B        I*4         BEGINNING CHARACTER POSITON OF ALTITUDE
+*.    CAL_E        I*4         ENDING CHARACTER POSITION OF ALTITUDE
+*.    CAZ_B        I*4         BEGINNING CHARACTER POSITION OF AZIMUTH
+*.    CAZ_E        I*4         ENDING CHARACTER POSITION OF AZIMUTH
+*.    CM_B         I*4         BEGINNING CHARACTER POSITION OF MAX/MIN
+*.    CM_E         I*4         ENDING CHARACTER POSITION OF MAX/MIN
+*.    CR_B         I*4         BEGINNING CHARACTER POSITION OF RANGE
+*.    CR_E         I*4         ENDING CHARACTER POSITION OF RANGE
+*.    DIST         R*4         DISTANCE FROM P1 ALONG LINE P1P2
+*.    GRID         I*4         GRID NUMBER THIS CROSS-SECTION USES
+*.    I2_LABEL     I*2         I*2 ARRAY USED TO PACK CHARACTER DATA
+*.    I2_POINT     I*2         I*2 ARRAY USED TO PACK CHARACTER
+*.    INC          I*4         PARAMETER FOR 1
+*.    L            I*4         LABEL INDEX
+*.    LABEL        CHAR*46     ARRAY OF CHARACTER LABELS FOR DISPLAY-
+*.    LAB_X_START  I*4         X-PIXEL LOCATION TO START DISPLAYING
+*.    MAX_PIXEL    I*4         MAXIMUM SCREEN PIXEL
+*.    MIN_LAB_Y    I*4         Y-PIXEL LOCATION TO START DISPLAYING
+*.    MP_BEG       I*4         X-PIXEL OFFSET FOR THE MIDPOINT'S
+*.    NCHAR        I*4         NUMBER OF CHARACTERS IN LINE OF LABEL
+*.    NCHAR_I2     I*4         NUMBER OF I*2 WORDS PER NCHAR
+*.    NLAB         I*4         NUMBER OF LNES IN LABEL ARRAY
+*.    NM_RNG       I*4         RANGE CONVERTED TO NAUTICAL MILES
+*.    P2_BEG       I*4         X-PIXEL OFFSET FOR P2'S AZ/RANGE
+*.    PA_B         I*4         BEGINNING COLUMN POSITION IN POINT
+*.    PA_E         I*4         ENDING COLUMN POSITION IN POINT
+*.    PEND         I*4         ENDING PIXEL POSITION OF POINT
+*.    PIX_PER_PNT  I*4         NUMBER OF PIXELS NEEDED TO DISPLAY
+*.    PNT_I2S      I*4         NUMBER OF I*2 WORDS IN POINT CHARACTER
+*.    PNT_Y        I*4         Y-PIXEL POSITION ON DISPLAY FOR POINT
+*.    POINT        CHAR*10     CHARACTER STRING FOR AZ/RANGE OF A POINT
+*.    PR_B         I*4         BEGINNING CHARACTER POSITION IN POINT
+*.    PR_E         I*4         ENDING CHARACTER POSITION IN POINT
+*.    REFL_LAB     I*4         INDEX INTO LABEL FOR MAX REFLECTIVITY
+*.    RNG          R*4         RANGE OF A MAX/MIN VALUE
+*.    VMIN_LAB     I*4         INDEX INTO LABEL FOR MIN VELOCITY
+*.    V_SW_LAB     I*4         INDEX INTO LABEL FOR MAX VELOCITY
+*.    X            I*4         X-PIXEL DISPLAY POSITION FOR AN AZ/RAN
+*.    X_PIX_PER_KM I*4         Number of pixels per KM for each grid line.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3078CA
+*.    A3078CM
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS: NONE
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP07.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK07.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+C
+      IMPLICIT NONE
+C
+$INCLUDE A309.INC/G,**A3PM50  (NLIST)
+$INCLUDE A307.INC,**A30788 (NLIST)
+$INCLUDE          **A3078CA (NLIST)
+$INCLUDE          **A3078CM (NLIST)
+C
+      INTEGER*2 PROD_BUFF(*), REQTAB(REQROWS, REQCOLS)
+      INTEGER   I, MAX_X, MAX_Y, MIN_X, MIN_Y, GRID, BPTR
+C
+      REAL      MAX, MIN, DIST, AZ, RNG
+      INTEGER   NM_RNG
+      INTEGER   INC
+C
+      INTEGER   L, ALT, X
+      INTEGER   NCHAR, NCHAR_I2
+      INTEGER   NLAB, REFL_LAB, V_SW_LAB, VMIN_LAB
+      PARAMETER(NLAB=3, REFL_LAB=1, V_SW_LAB=2, VMIN_LAB=3)
+      PARAMETER(NCHAR = 46, NCHAR_I2 = NCHAR/2)
+      PARAMETER( INC=1 )
+C
+      CHARACTER LABEL(NLAB)*(NCHAR)
+      INTEGER*2 I2_LABEL(NCHAR_I2,NLAB)
+      EQUIVALENCE (LABEL, I2_LABEL)
+C
+      DATA LABEL(REFL_LAB)
+     $            /'MAX =    DBZ   ALT =   KFT   (AZ/R) =    /    '/
+      DATA LABEL(V_SW_LAB)
+     $            /'MAX =    KT    ALT =   KFT   (AZ/R) =    /    '/
+      DATA LABEL(VMIN_LAB)
+     $            /'MIN =    KT    ALT =   KFT   (AZ/R) =    /    '/
+C
+      INTEGER   CM_B, CM_E, CAL_B, CAL_E, CAZ_B, CAZ_E, CR_B, CR_E
+      INTEGER   LAB_X_START, MIN_LAB_Y
+C
+      PARAMETER(CM_B  =  6, CM_E  =  9, CAL_B = 21, CAL_E = 23)
+      PARAMETER(CAZ_B = 39, CAZ_E = 41, CR_B  = 43,  CR_E = 45)
+      PARAMETER(LAB_X_START = RAS_DATA_X + 63 )
+      PARAMETER(MIN_LAB_Y = YTITLE_Y - 10 )
+C
+C** PARAMETERS FOR PLOTTING CROSS-SECTION END AND MID POINTS
+C
+      CHARACTER*10 POINT
+      INTEGER     PNT_Y, PNT_I2S, PA_B, PA_E, PR_B, PR_E
+      PARAMETER ( PNT_I2S = 5 )
+      PARAMETER ( PNT_Y = XTITLE_Y + 10 )
+      PARAMETER ( PA_B = 2, PA_E = 4, PR_B = 6, PR_E = 8 )
+C
+C** NUMBER OF PIXELS PER CHARACTER FORMAT POINT AND MAX SCREEN PIXEL
+C
+      INTEGER   P2_BEG, MP_BEG, MAX_PIXEL, PIX_PER_PNT, PEND
+      PARAMETER(MAX_PIXEL=512, PIX_PER_PNT=9*7)
+      PARAMETER ( MP_BEG = RAS_DATA_X - PIX_PER_PNT/2 )
+      PARAMETER ( P2_BEG = RAS_DATA_X - PIX_PER_PNT + 1 )
+C
+X     LOGICAL PRINTED
+X     DATA PRINTED /.FALSE./
+C
+      INTEGER*2 I2_POINT(PNT_I2S)
+      EQUIVALENCE (POINT, I2_POINT)
+C
+      DATA POINT/'(   /   ) '/
+C
+C*********************************************************************
+C
+C** COPY FORMATED GRID VECTORS AND LABELS TO THE PRODUCT BUFFER
+C
+X     WRITE(14,*) 'ENTERED MODULE A3078M '
+C
+      GRID = INTERVAL(I)
+C
+X     TYPE *,'8M: REQUEST # ',I,':  GRID # ',GRID,'  PCODE=',
+     $            REQTAB(PCODE,I)
+C
+      DO 10 L=INC,GRID_I2S(GRID)
+         PROD_BUFF(BPTR + L) = GRID_VECTORS(L, GRID)
+  10  CONTINUE
+      BPTR = BPTR + GRID_I2S(GRID)
+C
+C** COMPUTE ALTITUDE, MAX DATA LEVEL AND AZIMUTH AND RANGE
+C
+      ALT = NINT(( GRID_YROWS(I)-MAX_Y+HALF )*BOXHGHT/FT_TO_M)
+X     TYPE *,'8M: MAX (X,Y) =',MAX,' (',MAX_X,MAX_Y,' )'
+C
+X     IF (.NOT. PRINTED) THEN
+X     WRITE(14,*)'A3078M: VALUES IN CALCULATION LINE 408 '
+X     WRITE(14,*)'NINT((GRID_YROWS(I)-MAX_Y+HALF)*BOXHGHT/FT_TO_M)'
+X     WRITE(14,*)'GRID_YROWS(I) EQUALS ',GRID_YROWS(I)
+X     WRITE(14,*)'MAX_Y EQUALS ',MAX_Y
+X     WRITE(14,*)'HALF EQUALS ',HALF
+X     WRITE(14,*)'BOXHGHT EQUALS ',BOXHGHT
+X     WRITE(14,*)'FEET TO METERS EQUALS ',FT_TO_M
+X     WRITE(14,*)'A3078M: RESULTS CALCULATION 1 ',ALT
+X     ENDIF
+C
+C** GET AZIMUTH AND RANGE OF MAXIMUM VALUE
+C
+      IF (MAX_X.LE.INC) THEN
+C
+C** POSITION OF MAXIMUM IS AT P1
+C
+        AZ = ORIG_PTS(P1_AZZ,I)
+        RNG= ORIG_PTS(P1_RAN,I)
+C
+X       TYPE *,'8M: MAX POSITION SET TO P1'
+C
+      ELSE IF (MAX_X.GE.GRID_XCOLS(I)) THEN
+C
+C** POSITION OF MAXIMUM IS AT P2
+C
+        AZ = ORIG_PTS(P2_AZZ,I)
+        RNG= ORIG_PTS(P2_RAN,I)
+C
+X       TYPE *,'8M: MAX POSITION SET TO P2'
+C
+      ELSE
+C
+C** NEED TO CALCULATE AZIMUTH AND RANGE OF MAXIMUM VALUE
+C
+        DIST = (MAX_X-HALF)*BOXWDTH
+        CALL A3078N__LINE_AZ_RNG(I, DIST, AZ, RNG)
+      END IF
+C
+C** DETERMINE WHICH LABEL TO USE
+C
+      IF (REQTAB(PCODE, I).EQ.REFLPROD16 .OR.
+     $                    REQTAB(PCODE, I).EQ.REFLPROD8) THEN
+C
+C** REFLECTIVITY
+C
+        L = REFL_LAB
+      ELSE
+C
+C** SPECTRUM WIDTH OR MAX VELOCITY
+C
+        L = V_SW_LAB
+      END IF
+C
+C** FORMAT DATA INTO CHARACTER STRING
+C
+      WRITE(LABEL(L)( CM_B: CM_E),11) NINT(MAX)
+      WRITE(LABEL(L)(CAL_B:CAL_E),12) ALT
+      WRITE(LABEL(L)(CAZ_B:CAZ_E),12) NINT(AZ)
+C
+C** CONVERT RANGE IN KM TO NM
+C
+      NM_RNG = NINT(RNG/NM_TO_KM)
+C
+X     IF (.NOT. PRINTED) THEN
+X     WRITE(14,*)'A3078M: VALUES IN CALCULATION LINE 473 '
+X     WRITE(14,*)'NM_RNG=NINT(RNG/NM_TO_KM)'
+X     WRITE(14,*)'RNG EQUALS ',RNG
+X     WRITE(14,*)'NAUTICAL MILES TO KILOMETERS EQUALS ',NM_TO_KM
+X     WRITE(14,*)'A3078M: RESULTS CALCULATION 2 ',NM_RNG
+X     ENDIF
+C
+      WRITE(LABEL(L)( CR_B: CR_E),12) NM_RNG
+C
+X     TYPE *,'8M: MAX LABEL: ',LABEL(L)
+C
+      CALL A3078C__CHAR_PKT(NCHAR_I2, LAB_X_START, YTITLE_Y,
+     $                     I2_LABEL(ONE, L), BPTR, PROD_BUFF )
+  11  FORMAT(I4)
+  12  FORMAT(I3)
+C
+C** DO MIN VELOCITY CASE
+C
+      IF (REQTAB(PCODE, I).EQ.VELOPROD16 .OR.
+     $                      REQTAB(PCODE, I).EQ.VELOPROD8) THEN
+C
+C** COMPUTE ALTITUDE, MAX DATA LEVEL AND AZIMUTH AND RANGE
+C
+X       TYPE *,'8M: MIN (X,Y) =',MIN,' (',MIN_X,MIN_Y,' )'
+        ALT = NINT(( GRID_YROWS(I)-MIN_Y+HALF )*BOXHGHT/FT_TO_M)
+C
+X     IF (.NOT. PRINTED) THEN
+X     WRITE(14,*)'A3078M: VALUES IN CALCULATION LINE 500 '
+X     WRITE(14,*)'NINT(GRID_YROWS(I)-MIM_Y+HALF)*BOXHGHT/FT_TO_M) '
+X     WRITE(14,*)'GRID_YROWS(I) EQUALS ',GRID_YROWS(I)
+X     WRITE(14,*)'MIN_Y EQUALS ',MIN_Y
+X     WRITE(14,*)'HALF EQUALS ',HALF
+X     WRITE(14,*)'BOXHGHT EQUALS ',BOXHGHT
+X     WRITE(14,*)'FEET TO METERS EQUALS ',FT_TO_M
+X     WRITE(14,*)'A3078M: RESULTS CALCULATION 3 ',ALT
+X     ENDIF
+C
+C
+C** GET AZIMUTH AND RANGE OF MINIMUM VALUE
+C
+        IF (MIN_X.LE.INC) THEN
+C
+C** POSITION OF MINIMUM IS AT P1
+C
+            AZ = ORIG_PTS(P1_AZZ,I)
+          RNG= ORIG_PTS(P1_RAN,I)
+C
+X         TYPE *,'8M: MIN POSITION SET TO P1'
+C
+        ELSE IF (MIN_X.GE.GRID_XCOLS(I)) THEN
+C
+C** POSITION OF MINIMUM IS AT P2
+C
+          AZ = ORIG_PTS(P2_AZZ,I)
+          RNG= ORIG_PTS(P2_RAN,I)
+C
+X         TYPE *,'8M: MIN POSITION SET TO P2'
+C
+        ELSE
+C
+C** NEED TO CALCULATE AZIMUTH AND RANGE OF MINIMUM VALUE
+C
+          DIST = (MIN_X-HALF)*BOXWDTH
+          CALL A3078N__LINE_AZ_RNG(I, DIST, AZ, RNG)
+        END IF
+C
+C** FORMAT DATA INTO CHARACTER STRING
+C
+        WRITE(LABEL(VMIN_LAB)( CM_B: CM_E),11) NINT(MIN)
+        WRITE(LABEL(VMIN_LAB)(CAL_B:CAL_E),12) ALT
+        WRITE(LABEL(VMIN_LAB)(CAZ_B:CAZ_E),12) NINT(AZ)
+C
+        NM_RNG = NINT(RNG/NM_TO_KM)
+C
+X     IF (.NOT. PRINTED) THEN
+X     WRITE(14,*)'A3078M: VALUES IN CALCULATION LINE 548 '
+X     WRITE(14,*)'NM_RNG=NINT(RNG/NM_TO_KM) '
+X     WRITE(14,*)'RNG EQUALS ',RNG
+X     WRITE(14,*)'NAUTICAL MILES TO KILOMETERS EQUALS ',NM_TO_KM
+X     WRITE(14,*)'A3078M: RESULTS CALCULATION 4 ',NM_RNG
+X     ENDIF
+C
+        WRITE(LABEL(VMIN_LAB)( CR_B: CR_E),12) NM_RNG
+C
+X       TYPE *,'8M: MIN LABEL: ',LABEL(VMIN_LAB)
+C
+        CALL A3078C__CHAR_PKT(NCHAR_I2, LAB_X_START, MIN_LAB_Y,
+     $                     I2_LABEL(ONE, VMIN_LAB), BPTR, PROD_BUFF )
+      END IF
+C
+C** FORMAT THE FIRST END POINT
+C
+      WRITE(POINT(PA_B:PA_E),12) NINT(ORIG_PTS(P1_AZZ, I))
+C
+      NM_RNG = NINT(ORIG_PTS(P1_RAN,I) / NM_TO_KM)
+C
+X     IF (.NOT. PRINTED) THEN
+X     WRITE(14,*)'A3078M: VALUES IN CALCULATION LINE 570 '
+X     WRITE(14,*)'NM_RNG=NINT(ORIG_PTS(P1_RAN,I)/NM_TO_KM) '
+X     WRITE(14,*)'ORIG_PTS(P1_RAN,I) EQUALS ',ORIG_PTS(P1_RAN,I)
+X     WRITE(14,*)'NAUTICAL MILES TO KILOMETERS EQUALS ',NM_TO_KM
+X     WRITE(14,*)'A3078M: RESULTS CALCULATION 5 ',NM_RNG
+X     ENDIF
+C
+      WRITE(POINT(PR_B:PR_E),12) NM_RNG
+      CALL A3078C__CHAR_PKT(PNT_I2S, RAS_DATA_X, PNT_Y, I2_POINT,
+     $                      BPTR, PROD_BUFF)
+C
+C** FORMAT THE MID-POINT
+C
+      DIST = P1P2_LENG(I)*HALF
+C
+X     TYPE *,'8M: MID-POINT DISTANCE = ',DIST
+C
+      CALL A3078N__LINE_AZ_RNG(I, DIST, AZ, RNG)
+      WRITE(POINT(PA_B:PA_E),12) NINT(AZ)
+C
+      NM_RNG = NINT( RNG/NM_TO_KM)
+C
+X     IF (.NOT. PRINTED) THEN
+X     WRITE(14,*)'A3078M: VALUES IN CALCULATION LINE 593 '
+X     WRITE(14,*)'NM_RNG=NINT(RNG/NM_TO_KM) '
+X     WRITE(14,*)'RNG EQUALS ',RNG
+X     WRITE(14,*)'NAUTICAL MILES TO KILOMETERS EQUALS ',NM_TO_KM
+X     WRITE(14,*)'A3078M: RESULTS CALCULATION 6 ',NM_RNG
+X     ENDIF
+C
+      WRITE(POINT(PR_B:PR_E),12) NM_RNG
+      X = MP_BEG + NINT(DIST * X_PIX_PER_KM(GRID))
+C
+C** MAKE SURE THIS POINT DOESN'T OVERWRITE FIRST POINT
+C
+      PEND = RAS_DATA_X + PIX_PER_PNT
+      IF (X.LT.PEND) X = PEND
+      CALL A3078C__CHAR_PKT(PNT_I2S, X, PNT_Y, I2_POINT,
+     $                      BPTR, PROD_BUFF)
+C
+C** FORMAT THE SECOND END POINT
+C
+      WRITE(POINT(PA_B:PA_E),12) NINT(ORIG_PTS(P2_AZZ, I))
+C
+      NM_RNG = NINT( ORIG_PTS(P2_RAN, I) / NM_TO_KM )
+C
+X     IF (.NOT. PRINTED) THEN
+X     WRITE(14,*)'A3078M: VALUES IN CALCULATION LINE 617 '
+X     WRITE(14,*)'NM_RNG=NINT(ORIG_PTS(P2_RAN,I)/NM_TO_KM)'
+X     WRITE(14,*)'ORIG_PTS(P2_RAN,I) EQUALS ',ORIG_PTS(P2_RAN,I)
+X     WRITE(14,*)'NAUTICAL MILES TO KILOMETERS EQUALS ',NM_TO_KM
+X     WRITE(14,*)'A3078M: RESULTS CALCULATION 7 ',NM_RNG
+X     PRINTED = .TRUE.
+X     ENDIF
+C
+      WRITE(POINT(PR_B:PR_E),12) NM_RNG
+      PEND = X + PIX_PER_PNT
+      X = P2_BEG + NINT( P1P2_LENG(I)*X_PIX_PER_KM(GRID) )
+C
+C** MAKE SURE THIS POINT DOESN'T OVERWRITE THE MID POINT
+C
+      IF (X.LT.PEND) X = PEND
+C
+C** MAKE SURE THIS POINT DOESN'T EXTEND PAST MAXIMUM SCREEN PIXEL
+C
+      IF ( (X+PIX_PER_PNT) .GE. MAX_PIXEL) X = MAX_PIXEL - PIX_PER_PNT
+      CALL A3078C__CHAR_PKT(PNT_I2S, X, PNT_Y, I2_POINT,
+     $                      BPTR, PROD_BUFF)
+C
+X     WRITE(14,*) 'LEAVING MODULE A3078M '
+C
+      RETURN
+      END

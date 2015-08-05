@@ -1,0 +1,287 @@
+C 
+C RCS info 
+C $Author: nolitam $ 
+C $Locker:  $ 
+C $Date: 2002/11/27 15:24:07 $ 
+C $Id: a314n1.ftn,v 1.3 2002/11/27 15:24:07 nolitam Exp $ 
+C $Revision: 1.3 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A314N1__VIL_CTL(PARAM)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A314N1__VIL_CTL
+*.
+*.  MODULE VERSION: 0013
+*.
+*.  MODULE LANGUAGE:  FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       05 14 85      0000      Ze'ev Rivlin         rpg build 2
+*.       04 21 86      0001      Bradley Sutker       SPR # 304
+*.       08 24 88      0002      BILL EIDSON          SPR # 80248
+*.       10 10 88      0003      STEVE D SMITH        SPR # 80338
+*.       02 14 91      0004      PENNY J YELSHIN      SPR # 91255
+*.       12 03 91      0005      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0006      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0007      Toolset              SPR 91895
+*.       03/25/93      0008      Toolset              SPR NA93-06801
+*.       01/28/94      0009      Toolset              SPR NA94-01101
+*.       03/03/94      0010      Toolset              SPR NA94-05501
+*.       04/11/96      0011      Toolset              CCR NA95-11802
+*.       12/23/96      0012      Toolset              CCR NA95-11807
+*.       03/16/99      0013      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALLED BY OS
+*.
+*.  MODULE FUNCTION:
+*.
+*.     This is the Buffer Control Module.  When data becomes
+*.     available, this module receives control.  It acquires
+*.     the input and output buffers, stores data in the output
+*.     buffer based on input data and other information, and
+*.     releases the input & output buffers.
+*.
+*.  MODULES CALLED: A31145__ABORT_ME, A31168__ABORT_ME_BECAUSE, 
+*.                  A31211__GET_INBUF, A31212__REL_INBUF, A31215__GET_OUTBUF, 
+*.                  A31216__REL_OUTBUF, A31218__BUF_VOL, A314N2__VIL_HEADER, 
+*.                  A314N3__END_MAINTENANCE, A3CM22__RASTER_RUN_LENGTH, 
+*.                  A3CM25__GET_DATE_TIME 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT         TYPE        DESCRIPTION
+*.    -   -----         ----        -----------
+*.    G   MEM           I*4         Array in RPG shared memory set aside for
+*.                                  buffer sharing.
+*.    G   SUMMARY       I*4         Volume Scan Summary Table
+*.    G   BLKOVRHD      I*4         (CONSTANT)SIZE OF OVERHEAD PORTION OF
+*.                                  PRODUCT SYMBOLOGY BLOCK, IN BYTES
+*.    G   DESTROY       I*4         (CONSTANT)Mnemonic used as input to
+*.                                  A31216__REL_OUTBUF. Indicates "do not pass
+*.                                  data to other tasks".
+*.    G   FORWARD       I*4         (CONSTANT)Parameter to indicate that an
+*.                                  output buffer is to be forwarded to
+*.                                  successor tasks
+*.    G   NORMAL        I*4         (CONSTANT)Parameter which indicates normal
+*.                                  completion of requested operation to
+*.                                  acquire input or output buffer
+*.    G   NO_MEM        I*4         (CONSTANT)Parameter which indicates no
+*.                                  memory available on attempt to acquire
+*.                                  output buffer
+*.    G   NVILCOL       I*4         (CONSTANT)Number of columns in VIL grid.
+*.    G   NVILROW       I*4         (CONSTANT)Number of rows in VIL grid.
+*.    G   OSVI          I*4         (CONSTANT)Offset to array of VIL
+*.                                  parameters.
+*.    G   OVVI          I*4         (CONSTANT)Offset to array of VIL values.
+*.    G   PFWXCLA       I*4         (CONSTANT)Code Indicating Clear Weather
+*.                                  Mode.
+*.    G   PHEADLNG      I*4         (CONSTANT)Number of half words in product
+*.                                  header (its length).
+*.    G   PROD_MEM_SHED I*4         (CONSTANT)(CONSTANT)Parameter which
+*.                                  indicates that product aborted due to
+*.                                  memory load shedding
+*.    G   RASTA_BEGIN   I*4         (CONSTANT)Product buffer beginning index
+*.                                  for storing raster run-length encoded
+*.                                  data. To be used for raster products only.
+*.    G   RASTER_HEADER I*4         (CONSTANT)Number of half words in raster
+*.                                  packet header.
+*.    G   SCAN_MODE     I*4         (CONSTANT)Weather Mode index into Scan
+*.                                  Summary Table
+*.    G   VILTABL       I*4         (CONSTANT)Data Buffer Type: Vertical
+*.                                  Integrated Liquid Table.
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    G   MEM     I*4         Array in RPG shared memory set aside for buffer
+*.                            sharing.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    G   MEM               I*4         Array in RPG shared memory set aside
+*.                                      for buffer sharing.
+*.
+*.  DATABASE/FILE REFERENCE:  NONE
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME              TYPE        DESCRIPTION
+*.    ----              ----        -----------
+*.    BUFSTAT           I*4         Tells if there was enough room to complete
+*.                                  the run length encoding (0= complete; 1 =
+*.                                  incomplete).
+*.    BYTES             I*4         Number of bytes in a halfword
+*.    CDATE             I*4         Current date
+*.    CTIME             I*4         Current time.
+*.    DATTYP            I*4         The returned input data type from call to
+*.                                  A31211__GET_INBUF
+*.    IPTR              I*4         VIL grid input buffer.
+*.    ISTAR2S           I*4         Total number of i*2 words number of i*2
+*.                                  words stored by RASTER_RUN_LENGTH.
+*.    MAXIND            I*4         vil buffer upper boundary
+*.    MAX_ROUND         I*4         used to "ROUND" off the vil product size
+*.                                  to 50% of maximum size. It's equal to 2,
+*.                                  and we divide by it when calculating
+*.                                  VIL_SIZ
+*.    NRLEW1            I*4         1 i*2 word to store Number of Run Length
+*.                                  Encoded Words for each row. used to
+*.                                  calculate VIL_SIZ.
+*.    OPSTAT1           I*4         Get_Outbuf operation status
+*.    OPSTAT2           I*4         Internal variable used to hold operational
+*.                                  status (call argument) of particular
+*.                                  buffer.
+*.    OPTR              I*4         VIL output buffer pointer
+*.    RUNS_PERI2        I*4         number of RUNS PER I*2 word of vil product
+*.                                  buffer, = 2 since the run information can
+*.                                  be stored in 1 byte. used to calculate
+*.                                  VIL_SIZ
+*.    TOTAL_HEADER_INFO I*4         Total number of header fields in product,
+*.                                  i.e.- everything except the actual
+*.                                  run-length encoded data.
+*.    VILCL             I*4         Index into the color level table COLDAT
+*.                                  for all the color tables in the RPG: V.I.L
+*.                                  16 level clear air.
+*.    VILIND            I*4         VIL COLOR THRESHOLD TABLE INDEX
+*.    VILNC             I*4         Index into the color level table COLDAT
+*.                                  for all the color tables in the RPG: V.I.L
+*.                                  16 level non-clear air.
+*.    VILPROD           I*4         Data Buffer Type: Vertical Integrated
+*.                                  Liquid Product.
+*.    VIL_SIZ           I*4         vil product size (bytes)
+*.    VOLNO             I*4         Volume scan number.
+*.    WMODE             I*4         Weather mode.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD00
+*.    A3CD05
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK14.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+
+C *include data type codes and other control parameter definitions:
+$INCLUDE A309.INC/G,**A3PM00 (NEND NLIST)
+
+C *include no memory abort parameters
+$INCLUDE A309.INC/G,**A3PM07 (NEND NLIST)
+
+C *INCLUDE MEM DEFINITION:
+$INCLUDE A309.INC/G,**A3CD00 (NEND NLIST)
+
+C *include vil algorithm output buffer parameter definitions:
+$INCLUDE A313BUF.INC/G,**A313P0 (NEND NLIST)
+
+C* include product offsets and global parameters:
+$INCLUDE A309.INC/G,**A3PM01 (NEND NLIST)
+
+C* include color table index parameters:
+$INCLUDE A309.INC/G,**A3PM04 (NEND NLIST)
+
+C* include parameters used in referencing SCAN SUMMARY TABLE:
+$INCLUDE A309.INC/G,**A3PM06 (NEND NLIST)
+
+C* include SCAN SUMMARY TABLE definition:
+$INCLUDE A309.INC/G,**A3CD05 (NEND NLIST)
+
+C *include weather mode parameter
+$INCLUDE A309ADPT.INC/G,**A3CD70C8 (NLIST)
+
+
+
+      INTEGER*4 RUNS_PERI2,NRLEW1,MAX_ROUND,TOTAL_HEADER_INFO,
+     1          BYTES ,MAXIND,BUFSTAT,A31218__BUF_VOL,
+     2          VOLNO,WMODE,CLAIR
+      PARAMETER(TOTAL_HEADER_INFO=PHEADLNG+BLKOVRHD/2+RASTER_HEADER)
+
+
+      PARAMETER(RUNS_PERI2=2,NRLEW1=1,MAX_ROUND=2,
+     1          BYTES=2)
+
+      INTEGER*4 VIL_SIZ, OPTR, IPTR, VILIND,ISTAR2S,
+     1          PARAM,CDATE,CTIME,
+     2          OPSTAT1,OPSTAT2,DATTYP
+
+      PARAMETER(VIL_SIZ=((NVILROW*(NVILCOL/RUNS_PERI2+NRLEW1))
+     1          /MAX_ROUND + TOTAL_HEADER_INFO)*BYTES,CLAIR=1,
+     2          MAXIND=VIL_SIZ/BYTES)
+
+
+
+
+
+
+
+
+
+      CALL A31215__GET_OUTBUF(VILPROD, VIL_SIZ, OPTR, OPSTAT1)
+      IF (OPSTAT1.EQ.NORMAL) THEN
+C output buffer attained:
+         CALL A31211__GET_INBUF(VILTABL, IPTR, DATTYP, OPSTAT2)
+         IF (OPSTAT2.EQ.NORMAL)THEN
+C input buffer attained:
+            VOLNO = A31218__BUF_VOL(IPTR)
+            WMODE = SUMMARY(SCAN_MODE,VOLNO)
+            IF(WMODE.EQ.PFWXCLA)THEN
+               VILIND = VILCL
+            ELSE
+C* non-clear air weather mode:
+               VILIND = VILNC
+            ENDIF
+            CALL A3CM25__GET_DATE_TIME(CDATE,CTIME)
+            CALL A314N2__VIL_HEADER (MEM(IPTR+OSVI),
+     +      MEM(OPTR),IPTR,VILIND,CDATE,CTIME)
+
+C run-length encode vil grid:
+            CALL A3CM22__RASTER_RUN_LENGTH(NVILROW,NVILCOL,BUFSTAT,
+     +  MEM(IPTR+OVVI),VILIND,MEM(OPTR),RASTA_BEGIN,ISTAR2S,MAXIND)
+
+
+
+
+
+C BUFSTAT can be observed by performance monitor, and for a
+C BUFSTAT = incomplete, a message can be sent to the user.
+
+            CALL A314N3__END_MAINTENANCE(ISTAR2S,MEM(OPTR))
+            CALL A31212__REL_INBUF(IPTR)
+            CALL A31216__REL_OUTBUF(OPTR,FORWARD)
+         ELSE
+C output buffer attained, input buffer not available:
+            CALL A31216__REL_OUTBUF(OPTR,DESTROY)
+            CALL A31145__ABORT_ME
+         ENDIF
+C
+C When no mem is available
+C
+      ELSE
+        IF (OPSTAT1 .EQ. NO_MEM) THEN
+          CALL A31168__ABORT_ME_BECAUSE(PROD_MEM_SHED)
+        ELSE
+          CALL A31145__ABORT_ME
+        END IF
+      ENDIF
+      RETURN
+      END

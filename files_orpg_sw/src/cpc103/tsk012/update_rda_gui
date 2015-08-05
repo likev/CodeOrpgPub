@@ -1,0 +1,274 @@
+#!/bin/sh
+
+# RCS info
+# $Author: cmn $
+# $Locker:  $
+# $Date: 2008/11/03 21:55:32 $
+# $Id: update_rda_gui,v 1.12 2008/11/03 21:55:32 cmn Exp $
+# $Revision: 1.12 $
+# $State: Exp $
+
+
+#**************************************************************************
+#
+# Title:	update_rda_gui
+#
+# Description:  Updates RDA Help files
+#
+#**************************************************************************
+ 
+HELP_DIR=help
+CD_DIR=""
+INTERACTIVE_FLAG=YES
+
+#**************************************************************************
+#**************************************************************************
+#
+# Start of Functions
+#
+#**************************************************************************
+#**************************************************************************
+
+#**************************************************************************
+# PRINT_USAGE: Display "help" to screen.
+#**************************************************************************
+
+print_usage ()
+{
+  echo
+  echo
+  echo "************************************************"
+  echo "This script installs the latest RDA help files."
+  echo
+  echo "The following are valid flags."
+  echo
+  echo "-h - help"
+  echo "-N - non-interactive mode (invoked from script)"
+  echo "************************************************"
+  echo
+  echo
+}
+
+#**************************************************************************
+# ECHO_STDOUT: Echo to stdout.
+#**************************************************************************
+
+echo_stdout ()
+{
+  echo -e $1
+  echo -e $1 | $LE_LOG_CMD
+}
+
+#**************************************************************************
+# ECHO_STDERR: Echo to stderr.
+#**************************************************************************
+
+echo_stderr ()
+{
+  echo -e $1 >&2
+  echo -e $1 | $LE_ERR_CMD
+}
+
+#**************************************************************************
+# ECHO_INT: Echo if interactive. Output does not go to log file.
+#**************************************************************************
+
+echo_int ()
+{
+  if [ $INTERACTIVE_FLAG = "YES" ]
+  then
+    echo -e $1
+  fi
+}
+
+#**************************************************************************
+# ECHO_ERROR: Echo error message and exit.
+#**************************************************************************
+
+echo_error ()
+{
+  if [ $# -eq 1 ]
+  then 
+    exit_code=1
+  else
+    exit_code=$2
+  fi
+
+  echo_int
+  echo_int
+  echo_int "IN SCRIPT: $0"
+  echo_stderr "ERROR: $1"
+  echo_int "Stopping script"
+  echo_int "Use -h option for help"
+  echo_int
+  echo_int
+
+  exit $exit_code
+}
+
+#**************************************************************************
+# INIT_LE_LOG: Initialize logging.
+#**************************************************************************
+
+init_le_log ()
+{
+  LE_NUM_LINES=100
+
+  LE_UID=`id -u 2>/dev/null`
+  if [ $? -ne 0 -o "$LE_UID" = "" ]
+  then
+    echo_error "Command \"id -u 2>/dev/null\" failed ($?)"
+  fi
+  LE_GID=`id -g 2>/dev/null`
+  if [ $? -ne 0 -o "$LE_GID" = "" ]
+  then
+    echo_error "Command \"id -g 2>/dev/null\" failed ($?)"
+  fi
+  LE_FILE_NAME=`basename $0 2>/dev/null`
+  if [ $? -ne 0 -o "$LE_FILE_NAME" = "" ]
+  then
+    echo_error "Command \"basename $0 2>/dev/null\" failed ($?)"
+  fi
+
+  LE_LOG_CMD="le_pipe -t $LE_FILE_NAME -n $LE_NUM_LINES -w $LE_UID -g $LE_GID"
+  LE_ERR_CMD="$LE_LOG_CMD -e GL_ERROR"
+}
+
+#**************************************************************************
+# PARSE_INPUT: Parse command line input.
+#**************************************************************************
+
+parse_input ()
+{
+  # Parse input options/arguments. If option doesn't have an argument (and
+  # requires one) or option isn't valid, print message and exit.
+
+  while getopts hN optionflag
+  do
+    case $optionflag in
+       h) print_usage; exit 0;;
+       N) INTERACTIVE_FLAG=NO;;
+      \?) echo_error "Invalid input flag."
+    esac
+  done
+}
+
+#**************************************************************************
+# INITIAL_SETUP: Set initial variables.
+#**************************************************************************
+
+initial_setup ()
+{
+  # Mount CD
+
+  echo_stdout "Mounting RDA Help CD"
+
+  CD_DIR=`medcp -pm cd`
+
+  if [ $? -ne 0 ]
+  then
+    echo_error "Unable to mount CD" 2
+  elif [ "$CD_DIR" = "" ]
+  then
+    echo_error "CD directory undefined"
+  fi
+
+  # Make sure help directory is on CD
+
+  if [ ! -d $CD_DIR/$HELP_DIR ]
+  then
+    echo_error "$CD_DIR/$HELP_DIR does not exist." 4
+  fi
+
+  # Make sure help files are on CD
+
+  ls $CD_DIR/$HELP_DIR | grep '[0-9a-zA-Z]' > /dev/null 2>&1
+  if [ $? -ne 0 ]
+  then
+    echo_error "$CD_DIR/$HELP_DIR is empty." 5
+  fi
+}
+
+#**************************************************************************
+# UPDATE_FILES: Updates RDA Help files.
+#**************************************************************************
+
+update_files ()
+{
+  # Set destination path
+
+  echo_stdout "Validating destination directory"
+
+  destpath=$ORDA_HOME/doc/$HELP_DIR
+
+  if [ ! -d $destpath ]
+  then
+    echo_error "Directory $destpath doesn't exist." 6
+  fi
+
+  # Copy over new stuff
+
+  echo_stdout "Copying files from CD to destination"
+
+  cp -f $CD_DIR/$HELP_DIR/* $destpath > /dev/null 2>&1
+
+  if [ $? -ne 0 ]
+  then
+    echo_error "Error copying files from $CD_DIR/$HELP_DIR to $destpath" 7
+  fi
+
+  # Change permissions of new files. Check return
+  # code to make sure no errors occured.
+
+  echo_stdout "Setting permission of help files"
+
+  chmod 444 $destpath/*
+
+  if [ $? -ne 0 ]
+  then
+    echo_error "Error during chmod of files in $destpath" 8
+  fi
+}
+
+#**************************************************************************
+# CLEANUP_FUNCTION: Clean up loose ends.
+#**************************************************************************
+
+cleanup_function ()
+{
+  echo_stdout "Unmount and eject RDA Help CD"
+  # Change directory to make sure CD unmounts/ejects 
+  cd > /dev/null 2>&1
+  medcp -ue cd 2> /dev/null
+}
+
+#**************************************************************************
+#**************************************************************************
+#
+# End of Functions
+#
+#**************************************************************************
+#**************************************************************************
+
+#**************************************************************************
+#**************************************************************************
+#
+# Main Body of Script
+#
+#**************************************************************************
+#**************************************************************************
+
+init_le_log
+parse_input "$@"
+initial_setup
+update_files
+cleanup_function
+
+echo_int
+echo_int
+echo_stdout "Successful update of RDA help files."
+echo_int
+echo_int
+
+exit 0
+

@@ -1,0 +1,174 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/16 20:36:24 $
+C $Id: a3164a.ftn,v 1.4 2002/12/16 20:36:24 christie Exp $
+C $Revision: 1.4 $
+C $State: Exp $
+C
+      SUBROUTINE A3164A__HAIL_AZRAN(K,HAILSTATS,STID,AZ,RAN)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3164A__HAIL_AZRAN
+*.
+*.  MODULE VERSION: 0013
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       10 18 85      0000      JSGROMMONS
+*.       06 03 86      0001      JSGROMMONS           SPR#  60313
+*.       10 02 86      0002      J GROMMONS           SPR # 60346
+*.       11 06 90      0003      David M. Lynch       SPR # 91257
+*.       12 03 91      0004      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0005      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0006      Toolset              SPR 91895
+*.       03/25/93      0007      Toolset              SPR NA93-06801
+*.       01/28/94      0008      Toolset              SPR NA94-01101
+*.       03/03/94      0009      Toolset              SPR NA94-05501
+*.       04/01/95      0010      Toolset              CCR NA95-11802
+*.       04/28/95      0011      STEVE SMITH          CCR NA94-26301
+*.       12/23/96      0012      Toolset              CCR NA95-11807
+*.       03/16/99      0013      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:
+*.    CALL A3164A__AZRAN(K,HAILSTATS,STID,AZ,RAN)
+*.
+*.  MODULE FUNCTION:
+*.     CONVERT THE STORM ID TO CHARACTERS
+*.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT        TYPE        DESCRIPTION
+*.    -   -----        ----        -----------
+*.    G   H_AZM        I*4         (CONSTANT)Index to the azimuth, the fifth
+*.                                 position, in the HAILSTATS arrays.
+*.    G   H_CID        I*4         (CONSTANT)Index to the cell ID, the sixth
+*.                                 position, in the HAILSTATS arrays.
+*.    G   H_RNG        I*4         (CONSTANT)Index to the range, the fourth
+*.                                 position, in the HAILSTATS arrays.
+*.    G   NHAL_MAX     I*4         (CONSTANT)A sizing parameter equal to the
+*.                                 max. number of cells processed by the hail
+*.                                 algorithm.
+*.    G   NHAL_STS     I*4         (CONSTANT)A sizing parameter equal to the
+*.                                 number of hail attributes stored in the
+*.                                 HAILSTATS array.
+*.    C   N1           I*4         Lower limit of lines to be written.
+*.    C   N2           I*4         Upper limit of lines to be written.
+*.    C   SORTED_CELLS I*2         Cell ID of hail storms sorted according to
+*.                                 POSH, then POH.
+*.    C   NCOLS        I*4         (CONSTANT)Used as a dimension of a
+*.                                 one-dimensional array.
+*.    P   HAILSTATS    R*4         Array containing hail attribute information
+*.                                 for all cells.
+*.    P   K            I*4         SUBSCRIPT FOR HAIL DATA
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    P   AZ      I*4         AZ ARRAY FOR WRITING PACKET
+*.    P   K       I*4         SUBSCRIPT FOR HAIL DATA
+*.    P   RAN     R*4         RAN ARRAY FOR WRITING PACKET
+*.    P   STID    CHAR*2      HAIL ID ARRAY FOR WRITING
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME        TYPE        DESCRIPTION
+*.    ----        ----        -----------
+*.    CHARIDTABLE CHAR*2      Character table of storm IDs.
+*.    I           I*4         Loop index variable.
+*.    J           I*4         SUBSCRIPT
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3164B
+*.    A316SRT
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP16.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK16.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+      IMPLICIT NONE
+#IFDEF LINUX
+      INTEGER*4 I,J,K
+#ENDIF
+C
+$INCLUDE A315BUF.INC/G,**A315P9H  (NEND NLIST)
+$INCLUDE A309.INC/G,**A3CD08     (NEND NLIST)
+$INCLUDE A309.INC/G,**A3CD08D (NEND NLIST)
+C
+C** LOCAL COMMON
+C
+$INCLUDE A316.INC/G,**A3164P4 (NLIST)
+C
+C** LOCAL DEFINITIONS:
+C
+#IFDEF LINUX
+      INTEGER*4 AZ(NCOLS)
+#ELSE
+      INTEGER*4 AZ(NCOLS),I,J,K
+#ENDIF
+      REAL HAILSTATS(NHAL_STS,NHAL_MAX)
+C
+      REAL RAN(NCOLS)
+C
+      CHARACTER*2  STID(NCOLS)
+C
+C....................................................................
+C
+C** BEGIN EXECUTION
+C
+      DO 150  J = N1,N2
+C
+C** GET SORTED CELL INDEX
+C
+         I = SORTED_CELLS(K)
+C
+C** SET STORM ID TO CHARACTER
+C
+         STID(J) = CHARIDTABLE(INT(HAILSTATS(H_CID,I)))
+C
+C** EXTRACT STORM POSITION DATA
+C
+         RAN(J) = HAILSTATS(H_RNG,I)
+         AZ(J) = NINT(HAILSTATS(H_AZM,I))
+C
+C** INCREMENT DATA ACCESS INDEX
+C
+         K = K+1
+C
+  150 CONTINUE
+C
+C** RETURN TO CALLER ROUTINE
+C
+      RETURN
+      END

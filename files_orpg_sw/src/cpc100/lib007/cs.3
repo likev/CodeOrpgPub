@@ -1,0 +1,491 @@
+
+NAME
+    The CS (Configuration Support) library module.
+
+SYNOPSIS
+    #include <infr.h> or #include <cs.h>
+
+    int CS_entry (char *key, int tok, int buf_size, char *buf);
+    
+    int CS_level (int action);
+    
+    int CS_event (int syscfg_ev, int *status);
+    
+    char *CS_cfg_name (char *name);
+    
+    void CS_control (int action);
+    
+    void CS_error (void (*error_func)());
+    
+    void CS_report (char *message);
+    
+    int CS_entry_int_key (int key, int tok, int buf_size, char *buf);
+
+    void CS_set_sys_cfg (char *sys_cfg_name);
+
+DESCRIPTION
+
+    The configuration support (CS) module is designed for reading and parsing
+    ASCII text configuration files. A configuration file is a file that
+    contains data for supporting program execution and must be prepared before
+    the program can be invoked. In a real time application, certain
+    configuration information may need to be updated while the application is
+    operating. Examples of configuration files are algorithm parameter files,
+    system resource allocation files, name service tables and other tables used
+    by an application program.
+
+    Many configuration files use the ASCII text format because they can be
+    conveniently created, viewed, copied, printed and edited with readily
+    available system tools. By adding appropriate comments, An ASCII text
+    configuration file can be self-descriptive eliminating the need of a
+    separate document for how to preparing the data file. An ASCII text file is
+    portable across virtually all currently available computing platforms.
+
+    The CS module uses a simple ACSII text based configuration format. It
+    provides supports for random access with keys (names or integers) as well
+    as sequential entry access to sectioned line-based texts. It also supports
+    token selection and conversion. It provides convenient and memory save
+    access to the configuration text. It also provides support for key
+    uniqueness check.
+
+    CS supports ASCII text parsing of a format suitable for a broad range of
+    configuration files. The format is designed for promoting compactness,
+    human readability and error traceability. CS provides a rich set of error
+    detecting and reporting features that improve the preciseness of the
+    configuration text interpretation and help its debugging. Using CS will
+    unify the configuration format across the entire application system.
+
+    CS supports dynamic configuration update. This feature can be used for
+    providing name and resource location services in a dynamically
+    reconfigurable distributed applications whose processes, files and other
+    resources can be moved from one host to another without shutting down and
+    restarting the entire application.
+
+    To use the CS functions, one needs to include "infr.h" in the code. In the
+    following we describe these functions in several sections.
+
+    1. Basic functionality:
+
+    The CS module reads in configuration text from the current configuration
+    files and stores them in memory for access. The name of each configuration
+    source is specified by CS_cfg_name. CS also supports a default
+    configuration file which is used if CS_cfg_name is not called. Refer to 
+    function CS_cfg_name for further details.
+
+    The text is considered as line based NULL terminated ASCII text. Thus any
+    characters after the first '\0' are not interpreted. Each non-empty line in
+    the text specifies a configuration entry. The CS library supports random
+    entry access through keys. The first token in an entry (line) is used as
+    the key. Whereby token we mean a consecutive character string that is
+    separated by "space"s, TABs or a "line return". A token containing spaces
+    can be delimited by a pair of quotation marks ("). For example, "aaa b" is
+    considered as a single token.
+
+    A character "\" right before a line return character is interpreted as a
+    "line to be continued" symbol which indicates that the next line is a
+    continuation of this line. When the next line is jointed, the leading space
+    and tab are removed.
+
+    String patterns like $(ENV_VAR), where ENV_VAR is any character string that
+    does not contain space, tab or line return, are considered as environmental
+    variables. Environmental variables are expanded. Within quotation marks, no
+    environmental variable expansion is performed.
+
+    Function CS_entry is used to retrieve an entry in terms of "key". The 
+    function, if "tok" is CS_FULL_LINE, returns in "buf" the entire line 
+    starting with the first token which is the key and ending with the last 
+    character in the line excluding the line return symbol. If "tok" >= 0, the 
+    "tok"-th token in the entry is returned in "buf". The number of bytes 
+    returned in "buf" is limited to "buf_size" - 1. The returned character 
+    string is always null terminated. If "buf_size" is too small to hold the 
+    line or the token, the latter is truncated to fit the buffer size and an 
+    error number is returned. In case the same key is used for more than one 
+    entry, CS_entry will fail and return CS_KEY_AMBIGUOUS. If "buf" == NULL,
+    the current entry is "read" but no data is returned. If "tok" is
+    "CS_ALL_TOKENS | ind", all tokens started from "ind"-th token are returned.
+    When CS_FULL_LINE or CS_ALL_TOKENS is specified, character """ used around
+    the multi-token key are removed.
+
+    For additional descriptions and examples on the text format and the
+    CS_entry function, refer to the "Extended text parsing functions" section.
+
+    On success CS_entry returns the length, in number of bytes, of the string 
+    in "buf". Otherwise it returns one of the following negative numbers:
+
+	CS_KEY_NOT_FOUND - The key was not found in the configuration;
+	CS_TOK_NOT_FOUND - The "tok"-th token was not found;
+	CS_BUF_TOO_SMALL - The string returned was truncated;
+	CS_KEY_AMBIGUOUS - The key has been used for multiple entries.
+	CS_END_OF_TEXT - The end of text has been reached.
+	CS_ENV_VAR_ERR - Environmental variable expansion failed.
+
+	CS_OPEN_ERR - failed in opening the configuration source (LB or file);
+	CS_SEEK_ERR - failed in seeking the configuration source (LB or file);
+	CS_READ_ERR - failed in reading the configuration text;
+	CS_MALLOC_ERR - malloc failed;
+	CS_CFG_EMPTY - No entry is found in the configuration text;
+
+	CS_BAD_ARGUMENT - One of the calling arguments is bad. E.g. In 
+			compatible flags are used in "tok".
+	CS_CONVERT_ERROR - The specified token can not be converted into a 
+			number of the specified type.
+	CS_FORMAT_ERROR - Unmatched { or } was detected in the text.
+
+    When an error is detected in the configuration text, the CS, in addition to
+    returning an error code, can report a text message with additional info
+    such as where (the file name, line number and token number) the error was
+    found. To do this one must first call CS_error to register a user error
+    printing function "error_func". error_func is defined as
+
+	void error_func (char *err_msg);
+
+    error_func is called every time an error is detected by the CS module. A
+    message describing the error is passed to "error_func", which can be
+    printed out for debugging purpose. The following call 
+
+	CS_error ((void (*)())printf);
+
+    will cause CS to print error messages through "printf".
+
+    The user can also call CS_report to report a message through the
+    "error_func" function. CS_report will add the current file name, line
+    number and token number information whenever they are available.
+
+    The function CS_error provides a convenient way to print error messages
+    when an error is detected in the configuration file. By using this utility,
+    one can simplify the configuration reading routines in an application while
+    providing extensive debugging info.
+
+    2. Extended text parsing functions
+
+    CS supports, in addition to random key based entry access, sequential entry
+    access. This is implemented by the CS_NEXT_LINE and CS_THIS_LINE flags.
+
+    If "key" is CS_NEXT_LINE, CS_entry reads the next non-empty line. If "key" 
+    is CS_THIS_LINE, CS_entry reads the current line again. If CS_entry is 
+    called with "key" CS_NEXT_LINE or CS_THIS_LINE and there is no previous 
+    successful entry read, it returns the first non-empty line. Returning 
+    CS_BUF_TOO_SMALL or CS_TOK_NOT_FOUND is considered successful in this 
+    regard. When a file is opened, the CS_NEXT_LINE and CS_THIS_LINE is set to 
+    the beginning of the file.
+
+    CS supports token conversion. CS_entry can, by option, convert a token to
+    an integer, a float or a double number. This is specified by ORing one of
+    the flags CS_INT, CS_UINT, CS_FLOAT, CS_DOUBLE, CS_SHORT, CS_BYTE, CS_CHAR
+    and CS_HEXINT in the "tok" argument. In this case, CS_FULL_LINE is not
+    acceptable and "buf_size" is ignored. E.g.
+
+	CS_entry (key, 1 | CS_DOUBLE, 0, (char *)&dd); 
+
+    will read the first token, which is the one after the key, on the line 
+    with key "key", convert it to a double precision number and store it in 
+    double variable "dd". CS_entry returns 1 upon success if a conversion is
+    needed.
+
+    CS supports integer keys instead of character string keys. This is 
+    implemented with a additional flag CS_INT_KEY ORed in argument "tok". For 
+    example, 
+
+	CS_entry ((char *)int_key, CS_INT_KEY | 1 | CS_DOUBLE, 0, (char *)&dd);
+
+    will look for the line with the integer valued key specified by "int_key", 
+    where int_key is an integer. Function call
+
+	CS_entry_int_key (int int_key, 1 | CS_DOUBLE, 0, (char *)&dd);
+
+    does exactly the same job.
+
+    As an example, assuming the following two lines are in the configuration 
+    text:
+
+	234 osrpg003:/home/rpg/conf/adaptation.lb  adaptation LB
+	basrflct    osrpg012     sunos
+
+    The following code section
+
+	#define ADAPT_LB 234
+	#define BUF_SIZE 256
+	char buf [BUF_SIZE];
+	CS_entry ("basrflct", CS_FULL_LINE, BUF_SIZE, buf);
+
+    will return in "buf" string "basrflct    osrpg012     sunos". And
+
+	CS_entry ((char *)ADAPT_LB, CS_INT_KEY | 1, BUF_SIZE, buf);
+
+    will return "osrpg003:/home/rpg/conf/adaptation.lb".
+
+    CS supports comment line exclusion in the configuration text. To use this 
+    feature, one calls CS_control (CS_COMMENT | leading_char) to specify a 
+    leading character "leading_char" for identifying comment lines. For 
+    instance, after calling CS_control (CS_COMMENT | '#'), any line starting 
+    with character '#' is a comment line and will be ignored. Other characters 
+    can be used here instead of "#".
+
+    The CS library supports multiple level sectioned text access. A section is
+    a part of text that is enclosed by { and }. A section can contain other
+    sections. CS searches an entry only in the current section. Each section
+    must be lead by a key which is used for locating the section. Additional
+    token between the key and { is not allowed. The characters { and } can be
+    put in a separate line. String "\{" and "\}" are interpreted as " {" and
+    " }" respectively and are not considered as the section defining { and }.
+
+    Function CS_level can be used for changing the current section. The
+    "action" argument of CS_level can take one of CS_DOWN_LEVEL, CS_UP_LEVEL
+    and CS_TOP_LEVEL. When a file is opened, CS starts outside of any section.
+    CS_level (CS_DOWN_LEVEL) steps to the section started in the current line
+    if the current line defines a section. CS_level (CS_UP_LEVEL) moves the
+    current entry outside the current section and to the entry defining the
+    current section. CS_level (CS_TOP_LEVEL) moves the current entry to the
+    first entry of the text (outside of all sections).
+
+    The following is an example configuration text which has two sections:
+
+	Part_1: {
+		sub_1:	AA
+		sub_2:	BB
+	}
+	Part_2:
+	{
+		sub_1:	CC
+		sub_2:	DD
+	}
+	sub_1:	EE
+
+    The section of code
+	
+	CS_entry ("sub_1:", 1, buf_size, buf);
+
+    will return, in "buf", "EE". The following section of code
+
+	CS_entry ("Part_2:", 0, 0, NULL);
+	CS_level (CS_DOWN_LEVEL);
+	CS_entry ("sub_1:", 1, buf_size, buf);
+
+    will return, in "buf", "CC".
+
+    On success CS_level returns 0. Otherwise it returns one of the following 
+    negative numbers:
+
+	CS_BAD_ARGUMENT - A bad value is used for the argument.
+	CS_NO_SUCH_LEVEL - The section to step to does not exist.
+
+    CS supports optional keys. CS_control (CS_KEY_OPTIONAL) turns on the 
+    "optional key mode", in which no error message is reported if the key or 
+    a token is not found. CS_control (CS_KEY_REQUIRED) turns off the "optional 
+    key mode" (the default state).
+
+    CS supports entry access verification. This is useful for detection 
+    misspelled keys. This is implemented by CS_entry. The following call
+
+	CS_entry (NULL, CS_UNREAD_KEYS, buf_size, buffer);
+
+    returns the number of unaccessed keys. The unaccessed keys are returned in
+    "buffer" in format "key1(line number);key2(line number);...". The list is 
+    truncated by "buf_size", the size of "buffer". An "..." indicates that the 
+    list has been truncated.
+
+    Accessing sectioned configuration texts and accessing texts sequentially
+    (CS_NEXT_LINE or CS_THIS_LINE) require current state. When a configuration
+    text is updated, the parsing state is set to the initial state. The current
+    state is lost. Thus, if sequential access is used, one should not register
+    events for automatically updating the configuration file.
+
+    CS_control flags CS_KEY_OPTIONAL, CS_KEY_REQUIRED, CS_COMMENT and CS_MSGID
+    can not used together with any other CS_control flags in the same 
+    CS_control call.
+
+    3. Dynamic update support:
+
+    The configuration text is stored in memory for use by CS_entry. If the 
+    external configuration file is updated, the stored version must be updated.
+
+    The CS will re-read the configuration text when 
+
+	a. CS_control (CS_UPDATE) is called;
+
+	b. When one of the user registered events is received from the Event 
+	Notification (EN) service.
+
+    To register an event that will cause the configuration text update, one
+    calls CS_event and passes the event through argument "syscfg_ev". After an 
+    event number is registered, every such event will cause an update. One can
+    register more than one event by calling CS_event multiple times.
+
+    By option CS_event allows the user to register a configuration status 
+    variable in the CS module. If "status" is not NULL, this integer pointer 
+    is recorded in the CS module. Later on, each time the associated event
+    is received, "status" is set to CS_UPDATED (non-zero). This provides an 
+    efficient way for the calling routine to check whether or not the 
+    configuration is changed. Multiple "status" variables can be registered 
+    through multiple calls of CS_event. "status" is set only when an event is 
+    received. The initial configuration read or forced update through calling 
+    CS_control (CS_UPDATE) will not set the "status" variables. The following
+    code section
+
+	#include <infr.h>
+	#define EV_SYSCFG 23
+	static int sc_status;
+	CS_event (EV_SYSCFG, &sc_status);
+
+    tells CS to receive event EV_SYSCFG for updating its configuration
+    information. A local variable "sc_status" will be set to CS_UPDATED every
+    time the configuration information is updated due to receiving an event.
+    The following code performs certain work upon configuration change:
+
+	static int sc_status = 0;
+	CS_event (EV_SYSCFG, &sc_status);
+
+	while (...) {		/* the work loop */
+
+	    while (sc_status == CS_UPDATED) {
+
+		sc_status = 0;
+		/* perform the necessary work due to configuration update */
+		......
+	    }
+	}
+
+    Note that the statement of "sc_status = 0;" must be put before the code
+    that performs the necessary work.
+
+    Registered update events are associated with each configuration text when 
+    CS is used for accessing multiple configuration texts. An event registered
+    for one text will not cause automatic update of other texts. The same
+    event can be registered for multiple texts. An user "configuration status
+    variable" is associated with its event. Whenever the event is received,
+    the status variable is set regardless which text is currently active.
+
+    On success CS_event returns 0. Otherwise it returns one of the following 
+    negative numbers:
+
+	CS_TOO_MANY_STATUS - Too many status variables registered;
+	CS_TOO_MANY_EVENTS - Too many event number registered;
+
+    If CS_event fails in registering an event (E.g. en_daemon is not 
+    running), CS_event will not return an error number. Because of this 
+    error however later calls to functions CS_int_entry and CS_name_entry 
+    will fail and return CS_EV_REGISTER_ERR.
+
+    Function CS_control can be used to perform additional controls on the CS
+    module. Function CS_control (CS_CLOSE) closes the current configuration
+    source. All allocated resources are freed. The current configuration source
+    is set to the default configuration or the first configuration file if the
+    former does not exist. Function CS_control (CS_UPDATE) forces the in-memory
+    content of the current configuration to be updated. The next CS access call
+    after CS_control (CS_UPDATE) call will re-read the configuration text.
+    CS_control (CS_SINGLE_LEVEL) sets the current file to be single level 
+    format, in which "{" and "}" are not interpreted as formatting characters.
+
+    4. Multiple configurations support:
+
+    CS accesses one single configuration source, called the current
+    configuration file, at any time. CS_cfg_name allows the user to switch to a
+    different configuration source. The argument "name" specifies the next
+    configuration source. If "name" does not have a full path, it is assumed to
+    be in directory CFG_DIR. If $CFG_DIR is not defined, the current dir is
+    assumed. CS_cfg_name does not change any parsing state when switching to a
+    file that is already open. CS_control (CS_RESET) call resets the parsing
+    state to the initial state when a new file is open. Before the first call
+    to CS_cfg_name, the current file is the default configuration file. The
+    default configuration file name is "sys_cfg". CS_cfg_name does not open the
+    current file. The file is opened when it is accessed by an CS function.
+
+    CS_cfg_name ("") switches the current file to the default configuration
+    source. CS_cfg_name (NULL) does not change the configuration source.
+    CS_cfg_name returns the full name of the current configuration source,
+    which can be used for message printing purpose.
+
+    CS_set_sys_cfg changes the default configuration file name to be 
+    "sys_cfg_name". If "sys_cfg_name" is NULL, it sets the default 
+    configuration file name to "sys_cfg".
+
+    5. Notes
+
+    The following functions are supported for compatibility. They will be 
+    phased out later. A new development should not use any of these functions. 
+    Note that the token number definition is different from the that used in 
+    CS_entry. Flags CS_INT, CS_DOUBLE, CS_FLOAT, CS_FILL_LINE and CS_INT_KEY
+    can not be used with these functions.
+
+	int CS_int_entry (int key, int tok, int buf_size, char *buf);
+
+	int CS_name_entry (char *key, int tok, int buf_size, char *buf);
+
+	int CS_next_line (int tok, int buf_size, char *buf);
+
+    Functions CS_int_entry and CS_name_entry are used to retrieve an entry
+    in terms of the "key". CS_int_entry is used for integer-keyed entry and
+    CS_name_entry for name-keyed entry. The two functions, if "tok" is no 
+    large than zero, return in "buf" the entire line following the "key" 
+    starting with the first token after the key and ending with the last 
+    character in the line excluding the line return symbol. Where by token we 
+    mean a consecutive character string that is separated by a space, a TAB or 
+    a "line return". If "tok" > 0, the "tok"-th token in the entry after the 
+    key is returned in "buf". The number of bytes returned in "buf" is limited 
+    to "buf_size" - 1. The returned character string is always NULL terminated. 
+    If "buf_size" is too small to hold the line or the token, the latter is 
+    truncated to fit the buffer size and an error number is returned. In case 
+    the same key is used for more than one entry, CS_int_entry and 
+    CS_name_entry will fail and return CS_KEY_AMBIGUOUS.
+
+    On success CS_int_entry and CS_name_entry return the length, in number of 
+    bytes, of the string in "buf". Otherwise they return one of the following 
+    negative numbers:
+
+	CS_KEY_NOT_FOUND - The key was not found in the configuration;
+	CS_TOK_NOT_FOUND - The "tok"-th token was not found;
+	CS_BUF_TOO_SMALL - The string returned was truncated;
+	CS_KEY_AMBIGUOUS - The key has been used for multiple entries.
+
+	CS_UNDEFINED - The name of the configuration source is not defined. 
+			Neither the environmental variable CFG_DIR is defined 
+			no it is explicitly specified through calling 
+			CS_cfg_name;
+	CS_OPEN_ERR - failed in opening the configuration source (LB or file);
+	CS_SEEK_ERR - failed in seeking the configuration source (LB or file);
+	CS_READ_ERR - failed in reading the configuration text;
+	CS_MALLOC_ERR - malloc failed;
+	CS_CFG_EMPTY - No entry is found in the configuration text;
+
+    Function CS_next_line returns the "tok"-th token in the next line in the 
+    configuration text after the entry accessed by the previous CS_int_entry, 
+    CS_name_entry, or CS_next_line. If "tok" <= 0, the entire line is returned. 
+    Note that CS_next_line returns the very first token in the line as the 
+    first token while CS_int_entry and CS_name_entry return the token after 
+    the key as the first token. This function can be used for reading multiple 
+    line configuration entries.
+
+    If there is no previous successful entry read, CS_next_line returns the 
+    first line in the text. Returning CS_BUF_TOO_SMALL or CS_TOK_NOT_FOUND is 
+    considered successful in this regard.
+
+    On success CS_next_line returns the length, in number of bytes, of the 
+    string in "buf". Otherwise it returns one of the following negative 
+    numbers:
+
+	CS_TOK_NOT_FOUND - The "tok"-th token was not found;
+	CS_BUF_TOO_SMALL - The string returned was truncated;
+	CS_END_OF_TEXT - The end of text has been reached.
+
+    CS_control (CS_BACK_LINE) will back up the line pointer affecting 
+    CS_next_line by one line.
+
+    The event number definition is a part of application design. By 
+    requiring the application to pass the event number (through calling 
+    CS_event), we make the CS module independent of the application. For the 
+    same matter CS does not define the format of each configuration entry. 
+    Each entry may contain multiple fields. It is up to the application to 
+    define the fields in the entries and interpret the entries. Tools may
+    need to be developed for automatically creating the configuration text by 
+    referring to the macro definitions in application's header files.
+
+    The current implementation uses a linear search for finding the key. A
+    binary search would be more efficient if the entries were pre-sorted. The
+    difference becomes important when the number of entries is large.
+
+SEE ALSO
+    lb(3)
+
+NOTES
+    The dynamic update and multiple file access part of the CS may need to be 
+reviewed.

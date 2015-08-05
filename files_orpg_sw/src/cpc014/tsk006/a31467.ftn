@@ -1,0 +1,347 @@
+C 
+C RCS info 
+C $Author: ryans $ 
+C $Locker:  $ 
+C $Date: 2006/02/09 20:38:05 $ 
+C $Id: a31467.ftn,v 1.4 2006/02/09 20:38:05 ryans Exp $ 
+C $Revision: 1.4 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A31467__LFM_CART (ADJHRLY,LFM_GRID40,DENOM_GRD,
+     +                                HYDRSUPL, MAX_LFMVAL)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A31467__LFM_CART
+*.
+*.  MODULE VERSION: 0013
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       10 01 88      0000      Greg Umstead         SPR# 90348
+*.       08 20 90      0001      PAUL JENDROWSKI      SPR# 90899
+*.       02 14 91      0002      PAUL JENDROWSKI      SPR# 91255
+*.       12 03 91      0003      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0004      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0005      Toolset              SPR 91895
+*.       10/12/92      0006      BRADLEY SUTKER       NA92-28001
+*.       03/25/93      0007      Toolset              SPR NA93-06801
+*.       01/28/94      0008      Toolset              SPR NA94-01101
+*.       03/03/94      0009      Toolset              SPR NA94-05501
+*.       04/11/96      0010      Toolset              CCR NA95-11802
+*.       12/23/96      0011      Toolset              CCR NA95-11807
+*.       03/16/99      0012      Toolset              CCR NA98-23803
+*.       10/26/05      0013      Cham Pham            CCR NA05-21401
+*.
+*.  CALLING SEQUENCE: CALL A31467__LFM_CART(ADJHRLY,LFM_GRID40,DENOM_GRD,
+*.                        HYDRSUPL,MAX_LFMVAL)
+*.
+*.  MODULE FUNCTION:
+*.
+*.     Maps accumulation scan bins onto 1/40 LFM grid, by averaging
+*.     of bins that map onto a grid box.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT        TYPE        DESCRIPTION
+*.    -   -----        ----        -----------
+*.    G   GRID_LAT     I*4         SITE LATITUDE STORED AT THE BEGINNING OF
+*.                                 THE IMAGE OF THE LOCATION THE LFM LOOKUP
+*.                                 TABLES ARE VALID FOR
+*.    G   GRID_LON     I*4         SITE LONGITUDE STORED AT THE BEGINNING OF
+*.                                 THE IMAGE OF THE LOCATION THE LFM LOOKUP
+*.                                 TABLES ARE VALID FOR
+*.    G   LFM40FLAG    I*2         FLAG ARRAY FOR 1/40 LFM GRID, USED TO MARK
+*.                                 COVERAGE AREA DOMAIN, ID MAPPING HOLES AND
+*.                                 ID DATA USED TO FILL MAPPING HOLES
+*.    G   LFM40GRID    I*2         LOOKUP TABLE CONVERTS HYDROMET POLAR GRID
+*.                                 DATA TO 1/40 LFM COORDS. EACH ENTRY
+*.                                 CONTAINS 1/40 LFM I & J COORD FOR GIVEN
+*.                                 RANGE & AZIMUTH INDEX
+*.    G   SIRDALAT     I*4         Site Adaptation - RDA Latitude.
+*.    G   SIRDALON     I*4         Site Adaptation - RDA Longitude.
+*.    G   BEYOND_GRID  I*4         (CONSTANT)FLAG INDICATING THAT THE AZIMUTH
+*.                                 AND RANGE OF A GIVEN BIN IS OUTSIDE THE
+*.                                 LOCAL LFM GRID DOMAIN
+*.    G   BEYOND_RANGE I*4         (CONSTANT)Flag value for points beyond 230
+*.                                 km. in the 1/4 LFM Rate scan grid.
+*.    G   FLAG_AZ      I*4         (CONSTANT)OFFSET IN THE LFMxxFLAG ARRAY TO
+*.                                 AN AZIMUTH INDEX USED TO FILL MAPPING HOLES
+*.    G   FLAG_CLEAR   I*4         (CONSTANT)Parameter for a cleared flag
+*.    G   FLAG_RNG     I*4         (CONSTANT)OFFSET IN THE LFMxxFLAG ARRAY TO
+*.                                 A RANGE INDEX USED TO: MARK THE COVERAGE
+*.                                 AREA DOMAIN, IDENTIFY MAPPING HOLES, AND TO
+*.                                 FILL MAPPING HOLES
+*.    G   FLG_NOHRLY   I*4         (CONSTANT)Index to flag indicating hourly
+*.                                 scan data is not there.
+*.    G   FLG_ZERHLY   I*4         (CONSTANT)Index to flag indicating hourly
+*.                                 scan data is zero-filled.
+*.    G   HYZ_LFM40    I*4         (CONSTANT)Sizing parameter. Number of boxes
+*.                                 along 1/40 LFM grid side.
+*.    G   HYZ_SUPL     I*4         (CONSTANT)Size of Supplemental Data array
+*.                                 in Hybrid Scan output buffer.  SSIZ_PRE +
+*.                                 SSIZ_RATE + SSIZ_ACUM + SSIZ_ADJU (=
+*.                                 (13+14+16+5) = 48)
+*.    G   MAX_ADJBINS  I*4         (CONSTANT)Maximum number of range bins
+*.                                 (index into output buffer of adjusted
+*.                                 values).
+*.    G   MAX_AZMTHS   I*4         (CONSTANT)Maximum number of azimuths in a
+*.                                 scan (index into output buffer of adjusted
+*.                                 values).
+*.    G   WITHIN_RANGE I*4         (CONSTANT)Parameter defining "within range"
+*.                                 flag value (0) for flag table LFMFLAG.
+*.    P   ADJHRLY      I*2         ADJUSTED HOURLY ACCUM SCAN
+*.    P   DENOM_GRD    I*2         DUMMY ARRAY USED AS DENOMINATOR
+*.    P   HYDRSUPL     I*4         SUPPLEMENTAL DATA ARRAY
+*.    P   LFM_GRID40   I*4         1/40 LFM GRID SCAN ARRAY
+*.    P   MAX_LFMVAL   I*4         MAXIMUM 1/40 LFM GRID ACCUMULATION
+*.
+*.    *   OUTPUT     TYPE        DESCRIPTION
+*.    -   ------     ----        -----------
+*.    P   DENOM_GRD  I*2         DUMMY ARRAY USED AS DENOMINATOR
+*.    P   LFM_GRID40 I*4         1/40 LFM GRID SCAN ARRAY
+*.    P   MAX_LFMVAL I*4         MAXIMUM 1/40 LFM GRID ACCUMULATION
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME     TYPE        DESCRIPTION
+*.    ----     ----        -----------
+*.    CONVERT  R*4         Factor for forcing floating point
+*.    I        I*4         Do-loop index for polar bins
+*.    INCR     I*4         Parameter for incrementing by 1
+*.    J        I*4         Do-loop index for azimuths
+*.    NULL     I*4         Parameter for initializing to 0
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A314C1
+*.    SITEADP
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK14.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+
+C
+C...'X' IN COLUMN-1 INDICATES CONDITIONALLY COMPILED DEBUG CODE...
+C
+      IMPLICIT NONE
+C
+C SITE ADAPTATION
+C
+$INCLUDE A309ADPT.INC/G,**A3CD70CA  (NLIST)
+C
+C** Include general HYDROMET parameters...
+C
+$INCLUDE A313HBUF.INC/G,**A313HYPP (NEND NLIST)
+C
+C** Include LFM grid related parameters & common area...
+C
+$INCLUDE A3146.INC/G,**A3146LFP (NEND NLIST)
+C
+C LFM CONVERSION TABLES
+C
+$INCLUDE **A314C1    (NLIST)
+C
+C** Array index definitions...
+C
+      INTEGER I, J, X, Y, WEST, EAST, NORTH, SOUTH, SUM, COUNT
+C
+C** Local parameters...
+C
+      REAL    CONVERT
+      INTEGER     NULL, INCR, START_HOLE, NHYZ_LFM40
+      PARAMETER ( NULL=0, INCR=1, CONVERT=0.0)
+      PARAMETER ( WEST=1, EAST=2, NORTH=3, SOUTH=4, START_HOLE=2 )
+      PARAMETER ( NHYZ_LFM40 = -HYZ_LFM40 )
+C
+C** Dummy array declaration, and local declaration...
+C
+      INTEGER*2 ADJHRLY(MAX_ADJBINS,MAX_AZMTHS),
+     +          DENOM_GRD(HYZ_LFM40*HYZ_LFM40)
+      INTEGER LFM_GRID40(HYZ_LFM40*HYZ_LFM40), HYDRSUPL(HYZ_SUPL)
+      INTEGER*4 MAX_LFMVAL
+X     LOGICAL HOLE_WRITE,RANGE_WRITE,BEYOND_WRITE
+X      HOLE_WRITE =.FALSE.
+X      RANGE_WRITE =.FALSE.
+X      BEYOND_WRITE =.FALSE.
+C---------------------
+X      WRITE(14,*)'A31467: STARTING A31467'
+C** Begin...
+C
+C IF THE LAT AND LON USED TO GEN THE TABLE MATCH THE SITE LAT AND
+C LON ... DO THE MAPPING
+C
+      IF (GRID_LAT.EQ.SIRDALAT.AND.GRID_LON.EQ.SIRDALON) THEN
+C
+C** Initialize numerator and denominator to zero
+C
+        DO 100 I=INCR,HYZ_LFM40*HYZ_LFM40
+X       IF (I.EQ.1) WRITE(14,*)'INIT DENOM AND NUM'
+           DENOM_GRD(I)  = NULL
+           LFM_GRID40(I) = NULL
+ 100    CONTINUE
+        MAX_LFMVAL = NULL
+C
+X        WRITE(14,*)'A31467: DONE LOOP 100'
+C
+C** If precipitation exists...
+C
+        IF (HYDRSUPL(FLG_ZERHLY) .EQ. FLAG_CLEAR .AND.
+     $                      HYDRSUPL(FLG_NOHRLY).EQ.FLAG_CLEAR) THEN
+C
+C
+C** Do for each radial azimuth & each bin along the radial...
+C
+           DO 200    J=INCR,MAX_AZMTHS
+C
+C DO UNTIL THE END OF THE RADIAL OR THE GRID DOMAIN HAS BEEN EXCEEDED
+C
+              DO 210 I=INCR,MAX_ADJBINS
+C
+C IF BIN BEYOND GRID
+C
+                IF(LFM40GRID(I,J).EQ.BEYOND_GRID) THEN
+X                 IF (.NOT.BEYOND_WRITE) THEN
+X                   WRITE(14,*)'BEYOND GRID'
+X                   BEYOND_WRITE = .TRUE.
+X                 END IF
+                  GO TO 205
+                ELSE
+X                 IF (I.EQ.1.AND.J.EQ.1) WRITE(14,*)'ADD NUM AND DEN'
+C
+C** Increment numerator by product of bin area and precip rate...
+C** Increment denominator by one count...
+C
+                   LFM_GRID40(LFM40GRID(I,J))=
+     $                LFM_GRID40(LFM40GRID(I,J))+ADJHRLY(I,J)
+                   DENOM_GRD(LFM40GRID(I,J))=
+     $                DENOM_GRD(LFM40GRID(I,J))+INCR
+                END IF
+C
+  210       CONTINUE
+  205    CONTINUE
+C
+C END DO UNTIL
+C
+  200    CONTINUE
+C
+X         WRITE(14,*)'A31467: DONE LOOP 200'
+C
+C** Do for each LFM bin...
+C
+           DO 300 I=INCR,HYZ_LFM40*HYZ_LFM40
+C
+C
+C** CHECK IF POINT IS BEYOND RANGE
+C
+             IF (LFM40FLAG(I,FLAG_RNG).EQ.WITHIN_RANGE) THEN
+C
+C** Calculate value for numerator...
+C
+               IF (DENOM_GRD(I).NE.NULL) THEN
+C
+C** This is a good conversion point so get average value and check
+C** for maximum value
+C
+C
+C** Note: Changed for LINUX - Used RPG_NINT library function instead
+C         of adding 0.5 for rounding to the nearest integer.
+
+                 call RPG_NINT(LFM_GRID40(I)/(DENOM_GRD(I)+CONVERT),
+     >                                                 LFM_GRID40(I))
+C
+C
+                 IF (MAX_LFMVAL.LT.LFM_GRID40(I)) THEN
+X                   WRITE(14,*)'MAX VALUE SET'
+                    MAX_LFMVAL = LFM_GRID40(I)
+                 END IF
+               END IF
+C
+C BEYOND RANGE
+C
+             ELSEIF (LFM40FLAG(I,FLAG_RNG).EQ.BEYOND_RANGE) THEN
+X              IF (.NOT.RANGE_WRITE)THEN
+X                WRITE(14,*)'BEYOND RANGE MAP VALUE'
+X                RANGE_WRITE = .TRUE.
+X              END IF
+               LFM_GRID40(I) = BEYOND_RANGE
+C
+C FILL HOLE WITH NEAREST BIN DATA
+C
+             ELSE
+X              IF (.NOT.HOLE_WRITE) THEN
+X                WRITE(14,*)'HOLE BEING FILLED'
+X                HOLE_WRITE = .TRUE.
+X              END IF
+               LFM_GRID40(I) =
+     $           ADJHRLY(LFM40FLAG(I,FLAG_RNG),LFM40FLAG(I,FLAG_AZ))
+             END IF
+ 300       CONTINUE
+C
+C GENERATE "NULL" PRODUCT
+C
+        ELSE
+          DO 275 I=1,HYZ_LFM40*HYZ_LFM40
+            IF (LFM40FLAG(I,FLAG_RNG).EQ.BEYOND_RANGE) THEN
+X             IF(I.EQ.1)WRITE(14,*)'67: NULL PROD, BEYOND RANGE'
+              LFM_GRID40(I) = BEYOND_RANGE
+            ELSE
+              LFM_GRID40(I) = NULL
+X             IF(I.EQ.8580)WRITE(14,*)'67: NULL PROD, WITHIN RANGE'
+            END IF
+ 275      CONTINUE
+        END IF
+C
+C GRID TABLES ARE BAD ... SET UP OUTPUT TO BE BEYOND RANGE FLAG
+C
+      ELSE
+        DO 111 I=INCR,HYZ_LFM40*HYZ_LFM40
+X          IF (I.EQ.1) WRITE(14,*)'BAD TABLES, INIT OUTPUT'
+           LFM_GRID40(I) = BEYOND_RANGE
+ 111    CONTINUE
+      END IF
+X     CLOSE (6)
+X     OPEN (UNIT=6,FILE='A31467.DAT',STATUS='RENEW',TYPE='INDEX',
+X    $      IOSTAT=I)
+X     WRITE(14,*)'OPEN TEST FILE STATUS: ',I
+X     DO 302 I=1,131
+X        WRITE(6,301) (LFM_GRID40(J),J=((I-1)*131)+1,((I-1)*131)+22)
+X302  CONTINUE
+X     DO 303 I=1,131
+X        WRITE(6,301) (LFM_GRID40(J),J=((I-1)*131)+23,((I-1)*131)+44)
+X301     FORMAT(22(' ',I5))
+X303  CONTINUE
+X     CLOSE(6)
+C
+X     WRITE(14,*)'A31467: EXITING A31467...  MAX_LFMVAL=',MAX_LFMVAL
+C
+      RETURN
+      END

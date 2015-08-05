@@ -1,0 +1,406 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/17 16:24:39 $
+C $Id: a317o8.ftn,v 1.2 2002/12/17 16:24:39 christie Exp $
+C $Revision: 1.2 $
+C $State: Exp $
+C
+      SUBROUTINE A317O8__INIT_SCAN( TDAAZPTR, AVG_ELEV, ELV_TIME,
+     >                       PVCOUNT, TDAHIFLG, RADCOUNT, TDABFPTR,
+     >                       TDA_BUF_UNAVAIL, KEY, IPR )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A317O8__INIT_SCAN
+*.
+*.  MODULE VERSION: 0001
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       05/29/97      0000      MARK FRESCH          CCR NA95-21503
+*.       03/16/99      0001      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:  CALL A317O8__INIT_SCAN ( TDAAZPTR, AVG_ELEV,
+*.                ELV_TIME, PVCOUNT, TDAHIFLG, RADCOUNT, TDABRPTR,
+*.                TDA_BUF_UNAVAIL, KEY, IPR )
+*.
+*.  MODULE FUNCTION:
+*.
+*.  This routine initializes variables and flags for a new elevation
+*.  scan.
+*.
+*.  MODULES CALLED: A31218__BUF_VOL, A317F8__INIT_STACK 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT        TYPE        DESCRIPTION
+*.    -   -----        ----        -----------
+*.    G   PV_AZIM      R*4         Azimuth of each radial.
+*.    G   SUMMARY      I*4         Volume Scan Summary Table
+*.    G   TDA_BUF_LOCK L*4         Flag inidcating whether the TDA buffer is
+*.                                 available for processing
+*.    G   SCAN_DATE    I*4         (CONSTANT)Volume Scan Date index into Scan
+*.                                 Summary Table
+*.    C   BAZM_NDX     I*4         INDEX TO THE FIRST RADIAL IN THE PATTERN
+*.                                 VECTOR ARRAY, PV_AZIM, FOR THE ELEVATION
+*.                                 SCAN
+*.    C   EAZM_NDX     I*4         INDEX TO THE LAST RADIAL IN THE PATTERN
+*.                                 VECTOR ARRAY, PV_AZIM, FOR THE ELEVATION
+*.                                 SCAN
+*.    C   LEV          I*4         THE ELEVATION SCAN NUMBER WITHIN A VOLUME
+*.                                 SCAN
+*.    C   NEWVOL       L*4         Flag indicating whether a new volume scan
+*.                                 has just been started
+*.    C   BEG_PTR      I*4         (CONSTANT)INDEX INTO P2DF_INDX TO THE
+*.                                 BEGINNING POINTS P2DFEAT OF THE POTENTIAL
+*.                                 2D FEATURES FOUND W/ EACH DIF. VEL.
+*.                                 THRESHOLD
+*.    C   END_PTR      I*4         (CONSTANT)INDEX INTO P2DF_INDX TO THE
+*.                                 ENDING POINTS P2DFEAT OF THE POTENTIAL 2D
+*.                                 FEATURES FOUND W/ EACH DIF. VEL. THRESHOLD
+*.    C   HIGH         I*4         (CONSTANT)Index to logical array
+*.                                 TDA_BUF_LOCK for locking access to the high
+*.                                 area of the segment buffer
+*.    C   LOW          I*4         (CONSTANT)A toggle flag that points to the
+*.                                 low section of TDA1D and indexes
+*.                                 TDA_BUF_LOCK
+*.    C   MAX_TOT_RADS I*4         (CONSTANT)MAXIMUM NUMBER OF RADIALS IN THE
+*.                                 RAD_PV ARRAY
+*.    C   NUM_VD_TH    I*4         (CONSTANT)NUMBER OF DIFFERENTIAL VELOCITY
+*.                                 THRESHOLDS
+*.    C   NVOELV       I*4         (CONSTANT)MAXIMUM # OF ELEVATION SCANS IN A
+*.                                 VOLUME SCAN
+*.    C   NVOMAX       I*4         (CONSTANT)MAXIMUM # OF 2D FEATURES ON ANY
+*.                                 ELEVATION SCAN
+*.    P   AVG_ELEV     R*4         Average elevation of all radials in a sweep
+*.    P   ELV_TIME     I*4         TIME SINCE MIDNIGHT OF THE CURRENT
+*.                                 ELEVATION SCAN
+*.    P   IPR          I*4         Input buffer pointer
+*.    P   RADCOUNT     I*4         # OF RADIALS IN THE ELEVATION SCAN FILLING
+*.                                 THE TDA 1D SHARED IMAGE BUFFER
+*.    P   TDAAZPTR     I*4         POINTER TO THE FIRST GOOD AZIMUTHAL INDEX
+*.                                 WITHIN PV_AZIM ARRAY IN THE TDA 1D SHARED
+*.                                 IMAGE BUFFER
+*.    P   TDABFPTR     I*4         POINTER TO THE FIRST GOOD PATTERN VECTOR
+*.                                 INDEX WITHIN TDAMAIN
+*.    P   TDAHIFLG     L*4         FLAG PASSED FROM THE TDA 1D TASK (THROUGH
+*.                                 MEM) INDICATING WHICH HALF OF THE BUFFER
+*.                                 WAS UPDATED MOST RECENTLY
+*.
+*.    *   OUTPUT          TYPE        DESCRIPTION
+*.    -   ------          ----        -----------
+*.    G   TDA_BUF_LOCK    L*4         Flag inidcating whether the TDA buffer
+*.                                    is available for processing
+*.    C   AVE_DELAZ       R*4         AVERAGE CHANGE IN THE DELTA AZIMUTH FOR
+*.                                    ALL RADIALS IN AN ELEVATION SCAN
+*.    C   BAZM_NDX        I*4         INDEX TO THE FIRST RADIAL IN THE PATTERN
+*.                                    VECTOR ARRAY, PV_AZIM, FOR THE ELEVATION
+*.                                    SCAN
+*.    C   BEG_VOL_DATE    I*4         JULIAN DATE OF THE VOLUME SCAN
+*.    C   BEG_VOL_TIME    I*4         TIME OF THE VOLUME SCAN IN MILLISECONDS
+*.                                    SINCE MIDNIGHT
+*.    C   CORTABL         I*4         Correlation table of indexes into array
+*.                                    VOLCOMP showing showing vertical
+*.                                    association of two-dimensional features
+*.    C   DVTABL          I*4         Array of two-dimensional features sorted
+*.                                    by maximum delta velocity on an
+*.                                    elevation basis
+*.    C   EAZM_NDX        I*4         INDEX TO THE LAST RADIAL IN THE PATTERN
+*.                                    VECTOR ARRAY, PV_AZIM, FOR THE ELEVATION
+*.                                    SCAN
+*.    C   ELEVTABL        R*4         A TABLE OF ELEVATION ANGLES FOR EACH
+*.                                    ELEVATION SCAN
+*.    C   LEV             I*4         THE ELEVATION SCAN NUMBER WITHIN A
+*.                                    VOLUME SCAN
+*.    C   NEWVOL          L*4         Flag indicating whether a new volume
+*.                                    scan has just been started
+*.    C   NRPV_TH         I*4         NUMBER OF PATTERN VECTORS FOUND WITH A
+*.                                    DIFFERENTIAL VELOCITY THRESHOLD THAT
+*.                                    BEGIN ON A RADIAL
+*.    C   OFFSET          I*4         EQUAL TO TDABFPTR - OFFSET USED TO
+*.                                    CORRECT PATTERN VECTOR POINTERS IN THE
+*.                                    VECT_ATTR ARRAY FROM TWO SIDED TDAMAIN
+*.                                    ARRAY
+*.    C   P2DF_INDX       I*4         An array of potential 2D feature indices
+*.                                    which point to the start and end points
+*.                                    in PDFEAT.
+*.    C   TOT_2DF         I*4         TOTAL NUMBER OF 2D FEATURES IN THE
+*.                                    VOLUME SCAN
+*.    C   VOLCOMP         R*4         ARRAY CONTAINING ATTRIBUTES OF THE 2D
+*.                                    FEATURES FOR THE VOLUME SCAN
+*.    C   VOL_2DF_CNT     I*4         NUMBER OF 2D FEATURES IDENTIFIED ON EACH
+*.                                    ELEVATION SCAN
+*.    P   KEY             I*4         KEY TO THE TDA 1D SHARED IMAGE BUFFER
+*.                                    INDICATING WHICH HALF OF THE BUFFER IS
+*.                                    TO BE PROCESSED
+*.    P   TDA_BUF_UNAVAIL L*4         FLAG INDICATING WHICH HALF OF THE TDA 1D
+*.                                    SHARED IMAGE BUFFER IS AVAILABLE
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    P   IPR               I*4         Input buffer pointer
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME     TYPE        DESCRIPTION
+*.    ----     ----        -----------
+*.    ATTR_NDX I*4         Do loop variable for the potential 2d feature
+*.                         attributes
+*.    DELAZ    R*4         THE CHANGE IN AZIMUTH ANGLE
+*.    ELEVANG  R*4         Elevation angle associated with an elevation cut
+*.                         (in degrees).
+*.    EL_INDX  I*4         Do loop variable for the number of elevations
+*.    IXX      I*4         Do loop variable for the number of radials
+*.    NVOCHR   I*4         # OF ATTRIBUTES IN VOLCOMP AND OTHER ARRAYS
+*.    P2_NDX   I*4         Do loop variable for volume 2D features
+*.    TAB_ATTR I*4         Number of attributes for the array CORTABL.
+*.    VINDX    I*4         Do loop index to initialize Potential 2D Feature
+*.                         indices
+*.    VSNUM    I*4         Current volume scan number
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A317LOCK
+*.    A3CD05
+*.    PVECS09
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A317C3DA
+*.    A317TC2
+*.    A317TCA
+*.    A317TDNE
+*.    A317TVA
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:
+*.
+*.     The Doppler Bin Size is constant throughout the volume scan.
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     Compiled using COMP17.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     Linked using LINK17.CSS
+*.
+*.  MISC:  None
+*.
+C********************************************************************
+C
+C          TDA 2D PROCESSING: INIT SCAN SUBROUTINE
+C
+C********************************************************************
+C
+C
+      IMPLICIT NONE
+C
+C** Need A3PM50 for ONE_RADIAN
+C
+C**Attach local TDA Adaptation Data parameter file:
+$INCLUDE A317BUF.INC/G,**A317P3T (NLIST)
+$INCLUDE                 **A317PTAD (NLIST)
+C
+C**Attach pattern vector buffer lock defintions.
+$INCLUDE                 **A317LOCK (NLIST NEND)
+$INCLUDE                 **A317CLOK (NLIST NEND)
+$INCLUDE                 **A317CTAD (NLIST)
+C
+C** Attach sizing parameters
+$INCLUDE                 **A317TP9 (NLIST)
+C
+$INCLUDE A309.INC/G, **A3PM00 (NLIST NEND)
+$INCLUDE             **A3PM06 (NLIST NEND)
+$INCLUDE             **A3PM50 (NLIST NEND)
+$INCLUDE             **A3CD05 (NLIST NEND)
+$INCLUDE             **A3CD09BL (NLIST NEND)
+C
+C**Attach pattern vector shared image declarations for 2D/3D
+$INCLUDE A317.INC/G, **A317TD1 (NLIST)
+C
+C** Elevation & TDA #'s info. common area
+$INCLUDE               **A317TDNE  (NLIST)
+C
+C**Attach azimuthal and 2D feature pointers
+$INCLUDE               **A317TCP (NLIST)
+$INCLUDE               **A317TCA (NLIST)
+$INCLUDE               **A317TVA (NLIST)
+$INCLUDE               **A317P2DP (NLIST)
+$INCLUDE               **A317P2DC (NLIST)
+$INCLUDE               **A317TP2 (NLIST)
+$INCLUDE               **A317TC2 (NLIST)
+$INCLUDE               **A317C3DA (NLIST)
+C
+C********************* DATA DECLARATIONS ****************************
+C
+C** Local variables:
+C
+      INTEGER  IXX, VINDX, EL_INDX, IPR, VSNUM
+      INTEGER A31218__BUF_VOL
+      INTEGER ATTR_NDX, P2_NDX
+      REAL    ELEVANG, HLF_FCTR, ONE_TENTH, DELAZ
+C
+C*********************** DATA INITIALIZATIONS ***********************
+C
+      PARAMETER  (HLF_FCTR = 0.5, ONE_TENTH = 0.1)
+C
+C******************* BEGIN MAIN PROCESSING SECTION ******************
+C
+C** Check the lock of the pattern vector buffer to be processed
+C
+      IF ( TDAHIFLG ) THEN
+C
+C** This flag indicates we are supposed to process the high
+C** pattern vector buffer.
+C
+C** Is this buffer locked?
+C
+         IF ( TDA_BUF_LOCK( HIGH ) ) THEN
+C
+C** This buffer should not be locked!!!!  Danger approaching...
+C** Danger, Will Robinson, danger!!!!!  Abort!
+C
+            TDA_BUF_UNAVAIL = .TRUE.
+            GO TO 100
+         ELSE
+C
+C** This buffer is not locked, so let's lock it!
+C
+            TDA_BUF_LOCK( HIGH ) = .TRUE.
+            KEY = HIGH
+            TDA_BUF_UNAVAIL = .FALSE.
+         END IF
+      ELSE
+C
+C** This flag indicates we are supposed to process the low
+C** pattern vector buffer.
+C
+C** Is this buffer locked?
+C
+         IF ( TDA_BUF_LOCK( LOW ) ) THEN
+C
+C** This buffer should not be locked!!!!  Danger approaching...
+C** Danger, Will Robinson, danger!!!!!  Abort!
+C
+            TDA_BUF_UNAVAIL = .TRUE.
+            GO TO 100
+         ELSE
+C
+C** This buffer is not locked, so let's lock it!
+C
+            TDA_BUF_LOCK( LOW ) = .TRUE.
+            KEY = LOW
+            TDA_BUF_UNAVAIL = .FALSE.
+         END IF
+      END IF
+C
+      IF ( NEWVOL )  THEN
+C
+C** If the "New Volume" flag is set, set the beginning of volume
+C** time, reset the "New Volume" flag, and initialize the elevation
+C** slice counter.
+C
+         BEG_VOL_TIME = ELV_TIME
+         LEV = 0
+         NEWVOL = .FALSE.
+C
+C** Use the input buffer pointer to get the volume scan number,
+C** and then use the volume scan number to get the volume scan date.
+C
+         VSNUM = A31218__BUF_VOL( IPR )
+         BEG_VOL_DATE = SUMMARY( SCAN_DATE, VSNUM )
+C
+C** Initialize the number of 2D Features for the volume scan and
+C** for all elevation slices.
+C
+         TOT_2DF = 0
+C
+         DO 13 EL_INDX = 1, NVOELV
+            VOL_2DF_CNT( EL_INDX ) = 0
+C
+C** Init array of volume 2D features
+C
+           DO 15 P2_NDX = 1, NVOMAX
+             DVTABL( P2_NDX, EL_INDX ) = 0
+             DO 16 ATTR_NDX = 1, NVOCHR
+               VOLCOMP(ATTR_NDX, P2_NDX, EL_INDX) = 0.0
+ 16          CONTINUE
+C
+             DO 14 ATTR_NDX = 1, TAB_ATTR
+               CORTABL( ATTR_NDX, P2_NDX, EL_INDX ) = 0
+ 14          CONTINUE
+ 15        CONTINUE
+ 13      CONTINUE
+      END IF
+C
+C** Save the offset into TDAMAIN into common
+C
+      OFFSET = TDABFPTR
+C
+C** Increment the elevation slice counter.
+C
+      LEV = LEV + 1
+C
+C** Store the elevation angle (degrees) in the elevation angle table.
+C
+      ELEVANG = AVG_ELEV
+      ELEVTABL( LEV ) = ELEVANG
+C
+C** Set the pointers to the first & last azimuths in this elevation.
+C** TDAAZPTR = 0 or 400
+C
+      BAZM_NDX = TDAAZPTR + 1
+      EAZM_NDX = TDAAZPTR + RADCOUNT
+C
+C** Compute the average delta azimuth
+C
+      DELAZ = ABS(PV_AZIM(EAZM_NDX) - PV_AZIM(BAZM_NDX))
+C
+      IF (RADCOUNT .GT. 180) THEN
+        IF (DELAZ .LE. 180.) DELAZ = 360. - DELAZ
+      ELSE
+        IF (DELAZ .GT. 180.) DELAZ = 360. - DELAZ
+      ENDIF
+C
+      AVE_DELAZ = DELAZ/FLOAT(RADCOUNT - 1)
+C
+C** Reinitialize Label-Stack of Component-IDs:
+C
+      CALL A317F8__INIT_STACK
+C
+C** Initialize the array with the number of above threshold pattern
+C** vectors in the current and (multiple) previous radials. This
+C** array is used in the 2D feature building process.  It is
+C** initialized to zero to avoid problems with the 1st few radials.
+C
+      DO 10 IXX = 1, MAX_TOT_RADS
+         NRPV_TH( IXX ) = 0
+ 10   CONTINUE
+C
+C** Initialize the Potential 2D Feature indices.
+C** The indices will point to the beginning and ending points
+C** in P2DFEAT of the groups of pot. 2D features found w/ each
+C** Differential Velocity Threshold.
+C
+      DO 12  VINDX = 1, NUM_VD_TH
+         P2DF_INDX( VINDX, BEG_PTR  ) = 0
+         P2DF_INDX( VINDX, END_PTR  ) = 0
+ 12   CONTINUE
+C
+C**************** END OF PROCESSING FOR SUBROUTINE ******************
+C
+ 100  CONTINUE
+      RETURN
+      END

@@ -1,0 +1,343 @@
+C 
+C RCS info 
+C $Author: nolitam $ 
+C $Locker:  $ 
+C $Date: 2002/12/11 20:00:36 $ 
+C $Id: a3cm22.ftn,v 1.4 2002/12/11 20:00:36 nolitam Exp $ 
+C $Revision: 1.4 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A3CM22__RASTER_RUN_LENGTH(NROWS,NCOLS,BUFSTAT,
+     +         INBUFF,CLTABIND,OUTBUFF,OBUFFIND,ISTAR2S,MAXIND)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3CM22__RASTER_RUN_LENGTH
+*.
+*.  MODULE VERSION: 0010
+*.
+*.
+*.  MODULE LANGUAGE:  FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       05 09 85      0000      Ze'ev Rivlin         rpg build 2
+*.       10 02 86      0001      J GROMMONS           SPR # 60346
+*.       08 23 88      0002      W.B. EIDSON          SPR # 80248
+*.       11 08 90      0003      T. LYNCH             SPR # 91250
+*.       12 03 91      0004      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0005      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0006      Toolset              SPR 91895
+*.       03/25/93      0007      Toolset              SPR NA93-06801
+*.       03/03/94      0008      Toolset              SPR NA94-05501
+*.       12/23/96      0009      Toolset              CCR NA95-11807
+*.       03/16/99      0010      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:
+*.
+*.    CALL A3CM22__RASTER_RUN_LENGTH(NROWS,NCOLS,BUFSTAT,
+*.             INBUFF,CLTABIND,OUTBUFF,OBUFFIND,ISTAR2S,MAXIND)
+*.
+*.  MODULE FUNCTION:
+*.
+*.     This module is used to run-length encode data for
+*.     raster-formatted products.  It processes the input data
+*.     grid one row at a time using the Color Data Table
+*.     to get the color levels for the data.  It stores
+*.     the run-length encoded data grid in the product
+*.     output buffer.  This module also does a boundary
+*.     check to insure not writing over the buffer boundary.
+*.     If there is not enough room to complete run-length
+*.     encoding, a3cm22 returns to the calling module with
+*.     a buffer completion status of incomplete (status=1)
+*.
+*.
+*.  MODULES CALLED: ISBYTE 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT    TYPE        DESCRIPTION
+*.    -   -----    ----        -----------
+*.    G   COLDAT   I*2         Product Data Levels Adaptation Data for the
+*.                             Color Data Tables.
+*.    P   CLTABIND I*4         color table index for this Product
+*.    P   INBUFF   I*2         INput BUFFer address - used to reference input
+*.                             data grid
+*.    P   ISTAR2S  I*4         number of i*2 words stored in the Product
+*.                             Output Buffer by this module.
+*.    P   MAXIND   I*4         Maximum Output Buffer index that this module
+*.                             can store into.
+*.    P   NCOLS    I*4         Number of COLumnS in data grid
+*.    P   NROWS    I*4         Number of ROWS in data grid
+*.    P   OBUFFIND I*4         starting Output BUFFer INDex to store into
+*.                             INDex of Output BUFFer location to store into.
+*.    P   OUTBUFF  I*2         OUTput BUFFer address used to specify OUTput
+*.                             BUFFer location to store a byte (ISBYTE)
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    P   BUFSTAT I*4         BUFfer completion (0 = complete;1 = incomplete,
+*.                            i.e. - ran out of room for run-length encoding).
+*.    P   ISTAR2S I*4         number of i*2 words stored in the Product Output
+*.                            Buffer by this module.
+*.    P   OUTBUFF I*2         OUTput BUFFer address used to specify OUTput
+*.                            BUFFer location to store a byte (ISBYTE)
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    P   OUTBUFF           I*2         OUTput BUFFer address used to specify
+*.                                      OUTput BUFFer location to store a byte
+*.                                      (ISBYTE)
+*.
+*.  DATABASE/FILE REFERENCE:  NONE
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME       TYPE        DESCRIPTION
+*.    ----       ----        -----------
+*.    BYTEFLAG   I*4         0=next location to store in output buffer is left
+*.                           byte of present i*2 word; 1=right byte
+*.    COLUMN     I*4         Loop Control Variable to keep track of the grid
+*.                           column being considered.
+*.    COMPLETE   I*4         Parameter indicating that there is enough room
+*.                           for the product in the buffer.
+*.    FIRST      I*4         Used to reference first row and first column.
+*.    FIRSTPIX   L*4         First pixel in the row or first pixel after a run
+*.                           of 15.
+*.    I2INC      I*4         Used to increment ISTAR2S.
+*.    INCOMPLETE I*4         Buffer status showing not enough room to complete
+*.                           run-length encoding.
+*.    LEFTBYTE   I*4         Used to reference the left byte (most significant
+*.                           bit).
+*.    MAXROW_LN  I*4         Maximum run-length encoded row length.
+*.    NEWPIX     I*4         The NEW PIXEL's color data level (latest datum
+*.                           evaluated).
+*.    NRLEW      I*4         `Number of run_length_encoded words in this row'.
+*.    NRLEW1     I*4         (Constant) Value used to calculate `Maximum
+*.                           run_length encoded row length' (MAXROW_LN).
+*.    NRLEWINC   I*4         (Constant) Value used to increment 'number of
+*.                           run_length encoded words for this row' (NRLEW).
+*.    OBFRIND    I*4         Present output buffer index.
+*.    OBUFFINC   I*4         OUTPUT BUFFER INCREMENT
+*.    OLDPIX     I*4         Last (old) pixels color data level.
+*.    ONE        I*4         Parameter of one, used to adjust the boundary
+*.                           check index.
+*.    PAD        I*4         (Constant) Value used to store a zero in a byte
+*.                           in the output buffer, i.e.-PAD the byte.
+*.    RGTBYTE    I*4         Used as input parameter to subroutine ISBYTE
+*.                           toreference the right (least significant) byte of
+*.                           an I*2 word.
+*.    ROW        I*4         Points to the row of the data grid under
+*.                           consideration.
+*.    ROWINC     I*4         Used to increment ROW.
+*.    RUN        I*4         Keeps track of how many pixels there are in this
+*.                           run.
+*.    RUNCOL     I*4         RUN COLOR LEVEL.
+*.    RUNINC     I*4         (Constant) used to increment RUNCOL.
+*.    RUNLIM     I*4         (Constant) RUN LIMIT VALUE (15).
+*.    RUNS_PERI2 I*4         (Constant) number of runs that can be stored per
+*.                           I*2 word of output buffer.
+*.    RUNTAB     I*4         Look-up table that retrieves the proper value to
+*.                           store run in the High Nibble of this BYTE.
+*.    SOBUFFIND  I*4         Saves OBBUF to be used later to store NRLEW for
+*.                           this now.
+*.    STARTRUN   I*4         Starting run.
+*.    ZEROPNT    I*4         Parameter used to initialize variables to Integer
+*.                           0.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    COLRTBL
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP09.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK09.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+
+      IMPLICIT NONE
+
+
+
+C **** include product color tables adaptation data definitions:
+$INCLUDE A309ADPT.INC/G,**A3CD70C5 (NEND NLIST)
+
+      INTEGER*4 NROWS,NCOLS,I2INC,CLTABIND,OBUFFIND,
+     1          ISTAR2S,BYTEFLAG,LEFTBYTE,RGTBYTE,RUN,ROWINC,
+     2          ZEROPNT,OLDPIX,NEWPIX,OBUFFINC,ROW,FIRST,
+     3          NRLEW,COLUMN,RUNLIM,STARTRUN,RUNINC,
+     4          NRLEWINC,PAD,MAXIND,MAXROW_LN,RUNS_PERI2,
+     5          NRLEW1,BUFSTAT,COMPLETE,INCOMPLETE,ONE,
+     6          OBFRIND
+
+      PARAMETER(RUNS_PERI2=2,NRLEW1=1,ROWINC=1,COMPLETE=0,
+     1          INCOMPLETE=1,ONE=1)
+
+      PARAMETER(ZEROPNT=0,FIRST=1,STARTRUN=1,RUNINC=1,
+     1          RUNLIM=15,LEFTBYTE=0,RGTBYTE=1,OBUFFINC=1,
+     2          NRLEWINC=1,I2INC=1,PAD=0)
+
+      INTEGER*4 RUNCOL,RUNTAB(RUNLIM),SOBUFFIND
+
+      INTEGER*2 OUTBUFF(*),INBUFF(*)
+
+      LOGICAL FIRSTPIX
+
+C***** initialize run table:
+
+      DATA RUNTAB/16,32,48,64,80,96,112,128,144,160,176,
+     +192,208,224,240/
+
+
+C***** executable code:
+
+      OBFRIND = OBUFFIND
+      MAXROW_LN=NCOLS/RUNS_PERI2+NRLEW1
+      BUFSTAT = COMPLETE
+      BYTEFLAG = LEFTBYTE
+      FIRSTPIX = .TRUE.
+      RUN = ZEROPNT
+      OLDPIX = ZEROPNT
+      NEWPIX = ZEROPNT
+      ISTAR2S = ZEROPNT
+      ROW = FIRST
+
+C **** do for all elements in the input buffer:
+
+ 103  IF((ROW.LE.NROWS).AND.
+     +   (OBFRIND.LE.((MAXIND-MAXROW_LN)+ONE)))THEN
+         SOBUFFIND = OBFRIND
+         OBFRIND = OBFRIND + OBUFFINC
+         NRLEW = ZEROPNT
+
+         DO 102 COLUMN = FIRST,NCOLS
+
+C  *** perform color table look-up for this pixel:
+
+            NEWPIX = COLDAT(INBUFF((ROW-1)*NCOLS+COLUMN),CLTABIND)
+
+C   ** first pixel in the row, or first pixel
+C   ** after a run of fifteen:
+
+            IF (FIRSTPIX) THEN
+               RUN = STARTRUN
+               OLDPIX = NEWPIX
+               FIRSTPIX = .FALSE.
+
+C   ** intermediate pixel:
+
+            ELSEIF (NEWPIX.EQ.OLDPIX) THEN
+               RUN = RUN + RUNINC
+
+C   ** new color level --> store last run
+C    * store on left:
+
+            ELSEIF (BYTEFLAG.EQ.LEFTBYTE) THEN
+               RUNCOL = RUNTAB(RUN) + OLDPIX
+               CALL ISBYTE(RUNCOL,OUTBUFF(OBFRIND),LEFTBYTE)
+               BYTEFLAG = RGTBYTE
+               RUN = STARTRUN
+               OLDPIX = NEWPIX
+
+C    * store on right:
+
+            ELSE
+               RUNCOL = RUNTAB(RUN) + OLDPIX
+               CALL ISBYTE(RUNCOL,OUTBUFF(OBFRIND),RGTBYTE)
+               BYTEFLAG = LEFTBYTE
+               OBFRIND = OBFRIND + OBUFFINC
+               RUN = STARTRUN
+               OLDPIX = NEWPIX
+               NRLEW = NRLEW + NRLEWINC
+               ISTAR2S = ISTAR2S + I2INC
+            ENDIF
+
+C   ** run of fifteen pixels detected:
+
+            IF (RUN.EQ.RUNLIM) THEN
+               RUNCOL = RUNTAB(RUN) + OLDPIX
+               IF (BYTEFLAG.EQ.LEFTBYTE) THEN
+                  CALL ISBYTE(RUNCOL,OUTBUFF(OBFRIND),LEFTBYTE)
+                  BYTEFLAG = RGTBYTE
+               ELSE
+                  CALL ISBYTE(RUNCOL,OUTBUFF(OBFRIND),RGTBYTE)
+                  NRLEW = NRLEW + NRLEWINC
+                  OBFRIND = OBFRIND + OBUFFINC
+                  ISTAR2S = ISTAR2S + I2INC
+                  BYTEFLAG = LEFTBYTE
+               ENDIF
+
+               RUN = ZEROPNT
+               FIRSTPIX = .TRUE.
+            ENDIF
+
+102      CONTINUE
+
+C   ** end of row processing:
+C    *  store remaining pixels:
+
+         IF (.NOT.(FIRSTPIX)) THEN
+            RUNCOL = RUNTAB(RUN) + OLDPIX
+            IF (BYTEFLAG.EQ.LEFTBYTE) THEN
+               CALL ISBYTE(RUNCOL,OUTBUFF(OBFRIND),LEFTBYTE)
+               CALL ISBYTE(PAD,OUTBUFF(OBFRIND),RGTBYTE)
+            ELSE
+               CALL ISBYTE(RUNCOL,OUTBUFF(OBFRIND),RGTBYTE)
+               BYTEFLAG = LEFTBYTE
+            ENDIF
+            NRLEW = NRLEW + NRLEWINC
+            ISTAR2S = ISTAR2S + I2INC
+            OBFRIND = OBFRIND + OBUFFINC
+
+C    * If the last pixel of the row was the last
+C    * element in a run of fifteen, and that run-length
+C    * encoded byte was written to the left side of the
+C    * 16-bit i*2 word, then zero-pad the right side:
+
+         ELSEIF (BYTEFLAG.EQ.RGTBYTE) THEN
+            CALL ISBYTE(PAD,OUTBUFF(OBFRIND),RGTBYTE)
+            BYTEFLAG = LEFTBYTE
+            NRLEW = NRLEW + NRLEWINC
+            ISTAR2S = ISTAR2S + I2INC
+            OBFRIND = OBFRIND + OBUFFINC
+         ENDIF
+
+
+C  CALCULATE RLE BYTES FOR RASTER PACKET
+C
+         OUTBUFF(SOBUFFIND) = NRLEW *2
+         ISTAR2S = ISTAR2S + I2INC
+         FIRSTPIX = .TRUE.
+C next pixel will be the first pixel (of the new row).
+         ROW = ROW + ROWINC
+         GOTO 103
+C Above GOTO used to simulate while loop
+      ENDIF
+
+      IF (ROW.LE.NROWS) THEN
+
+C Not enough buffer space for run-length encoding - product
+C incomplete:
+         BUFSTAT = INCOMPLETE
+
+      ENDIF
+
+      RETURN
+      END

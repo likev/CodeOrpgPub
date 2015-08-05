@@ -1,0 +1,170 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/17 18:34:24 $
+C $Id: a318q7.ftn,v 1.4 2002/12/17 18:34:24 christie Exp $
+C $Revision: 1.4 $
+C $State: Exp $
+C
+      SUBROUTINE A318Q7__TVS_TAB(TVSATTR,BUF)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A318Q7__TVS_TAB
+*.
+*.  MODULE VERSION: 0014
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       03 15 85      0000      D.A.HUMPHREYS        PART 2, RPG BUILD 1
+*.       05 01 86      0001      D.A.HUMPHREYS        SPR# 60119
+*.       08 13 90      0002      PENNY J YELSHIN      SPR# 90919
+*.       11 06 90      0003      MEI   OU             SPR# 91259
+*.       12 03 91      0004      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0005      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0006      Toolset              SPR 91895
+*.       03/25/93      0007      Toolset              SPR NA93-06801
+*.       01/28/94      0008      Toolset              SPR NA94-01101
+*.       03/03/94      0009      Toolset              SPR NA94-05501
+*.       04/01/94      0010      Steve Smith          CCR 93146-002A00
+*.       04/11/96      0011      Toolset              CCR NA95-11802
+*.       12/23/96      0012      Toolset              CCR NA95-11807
+*.       05/14/97      0013      DAVE ZITTEL          CCR NA95-21503
+*.       03/16/99      0014      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A318Q7__TVS_TAB (TVSATTR,BUF)
+*.
+*.  MODULE FUNCTION: CONSTRUCT TABULAR PAGE
+*.
+*.  MODULES CALLED: A318Q8__TVS_PAGE, A318Q9__TVS_LINE 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT      TYPE        DESCRIPTION
+*.    -   -----      ----        -----------
+*.    G   TVFEAT_CHR I*4         (CONSTANT)# OF TVS FEATURE ATTRIBUTES IN
+*.                               TVS_MAIN AND OTHER ARRAYS
+*.    G   TVFEAT_MAX I*4         (CONSTANT)MAXIMUM # OF TVS FEATURES IN
+*.                               TVS_MAIN AND OTHER ARRAYS
+*.    C   FEATCNT    I*4         Number of TVSs + ETVSs detected by the
+*.                               Tornado Detection Algorithm.
+*.    C   MAXLINE    I*4         Maximum number of lines on a page.
+*.    C   NUMLINE    I*4         Line number on current page.
+*.    C   NUMPAGE    I*4         Current page number.
+*.    C   TVSIDX     I*4         TVS product output buffer index for pointing
+*.                               to next location in array BUF.
+*.    P   BUF        I*2         DUMMY OUTPUT BUFFER FOR STORING I*2 DATA INTO
+*.                               I*4 MEMORY
+*.    P   TVSATTR    R*4         Array of TVS and ETVS attributes.
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    C   MAXLINE I*4         Maximum number of lines on a page.
+*.    C   NUMLINE I*4         Line number on current page.
+*.    C   NUMPAGE I*4         Current page number.
+*.    C   TVSIDX  I*4         TVS product output buffer index for pointing to
+*.                            next location in array BUF.
+*.    P   BUF     I*2         DUMMY OUTPUT BUFFER FOR STORING I*2 DATA INTO
+*.                            I*4 MEMORY
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    P   BUF               I*2         DUMMY OUTPUT BUFFER FOR STORING I*2
+*.                                      DATA INTO I*4 MEMORY
+*.    P   TVSATTR           R*4         Array of TVS and ETVS attributes.
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME    TYPE        DESCRIPTION
+*.    ----    ----        -----------
+*.    DIVIDER I*2         BLOCK DIVIDER
+*.    I       I*4         AN INDEX VARIABLE
+*.    NMAX    I*4         MAXIMUM NUMBER OF LINES PER PAGE
+*.    ONE     I*4         Parameter value of one.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    TAB
+*.    TVSINDEX
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  NONE
+*.
+*.  DEVIATION FROM STANDARDS:  NONE
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     THIS MODULE IS COMPILED USING THE COMP18.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     THIS MODULE IS LINKED USING THE LINK18.CSS
+*.
+*.  MISC:  NONE
+*.
+*.*******************************************************************
+$EJECT
+      IMPLICIT NONE
+C
+C  INCLUDE FILES:
+C
+C  PARAMETERS AND OFFSETS FOR MESOCYCLONE ALGORITHM
+$INCLUDE A317BUF.INC/G,**A317TP9 (NEND NLIST)
+$INCLUDE A318.INC/G,**A318TVS1 (NEND NLIST)
+      INTEGER*4  NMAX
+      PARAMETER  (NMAX=18)
+
+C
+C  LOCAL COMMON DEFINITIONS:
+C
+      INTEGER*4 MAXPAGE,MAXLINE,NUMPAGE,NUMLINE
+      COMMON /TAB/MAXPAGE,MAXLINE,NUMPAGE,NUMLINE
+C  TORNADO DETECTION ALGORITHM DECLARATION:
+      REAL TVSATTR(TVFEAT_CHR,TVFEAT_MAX)
+C LOCAL DECLARATIONS:
+      INTEGER*2 BUF(*),DIVIDER
+      INTEGER*4 I, ONE
+      PARAMETER (DIVIDER=-1, ONE = 1)
+*********************************************************************
+C  EXECUTABLE CODE:
+C  INITIALIZE MAXPAGE, MAXLINE AND NUMPAGE
+      MAXLINE=NMAX
+      NUMPAGE=ONE
+C  CONSTRUCT FIRST TABULAR PAGE
+      CALL A318Q8__TVS_PAGE(BUF)
+C  TABULATE TVS TYPE
+      DO 10 I=ONE,FEATCNT
+C  CALL LINE TO CONSTRUCT A LINE OF TABULAR DATA
+        CALL A318Q9__TVS_LINE(I,TVSATTR(ONE,I),BUF)
+C  INCREMENT LINE NUMBER
+        NUMLINE=NUMLINE+ONE
+C  CHECK FOR MAXIMUM LINES/PAGE
+        IF (NUMLINE.EQ.MAXLINE.AND.I.LT.FEATCNT) THEN
+C        CALL PAGE TO CONSTRUCT PAGE HEADER
+C  PAGE DIVIDER
+           BUF(TVSIDX)=DIVIDER
+           TVSIDX=TVSIDX+ONE
+           CALL A318Q8__TVS_PAGE(BUF)
+C        INCREMENT PAGE NUMBER
+           NUMPAGE=NUMPAGE+ONE
+        ENDIF
+ 10   CONTINUE
+C
+C  SET PAGE DIVIDER
+      IF (BUF(TVSIDX-ONE) .NE. DIVIDER)  THEN
+         BUF(TVSIDX) = DIVIDER
+         TVSIDX = TVSIDX + ONE
+      ENDIF
+      RETURN
+      END

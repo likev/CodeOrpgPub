@@ -1,0 +1,162 @@
+C
+C RCS info
+C $Author: steves $
+C $Locker:  $
+C $Date: 2004/01/12 16:57:37 $
+C $Id: a3164e.ftn,v 1.4 2004/01/12 16:57:37 steves Exp $
+C $Revision: 1.4 $
+C $State: Exp $
+C
+      SUBROUTINE A3164E__STORE_DIVIDER(IDNX,BUF)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3164E__STORE_DIVIDER
+*.
+*.  MODULE VERSION: 0014
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       10 18 85      0000      JSGROMMONS
+*.       01 05 86      0001      JSGROMMONS           SPR#  60124
+*.       06 03 86      0002      JSGROMMONS           SPR#  60313
+*.       10 02 86      0003      J GROMMONS           SPR # 60346
+*.       11 06 90      0004      David M. Lynch       SPR # 91257
+*.       12 03 91      0005      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0006      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0007      Toolset              SPR 91895
+*.       03/25/93      0008      Toolset              SPR NA93-06801
+*.       01/28/94      0009      Toolset              SPR NA94-01101
+*.       03/03/94      0010      Toolset              SPR NA94-05501
+*.       04/01/95      0011      Toolset              CCR NA95-11802
+*.       06/22/95      0012      STEVE SMITH          CCR NA94-26301
+*.       12/23/96      0013      Toolset              CCR NA95-11807
+*.       03/16/99      0014      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:
+*.     CALL A3164E__STORE_DIVIDER(IDNX,BUF)
+*.
+*.  MODULE FUNCTION:
+*.     STORE THE DIVIDER, NO OF PAGES FOR THE TABULAR BLOCK
+*.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT   TYPE        DESCRIPTION
+*.    -   -----   ----        -----------
+*.    C   NP      I*4         Number of pages to be written.
+*.    C   PNDX    I*4         Pointer into output buffer.
+*.    C   SVTIDX  I*4         Saved value of index to tabular block.
+*.    C   TABLNG  I*4         Length of tabular block in halfwords.
+*.    C   DIVIDER I*2         (CONSTANT)Tabular block divider for output
+*.                            buffer.
+*.    C   PRDOFF  I*4         (CONSTANT)Offset to product header.
+*.    C   TLOFF   I*4         (CONSTANT)Offset to beginning of tabular line
+*.                            within page.
+*.    C   TPROFF  I*4         (CONSTANT)Offset to beginning of tabular product
+*.                            block.
+*.    P   IDNX    I*4         Subscript for storing into.
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    C   PNDX    I*4         Pointer into output buffer.
+*.    P   BUF     I*2         OUTPUT BUFFER
+*.    P   IDNX    I*4         Subscript for storing into.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME       TYPE        DESCRIPTION
+*.    ----       ----        -----------
+*.    BOFF       I*4         Offset into buffer for number of blocks in Tab
+*.                           header.
+*.    NUM_BLOCKS I*2         (Constant) number of blocks.
+*.    TLNGTHX    I*4         Length of tabular data or tabular block.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3164B
+*.    A3164D
+*.    A3164E
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP16.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK16.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+      IMPLICIT NONE
+C
+C   LOCAL COMMON
+$INCLUDE A315BUF.INC/G, **A315P9H (NLIST)
+$INCLUDE A316.INC/G,**A3164P4 (NLIST)
+C
+C   LOCAL PARAMETERS
+      INTEGER*2  BUF(*)
+      INTEGER*2  NUM_BLOCKS
+C
+      INTEGER*4  IDNX,BOFF
+      INTEGER*4  TLNGTHX
+C
+      PARAMETER (NUM_BLOCKS=3,BOFF=12)
+C
+C..................................................................
+C
+C** MOVE DIVIDER, NO PAGES TO OUPUT BUFFER FOR TABULUAR BLOCK
+C
+      BUF(IDNX) = DIVIDER
+      IDNX = IDNX + 1
+      BUF(IDNX) = NP
+C
+C** SET LENGTH OF TABULAR DATA
+C
+      TLNGTHX = (TABLNG - TPROFF) * 2
+C
+C** STORE LENGTH IN BUFFER
+C
+      PNDX = SVTIDX + TPROFF + PRDOFF - 1
+      call RPG_set_product_int( BUF(PNDX), TLNGTHX )
+C
+C** SET TOTAL LENGTH OF TABULAR BLOCK
+C
+      TLNGTHX = (TABLNG) * 2
+C
+C** STORE TOTAL LENGTH IN BUFFER
+C
+      PNDX = SVTIDX + TLOFF
+      call RPG_set_product_int( BUF(PNDX), TLNGTHX )
+C
+C** STORE NO BLOCKS IN TAB HEADER
+C
+      PNDX = SVTIDX + BOFF
+      BUF(PNDX) = NUM_BLOCKS
+C
+C** RETURN TO CALLER
+C
+      RETURN
+      END

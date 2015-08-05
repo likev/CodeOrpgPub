@@ -1,0 +1,88 @@
+mngred(1)                         Open RPG                        mngred(1)
+
+
+NAME 
+     mngred - The ORPG redundant manager
+
+
+SYNOPSIS 
+     mngred [options]
+
+
+DESCRIPTION
+
+Note:  All discussions in this man page pertain to FAA redundant configurations
+except where it is explicitly stated that NWS redundant configurations apply.
+
+The mngred process manages the channel status and maintains channel synchronization
+between the two channels in FAA and NWS redundant configurations. The redundant 
+configuration type (ie. FAA redundant or NWS redundant) is read from the 
+adaptation data during process initialization.  
+
+Static configuration file "redundant.cfg" is used to identify all the linear 
+buffers and message ids within the linear buffers that the redundant manager is 
+responsible for managing. This file is separated into three main sections which 
+are identified by the keys "hostnames", "Adaptation_data" and "State_data". The 
+first section, hostnames, is used only in a LAN development/test environment and 
+is not used in an operational system. The other two sections are used in an 
+operational environment and contain the data ids (the linear buffer numerical 
+identifiers) and the redundant relevant message ids in each linear buffer that the 
+redundant manager manages. (A message is a data segment within a linear buffer and 
+is the smallest granularity in which data can be managed.) When data is copied from 
+one channel to the other, it is copied one message at a time. If all messages in a 
+linear buffer are to be copied, then the message id is set to -1 in the redundant.cfg 
+configuration file.  
+
+Adaptation Data is changed by the operator through the HCI or through the RMS. Adaptation 
+Data is allowed to be changed only in the following conditions: on the active channel 
+at anytime; when both channels are inactive; or when the RPG/RPG link is down. When 
+Adaptation Data updates occur, the mngred process is notified of the changes via LB 
+notification. If the updates occur on the active channel and the RPG/PRG link 
+is up, the updated LB messages are automatically copied to the other channel. If the 
+RPG/RPG link is down and Adaptation Data is changed on the active channel, then all 
+Adaptation Data are copied from the active channel to the inactive channel when the RPG/RPG 
+link reconnects. This ensures that all Adaptation Data on both channels are synchronized 
+after recovering from a RPG/RPG link break. Adaptation Data is allowed to be changed on 
+the inactive channel if both channels are inactive or if the RPG/RPG link is down. When 
+inactive channel Adaptation Data is changed, the Adaptation Data Updated Time is updated 
+for that channel but the redundant manager does not flag the changed LB message for 
+inter-channel updating. As a result, automatic updates will not occur from an inactive 
+channel. The only way an inactive channel can update the other channel is for the other 
+channel to be inactive, the RPG/RPG link is up, and the operator selects the Adapt Times 
+box on the RPG Control/Status window. The selection of the Adapt Times box forces all 
+Adaptation Data to be copied to the other channel.  Special care must be taken when 
+modifying Adaptation Data on an inactive channel as it is easy for the modifications to 
+be overwritten by the other channel and lost.
+
+State Data is data that affects RDA characteristics. The primary State Data is VCP data 
+(ie. VCP number, PRF selections, etc.) that is selected and downloaded to the RDA. When VCP 
+data is downloaded on the active channel, the inactive channel is automatically notified of 
+the VCP data that was downloaded. The inactive channel then initiates the download to its RDA. 
+This ensures that the RDAs maintain a level of synchronization pertaining to the most recent 
+VCP data used on the active channel. When a channel switchover occurs, the last VCP data 
+used on the channel that was active is the first VCP data used by the channel switching to 
+active. Other State Data that is managed by the redundant manager is PRF Selection and Spot 
+Blanking. These settings are managed manually and are updated on a periodic basis instead of 
+being copied to the inactive channel only when their states change on the active channel. If 
+the RPG/PRG link is down, all changes in State Data are retained on the active channel until 
+the link reconnects, then the most recent State Data is copied to the inactive channel.
+
+In NWS configurations, the redundant manager is responsible for monitoring the downloads of the
+Clutter Filter Bypass Map and Clutter Censor Zones to the RDA. When a channel switchover occurs, 
+the redundant manager is responsible for ensuring that these two components are downloaded
+to the RDA that switched to controlling if they were downloaded before the switchover occurred.
+
+
+OPTIONS:
+
+     -n specifies number of messages in the task LE log (default 1000)
+     -v sets the verbose level (range: 0 - 3). Different levels are:
+        0:  Operational setting            
+        1:  Not Used            
+        2:  UIT/DTE Testing            
+        3:  Debugging/Analysis
+
+
+SEE ALSO
+
+                                   $Revision: 1.3 $

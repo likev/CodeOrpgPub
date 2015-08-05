@@ -1,0 +1,82 @@
+      Program RADAR_CODED_MESSAGE
+C***********************************************************************
+C
+C	Description: This module contains the main function for the 
+C	Radar Coded Message Product Task
+C
+C***********************************************************************
+
+C RCS info
+C $Author: steves $
+C $Locker:  $
+C $Date: 2011/02/28 15:22:43 $
+C $Id: radcdmsg.ftn,v 1.15 2011/02/28 15:22:43 steves Exp $
+C $Revision: 1.15 $
+C $State: Exp $
+C
+C
+	IMPLICIT NONE
+
+$INCLUDE rpg_port.inc,**rpg_port	;defines VOLUME_BASED, ON_CALL
+
+C adaptation common blocks
+$INCLUDE A309ADPT.INC, **A3CD70CA
+$INCLUDE A309ADPT.INC, **A3CD70C8
+$INCLUDE A309ADPT.INC, **A3CD70C5
+$INCLUDE A309ADPT.INC, **A3CD70C7
+$INCLUDE A309ADPT.INC, **A3CD70_DEA_NAMES
+$INCLUDE mda_adapt.inc, **mda_adapt
+
+$INCLUDE A309.INC/G,**A3PM00		;RADARMSG, CRPG, COMBATTR
+                                        ;ETTAB, VADTMHGT, HYBRSCAN
+
+$INCLUDE itc.inc, **A314C1              ;A314C1
+
+        integer param
+        integer mda_callback_fx
+        external mda_callback_fx
+
+	;** Specify inputs.
+	call RPG_in_data ( CRPG, VOLUME_DATA )
+	call RPG_in_data ( COMBATTR, VOLUME_DATA )
+	call RPG_in_data ( ETTAB, VOLUME_DATA )
+	call RPG_in_data ( VADTMHGT, VOLUME_DATA )
+	call RPG_in_data ( HYBRSCAN, VOLUME_DATA )
+
+        ;** COMBATTR, ETTAB, and VADTMHGT are optional inputs.  Wait no 
+        ;** longer than 60 seconds for the data to become available.
+        call RPG_in_opt( COMBATTR, 60 )
+        call RPG_in_opt( ETTAB, 60 )
+        call RPG_in_opt( VADTMHGT, 60 )
+
+	;** Specify outputs.
+        ;** NOTE: If the graphical RCM is ever resurrected, uncomment out
+        ;**       the next line and comment out the following line.
+C       call RPG_out_data ( RADARMSG, VOLUME_DATA, 83 )
+        call RPG_out_data ( POSEDRCM, VOLUME_DATA, 74 )
+
+        ;** Register ITC's for update.
+        call RPG_itc_in( A314C1_ID, A314C1_FIRST, A314C1_LAST(2), 
+     >                   HYBRSCAN )
+        
+	;** Register adapdation blocks and scan summary array.
+	call RPG_reg_adpt( PRODSEL_ID, PRODSEL_FIRST, BEGIN_VOLUME ) 
+	call RPG_reg_adpt( COLRTBL_ID, COLRTBL_FIRST, BEGIN_VOLUME ) 
+	call RPG_reg_adpt( RDACNT_ID, RDACNT_FIRST, BEGIN_VOLUME )
+	call RPG_reg_ade_callback(mda_callback_fx, min_refl,
+     >                            MDA_DEA_NAME, BEGIN_VOLUME) 
+        ;** Register for scan summary
+        call RPG_reg_scan_summary()
+
+	;** Register for site info adapdation data
+        call RPG_reg_site_info( SIRDALAT )
+
+        ;** Initialize this task.  It is volume based.
+        call RPG_task_init( VOLUME_BASED )
+
+	;** The main loop, which will never end.
+ 10     call RPG_wait_act( WAIT_DRIVING_INPUT )
+        call A30821__BUFFER_CONTROL( param )
+	goto 10
+
+	end

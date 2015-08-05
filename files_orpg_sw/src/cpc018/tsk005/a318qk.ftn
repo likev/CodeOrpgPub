@@ -1,0 +1,231 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/17 18:34:33 $
+C $Id: a318qk.ftn,v 1.4 2002/12/17 18:34:33 christie Exp $
+C $Revision: 1.4 $
+C $State: Exp $
+C
+      SUBROUTINE A318QK__PACKET_LINES(K,TVSATTR,STID,FLD1
+     >     ,FLD2,FLD3,FLD4,FLD5,QF4,QF5,AZ,RAN,LFEAT)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A318QK__PACKET_LINES
+*.
+*.  MODULE VERSION: 0004
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       04/04/94      0000      Steve Smith          CCR 93158-001A00
+*.       04/11/96      0001      Toolset              CCR NA95-11802
+*.       12/23/96      0002      Toolset              CCR NA95-11807
+*.       05/13/97      0003      DAVE ZITTEL          CCR NA95-21503
+*.       03/16/99      0004      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:
+*.
+*.    CALL A318QK__PACKET_LINES(K,INFLD1,INFLD2,INFLD3,INFLD4,INFLD5,
+*.         INFLD6,TVSMES,STID,AZ,RAN,FLD1,FLD2,FLD3,FLD4,FLD5,FLD6)
+*.
+*.  MODULE FUNCTION:
+*.   A318QK__PACKET_LINES - BUILD THE FIELD ARRAYS FOR THE TVS
+*.            GRAPHIC PACKET LINES
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT      TYPE        DESCRIPTION
+*.    -   -----      ----        -----------
+*.    G   TVFEAT_CHR I*4         (CONSTANT)# OF TVS FEATURE ATTRIBUTES IN
+*.                               TVS_MAIN AND OTHER ARRAYS
+*.    G   TVFEAT_MAX I*4         (CONSTANT)MAXIMUM # OF TVS FEATURES IN
+*.                               TVS_MAIN AND OTHER ARRAYS
+*.    G   TV_ADV     I*4         (CONSTANT)INDEX INTO TVS_MAIN TO THE TVS
+*.                               FEATURE AVERAGE DELTA VELOCITY (IN M/S)
+*.    G   TV_AZM     I*4         (CONSTANT)INDEX INTO TVS_MAIN TO THE TVS
+*.                               FEATURE AZIMUTH (IN DEGREES)
+*.    G   TV_BAS     I*4         (CONSTANT)INDEX INTO TVS_MAIN TO THE TVS
+*.                               FEATURE BASE HEIGHT (IN KM)
+*.    G   TV_DEP     I*4         (CONSTANT)INDEX INTO TVS_MAIN TO THE TVS
+*.                               FEATURE DEPTH (IN KM)
+*.    G   TV_LDV     I*4         (CONSTANT)INDEX INTO TVS_MAIN TO THE TVS
+*.                               FEATURE LOW-LEVEL DELTA VELOCITY (IN M/S)
+*.    G   TV_MDV     I*4         (CONSTANT)INDEX INTO TVS_MAIN TO THE TVS
+*.                               FEATURE MAXIMUM DELTA VELOCITY (IN M/S)
+*.    G   TV_RAN     I*4         (CONSTANT)INDEX INTO TVS_MAIN TO THE TVS
+*.                               FEATURE RANGE (IN KM)
+*.    G   TV_TOP     I*4         (CONSTANT)INDEX INTO TVS_MAIN TO THE TVS
+*.                               FEATURE TOP HEIGHT (IN KM)
+*.    G   TV_TYP     I*4         (CONSTANT)INDEX INTO TVS_MAIN TO THE TVS
+*.                               FEATURE TYPE (TVS=1 OR ETVS=2)
+*.    C   N1         I*4         Lower limit of fields to be moved into line
+*.                               array.
+*.    C   N2         I*4         Upper limit of fields to be moved into line
+*.                               array.
+*.    C   TVS_STM_ID I*2         Array to hold the integer equivalent of the
+*.                               two-character label of a storm cell
+*.                               associated with a TVS or an ETVS.
+*.    P   FLD4       R*4         Real array item 4 for writing packet line
+*.    P   K          I*4         TVS feature number
+*.    P   TVSATTR    R*4         Array of TVS and ETVS attributes.
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    P   AZ      R*4         Radial azimuth angles
+*.    P   FLD1    R*4         Real array item 1 for writing packet line
+*.    P   FLD2    R*4         Real array item 2 for writing packet line
+*.    P   FLD3    R*4         Real array 3 used for writing packet line.
+*.                            Holds TVS/ETVS maximum delta velocity attribute.
+*.    P   FLD4    R*4         Real array item 4 for writing packet line
+*.    P   FLD5    R*4         Real array 5 used for writing packet line.
+*.                            Holds TVS/ETVS depth attribute.
+*.    P   K       I*4         TVS feature number
+*.    P   LFEAT   CHAR*4      Character array for writing packet line.  Holds
+*.                            the TDA feature type TVS or ETVS.
+*.    P   QF4     CHAR*1      Character array used for writing packet line.
+*.                            (Qualifier for FLD4, TVS/ETVS base attribute).
+*.    P   QF5     CHAR*1      Character array used for writing packet line.
+*.                            (Qualifier for FLD5, TVS/ETVS depth attribute.)
+*.    P   RAN     R*4         Range array for writing packet
+*.    P   STID    I*2         Storm ID array for writing packet line. packet
+*.                            line column number
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME         TYPE        DESCRIPTION
+*.    ----         ----        -----------
+*.    BLANK        CHAR*1      PROGRAM PARAMETER FOR A BLANK.
+*.    ETVS         CHAR*4      Literal string of the acronym for elevated
+*.                             tornadic vortex signature ("ETVS")
+*.    GREATER_THAN CHAR*1      Program parameter for the greater than symbol.
+*.    J            I*4         Do-Loop index
+*.    LESS_THAN    CHAR*1      Program parameter value for LESS THAN symbol
+*.    NCOLS        I*4         Column constant
+*.    TVS          CHAR*4      Character value of 'TVS'
+*.    TVSTYPE      I*4         Used to compare against the value stored in
+*.                             array TVSATTR to signify a 3D feature is either
+*.                             a TVS or an ETVS.
+*.    ZERO         I*4         Program parameter for 0.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A318TVS
+*.    BLKB
+*.
+*.  ERROR CONDITIONS:  NONE
+*.
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     THIS MODULE IS COMPILED USING THE COMP18.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     THIS MODULE IS LINKED USING THE LINK18.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+C
+$INCLUDE A317BUF.INC/G,**A317TP9  (NEND NLIST)
+$INCLUDE A318.INC/G,**A318TVS (NEND NLIST)
+$INCLUDE A318.INC/G,**A318TVS1 (NEND NLIST)
+C            LOCAL DEFINITIONS:
+C
+      REAL TVSATTR(TVFEAT_CHR,TVFEAT_MAX)
+      INTEGER*4 TVSTYPE
+      PARAMETER (TVSTYPE = 1)
+C
+      CHARACTER*4 TVS,ETVS
+      PARAMETER (TVS=' TVS',ETVS='ETVS')
+      INTEGER*4  NCOLS
+      PARAMETER  (NCOLS=6)
+
+      CHARACTER*4 LFEAT(NCOLS)
+      INTEGER*2  STID(NCOLS)
+      INTEGER*2  PGNO,PLNGTH,IPIX,JPIX
+      CHARACTER*1 QF4(NCOLS), QF5(NCOLS)
+      CHARACTER*1 BLANK, GREATER_THAN, LESS_THAN
+      PARAMETER (BLANK = ' ', GREATER_THAN = '>', LESS_THAN = '<')
+
+      INTEGER*4  J, K, ZERO
+      PARAMETER (ZERO = 0)
+      REAL  AZ(NCOLS),RAN(NCOLS)
+      INTEGER*4  NDX,PNDX,GPHLNG,WIND,N1,N2,K1,K2,KI
+
+      REAL FLD1(NCOLS),FLD2(NCOLS),FLD3(NCOLS),FLD4(NCOLS),FLD5(NCOLS)
+C
+      COMMON/BLKB/NDX,PNDX,GPHLNG,WIND,N1,N2,K1,K2,KI,
+     X        IPIX,JPIX,PLNGTH,PGNO
+
+
+*****************************************************************
+
+C
+C   FOR FIELDS N1 THRU N2
+C
+      DO 150  J = N1,N2
+         K = K + 1
+C
+C   SET STORM ID FOR TVS
+C
+           STID(J) = TVS_STM_ID(K)
+C
+C   AZ AND RAN OF TVS FEATURE
+C
+         AZ(J) = TVSATTR(TV_AZM,K)
+         RAN(J) = TVSATTR(TV_RAN,K)
+C
+C   GET TVS ATTRIBUTES
+C
+         FLD1(J) = TVSATTR(TV_LDV,K)
+         FLD2(J) = TVSATTR(TV_ADV,K)
+         FLD3(J) = TVSATTR(TV_MDV,K)
+         FLD4(J) = TVSATTR(TV_BAS,K)
+         FLD5(J) = TVSATTR(TV_DEP,K)
+         IF(TVSATTR(TV_TYP,K).EQ.TVSTYPE)THEN
+           LFEAT(J) = TVS
+         ELSE
+           LFEAT(J) = ETVS
+         ENDIF
+C
+C    DETERMINE QUALIFIERS FOR FLD5 (DEPTH); IF TOP OR BASE < 0
+C    THEN SET QUALIFIER TO > (GREATER_THAN).
+C
+      QF5(J) = BLANK
+      IF(TVSATTR(TV_TOP,K) .LT. ZERO .OR. FLD4(J) .LT. ZERO)
+     >   QF5(J) = GREATER_THAN
+C
+C     DETERMINE QUALIFIERS FOR FLD4 (BASE HGT); IF FLD4 < 0 THEN
+C     SET QF4(J) = '<' (LESS_THAN) AND NEGATE FLD4 TO MAKE POSITIVE.
+C
+      QF4(J) = BLANK
+      IF(FLD4(J).LT. ZERO ) THEN
+        FLD4(J) = -FLD4(J)
+        QF4(J) = LESS_THAN
+      ENDIF
+
+  150 CONTINUE
+
+      RETURN
+      END

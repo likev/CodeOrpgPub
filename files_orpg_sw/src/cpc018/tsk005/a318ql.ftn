@@ -1,0 +1,267 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/17 18:34:34 $
+C $Id: a318ql.ftn,v 1.3 2002/12/17 18:34:34 christie Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A318QL__PACKET_WRITE(STID,LFEAT,AZ,RAN,
+     X      FLD1,FLD2,FLD3,FLD4,FLD5,QF4,QF5,BL)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A318QL__PACKET_WRITE
+*.
+*.  MODULE VERSION: 0001
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       05/06/97      0000      DAVE ZITTEL          CCR NA95-21503
+*.       03/16/99      0001      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:
+*.    CALL A318QL__PACKET_WRITE(OPT,STID,LFEAT,AZ,RAN,
+*.          FLD1,FLD2,FLD3,FLD4,FLD5,BL)
+*.
+*.  MODULE FUNCTION:
+*.   A318NL__PACKET_WRITE - FORMAT THE LINES FOR THE GRAPHICS PACKET
+*.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT      TYPE        DESCRIPTION
+*.    -   -----      ----        -----------
+*.    G   KM_TO_NM   R*4         (CONSTANT)DEFINES THE SCALING FACTOR FOR
+*.                               KILOMETER TO NAUTICAL MILES PARAMETER
+*.    G   MPS_TO_KTS R*4         (CONSTANT)SCALING FACTOR FOR METERS PER
+*.                               SECOND TO KNOTS
+*.    G   M_TO_FT    R*4         (CONSTANT)SCALING FACTOR FOR METERS TO FEET
+*.    C   K1         I*4         Lower limit for graphic attribute fields to
+*.                               be written.
+*.    C   K2         I*4         Upper limit for graphic attribute fields to
+*.                               be written.
+*.    P   AZ         R*4         Real array of TVS/ETVS azimuths for the
+*.                               current page of the TDA product graphic
+*.                               overlay table.
+*.    P   FLD1       R*4         Real array used to hold the low-level delta
+*.                               velocity attribute for all TVSs/ETVSs in the
+*.                               current packet line.
+*.    P   FLD2       R*4         Real array used to hold the average delta
+*.                               velocity attribute for all TVSs/ETVSs in the
+*.                               current packet line.
+*.    P   FLD3       R*4         Real array used to hold the maximum delta
+*.                               velocity attribute for all TVSs/ETVSs in the
+*.                               current packet line.
+*.    P   FLD4       R*4         Real array used to hold the base height
+*.                               attribute for all TVSs/ETVSs in the current
+*.                               packet line.
+*.    P   FLD5       R*4         Real array used to hold the depth attribute
+*.                               for all TVSs/ETVSs in the current packet
+*.                               line.
+*.    P   LFEAT      CHAR*4      Character array of TDA feature type (TVS or
+*.                               ETVS) for the current page of the TDA
+*.                               product's graphic overlay table.
+*.    P   QF4        CHAR*1      Character array used to hold qualifiers for
+*.                               TVS/ETVS base attribute for the current page
+*.                               of the TDA graphic overlay table.
+*.    P   QF5        CHAR*1      Character array used to hold qualifiers for
+*.                               TVS/ETVS depth attribute for the current page
+*.                               of the TDA graphic overlay table.
+*.    P   RAN        R*4         Array of the range to TVSs or ETVSs for the
+*.                               current page of the TDA product's graphic
+*.                               overlay table.
+*.    P   STID       I*2         Integer array of the storm Ids associated
+*.                               with TVSs/ETVSs for the current page of the
+*.                               TDA product's graphic overlay table.
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    G   TBUF    I*2         Array of text data.
+*.    G   TXCHR   CHAR*80     Array of 80 character lines.
+*.    P   BL      I*4         Number of half words (at two characters per half
+*.                            word) for a line of text for the TDA product's
+*.                            graphic overlay table.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME     TYPE        DESCRIPTION
+*.    ----     ----        -----------
+*.    AVGDV    I*4         Integer array of TVS/ETVS average delta velocity
+*.                         attribute for the current page of the TDA graphic
+*.                         overlay table.
+*.    AZIM     I*4         Integer array of TVS/ETVS azimuths for the current
+*.                         page of the TDA product graphic overlay table.
+*.    BCHAR    I*4         Number of characters in a line of text for the TDA
+*.                         product graphic overlay table.
+*.    BHGT     R*4         Real array of TVS/ETVS base heights for the current
+*.                         page of the TDA product's graphic attribute table.
+*.    CNVTO360 I*4         Converts azimuth attribute values of zero degrees
+*.                         to 360 degrees for TVSs and ETVSs.
+*.    DPTH     I*4         Integer array of TVS/ETVS depth attribute for the
+*.                         current page of the TDA graphic overlay table.
+*.    IT       I*4         Line number for current line of text in the text
+*.                         array
+*.    J        I*4         Do loop index for pointing to TVS/ETVS attributes
+*.                         for the current page of the TDA product's graphic
+*.                         overlay table.
+*.    LLDV     I*4         Integer array of the low-level delta velocity
+*.                         attributes for the current page of the TDA
+*.                         product's graphic overlay table.
+*.    MDV      I*4         Integer array of the maximum delta velocity
+*.                         attribute for the current page of the TDA product's
+*.                         graphic overlay table.
+*.    NCOLS    I*4         Number of columns on a page of the TDA product's
+*.                         graphic overlay table.
+*.    NROWS    I*4         Number of half words required to hold 80
+*.                         characters.
+*.    RANGE    I*4         Integer array of the range to TVSs or ETVSs for the
+*.                         current page of the TDA product's graphic overlay
+*.                         table.
+*.    ZERO     I*4         Program parameter for 0.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    BLKA
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    BLKB
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     THIS MODULE IS COMPILED USING THE COMP18.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     THIS MODULE IS LINKED USING THE LINK18.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+C
+$INCLUDE A309.INC/G,**A3PM50 (NLIST)
+C
+C            LOCAL DEFINITIONS:
+C
+      INTEGER*4  NROWS,NCOLS
+      PARAMETER  (NROWS=40,NCOLS=6)
+C
+      INTEGER*2  STID(NCOLS)
+      INTEGER*2  TBUF(NROWS,NCOLS)
+      INTEGER*2  PGNO,PLNGTH,IPIX,JPIX
+
+      INTEGER*4  BL,J,K,IT
+      INTEGER*4  BCHAR,ZERO,CNVTO360
+      INTEGER*4  AZIM(NCOLS),RANGE(NCOLS)
+      INTEGER*4  NDX,PNDX,GPHLNG,WIND,N1,N2,K1,K2,KI
+C
+      REAL FLD1(NCOLS),FLD2(NCOLS),FLD3(NCOLS),FLD4(NCOLS),FLD5(NCOLS)
+      REAL BHGT(NCOLS), AZ(NCOLS),RAN(NCOLS)
+      INTEGER*4 LLDV(NCOLS),MDV(NCOLS),AVGDV(NCOLS),DPTH(NCOLS)
+      REAL BASE(NCOLS)
+      CHARACTER*1 QF4(NCOLS), QF5(NCOLS)
+C
+      CHARACTER*4   LFEAT(NCOLS)
+      CHARACTER*80  TXCHR(NCOLS)
+
+      PARAMETER  (BCHAR=80)
+      PARAMETER (ZERO=0,CNVTO360=360)
+C
+C
+
+      EQUIVALENCE  (TBUF(1,1),TXCHR)
+
+      COMMON/BLKA/TBUF
+      COMMON/BLKB/NDX,PNDX,GPHLNG,WIND,N1,N2,K1,K2,KI,
+     X        IPIX,JPIX,PLNGTH,PGNO
+*****************************************************************
+
+C
+C   INITIALIZE LINE NO
+      IT = 1
+C
+C       PERFORM UNIT CONVERSIONS
+      DO 15 J=K1,K2
+C
+C      CONVERT AZIMUTH TO NEAREST INTEGER
+C
+C        CONVERT RANGE FROM KM TO NEAREST NM
+         AZIM(J) = NINT(AZ(J))
+         IF(AZIM(J) .EQ. ZERO)AZIM(J)= AZIM(J) + CNVTO360
+         RANGE(J) = NINT(RAN(J)*KM_TO_NM)
+C
+C
+C           CONVERT TVS BASE HEIGHT AND DEPTH FROM KM TO KFT
+C
+            BHGT(J) = FLD4(J)*M_TO_FT
+            DPTH(J)= NINT(ABS(FLD5(J)*M_TO_FT))
+C
+C
+C           CONVERT LLDV, MDV, AND AVGDV FROM M/S TO KTS
+            LLDV(J) = NINT(FLD1(J)*MPS_TO_KTS)
+            AVGDV(J) = NINT(FLD2(J)*MPS_TO_KTS)
+            MDV(J) = NINT(FLD3(J)*MPS_TO_KTS)
+C
+C
+   15 CONTINUE
+
+C   FILL OUT REMAINDER OF PAGE (NO TITLES)
+
+        WRITE(TXCHR(IT),901)  (LFEAT(J),STID(J), J=K1,K2)
+C
+C  WRITE LINE 1--AZIMUTH AND RANGE OF TVS/ETVS
+C
+        IT = IT + 1
+        WRITE(TXCHR(IT),902)  (AZIM(J), RANGE(J), J=K1,K2)
+C
+C  LINE 3--WRITE LOW LEVEL DELTA VEL AND MAX DELTA VELOCITY
+C
+        IT = IT + 1
+        WRITE(TXCHR(IT),904)  (LLDV(J),MDV(J), J=K1,K2)
+C
+C  LINE 4--WRITE AVERAGE DELTA VELOCITY
+C
+        IT = IT + 1
+        WRITE(TXCHR(IT),903)  (AVGDV(J), J=K1,K2)
+C
+C  LINE 5--WRITE TVS/ETVS BASE HEIGHT AND DEPTH
+C
+        IT = IT + 1
+        WRITE(TXCHR(IT),905) (QF4(J),BHGT(J),QF5(J),DPTH(J),J=K1,K2)
+C
+C   DETERMINE NO I*2 WORDS OF CHARACTERS PER LINE
+C
+      BL = BCHAR / 2
+
+  901 FORMAT(1X,'TYPE STID',6(1X,A4,3X,A2))
+  902 FORMAT(1X,'AZ    RAN',12(2X,I3))
+  903 FORMAT(1X,'AVGDV    ',6(6X,I4))
+  904 FORMAT(1X,'LLDV  MDV',6(2X,I3,2X,I3))
+C$DELETE
+  905 FORMAT(1X,'BASE DPTH',6(1X,A1,F4.1,1X,A1,,I2))
+C$ENDDELETE
+C$INSERT  905 FORMAT(1X,'BASE DPTH',6(1X,A1,F4.1,1X,A1,I2))
+
+      RETURN
+      END

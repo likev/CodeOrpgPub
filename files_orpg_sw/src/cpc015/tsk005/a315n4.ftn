@@ -1,0 +1,339 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/16 19:40:54 $
+C $Id: a315n4.ftn,v 1.3 2002/12/16 19:40:54 christie Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+$INLINE A315L4__COMPARE_RADS,A315L4.FTN
+      SUBROUTINE A315N4__COMPLETE_SCAN( )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A315N4__COMPLETE_SCAN
+*.
+*.  MODULE VERSION: 0016
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       03 24 86      0000      DENNIS MILLER        BUILD 2
+*.       05 07 86      0001      DENNIS MILLER        SPR # 304
+*.       07 10 86      0002      DENNIS MILLER        SPR # 60313
+*.       07 10 86      0002      DENNIS MILLER        SPR # 60367
+*.       02 26 87      0003      DENNIS MILLER        SPR # 70106
+*.       06 06 89      0004      DAVID M. LYNCH       SPR # 90298
+*.       03 26 90      0005      PAUL U. PISANI       SPR # 90697
+*.       02 22 91      0006      DENNIS MILLER        SPR # 91256
+*.       02 15 91      0006      JOHN DEPHILIP        SPR # 91762
+*.       12 03 91      0007      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0008      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0009      Toolset              SPR 91895
+*.       03/25/93      0010      Toolset              SPR NA93-06801
+*.       01/28/94      0011      Toolset              SPR NA94-01101
+*.       03/03/94      0012      Toolset              SPR NA94-05501
+*.       04/01/95      0013      Toolset              CCR NA95-11802
+*.       06/26/95      0014      STEVE SMITH          CCR NA94-26302
+*.       12/23/96      0015      Toolset              CCR NA95-11807
+*.       03/16/99      0016      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:  A315N4__COMPLETE_SCAN ( )
+*.
+*.  MODULE FUNCTION:
+*.
+*.  This routine completes an elevation scan by comparing any
+*.  components alive at both the beginning and end of the scan.
+*.
+*.  MODULES CALLED: A315J4__CLOSE_COMP, A315L4__COMPARE_RADS 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT       TYPE        DESCRIPTION
+*.    -   -----       ----        -----------
+*.    G   PI_CONST    R*4         (CONSTANT)PARAMETER VALUE FOR PI
+*.    C   AZ1         I*4         Points to first azimuth of elevation scan in
+*.                                radial status arrays.
+*.    C   AZANGLE     R*4         Azimuth angles, in radians, of first,
+*.                                current and previous radials and used to
+*.                                determine the 0 degree cross-over.
+*.    C   AZC         I*4         Points to current azimuth in radial status
+*.                                arrays.
+*.    C   AZCOUNT     R*4         Count of the number of radials in an
+*.                                elevation scan.
+*.    C   AZP         I*4         Points to previous azimuth in radial status
+*.                                arrays.
+*.    C   CMPFEAT     R*4         An array of 16 characteristics for up to 120
+*.                                componets for 7 reflectivity levels
+*.    C   DELTAZM     R*4         Maximum azimuthal separation (radians) that
+*.                                segments in adjacent radials can be
+*.                                separated by and be part of the same
+*.                                component.
+*.    C   DTHETA      R*4         Average azimuthal separation between radials
+*.                                in radian measure for one complete elevation
+*.                                scan.
+*.    C   FIRSTAZ     R*4         Pointer for first azimuth in elevation scan.
+*.    C   LAB         I*4         ID label assigned to a new component.
+*.    C   NRSEG       I*4         Number of segments in the first radial of
+*.                                the elevation scan and each succeeding pair
+*.                                of radials by reflectivity index.
+*.    C   RADFLAG     I*4         Array indicates processing status of
+*.                                segments in RADSEG as either uncorrelated,
+*.                                correlated, or finished.
+*.    C   RADSEG      I*4         Subset of SEGMAIN segments array used for
+*.                                correlating segments from pairs of adjacent
+*.                                radials.
+*.    C   REF_MAX_NDX I*4         Lower limit of reflectivity index for
+*.                                processing segments and components.
+*.    C   REF_MIN_NDX I*4         Upper limit of reflectivity index for
+*.                                processing segments and components.
+*.    C   RINDX       I*4         Index used to point to current reflectivity
+*.                                level for processing segment index array and
+*.                                component arrays.
+*.    C   FEA_FAZ     I*4         (CONSTANT)Location of the radial number of a
+*.                                component's first (most counter-clockwise)
+*.                                segment in the CMPFEAT array.
+*.    C   FEA_LAZ     I*4         (CONSTANT)Location of the radial number of a
+*.                                component's last (most clockwise) segment in
+*.                                the CMPFEAT array.
+*.    C   FLG_FIN     I*4         (CONSTANT)Constant (flag) used to avoid
+*.                                redundant processing of other segments in a
+*.                                component already correlated with a new
+*.                                segment.
+*.    C   FLG_UNC     I*4         (CONSTANT)Constant (flag) used to show that
+*.                                a segment has not yet been correlated
+*.                                (associated) with a component.
+*.    C   RAD_ID      I*4         (CONSTANT)Position of ID labels of segments
+*.                                in RADSEG, RADSEGC, and RADSEGP arrays.
+*.
+*.    *   OUTPUT     TYPE        DESCRIPTION
+*.    -   ------     ----        -----------
+*.    C   AZC        I*4         Points to current azimuth in radial status
+*.                               arrays.
+*.    C   CMPFEAT    R*4         An array of 16 characteristics for up to 120
+*.                               componets for 7 reflectivity levels
+*.    C   DTHETA     R*4         Average azimuthal separation between radials
+*.                               in radian measure for one complete elevation
+*.                               scan.
+*.    C   FIRSTAZ    R*4         Pointer for first azimuth in elevation scan.
+*.    C   LAB        I*4         ID label assigned to a new component.
+*.    C   RADFLAG    I*4         Array indicates processing status of segments
+*.                               in RADSEG as either uncorrelated, correlated,
+*.                               or finished.
+*.    C   RADSEG     I*4         Subset of SEGMAIN segments array used for
+*.                               correlating segments from pairs of adjacent
+*.                               radials.
+*.    C   RINDX      I*4         Index used to point to current reflectivity
+*.                               level for processing segment index array and
+*.                               component arrays.
+*.    C   ZERO_CROSS L*4         Flags the 360-0 degree azimuthal transition
+*.                               for special testing of feature limits when
+*.                               building or merging components.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    C   CMPFEAT           R*4         An array of 16 characteristics for up
+*.                                      to 120 componets for 7 reflectivity
+*.                                      levels
+*.    C   NRSEG             I*4         Number of segments in the first radial
+*.                                      of the elevation scan and each
+*.                                      succeeding pair of radials by
+*.                                      reflectivity index.
+*.    C   RADSEG            I*4         Subset of SEGMAIN segments array used
+*.                                      for correlating segments from pairs of
+*.                                      adjacent radials.
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME             TYPE        DESCRIPTION
+*.    ----             ----        -----------
+*.    ID               I*4         Label used for components alive in the
+*.                                 first radial of an elevation scan.
+*.    IXC              I*4         Loop index used for referencing "current"
+*.                                 radial-segments.
+*.    IXP              I*4         Loop index used for referencing "previous"
+*.                                 radial segment.
+*.    IXX              I*4         Loop index used for referencing segments
+*.    RADIAL_AZM_DELTA R*4         The change in azimuth between the current
+*.                                 radial and the previous radial.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A315COCC
+*.    A315CPCC
+*.    A315CQCC
+*.    A315CWCC
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:
+*.
+*.     At the end of an elevation scan, an attempt is made to correl-
+*.   ate components alive at the beginning and end of the scan as if
+*.   there had been no motion (of the earlier components) during the
+*.   interval between their times of observation.
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     Compiled using COMP15.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     Linked using LINK15.CSS
+*.
+*.  MISC:  None
+*.
+C********************************************************************
+C
+C               STORM COMPONENTS: COMPLETE_SCAN  SUBROUTINE
+C
+C********************************************************************
+C
+      IMPLICIT NONE
+C
+C**Attach Storm Segments "pseudo-output buffer" (C3)
+$INCLUDE A315.INC/G,**A315COCC (NLIST)
+C
+C**Attach internal common area (CPCC)
+$INCLUDE A315.INC/G, **A315CPPC (NLIST)
+$INCLUDE             **A315CPCC (NLIST)
+C
+C**Attach internal common area (CQCC)
+$INCLUDE A315.INC/G, **A315CQPC (NLIST)
+$INCLUDE             **A315CQCC (NLIST)
+C
+C**Attach internal common area (CWCC)
+$INCLUDE A315BUF.INC/G, **A315PSAD (NLIST)
+$INCLUDE A315.INC/G, **A315CWCC (NLIST)
+C
+$INCLUDE A309.INC/G, **A3PM50 (NLIST)
+C
+C*********************** DATA DECLARATIONS **************************
+C
+      INTEGER  IXX, IXP, IXC, ID
+C
+      REAL     TWOPI, RADIAL_AZM_DELTA
+      PARAMETER (TWOPI = 2.0*PI_CONST)
+C
+C****************** BEGIN MAIN PROCESSING SECTION *******************
+C
+      FIRSTAZ = FIRSTAZ + AZCOUNT
+C
+C** After completing 360 deg scan, compare components with segments
+C** alive in last azimuth to those with segments alive in first.
+C
+      AZC = AZ1
+      ZERO_CROSS = .FALSE.
+      RADIAL_AZM_DELTA = ABS(  AZANGLE(AZC) - AZANGLE(AZP) )
+      DTHETA = MAX( DTHETA, RADIAL_AZM_DELTA )
+C
+      IF ( DTHETA .GT. PI_CONST ) THEN
+C
+C** The first and last azimuths of the scan cross zero degrees.
+C
+         ZERO_CROSS = .TRUE.
+         DTHETA = DTHETA - PI_CONST
+      END IF
+C
+C** Do For All Reflectivity Thresholds
+C
+      DO 650 RINDX = REF_MAX_NDX, REF_MIN_NDX
+C
+C** If distance between the radials is within a min. threshold and if
+C** there are live segments in both, test for possible correlations.
+C
+         IF ( DTHETA .LE. DELTAZM )  THEN
+            IF ( NRSEG( RINDX, AZC ) .GT. 0 .AND.
+     >           NRSEG( RINDX, AZP ) .GT. 0) THEN
+C
+C** Increment delimiters (1st & last az. nos.) of components alive
+C** at start of scan by no. azimuths in scan (def: 360).
+C
+               DO 610  IXC = 1, NRSEG( RINDX, AZC )
+                  ID = RADSEG( RAD_ID, IXC, RINDX, AZC )
+                  IF (CMPFEAT( FEA_FAZ, ID, RINDX ) .EQ. 1) THEN
+                     CMPFEAT( FEA_FAZ, ID, RINDX ) =
+     >               CMPFEAT( FEA_FAZ, ID, RINDX ) + AZCOUNT
+                  END IF
+C
+                  IF (CMPFEAT( FEA_LAZ, ID, RINDX ) .LE. AZCOUNT)THEN
+                     CMPFEAT( FEA_LAZ, ID, RINDX ) =
+     >               CMPFEAT( FEA_LAZ, ID, RINDX ) + AZCOUNT
+                  END IF
+ 610           CONTINUE
+C
+C** Compare segments in current radial with segments in previous
+C** radial for possible coorelation.
+C
+               CALL A315L4__COMPARE_RADS( NRSEG( RINDX, AZP ),
+     >              NRSEG( RINDX, AZC ), RADSEG( 1, 1, RINDX, AZP ),
+     >              RADSEG( 1, 1, RINDX, AZC ) )
+            END IF
+         END IF
+C
+C** Finish analysis upon any components which were alive in last
+C** radial but which emerged from comparison test uncorrelated.
+C
+         DO 660  IXP = 1, NRSEG( RINDX, AZP )
+            IF ( RADFLAG( RINDX, IXP ) .EQ. FLG_UNC )  THEN
+               LAB = RADSEG( RAD_ID, IXP, RINDX, AZP )
+C
+               IF (CMPFEAT( FEA_FAZ, LAB, RINDX ) .NE. FIRSTAZ) THEN
+C
+                  CALL A315J4__CLOSE_COMP( CMPFEAT( 1, LAB, RINDX ) )
+C
+               END IF
+C
+C** Mark any other branches (i.e. segments) with same label as
+C** component just analysed as "Finished".
+C
+               DO 66  IXX = 1, NRSEG( RINDX, AZP )
+                  IF ( RADSEG( RAD_ID, IXX, RINDX, AZP ) .EQ. LAB )
+     >                         RADFLAG( RINDX, IXX ) = FLG_FIN
+ 66            CONTINUE
+C
+            END IF
+ 660     CONTINUE
+C
+C** Finish analysis upon any remaining components (i.e. those which
+C** correlated & those from first radial which remained uncorrelated.
+C** First reset RADFLAG to uncorrelated.
+C
+        DO 665 IXC = 1, NRSEG( RINDX, AZC )
+           RADFLAG( RINDX, IXC ) = FLG_UNC
+ 665    CONTINUE
+C
+         DO 670  IXC = 1, NRSEG( RINDX, AZC )
+C
+            IF (RADFLAG( RINDX, IXC ) .NE. FLG_FIN) THEN
+C
+               LAB = RADSEG( RAD_ID, IXC, RINDX, AZC )
+               CALL A315J4__CLOSE_COMP( CMPFEAT( 1, LAB, RINDX ) )
+C
+C** Mark any other branches (i.e. segments) with same label as
+C** component just analysed as "Finished", to avoid re-analysis.
+C
+               DO 67  IXX = 1, NRSEG( RINDX, AZC )
+                  IF ( RADSEG( RAD_ID, IXX, RINDX, AZC ) .EQ. LAB )
+     >                      RADFLAG( RINDX, IXX ) = FLG_FIN
+ 67            CONTINUE
+C
+            END IF
+ 670     CONTINUE
+ 650  CONTINUE
+C
+C**************** END OF PROCESSING FOR SUBROUTINE ******************
+C
+      RETURN
+      END

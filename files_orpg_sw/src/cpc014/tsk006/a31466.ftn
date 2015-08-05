@@ -1,0 +1,581 @@
+C
+C RCS info
+C $Author: ryans $
+C $Locker:  $
+C $Date: 2006/02/10 19:36:37 $
+C $Id: a31466.ftn,v 1.11 2006/02/10 19:36:37 ryans Exp $
+C $Revision: 1.11 $
+C $State: Exp $
+C
+      SUBROUTINE A31466__PRODUCT_HEADER(PRODBUF,VSNUM,PRODCODE,MAXVAL,
+     $                                  HYDRSUPL,LYR3EN)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A31466__PRODUCT_HEADER
+*.
+*.  MODULE VERSION: 0020
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       6 13 89       0000      BRADLEY SUTKER       SPR# 90348
+*.       3 23 90       0001      DAVE HOZLOCK         SPR# 90697
+*.       1 04 90       0002      PAUL JENDROWSKI      SPR# 91255
+*.       2 03 91       0003      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0004      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0005      Toolset              SPR 91895
+*.       07 02 92      0006      PJ YELSHIN           SPR 92363
+*.       03/25/93      0007      Toolset              SPR NA93-06801
+*.       01/28/94      0008      Toolset              SPR NA94-01101
+*.       03/03/94      0009      Toolset              SPR NA94-05501
+*.       07/01/94      0010      CHERYL STEPHENSON    CCR NW-94-101-02
+*.       04/01/95      0011      Toolset              CCR NA95-11802
+*.       05/31/95      0012      ROBERT RIERSON       CCR NA94-35301 (SPR NA94-0
+*.       06/21/95      0012      TIM O'BANNON         BUILD 9 VERSION#
+*.       11/03/95      0012      JAY BREIDENBACH      CCR NA94-33201
+*.       12/23/96      0013      Toolset              CCR NA95-11807
+*.       11/17/97      0014      Dennis Miller        CCR NA96-18402
+*.       03/16/99      0015      Toolset              CCR NA98-23803
+*.       01/31/02      0016      Dennis A. Miller     CCR NA01-27501
+*.       07/31/02      0017      C. Pham D. Miller    CCR NA02-20602 
+*.       12/31/02      0018      Dennis A. Miller     CCR NA00-28601
+*.       06/30/03      0019      C. Pham              CCR NA02-06508
+*.       10/26/05      0020      Cham Pham            CCR NA05-21401
+*.
+*.  CALLING SEQUENCE: CALL A31466__PRODUCT_HEADER(PRODBUF,VSNUM,
+*.                                   PRODCODE,MAXVAL,HYDRSUPL,LYR3EN)
+*.
+*.  MODULE FUNCTION: BUILDS PRODUCT HEADER PORTION OF BUFFER.
+*.
+*.  MODULES CALLED: A3CM25__GET_DATE_TIME
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT           TYPE        DESCRIPTION
+*.    -   -----           ----        -----------
+*.    G   SIRDAHGT        I*4         Site Adaptation - RDA Height.
+*.    G   SIRDALAT        I*4         Site Adaptation - RDA Latitude.
+*.    G   SIRDALON        I*4         Site Adaptation - RDA Longitude.
+*.    G   SIRPGID         I*4         Site Adaptation - RPG ID Number.
+*.    G   SUMMARY         I*4         Volume Scan Summary Table
+*.    G   THRESH          I*2         Adaptation Data for Color Data Table
+*.                                    Thresholds (color-level code, color
+*.                                    table number).
+*.                                    description: Contour interval.
+*.    G   CUR_BIAS        I*4         (CONSTANT)Bias between rain gage and
+*.                                    radar estimates positional parameter.
+*.    G   CUR_GRPSIZ      I*4         (CONSTANT)Gage-Radar Pair (i.e., Bias
+*.                                    sample size) positional parameter.
+*.    G   DIV1OFF         I*4         (CONSTANT)Product header offset: First
+*.                                    divider.
+*.    G   DL1OFF          I*4         (CONSTANT)Product header offset: data
+*.                                    level 1.
+*.    G   END_HRDATE      I*4         (CONSTANT)Positional parameter for end
+*.                                    date of the input hourly scan.
+*.    G   END_HRTIME      I*4         (CONSTANT)Positional parameter for
+*.                                    ending time of hourly scan.
+*.    G   FLG_SPOT_BLANK  I*4         (CONSTANT)(Constant) Parameter for
+*.                                    position of Spot Blanking flag within
+*.                                    Supplemental Data array
+*.    G   GDPRDOFF        I*4         (CONSTANT)Product header offset:
+*.                                    generation date of product.
+*.    G   GTLSWOFF        I*4         (CONSTANT)Product header
+*.                                    offset:Generation time of product (LSW).
+*.    G   GTMSWOFF        I*4         (CONSTANT)Product header offset.
+*.                                    Generation time of product (MSW).
+*.    G   HYZ_SUPL        I*4         (CONSTANT)(CONSTANT)Size of Supplemental
+*.                                    Data array in Hybrid Scan output buffer.
+*.                                    SSIZ_PRE + SSIZ_RATE + SSIZ_ACUM +
+*.                                    SSIZ_ADJU (= (13+14+16+5) = 48)
+*.    G   LGLSWOFF        I*4         (CONSTANT)Product header offset: Length
+*.                                    of message (LSW).
+*.    G   LGMSWOFF        I*4         (CONSTANT)Product header offset: Length
+*.                                    of message (MSW).
+*.    G   LNLSWOFF        I*4         (CONSTANT)Product header offset:
+*.                                    Longitude of radar (LSW).
+*.    G   LNMSWOFF        I*4         (CONSTANT)Product header offset:
+*.                                    Longitude of radar (MSW).
+*.    G   LRLSWOFF        I*4         (CONSTANT)Product block offset: Length
+*.                                    of product block portion of product
+*.                                    (LSW).
+*.    G   LRMSWOFF        I*4         (CONSTANT)Product block offset: Length
+*.                                    of product block portion of product
+*.                                    (MSW).
+*.    G   LTLSWOFF        I*4         (CONSTANT)Product header offset:
+*.                                    Latitude of radar (LSW).
+*.    G   LTMSWOFF        I*4         (CONSTANT)Product header offset:
+*.                                    Latitude of radar (MSW)
+*.    G   MDL1OFF         I*4         (CONSTANT)Product header offset: Maximum
+*.                                    Data Level 1.
+*.    G   PDPRAM5         I*4         (CONSTANT)Product header offset: 
+*.                                    Product depend. param #5
+*.    G   PDPRAM6         I*4         (CONSTANT)Product header offset: 
+*.                                    Product depend. param #6
+*.    G   PDPRAM7         I*4         (CONSTANT)Product header offset: 
+*.                                    Product depend. param #7
+*.    G   PDPRAM8         I*4         (CONSTANT)Product header offset: 
+*.                                    Product depend. param #8
+*.    G   PDPRAM9         I*4         (CONSTANT)Product header offset: 
+*.                                    Product depend. param #9
+*.    G   PDPRAM10         I*4         (CONSTANT)Product header offset: 
+*.                                    Product depend. param #10
+*.    G   MESCDOFF        I*4         (CONSTANT)Product header offset: Message
+*.                                    code.
+*.    G   NBLKSOFF        I*4         (CONSTANT)Product header offset: Number
+*.                                    of blocks in product.
+*.    G   NMAPSOFF        I*4         (CONSTANT)Product header offset
+*.                                    descriptions: Number of maps.
+*.    G   OPRLSWOFF       I*4         (CONSTANT)Product header offset product
+*.                                    (LSW).
+*.    G   OPRMSWOFF       I*4         (CONSTANT)Product header offset
+*.                                    descriptions: Offset to product (MSW).
+*.    G   OTADLSWOFF      I*4         (CONSTANT)Product header offset:
+*.                                    tabular/adapt (LSW).
+*.    G   OTADMSWOFF      I*4         (CONSTANT)Product header offset:
+*.                                    tabular/adapt (MSW).
+*.    G   PHEADLNG        I*4         (CONSTANT)Number of half words in
+*.                                    product header (its length).
+*.    G   PPHRLYNC        I*4         (CONSTANT)Color table index for
+*.                                    precipitation, 1 and 3HR products (Not
+*.                                    clear air).
+*.    G   PRDCODOFF       I*4         (CONSTANT)Product header offset
+*.                                    descriptions: Product code.
+*.    G   RADHGTOFF       I*4         (CONSTANT)Product header offset
+*.                                    descriptions: Height of radar.
+*.    G   SCAN_DATE       I*4         (CONSTANT)(CONSTANT)Volume Scan Date
+*.                                    index into Scan Summary Table
+*.    G   SCAN_MODE       I*4         (CONSTANT)(CONSTANT)Weather Mode index
+*.                                    into Scan Summary Table
+*.    G   SCAN_TIME       I*4         (CONSTANT)(CONSTANT)Volume Scan Time
+*.                                    index into Scan Summary Table
+*.    G   SCAN_VCP        I*4         (CONSTANT)(CONSTANT)Volume Coverage
+*.                                    Pattern index into Scan Summary Table
+*.    G   SRCIDOFF        I*4         (CONSTANT)Product header offset: Source
+*.                                    ID-Number.
+*.    G   VCPOFF          I*4         (CONSTANT)Product header offset:  Volume
+*.                                    coverage pattern.
+*.    G   VOL_STAT        I*4         (CONSTANT)(CONSTANT)Spot Blanking Status
+*.                                    index into Hydromet Supplemental Data
+*.                                    array
+*.    G   VSDATOFF        I*4         (CONSTANT)Product header offset: Volume
+*.                                    scan date.
+*.    G   VSNUMOFF        I*4         (CONSTANT)Product header offset
+*.                                    descriptions: Volume scan number.
+*.    G   VSTLSWOFF       I*4         (CONSTANT)Product header offset: Volume
+*.                                    scan time (LSW).
+*.    G   VSTMSWOFF       I*4         (CONSTANT)Product header offset:  Volume
+*.                                    scan time (MSW).
+*.    G   WTMODOFF        I*4         (CONSTANT)Product header offset:
+*.                                    Weather mode.
+*.    C   BIAS_ESTM_3HR   R*4         Radar bias estimate three hour average.
+*.    C   BIAS_GRPSIZ_3HR R*4         Effective sample size three hour average.
+*.    C   HRLY_EDATE      I*4         Ending dates of hourly data.
+*.    C   HRLY_ETIME      I*4         Ending times of hourly data.
+*.    C   KNEWEST         I*4         Index of the newest of the 3 hourly
+*.                                    scans.
+*.    C   SB_STAT_3HR     I*4         Spot Blanking status for the 3 hour
+*.                                    Accumulation product
+*.    C   STMTOT_BDAT     I*4         Storm total period begin date.
+*.    C   STMTOT_BTIM     I*4         Storm total period begin time.
+*.    C   STMTOT_EDAT     I*4         Storm total period end date.
+*.    C   STMTOT_ETIM     I*4         Storm total period end time.
+*.    C   STMTOT_SB       I*4         Storm Total Accumulation Product spot
+*.                                    blaning status
+*.    C   CODE_1HR        I*4         (CONSTANT)1 HR. Accumulation product
+*.                                    code
+*.    C   CODE_3HR        I*4         (CONSTANT)3 HR. Accumulation product
+*.                                    code.
+*.    C   CODE_DIG        I*4         (CONSTANT)Digital precipitation array
+*.                                    product code.
+*.    C   CODE_STT        I*4         (CONSTANT)Storm total accumulation
+*.                                    product code.
+*.    C   CODE_SUP        I*4         (CONSTANT)Supplemental data product
+*.                                    code.
+*.    C   INCRMENT        I*4         (CONSTANT)Variable used to increment by
+*.                                    1.
+*.    C   STMTOTNC        I*4         (CONSTANT)Storm total (Non clear air)
+*.                                    color table index.
+*.    P   HYDRSUPL        I*4         Array of HYDROMET supplemental data
+*.    P   LYR3EN          I*4         Layer 3 end index
+*.    P   MAXVAL          I*4         Maximum data value
+*.    P   PRODBUF         I*2         OUTPUT BUFFER SPACE
+*.    P   PRODCODE        I*4         CURRENT PRODUCT'S MESSAGE CODE
+*.    P   VSNUM           I*4         VOLUME SCAN NUMBER
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    P   PRODBUF I*2         OUTPUT BUFFER SPACE
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE: NONE
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME       TYPE        DESCRIPTION
+*.    ----       ----        -----------
+*.    CLEAR      I*4         Parameter for initializing to 0
+*.    CLTABIND   I*4         Color table index
+*.    DIVIDER    I*4         Parameter for product layer divider
+*.    EQV_INT    I*4         Used to decode real value stored in integer
+*.                           array.
+*.    EQV_REAL   R*4         Used to decode real value stored in integer
+*.                           array.  Real value equivalenced to EQV_INT.
+*.    GDATE      I*4         System date
+*.    GTIME      I*4         System time
+*.    I          I*4         Do-loop index into product buffer
+*.    I4WORD     I*4         Variable used to put I*4 word into an I*2 product
+*.                           buffer.
+*.    LFMLEVS    I*4         Dimension of LFMVALS
+*.    LFMVALS    I*2         1/40thILFM color table thresholds
+*.    MAXLEVS    I*4         Number of color table threshold levels
+*.    NBLKS      I*4         Number of blocks in product buffer
+*.    NI2        I*4         Dimension of I2WORD
+*.    RND_SEC    I*4         Parameter used to round seconds to mins
+*.    SCALE      R*4         Parameter used to scale bias to integer
+*.    SEC_IN_MIN I*4         Number of seconds in minute
+*.    VERSION1   I*2         A mask applied to PRODBUF(NMAPSOFF) that defines
+*.                           this PPS product as a build 9 version (polar
+*.                           format).  A mask applied to PRODBUF(NMAPSOFF) that defines
+*.                           SPD products as ORPG Build 5.  
+*.    VERSION2   I*2         A mask applied to PRODBUF(NMAPSOFF) that defines this DPA product 
+*.                           as updated to allow up to 18 data layers.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD05
+*.    COLRTBL
+*.    SITEADP
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3146C2
+*.
+*.  ERROR CONDITIONS: NONE.
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     THIS MODULE IS COMPILED USING COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     THIS MODULE IS LINKED USING LINK14.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+ 
+C
+C...'X' IN COLUMN-1 INDICATES CONDITIONALLY COMPILED DEBUG CODE...
+C
+      IMPLICIT NONE
+C
+$INCLUDE A309.INC/G,**A3PM00 (NEND NLIST)
+$INCLUDE            **A3PM01 (NEND NLIST)
+$INCLUDE            **A3PM04 (NEND NLIST)
+$INCLUDE            **A3PM06 (NEND NLIST)
+$INCLUDE            **A3CD05 (NEND NLIST)
+C
+$INCLUDE A309ADPT.INC/G,**A3CD70CA (NEND NLIST)
+$INCLUDE                **A3CD70C5 (NEND NLIST)
+$INCLUDE A313HBUF.INC/G,**A313HYPP (NLIST)
+C
+$INCLUDE A3146.INC/G, **A3146P1 (NEND NLIST)
+$INCLUDE              **A3146C2 (NEND NLIST)
+C
+C
+      INTEGER  NI2,LYR3EN
+      PARAMETER(NI2=2)
+      INTEGER   I4WORD, LFMLEVS
+      INTEGER HYDRSUPL(HYZ_SUPL), EQV_INT
+      REAL EQV_REAL, SCALE
+      PARAMETER (SCALE=100.)
+      EQUIVALENCE (EQV_INT,EQV_REAL)
+      INTEGER RND_SEC, SEC_IN_MIN
+      PARAMETER (RND_SEC=30, SEC_IN_MIN=60)
+C
+      PARAMETER (LFMLEVS=3)
+      INTEGER*2 LFMVALS(LFMLEVS)
+C
+      INTEGER*2 PRODBUF(*)
+      INTEGER   MAXVAL, VSNUM, PRODCODE, GDATE, GTIME, CLTABIND, I,
+     +          NBLKS, MAXLEVS, DIVIDER, CLEAR
+C
+      PARAMETER(DIVIDER=-1,NBLKS=3,CLEAR=0,
+     +          MAXLEVS=16 )
+C
+      DATA  LFMVALS   /-60,125,256/
+C
+C**  SET UP BIT MASKS TO DEFINE GRAPHICS & OTHER PRODUCT VERSION NO.S
+C
+      INTEGER IOR
+      INTEGER*2 VERSION1
+      PARAMETER(VERSION1=X'0100')
+      INTEGER*2 VERSION2
+      PARAMETER(VERSION2=X'0200')
+      INTEGER*2 VERSION3
+      PARAMETER(VERSION3=X'0300')
+
+C
+C*** EXECUTABLE CODE:
+C    ---------------
+C
+C** INITIALIZE BUFFER TO NULL
+C
+      DO 10 I=1,PHEADLNG
+         PRODBUF(I)=CLEAR
+  10  CONTINUE
+C
+C* MESSAGE CODE
+C
+      PRODBUF(MESCDOFF) = PRODCODE
+C
+C* SOURCE ID
+C
+      PRODBUF(SRCIDOFF) = SIRPGID
+C
+C* NUMBER OF BLOCKS
+C
+      PRODBUF(NBLKSOFF) = NBLKS
+C
+C* DIVIDER
+C
+      PRODBUF(DIV1OFF)  = DIVIDER
+C
+C* LATITUDE
+C
+      call RPG_set_product_int( PRODBUF(LTMSWOFF), SIRDALAT )
+C
+C* LONGITUDE
+C
+      call RPG_set_product_int( PRODBUF(LNMSWOFF), SIRDALON )
+C
+C* RADAR HEIGHT
+C
+      PRODBUF(RADHGTOFF)= SIRDAHGT
+C
+C* PRODUCT CODE
+C
+      PRODBUF(PRDCODOFF)= PRODCODE
+C
+C* VOLUME SCAN NUMBER
+C
+      PRODBUF(VSNUMOFF) = VSNUM
+C
+C* WEATHER MODE
+C
+      PRODBUF(WTMODOFF) = SUMMARY(SCAN_MODE,VSNUM)
+C
+C* VOLUME COVERAGE PATTERN
+C
+      PRODBUF (VCPOFF)  = SUMMARY (SCAN_VCP,VSNUM)
+C
+C* VOLUME SCAN DATE & TIME
+C
+      PRODBUF(VSDATOFF) = SUMMARY(SCAN_DATE,VSNUM)
+      call RPG_set_product_int( PRODBUF(VSTMSWOFF), 
+     1                          SUMMARY(SCAN_TIME,VSNUM) )
+C
+C* GENERATION DATE & TIME
+C
+      CALL A3CM25__GET_DATE_TIME(GDATE,GTIME)
+      PRODBUF(GDPRDOFF) = GDATE
+      call RPG_set_product_int( PRODBUF(GTMSWOFF), GTIME )
+C
+C* PRODUCT SYMBOLOGY BLOCK OFFSET
+C
+      call RPG_set_product_int( PRODBUF(OPRMSWOFF), PHEADLNG )
+C
+C* COLOR THRESHOLD TABLES
+C
+      IF (PRODCODE.NE.CODE_DIG .AND. PRODCODE.NE.CODE_SUP) THEN
+         IF (PRODCODE.EQ.CODE_STT) THEN
+            CLTABIND = STMTOTNC
+         ELSE
+            CLTABIND = PPHRLYNC
+         ENDIF
+         DO 20 I=1,MAXLEVS
+            PRODBUF(DL1OFF+I-INCRMENT)= THRESH(I,CLTABIND)
+  20     CONTINUE
+C
+C DO 1/40 LFM COLOR LEVELS
+C
+      ELSE IF (PRODCODE.EQ.CODE_DIG) THEN
+         DO 30 I=1,LFMLEVS
+            PRODBUF(DL1OFF+I-INCRMENT)=LFMVALS(I)
+ 30      CONTINUE
+      ENDIF
+C
+C  MAXIMUM DATA VALUE, MEAN_FIELD BIAS, SAMPLE SIZE, AND
+C      RAINFALL ACCUMULATION DATE & TIME...
+C
+      PRODBUF(MDL1OFF)  = MAXVAL
+      IF (PRODCODE.EQ.CODE_3HR) THEN
+C
+C** Note: Changed for LINUX - Used RPG_NINT library function instead
+C         of adding 0.5 for rounding to the nearest integer.
+
+         call RPG_NINT(BIAS_ESTM_3HR*SCALE, I4WORD)
+
+         PRODBUF(PDPRAM5) = I4WORD
+
+         call RPG_NINT(BIAS_GRPSIZ_3HR, I4WORD) 
+
+         PRODBUF(PDPRAM6) = I4WORD
+C
+C IF NO 3 HOUR TOTAL ... USE CURRENT VOL DATE AND TIME
+C
+         IF (HRLY_EDATE(KNEWEST).EQ.CLEAR) THEN
+           PRODBUF(PDPRAM7)  = SUMMARY(SCAN_DATE,VSNUM)
+           PRODBUF(PDPRAM8)= (SUMMARY(SCAN_TIME,VSNUM)+RND_SEC)/
+     $                              SEC_IN_MIN
+C
+C** SET SPOT BLANKING OFF
+C
+           PRODBUF(NMAPSOFF) = CLEAR
+C
+         ELSE
+           PRODBUF(PDPRAM7)  = HRLY_EDATE(KNEWEST)
+           PRODBUF(PDPRAM8)= HRLY_ETIME(KNEWEST)
+C
+C** SET SPOT BLANK STATUS
+C
+           PRODBUF(NMAPSOFF) = SB_STAT_3HR
+C
+         END IF
+C
+C**  DEFINE BUILD 9 PRODUCT VERSION NUMBER
+C
+         PRODBUF(NMAPSOFF) = IOR(VERSION1,PRODBUF(NMAPSOFF))
+C
+      ELSE IF (PRODCODE.EQ.CODE_DIG .OR. PRODCODE.EQ.CODE_1HR) THEN
+C
+C** DECODE REAL VALUES FROM INTEGER ARRAY
+C
+         EQV_INT = HYDRSUPL(CUR_BIAS)
+C
+C** Note: Changed for LINUX - Used RPG_NINT library function instead
+C         of adding 0.5 for rounding to the nearest integer.
+
+         call RPG_NINT(EQV_REAL*SCALE, I4WORD)
+
+         PRODBUF(PDPRAM5) = I4WORD
+
+         EQV_INT = HYDRSUPL(CUR_GRPSIZ)
+C
+C** Note: Changed for LINUX - Used RPG_NINT library function instead
+C         of adding 0.5 for rounding to the nearest integer.
+
+         call RPG_NINT(EQV_REAL, I4WORD)
+
+         PRODBUF(PDPRAM6) = I4WORD
+
+         PRODBUF(PDPRAM7)  = HYDRSUPL(END_HRDATE)
+         PRODBUF(PDPRAM8) = (HYDRSUPL(END_HRTIME)+RND_SEC)/SEC_IN_MIN
+C
+C** SET SPOT BLANK STATUS
+C
+         PRODBUF(NMAPSOFF) = HYDRSUPL(FLG_SPOT_BLANK)
+C
+C**  DEFINE ORPG BUILD 5 PRODUCT VERSION NUMBER FOR GRAPHIC PRODUCT
+C**  AND ORPG BUILD 5 PRODUCT VERSION NUMBER FOR DIGITAL PRODUCT
+C
+         IF (PRODCODE.EQ.CODE_1HR) THEN
+C
+            PRODBUF(NMAPSOFF) = IOR(VERSION1,PRODBUF(NMAPSOFF))
+C
+         ELSEIF (PRODCODE.EQ.CODE_DIG) THEN
+C
+            PRODBUF(NMAPSOFF) = IOR(VERSION2,PRODBUF(NMAPSOFF))
+C
+         ENDIF
+C
+C** CHECK FOR STORM TOTAL PRODUCT
+C
+      ELSEIF (PRODCODE.EQ.CODE_STT) THEN
+C
+C** COPY STORM TOTAL BEGIN AND END TIMES
+C
+         PRODBUF(PDPRAM5)  = STMTOT_BDAT
+         PRODBUF(PDPRAM6)  = STMTOT_BTIM
+         PRODBUF(PDPRAM7)  = STMTOT_EDAT
+         PRODBUF(PDPRAM8)  = STMTOT_ETIM
+C
+C** DECODE REAL BIAS AND EST. SAMPLE SIZE AND SCALE TO INTEGER NUMBER
+C
+         EQV_INT = HYDRSUPL(CUR_BIAS)
+C
+C** Note: Changed for LINUX - Used RPG_NINT library function instead
+C         of adding 0.5 for rounding to the nearest integer.
+
+
+         call RPG_NINT(EQV_REAL*SCALE, I4WORD)
+
+         PRODBUF(PDPRAM9) = I4WORD
+
+         EQV_INT = HYDRSUPL(CUR_GRPSIZ)
+C
+C** Note: Changed for LINUX - Used RPG_NINT library function instead
+C         of adding 0.5 for rounding to the nearest integer.
+
+         call RPG_NINT(EQV_REAL, I4WORD)
+
+         PRODBUF(PDPRAM10) = I4WORD
+C
+C** SET SPOT BLANK STATUS
+C
+         PRODBUF(NMAPSOFF) = STMTOT_SB
+C
+C**  DEFINE OPRG BUILD 5 PRODUCT VERSION NUMBER
+C
+         PRODBUF(NMAPSOFF) = IOR(VERSION1,PRODBUF(NMAPSOFF))
+C
+C** CHECK FOR SUPPLEMENTAL DATA PRODUCT
+C
+      ELSEIF (PRODCODE.EQ.CODE_SUP) THEN
+C
+C** SET SPOT BLANK STATUS
+C
+         PRODBUF(NMAPSOFF) = HYDRSUPL(VOL_STAT)
+C
+C** DEFINE ORPG BUILD 5 PRODUCT VERSION NUMBER
+C
+         PRODBUF(NMAPSOFF) = IOR(VERSION1,PRODBUF(NMAPSOFF))
+C
+      ENDIF
+C
+C* TABULAR/ADAPTATION DATA (BLOCK3) OFFSET,
+C   DERIVED FROM LENGTH OF RUN-LENGTH-ENCODING BLOCK
+C
+      call RPG_get_product_int( PRODBUF(LRMSWOFF), I4WORD )
+C
+C   OFFSET IS IN I*2 WORDS
+C
+      IF (PRODCODE.EQ.CODE_SUP.OR.PRODCODE.EQ.CODE_DIG) THEN
+        I4WORD           = CLEAR
+      ELSE
+        I4WORD           = I4WORD/NI2 + PHEADLNG
+      END IF
+C
+      call RPG_set_product_int( PRODBUF(OTADMSWOFF), I4WORD )
+C
+C* CALCULATE PRODUCT MESSAGE LENGTH, IN BYTES:
+C    = HEADER + BLOCK1 + BLOCK3
+C
+      I4WORD  = LYR3EN*NI2
+C
+      call RPG_set_product_int( PRODBUF(LGMSWOFF), I4WORD )
+C
+C**  RETURN TO PRODUCT GENERATION CONTROL ROUTINE
+C
+      RETURN
+      END

@@ -1,0 +1,481 @@
+C 
+C RCS info 
+C $Author: steves $ 
+C $Locker:  $ 
+C $Date: 2008/04/08 14:58:07 $ 
+C $Id: a31360.ftn,v 1.7 2008/04/08 14:58:07 steves Exp $ 
+C $Revision: 1.7 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A31360__BUFFER_CONTROLLER( PARAM )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A31360__BUFFER_CONTROLLER
+*.
+*.  MODULE VERSION: 0012
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       10 20 88      0000      Paul Jendrowski      SPR # 80383
+*.       05 16 90      0000      JOHN DEPILIP         SPR # 90697
+*.       02 22 91      0001      BAYARD JOHNSTON      SPR # 91254
+*.       02 15 91      0001      JOHN DEPHILIP        SPR # 91762
+*.       12 03 91      0002      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0003      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0004      Toolset              SPR 91895
+*.       03/25/93      0005      Toolset              SPR NA93-06801
+*.       01/28/94      0006      Toolset              SPR NA94-01101
+*.       03/03/94      0007      Toolset              SPR NA94-05501
+*.       04/11/96      0008      Toolset              CCR NA95-11802
+*.       12/23/96      0009      Toolset              CCR NA95-11807
+*.       03/16/99      0010      Toolset              CCR NA98-23803
+*.       01/31/02      0011      Dennis A. Miller     CCR NA01-27501
+*.       01/26/07      0012      Jihong Liu           CCR NA07-01702 
+*.
+*.  CALLING SEQUENCE: CALL A31360__BUFFER_CONTROLLER (PARAM)
+*.
+*.  MODULE FUNCTION:
+*.
+*.    This is the routine which is entered for the task in response to
+*.  a queued "wake-up" parameter, and which obtains and releases input
+*.  and output buffers (i.e.memory blocks within the master RPG shared
+*.  memory buffer) as needed by algorithm PRECIP. ADJUSTMENT, enabling
+*.  it to execute in real time in coordination with the other tasks of
+*.  the RPG (CPCI-03).  The routine also performs high-level processing
+*.  control for the algorithm.
+*.
+*.  MODULES CALLED: A31145__ABORT_ME, A31168__ABORT_ME_BECAUSE,
+*.                  A31211__GET_INBUF, A31218__BUF_VOL, A31212__REL_INBUF, 
+*.                  A31215__GET_OUTBUF, A31216__REL_OUTBUF, 
+*.                  A31361__PRECIP_ADJUST, A31362__INIT_ADPT, 
+*.                  A3136K__COPY_ACCUM, A3136T__INIT_TIMES,
+*.                  A3136W__WRT_ACUMSCAN
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT           TYPE      DESCRIPTION
+*.    -   -----           ----      -----------
+*.    G   MEM             I*4       Array in RPG shared memory set aside for
+*.                                  buffer sharing.
+*.    G   CUR_BIAS        I*4       (CONSTANT)Index to (mean field) Bias in
+*.                                  Supplemental Data array
+*.    G   CUR_GRPSIZ      I*4       (CONSTANT)Index to (effective) Gage-Radar 
+*.                                  Pair Size in Supplemental Data array
+*.    G   CUR_MSPAN       I*4       (CONSTANT)Index to Memory Span in
+*.                                  Supplemental Data array
+*.    G   DAT_BCALC       I*4       (CONSTANT)Index to Date Bias Calculated in
+*.                                  Supplemental Data array
+*.    G   END_BOTH        I*4       (CONSTANT)Indicator that hour was set back
+*.                                  to both clock hour and end gage
+*.                                  accumulation time.
+*.    G   END_GAGE        I*4       (CONSTANT)Indicates hour was set back to
+*.                                  end gage accumulation time.
+*.    G   FLAG_CLEAR      I*4       (CONSTANT)Parameter for a cleared flag
+*.    G   FLAG_SET        I*4       (CONSTANT)Parameter for a set flag.
+*.    G   FLG_NOHRLY      I*4       (CONSTANT)Index to flag indicating hourly
+*.                                  scan data is not there.
+*.    G   FLG_ZERHLY      I*4       (CONSTANT)Index to flag indicating hourly
+*.                                  scan data is zero-filled.
+*.    G   FLG_ZERSCN      I*4       (CONSTANT)Indicator in hydromet scan that
+*.                                  there was a zero scan.
+*.    G   FORWARD         I*4       (CONSTANT)Parameter to indicate
+*.                                  that an output buffer is to be forwarded
+*.                                  to successor tasks
+*.    G   HLY_SCNTYP      I*4       (CONSTANT)Offset into supplementary data
+*.                                  array within the output buffer pointing to
+*.                                  the hourly scan type.
+*.    G   HYADJSCN        I*4       (CONSTANT)Parameter for adjusted scans
+*.                                  input buffer data type.
+*.    G   HYO_ADAP        I*4       (CONSTANT)OFFSET INTO IO
+*.                                  BUFFERS-ACCUMULATION OR RATE ARRAYS
+*.    G   HYO_ADJHRLY     I*4       (CONSTANT)Offset for adjusted hourly
+*.                                  accumulation scan array.
+*.    G   HYO_ADJSCAN     I*4       (CONSTANT)Offset for adjusted scan-to-scan
+*.                                  accumulation scan array.
+*.    G   HYO_BHEADER     I*4       (CONSTANT)Offset in output buffer to Bias 
+*.                                  Header
+*.    G   HYO_BTABL       I*4       (CONSTANT)Offset in output buffer to Bias
+*.                                  Table
+*.    G   HYO_MESG        I*4       (CONSTANT)Offset for precipitation status
+*.                                  message in input buffer.
+*.    G   HYO_SUPL        I*4       (CONSTANT)Offset to Supplemental
+*.                                  Data array in Hybrid Scan output buffer.
+*.                                  HYZ_MESG + HYZ_ADAP (= (6 + 45) = 51)
+*.    G   NORMAL          I*4       (CONSTANT)Parameter which
+*.                                  indicates normal completion of requested
+*.                                  operation to acquire input or output
+*.                                  buffer
+*.    G   NO_MEM          I*4       (CONSTANT)Parameter which
+*.                                  indicates no memory available on attempt
+*.                                  to acquire output buffer
+*.    G   PROD_MEM_SHED   I*4       (CONSTANT)Parameter which
+*.                                  indicates that product aborted due to
+*.                                  memory load shedding
+*.    G   SCRATCH         I*4       (CONSTANT)DATA BUFFER TYPE FOR TASK
+*.                                  SCRATCH DATA BUFFERS
+*.    G   TIM_BCALC       I*4       (CONSTANT)Index to Time Bias Calculated in
+*.                                  Supplemental Data array
+*.    C   BIAS            R*4       Bias (i.e., Gage-Radar ratio) selected
+*.                                  from table
+*.    C   DBUPDT          I*4       Date Bias last updated locally (Julian)
+*.    C   GRPSIZ          R*4       Effective Gage-Radar Pair Size associated
+*.                                  with Bias chosen from table
+*.    C   IBIAS           I*4       Integer Bias equivalenced to real Bias
+*.    C   IEQV_BIAS_TABL  I*4       Integer equivalent to real, internal version 
+*.                                  of Bias Table
+*.    C   IGRPSIZ         I*4       Integer Gage-Radar Pair Size equivalenced
+*.                                  to real Gage-Radar Pair Size
+*.    C   IMSPAN          I*4       Integer Memory Span equivalenced to real
+*.                                  Memory Span
+*.    C   MSPAN           R*4       Memory Span associated with Bias chosen
+*.                                  from table
+*.    C   TBUPDT          I*4       Time Bias last updated locally (secs)
+*.    C   AOFF_ACUM       I*4       (CONSTANT)Offset to accumulation
+*.                                  adaptation parameters.
+*.    C   AOFF_ADJU       I*4       (CONSTANT)Offset to Adjustment Adaptation
+*.                                  parameters.
+*.    C   HYACCSCN        I*4       (CONSTANT)Output buffer type for
+*.                                  precipitation adjustment.
+*.    C   HYO_ACUHRLY     I*4       (CONSTANT)Offset into output buffer
+*.                                  pointing to the hourly array.
+*.    C   HYO_ACUSCAN     I*4       (CONSTANT)OUTPUT IO BUFFER OFFSET FOR
+*.                                  RATE/ACCUMULATION ARRAYS-HYDRO TSK
+*.    C   IINIT           I*4       (CONSTANT)Constant zero for
+*.                                  initialization.
+*.    C   INCRMENT        I*4       (CONSTANT)Constant used to increment
+*.                                  values by one.
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    G   MEM     I*4         Array in RPG shared memory set aside for buffer
+*.                            sharing.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    G   MEM               I*4         Array in RPG shared memory set aside
+*.                                      for buffer sharing.
+*.
+*.  DATABASE/FILE REFERENCE: None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME         TYPE        DESCRIPTION
+*.    ----         ----        -----------
+*.    FLAG_NO_HRLY L*4         Logical flag that indicates there is
+*.    FLG_IOERR    I*4         I/O error code
+*.    HRLY_SIZE    I*4         Size of the scratch buffer needed so the Gage
+*.                             Accumulation Scan can be read in off the disk.
+*.    I            I*4         Do-loop index
+*.    IDATID       I*4         Name of input buffer returned in to
+*.                             A31211_GET_INBUF.
+*.    IPR          I*4         Pointer to starting position of input
+*.    ISTAT        I*4         Return status from input buffer
+*.    J            I*4         Do-loop index
+*.    LRGSIZ_ADJU  I*4         Large size in I*4 words of output buffer.
+*.    MEDSIZ_ADJU  I*4         Medium size in I*4 words of output buffer.
+*.    OBUFSIZE     I*4         Needed size of the output buffer
+*.    OFF          I*4         Offset into linear buffer
+*.    OPR          I*4         Pointer to starting position of out-
+*.    OSTAT        I*4         Return status from output buffer
+*.    SMLSIZ_ADJU  I*4         Small size in I*4 words of output buffer.
+*.    SUPL_OFFST   I*4         Pointer into MEM of the start of the
+*.    VOLN         I*4         Volume number 
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD00
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3136C3
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS: NONE
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP13.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK13.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+      IMPLICIT NONE
+C
+C** Attach master parameter file of named RPG data files.
+C
+$INCLUDE A309.INC/G,**A3PM00 (NLIST)
+$INCLUDE **A3PM07 (NLIST)
+C
+C** Connect with master shared memory buffer for RPG.
+C
+$INCLUDE **A3CD00 (NLIST)
+C
+$INCLUDE A313HBUF.INC/G,**A313HYPP (NLIST)
+$INCLUDE **A313HYP6 (NLIST)
+$INCLUDE A313H.INC,**A3136P (NLIST)
+$INCLUDE **A3136C3 (NLIST)
+$INCLUDE **A3136P5 (NLIST)
+$INCLUDE **A3136C5 (NLIST)
+$INCLUDE A318.INC,**A318PA (NEND NLIST)
+C
+C*********************************************************************
+C
+      LOGICAL FLAG_NO_HRLY
+      INTEGER I, J, OFF, IPR, OPR, IDATID, SUPL_OFFST
+      INTEGER VOLN, A31218__BUF_VOL, IPTR 
+      INTEGER OBUFSIZE, ISTAT, OSTAT, FLG_IOERR
+      INTEGER IBIAS, IGRPSIZ, IMSPAN, PARAM
+      EQUIVALENCE (IBIAS, BIAS)
+      EQUIVALENCE (IGRPSIZ, GRPSIZ)
+      EQUIVALENCE (IMSPAN, MSPAN)
+C
+      integer orpg_mem_addr
+      integer temp1, temp2
+
+C
+C*********************************************************************
+C
+X     WRITE(6,1)
+X     TYPE *,' BEGIN ADJUSTMENT ALGORITHM'
+X  1  FORMAT(' ',10('*****'),' BEGIN ADJUSTMENT ALGORITHM ',
+X    $           10('*****'))
+C
+      FLG_IOERR=FLAG_CLEAR
+C
+C** Get input buffer from the Accumulation algorithm
+C
+      CALL A31211__GET_INBUF( HYACCSCN, IPR, IDATID, ISTAT )
+      IF (ISTAT .NE. NORMAL) THEN
+C
+C** Status is not normal, abort processing
+C
+X       WRITE(6,5) ISTAT
+X  5    FORMAT(' ***** A31360: CANNOT GET INPUT BUFFER, STATUS=',I4,
+X    $         ' -- ABORTING')
+C
+        CALL A31145__ABORT_ME
+      ELSE
+C
+C** Get the volume number
+C
+        VOLN = A31218__BUF_VOL(IPTR)
+C
+C*  Initialize bias source id
+C
+        IF (VOLN .EQ. 1) THEN
+           SOURCE_ID = 'N/A '
+        ENDIF
+C
+C** Initialize local copies of adaptation values
+C
+        CALL A31362__INIT_ADPT(MEM(IPR + HYO_ADAP + AOFF_ACUM),
+     $                               MEM(IPR + HYO_ADAP + AOFF_ADJU))
+C
+C** Compute offset into MEM of the start of the Supplemental data
+C
+        SUPL_OFFST=IPR + HYO_SUPL - INCRMENT
+C
+C** Initialize Gage Accumulation Time and check if it is time to
+C** compute a new bias
+C
+        CALL A3136T__INIT_TIMES( MEM(IPR + HYO_SUPL), FLG_IOERR )
+C
+C** Check flags from input buffer to see if an Hourly Accumultion scan
+C** exists and set the flag for no scan as appropriate
+C
+        temp1 = orpg_mem_addr(MEM(SUPL_OFFST + FLG_ZERHLY))
+        temp2 = orpg_mem_addr(MEM(SUPL_OFFST + FLG_NOHRLY))
+C
+        IF ( temp1.EQ.FLAG_SET .OR. temp2.EQ.FLAG_SET ) THEN
+          FLAG_NO_HRLY=.TRUE.
+        ELSE
+          FLAG_NO_HRLY=.FALSE.
+        END IF
+C
+C** This next IF block sets size of needed output buffer based on
+C** whether there are Scan-To-Scan and Hourly Accumulation scans. If
+C** the Hourly scan exists, space exists for the Scan-To-Scan Accum.
+C** scan even though it can be flagged as not there (i.e. space is
+C** filled with bogus data)
+C
+X       WRITE(6,1001) MEM(SUPL_OFFST + FLG_ZERHLY), MEM(SUPL_OFFST
+X    $      + FLG_NOHRLY), MEM(SUPL_OFFST + FLG_ZERSCN), FLAG_NO_HRLY
+X1001   FORMAT(' FLG_ZERHLY=',I2,'  FLG_NOHRLY=',I2,'  FLG_ZERSCN=',
+X    $          I2,'  FLAG_NO_HRLY=',L2)
+C
+        temp1 = orpg_mem_addr(MEM(SUPL_OFFST + FLG_ZERSCN))
+        IF ( temp1.EQ.FLAG_SET .AND. FLAG_NO_HRLY ) THEN
+C
+C** Neither scan exists
+C
+          OBUFSIZE=SMLSIZ_ADJU
+        ELSE IF (FLAG_NO_HRLY) THEN
+C
+C** No Hourly but there is a Scan-To-Scan
+C
+          OBUFSIZE=MEDSIZ_ADJU
+        ELSE
+C
+C** Both scans exist
+C
+          OBUFSIZE=LRGSIZ_ADJU
+C
+C** An Hourly scan exists, so check to see if it is flagged as ending
+C** at the Gage Accumulation Time. If it does, save off to disk.
+C
+          temp1 = orpg_mem_addr(MEM(SUPL_OFFST + HLY_SCNTYP))
+          IF ( temp1.EQ.END_GAGE .OR. temp1.EQ.END_BOTH ) THEN
+C
+X           WRITE(6,8)
+X  8        FORMAT(' A31360: WRITING GAGE SCAN TO DISK')
+C
+            CALL A3136W__WRT_ACUMSCAN(FLG_IOERR, MEM(IPR + HYO_SUPL),
+     $                                        MEM(IPR + HYO_ACUHRLY) )
+          END IF
+        END IF
+C
+C** Get the output buffer of the size just determined
+C
+X       WRITE(6,9) OBUFSIZE
+X  9    FORMAT(' ***** A31360: GETTING OUTPUT BUFFER OF SIZE',I7)
+C
+        CALL A31215__GET_OUTBUF(HYADJSCN, OBUFSIZE, OPR, OSTAT)
+        IF (OSTAT.NE.NORMAL) THEN
+C
+C** Status is not normal, abort processing
+C
+X         WRITE(6,11) OBUFSIZE, OSTAT
+X 11      FORMAT(' ***** A31360: CANNOT GET OUTPUT BUFFER OF SIZE=',
+X    $           I6,'  STATUS=',I5,' -- ABORTING ')
+C
+C** Check for load shedding
+C
+          IF (OSTAT.EQ.NO_MEM) THEN
+            CALL A31168__ABORT_ME_BECAUSE( PROD_MEM_SHED )
+          ELSE
+            CALL A31145__ABORT_ME
+          END IF
+        ELSE
+C
+C** Copy the fixed fields at the beginning of the input buffer to the
+C** output buffer including the Precip Status Message, Adaptation Data,
+C** Supplemental Data, and 1/4th LFM Data
+C
+X         WRITE(6,1005) IBEG,HYO_BTABL,IPR,OPR
+X1005     FORMAT(' COPYING INPUT BUFFER TO OUTPUT BUFFER FROM ',I7,
+X    $            ' TO ',I7,':  IPR=',I7,': OPR=',I7)
+C
+          call prcpadju_copy_input( MEM( OPR ), MEM( IPR ),
+     >                              HYO_ADJSCAN )
+C
+C** If all I/O operations to date successful
+C
+          IF (FLG_IOERR.EQ.FLAG_CLEAR) THEN
+C
+C** Call the routine that controls calculation of bias
+C
+X           TYPE *,' PERFORMING BIAS UPDATE PROCEDURE'
+C
+            CALL A31361__PRECIP_ADJUST
+C
+          END IF
+C
+C** Copy internal bias source id to output buffer
+C
+          OFF = OPR + HYO_BHEADER
+          MEM( OFF ) = IEQV_SOURCE_ID
+C
+C** Copy internal (real) version of Bias Table to output buffer
+C
+          OFF = OPR + HYO_BTABL
+          temp1 = N_BIAS_LINES*N_BIAS_FLDS
+C
+X         WRITE(6,1006) OFF, temp1
+X1006     FORMAT(' OFF = ',I10, 
+X    $           ' number of elements in table = ', I5)
+C                
+          call prcpadju_copy_input( MEM(OFF), IEQV_BIAS_TABL(1,1),
+     $                              temp1 )          
+C          DO 20 J = 1, N_BIAS_LINES
+C            DO 20 I = 1, N_BIAS_FLDS
+C              MEM( OFF ) = IEQV_BIAS_TABL( I, J )
+C              OFF = OFF + 1
+C  20      CONTINUE
+C
+C** If a Scan-To-Scan accumulation scan exists, Adjust it with the
+C** current bias and copy to the output buffer
+C
+X         WRITE(6,1007) MEM(SUPL_OFFST + FLG_ZERSCN)
+X1007     FORMAT(' A31360: ADJUST SCAN-TO-SCAN ACCUMULATION SCAN',
+X    $           '  FLAG ZERO SCAN=',I2)
+C
+          temp1 = orpg_mem_addr(MEM(SUPL_OFFST + FLG_ZERSCN))
+          IF ( temp1.EQ.FLAG_CLEAR ) THEN
+            CALL A3136K__COPY_ACCUM( MEM(IPR + HYO_ACUSCAN),
+     $                                MEM(OPR + HYO_ADJSCAN) )
+          END IF
+C
+C** If an Hourly accumulation scan exists, Adjust it with the
+C** current bias and copy to the output buffer
+C
+X         WRITE(6,1009) FLAG_NO_HRLY
+X1009     FORMAT(' A31360: ADJUST HOURLY ACCUMULATION SCAN',
+X    $           '  FLAG NO-HOURLY= ',L1)
+C
+          IF (.NOT.FLAG_NO_HRLY) THEN
+            CALL A3136K__COPY_ACCUM( MEM(IPR + HYO_ACUHRLY),
+     $                                MEM(OPR + HYO_ADJHRLY) )
+          END IF
+C
+C** Copy Supplemental data from this algorithm to the output buffer
+C
+          SUPL_OFFST=OPR + HYO_SUPL - INCRMENT
+C
+          call prcpadju_set_in_out(MEM(SUPL_OFFST + CUR_BIAS),
+     >                             IBIAS)
+          call prcpadju_set_in_out(MEM(SUPL_OFFST + CUR_GRPSIZ),
+     >                             IGRPSIZ)
+          call prcpadju_set_in_out(MEM(SUPL_OFFST + CUR_MSPAN),
+     >                             IMSPAN)
+          call prcpadju_set_in_out(MEM(SUPL_OFFST + DAT_BCALC),
+     >                             DBUPDT)
+          call prcpadju_set_in_out(MEM(SUPL_OFFST + TIM_BCALC),
+     >                             TBUPDT)
+C
+X         WRITE(6,1101) BIAS, GRPSIZ, MSPAN
+X1101     FORMAT(' A31360:  BIAS=',F8.4,',  GRPSIZ=',F12.4,
+X    $                  ',  MSPAN=',F12.4)
+X         WRITE(6,1103) MEM(SUPL_OFFST + DAT_BCALC), MEM(SUPL_OFFST
+X    $          + TIM_BCALC)
+X1103     FORMAT(' A31360:  BIAS CALCULATION DATE AND TIME:',2I7)
+X         WRITE(6,1105)
+X1105     FORMAT(' ',10('*****'),' ADJUSTMENT OUTPUT BUFFER ',
+X    $                10('*****'))
+X         CALL PREPRC__PRINT_BUFFER(MEM(OPR + HYO_MESG),
+X    $                      MEM(OPR + HYO_ADAP), MEM(OPR + HYO_SUPL))
+C
+C** Release and forward the output buffer
+C
+          CALL A31216__REL_OUTBUF(OPR, FORWARD)
+        END IF
+C
+C** Release the input buffer
+C
+        CALL A31212__REL_INBUF(IPR)
+      END IF
+C
+      RETURN
+      END

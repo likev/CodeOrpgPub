@@ -1,0 +1,169 @@
+C 
+C RCS info 
+C $Author: nolitam $ 
+C $Locker:  $ 
+C $Date: 2002/11/27 15:58:31 $ 
+C $Id: a3136p.ftn,v 1.2 2002/11/27 15:58:31 nolitam Exp $ 
+C $Revision: 1.2 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A3136P__EXTRACT_BIAS
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3136P__EXTRACT_BIAS
+*.
+*.  MODULE VERSION: 0000
+*.
+*.
+*.  MODULE LANGUAGE:  FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       01/31/02      0000      Dennis A. Miller     CCR NA01-27501
+*.
+*.  CALLING SEQUENCE:
+*.
+*.     CALL A3136P__EXTRACT_BIAS
+*.
+*.  MODULE FUNCTION:
+*.
+*.     Extract the "best" bias from the Bias Table by finding the first
+*.     memory span with a sample size exceeding the threshold for
+*.     minimum no. g-r pairs.  Set indicative Bias & related fields
+*.     from that row and set the date & time of bias update from the 
+*.     current date & time.
+*.
+*.
+*.  MODULES CALLED:  None
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.
+*.    *   INPUT       TYPE    DESCRIPTION
+*.    -   -----       ----    -----------
+*.    C   DATECUR     I*4     Current Date (modified Julian, rel. 1/1/70)
+*.    C   MIN_NPAIRS  Real    Min. no. effective G-R Pairs for selection of row
+*.                            of Bias-related info from Bias Table
+*.    C   RBIAS_TABL  Real    Unscaled, internal Bias Table, received from AWIPS
+*.    C   TIMECUR     I*4     Current Time (seconds within current day)
+*.
+*.
+*.    *   OUTPUT      TYPE    DESCRIPTION
+*.    -   ------      ----    -----------
+*.    C   BIAS        R*4     Bias (i.e., Gage-Radar ratio) selected
+*.                            from table
+*.    C   DBUPDT      I*4     Date Bias value last updated locally (Julian)
+*.    C   GRPSIZ      R*4     Effective Gage-Radar Pair Size associated
+*.                            with Bias chosen from table
+*.    C   MSPAN       R*4     Memory Span associated with Bias chosen
+*.                            from table
+*.    C   TBUPDT      I*4     Time Bias last updated locally (secs)
+*.
+*.
+*.    *   ACTUAL ARGUMENTS    TYPE   DESCRIPTION
+*.    -   ----------------    ----   -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME          TYPE        DESCRIPTION
+*.    ----          ----        -----------
+*.    gr_pair_siz   I*4         Gage-Radar Pair size in each row of Bias Table
+*.    ix_bias       I*4         Index into Bias Table for mean field Bias
+*.    ix_grsiz      I*4         Index into Bias Table for No. G-R Pairs
+*.    ix_mspan      I*4         Index into Bias Table for Memory Span (hours)
+*.    nl            I*4         Index for cycling through bias table lines
+*.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP09.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK09.CSS
+*.
+*.  MISC:  None
+*.
+*.**********************************************************************
+      IMPLICIT NONE
+c
+$INCLUDE A313HBUF.INC/G,**A313HYPP (NLIST)
+$INCLUDE A313H.INC,**A3136C3 (NLIST)
+$INCLUDE **A3136P5 (NLIST)
+$INCLUDE **A3136C5 (NLIST)
+$INCLUDE **A3136CA (NLIST)
+c
+c------------------------- Data Declarations ---------------------------
+c
+      integer  nl
+c
+      real  gr_pair_siz
+c
+c---------------------------- Executable -------------------------------
+c
+X     type *
+X     type *, '...Enter module a3136p__extract_bias...'
+X     type *
+X     type *, 'Threshold g-r pair size = ',min_npairs
+X     type *
+c
+C** Select local Bias as that corresponding to first table line entry at
+C** memory span with sample size exceeding threshold (in #g-r pairs).
+c
+      nl = 0
+      gr_pair_siz = 0.0
+c
+      do while( gr_pair_siz .lt. min_npairs )
+        nl = nl + 1 
+        gr_pair_siz = rbias_tabl( ix_grsiz, nl )
+X       type *, '  No. g-r pairs at table line ',nl,' = ',gr_pair_siz
+        if ( nl.eq.n_bias_lines ) go to 99  
+      end do
+c
+   99 continue
+c
+C** Set local fields from line selected from table.
+c
+      GRPSIZ = rbias_tabl( ix_grsiz, nl )
+      MSPAN  = rbias_tabl( ix_mspan, nl )
+      BIAS   = rbias_tabl( ix_bias,  nl )
+c
+X     type *,'Table g-r pair size chosen = ',gr_pair_siz,'; line = ',nl 
+c
+X     type *,' Sampl_siz = ',GRPSIZ,'; Mem_span = ',MSPAN,
+X    $       '; Loc_bias = ',BIAS
+c
+C** Set Time & Date of Bias update.
+c
+      TBUPDT = TIMECUR
+      DBUPDT = DATECUR
+c
+X     type *
+X     type *,' Date & Time of Update of local Bias value =',
+X    $          DBUPDT,'; ',TBUPDT
+c
+X     type *
+X     type *, '...Exit module a3136p__extract_bias...'
+X     type *
+c
+      return
+      end
+c--------|---------|---------|---------|---------|---------|---------|--

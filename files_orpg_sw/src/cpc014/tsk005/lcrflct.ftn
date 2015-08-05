@@ -1,0 +1,63 @@
+C
+C RCS info
+C $Author: steves $
+C $Locker:  $
+C $Date: 2011/02/25 15:23:15 $
+C $Id: lcrflct.ftn,v 1.12 2011/02/25 15:23:15 steves Exp $
+C $Revision: 1.12 $
+C $State: Exp $
+C
+	PROGRAM REF_LAYCOMP_MAIN
+C***********************************************************************
+C
+C	This file defines the "main" Layer Composite Reflectivity
+C	Products routine.
+C
+C***********************************************************************
+C
+
+
+
+	IMPLICIT NONE
+
+$INCLUDE rpg_port.inc,**rpg_port	
+
+C adaptation common blocks
+$INCLUDE a309adpt.inc,**A3CD70C8	;RDACNT
+$INCLUDE a309adpt.inc,**A3CD70CA	;SITEADP
+$INCLUDE a309adpt.inc,**A3CD70C5	;COLRTBL
+$INCLUDE a309adpt.inc,**A3CD70C7	;PRODSEL_FIRST
+
+$INCLUDE a309.inc,**A3PM00		
+
+	;**specify inputs
+	call RPG_in_data (REFLDATA, RADIAL_DATA)
+
+	;**specify outputs
+	call RPG_out_data (RFAVLYR1, VOLUME_DATA, 63)
+	call RPG_out_data (RFAVLYR2, VOLUME_DATA, 64)
+	call RPG_out_data (RFAVLYR3, VOLUME_DATA, 89)
+	call RPG_out_data (RFMXLYR1, VOLUME_DATA, 65)
+	call RPG_out_data (RFMXLYR2, VOLUME_DATA, 66)
+	call RPG_out_data (RFMXLYR3, VOLUME_DATA, 90)
+
+	;** register adaptation blocks and the scan summary array
+	;** These calls will cause automatic adaptation and scan summary update
+	call RPG_reg_adpt(RDACNT_ID, RDACNT_FIRST,BEGIN_VOLUME)
+	call RPG_reg_adpt(COLRTBL_ID, COLRTBL_FIRST,BEGIN_VOLUME)
+	call RPG_reg_adpt(PRODSEL_ID, PRODSEL_FIRST,BEGIN_VOLUME)
+	call RPG_reg_scan_summary ()
+
+        ;** Register for site info adaptation data
+        call RPG_reg_site_info( SIRDALAT )
+
+        ;** tell system this task is volume-based
+	call RPG_task_init(VOLUME_BASED)
+
+        ;** waiting for activation
+10	call RPG_wait_act(WAIT_DRIVING_INPUT)
+	call A314A5__BUFFER_CONTROL ()
+	goto 10
+
+	stop
+	end

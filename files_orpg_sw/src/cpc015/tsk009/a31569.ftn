@@ -1,0 +1,189 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/16 19:40:19 $
+C $Id: a31569.ftn,v 1.3 2002/12/16 19:40:19 christie Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A31569__STORE_HAILSTATS(HAILSTATS,HAILABEL,NUMHAIL,
+     $                                   STORMIDTYP)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A31569__STORE_HAILSTATS
+*.
+*.  MODULE VERSION: 0002
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       06/20/95      0000      MARK FRESCH          CCR NA94-26301
+*.       12/23/96      0001      Toolset              CCR NA95-11807
+*.       03/16/99      0002      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: A31569__STORE_HAILSTATS( HAILSTATS, HAILABEL,
+*.                                             NUMHAIL, STORMIDTYP )
+*.
+*.  MODULE FUNCTION:
+*.
+*.  For each cell, based on its POSH, this module computes a Hail
+*.  Label (POSITIVE, PROBABLE, INSUFFICIENT DATA, or NONE) (just like
+*.  the old Hail Index) for the RCM product.  And it moves the hail
+*.  attributes from local common to the output buffer.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT      TYPE        DESCRIPTION
+*.    -   -----      ----        -----------
+*.    G   H_AZM      I*4         (CONSTANT)Index to the azimuth, the fifth
+*.                               position, in the HAILSTATS arrays.
+*.    G   H_CID      I*4         (CONSTANT)Index to the cell ID, the sixth
+*.                               position, in the HAILSTATS arrays.
+*.    G   H_MHS      I*4         (CONSTANT)Index to the MEHS, the third
+*.                               position, in the HAILSTATS arrays.
+*.    G   H_POH      I*4         (CONSTANT)Index to the POH, the first
+*.                               position, in the HAILSTATS arrays.
+*.    G   H_PSH      I*4         (CONSTANT)Index to the PSH, the second
+*.                               position, in the HAILSTATS arrays.
+*.    G   H_RNG      I*4         (CONSTANT)Index to the range, the fourth
+*.                               position, in the HAILSTATS arrays.
+*.    G   LAB_NEG    I*4         (CONSTANT)Flag indicating a cell's POSH
+*.                               equates to a Hail 'NONE' estimate for the
+*.                               RCM.
+*.    G   LAB_POS    I*4         (CONSTANT)Flag indicating a cell's POSH
+*.                               equates to a Hail 'Positive' estimate for the
+*.                               RCM.
+*.    G   LAB_PRB    I*4         (CONSTANT)Flag indicating a cell's POSH
+*.                               equates to a Hail 'Probable' estimate for the
+*.                               RCM.
+*.    G   LAB_UNK    I*4         (CONSTANT)Flag indicating a cell's POSH is
+*.                               'Unknown' for the RCM, due to the cell being
+*.                               out of processing range.
+*.    G   STF_ID     I*4         (CONSTANT)Offset to the cell ID index in the
+*.                               STORMIDTYP part of the tracking/forecast
+*.                               output buffer.
+*.    G   UNKNOWN    I*4         (CONSTANT)Flag value for the POSH and POH
+*.                               indicating the cell is beyond processing
+*.                               range.
+*.    C   HAILTEMP   R*4         Array used for local storage of hail
+*.                               attributes, except cell IDs.
+*.    C   NHAILS     I*4         The number of cells processed by the hail
+*.                               algorithm.
+*.    C   RCM_PRBL   I*4         The Threshold RCM Probable Hail in local
+*.                               adaptation data.
+*.    C   RCM_PSTV   I*4         The Threshold RCM Positive Hail in local
+*.                               adaptation data.
+*.    P   STORMIDTYP I*4         2-D array of supplementary storm desciption
+*.                               information per volume scan
+*.
+*.    *   OUTPUT    TYPE        DESCRIPTION
+*.    -   ------    ----        -----------
+*.    P   HAILABEL  I*4         Array containing coded RCM hail indices for
+*.                              all cells.
+*.    P   HAILSTATS R*4         Array containing hail attribute information
+*.                              for all cells.
+*.    P   NUMHAIL   I*4         The number of storm cells with hail
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME  TYPE        DESCRIPTION
+*.    ----  ----        -----------
+*.    CELL  I*4         A DO LOOP index used to process/index by cell.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A315CHH
+*.    A315CIH
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.     THIS MODULE IS COMPILED USING THE COMP15.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.     THIS MODULE IS LINKED USING THE LINK15.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+      IMPLICIT NONE
+C
+$INCLUDE A315BUF.INC/G, **A315P7F  (NLIST NEND)
+$INCLUDE                **A315P9H  (NLIST NEND)
+$INCLUDE                **A315CHH  (NLIST NEND)
+$INCLUDE                **A315D7   (NLIST NEND)
+$INCLUDE                **A315D9   (NLIST NEND)
+$INCLUDE A315.INC/G,    **A315CIH  (NLIST NEND)
+C
+C** VARIABLE AND PARAMETER DECLARATIONS
+C
+      INTEGER CELL
+C
+C** EXECUTABLE CODE
+C
+      NUMHAIL = NHAILS
+C
+C** PROCESS ALL CELLS
+C
+      DO 100 CELL=1,NHAILS
+C
+C** HAIL INDEX LABEL BASED ON THE POSH FOR THE RCM PRODUCT
+C
+          IF (HAILTEMP(H_PSH,CELL) .GE. RCM_PSTV) THEN
+C
+C** IF PROBABILITY OF SEVERE HAIL GREATER THAN OR EQUAL TO POSITIVE,
+C** LABEL STORM CELL AS POSITIVE HAIL PRODUCER
+C
+             HAILABEL(CELL) = LAB_POS
+C
+C** IF PROBABILITY OF SEVERE HAIL GREATER THAN OR EQUAL TO PROBABLE,
+C** LABEL STORM CELL AS PROBABLE HAIL PRODUCER
+C
+          ELSE IF (HAILTEMP(H_PSH,CELL) .GE. RCM_PRBL) THEN
+C
+             HAILABEL(CELL) = LAB_PRB
+          ELSE IF (HAILTEMP(H_PSH,CELL) .EQ. UNKNOWN) THEN
+C
+C** IF STORM CELL OUTSIDE OF THE PROCESSING RANGE OF THE ALGORITHM,
+C** LABEL THE STORM CELL AS AN UNKNOWN HAIL PRODUCER
+C
+             HAILABEL(CELL) = LAB_UNK
+          ELSE
+C
+C** FOR ALL OTHER CASES, SET LABEL TO NEGATIVE HAIL PRODUCER
+C
+             HAILABEL(CELL) = LAB_NEG
+          END IF
+C
+C** STORE ATTRIBUTES TO THE HAILSTATS ARRAY OF THE OUTPUT BUFFER
+C
+          HAILSTATS(H_POH,CELL) = HAILTEMP(H_POH,CELL)
+          HAILSTATS(H_PSH,CELL) = HAILTEMP(H_PSH,CELL)
+          HAILSTATS(H_MHS,CELL) = HAILTEMP(H_MHS,CELL)
+          HAILSTATS(H_RNG,CELL) = HAILTEMP(H_RNG,CELL)
+          HAILSTATS(H_AZM,CELL) = HAILTEMP(H_AZM,CELL)
+          HAILSTATS(H_CID,CELL) = STORMIDTYP(STF_ID,CELL)
+C
+ 100  CONTINUE
+      RETURN
+      END

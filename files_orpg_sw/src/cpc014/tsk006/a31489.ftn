@@ -1,0 +1,334 @@
+C 
+C RCS info 
+C $Author: steves $ 
+C $Locker:  $ 
+C $Date: 2009/06/17 14:35:52 $ 
+C $Id: a31489.ftn,v 1.5 2009/06/17 14:35:52 steves Exp $ 
+C $Revision: 1.5 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A31489__3HOUR_PROD79(VSNUM, P79STAT, HYDRSUPL)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A31489__3HOUR_PROD79
+*.
+*.  MODULE VERSION: 0003
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       08/08/95      0000      TIM OBANNON          CCR 94-33207
+*.       12/23/96      0001      Toolset              CCR NA95-11807
+*.       03/16/99      0002      Toolset              CCR NA98-23803
+*.       10/26/05      0003      Cham Pham            CCR NA05-09504
+*.
+*.  CALLING SEQUENCE: CALL A31489__3HOUR_PROD79(VSNUM,P79STAT,HYDRSUPL)
+*.
+*.  MODULE FUNCTION:
+*.    This module is the control routine for building the graphic
+*.    Three-Hour Accumulation product (#79).
+*.
+*.
+*.  MODULES CALLED: A31145__ABORT_ME, A31168__ABORT_ME_BECAUSE, 
+*.                  A31215__GET_OUTBUF, A31216__REL_OUTBUF, 
+*.                  A31466__PRODUCT_HEADER, A31468__PDB_IO, 
+*.                  A3146J__PROD79_BLOCK3, A3148L__PPS_RUN_LENGTH_ENCODE, 
+*.                  A3148N__BUILD_3HOUR 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT          TYPE        DESCRIPTION
+*.    -   -----          ----        -----------
+*.    G   MEM            I*4         Array in RPG shared memory set aside for
+*.                                   buffer sharing.
+*.    G   DESTROY        I*4         (CONSTANT)Mnemonic used as input to
+*.                                   A31216__REL_OUTBUF. Indicates "do not
+*.                                   pass data to other tasks".
+*.    G   FLAG_CLEAR     I*4         (CONSTANT)Parameter for a cleared flag
+*.    G   FLAG_SET       I*4         (CONSTANT)Parameter for a set flag.
+*.    G   FORWARD        I*4         (CONSTANT)Parameter to indicate that an
+*.                                   output buffer is to be forwarded to
+*.                                   successor tasks
+*.    G   NORMAL         I*4         (CONSTANT)Parameter which indicates
+*.                                   normal completion of requested operation
+*.                                   to acquire input or output buffer
+*.    G   NO_MEM         I*4         (CONSTANT)Parameter which indicates no
+*.                                   memory available on attempt to acquire
+*.                                   output buffer
+*.    G   PPHRLYNC       I*4         (CONSTANT)Color table index for
+*.                                   precipitation, 1 and 3HR products (Not
+*.                                   clear air).
+*.    G   PROD_MEM_SHED  I*4         (CONSTANT)(CONSTANT)Parameter which
+*.                                   indicates that product aborted due to
+*.                                   memory load shedding
+*.    G   SCRATCH        I*4         (CONSTANT)DATA BUFFER TYPE FOR TASK
+*.                                   SCRATCH DATA BUFFERS
+*.    C   B3_3HR_IDX     I*4         Index to Block 3 location in 3-hour
+*.                                   product
+*.    C   BIAS_TOGGLE    L*4         Local adaptaion copy of BIAS_FLAG
+*.    C   FIL_STAT       I*4         Status of disk file.
+*.    C   FLG_ADJUST     I*4         Array of flags which when set indicate
+*.                                   data is not adjusted.
+*.    C   FLG_NO_3HR     I*4         Flag indicating, if set, that there is a
+*.                                   3 hr total on the disk.
+*.    C   HOURLY_BUFFERS I*4         Number of hourly scans used in 3 hr
+*.                                   total.
+*.    C   MXVAL_3HR      I*4         Maximum value in 3HR. product
+*.                                   accumulation.
+*.    C   CODE_3HR       I*4         (CONSTANT)3 HR. Accumulation product
+*.                                   code.
+*.    C   GOOD           I*4         (CONSTANT)Status flag value.
+*.    C   HY3HRACC       I*4         (CONSTANT)Constant indicating 3 hr.
+*.                                   accumulation product buffer data type.
+*.    C   INCRMENT       I*4         (CONSTANT)Parameter used to increment by
+*.                                   one.
+*.    C   KPOLAR_WORDS   I*4         (CONSTANT)Scratch buffer size for polar
+*.                                   grid.
+*.    C   READKODE       I*4         (CONSTANT)I/O code indicating input
+*.                                   should be read.
+*.    C   RLE_REC        I*4         (CONSTANT)Disk record index for RLE data.
+*.    P   HYDRSUPL       I*4         Supplemental data array.
+*.    P   P79STAT        I*4         Status on obtaining Product 79 output
+*.                                   buffer
+*.    P   VSNUM          I*4         Volume scan number
+*.
+*.    *   OUTPUT      TYPE        DESCRIPTION
+*.    -   ------      ----        -----------
+*.    G   MEM         I*4         Array in RPG shared memory set aside for
+*.                                buffer sharing.
+*.    C   B3_3HR_IDX  I*4         Index to Block 3 location in 3-hour product
+*.    C   FLG_ADJUST  I*4         Array of flags which when set indicate data
+*.                                is not adjusted.
+*.    C   MXVAL_3HR   I*4         Maximum value in 3HR. product accumulation.
+*.    C   SB_STAT_3HR I*4         Spot Blanking status for the 3 hour
+*.                                Accumulation product
+*.    P   P79STAT     I*4         Status on obtaining Product 79 output buffer
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    G   MEM               I*4         Array in RPG shared memory set aside
+*.                                      for buffer sharing.
+*.    C   B3_3HR_IDX        I*4         Index to Block 3 location in 3-hour
+*.                                      product
+*.    C   MXVAL_3HR         I*4         Maximum value in 3HR. product
+*.                                      accumulation.
+*.    P   HYDRSUPL          I*4         Supplemental data array.
+*.    P   P79STAT           I*4         Status on obtaining Product 79 output
+*.                                      buffer
+*.    P   VSNUM             I*4         Volume scan number
+*.
+*.  DATABASE/FILE REFERENCE: None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME      TYPE        DESCRIPTION
+*.    ----      ----        -----------
+*.    B3ENIDX   I*4         Ending index of the THP products Block 3 address
+*.    BAD_FILE  I*4         Error code used to indicate that the saved data
+*.                          files are not good
+*.    CLEAR     I*4         Parameter used to zero-out (clear) a variable.
+*.    ERRCODE   I*4         Error code used in building THP product
+*.    I         I*4         Do loop counter.
+*.    IN_STAT   I*4         Input buffer status message
+*.    MIN_HOURS I*4         Minimum number of valid clock hour accumulations
+*.                          required to build a THP product.
+*.    NO_SCANS  I*4         Error code used to indicate fewer than MIN_HOURS
+*.                          of data available
+*.    NO_SCRTCH I*4         Error code used to indicate there is no valid THP
+*.                          product on disk.
+*.    NULL      I*4         Value used to build null THP product
+*.    P79PTR    I*4         Pointer to location of THP product buffer.
+*.    SC_PTR    I*4         Pointer to scratch buffer
+*.    STAT1     I*4         Output buffer status message
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD00
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3146C2
+*.    A3146C3
+*.    A314C3
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING THE COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING THE LINK14.CSS
+*.
+*.  MISC:  N\A
+*.
+********************************************************************
+C
+C
+C** 'X' IN COLUMN-1 INDICATES CONDITIONALLY COMPILED DEBUG CODE...
+C
+      IMPLICIT NONE
+C
+$INCLUDE A309.INC/G,**A3PM00 (NEND NLIST)
+$INCLUDE            **A3PM01 (NEND NLIST)
+$INCLUDE            **A3PM04 (NEND NLIST)
+$INCLUDE            **A3PM07 (NEND NLIST)
+$INCLUDE            **A3CD00 (NEND NLIST)
+C
+$INCLUDE A313HBUF.INC/G,**A313HYPP (NLIST)
+$INCLUDE                **A313HYDD (NLIST)
+C
+$INCLUDE A3146.INC/G,**A3146P1 (NEND NLIST)
+$INCLUDE             **A3146P2 (NEND NLIST)
+$INCLUDE             **A3146C2 (NEND NLIST)
+$INCLUDE             **A3146C3 (NEND NLIST)
+$INCLUDE             **A314C3 (NEND NLIST)
+C
+      INTEGER P79PTR, P79STAT, ERRCODE, B3ENIDX
+      INTEGER VSNUM, BLK3_I2OFF, IN_STAT, SC_PTR, STAT1
+      INTEGER NO_SCRTCH, BAD_FILE, NO_SCANS, CLEAR, NULL, I
+      PARAMETER (NULL=0, CLEAR=0, NO_SCRTCH=1, BAD_FILE=3, NO_SCANS=5)
+      INTEGER MIN_HOURS
+      PARAMETER(MIN_HOURS = 2)
+
+      INTEGER PSIZE
+C
+C
+C*************** EXECUTABLE ******************
+C
+X     TYPE *,'A31489: BEGIN BUILDING 3-HOUR PRODUCT'
+C
+C  SET DEFAULT VALUES FOR PARAMETERS
+C
+      IN_STAT = BAD_FILE
+      ERRCODE = CLEAR
+C
+C  GET PRODUCT OUTPUT BUFFER
+C
+      CALL A31215__GET_OUTBUF(HY3HRACC,KPOLAR_WORDS,P79PTR,P79STAT)
+C
+      IF (P79STAT.EQ.NORMAL) THEN
+C
+C  IF THE CURRENT BIAS APPLY FLAG IS NOT WHAT THE REQUESTOR WISHES,
+C  REBUILD THE 3-HOUR PRODUCT.
+C
+         IF((BIAS_TOGGLE.AND.FLG_ADJUST.EQ.FLAG_CLEAR).OR.
+     &      (.NOT.BIAS_TOGGLE.AND.FLG_ADJUST.EQ.FLAG_SET))THEN
+C
+C  CHECK THAT THERE ARE AT LEAST TWO HOURLY BUFFERS TO CREATE 3-HOUR PRODUCT
+C
+            IF (HOURLY_BUFFERS .GE. MIN_HOURS) THEN
+               CALL A3148N__BUILD_3HOUR
+            END IF
+         END IF
+C
+C  GET 3-HOUR PRODUCT FROM DISK
+C
+         IF (FIL_STAT.EQ.GOOD.AND.FLG_NO_3HR.EQ.FLAG_CLEAR) THEN
+
+            CALL A31468__PDB_IO(READKODE,RLE_REC,MEM(P79PTR),IN_STAT)
+            IF (IN_STAT.NE.GOOD) THEN
+               ERRCODE = BAD_FILE
+            ELSE
+               CALL A3148A__GET_RLE_SIZE( MEM(P79PTR), PSIZE )
+               IF(PSIZE .EQ. 0) THEN
+                  ERRCODE = BAD_FILE
+               ELSE
+                  B3_3HR_IDX = PSIZE
+               END IF
+               
+            ENDIF
+         END IF
+C
+C  CHECK FOR CONDITIONS THAT INDICATE THE 3-HOUR DATA IS NOT AVAILABLE
+C
+         IF (FIL_STAT.NE.GOOD) THEN
+            ERRCODE = BAD_FILE
+         ELSE IF (HOURLY_BUFFERS.LT.MIN_HOURS) THEN
+            ERRCODE = NO_SCANS
+            MXVAL_3HR = CLEAR
+            SB_STAT_3HR = CLEAR
+         ELSE IF (FLG_NO_3HR.EQ.FLAG_SET) THEN
+            ERRCODE = NO_SCRTCH
+         ELSE
+C
+C  PRODUCT DATA IS GOOD, CLEAR ERROR CODE
+C
+            ERRCODE = CLEAR
+         END IF
+C
+C  IF NO DATA EXISTS, MUST PRODUCE A NULL PRODUCT
+C
+         IF (ERRCODE.NE.CLEAR) THEN
+C
+C  GET SCRATCH BUFFER
+C
+
+            CALL A31215__GET_OUTBUF(SCRATCH,KPOLAR_WORDS,SC_PTR,STAT1)
+            IF (STAT1.EQ.CLEAR) THEN
+C
+C  SET ARRAY TO ZERO
+C
+               DO 100 I = SC_PTR,SC_PTR+KPOLAR_WORDS-INCRMENT
+                  MEM(I) = NULL
+  100          CONTINUE
+C
+C  RUN-LENGTH-ENCODE THE NULL 3-HR OUTPUT ARRAY
+C
+               CALL A3148L__PPS_RUN_LENGTH_ENCODE (MEM(SC_PTR),
+     $                      MEM(P79PTR), B3_3HR_IDX, PPHRLYNC)
+C
+C  NULL PRODUCT IS NOT BIAS ADJUSTED
+C
+               FLG_ADJUST = CLEAR
+C
+C  RELEASE SCRATCH BUFFER
+C
+               CALL A31216__REL_OUTBUF(SC_PTR,DESTROY)
+C
+            ELSE
+C
+C  INSUFFICIENT MEMORY TO GET SCRATCH BUFFER FOR NULL PRODUCT
+C
+               CALL A31168__ABORT_ME_BECAUSE(PROD_MEM_SHED)
+            END IF
+C
+         END IF
+C
+C  CALL ROUTINE TO BUILD BLOCK-3 OF 3-HOUR PRODUCT
+C
+         CALL A3146J__PROD79_BLOCK3(MEM(P79PTR),VSNUM,ERRCODE,
+     $                B3_3HR_IDX, B3ENIDX)
+C
+C  CALL ROUTINE TO BUILD 3-HR PRODUCT HEADER
+C
+         CALL A31466__PRODUCT_HEADER (MEM(P79PTR),VSNUM,CODE_3HR,
+     $                MXVAL_3HR,HYDRSUPL,B3ENIDX)
+C
+C  RELEASE AND FORWARD THE 3-HR PRODUCT BUFFER
+C
+         CALL A31216__REL_OUTBUF (P79PTR, FORWARD)
+C
+      ELSE
+C
+C  INSUFFICIENT MEMORY TO GET 3-HOUR OUTPUT PRODUCT BUFFER
+C
+         IF (P79STAT.EQ.NO_MEM) THEN
+            CALL A31168__ABORT_ME_BECAUSE(PROD_MEM_SHED)
+         ELSE
+            CALL A31145__ABORT_ME
+         END IF
+C
+      END IF
+C
+      RETURN
+      END

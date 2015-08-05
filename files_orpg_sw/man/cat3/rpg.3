@@ -1,0 +1,908 @@
+
+
+    This file describes the RPG porting support functions, which are organized 
+    in librpg.a and librpgcm.a. The supporting libraries contain basic porting 
+    support functions as well as emulated OS32 specific function calls and 
+    certain RPG buffer control and monitoring functions. They also provide 
+    support for emulating Inter-Task Common (ITC) block based inter-process 
+    communication. In the following we use RPG and ORPG to designate 
+    respectively the current RPG and the open RPG under development.
+
+
+    A.	Input/output data type registration
+
+	The input and output data types of a task are registered through the 
+	following four functions:
+
+	    int RPG_in_data( int *dattyp, int *timing );
+	    int RPG_in_opt( int *dattyp, int *block_time );
+	    int RPG_out_data( int *dattyp, int *timing, int *product_code );
+	    int RPG_out_data_wevent( int *dattyp, int *timing, en_t event_id,
+                                     int *product_code );
+
+	Where "dattyp" is the RPG buffer type. "timing" specifies the time 
+	interval the product is generated. It can take one of the values, 
+	ELEVATION_DATA, VOLUME_DATA, RADIAL_DATA, or DEMAND_DATA meaning that 
+        the product is generated per elevation, volume or radial respectively, 
+        or whenever the output buffer is acquired. If "timing" has a positive 
+        value, it specifies the valid time period (in seconds) of a time based 
+        input product (e.g. an external product that is not synchronized with 
+        the radar scan) or the generation period of a time based output product. 
+        Any elevation or volume based product can also be specified as time 
+        based input in calling RPG_in_data. If "timing" is zero, it specifies 
+        an infinite valid time period.
+
+        "product_code" specifies the product code of the output product if the 
+        product data is in RPG/Associated PUP ICD format.  Otherwise, the 
+        value of product_code must be set to INT_PROD to indicate the product
+        is of intermediate type.
+
+        Finally, "event_id" specifies the event notification id of an event 
+	to be posted upon release of the output data.  
+
+	A task must register all its input/output data types by calling 
+	RPG_in_data for each of its input data type and all its output data types 
+	by calling RPG_out_data or RPG_out_data_wevent for each of its output data 
+	types. The information is used for processing control and input data 
+        synchronization.
+
+	The ORPG uses both a data driven model and an event driven model for 
+	product/algorithm task control.  For tasks which are data-driven, the
+	task is activated by a unique input called the driving input. If a 
+	task uses RADIAL_DATA, the radial input is considered as the driving 
+	input. Otherwise, if the task has inputs of ELEVATION_DATA timing, the 
+	first ELEVATION_DATA input registered is chosen as the driving input. 
+        Otherwise, if the task has inputs of VOLUME_DATA timing, the first 
+        VOLUME_DATA input registered is chosen as the driving input. Otherwise, 
+	a time based input is chosen as the driving input. A data-driven task 
+	must have at least one input. We further assume of a data-driven task:
+
+	1. A task can only have at most one RADIAL_DATA timing input.
+
+	2. Any other inputs other than the driving input must be either of the
+	   same timing as the driving input or specified as time based inputs.
+
+	3. The driving input of a data-driven task must be the first input 
+	   registered through RPG_in_data call. The task, when requesting input 
+	   data for processing by calling get_inbuf, must first read the driving
+	   input before reading other inputs.
+
+	In ORPG, all RPG products as well as intermediate products are treated
+	as ORPG products. They are identified by their RPG buffer type number.
+	Each ORPG product is stored in an individual LB (Linear Buffer), and 
+        has an ORPG product header as defined in rpg_port.h. The RPG product data
+	structure then follows the ORPG product header. 
+
+	"dattyp" REFLDATA and COMBBASE are special subsets of base data. 
+	REFLDATA means all radials except those with inserted reflectivity 
+	field and COMBBASE means all radials except those without Doppler 
+	fields. If one of them is registered with RPG_in_data call, one can 
+	then call get_inbuf (BASEDATA, ...) to get the right subset of radials.
+
+	An input of a data-driven task can be specified as optional by calling 
+	RPG_in_opt. An optional input does not block RPG_wait_act (WAIT_ALL). 
+	When get_inbuf is called to read an optional input, it will wait for at 
+	most "block_time" seconds if the data is not yet available. When 
+	get_inbuf times out, "opstat" will be set to "NO_DATA". Refer to 
+	sections "Product generation control" and "Buffer control support".
+
+  	For tasks which are event-driven, task activation is controlled by the
+	receipt of a task registered event.  Event-driven tasks may register for
+	both inputs and outputs just as for the data-driven tasks.  However, 
+	task activation is not based on the availability of the driving input as 
+	with data-driven tasks, but rather on notification of a registered event.  
+	The same rules governing driving and non-driving inputs for data-driven 
+	tasks apply to event-driven tasks.  
+
+	If an event-driven task does not register inputs, any output types registered 
+	must be of timing DEMAND_DATA.   Refer to sections "Product generation 
+	control" for more details.
+
+
+    B.  Event Registration.
+
+	A task can be notified when an event occurs by registering for the 
+        event via the following function:
+
+           int RPG_reg_event( int *event_code, void (*service_routine()), 
+                              int *queued_parameter );
+
+        where "event_code" is the event id of the registered event, 
+        "service_routine" is a user-defined function called by a library internal 
+	event handler when the event occurs, and "queued_parameter" is a parameter 
+        passed to the service routine as an argument.  There is no restrictions 
+        on the value of the queued parameter, i.e., it may have the same value 
+        as the event_code or any user-defined value.  
+
+
+    C.	Adaptation data.
+
+	The RPG adaptation data, shared by all tasks, is organized into 
+	several common blocks, e.g. COLRTBL, RDACNT, CP13ALG ... and so on. 
+	The ORPG uses a replaceable LB to distribute the adaptation data to 
+	tasks. The following function is provided in the RPG supporting 
+	environment for accessing adaptation data by tasks that need 
+	adaptation data.
+
+	    int RPG_reg_adpt( int *adapt_name, int *first_var, 
+		     	      int *timing, ...);
+
+	where "adapt_name" is the adaptation common block name as defined in 
+	rpg_port.inc and "first_var" is the first variable in the common block. 
+	"first_var" must be an integer and is defined in a309adpt.inc for each 
+	block. "timing", taking one of the values of BEGIN_ELEVATION, 
+	BEGIN_VOLUME, ON_CHANGE, or WITH_EVENT, specifies when the adaptation 
+        blocks will be updated. For a task that does not access base data, its 
+        adaptation common block update frequency is limited by its driving 
+        input data update frequency unless "timing" is specified as ON_CHANGE or
+        WITH_EVENT.  ON_CHANGE specifies that the common blocks will be updated 
+        immediately after any change in the adaptation LB.  WITH_EVENT specifies
+        that the common blocks will be updated immediately upon receipt of the 
+        event "event_id".  In order to be updated by event, the event must be
+        registered and "event id" must be specified as the fourth argument of 
+        the function call.  "event id" is of type en_t.
+
+	RPG_reg_adpt must be called for each adaptation common block the 
+	task needs to access. Function
+
+	    int register_adapt (int *adapt_name, int *first_var);
+
+	is an old version of RPG_reg_adpt. It is equivalent to 
+	RPG_reg_adpt (, , BEGIN_ELEVATION). It is supported for 
+	compatibility.
+
+
+    D.	Scan summary information.
+
+	The RPG scan summary table is implemented via an ITC for supporting 
+	ported RPG tasks. Note that the scan summary information for the 
+	current volume is stored in the RPG base data header and ORPG product 
+	header. Tasks that need access to the SUMMARY array must call the
+	function
+
+	    int RPG_reg_scan_summary ();
+
+	in its task initialization section of code. This function call 
+	enables the automatic update of the SUMMARY array at the beginning of
+	volume for radial-based data-driven tasks or at acquiring the driving input 
+    	for non radial-based data-driven tasks.
+
+        A task can update the SUMMARY array on call with the function
+
+            int RPG_read_scan_summary();
+
+        This function is provided to support scan summary updates for tasks 
+        which are event-driven.
+
+
+    E.	Task initialization.
+
+	Every task that uses the RPG porting support libraries must call
+
+	    int RPG_task_init (what_based)
+
+	to initialize the supporting environment. This function parses command 
+	line arguments and initializes internal variables including adaptation
+	blocks.
+
+	This function must be called after registering input/output data types,
+	adaptation data, scan summary information, ITCs (RPG_itc_in and
+	RPG_itc_out described later), and events.
+
+	Argument "what_based", taking one the values VOLUME_BASED, 
+	ELEVATION_BASED, RADIAL_BASED, TIME_BASED, or EVENT_BASED, 
+	establishes the task type. The concept of task type will be used in 
+	processing control. For example, if a task is of VOLUME_BASED type, 
+	it can not start processing data in the middle of a volume scan after 
+	task start up or a processing abort. Refer to the next section for 
+	further descriptions on data processing control.
+
+
+    F.	Product generation control.
+
+	The ORPG uses a product request LB to store product generation control 
+	information. For each product, a message containing a list of requests 
+	may be stored in the LB. Product request messages are identified by the 
+	product id (the buffer type) numbers for easy retrieval. 
+
+	The product request uses the following data structure (defined in 
+	prod_request.h):
+
+	typedef struct {
+
+	    short pid;		/* product id (i.e. the RPG buffer type number) 
+				   */
+	    short param_1;	/* Product Dependent Parameters.  See Figure
+	    short param_2;	   3-3 and Table II-A of the RPG/Associated
+	    short param_3;	   PUP ICD.  Note param_1 through param_6	
+	    short param_4;	   correspond to halfwords 20-25 of the 
+	    short param_5;	   Product Request Message, respectively. */
+	    short param_6;
+	    short elev_ind;	/* elevation index; -1 means matching all;
+				   all other negative values mean no match */
+	    short req_num;	/* a unique request sequence number */
+	    short reserved;
+	} Prod_request;
+
+	A message may contain multiple requests for the product. The request 
+	list in a message is terminated by the message length or a request with 
+	an id that is different from the product id. If there is no specific 
+	request for a product, the message corresponding to that product may 
+	be absent.
+
+	If the elevation index (elev_ind) in the request is -1, we assume that 
+	any elevation will match the request. Other negative elevation index 
+	values in a request mean that no elevation index can match. If a
+	product does not have a product request message, we assume that the 
+	product must be generated for all elevations and/or volumes. For volume 
+	based products, the negative elevation index values will control the 
+	product generation (-1 for generating and other negative numbers for not 
+	generating).
+
+	Requests for routine volume-based products are updated (read in from 
+	the request LB) at the beginning of each volume. Requests for other 
+	routine products are updated at the beginning of each elevation scan 
+	or when a time based driving input data is read. Requests for one-time 
+	products are read on notification.
+
+	SUBROUTINE A3CM24__GET_CUST_INFO is emulated for the current RPG tasks 
+	to access the product request data.  The last 2 fields (9 and 10) 
+        returned in USER_ARRAY are changed. Field 9 is now a generic request 
+	number instead of J (a sequence number) and field 10 is unused instead 
+	of VIDX (volume scan index for indexing PGENCUST array). These two 
+	fields were returned exclusively for calling a3cm54. In our new A3CM54, 
+	the two new fields are used in a different way.
+
+	The ORPG product/algorithm tasks driven by their input data and 
+	controlled by the user requests use the following loop
+
+ 10	    call RPG_wait_act (wait_for)
+	    call BUFFER_CONTROL (param)
+	    go to 10
+
+	to replace the RPG task control mechanism implemented by subroutines
+
+	    CALL A31101__RPG_INIT (A???R?__PARAMETER_TRAP_RECEIVER)
+	    CALL A31115__TASK_READY
+	    CALL ENABLE(0,0)
+
+	and in subroutine A???R?__PARAMETER_TRAP_RECEIVER
+	    CALL A31102__PARAMETER_TRAP_ROUTER (PARAM, BUFFER_CONTROL)
+
+	where BUFFER_CONTROL is the basic data processing routine and function
+
+	int RPG_wait_act (int *wait_for)
+
+	emulates part of the PRG task control function. Instead of relying on 
+	the RPG control module, which schedules product/algorithm processing 
+	through the OS32 sleep/wake-up mechanism, the ORPG tasks call 
+	RPG_wait_act for processing scheduling.
+
+	RPG_wait_act suspends the processing and keeps track of the 
+	input data flow and the user product control. If an output is requested 
+	and the required input data are ready, RPG_wait_act will return 
+	and routine BUFFER_CONTROL, the product/algorithm task's main 
+	processing routine, will then be activated. BUFFER_CONTROL processes 
+	the data, read through calling get_inbuf, in the input streams 
+	sequentially until all output products are generated.
+
+	Argument "wait_for" can take a value of WAIT_ALL or WAIT_ANY. WAIT_ALL 
+	is used for tasks that require all their inputs to generate their 
+	outputs. The inputs must also be well synchronized in time and come in 
+	defined sequence without discontinuity introduced by missing data. 
+	WAIT_ANY, on the other hand, is used for tasks that generate products 
+	with any one of their inputs. An input data, in this case, is 
+	considered as independent instead of an element of a data stream.
+	Inputs specified as "optional" are excluded from consideration when
+	"wait_for" is WAIT_ALL.
+
+	If wait_for is WAIT_ANY, RPG_wait_act will return immediately. 
+	If "wait_for" is WAIT_ALL, RPG_wait_act will not return until 
+	the driving input is ready, at least one output is requested and the 
+	task is not in the aborted state. In the following we describe, in 
+	detail, function RPG_wait_act as called with WAIT_ALL.
+
+	A task can be either in the normal processing state or the aborted 
+	state. When it is in the aborted state, RPG_wait_act will not 
+	return. A task leaves the aborted state according to the processing 
+	resumption time which is set up before the task enters the aborted 
+	state. If the processing resumption time is new-volume, the task leaves
+	aborted state when the next new volume starts. If the processing 
+	resumption time is new-elevation, the task leaves aborted state when 
+	the next new elevation starts.
+
+	A task enters the aborted state when an abort function is called (Refer 
+	to section "RPG control and monitor function support"). When a task 
+	starts, it is in the aborted state and the processing resumption time 
+	is set according to the task type. If the task is VOLUME_BASED, 
+	the processing resumption time is set to new-volume. If the task 
+	is elevation, radial or time based, the processing resumption time is 
+	set to new-elevation.
+
+	An output product is considered to be requested if one of the following
+	is true.
+
+	1. It is an elevation based product and the current elevation matches
+	   a request.
+
+	2. It is a radial, volume or time based product and the product has a
+	   generation request.
+
+	3. The request message for the product is absent.
+
+	4. The product is of type DEMAND_DATA.
+
+	Most of the ORPG product/algorithm tasks are data-driven and are 
+	controlled by the driving input (Refer to section "Input/output data 
+	type registration"). Data in the driving input is accessed and processed 
+	sequentially. A history of the driving input is maintained to verify 
+	the integrity of the driving input data stream. The data time of the 
+	current driving input is called the current data time. Other inputs 
+	other than the driving input are accessed by the current data time.
+	This will guarantee that all inputs are well synchronized. If the 
+	data flow of the driving input is found to be discontinuous or a 
+	required input data is missing, an abort of the current unfinished 
+	products will result. This will be further explained later in section 
+	"Buffer control support".
+
+	When a task is executed, it starts with the next incoming data of the 
+	driving input. This can be enhanced later to support data-save dynamic 
+	task relocation, in which case the starting point in the driving input 
+	stream is determined according to the task's output product status.
+
+	Note that, in a data driven system, the current data time can be old 
+	in terms of the real clock. Using a data driven model makes running 
+	tasks against old data for testing easier. It is also preferable when 
+	one needs to dynamically relocate tasks and wants to minimize the data 
+	loss. One can always prevent from processing old data left over in the 
+	input data streams, if desired, by removing messages in a task's input 
+	buffers before running the task.
+
+	ORPG product/algorithm tasks can also be driven by events.  Tasks driven
+        by events use the following loop
+
+ 10	    call RPG_wait_for_event ()
+	    go to 10
+         
+	Like RPG_wait_act, RPG_wait_for_event suspends task processing and waits 
+        for any of the registered events to occur.  If an event occurs for which 
+        the task is registered, the event service routine is called to service 
+        the event.  Any event which occurs while servicing an event is placed in
+        a queue and serviced immediately after the previous event is serviced.  
+        After an event is serviced and the event queue is emptied, 
+	RPG_wait_for_event returns to the calling module.  See Section B above 
+	for further details on event registration. 
+
+        A task which registers for events but calls RPG_wait_act 
+        (vice RPG_wait_for_event) is considered data-driven.  When a registered
+        event occurs, normal task processing is suspended and the event service 
+        routine is called to service the event.  Upon completion, task 
+	processing resumes at the place the task was originally suspended.
+
+
+    G.  Buffer control support.
+
+	RPG relies on buffer control functions to generate outputs, pass
+	data among tasks and allocate scratch working areas. The following 
+	RPG buffer control functions are supported in the RPG porting support 
+	libraries:
+
+	int get_inbuf (int *mem, int *reqdata, int *bufptr, 
+			int *datatype, int *opstat);
+
+	int rel_inbuf (int *bufptr);
+
+	int get_outbuf (int *mem, int *dattyp, int *bufsiz, 
+			int *bufptr, int *opstat);
+
+	int rel_outbuf (int *bufptr, int *datdis);
+
+	These functions are actually subroutines A31212__REL_INBUF, 
+	A31211__GET_INBUF, A31215__GET_OUTBUF and A31216__REL_OUTBUF. We 
+	use their short names here.
+
+	get_inbuf reads the input data of type "reqdata". When there are more 
+	than one input data type, each input is read through a separate 
+	get_inbuf call. "reqdata" can also take the value of ANY_TYPE, which 
+	indicates that get_inbuf will return the task's any available input 
+	data. If RPG_wait_act is called with WAIT_ANY, argument 
+	"reqdata" must be ANY_TYPE. Otherwise, if RPG_wait_act is called 
+	with WAIT_ALL, argument "reqdata" can not be WAIT_ANY.
+
+	In the following we first described get_inbuf assuming that "reqdata" 
+	is not ANY_TYPE. Refer to previous sections for the terms "the driving 
+	input" and "the current data time".
+
+	get_inbuf, when reading the driving input, returns the data 
+	sequentially, (started from the one set by RPG_wait_act if the task is
+	data-driven), and resets the current data time . It returns the data
+	that synchronizes with the current data time when reading other inputs. 
+	If the input is of the same timing as the driving input, the synchronized 
+	data is the one at the current data time. If, on the other hand, the input 
+ 	is time based, the data that is closest to but no later than the current 
+	data time is considered to be the synchronized data provided that the 
+	data is within the specified time window of that input.
+
+	If "reqdata" is the driving input and the expected data is not 
+	available, get_inbuf will wait until the next data becomes available. 
+	For an input other than the driving input, if the expected data is 
+	unavailable, get_inbuf will do the following. If a data in the input 
+	stream is found to be generated after the current data time, it returns 
+	the data with "opstat" set to TERMINATE. Otherwise, it will wait until 
+	the expected data comes or a data later than the current data time 
+	comes, in which case it returns with "opstat" set to TERMINATE. The 
+	"opstat" = TERMINATE return from get_inbuf will cause the task to 
+	terminate the current unfinished processing and call an abort function.
+
+	get_inbuf checks the processing abort fields in the base data input. 
+	If a processing abort flag is found to be set, it returns the data 
+	with "opstat" set to TERMINATE. get_inbuf verifies whether the data in 
+	the driving input (Refer to section "Product generation control") 
+	is in the right sequence. For example, if the task is volume based and 
+	uses an elevation based product as input, the input must be from 
+	consecutive elevation scans within a volume. get_inbuf returns 
+	with "opstat" set to TERMINATE if a discontinuity is detected in the 
+	driving input (This can happen when the upstream task aborts 
+	processing or restarts, or when the radar aborts its elevation/volume 
+	scan). Note that, if a task is elevation based and uses an elevation
+	base product as input, the input does not have to be consecutive 
+	elevations.
+
+	When get_inbuf is called with ANY_TYPE, all inputs are read 
+	sequentially and no data is returned twice. get_inbuf will immediately 
+	return the next available data until all inputs are exhausted, in which 
+	case it will wait until the next data becomes available.
+
+	get_inbuf causes all ITCs associated with the product to be updated 
+	(read in from the ITC LBs). get_outbuf causes all ITCs associated with 
+	the product to be written out before the product output.
+
+	rel_inbuf frees the buffer allocated by get_inbuf.
+	
+	get_outbuf allocates a buffer of size "bufsiz" (in number of integers) 
+	for the calling task.
+
+	rel_outbuf writes the data in the buffer to the corresponding LB if
+	"datdis" = FORWARD. It causes all ITCs associated with the product to 
+	be written out before the product is written to the LB. If an event is
+	associated with the release of the product, the event is also posted 
+  	prior to writing the product to the LB.  After writing the product to
+	an LB, rel_outbuf frees the memory allocated for the buffer.
+
+	All arguments of these functions resemble their original 
+	counterparts. "mem" is the RPG "MEM" array. "reqdata" and "dattyp" are 
+	the requested buffer type. "bufptr" returns offset (in number of 
+	integers) of the buffer in terms of MEM. "datatype" returns the type 
+	of returned buffer. "opstat" returns the call status. "bufsiz" is the 
+	size (in number of integers) of the requested buffer. "datdis" tells 
+	what to do with the buffer (FORWARD or DESTROY) before the buffer is
+	freed.
+
+	On success "opstat" returns NORMAL. Otherwise, it returns one of the
+	following numbers:
+
+	    TERMINATE:	A processing abort flag is found in the based data 
+			input or an input data is detected to be invalid or
+			out of sequence.
+
+	    NO_DATA:	get_inbuf is called with ANY_TYPE and there is no
+			data available.
+
+	    NOT_REQD:	get_outbuf is called with a output data type that has
+			not been registered by the task.
+
+
+	Subroutine a31210__check_data and functions A31218__BUF_VOL and  
+	A31219__BUF_ELEV are also emulated. a31210__check_data finds out 
+	whether a product is scheduled for generation. It works only for the 
+	task's input and output products. A31218__BUF_VOL returns the volume
+ 	scan number (a number which varies between 1 - 80). A31219__BUF_ELEV 
+	returns the RPG elevation index (not the RDA cut number).
+
+
+    H.	Inter-Task Common block (ITC) support.
+
+	The RPG tasks use global shared memory to exchange data among tasks.
+	Each segment of the global shared memory is defined as a common 
+	block, which is part of a shared image. Although we can implement
+	this kind of common blocks using shared memory, we decided instead
+	to use additional data buffers to pass data in ITCs among tasks.
+	Data in an ITC is treated as a data message. The message is written 
+	out when it is ready and it is then read in by other tasks that need
+	the data. The following functions are designed to support ITC 
+	processing.
+
+	int RPG_itc_in (int *itc_id, char *first, char *last, 
+			int *sync_prd, ...)
+
+	int RPG_itc_out (int *itc_id, char *first, char *last, 
+			 int *sync_prd, ...)
+
+	int RPG_itc_read (int *itc_id, int *status)
+
+	int RPG_itc_write (int *itc_id, int *status)
+
+	int RPG_itc_callback (int *itc_id, int (*func) ())
+
+	Each ITC is assigned a unique ITC id number in itc.inc along with
+	a few other variables, namely the first element and the last element 
+	of the ITC. Refer to itc.inc. The ITC number, (ITC_MIN + major) * 
+	ITC_IDRANGE + minor, is a combination of two numbers, the major and 
+	the minor. The major number is used for composing the LB name that 
+	stores the message and the minor number is used as the message id. 
+	Thus multiple ITCs can be implemented with a single LB. We use 
+	replaceable LB for ITCs. When one needs an ITC, which is not yet 
+	defined in itc.inc, he or she must add a block for that ITC.
+
+	Functions RPG_itc_in and RPG_itc_out are used for informing the 
+	supporting modules that certain ITCs are used by the task. "itc_id"
+	is the ITC id, "first" and "last" are the two variables defined in
+	itc.inc, and "sync_prd" is either an id (RPG buffer number) of a 
+	product that is used (RPG_itc_in) or generated (RPG_itc_out) by 
+	this task, or has one of the following values: ITC_BEGIN_VOLUME,
+	ITC_BEGIN_ELEVATION, ON_EVENT, or ON_CALL. "sync_prd" is used for 
+	update synchronization.  
+
+	For example, the following code
+
+	;register ITC outputs (must proceeds ITC inputs)
+	call RPG_itc_out (A315TRND, A315TRND_FIRST, A315TRND_LAST (2),
+     1		TRFRCATR)
+
+	;register ITC inputs
+	call RPG_itc_in (A315CSAD, A315CSAD_FIRST, A315CSAD_LAST (2),
+     1		CENTATTR)
+
+	indicates that the task requires (uses) data in ITC A315CSAD 
+	and generates (modifies) data in ITC A315TRND. The local A315CSAD
+	common block is updated (read in from the LB) whenever product 
+	CENTATTR is input. The data in the local A315TRND common block will 
+	be written out to the LB every time the product TRFRCATR is released 
+	(forwarded). The update of A315CSAD and write-out of A315TRND is 
+	automatically processed in this case. Moreover, the write-out of 
+	common block A315TRND is performed before product output of TRFRCATR.
+
+	A single callback function can be specified for both RPG_itc_in and
+	RPG_itc_out with the same itc_id.
+
+	The following values, ITC_BEGIN_ELEVATION and ITC_BEGIN_VOLUME, can 
+	be used for "sync_prd". When one of these values is used, the local 
+	ITC common block is then updated or written out when a new elevation 
+	or volume scan starts respectively.
+
+	Note that in the above example, we use second element of the "last"
+	array (e.g. A315TRND_LAST (2)). This is necessary for the 
+	RPG_itc_out/RPG_itc_in function to correctly evaluate the size of the 
+	ITC.
+
+	If a task needs multiple ITC inputs and/or outputs, multiple calls
+	to RPG_itc_in and/or RPG_itc_out are needed.
+
+	The argument "sync_prd" may take a value of ON_CALL, which means that
+	no automatic update or write-out is performed.  If "sync_prod" takes on
+	the value ON_EVENT, an otherwise optional fifth argument must be 
+	supplied to RPG_itc_in or RPG_itc_out to specify the event notification
+	id associated with the update of the itc.  This "event_id" argument is
+	of type int.
+
+	If ITC update is associated with a task's input product, one must 
+	remove any product that has been left over in that product's LB before 
+	executing the task. Otherwise ITC update may not be correctly 
+	synchronized with the product input.
+
+	Functions RPG_itc_read and RPG_itc_write provide direct control of the 
+	ITC read and write respectively. A call to RPG_itc_read updates the 
+	local ITC "itc_id" and a call to RPG_itc_write writes out the contents 
+	in the local ITC "itc_id". The ITC "itc_id" must be registered by 
+	calling RPG_itc_out or RPG_itc_in before calling RPG_itc_write or 
+	RPG_itc_read. In cases the scheduled automatic update/write-out is not 
+	sufficient, one can customize ITC read/write by inserting the 
+	RPG_itc_read/RPG_itc_write calls into the RPG code. The status argument 
+	of these two functions returns NORMAL if the read/write succeeded or 
+	NO_DATA if the read/write failed (due to, for exmple, that there is no 
+	data in the LB while RPG_itc_read is called).
+
+	"RPG_itc_callback" allows the user to register a callback function 
+	"func" for ITC "itc_id". "func" then will be called every time after 
+	ITC "itc_id" is updated, if the ITC is used for read access and the LB 
+	read is successful, or before it is written out to the LB, if the ITC 
+	is registered for writing access. "itc_id" must be the id of a ITC 
+	that is already registered by either RPG_itc_in or RPG_itc_out. "func"
+	must be declared as "EXTERNAL".
+
+	Function "func", when being called back, has the form
+
+	int func (int *itc_id, int *access);
+
+	The return value of "func" is not used. The argument "itc_id" is the
+	id of the ITC that is currently involved. The second argument "access", 
+	taking a value of either ITC_WRITE_OPERATION or ITC_READ_OPERATION, 
+	indicates the call is originated by ITC write or ITC read respectively.
+
+	"RPG_itc_callback" can be multiply called but only one callback function 
+	can be registered for each ITC. If different callback functions
+	are registered for the same ITC, only the latest one will be called.
+
+	The LB used for implementing the ITCs must be created before tasks 
+	that use the ITCs can be executed.
+
+
+   I.	RPG control and monitor function support
+
+	An unfinished product/algorithm processing has to be aborted in 
+	several circumstances, which include elevation/volume scan restart and 
+	load shed. When an abort happens, the following tasks must be 
+	performed:
+
+	1. A message must be sent to inform the product distribution module
+	if the product is to be generated based on request.
+	(A3CM54__CUST_PROD_MEMSHED?? how about failed because of input data?)
+
+	2. Set up processing resumption time.
+
+	3. Free up allocated resources and clean up.
+
+	4. The process enters the aborted state.
+
+	The current ORPG uses appropriate fields in the basedata header for 
+	conveying processing abort information generated in the data 
+	preprocessing and quality control task. Function get_inbuf checks these
+	fields. get_inbuf also checks input validity based on some other rules
+	as described earlier. When get_inbuf detects an abort situation, it
+	returns the input data and sets "opstat" to TERMINATE. This return will
+	cause the task to terminate the current unfinished processing, free 
+	allocated resources, clean up and call one of the abort functions 
+	described in the next. get_inbuf also sets up the processing resumption 
+	time based on the following rule. If the input is base data, it uses 
+	the abort information in the base data header. Otherwise, it sets the 
+	processing resumption time according to the task type (Refer to section 
+	"Product generation control").
+
+	The following abort subroutines are currently supported.
+
+	SUBROUTINE A31168__ABORT_ME_BECAUSE (PROD_MEM_SHED)
+
+	SUBROUTINE A31145__ABORT_ME
+
+	SUBROUTINE A31169__ABORT_DATATYPE_BECAUSE (DATATYPE, REASON)
+
+	These functions set, based on the task type, the processing resumption 
+	time if it is not yet set by get_inbuf and cause the task to enter the 
+	aborted state.
+
+
+   J.	Timer Service Support
+
+	ORPG timer services are implemented through the following two function 
+  	calls:
+
+        void a3cm40( int *parameter, int *count, int *flag, int *ier )
+        void a3cm41( int *parameter, int *count, int *flag, int *ier )
+
+   	where "parameter" is the timer id, "count" is the timer interval in
+	milliseconds, "flag" is either 0 for time-of-day timer, or -1 for 
+	interval timer (currently, only interval timing is supported), and "ier"
+	is an error return value.  The value of "parameter" is assumed to be a 
+	positive integer.
+
+	a3cm40 sets a timer to expire after "count" milliseconds have elapsed
+	since the function was called (assuming flag has the value -1).  
+	(Although count is specified in milliseconds to support the RPG, timer 
+	resolution is no greater than 1 second. )   Any non-zero value for "ier" 
+	assumes an error occurred.  The error values are listed in header file 
+	malrm.h.  
+
+ 	a3cm41 cancels a previously set timer.  a3cm41 returns an error if an 
+	attempt is made to cancel a previously unset timer.
+
+	Both a3cm40 and a3cm40 cause the task to abort if either is called with
+	"flag" having the value 0.
+
+
+   K.	Data Access Support
+
+	A FORTRAN interface to the ORPGDA (ORPG Data Access) routines 
+	ORPGDA_group, ORPGDA_update, ORPGDA_read, and ORPGDA_write are provided.
+	They are
+
+	void RPG_data_access_group( int *group, int *data_id, int *msg_id,
+				    void *msg, int *msg_size, int *status )
+	void RPG_data_access_update( int *group, int *status )
+	void RPG_data_access_read( int *data_id, void *buf, int *buflen,
+				   int *msg_id, int *status )
+	void RPG_data_access_write( int *data_id, void *buf, int *buflen,
+				    int *msg_id, int *status )
+
+	respectively.  These functions facilitate accesses of the ORPG data
+	stored in LBs.  RPG_data_access_read and RPG_data_access_write accept 
+	the ORPG data store ID "data_id" for specifying the data type. Examples 
+	of the ORPG data store IDs are BREF19, CENTATTR and ORPGDAT_ADAPTATION. 
+	Note that for ITC LBs the data store ID is defined by its major number, 
+	e.g., (ITC_SCAN_SUMMARY / ITC_IDRANGE) * ITC_IDRANGE. Refer to either 
+	"man orpgda" or "man lb" for a description on other arguments. 
+
+	RPG_data_access_group and RPG_data_access_update are used for reading a 
+	set of specified messages when they have been updated.  
+	RPG_data_access_group is first called for setting up message groups. Each 
+	call of RPG_data_access_group adds a message of ID "id" in data store 
+	"data_id" to group "group". "buf" is the pointer to the space that the 
+	message will be put and "buf_size" is the size of the buffer space. 
+	After a group is set, RPG_data_access_update can be called to read 
+	messages in group "group". RPG_data_access_update reads only those 
+	messages that has been updated since last RPG_data_access_update call. 
+	For more information, refer to "man orpgda". 
+
+
+   L.	RPG common module support
+
+	Most of the RPG common modules can be directly compiled and used in 
+	the ORPG. The following modules, stored in rpg/shared, are currently 
+	compiled and stored in the library librpgcm:
+
+	a3cm01.ftn
+	a3cm02.ftn
+	a3cm08.ftn
+	a3cm09.ftn
+	a3cm15.ftn
+	a3cm16.ftn
+	a3cm17.ftn
+	a3cm20.ftn
+	a3cm22.ftn
+	a3cm25.ftn
+	a3cm27.ftn
+	a3cm28.ftn
+	a3cm29.ftn
+	a3cm30.ftn
+	a3cm31.ftn
+	a3cm32.ftn
+	a3cm33.ftn
+	a3cm35.ftn
+	a3cm36.ftn
+	a3cm37.ftn
+	a3cm38.ftn
+	a3cm39.ftn
+	a3cm3a.ftn
+	a3cm3b.ftn
+	a3cm3c.ftn
+	a3cm56.ftn
+	a3cm57.ftn
+	a3cm58.ftn
+	a3cm59.ftn
+	a3cm60.ftn
+	a3cm70.ftn
+	a3cm79.ftn
+	a3cm80.ftn
+	a3cm81.ftn
+	a3cm83.ftn
+	a3cm85.ftn
+	a3cm86.ftn
+	a3cm87.ftn
+	a3cm88.ftn
+	a3cm89.ftn
+	a3cm90.ftn
+	a3cm91.ftn
+	a3cm92.ftn
+	a3cm93.ftn
+	t41192.ftn
+	t41193.ftn
+	t41194.ftn
+
+	Some of the common modules can not be directly used and must be 
+	emulated in the ORPG environment. The following are those that have 
+	been emulated:
+
+	A3CM24__GET_CUST_INFO: described in "Product generation control".
+
+	A3CM53__WHAT_MOMENTS: The original A3CM53 used the three fields: 
+		SPOFST1, SPOFST2 and SPOFST3. Their values were copied from 
+		the RDA base data fields of BDSP, BDVP and BDSWP (offsets of 
+		data location in the RDA data message). These numbers 
+		are not used in our new RPG base data messages and 
+		SPOFST? are used for other purposes. Thus we have to
+		reimplement the A3CM53__WHAT_MOMENTS.
+
+	A3CM54__CUST_PROD_MEMSHED: This function will send a failed request 
+		message to the request generator. This function so far has
+		not been fully implemented yet. It only prints out a message.
+
+
+   M.	OS32 FORTRAN extension and system functions' support
+
+	OS32 FORTRAN extension and OS32 system call functions must be emulated.
+	Because the number of these functions is quite large and some of them 
+	may be difficult to emulate, the approach we took is to implement those 
+	that are absolutely necessary. When there is a need, more functions can 
+	be implemented later. The currently supported functions are the 
+	following:
+
+	btest (os32btest)
+	bclr
+	bset
+	ilbyte
+	isbyte
+
+	lokon
+	lokoff
+
+	date
+	iclock
+	t41194__gettime
+	wait
+
+	sndmsg
+	queue
+
+	deflst
+	atl
+	abl
+	rtl
+	rbl
+	lstfun
+
+	itoc_os32
+	ioerr
+	sysio
+
+	The emulated lock utilities, lokon and lokoff, do not actually perform 
+	any lock. lokon always returns as if the lock is acquired.
+
+	The emulated sndmsg is only a stub, which prints out a message.
+
+	btest is defined as an intrinsic function in HPUX's FORTRAN. It
+	is different from the BTEST used in OS32. To resolve this name 
+	conflict, the OS32 btest in librpg.a is called os32btest. All btest 
+	calls in RPG FORTRAN code should be replaced by os32btest. This can 
+	be done by using the "-r" option of ftnpp.
+
+
+   N.	Exception handling
+
+	The RPG supporting modules use the following exception processing 
+	scheme:
+
+	1. If a user requested work space can not be allocated, the function 
+	will retry until the memory is available. A message is sent to
+	the system log (to be implemented).
+
+	2. In the following cases the module will deliver an appropriated 
+	message and abort the task:
+
+	    The run time environment is not correctly setup. E.g. the 
+	    required LB is not created or incorrectly created.
+
+	    A fatal error due to incorrect programming is detected.
+
+
+   O.	Notes.
+
+	In our data driven model, as long as the input data is valid, the 
+	status of the tasks that generate the data is not relevant. Thus the 
+	event of a task restart does not need to be propagated to the down 
+	stream tasks. As a matter of fact, when a task fails, we will restart 
+	it and let it continue process data with minimum or no effect on 
+	its down stream tasks. Note that there is no guaranteed way to notify 
+	other tasks before a process terminates. When a task aborts the 
+	current unfinished processing, it may not created any output or may 
+	create an output data stream with missing data. In the first case, 
+	there is no effect on its down stream tasks. In the latter case, the 
+	down stream tasks must also abort the current unfinished processing. 
+	The down stream task aborts are activated by detecting the missing data 
+	in their input data streams.
+
+	When one time product generation failed, it will send a special product
+	of the requested type but containing only the ORPG header specifying
+	the failure. Should one time product uses the unique request id as the
+	product id? This will be in favor of the product distribution module.
+	How about, then, the selective routine products? 
+
+	How to generate one time product using non-realtime data? We will use
+	the same task for one time product. The one-time version is specified
+	through a command line option. One-time version will read the latest 
+	stored data and generated the product. get_inbuf will look for the
+	data source and provide the radial to the task. If the data is not
+	available, get_inbuf will return TERMINATE. RPG_wait_act will
+	not block for one-time product version.
+ 
+
+	
+

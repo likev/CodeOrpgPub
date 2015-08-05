@@ -1,0 +1,188 @@
+C 
+C RCS info 
+C $Author: nolitam $ 
+C $Locker:  $ 
+C $Date: 2002/11/27 15:58:29 $ 
+C $Id: a3136l.ftn,v 1.2 2002/11/27 15:58:29 nolitam Exp $ 
+C $Revision: 1.2 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A3136L__INIT_BIASTBL_FLDS
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3136L__INIT_BIASTBL_FLDS
+*.
+*.  MODULE VERSION: 0000
+*.
+*.
+*.  MODULE LANGUAGE:  FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       01/31/02      0000      Dennis A. Miller     CCR NA01-27501
+*.
+*.  CALLING SEQUENCE:
+*.
+*.     CALL A3136L__INIT_BIASTBL_FLDS
+*.
+*.  MODULE FUNCTION:
+*.
+*.     Initialize internal copy of Bias Table and related fields upon startup
+*      (i.e., contents of FORTRAN common /A3136C5/)
+*.
+*.
+*.  MODULES CALLED:  None
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.
+*.    *   INPUT         TYPE        DESCRIPTION
+*.    -   -----         ----        -----------
+*.
+*.
+*.    *   OUTPUT        TYPE        DESCRIPTION
+*.    -   ------        ----        -----------
+*.    C   IBIAS_TABL    I*4         Scaled, integer Bias Table, from AWIPS
+*.    C   RBIAS_TABL    Real        Unscaled, internal Bias Table, from AWIPS
+*.
+*.
+*.    *   ACTUAL ARGUMENTS    TYPE   DESCRIPTION
+*.    -   ----------------    ----   -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME      TYPE       DESCRIPTION
+*.    ----      ----       -----------
+*.    IX_YR     I*4        Index into Date-Time array for Year
+*.    IX_MO     I*4        Index into Date-Time array for Month
+*.    IX_DA     I*4        Index into Date-Time array for Day
+*.    IX_HR     I*4        Index into Date-Time array for Hour
+*.    IX_MN     I*4        Index into Date-Time array for Minute
+*.    IX_SC     I*4        Index into Date-Time array for Second
+*.    JULN_YR0  I*4        Reference year for modified Julian calendar
+*.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP09.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK09.CSS
+*.
+*.  MISC:  None
+*.
+*.**********************************************************************
+      IMPLICIT NONE
+C
+$INCLUDE A313HBUF.INC/G,**A313HYPP (NLIST)
+$INCLUDE A313H.INC,**A3136P5       (NLIST)
+$INCLUDE **A3136C5                 (NLIST)
+C
+C************************* DATA DECLARATIONS ***************************
+C
+      INTEGER  NI, NF, NL
+C
+      INTEGER  IINIT, INIT_CODE
+      PARAMETER( IINIT = 0, INIT_CODE = X'FFFF' ) 
+C
+      INTEGER  JULN_YR0
+      PARAMETER( JULN_YR0 = 1970 )
+C
+      CHARACTER*4  DEFAULT_ID
+      PARAMETER( DEFAULT_ID = 'XXXX' )
+C
+      REAL  RINIT
+      PARAMETER( RINIT = 0.0 )
+C
+C**************************** EXECUTABLE *******************************
+C
+C** Initialize Packet Code & Packet Size
+C
+      BLOCK_DIVIDR = INIT_CODE
+      BLOCK_ID    = IINIT
+      VERSION_NUM = IINIT
+      BLOCK_LEN = btablbytes
+C
+C** Initialize Source ID & Radar ID
+C
+      SOURCE_ID = DEFAULT_ID
+      RADAR_ID  = DEFAULT_ID
+C
+C** Initialize Date & Time fields to first day of modified Julian reference
+C
+      OBS_DATE_TIME( ix_yr ) = JULN_YR0
+      GEN_DATE_TIME( ix_yr ) = JULN_YR0
+C
+      DO 20, NI = ix_mo, ix_da
+C
+        OBS_DATE_TIME( NI ) = 1
+        GEN_DATE_TIME( NI ) = 1
+C
+  20  CONTINUE
+C
+      DO 25, NI = ix_hr, ix_sc
+C
+        OBS_DATE_TIME( NI ) = 0
+        GEN_DATE_TIME( NI ) = 0
+C
+  25  CONTINUE
+C
+C** Initialize fields pertaining to size of Bias Table
+C
+      NROWS = n_bias_lines
+C
+C** Initialize Bias Table fields
+C
+      DO 30, NL = 1, n_bias_lines
+        DO 30, NF = 1, n_bias_flds
+C
+          IBIAS_TABL( NF,NL ) = IINIT
+          RBIAS_TABL( NF,NL ) = RINIT
+C
+  30  CONTINUE
+C
+X     type *
+X     write (6,*) 'Bias Table & related fields upon initialization'
+c
+X     type *,' BLOCK_DIVIDR; BLOCK_ID =',
+X    $             BLOCK_DIVIDR, BLOCK_ID
+X     type *,' VERSION_NUM; BLOCK_LEN =',
+X    $             VERSION_NUM, BLOCK_LEN
+X     type *,' SOURCE_ID; RADAR_ID =', SOURCE_ID,'   ', RADAR_ID
+X     type *,' OBServation DATE_TIME fields =',
+X    $            (OBS_DATE_TIME(ni),ni=1,n_datim_elems)
+X     type *,' GENeration DATE_TIME fields =',
+X    $            (GEN_DATE_TIME(ni),ni=1,n_datim_elems)
+X     type *,' NROWS =', NROWS
+X     type *
+X     type *,' ...(scaled integer) BIAS_TABL follows:'
+X     write (6,940) ((IBIAS_TABL(nf,nl),nf=1,n_bias_flds),
+X    $                                  nl=1,n_bias_lines)
+X940  format (5i15)
+X     type *
+X     type *,' ...(real) BIAS_TABL follows:'
+X     write (6,950) ((RBIAS_TABL(nf,nl),nf=1,n_bias_flds),
+X    $                                  nl=1,n_bias_lines)
+X950  format (5(1x,g20.10))
+C
+      RETURN
+      END

@@ -1,0 +1,298 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/05 15:22:04 $
+C $Id: a30822.ftn,v 1.3 2002/12/05 15:22:04 christie Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A30822__RCM_GRID(POLGRID,RCMGRID,HYBRSCAN)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A30822__RCM_GRID
+*.
+*.  MODULE VERSION: 0017
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       02 28 86      0000      Mike Istok           Part 2, RPG Build 1
+*.       04 28 86      0001      MIKE ISTOK           SPR# 60124
+*.       04 30 86      0001      MIKE ISTOK           SPR# 60167
+*.       06 24 86      0002      MIKE ISTOK           SPR# 60283
+*.       06 30 86      0002      ATARA WEINSTEIN      SPR# 60313
+*.       09 22 86      0003      MIKE ISTOK           SPR# 60424
+*.       02 15 88      0004      VALERIE HOLDEN       SPR# 80002
+*.       01 23 89      0005      VALERIE HOLDEN       SPR# 90027
+*.       01 29 91      0006      VALERIE HOLDEN       SPR# 91249
+*.       12 03 91      0007      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0008      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/20/92      0009      Toolset              SPR 91895
+*.       11 12 92      0010      VALERIE HOLDEN       CCR NA92-28001
+*.       03/25/93      0011      Toolset              SPR NA93-06801
+*.       01/28/94      0012      Toolset              SPR NA94-01101
+*.       03/03/94      0013      Toolset              SPR NA94-05501
+*.       04/01/95      0014      Toolset              CCR NA95-11802
+*.       11/14/95      0015      Mike Istok           CCR NA94-32101
+*.       12/23/96      0016      Toolset              CCR NA95-11807
+*.       03/16/99      0017      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A30822__RCM_GRID (POLGRID,RCMGRID)
+*.
+*.  MODULE FUNCTION: SET UP RADAR-CODED-MESSAGE GRID
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT        TYPE        DESCRIPTION
+*.    -   -----        ----        -----------
+*.    G   COLDAT       I*2         Product Data Levels Adaptation Data for the
+*.                                 Color Data Tables.
+*.    G   GRID_LAT     I*4         SITE LATITUDE STORED AT THE BEGINNING OF
+*.                                 THE IMAGE OF THE LOCATION THE LFM LOOKUP
+*.                                 TABLES ARE VALID FOR
+*.    G   GRID_LON     I*4         SITE LONGITUDE STORED AT THE BEGINNING OF
+*.                                 THE IMAGE OF THE LOCATION THE LFM LOOKUP
+*.                                 TABLES ARE VALID FOR
+*.    G   LFM16FLAG    I*2         FLAG ARRAY FOR 1/16 LFM GRID. FLAG ARRAY
+*.                                 USED TO; MARK COVERAGE AREA DOMAIN,
+*.                                 IDENTIFY MAPPING HOLES, IDENTIFY DATA USED
+*.                                 TO FILL MAPPING HOLES
+*.    G   LFM16GRID    I*2         LOOKUP TABLE TO CONVERT COMP. REFL. POLAR
+*.                                 GRID DATA TO 1/16 LFM COORDS. EACH ENTRY
+*.                                 CONTAINS 1/16 LFM I & J COORDS. FOR GIVEN
+*.                                 RANGE & AZIMUTH INDEX
+*.    G   SIRDALAT     I*4         Site Adaptation - RDA Latitude.
+*.    G   SIRDALON     I*4         Site Adaptation - RDA Longitude.
+*.    G   THRESH_GT230 R*4         Threshold, Reflectivity for Radar Coded
+*.                                 Messages beyond 230 Km.
+*.    G   BEYOND_GRID  I*4         (CONSTANT)FLAG INDICATING THAT THE AZIMUTH
+*.                                 AND RANGE OF A GIVEN BIN IS OUTSIDE THE
+*.                                 LOCAL LFM GRID DOMAIN
+*.    G   FLAG_AZ      I*4         (CONSTANT)OFFSET IN THE LFMxxFLAG ARRAY TO
+*.                                 AN AZIMUTH INDEX USED TO FILL MAPPING HOLES
+*.    G   FLAG_RNG     I*4         (CONSTANT)OFFSET IN THE LFMxxFLAG ARRAY TO
+*.                                 A RANGE INDEX USED TO: MARK THE COVERAGE
+*.                                 AREA DOMAIN, IDENTIFY MAPPING HOLES, AND TO
+*.                                 FILL MAPPING HOLES
+*.    G   NBINS        I*4         (CONSTANT)Number of reflectivity sample
+*.                                 bins in each radial in the polar grid.
+*.    G   NRADS        I*4         (CONSTANT)Number of radials in the Polar
+*.                                 Grid.
+*.    G   RCMNC        I*4         (CONSTANT)Index into the color level table
+*.                                 (COLDAT) for all the color tables in the
+*.                                 RPG: Radar Coded message 7 level non-clear
+*.                                 air.
+*.    C   NCOLS        I*4         (CONSTANT)Number of columns in Radar Coded
+*.                                 Message LFM grid.
+*.    C   NROWS        I*4         (CONSTANT)Number of rows in Radar Coded
+*.                                 Message LFM grid.
+*.    P   HYBRSCAN     I*2         Hybrid Scan array of digital reflectivity
+*.                                 values on polar grid
+*.    P   POLGRID      I*2         Polar grid portion of polar grid buffer.
+*.    P   RCMGRID      I*2         RADAR-CODED-MESSAGE GRID
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    P   RCMGRID I*2         RADAR-CODED-MESSAGE GRID
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME       TYPE        DESCRIPTION
+*.    ----       ----        -----------
+*.    AZ         I*4         AZIMUTH ANGLE
+*.    BIAS       R*4         Bias for threshold conversion at GT230 km.
+*.    BIAS_GT230 I*4         THRESHOLD VALUE BIASED FOR GT 230 KM
+*.    BIN        I*4         BIN NUMBER
+*.    BIN_CROSS  I*4         BIN CROSS POINT 230 KM
+*.    I          I*4         Grid I-coordinate point.
+*.    LEVEL7     I*4         LEVEL NUMBER 7 FOR > 230 KM
+*.    LEVEL8     I*4         LEVEL NUMBER 8 FOR > 230 KM
+*.    RTWO       R*4         (Constant) Real Program Parameter for 2.0.
+*.    ZERO       I*4         PROGRAM PARAMETER FOR 0
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A314C1
+*.    COLRTBL
+*.    PRODSEL
+*.    SITEADP
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     THIS MODULE IS COMPILED USING COMP08.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     THIS MODULE IS LINKED USING LINK08.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+C*
+$INCLUDE A309ADPT.INC/G,**A3CD70CA (NEND NLIST)
+$INCLUDE                **A3CD70C7 (NEND NLIST)
+$INCLUDE                **A3CD70C5 (NEND NLIST)
+$INCLUDE A309.INC/G,**A3PM04       (NEND NLIST)
+$INCLUDE A308.INC/G,**A308P2         (NEND NLIST)
+$INCLUDE A307BUF.INC/G,**A307P4    (NEND NLIST)
+$INCLUDE A307BUF.INC/G,**A307D4    (NEND NLIST)
+$INCLUDE A313HBUF.INC/G,**A313HYPP (NEND NLIST)
+$INCLUDE                **A313HYD3 (NEND NLIST)
+$INCLUDE A3146.INC/G,**A3146LFP    (NEND NLIST)
+$INCLUDE             **A3146LFX    (NEND NLIST)
+$INCLUDE             **A314C1      (NEND NLIST)
+C
+      INTEGER*2  RCMGRID(NCOLS*NROWS)
+      INTEGER*4  I,BIN_CROSS,BIN,AZ
+      INTEGER*4  BIAS_GT230,LEVEL7,LEVEL8,ZERO,TWO
+      REAL       RTWO,BIAS
+      PARAMETER  (ZERO=0)
+      PARAMETER  (BIN_CROSS=230)
+      PARAMETER  (LEVEL7=7,LEVEL8=8)
+      PARAMETER  (RTWO=2.0,BIAS=32.0)
+C
+C     Initialize radar coded message grid to zeros
+C
+      DO 5 I=1,NROWS*NCOLS
+        RCMGRID(I)=ZERO
+ 5    CONTINUE
+C
+C     DETERMINE THRESHOLD VALUE BIASED FOR BEYOND 230 KM
+C
+      BIAS_GT230 = NINT(RTWO * (THRESH_GT230 + BIAS)) + 2
+C
+C     DETERMINE IF THE GRID TABLE LATITUDE/LONGITUDE EQUAL THE
+C     SITE LATITUDE/LONGITUDE
+C
+      IF (GRID_LAT.EQ.SIRDALAT .AND. GRID_LON.EQ.SIRDALON) THEN
+C
+C     DO FOR ALL THE AZIMUTH VALUES
+C
+        DO 20 AZ = 1,NRADS
+C
+C     DO FOR ALL THE BIN NUMBERS UP TO THE BIN CROSS VALUE OF 231
+C
+          DO 25 BIN = 1,BIN_CROSS
+C
+C     DETERMINE IF THE COLOR THRESHOLD VALUE EXCEEDS ZERO
+C
+            IF (COLDAT(HYBRSCAN(BIN,AZ),RCMNC).GT.ZERO) THEN
+C
+C     IF THE COLOR THRESHOLD VALUE EXCEEDS THE RCMGRID VALUE,
+C     THEN THE RCMGRID VALUE IS SET TO THE VALUE FROM THE COLOR
+C     TABLE
+C
+              IF (COLDAT(HYBRSCAN(BIN,AZ),RCMNC).GT.
+     $          RCMGRID(LFM16GRID(BIN,AZ))) THEN
+                RCMGRID(LFM16GRID(BIN,AZ)) =
+     $            COLDAT(HYBRSCAN(BIN,AZ),RCMNC)
+              ENDIF
+            ENDIF
+ 25       CONTINUE
+C
+C
+C     DO FOR ALL BINS FROM THE BIN CROSS TO THE MAXIMUM NUMBER
+C     OF BINS
+C
+          DO 30 BIN = BIN_CROSS+1,NBINS
+C
+C     PROCESS IF THE LFM16GRID VALUE IS NOT EQUAL TO THE BEYOND
+C     GRID FLAG VALUE
+C
+            IF (LFM16GRID(BIN,AZ).NE.BEYOND_GRID) THEN
+C
+C     DETERMINE IF THE COLOR THRESHOLD VALUE EXCEEDS ZERO
+C
+              IF (COLDAT(POLGRID(BIN,AZ),RCMNC).GT.ZERO) THEN
+C
+C     WHEN THE POLGRID VALUE IS GREATER THAN THE BIAS VALUE, SET
+C     THE RCMGRID VALUE TO LEVEL 7 COLOR
+C
+                IF (POLGRID(BIN,AZ).GT.BIAS_GT230) THEN
+                  RCMGRID(LFM16GRID(BIN,AZ)) = LEVEL7
+C
+C     WHEN THE POLGRID VALUE IS WITHIN THE BIAS VALUE, SET THE
+C     RCMGRID VALUE TO LEVEL 8 COLOR
+C
+                ELSEIF (POLGRID(BIN,AZ).LE.BIAS_GT230) THEN
+                  RCMGRID(LFM16GRID(BIN,AZ)) = LEVEL8
+                ENDIF
+              ENDIF
+C
+C     1/16 LFM GRID BOX VALUE IS BEYOND GRID FLAG VALUE, GET NEXT
+C     AZIMUTH TO PROCESS
+C
+            ELSE
+              GO TO 20
+            ENDIF
+ 30       CONTINUE
+ 20     CONTINUE
+C
+C     DO FOR THE 1/16 LFM GRID
+C
+        DO 40 I = 1, NROWS * NCOLS
+C
+C     CHECK IF THE 1/16 LFM GRID BOX FLAG RANGE IS A HOLE RANGE
+C     SET THE BIN AND AZIMUTH VALUE FROM THE LFM 16 FLAG TABLE
+C
+          IF (LFM16FLAG(I,FLAG_RNG).GT.ZERO) THEN
+            BIN = LFM16FLAG(I,FLAG_RNG)
+            AZ  = LFM16FLAG(I,FLAG_AZ)
+C
+C     CHECK IF THE 1/16 LFM GRID BOX FLAG IS WITHIN 230 KM
+C
+            IF (LFM16FLAG(I,FLAG_RNG).LE.BIN_CROSS) THEN
+C
+C     CHECK IF THE COLOR THRESHOLD VALUE IS POSITIVE
+C
+              IF (COLDAT(HYBRSCAN(BIN,AZ),RCMNC).GT.ZERO) THEN
+                RCMGRID(LFM16GRID(BIN,AZ)) =
+     $            COLDAT(HYBRSCAN(BIN,AZ),RCMNC)
+              END IF
+            ELSE
+C
+C     CHECK IF THE COLOR THRESHOLD VALUE IS POSITIVE
+C
+              IF (COLDAT(POLGRID(BIN,AZ),RCMNC).GT.ZERO) THEN
+C
+C     WHEN THE POLGRID VALUE IS GREATER THAN THE BIAS VALUE, SET
+C     THE RCMGRID VALUE TO LEVEL 7 COLOR
+C
+                IF (POLGRID(BIN,AZ).GT.BIAS_GT230) THEN
+                  RCMGRID(LFM16GRID(BIN,AZ)) = LEVEL7
+C
+C     WHEN THE POLGRID VALUE IS WITHIN THE BIAS VALUE, SET THE
+C     RCMGRID VALUE TO LEVEL 8 COLOR
+C
+                ELSEIF (POLGRID(BIN,AZ).LE.BIAS_GT230) THEN
+                  RCMGRID(LFM16GRID(BIN,AZ)) = LEVEL8
+                ENDIF
+              ENDIF
+            ENDIF
+          ENDIF
+ 40     CONTINUE
+      ENDIF
+      RETURN
+      END

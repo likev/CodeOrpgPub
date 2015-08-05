@@ -1,0 +1,175 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/05 16:08:41 $
+C $Id: a3082e.ftn,v 1.3 2002/12/05 16:08:41 christie Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A3082E__PARTBC_HEADER(IPART,SPLIT_DATE,HMTIME,IROW,
+     $   ICOL,NBYTES,RCMBUF)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3082E__PARTBC_HEADER
+*.
+*.  MODULE VERSION: 0012
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       2 10 88       0000      VALERIE HOLDEN       SPR # 80002
+*.       0 27 89       0001      STAN MANOSKI         SPR # 90403
+*.       5 07 90       0002      PAUL PISANI          SPR # 90697
+*.       2 22 91       0003      VALERIE HOLDEN       SPR # 91249
+*.       3 05 91       0003      BAYARD JOHNSTON      SPR # 91225
+*.       12 03 91      0004      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0005      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/20/92      0006      Toolset              SPR 91895
+*.       03/25/93      0007      Toolset              SPR NA93-06801
+*.       01/28/94      0008      Toolset              SPR NA94-01101
+*.       03/03/94      0009      Toolset              SPR NA94-05501
+*.       04/11/96      0010      Toolset              CCR NA95-11802
+*.       12/23/96      0011      Toolset              CCR NA95-11807
+*.       03/16/99      0012      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A3082E__PARTBC_HEADER (IPART,SPLIT_DATE,
+*.                    HMTIME,IROW,ICOL,NBYTES,RCMBUF)
+*.
+*.  MODULE FUNCTION:
+*.
+*.     ENCODES PART B OR C HEADER LINE IN THE RADAR CODED MESSAGE
+*.     BASED ON AVAILABILITY OF VAD WINDS. IF THESE ARE AVAILABLE
+*.     NORMAL PART A OR B IS ENCODED; OTHERWISE, "VADNA" IS
+*.     APPENDED TO THE MESSAGE.
+*.
+*.  MODULES CALLED: A3082K__STORE_LINE 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT      TYPE        DESCRIPTION
+*.    -   -----      ----        -----------
+*.    G   SIRPGID    I*4         Site Adaptation - RPG ID Number.
+*.    C   VB         I*4         Valid buffer array that contains volume
+*.                               number.
+*.    C   NACOLS     I*4         (CONSTANT)Number of columns available for
+*.                               Radar Coded Message product.
+*.    P   HMTIME     I*4         HOURS AND MINUTES OF TIME DATA
+*.    P   ICOL       I*4         COLUMN NUMBER
+*.    P   IPART      I*4         FLAG FOR HEADER: 1=PARTB, 2=PARTC
+*.    P   IROW       I*4         ROW NUMBER
+*.    P   NBYTES     I*4         NUMBER OF BYTES
+*.    P   RCMBUF     I*2         RADAR-CODED-MESSAGE BUFFER
+*.    P   SPLIT_DATE I*2         DATE IN THREE I*2 WORDS
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    P   ICOL    I*4         COLUMN NUMBER
+*.    P   IROW    I*4         ROW NUMBER
+*.    P   NBYTES  I*4         NUMBER OF BYTES
+*.    P   RCMBUF  I*2         RADAR-CODED-MESSAGE BUFFER
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    P   ICOL              I*4         COLUMN NUMBER
+*.    P   IROW              I*4         ROW NUMBER
+*.    P   NBYTES            I*4         NUMBER OF BYTES
+*.    P   RCMBUF            I*2         RADAR-CODED-MESSAGE BUFFER
+*.
+*.  DATABASE/FILE REFERENCE: NONE
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME     TYPE        DESCRIPTION
+*.    ----     ----        -----------
+*.    BLANK    CHAR*1      ONE BLANK CHARACTER
+*.    B_HEADER I*4         B HEADER LINE FLAG
+*.    C_HEADER I*4         C HEADER LINE FLAG
+*.    I        I*4         Index control variable.
+*.    K        I*4         Loop control index variable.
+*.    NO       I*4         FLAG FOR VALID BUFFER RETRIEVAL
+*.    ONE      I*4         Program parameter value for one used as lower index
+*.                         in do loop.
+*.    PARTB    CHAR*8      PART B IDENTIFIER
+*.    PARTC    CHAR*8      PART C IDENTIFIER
+*.    PARTX    CHAR*8      IDENTIFIER FOR PART B OR C HEADER
+*.    RCM_LINE CHAR*70     RADAR CODED MESSAGE LINE
+*.    VADNA    CHAR*6      NO VAD WINDS AVAILABLE FLAG
+*.    VWBUF    I*4         VALID BUFFER FLAG FOR VAD WINDS
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    SITEADP
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A308P2
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS: NONE
+*.
+*.  DEVIATION FROM STANDARDS: NONE
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     THIS MODULE IS COMPILED USING COMP08.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     THIS MODULE IS LINKED USING LINK08.CSS
+*.
+*.  MISC: NONE
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+C*
+$INCLUDE A309ADPT.INC/G,**A3CD70CA (NEND NLIST)
+$INCLUDE A308.INC,**A308P2         (NEND NLIST)
+C*
+      INTEGER*2    SPLIT_DATE(3),RCMBUF(*)
+      INTEGER*4    HMTIME,IROW,ICOL,NBYTES,I,K,IPART,NO,ONE
+      INTEGER*4    B_HEADER,C_HEADER,VWBUF
+      PARAMETER    (NO=0,B_HEADER=1,C_HEADER=2,VWBUF=6,ONE=1)
+      CHARACTER*1  BLANK
+      CHARACTER*6  VADNA
+      CHARACTER*8  PARTB,PARTC,PARTX
+      CHARACTER*70 RCM_LINE
+      DATA         PARTB/'/NEXRBB '/,PARTC/'/NEXRCC '/
+      DATA         VADNA/' VADNA'/,BLANK/' '/
+C*
+C*    SET PARTX FOR EITHER /NEXRBB OR /NEXRCC
+C*
+      IF (IPART.EQ.B_HEADER) PARTX = PARTB
+      IF (IPART.EQ.C_HEADER) PARTX = PARTC
+C*
+C*    CLEAR RCM_LINE TO BLANKS
+C*
+      DO 5 I = ONE,NACOLS
+ 5       RCM_LINE(I:I) = BLANK
+C*
+C*    IF VAD WINDS BUFFER IS NOT AVAILABLE AND IPART = 1, THEN ADD
+C*
+C*       VADNA TO LINE INDICATING NO VAD WINDS AVAILABLE
+C*    WRITE /NEXRBB OR /NEXRCC, SIDD, DATE/TIME, AND VADNA
+C*
+      IF (VB(VWBUF).EQ.NO.AND.IPART.EQ.B_HEADER) THEN
+         WRITE(RCM_LINE,90) PARTB,SIRPGID,(SPLIT_DATE(K),K=1,3),
+     $      HMTIME,VADNA
+ 90      FORMAT(A8,I4.4,' ',3(I2.2),I4.4,A6)
+      ELSE
+X     TYPE *,'ENCODE B HEADER'
+         WRITE(RCM_LINE,95) PARTX,SIRPGID,(SPLIT_DATE(K),K=1,3),
+     $      HMTIME
+ 95      FORMAT(A8,I4.4,' ',3(I2.2),I4.4)
+      ENDIF
+C*
+C*    STORE LINE INTO RADAR CODED MESSAGE PRODUCT BUFFER
+C*
+      CALL A3082K__STORE_LINE(IROW,ICOL,NBYTES,RCM_LINE,RCMBUF)
+      RETURN
+      END

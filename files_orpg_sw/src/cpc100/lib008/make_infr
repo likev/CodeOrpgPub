@@ -1,0 +1,88 @@
+
+include ./Make_local_$(ARCH)
+
+F = 
+
+EXECUTABLES = lb_create lb_rm lb_info lb_cat lb_nt rssd smipp sdqs
+
+LIB_NAME = libinfr.a
+
+OBJ.O = cmp_gzip.o cs_cfgsup.o cs_parse.o css_client.o \
+    css_common.o css_server.o en.o en_client.o en_server.o \
+    lb_clear.o lb_common.o lb_list.o lb_lock.o lb_mark.o \
+    lb_notify.o lb_open.o lb_read.o lb_seek.o lb_sms.o \
+    lb_stat.o lb_write.o le_logerr.o le_save_msg.o le_utils.o \
+    misc_bswap.o misc_inet_nultoa.o misc_msleep.o misc_proc.o \
+    misc_rsis.o misc_rsrc.o misc_sig.o misc_string.o \
+    misc_table.o misc_unix_time.o net_misc.o rmt_cl_register.o \
+    rmt_client.o rmt_encrypt.o rmt_get_client.o rmt_msg_cl.o \
+    rmt_msg_sv.o rmt_port_number.o rmt_secu_cl.o rmt_secu_sv.o \
+    rmt_server.o rmt_sock_cl.o rmt_sock_shared.o rmt_sock_sv.o \
+    rmt_sv_register.o rmt_ufi.o rss_bufd.o rss_file.o \
+    rss_filed.o rss_lb.o rss_lbd.o rss_rpc.o rss_shared.o \
+    rss_sharedd.o rss_uu.o rss_uud.o sdq_api.o smi_app.o str.o
+
+
+.SUFFIXES: .sto .sho
+
+$(TARGET_LIB): $(OBJ.O:.o=.sto) 
+	ar rcv $(TARGET_LIB) $(OBJ.O:.o=.sto)
+	ranlib $(TARGET_LIB)
+
+$(TARGET_LIB_SHARED): $(OBJ.O:.o=.sho) 
+	/bin/rm -f $(TARGET_LIB_SHARED)
+	$(LIBSHAREDLD) -o $(TARGET_LIB_SHARED) $(OBJ.O:.o=.sho) $(LDFLAGS) $(EXTERN_LIBS) $(SPECIAL_SYS_LIB)
+	chmod 555 $(TARGET_LIB_SHARED)
+
+lib: $(TARGET_LIB)
+
+libs: $(TARGET_LIB_SHARED)
+
+install: $(EXECUTABLES)
+	mv $(EXECUTABLES) $(BIN_DIR)
+
+tools: $(EXECUTABLES)
+
+LIBS = -linfr
+
+lb_create: lb_create.o
+	$(CC) -o lb_create $(F) $(CCFLAGS) lb_create.o $(LDFLAGS) $(LIBS)
+
+lb_rm: lb_rm.o
+	$(CC) -o lb_rm $(F) $(CCFLAGS) lb_rm.o $(LDFLAGS) $(LIBS)
+
+lb_info: lb_info.o 
+	$(CC) -o lb_info $(F) $(CCFLAGS) lb_info.o $(LDFLAGS) $(LIBS)
+
+lb_cat: lb_cat.o 
+	$(CC) -o lb_cat $(F) $(CCFLAGS) lb_cat.o $(LDFLAGS) $(LIBS)
+
+lb_nt: lb_nt.o
+	$(CC) -o lb_nt $(F) $(CCFLAGS) lb_nt.o $(LDFLAGS) $(LIBS)
+
+rssd:
+	$(CC) -o rssd $(F) $(CCFLAGS) rmtd_user_func_set.c $(LDFLAGS) $(LIBS)
+
+SMIPP_OBJ.O = smipp_main.o smipp_parse.o smipp_types.o
+smipp:  $(SMIPP_OBJ.O)
+	$(CC) -o smipp $(F) $(CCFLAGS_GEN) $(SMIPP_OBJ.O) $(LDFLAGS) $(LIBS)
+
+SDQS_OBJS = sdqs_main.o sdqs_compile.o sdqs_operate.o sdqs_api.o \
+            sdqm_core.o sdqm_select.o sdqm_result.o
+sdqs: $(SDQS_OBJS) 
+	$(CC) -o sdqs $(F) $(CCFLAGS) $(SDQS_OBJS) $(LDFLAGS) $(LIBS)
+
+clean:
+	/bin/rm -f *.o *% *.sho *.sto $(EXECUTABLES)
+
+.c.o:
+	$(CC) -c $(F) $(CCFLAGS) $<
+
+.c.sto:
+	$(CC) -c $(F) $(CCFLAGS) $*.c
+	mv $*.o $*.sto
+
+.c.sho:
+	$(CC) $(F) -c $(LIBSHAREDCC) $(CCFLAGS) $*.c
+	mv $*.o $*.sho
+

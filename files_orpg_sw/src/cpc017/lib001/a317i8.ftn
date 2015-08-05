@@ -1,0 +1,309 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/17 15:47:57 $
+C $Id: a317i8.ftn,v 1.2 2002/12/17 15:47:57 christie Exp $
+C $Revision: 1.2 $
+C $State: Exp $
+C
+      SUBROUTINE A317I8__MERGE_P2D
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A317I8__MERGE_P2D
+*.
+*.  MODULE VERSION: 0001
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       05/29/97      0000      MARK FRESCH          CCR NA95-21503
+*.       03/16/99      0001      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A317I8__MERGE_P2D
+*.
+*.  MODULE FUNCTION:
+*.
+*.  Combines the attributes of two merging potential 2D features.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT          TYPE        DESCRIPTION
+*.    -   -----          ----        -----------
+*.    C   LABC           I*4         ID # OF THE POTENTIAL 2D FEATURE IN A
+*.                                   "CURRENT" RADIAL
+*.    C   LABP           I*4         ID # OF THE POTENTIAL 2D FEATURE IN A
+*.                                   "PREVIOUS" RADIAL
+*.    C   NRPV_TH        I*4         NUMBER OF PATTERN VECTORS FOUND WITH A
+*.                                   DIFFERENTIAL VELOCITY THRESHOLD THAT
+*.                                   BEGIN ON A RADIAL
+*.    C   N_PREV_2       I*4         TWO TIMES THE # OF PREVIOUS RADIALS WITH
+*.                                   PATTERN VECTORS BEING COMPARED IN THE 2D
+*.                                   PROCESSING
+*.    C   OFFSET         I*4         EQUAL TO TDABFPTR - OFFSET USED TO
+*.                                   CORRECT PATTERN VECTOR POINTERS IN THE
+*.                                   VECT_ATTR ARRAY FROM TWO SIDED TDAMAIN
+*.                                   ARRAY
+*.    C   P2DFEAT        R*4         ARRAY CONTAINING ATTRIBUTES OF THE P2DF's
+*.    C   P2DF_PTR       I*4         POINTER TO THE FIRST PATTERN VECTOR OF A
+*.                                   P2DF IN THE LINKED LIST
+*.    C   P2DF_PV_INDX   I*4         LINKED LIST OF PAT. VECTS BELONGING TO
+*.                                   P2DFs CONTAINING THE INDICES INTO TDAMAIN
+*.                                   OF THE LAST, CURRENT, AND NEXT PATTERN
+*.                                   VECTORS IN THE P2DF
+*.    C   RAD_PV         R*4         CONTAINS THE CORRELATION FLAG, BIN #
+*.                                   (RANGE), AND INDEX INTO TDAMAIN OF THE
+*.                                   ABOVE THRESHOLD PATTERN VECTORS IN THE
+*.                                   "CURRENT" AND "PREVIOUS" RADIALS
+*.    C   RAD_ZERO_CROSS L*4         FLAG INDICATING WHETHER THE VECTOR
+*.                                   AZIMUTH DISTANCE (TWO PATTERN VECTORS)
+*.                                   SPANS ZERO DEGREES
+*.    C   P2D_BAZ        I*4         (CONSTANT)INDEX INTO P2DFEAT TO THE
+*.                                   BEGINNING AZIMUTH OF A POTENTIAL 2D
+*.                                   FEATURE IN DEGREES
+*.    C   P2D_BRG        I*4         (CONSTANT)INDEX INTO P2DFEAT TO THE
+*.                                   BEGINNING RANGE OF A POTENTIAL 2D FEATURE
+*.                                   INITIALLY IN BINS CONVERTED TO KM IN
+*.                                   A317U8
+*.    C   P2D_EAZ        I*4         (CONSTANT)INDEX INTO P2DFEAT TO THE
+*.                                   ENDING AZIMUTH OF A POTENTIAL 2D FEATURE
+*.                                   IN DEGREES
+*.    C   P2D_ERG        I*4         (CONSTANT)INDEX INTO P2DFEAT TO THE
+*.                                   ENDING RANGE OF A POTENTIAL 2D FEATURE
+*.                                   INITIALLY IN BINS CONVERTED TO KM IN
+*.                                   A317U8
+*.    C   P2D_NPV        I*4         (CONSTANT)INDEX INTO P2DFEAT TO THE # OF
+*.                                   PATTERN VECTORS IN A POTENTIAL 2D FEATURE
+*.    C   P2D_ZCR        I*4         (CONSTANT)INDEX INTO P2DFEAT TO THE ZERO
+*.                                   CROSS FLAG OF A POTENTIAL 2D FEATURE
+*.    C   PTR_LAS        I*4         (CONSTANT)INDEX INTO P2DF_PV_INDX TO THE
+*.                                   PREVIOUS PATTERN VECTOR IN THE LINKED
+*.                                   LIST FOR EACH POTENTIAL 2D FEATURE
+*.    C   PTR_NEX        I*4         (CONSTANT)INDEX INTO P2DF_PV_INDX TO THE
+*.                                   NEXT PATTERN VECTOR IN THE LINKED LIST
+*.                                   FOR EACH POTENTIAL 2D FEATURE
+*.    C   PV_ID          I*4         (CONSTANT)INDEX INTO RAD_PV TO THE 2D
+*.                                   FEATURE ID NUMBER TO WHICH A PATTERN
+*.                                   VECTOR IS ASSIGNED
+*.    C   TERM_NATE      I*4         (CONSTANT)FLAG VALUE IN P2DF_PV_INDX
+*.                                   INDICATING THE END OF THE PATTERN VECTOR
+*.                                   LINKED LIST FOR EACH POTENTIAL 2D FEATURE
+*.    C   TWOPI_DEG      R*4         (CONSTANT)TWO TIMES PI = 360 DEGREES
+*.
+*.    *   OUTPUT       TYPE        DESCRIPTION
+*.    -   ------       ----        -----------
+*.    C   LABC         I*4         ID # OF THE POTENTIAL 2D FEATURE IN A
+*.                                 "CURRENT" RADIAL
+*.    C   P2DFEAT      R*4         ARRAY CONTAINING ATTRIBUTES OF THE P2DF's
+*.    C   P2DF_PTR     I*4         POINTER TO THE FIRST PATTERN VECTOR OF A
+*.                                 P2DF IN THE LINKED LIST
+*.    C   P2DF_PV_INDX I*4         LINKED LIST OF PAT. VECTS BELONGING TO
+*.                                 P2DFs CONTAINING THE INDICES INTO TDAMAIN
+*.                                 OF THE LAST, CURRENT, AND NEXT PATTERN
+*.                                 VECTORS IN THE P2DF
+*.    C   RAD_PV       R*4         CONTAINS THE CORRELATION FLAG, BIN #
+*.                                 (RANGE), AND INDEX INTO TDAMAIN OF THE
+*.                                 ABOVE THRESHOLD PATTERN VECTORS IN THE
+*.                                 "CURRENT" AND "PREVIOUS" RADIALS
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME    TYPE        DESCRIPTION
+*.    ----    ----        -----------
+*.    NEW_ID  I*4         Label of potential 2D feature with the most pattern
+*.                        vectors that is being merged with a second potential
+*.                        2D feature
+*.    OLD_ID  I*4         Label of a potential 2D feature that is being merged
+*.                        with another potentail 2D feature
+*.    PV_IDX  I*4         Do loop index for pattern vector indexes
+*.    RAD_IDX I*4         Do loop index
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A315P2DC
+*.    A317CDAD
+*.    A317TCA
+*.    A317TVA
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     Compiled using COMP17.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     Linked using LINK17.CSS
+*.
+*.  MISC:  None
+*.
+C********************************************************************
+C
+C               TDA 2D PROCESSING: MERGE P2D SUBROUTINE
+C
+C********************************************************************
+C
+      IMPLICIT NONE
+C
+$INCLUDE A317BUF.INC/G,**A317P3T (NLIST)
+C
+$INCLUDE A309.INC/G, **A3PM50 (NLIST)
+C
+$INCLUDE A317.INC/G,**A317TCP (NLIST)
+$INCLUDE            **A317TCA (NLIST)
+$INCLUDE            **A317TVA (NLIST)
+$INCLUDE            **A317CDAD (NLIST)
+C
+$INCLUDE             **A317P2DP (NLIST)
+$INCLUDE             **A317P2DC (NLIST)
+C
+C*********************** DATA DECLARATIONS **************************
+C
+      INTEGER  NPV_THP, NPV_THC
+      INTEGER PV_IDX, RAD_IDX, OLD_ID, NEW_ID
+C
+C****************** BEGIN MAIN PROCESSING SECTION *******************
+C
+C** Keep the label of the potential 2D feature with the most
+C** pattern vectors already assigned to it.  Use NEW_ID and OLD_ID
+C** to point to the feature labels to be kept and discarded,
+C** respectively. (Actually, the discarded label has been returned
+C** to the circular list.)
+C
+      IF (P2DFEAT(P2D_NPV,LABC) .GE. P2DFEAT(P2D_NPV,LABP))THEN
+         NEW_ID = LABC
+         OLD_ID = LABP
+      ELSE
+         NEW_ID = LABP
+         OLD_ID = LABC
+      END IF
+C
+C** Compute the attributes of the merged pot. 2D features.
+C** Set nearest first bin no. & farthest last bin no. for entire
+C** combined pot. 2D feature.
+C
+      IF (P2DFEAT(P2D_BRG,OLD_ID).LT.P2DFEAT(P2D_BRG,NEW_ID))
+     >   P2DFEAT(P2D_BRG,NEW_ID) = P2DFEAT(P2D_BRG,OLD_ID)
+C
+      IF (P2DFEAT(P2D_ERG,OLD_ID).GT.P2DFEAT(P2D_ERG,NEW_ID))
+     >   P2DFEAT(P2D_ERG,NEW_ID) = P2DFEAT(P2D_ERG,OLD_ID)
+C
+C**  Sum the number of pattern vectors from both pot. 2D features.
+C
+      P2DFEAT(P2D_NPV,NEW_ID) = P2DFEAT(P2D_NPV,NEW_ID)
+     >                            + P2DFEAT(P2D_NPV,OLD_ID)
+C
+C** Test the different circumstances for zero_cross of the two
+C** pot. 2D features to determine the beginning and ending azimuths.
+C
+C** If the beginning azimuths are on either side of zero degrees,
+C** take the save the greater of the two beginning azimuths.  In
+C** this case it will be the most counter-clockwise.
+C
+      IF ((ABS(P2DFEAT( P2D_BAZ, OLD_ID ) -
+     >  P2DFEAT( P2D_BAZ, NEW_ID )) .GT. TWOPI_DEG) .AND.
+     >  (P2DFEAT(P2D_BAZ, OLD_ID).GT.P2DFEAT(P2D_BAZ, NEW_ID))) THEN
+C
+        P2DFEAT(P2D_BAZ, NEW_ID) = P2DFEAT(P2D_BAZ, OLD_ID)
+C
+C** Otherwise, if the old P2D feature's beg. az. is < the new,
+C** then save the old P2D feature's beg. az.
+C
+      ELSE IF (P2DFEAT( P2D_BAZ, OLD_ID ) .LT.
+     >               P2DFEAT( P2D_BAZ, NEW_ID )) THEN
+        P2DFEAT(P2D_BAZ, NEW_ID) = P2DFEAT(P2D_BAZ, OLD_ID)
+      END IF
+C
+C** If the ending azimuths are on either side of zero degrees,
+C** save the lesser of the two ending azimuths.  In this
+C** case, it will be the most clockwise.
+C
+      IF ((ABS(P2DFEAT( P2D_EAZ, OLD_ID ) -
+     >  P2DFEAT( P2D_EAZ, NEW_ID )) .GT. TWOPI_DEG) .AND.
+     >  (P2DFEAT(P2D_EAZ, OLD_ID).LT.P2DFEAT(P2D_EAZ, NEW_ID)))THEN
+C
+        P2DFEAT(P2D_EAZ, NEW_ID) = P2DFEAT(P2D_EAZ, OLD_ID)
+C
+C** Otherwise, if the old P2D feature's ending az. is < the new,
+C** then save the old P2D feature's ending az.
+C
+      ELSE IF (P2DFEAT( P2D_EAZ, OLD_ID ) .GT.
+     >               P2DFEAT( P2D_EAZ, NEW_ID )) THEN
+        P2DFEAT(P2D_EAZ, NEW_ID) = P2DFEAT(P2D_EAZ, OLD_ID)
+      END IF
+C
+C** If previous pot. 2D feature crosses zero degrees, or
+C** the radials joining the two potential 2D features cross
+C** zero degrees, then set the flag in P2DFEAT.
+C
+      IF ((P2DFEAT( P2D_ZCR, OLD_ID ) .EQ. 1.0) .OR.
+     >      (RAD_ZERO_CROSS)) THEN
+         P2DFEAT( P2D_ZCR, NEW_ID ) = 1.0
+      END IF
+C
+C** Find any other possible branches of old potential 2D feature
+C** (i.e. pattern vectors correlated to that feature), and change
+C** their labels to that of new feature its merged with.
+C
+      DO 22  RAD_IDX = 1, N_PREV_2 + 1
+         DO 21  PV_IDX = 1, NRPV_TH(RAD_IDX)
+            IF ( RAD_PV( PV_ID, PV_IDX, RAD_IDX) .EQ.
+     >                        OLD_ID) THEN
+               RAD_PV( PV_ID, PV_IDX, RAD_IDX)  =  NEW_ID
+             END IF
+ 21      CONTINUE
+ 22   CONTINUE
+C
+C** Now change the pattern vector pointer linked list.  First loop
+C** through the linked list to get to the last pattern vector of
+C** the NEW_ID feature.
+C
+      PV_IDX = P2DF_PTR(NEW_ID)
+ 100  IF ( P2DF_PV_INDX(PTR_NEX,PV_IDX-OFFSET) .NE. TERM_NATE ) THEN
+C
+C** The end of the linked list for each pot. 2D feature = TERM_NATE.
+C
+        PV_IDX = P2DF_PV_INDX(PTR_NEX,PV_IDX-OFFSET)
+         GO TO 100
+      END IF
+C
+C** Connect the linked lists of the new & old features by pointing
+C** from the last pattern vector of the NEW_ID feature to the 1st
+C** pattern vector of the OLD_ID feature and vice versa.
+C
+      P2DF_PV_INDX(PTR_NEX,PV_IDX-OFFSET) = P2DF_PTR(OLD_ID)
+      P2DF_PV_INDX(PTR_LAS, P2DF_PTR(OLD_ID)-OFFSET) = PV_IDX
+C
+C** Zero out the pointer to the first pattern vector of the OLD_ID
+C** pot. 2D feature in P2DF_PTR.
+C
+      P2DF_PTR(OLD_ID) = 0
+C
+C** When processing returns to the calling module, label LABC will
+C** be returned to the bottom of the ID stack. So, ensure that
+C** the correct LABC is returned - the one that was discarded.
+C
+      LABC = OLD_ID
+C
+C**************** END OF PROCESSING FOR SUBROUTINE ******************
+C
+      RETURN
+      END

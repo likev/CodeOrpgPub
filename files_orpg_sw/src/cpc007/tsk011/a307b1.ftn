@@ -1,0 +1,297 @@
+C
+C RCS info
+C $Author: steves $
+C $Locker:  $
+C $Date: 1999/07/30 17:14:57 $
+C $Id: a307b1.ftn,v 1.1 1999/07/30 17:14:57 steves Exp $
+C $Revision: 1.1 $
+C $State: Exp $
+C
+      SUBROUTINE A307B1__BUFFER_CONTROL( PARAM )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A307B1__BUFFER_CONTROL
+*.
+*.  MODULE VERSION: 0000
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.     DATE      VERSION  PROGRAMMER        NOTES
+*.     --------  -------  ----------------  --------------------------
+*.     05/20/99   0000    Mike Istok        CCR NA96-17803
+*.
+*.  CALLING SEQUENCE: A307B1__BUFFER_CONTROL( PARAM )
+*.
+*.  MODULE FUNCTION: BUFFER CONTROL ROUTINE FOR ANOMALOUS BEAM
+*.                   PROPAGATION EDITED COMPOSITE REFLECTIVITY
+*.                   POLAR GRID TASK.
+*.
+*.  MODULES CALLED: A31145__ABORT_ME, A31168__ABORT_ME_BECAUSE, 
+*.                  A31211__GET_INBUF, A31212__REL_INBUF, A31215__GET_OUTBUF, 
+*.                  A31216__REL_OUTBUF, A31488__PRODUCT_GENERATION_CONTROL, 
+*.                  A3CM53__WHAT_MOMENTS 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT                TYPE        DESCRIPTION
+*.    -   -----                ----        -----------
+*.    G   MEM                  I*4         Array in RPG shared memory set
+*.                                         aside for buffer sharing.
+*.    G   BASEDATA             I*4         (CONSTANT)DATA BUFFER COUNT OF
+*.                                         BUFFERS TYPE-BASE DATA
+*.    G   DESTROY              I*4         (CONSTANT)Mnemonic used as input to
+*.                                         A31216__REL_OUTBUF. Indicates "do
+*.                                         not pass data to other tasks".
+*.    G   FORWARD              I*4         (CONSTANT)Parameter to indicate
+*.                                         that an output buffer is to be
+*.                                         forwarded to successor tasks
+*.    G   FT_TO_KM             R*4         (CONSTANT)DEFINES THE SCALING FACTOR FOR
+*.                                         FEET TO KILOMETERS PARAMETERS
+*.    G   HEDO                 I*4         (CONSTANT)Offset in base radial
+*.                                         header input buffer for
+*.                                         preprocessed base radial headers
+*.                                         (in words).
+*.    G   NORMAL               I*4         (CONSTANT)Parameter which indicates
+*.                                         normal completion of requested
+*.                                         operation to acquire input or
+*.                                         output buffer
+*.    G   NO_MEM               I*4         (CONSTANT)Parameter which indicates
+*.                                         no memory available on attempt to
+*.                                         acquire output buffer
+*.    G   PROD_DISABLED_MOMENT I*4         (CONSTANT)Abort status for moment
+*.                                         disabled product.
+*.    G   PROD_MEM_SHED        I*4         (CONSTANT)(CONSTANT)Parameter which
+*.                                         indicates that product aborted due
+*.                                         to memory load shedding
+*.    G   REFO                 I*4         (CONSTANT)Offset to base radial
+*.                                         reflectivity data in input buffer
+*.                                         (relative O from 'MEM(PTR)').
+*.    G   SPWO                 I*4         (CONSTANT)Offset to base radial
+*.                                         spectrum width data in input buffer
+*.                                         (relative O from 'MEM(PTR)').
+*.    G   VELO                 I*4         (CONSTANT)Offset to base radial
+*.                                         velocity data in input buffer.
+*.    C   ENDVSCAN             L*4         Flag set when end of volume scan
+*.                                         radial is received.
+*.    C   PHDR                 I*4         (CONSTANT)Offset to header portion
+*.                                         of shared memory buffer.
+*.    C   CRE_NRADS            I*4         (CONSTANT)Number of radials in the
+*.                                         composite reflectivity - AP removed
+*.                                         polar grid.		
+*.    C   MAX_CRE_RANGE        I*4         (CONSTANT)Maximum reflectivity bin
+*.                                         number to use for composite
+*.                                         reflectivity - AP removed polar grid
+*.                                         generation.
+*.    C   PGRID                I*4         (CONSTANT)Offset into 
+*.                                         composite reflectivity - AP removed
+*.                                         polar grid task output buffer
+*.                                         storing the polar grid data.
+*.    C   CRPGAPE              I*4         (CONSTANT)Data Buffer Type for
+*.                                         Composite AP removed polar
+*.                                         grid
+*.
+*.    *   OUTPUT   TYPE        DESCRIPTION
+*.    -   ------   ----        -----------
+*.    G   MEM      I*4         Array in RPG shared memory set aside for buffer
+*.                             sharing.
+*.    C   BEGVSCAN L*4         Flag set when radial status indicates beginning
+*.                             of volume scan
+*.    C   ENDVSCAN L*4         Flag set when end of volume scan radial is
+*.                             received.
+*.    C   MAX_RADS          I*4  Number of radials in composite reflectivity
+*.                               - AP removed polar grid.         
+*.    C   MAX_PRODUCT_RANGE I*4  Maximum reflectivity bin number to use for 
+*.                               composite reflectivity - AP removed polar grid
+*.                               generation.
+*.    P   L1BNDKM           R*4  Top altidude of the layer in km
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    G   MEM               I*4         Array in RPG shared memory set aside
+*.                                      for buffer sharing.
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME     TYPE        DESCRIPTION
+*.    ----     ----        -----------
+*.    LAYER1_BNDRY I*4     The top boundary of the layer in feet
+*.    MAX_ALTITUDE I*4     Maximum altitude for composite reflectivity grid (kft)
+*.    OPSTAT   I*4         Returned status from A31215 to get output buffer
+*.    PBUFPTR  I*4         Product output buffer pointer.
+*.    PBUFSIZ  I*4         Product output buffer size in words
+*.    PTR      I*4         Input buffer pointer to radial data
+*.    REF_FLAG L*4         REFLECTIVITY AVAILABLE FLAG
+*.    RQDAT    I*4         Data type of received input buffer
+*.    THSND    I*4         PROGRAM PARAMETER FOR 1000
+*.    VEL_FLAG L*4         Flag indicating whether velocity is available
+*.    WID_FLAG L*4         FLAG FOR SPECTRUM WIDTH AVAILABLE
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD00
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3148C1
+*.    A3148C3
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP07.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK07.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+$INCLUDE A309.INC/G,**A3PM00      (NLIST)
+$INCLUDE A309.INC/G,**A3PM07      (NLIST)
+$INCLUDE            **A3PM50      (NLIST)
+$INCLUDE            **A3CD00      (NLIST)
+$INCLUDE A304.INC/G,**A304P4      (NLIST)
+$INCLUDE A307BUF.INC,**A307P4     (NLIST)
+$INCLUDE A314BUF.INC,  **A3148C1  (NLIST)
+$INCLUDE A314BUF.INC,  **A3148C3  (NLIST)
+C
+C*** LOCAL DECLARATIONS:
+C
+      INTEGER PARAM
+      INTEGER PBUFPTR,PTR
+      INTEGER PBUFSIZ
+      PARAMETER (PBUFSIZ=82802)
+      INTEGER OPSTAT,RQDAT
+      LOGICAL REF_FLAG, VEL_FLAG, WID_FLAG
+      INTEGER LAYER1_BNDRY, THSND
+      REAL L1BNDKM
+      PARAMETER (THSND = 1000)
+      INTEGER MAX_CRE_RANGE, CRE_NRADS, MAX_ALTITUDE
+      PARAMETER (MAX_CRE_RANGE = 460, CRE_NRADS = 360)
+      PARAMETER (MAX_ALTITUDE = 99)
+C
+C*** EXECUTABLE CODE:
+C-------------------
+C
+C*** INITIALIZATION:
+C
+      OPSTAT   = NORMAL
+      ENDVSCAN =.FALSE.
+      BEGVSCAN =.TRUE.
+C
+C*** REQUEST AN OUTPUT BUFFER
+C
+      CALL A31215__GET_OUTBUF(CRPGAPE,PBUFSIZ,PBUFPTR,OPSTAT)
+C
+C*** PROCESS FURTHER ONLY IF OUTPUT-BUFFER WAS RETRIEVED SUCCESSFULLY:
+C
+      IF (OPSTAT .EQ. NORMAL) THEN
+C
+C*** SET POLGRID ARRAY DIMENSIONS FOR THE CRE PRODUCT
+C
+         MAX_RADS = CRE_NRADS
+         MAX_PRODUCT_RANGE = MAX_CRE_RANGE
+C
+C*** SET BOUNDARY HEIGHT FOR THE LAYER TO A LARGE NUMBER SO THAT
+C*** ALL DATA IS INCLUDED IN THIS PRODUCT.
+C
+         LAYER1_BNDRY = MAX_ALTITUDE * THSND
+         L1BNDKM = LAYER1_BNDRY * FT_TO_KM
+C
+C*** REQUEST INPUT BUFFERS (RADIAL BASE DATA) AND PROCESS
+C*** UNTIL THE END OF THE VOLUME SCAN IS REACHED:
+C
+         CALL A31211__GET_INBUF(BASEDATA,PTR,RQDAT,OPSTAT)
+C
+C*** IF THE INPUT DATA STREAM HAS BEEN RETRIEVED NORMALLY,
+C*** CONTINUE PROCESSING :
+C
+         IF (OPSTAT .EQ. NORMAL) THEN
+C
+            CALL A3CM53__WHAT_MOMENTS(MEM(PTR),REF_FLAG,VEL_FLAG,
+     1                                WID_FLAG)
+            IF (.NOT. REF_FLAG .OR. .NOT. VEL_FLAG .OR.
+     1          .NOT. WID_FLAG) THEN
+C
+C*** IF REFLECTIVITY MOMENT DISABLED, OR VELOCITY MOMENT DISABLED,
+C*** OR SPECTRUM WIDTH MOMENT DISABLED, DO ABORT PROCESSING
+C
+              CALL A31212__REL_INBUF(PTR)
+              CALL A31216__REL_OUTBUF(PBUFPTR,DESTROY)
+              CALL A31168__ABORT_ME_BECAUSE(PROD_DISABLED_MOMENT)
+              GO TO 99
+
+            END IF
+C
+         END IF
+C
+ 20      IF (OPSTAT .EQ. NORMAL) THEN
+C
+C*** CALL THE PRODUCT GENERATION CONTROL ROUTINE:
+C
+              CALL A31488__PRODUCT_GENERATION_CONTROL(MEM(PTR+HEDO),
+     1            MEM(PTR+REFO),MEM(PTR+VELO),MEM(PTR+SPWO),
+     2            MEM(PBUFPTR+PHDR), L1BNDKM ,MEM(PBUFPTR+PGRID),PTR)
+C
+C*** RELEASE THE INPUT BUFFER:
+C
+              CALL A31212__REL_INBUF(PTR)
+C
+C*** IF NOT END-OF-VOLUME-SCAN, REQUEST THE NEXT INPUT BUFFER,
+C*** AND REPEAT THE PROCESS :
+C
+              IF( ENDVSCAN )  THEN
+C
+C*** IF PROGRAM FALLS THRU TO HERE, IT MEANS THAT AN
+C*** END-OF-VOLUME-SCAN HAS BEEN REACHED.
+C
+C*** RELEASE AND FORWARD THE OUTPUT (POLAR GRID) BUFFER.
+C
+                CALL A31216__REL_OUTBUF(PBUFPTR,FORWARD)
+              ELSE
+C
+C*** MORE RADIALS TO PROCESS ....
+C
+                CALL A31211__GET_INBUF(BASEDATA,PTR,RQDAT,OPSTAT)
+                GO TO 20
+C
+              END IF
+C
+C*** IF INPUT BUFFER NOT SUCCESSFULLY RETRIEVED,
+C*** RELEASE AND DESTROY THE OUTPUT BUFFER:
+C
+         ELSE
+C
+            CALL A31216__REL_OUTBUF(PBUFPTR,DESTROY)
+            CALL A31145__ABORT_ME
+C
+         ENDIF
+      ELSE
+C
+C*** IF OUTPUT BUFFER NOT SUCCESSFULLY RETRIEVED, ABORT.
+C*** IF REASON WAS "NO MEM", NOTIFY DOWNSTREAM TASKS.
+C
+        IF (OPSTAT .EQ. NO_MEM) THEN
+          CALL A31168__ABORT_ME_BECAUSE(PROD_MEM_SHED)
+        ELSE
+          CALL A31145__ABORT_ME
+        END IF
+C
+      ENDIF
+C
+C*** RETURN TO THE PARAMETER TRAP ROUTER ROUTINE
+C
+ 99   RETURN
+      END

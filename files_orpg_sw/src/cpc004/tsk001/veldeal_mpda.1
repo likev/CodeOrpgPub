@@ -1,0 +1,141 @@
+         1         2         3         4         5         6         7
+12345678901234567890123456789012345678901234567890123456789012345678901234567890
+veldeal(2)                       Open RPG                        Veldeal(2)
+
+NAME
+
+cpc004/tsk001 - veldeal (Velocity Dealiasing - Multi-PRF)
+
+SYNOPSIS
+
+veldeal [options]
+
+OPTIONS
+
+     -h   Display help message and exit
+     -v   Send verbose error messages to stderr
+
+DATA
+
+     Input LB: RAW_BASE_DATA
+     Output LB: RPG_BASE_DATA
+
+OVERVIEW
+
+The veldeal task has been modified to include not only the legacy Velocity
+Dealiasing Algorithm (VDA) but also the Multi-PRF Dealiasing Algorithm (MPDA). 
+The main veldeal task, on activation, determines the Volume Coverage Pattern
+(VCP) number of the incoming data.  Based on the VCP number it then calls either
+the VDA or MPDA buffer control modules.  The respective buffer control modules
+process the incoming raw base data until an end of elevation or an end of volume
+condition is detected and veldeal becomes inactive.  VCP 121, when downloaded
+from the ORPG to the RDA, causes the veldeal task to initiate the MPDA
+processing.  This VCP has the same elevation angles as VCP 21 but completes a
+volume scan every 5 rather than 6 minutes.
+
+MPDA DESCRIPTION
+
+     Overview
+
+     The MPDA technique combines velocity data from multiple sweeps at the same
+     elevation angle.  This accomplishes two things:  First, because each sweep
+     has a different PRF with a corresponding different unambiguous range, 
+     Doppler data that may be range folded at one PRF may not be range folded 
+     at another PRF.  Range folding reduction of 50% to 70% is expected. 
+     Second, where there are redundant velocity measurements, MPDA produces
+     robustly dealiased velocity data.  Overall accuracy is comparable to
+     velocity dealiasing using a high PRF number.  Spectrum width data are range
+     unfolded at the same time as the velocity data.
+
+     Data Input/Output
+ 
+     Raw surveillance mode reflectivity data as they are acquired from the input
+     buffer are immediately sent to the output buffer as RPG base data.  A copy
+     of the data are saved for range unfolding the 2nd and 3rd velocity scans
+     later.  Doppler velocity data, spectrum width data, and batch mode
+     reflectivity data are not sent to the output buffer and not available for
+     other algorithms to use until all required sweeps have been received and
+     the MPDA has completed processing.  Once processing is completed, the RPG
+     base data are sent out in a burst.  Above 4.3 degrees elevation, dealiasing
+     reverts to the VDA.  Raw base data are received, velocity data dealiased,
+     and all moments sent to the output buffer as RPG base data on a radial
+     basis.
+
+     Processing Steps
+
+     After azimuthally aligning data from the multiple velocity sweeps, the MPDA
+     attempts to dealias velocities all locations with three velocity estimates. 
+     The three original velocities or velocities adjusted by the Nyquist co-
+     interval must not differ by more than an threshold value.  The MPDA next
+     attempts to dealias locations with only two velocity estimates or locations
+     with three velocity estimates that could not be previously dealiased.  Next
+     it attempts to find a solution using individual velocity estimates. 
+     Finally, it fills in remaining locations with an un-dealiased velocity
+     estimate that most closely matches its neighbors.  At all processing steps
+     a candidate velocity solution must be within threshold difference of a
+     "seed" velocity.  The seed values may come from a previously accepted
+     solution, nearby averages, or the Environmental Wind Table.  After each key
+     processing step, data quality modules correct for outliers, large velocity
+     differences along a radial and runs of large azimuthal velocity differences.
+
+VCP 121 Description
+
+     VCP 121 collects data at nine unique elevation angles in every five minutes
+     using a total of 20 sweeps.  MPDA is applied to the first 5 elevation
+     angles while VDA is used for the remaining four higher elevation angles.  
+     The scanning sequence is as follows:
+
+     Sweep    PRF     Elev.     Data Mode
+     -----    ---   --------  ----------------------------------
+      1        1     0.5 deg  Surveillance
+      2        8     0.5 deg  Contiguous Doppler (range unfolded)
+      3        6     0.5 deg  Contiguous Doppler (range ambiguous)
+      4        4     0.5 deg  Contiguous Doppler (range ambiguous)
+      5        1     1.5 deg  Surveillance
+      6        8     1.5 deg  Contiguous Doppler (range unfolded)
+      7        6     1.5 deg  Contiguous Doppler (range ambiguous)
+      8        4     1.5 deg  Contiguous Doppler (range ambiguous)
+      9       1,8    2.4 deg  Batch
+     10        6     2.4 deg  Contiguous Doppler (range ambiguous)    
+     11        4     2.4 deg  Contiguous Doppler (range ambiguous)
+     12       2,8    3.4 deg  Batch
+     13        6     3.4 deg  Contiguous Doppler (range ambiguous)
+     14        4     3.4 deg  Contiguous Doppler (range ambiguous)
+     15       2,4    4.3 deg  Batch
+     16        7     4.3 deg  Contiguous Doppler (range ambiguous)
+     17       3,5    6.0 deg  Batch
+     18        7     9.9 deg  Contiguous Doppler (range unfolded)     
+     19        8    14.6 deg  Contiguous Doppler (range unfolded)
+     20        8    19.5 deg  Contiguous Doppler (range unfolded)
+
+
+NOTES
+
+     Auto PRF
+
+     Toggling the Auto PRF function on while MPDA is running is allowed.
+     However, the Auto PRF function will not download VCP 121 to the RDA with a
+     new PRF.  The MPDA requires its own predefined PRFs to run correctly.
+
+     GUI PRF Selection Tool
+
+     The GUI PRF Selection Tool remains functional while in VCP 121 to help the
+     user to decide if running in VCP 121 (MPDA) or using sectorized PRFs is
+     more advantageous.
+
+     Algorithm Performance
+
+     Because of the time required to acquire two extra velocity scans (about 25
+     seconds at the lower elevation angles), it is postulated that algorithms
+     that build three-dimensional features by vertically associating two-
+     dimensional features may not work as expected.  Tornadic signatures close
+     to the radar may be lost due to weakened velocity gradients and feature
+     translation.  Fast-moving weather events would increase the likelihood of a
+     failure.  These problems have not been observed in the limited data sets on
+     which the MPDA was developed and tested.  
+
+SEE ALSO
+
+veldeal(1)
+
+				$Revision    $

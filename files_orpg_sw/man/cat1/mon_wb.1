@@ -1,0 +1,104 @@
+NAME
+    mon_wb - Prints information about application messages exchanged between 
+             the RDA and the RPG.
+
+SYNOPSIS
+    mon_wb [options]
+
+DESCRIPTION
+    mon_wb is a tool for printing information about application level (ICD) 
+    messages exchanged between the RDA and RPG.
+
+    When the tool is invoked, a number of lines are immediately output.
+    The first non-blank line provides the current date.  The second
+    non-blank line contains the direction of the RPG to RDA communications and
+    the absolute path of the comm manager request file.  The third non-blank
+    line provides direction of the RDA to RPG communications and the absolute
+    path of the comm manager response file.  To allow for easier reading, 
+    dividers consisting of strings of equal signs are provided to separate
+    messages.  The first line of each individual message feedback will contain
+    the message time, direction of communication, and some textual description
+    of the message.  Other important information regarding that message will
+    follow.  For example, in the sample output provided below this paragraph,
+    the message range checking function detected the "data_trans_enbld" field
+    as containing an out of range value compared to the specifications in the
+    ICD.  An alert message is provided along with the value.  For some fields,
+    the valid range will also be provided.
+
+    The communication is RPG-centric.  Outgoing messages to the RDA are denoted
+    by ---> and incoming message from the RDA are denoted by <---.
+
+    Sample output:
+
+       05/20/03
+           
+       RPG ---> RDA Request LB : /export/home/orpg4/data/comms/req.0
+       RPG <--- RDA Response LB: /export/home/orpg4/data/ingest/resp.0
+       =========================================================================
+       17:24:57  ---> RDA CONTROL COMMANDS MSG (Msg Type: 6)
+       =========================================================================
+       17:24:57  <--- RDA STATUS MSG (Msg ID:30198 Type:2 Len:132 Req Num:30170)
+          
+               !!!! ALERT !!!! : DEAU: Range check failed (value 28.000000):
+               RDA_status_msg_t.data_trans_enbld
+               
+       =========================================================================
+
+
+   Verbosity Levels:
+
+       The "-v" option can be used followed by a positive integer.  The 
+       following text briefly describes the output for each verbosity level.
+       Note that important information such as data out-of-range alerts,
+       message types, message direction, and message separators are printed
+       always, regardless of the verbosity level.
+
+       Verbose Level 0  - The default level (same as running with no -v option).
+                         
+       Verbose Level 1  - The most commonly used verbosity level.  Items printed
+                          for V0 are printed plus formatted prints of the
+                          structure's most important fields.
+
+       Verbose Level 2  - Items printed for V1 plus formatted prints of all
+                          structure fields.
+
+       Verbose Level 3  - Items printed for V2 plus formatted prints of the
+                          message headers.
+
+       Verbose Level 4  - Items printed for V3 plus formatted prints of the
+                          communications headers and diagnostic information (the
+                          status of processing).
+
+       Verbose Level 5+ - Items printed for V4 plus testing prints used for
+                          development and debugging.
+
+
+OPTIONS
+    -a        Validates all messages, including intermediate basedata messages
+    -h        Prints usage message and exits.
+    -v<level> Verbose mode. A positive integer must follow "-v".  Typical values are
+              1-4, with larger numbers indicating more verbosity.
+    -r<buf>   Rewinds the user-specified buffer.  Options for "buf" are I = Input
+              Buffer (typically the response LB), O = Output Buffer (typically
+              the request LB), and B = Both the Input and Output Buffers.
+    -f<I/O><file> This is the "file" option.  It allows users to specify an
+              input (I) or output (O) LB of their own they would like to process.
+              No space is allowed after the I or O and before the file path/name.
+
+
+EXAMPLES
+    mon_wb -h
+	Prints mon_wb usage information.
+
+    mon_wb -v3 -a
+	Level three verbosity, process all messages including intermediate (not
+        start/end of elevation/volume) basedata messages.
+
+    mon_wb -v1 
+	Level one verbosity.
+
+    mon_wb -rB -v2 
+	Rewind both the Input and Output LBs, use level two verbosity.
+
+    mon_wb -rI -v3 -fI/export/home/orpg1/my_input.lb
+        Rewind the Input LB which is user-specified.  Use level two verbosity.

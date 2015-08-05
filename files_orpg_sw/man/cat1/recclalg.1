@@ -1,0 +1,84 @@
+recclalg(1)               ORPG Manpage                  recclalg(1)
+
+
+NAME:
+        cpc004/tsk006 - Radar Echo Classifier Algorithm (AP/Clutter Target) 
+
+DATA IN:
+        54 (RAWDATA)
+
+DATA OUT:
+        298 (RECCLDIGREF)
+        299 (RECCLDIGDOP)
+
+DESCRIPTION :
+        The Radar Echo Classifier (REC) algorithm processes raw base data
+        to determine the likelihood of a specific category of target.  In
+        this implementation the target is anomalous propagation(AP)/ground
+        clutter.  Refer to document NX-DR-03-071/01 for the REC algorithm
+        enunciation language (AEL).  In summary, the algorithm computes
+        several pattern characteristic values for each reflectivity bin
+        (out to 230 km only) and each Doppler bin.  It then normalizes the
+        pattern characteristic values (i.e. scales them from 0 to 1) and,
+        based on weighting factors, combines them into a probability, or
+        percentage likelihood, that the radar is detecting the target
+        category.  The scaling and weighting factors are part of orpg
+        adaptation data.
+                
+        Two intermediate products are output and used by the REC's product
+        producing task (recclprods) to create radial format displays of
+        Clutter Likelihood Reflectivity (CLR) and Clutter Likelihood
+        Doppler (CLD) products.  The reflectivity version contains target
+        likelihood percentages for reflectivity radials while the Doppler
+        version contains target likelihood percentages for Doppler radials.
+        
+        This task is elevation based and, if requested, outputs two
+        intermediate products at the end of each elevation.
+        
+        Besides the main() function, there are four key functions in
+        this algorithm.  These key functions populate global working arrays
+        with pattern characteristic values for each reflectivity and
+        Doppler bin.  The first key function, named classify_echo(), is
+        called from main() at the end of an elevation.  Classify_echo()
+        calls, in order, compute_Z_texture(), compute_V_stddev() and finally
+        compute_probs().  Upon returning to main(), the reflectivity and
+        Doppler target likelihood arrays are copied to the intermediate
+        product output buffers and forwarded back to the orpg infrastructure.
+        
+        The second key function, compute_Z_texture(), is responsible for
+        filling arrays with the reflectivity pattern characteristics.
+        Currently, these are:  texture, mean sign of reflectivity change,
+        and reflectivity spin.  See the AEL document for detailed
+        definitions of these pattern characteristics.
+        
+        The third key function, compute_V_stddev(), is responsible for
+        filling arrays with the Doppler pattern characteristics.  Currently,
+        these are:  mean velocity, standard deviation of mean velocity, and
+        mean spectrum width.  See the AEL document for detailed definitions
+        of these pattern characteristics.
+        
+        The fourth key function, compute_probs(), is responsible for scaling
+        the pattern characteristics values of each bin to values ranging
+        from 0 to 1.  The scaling is performed by using adaptation data
+        values that define the low limit (0) and high limit (1) values for
+        each pattern characteristic.  The function then uses weighting
+        factors from adaptation data to combine the scaled pattern
+        characteristics into a percentage likelihood that the radar is
+        detecting the target category (AP/clutter).  A weighting factor
+        enables a pattern characteristic to have more (or less) weight in the
+        final likelihood value than another pattern characteristic.
+        
+        Although there are separate products for reflectivity radials and
+        Doppler radials, it should be noted that all pattern characteristics
+        (both reflectivity and Doppler) are used in the determination of
+        target likelihood percentages in each product, assuming the pattern
+        characteristic's weighting factor is greater than zero.
+
+TASK ID:
+        406
+
+SEE ALSO task_table(4), recclprods(1), recclprodsref(4), recclprodsdop(4),
+        recclalgref(4), recclalgdop(4)
+
+                               $Revision $
+

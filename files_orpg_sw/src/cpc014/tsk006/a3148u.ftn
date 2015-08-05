@@ -1,0 +1,265 @@
+C 
+C RCS info 
+C $Author: nolitam $ 
+C $Locker:  $ 
+C $Date: 2002/11/27 15:17:47 $ 
+C $Id: a3148u.ftn,v 1.2 2002/11/27 15:17:47 nolitam Exp $ 
+C $Revision: 1.2 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A3148U__PROD81_APPEND_BIAS (HYDRSUPL,LYR3EN,PRODBUF)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3148U__PROD81_APPEND_BIAS
+*.
+*.  MODULE VERSION: 0000
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       01/31/02      0000      Dennis A. Miller     CCR NA01-27501
+*.
+*.  CALLING SEQUENCE: CALL A3148U__PROD82_BTABL(HYDRSUPL,
+*.                                 PRODBUF,LYR3EN)
+*.
+*.  MODULE FUNCTION:
+*.
+*.     This routine is called to build the Bias Table sub-layer for the Digital
+*.     Precipitation Data Array (DPA) product, as an ASCII table. The table
+*.     contains some header lines and all the rows (i.e., time spans) of the most
+*.     recently-received (from AWIPS) Bias Table. This data will be added as a
+*.     sub-layer in Layer-type 3 (the last layer) of the DPA product, following
+*.     the Adaptation Data sub-layer and preceding the Supplemental Data sub-layer.
+*.
+*.  MODULES CALLED: A3146T__CNVTIME
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT       TYPE        DESCRIPTION
+*.    -   -----       ----        -----------
+*.    G   SIRPGID     I*4         Site Adaptation - RPG ID Number.
+*.    G   BEG_MISDAT  I*4         (CONSTANT)Offset into precipitation
+*.                                accumulation array pointing to the date for
+*.                                the beginning time of the missing period.
+*.    G   BEG_MISTIM  I*4         (CONSTANT)Offset into precipitation
+*.                                accumulation array pointing to the beginning
+*.                                time of the missing period.
+*.    G   CUR_BIAS    I*4         (CONSTANT)Bias between rain gage and radar
+*.                                estimates positional parameter.
+*.    G   CUR_GRPSIZ  I*4         (CONSTANT)Gage-Radar Pairs (effective sample
+*.                                size) positional parameter.
+*.    G   CUR_MSPAN   I*4         (CONSTANT)Memory Span (over which Bias
+*.                                determined) positional parameter.
+*.    G   END_MISDAT  I*4         (CONSTANT)Offset into supplemental data
+*.                                array, within the output buffer, pointing to
+*.                                the date of the ending time of the missing
+*.                                period.
+*.    G   END_MISTIM  I*4         (CONSTANT)Offset into supplementary data
+*.                                array withing the output buffer, printing to
+*.                                the ending time of the missing period.
+*.    G   FLAG_SET    I*4         (CONSTANT)Parameter for a set flag.
+*.    G   FLG_BADSCN  I*4         (CONSTANT)Indicator in hydromet scan that
+*.                                data is bad.
+*.    G   FLG_MSGPRD  I*4         (CONSTANT)Offset into supplemental data
+*.                                array within the output buffer pointing to
+*.                                the missing flag.
+*.    G   NUM_INTOUT  I*4         (CONSTANT)Offset into supplemental data
+*.                                array within the output buffer for number of
+*.                                interpolated outliers.
+*.    G   SCAN_DATE   I*4         (CONSTANT)(CONSTANT)Volume Scan Date index
+*.                                into Scan Summary Table
+*.    G   SCAN_TIME   I*4         (CONSTANT)(CONSTANT)Volume Scan Time index
+*.                                into Scan Summary Table
+*.    G   SCAN_VCP    I*4         (CONSTANT)(CONSTANT)Volume Coverage Pattern
+*.                                index into Scan Summary Table
+*.    C   BIAS_TOGGLE L*4         Local adaptaion copy of BIAS_FLAG
+*.    C   ARA_PCTRED  I*4         (CONSTANT)Offset in HYDRSUPL (input buffer
+*.                                array) for the area percent reduction.
+*.    C   NUM_ISOBIN  I*4         (CONSTANT)Offset into Hydrsupl for the
+*.                                number of isolated bins.
+*.    C   NUM_OUTINT  I*4         (CONSTANT)Offset into Hydrsupl for the
+*.                                number of interpolated outlier bins.
+*.    C   NUM_OUTRPL  I*4         (CONSTANT)Offset into Hydrsupl for the
+*.                                number of replaced outlier bins.
+*.    C   RAT_BISCAN  I*4         (CONSTANT)Offset in HYDRSUPL for Bi-Scan
+*.                                ratio.
+*.    P   HYDRSUPL    I*4         Supplemental data array.
+*.    P   LYR3EN      I*4         End index of layer 3
+*.    P   PRODBUF     I*2         Product output buffer
+*.
+*.    *   OUTPUT      TYPE        DESCRIPTION
+*.    -   -----       ----        -----------
+*.    P   LYR3EN      I*4         End index of layer 3
+*.    P   PRODBUF     I*2         Product output buffer
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  NONE
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME           TYPE        DESCRIPTION
+*.    ----           ----        -----------
+*.    BIAS_APPLIED   CHAR*8      FLAG (YES/NO) FOR WHETHER BIAS APPLIED
+*.    CHARHDR        CHAR*8      CHARACTER HEADER FIELD IN BIAS TABLE
+*.    CHARLINE       CHAR*80     FULL CHARACTER LINE IN BIAS TABLE
+*.    TITL_LINE      CHAR*80     TITLE LINE IN SPD PRODUCT
+*.    CHAR_DATE_TIME CHAR*14     CHARACTER REPRESENTATION OF DATE AND TIME
+*.    CNO            CHAR*8      CHARACTER REPRESENTATION OF "NO"
+*.    CYES           CHAR*8      CHARACTER REPRESENTATION OF "YES"
+*.    I              I*4         Loop counter
+*.    J              I*4         Loop counter
+*.    L              I*4         Loop counter
+*.    NCHAR_HDR      I*4         Number of characters per header field
+*.    NCHAR_LN       I*4         Number of characters per full line
+*.    NI2            I*4         Ratio of I*2 bytes to I*4 bytes (2)
+*.    NI2_HDR        I*4         Number of I*2 characters per header field
+*.    NI2_LN         I*4         Number of I*2 characters per full line
+*.    PRODLINE       I*2         I*2 equivalence of CHARLINE
+*.    LN_BIAS_1ST    I*4         Index no. in SPD Bias Table for 1st Table Row
+*.    LN_BIAS_LST    I*4         Index no. in SPD Bias Table for last Table Row
+*.    LN_DATIM       I*4         Index no. in SPD Bias Table for Date-Time Line
+*.    LN_HEADR       I*4         Index no. in SPD Bias Table for 1st Header Line
+*.    LN_TITLE       I*4         Index no. in SPD Bias Table for Title Line
+*.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD05
+*.    SITEADP
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A314C3
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK14.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+ 
+C
+C...'X' IN COLUMN-1 INDICATES CONDITIONALLY COMPILED DEBUG CODE...
+C
+      IMPLICIT NONE
+C
+C** Include task-local common data:
+C
+$INCLUDE A313HBUF.INC/G,**A313HYPP (NEND NLIST)
+$INCLUDE                **A313HYDD (NEND NLIST)
+$INCLUDE A313H.INC,**A3136P5 (NLIST)
+$INCLUDE           **A3136C5 (NEND NLIST)
+$INCLUDE A3146.INC/G,**A314C3 (NLIST)
+$INCLUDE A3148.INC/G,**A3148PU (NLIST)
+C
+C** Define subroutine-local variable names used:
+C
+      INTEGER*2  PRODBUF(*)
+C
+      INTEGER    LYR3EN
+C
+      INTEGER    NI2
+      PARAMETER (NI2=2)
+C
+      CHARACTER*14 CHAR_DATE_TIME
+      CHARACTER*3 BIAS_APPLIED, CNO, CYES
+      PARAMETER (CNO = ' NO', CYES = 'YES')
+C
+C
+C**** EXECUTABLE ****
+C     ----------
+C
+C** Internal write format statements
+C
+ 1080 FORMAT (A80)
+ 1083 FORMAT (A3)
+ 1084 FORMAT (A14)
+ 1085 FORMAT (F12.3,4F16.3)
+C
+C** Encode BIAS TABLE sub-layer header line (Char*8)
+C
+      WRITE (CHARHDR,'(A5,I2,A1)') 'BIAS(', NLINS_BTABL, ')'
+C
+      DO 10  I = 1, NI2_HDR
+         PRODBUF(LYR3EN+1) = PRODHDR(I)
+         LYR3EN = LYR3EN + 1
+ 10   CONTINUE
+C
+C** Print Header and Bias Table lines
+C
+X    type *, charhdr (1:8)
+C
+C** Encode Bias Table Title and Header lines
+C
+      WRITE (CHARLINE(LN_TITLE),1080) TITL_LINE
+C
+      WRITE (CHARLINE(LN_DATIM),1080) DATE_LINE
+C
+C** Retrieve date & time Bias Table last updated locally
+C** & insert in encoded Date-Bias Flag line
+C
+      CALL A3146T__CNVTIME(HYDRSUPL(TIM_BCALC),
+     +               HYDRSUPL(DAT_BCALC),CHAR_DATE_TIME)
+C
+      WRITE (CHARLINE(LN_DATIM) (TB_UPT:TE_UPT),1084) CHAR_DATE_TIME
+C
+C** Retrieve decision on whether Bias to be Applied to precip 
+C** products (except DPA) & insert in encoded Date-Bias Flag line
+C
+      IF (BIAS_TOGGLE) THEN
+           BIAS_APPLIED = CYES
+      ELSE
+           BIAS_APPLIED = CNO
+      ENDIF
+C
+      WRITE (CHARLINE(LN_DATIM) (TB_APL:TE_APL),1083) BIAS_APPLIED
+C
+C** Encode Header line for the table itself
+C
+      WRITE (CHARLINE(LN_HEADR),1080) HDR_LINE
+C
+C** Encode Bias Table row lines
+C
+      L = LN_BIAS_1ST
+      DO 20  J = 1, N_BIAS_LINES
+         WRITE (CHARLINE(L),1085) (RBIAS_TABL(I,J), I=1,N_BIAS_FLDS)
+         L = L + 1
+ 20   CONTINUE
+C
+C** Copy Bias Table character lines to product buffer, using
+C** equivalence
+C
+      DO 30  J = LN_TITLE, LN_BIAS_LST
+         DO 30 I = 1, NI2_LN
+            PRODBUF(LYR3EN+1) = PRODLINE((J-1)*NI2_LN+I)
+            LYR3EN = LYR3EN + 1
+ 30   CONTINUE
+C
+C
+C** Print Header and Bias Table lines
+C
+X     do 300  j = ln_title, ln_bias_lst
+c
+X       type *, charline(j) (1:80)
+c
+X300  continue
+C
+      RETURN
+      END

@@ -1,0 +1,396 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/16 19:40:37 $
+C $Id: a315g7.ftn,v 1.3 2002/12/16 19:40:37 christie Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A315G7__AVG_SPEED(STORMAIN, NCONPRED, AVGSPEED,
+     >                             AVGDIREC, STORMIDTYP, STORMOTION)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A315G7__AVG_SPEED
+*.
+*.  MODULE VERSION: 0016
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       08 16 85      0000      DENNIS MILLER        BUILD 2
+*.       05 07 86      0001      DENNIS MILLER        SPR # 304
+*.       06 12 86      0002      DENNIS MILLER        SPR # 60223
+*.       11 15 86      0003      M STEWART            SPR # 60346
+*.       11 15 86      0003      M STEWART            SPR # 60650
+*.       04 20 89      0004      CHI CHAN             SPR # 90299
+*.       03 21 90      0005      RICH MIHOCI          SPR # 90697
+*.       02 22 91      0006      DENNIS MILLER        SPR # 91256
+*.       02 15 91      0006      JOHN DEPHILIP        SPR # 91762
+*.       04 12 91      0006      DENNIS MILLER        SPR # 90956
+*.       12 03 91      0007      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0008      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0009      Toolset              SPR 91895
+*.       03/25/93      0010      Toolset              SPR NA93-06801
+*.       01/28/94      0011      Toolset              SPR NA94-01101
+*.       03/03/94      0012      Toolset              SPR NA94-05501
+*.       04/01/95      0013      Toolset              CCR NA95-11802
+*.       05/25/95      0014      STEVE SMITH          CCR NA94-26302
+*.       12/23/96      0015      Toolset              CCR NA95-11807
+*.       03/16/99      0016      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A315G7__AVG_SPEED( STORMAIN,NCONPRED,
+*.                         AVGSPEED,AVGDIREC,STORIDTYP,STORMOTION )
+*.
+*.  MODULE FUNCTION:
+*.
+*.   This routine determines the Velocity (Speed & Direction) of all
+*.  "Continuing" storm cells in a volume scan (i.e. those which the
+*.  X & Y components of the storm cell velocity had previously been
+*.  determined). It also computes the Average Speed & Direction of
+*.  all storm cells, and assigns these values to any "New" storm
+*.  cells for which velocity was previously undefined.
+*.
+*.   If no "Continuing" storm cells exist in a volume scan, the
+*.  Average Speed & Direction, as well as the speed & direction of
+*.  any "New" storms, are assigned the Default values of these fields.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT      TYPE        DESCRIPTION
+*.    -   -----      ----        -----------
+*.    G   ADPDFDIR   I*4         Adaptation data default direction stored in
+*.                               Storm Data
+*.    G   ADPDFSPD   R*4         Adapatation data default storm speed stored
+*.                               in Storm Data
+*.    G   ADPSPDMN   R*4         Adapatation data minimum storm motion stored
+*.                               in Storm Data.
+*.    G   KTS_TO_MPS R*4         (CONSTANT)SCALING FACTOR FOR KNOTS TO METERS
+*.                               PER SECOND
+*.    G   NSTF_IDT   I*4         (CONSTANT)The number of attributes for each
+*.                               storm cell in the array STORMIDTYP which
+*.                               contains Storm ID, storm type, and number of
+*.                               volumes tracked.
+*.    G   NSTF_MAX   I*4         (CONSTANT)The maximum number of storm cells
+*.                               the array STORMIDTYP may hold.  The array
+*.                               provides the storm cell Id attribute.
+*.    G   NSTF_MOT   I*4         (CONSTANT)The number of storm motion
+*.                               attributes for each storm cell in the array
+*.                               STORMOTION. (First dimension)
+*.    G   NSTM_CHR   I*4         (CONSTANT)Maximum number of storm
+*.                               characteristics  (dimension of STORMAIN)
+*.    G   NSTM_MAX   I*4         (CONSTANT)Maximum number of storms (Dimension
+*.                               for STORMAIN)
+*.    G   STF_DIR    I*4         (CONSTANT)Offset to the cell direction (deg)
+*.                               in the STORMOTION part of the
+*.                               tracking/forecast output buffer.
+*.    G   STF_SPD    I*4         (CONSTANT)Offset to the cell speed (m/s) in
+*.                               the STORMOTION part of the tracking/forecast
+*.                               output buffer.
+*.    G   STF_TYP    I*4         (CONSTANT)Offset to the cell type in the
+*.                               STORMIDTYP part of the tracking/forecast
+*.                               output buffer.
+*.    G   TYP_CON    I*4         (CONSTANT)Flag that indicates that a storm
+*.                               cell has a history of at least two volume
+*.                               scans.
+*.    G   TYP_NEW    I*4         (CONSTANT)Flag that indicates that a storm is
+*.                               newly identified in the current volume scan.
+*.    C   IXCUR      I*4         Index to the current volume scan in the
+*.                               correlation table
+*.    C   NSTMHIST   I*4         Array of the # of cells/volume scan in
+*.                               correlation table.
+*.    C   STMSPD     R*4         An array of cell motions including X & Y
+*.                               movement (km) in the preceding volume scan
+*.                               and speed (km/sec) and direction (deg) for
+*.                               the cells history.
+*.    C   STF_XSP    I*4         (CONSTANT)Offset to the cell x-speed (m/s) in
+*.                               the STORMOTION part of the tracking/forecast
+*.                               output buffer.
+*.    C   STF_YSP    I*4         (CONSTANT)Offset to the cell x-speed (m/s) in
+*.                               the STORMOTION part of the tracking/forecast
+*.                               output buffer.
+*.    C   X_DIR      I*4         (CONSTANT)Index to the x-direction of a storm
+*.                               cell in the STMSPD and BESTPOS arrays.
+*.    C   Y_DIR      I*4         (CONSTANT)Index to the y-direction of a storm
+*.                               cell in the STMSPD and BESTPOS arrays.
+*.    P   AVGDIREC   R*4         Average Direc. of all "Continuing" storms,
+*.                               this volume scan (degrees from)
+*.    P   AVGSPEED   R*4         Average Speed of all "Continuing" storms
+*.    P   NCONPRED   I*4         No. of "Continuing" storms in current volume
+*.                               scan
+*.    P   STORMIDTYP I*4         2-D array of supplementary storm desciption
+*.                               information per volume scan, output by
+*.                               "FORECAST" algorithm.
+*.    P   STORMOTION R*4         2-D array of Storm-Motion attributes per
+*.                               volume scan, output by "FORECAST" algorithm.
+*.
+*.    *   OUTPUT     TYPE        DESCRIPTION
+*.    -   ------     ----        -----------
+*.    G   ADPDFDIR   I*4         Adaptation data default direction stored in
+*.                               Storm Data
+*.    G   ADPDFSPD   R*4         Adapatation data default storm speed stored
+*.                               in Storm Data
+*.    G   ADPSPDMN   R*4         Adapatation data minimum storm motion stored
+*.                               in Storm Data.
+*.    C   IXCUR      I*4         Index to the current volume scan in the
+*.                               correlation table
+*.    C   STMSPD     R*4         An array of cell motions including X & Y
+*.                               movement (km) in the preceding volume scan
+*.                               and speed (km/sec) and direction (deg) for
+*.                               the cells history.
+*.    P   AVGDIREC   R*4         Average Direc. of all "Continuing" storms,
+*.                               this volume scan (degrees from)
+*.    P   AVGSPEED   R*4         Average Speed of all "Continuing" storms
+*.    P   STORMOTION R*4         2-D array of Storm-Motion attributes per
+*.                               volume scan, output by "FORECAST" algorithm.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME          TYPE        DESCRIPTION
+*.    ----          ----        -----------
+*.    AVGXSPD       R*4         Average X-speed of all "Continuing" Storms
+*.    AVGXYDIR      R*4         Average Direction of all "Continuing" Storms
+*.    AVGYSPD       R*4         Average Y-speed of all "Continuing" Storms
+*.    CNVMEKM       R*4         Constant for converting meters to kilometers.
+*.    DEGRAD        R*4         Degrees to radians conversion.
+*.    HALFCIRC      R*4         No. of degrees in a half circle (i.e. 180.0).
+*.    IC            I*4         Do-loop index for storms of current volume
+*.                              scan.
+*.    MINIMUM_SPEED R*4         Minimum storm cell speed below which cell is
+*.                              considered slow moving.
+*.    RADDEG        R*4         Constant for converting radians to degrees.
+*.    TOTXSPD       R*4         Total X-speed of all "Continuing" storms, this
+*.                              volume scan (m/sec).
+*.    TOTYSPD       R*4         Total Y-speed of all "Continuing" storms, this
+*.                              volume scan (m/sec).
+*.    V_DIR         I*4         Index into STMSPD array to the storm direction
+*.    V_SPD         I*4         Index into STMSPD array for the storm speed in
+*.                              km/sec
+*.    XSPD          R*4         Speed in X-direction of a "Continuing" Storm
+*.    YSPD          R*4         Speed in Y-direction of a "Continuing" Storm
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A315CSAD
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A315C6T
+*.    A315CFF
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:
+*.
+*.     "New" storm cells (i.e. those with no known prior history) are
+*.   assigned either a default storm speed and direction from Adap-
+*.   tation Data (if no "Continuing" storms are present) or the
+*.   average values of these fields (if at least one "Continuing"
+*.   storm exists).  However, no forecast positions, track errors
+*.   or variances are determined for them.
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     Compiled using COMP15.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     Linked using LINK15.CSS
+*.
+*.  MISC:  None
+*.
+C********************************************************************
+C
+C          STORM POSITION FORECAST : AVERAGE SPEED  SUBROUTINE
+C
+C********************************************************************
+C
+      IMPLICIT NONE
+C
+C**ATTACH INPUT PARAMETER DEFINITION FILE  (OF "STORM CENTRIDS")
+$INCLUDE A315BUF.INC/G,**A315P5C (NLIST)
+C
+C**Attach output parameter file (of "POSITION_FORECAST")
+$INCLUDE **A315P7F (NLIST)
+C
+C**Attach local STORMS Adaptation Data parameter file:
+$INCLUDE **A315PSAD (NLIST)
+C
+C**Attach local STORMS Adaptation Data definitions:
+$INCLUDE **A315CSAD (NLIST)
+C
+C**Attach internal common block (of "STORM_TRACK" output variables)
+$INCLUDE A315.INC/G,**A315C6T (NLIST)
+C
+C** Attach internal common block (of "FORECAST" local variables)
+$INCLUDE **A315CFF (NLIST)
+C
+$INCLUDE A309.INC/G, **A3PM50 (NLIST NEND)
+C
+C*********************** DATA DECLARATIONS **************************
+C
+C** From Input Buffer:
+C
+      REAL     STORMAIN(NSTM_CHR,NSTM_MAX)
+C
+C** From output buffer:
+C
+      INTEGER  NCONPRED, STORMIDTYP( NSTF_IDT, NSTF_MAX )
+      REAL     AVGSPEED, AVGDIREC, STORMOTION( NSTF_MOT,NSTF_MAX )
+C
+C** Local:
+C
+      INTEGER  IC
+      REAL     TOTXSPD, TOTYSPD, AVGXSPD, AVGYSPD, AVGXYDIR
+      REAL     XSPD, YSPD, RADDEG, DEGRAD, HALFCIRC, CNVMEKM
+      REAL     MINIMUM_SPEED
+C
+C********************* DATA INITIALIZATIONS *************************
+C
+      PARAMETER (RADDEG = 57.295781, HALFCIRC = 180.0)
+      PARAMETER (CNVMEKM = 0.001, DEGRAD = 1.0/RADDEG)
+C
+C****************** BEGIN MAIN PROCESSING SECTION *******************
+C
+C**  Initialize average speed & direction of storm cell movement to
+C**  default values received from Adaptation Data.
+C
+C**  Default speed from adaptation data is in knots.  The task needs
+C**  this value in meters/second.
+C
+      AVGSPEED = ADPDFSPD * KTS_TO_MPS
+      AVGDIREC = ADPDFDIR
+      AVGXYDIR = (AVGDIREC - HALFCIRC) * DEGRAD
+      AVGXSPD  = AVGSPEED * SIN( AVGXYDIR )
+      AVGYSPD  = AVGSPEED * COS( AVGXYDIR )
+C
+C**  Initialize variables for accumulating storm speed (for
+C**  averaging).
+C
+      TOTXSPD  = 0.0
+      TOTYSPD  = 0.0
+C
+C**  Initialize variable for minimum storm cell motion. Adaptation
+C**  data value is in m/s, algorithm wants value in km/sec units.
+C
+      MINIMUM_SPEED = ADPSPDMN * CNVMEKM
+C
+C**  If any "Continuing" storm cells exist this volume scan, process
+C**  them.
+C
+      IF ( NCONPRED .GE. 1 )  THEN
+         DO 1300  IC = 1, NSTMHIST( IXCUR )
+            IF ( STORMIDTYP( STF_TYP,IC ) .EQ. TYP_CON )  THEN
+C
+C**  Determine vector storm cell speed(m/s) and direction(degrees
+C**  from) from X & Y components of velocity.
+C
+               XSPD = STORMOTION( STF_XSP,IC )
+               YSPD = STORMOTION( STF_YSP,IC )
+C
+               IF ( .NOT. (XSPD.EQ.0.0 .AND. YSPD.EQ.0.0) )  THEN
+C
+C**  COMPUTE (SPEED(Storm Cell)) and COMPUTE (DIRECTION(Storm Cell))
+C
+C**  WRITE (SPEED(Storm Cell)) and WRITE (DIRECTION(Storm Cell))
+C
+                  STORMOTION(STF_SPD,IC) = SQRT(XSPD*XSPD+YSPD*YSPD)
+                  STORMOTION(STF_DIR,IC) = ATAN2( XSPD,YSPD )*RADDEG
+     >                                   + HALFCIRC
+C
+C**  Fill in STMSPD array with computed Speed and Direction.  Storm
+C**  speed is in km/sec, direction is in degrees.
+C
+                  STMSPD(V_SPD,IC) = STORMOTION(STF_SPD,IC) * CNVMEKM
+                  STMSPD(V_DIR,IC) = STORMOTION(STF_DIR,IC)
+               ELSE
+C
+C**  Special case: both components of storm speed = 0.0.
+C
+                  STORMOTION(STF_SPD,IC) = 0.0
+                  STORMOTION(STF_DIR,IC) = 0.0
+               END IF
+C
+C**  Add contributions of this storm cell to summation fields.
+C
+               TOTXSPD  = TOTXSPD  + STORMOTION( STF_XSP,IC )
+               TOTYSPD  = TOTYSPD  + STORMOTION( STF_YSP,IC )
+C
+C**  If storm cell speed is less than the minimum speed, mark storm
+C**  cell motion as "Slow".
+C
+               IF (STMSPD(V_SPD,IC) .LE. MINIMUM_SPEED) THEN
+                  STORMOTION(STF_SPD,IC) = -STORMOTION(STF_SPD,IC)
+                  STORMOTION(STF_DIR,IC) = -STORMOTION(STF_DIR,IC)
+               END IF
+            END IF
+ 1300    CONTINUE
+C
+C**  Determine components of Average Storm Speed and Direction of
+C**  all Continuing storms this volume scan.
+C
+         AVGXSPD  = TOTXSPD  / NCONPRED
+         AVGYSPD  = TOTYSPD  / NCONPRED
+C
+         IF ( .NOT. (AVGXSPD.EQ.0.0 .AND. AVGYSPD.EQ.0.0) ) THEN
+            AVGXYDIR = ATAN2( AVGXSPD,AVGYSPD )
+C
+C**  Store Average Speed & Direction values in output buffer.
+C
+            AVGSPEED = SQRT( AVGXSPD*AVGXSPD + AVGYSPD*AVGYSPD )
+            AVGDIREC = (AVGXYDIR * RADDEG) + HALFCIRC
+         ELSE
+C
+C**  Special case: both components of avg storm speed = zero.
+C
+            AVGXYDIR = 0.0
+            AVGSPEED = 0.0
+            AVGDIREC = 0.0
+         END IF
+      END IF
+C
+C**  (Note: If no "Continuing" storm cells exist presently, Average
+C**  Storm Cell Speed & Direction remain equal to their defaults).
+C
+C**  2nd pass: Now pass through all storm cells, assigning Average
+C**  Velocity values to any yet undefined storm cells.
+C
+      DO 1400  IC = 1, NSTMHIST( IXCUR )
+         IF ( STORMIDTYP( STF_TYP,IC ) .EQ. TYP_NEW )  THEN
+C
+C**  If storm cell type is "New", assign average values to all
+C**  velocity fields (will be default values if no "Continuing" Storm
+C**  Cells exist).
+C
+            STORMOTION( STF_SPD,IC ) = AVGSPEED
+            STORMOTION( STF_DIR,IC ) = AVGDIREC
+            STORMOTION( STF_XSP,IC ) = AVGXSPD
+            STORMOTION( STF_YSP,IC ) = AVGYSPD
+C
+C**  For "New" Storm Cell, fill in STMSPD array with X-Speed,
+C**  Y-Speed, Average Speed & Average Direction.
+C
+            STMSPD(X_DIR,IC) = AVGXSPD * CNVMEKM
+            STMSPD(Y_DIR,IC) = AVGYSPD * CNVMEKM
+            STMSPD(V_SPD,IC) = AVGSPEED * CNVMEKM
+            STMSPD(V_DIR,IC) = AVGDIREC
+         END IF
+ 1400 CONTINUE
+C
+C************** END OF PROCESSING FOR SUBROUTINE ********************
+C
+      RETURN
+      END

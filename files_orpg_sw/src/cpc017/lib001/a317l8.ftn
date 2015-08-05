@@ -1,0 +1,272 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/17 16:06:35 $
+C $Id: a317l8.ftn,v 1.2 2002/12/17 16:06:35 christie Exp $
+C $Revision: 1.2 $
+C $State: Exp $
+C
+      SUBROUTINE A317L8__COMPARE_RADS( NPV_THP, NPV_THC, RAD_PVP,
+     >                           RAD_PVC)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A317L8__COMPARE_RADS
+*.
+*.  MODULE VERSION: 0001
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       05/29/97      0000      MARK FRESCH          CCR NA95-21503
+*.       03/16/99      0001      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A317L8__COMPARE_RADS( NPV_THP, NPV_THC,
+*.                                RAD_PVP, RAD_PVC)
+*.
+*.  MODULE FUNCTION:
+*.
+*.  This routine compares pattern vectors in adjacent radials to
+*.  determine if they are close enough in radial distance to be
+*.  correlated into the same potential 2D feature.
+*.
+*.  MODULES CALLED: A317H8__BUILD_P2D, A317I8__MERGE_P2D, ABL 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT         TYPE        DESCRIPTION
+*.    -   -----         ----        -----------
+*.    C   IDSTACK       I*4         CIRCULAR LIST OF POTENTIAL 2D FEATURE ID'S
+*.    C   LABC          I*4         ID # OF THE POTENTIAL 2D FEATURE IN A
+*.                                  "CURRENT" RADIAL
+*.    C   LABP          I*4         ID # OF THE POTENTIAL 2D FEATURE IN A
+*.                                  "PREVIOUS" RADIAL
+*.    C   NUM_BIN_2D_TH I*4         THE 2D VECTOR RADIAL DISTANCE THRESHOLD
+*.                                  CONVERTED TO # OF BINS
+*.    C   P2DFEAT       R*4         ARRAY CONTAINING ATTRIBUTES OF THE P2DF's
+*.    C   PREV_PTR      I*4         POINTER TO PREVIOUS RADIAL IN VARIOUS
+*.                                  PATTERN VECTOR ARRAYS
+*.    C   RADFLAG       I*4         ARRAY WITH FLAG VALUES INDICATING WHETHER
+*.                                  PATTERN VECTOR HAS BEEN CORRELATED WITH
+*.                                  ANOTHER PATTERN VECTOR
+*.    C   FLG_COR       I*4         (CONSTANT)FLAG VALUE INDICATING A PATTERN
+*.                                  VECTOR IS CORRELATED TO A PATTERN VECTOR
+*.                                  IN THE CURRENT 2D FEATURE
+*.    C   FLG_UNC       I*4         (CONSTANT)FLAG VALUE INDICATING A PATTERN
+*.                                  VECTOR IS NOT CORRELATED TO A PATTERN
+*.                                  VECTOR IN THE CURRENT 2D FEATURE
+*.    C   MAX_PV_RAD    I*4         (CONSTANT)MAXIMUM NUMBER OF PATTERN
+*.                                  VECTORS PER RADIAL IN THE RAD_PV ARRAY
+*.    C   MAX_RADPV_ATR I*4         (CONSTANT)NUMBER OF ATTRIBUTES IN THE
+*.                                  RAD_PV ARRAY
+*.    C   PV_BIN        I*4         (CONSTANT)Index in TDAMAIN to pattern
+*.                                  vector bin numbers
+*.    C   PV_ID         I*4         (CONSTANT)INDEX INTO RAD_PV TO THE 2D
+*.                                  FEATURE ID NUMBER TO WHICH A PATTERN
+*.                                  VECTOR IS ASSIGNED
+*.    C   PV_INX        I*4         (CONSTANT)INDEX INTO RAD_PV TO THE PATTERN
+*.                                  VECTOR POINTER INTO THE PATTERN VECTOR
+*.                                  ARRAY - TDAMAIN
+*.    P   NPV_THC       I*4         The number of pattern vectors in the
+*.                                  current radial
+*.    P   NPV_THP       I*4         The number of pattern vectors in the
+*.                                  previous radial
+*.    P   RAD_PVC       R*4         CONTAINS THE CORRELATION FLAG, BIN #
+*.                                  (RANGE), AND INDEX INTO TDAMAIN OF THE
+*.                                  ABOVE THRESHOLD PATTERN VECTORS IN THE
+*.                                  "CURRENT" RADIAL
+*.    P   RAD_PVP       R*4         CONTAINS THE CORRELATION FLAG, BIN #
+*.                                  (RANGE), AND INDEX INTO TDAMAIN OF THE
+*.                                  ABOVE THRESHOLD PATTERN VECTORS IN THE
+*.                                  "PREVIOUS" RADIAL
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    C   IDSTACK I*4         CIRCULAR LIST OF POTENTIAL 2D FEATURE ID'S
+*.    C   JXC     I*4         INDEX INTO TDAMAIN (& OTHER ARRAYS) TO A PATTERN
+*.                            VECTOR
+*.    C   LABC    I*4         ID # OF THE POTENTIAL 2D FEATURE IN A "CURRENT"
+*.                            RADIAL
+*.    C   LABP    I*4         ID # OF THE POTENTIAL 2D FEATURE IN A "PREVIOUS"
+*.                            RADIAL
+*.    C   P2DFEAT R*4         ARRAY CONTAINING ATTRIBUTES OF THE P2DF's
+*.    C   RADFLAG I*4         ARRAY WITH FLAG VALUES INDICATING WHETHER
+*.                            PATTERN VECTOR HAS BEEN CORRELATED WITH ANOTHER
+*.                            PATTERN VECTOR
+*.    P   RAD_PVC R*4         CONTAINS THE CORRELATION FLAG, BIN # (RANGE),
+*.                            AND INDEX INTO TDAMAIN OF THE ABOVE THRESHOLD
+*.                            PATTERN VECTORS IN THE "CURRENT" RADIAL
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    C   IDSTACK           I*4         CIRCULAR LIST OF POTENTIAL 2D FEATURE
+*.                                      ID'S
+*.    C   LABC              I*4         ID # OF THE POTENTIAL 2D FEATURE IN A
+*.                                      "CURRENT" RADIAL
+*.    C   P2DFEAT           R*4         ARRAY CONTAINING ATTRIBUTES OF THE
+*.                                      P2DF's
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME  TYPE        DESCRIPTION
+*.    ----  ----        -----------
+*.    ISTAT I*4         Status of return from call to circular
+*.                      stack-manipulation routine
+*.    IXC   I*4         Loop index used for referencing "current" radial
+*.                      pattern vector.
+*.    IXP   I*4         Loop index used for referencing "previous" radial
+*.                      pattern vectors
+*.    IXX   I*4         Do loop varaible used for referencing "previous"
+*.                      radial pattern vectors
+*.    VRD   R*4         Vector Radial Distance
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A315P2DC
+*.    A317CDAD
+*.    A317TCA
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:
+*.
+*.   Pattern vectors from the same radial can be correlated
+*.   into the same potential 2D feature.
+*.
+*.   All radials of each elevation scan are assumed to have
+*.   the same bin lengths.
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     Compiled using COMP17.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     Linked using LINK17.CSS
+*.
+*.  MISC:  None
+*.
+C********************************************************************
+C
+C            TDA 2D PROCESSING: COMPARE_RADS SUBROUTINE
+C
+C********************************************************************
+C
+      IMPLICIT NONE
+C
+$INCLUDE A317BUF.INC/G, **A317P3T (NLIST)
+C
+$INCLUDE A309.INC/G, **A3PM50 (NLIST)
+C
+$INCLUDE A317.INC/G, **A317TCP (NLIST)
+$INCLUDE             **A317TCA (NLIST)
+$INCLUDE             **A317CDAD (NLIST)
+C
+$INCLUDE             **A317P2DP (NLIST)
+$INCLUDE             **A317P2DC (NLIST)
+C
+C*********************** DATA DECLARATIONS **************************
+C
+C** Passed variables:
+C
+      INTEGER  NPV_THP, NPV_THC
+      REAL RAD_PVC(MAX_RADPV_ATR, MAX_PV_RAD)
+      REAL RAD_PVP(MAX_RADPV_ATR, MAX_PV_RAD)
+      REAL VRD
+C
+C** Internal variables:
+C
+      INTEGER  IXP, IXC, IXX, ISTAT
+C
+C
+C****************** BEGIN MAIN PROCESSING SECTION *******************
+C
+C** Compare pairs of Vectors of adjacent radials to test for their
+C** overlap exceeding the minimum threshold required for their corre-
+C** lation into the same pot. 2D feature.
+C
+      DO 50  IXC = 1, NPV_THC
+        DO 40  IXP = 1, NPV_THP
+C
+C** Compute the Vector Radial Distance in bins
+C
+          VRD = ABS(RAD_PVP(PV_BIN,IXP) - RAD_PVC(PV_BIN,IXC))
+C
+C** Compare the Vector Radial Distance against the 2D Vector Radial
+C** Distance Threshold.
+C
+          IF (VRD .LE. NUM_BIN_2D_TH) THEN
+C
+C** If this condition is met, the pair of pattern vectors are close
+C** enough to be correlated (or added to the same pot. 2D feature).
+C
+              LABP = RAD_PVP( PV_ID, IXP )
+C
+C** Get the label of the pattern vector in the previous radial.
+C
+              IF ( RADFLAG(PREV_PTR,IXP) .EQ. FLG_UNC )  THEN
+                 DO 30  IXX=1, NPV_THP
+C
+C** Flag pattern vectors in the previous radial with the same label
+C** as correlated to prevent duplicate processing, including
+C** the just correlated pattern vector (on the previous radial).
+C
+                    IF ( RAD_PVP( PV_ID, IXX ) .EQ. LABP )
+     >                        RADFLAG(PREV_PTR,IXX) = FLG_COR
+ 30              CONTINUE
+              END IF
+C
+C** Now test for various correlation conditions ...
+C
+              IF ( RAD_PVC(PV_ID, IXC) .EQ. FLG_UNC )  THEN
+C
+C** CASE: Vector in current radial has not already been labelled:
+C** Give it label of Vector (and Pot. 2D F) matched with in previous
+C** radial & add current Vector's attributes to that Pot. 2D Feat.
+C
+                 RAD_PVC( PV_ID, IXC ) = LABP
+                 JXC = RAD_PVC( PV_INX, IXC )
+                 CALL A317H8__BUILD_P2D( P2DFEAT(1,LABP) )
+C
+C..           ELSE IF ( RAD_PVC( PV_ID, IXC ) .EQ.
+C..  >                  RAD_PVP( PV_ID, IXP ) )  THEN
+C
+C** CASE: Vector in current radial already has same label as that of
+C** Vector in previous radial with which it matches:
+C** All processing already taken care of, so do nothing more.
+C
+              ELSE IF ( RAD_PVC( PV_ID, IXC ) .NE.
+     >                  RAD_PVP( PV_ID, IXP ) )  THEN
+C
+C** CASE: Vector in current radial already has label, but different
+C** than that of Vector matched with:
+C** Merge their pot. 2D features  by adding or taking max/min of
+C** their attributes; assign one label to both and return the
+C** other to the ID-stack.
+C
+                 LABC = RAD_PVC( PV_ID, IXC)
+                 CALL A317I8__MERGE_P2D
+                 CALL ABL( LABC, IDSTACK( 1 ), ISTAT )
+              END IF
+C
+C** All potential situations taken care of.
+C
+           END IF
+ 40     CONTINUE
+ 50   CONTINUE
+C
+C**************** END OF PROCESSING FOR SUBROUTINE ******************
+C
+      RETURN
+      END

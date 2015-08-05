@@ -1,0 +1,81 @@
+EN_post(3) 		   ORPG SDD Manpage   		EN_post(3)
+
+NAME
+EN_post - post one event
+
+SYNOPSIS
+#include <en.h>
+int EN_post(en_t evtcd,const void *msg, size_t msglen, int msg_flags)
+
+ENVIRONMENT VARIABLES
+The environment variable corresponding to EN_CLIENT_SOCKNAME_ENVAR
+(refer to en.h) may be used to override the default base EN client socket
+name ($HOME/en_client.s).  Such an alternative EN client socket name must,
+of course, be known by the target EN daemon.  Note that the library
+adds the hostname to the base EN client socket (default or specified).
+For example, if the hostname is "osrpg002", the default EN client socket name
+is "$HOME/en_client.s.osrpg002".
+
+DESCRIPTION
+The specified event will be posted throughout the system, unless the
+msg_flags argument includes the EN_POST_FLAG_LOCAL flag, in which case only
+registered processes running on the local node will be notified of the event.
+
+"evtcd" corresponds to a valid event code identifier.  The event code
+corresponding to the EN_POST_ERR_EVTCD macro is reserved.  The event
+codes bound by the macros EN_POST_MIN_RESERVED_EVTCD and 
+EN_POST_MAX_RESERVED_EVTCD (inclusive) are reserved.
+
+"msg" points to the corresponding event data message.
+
+A NULL "msg" pointer is legitimate as long as "msglen" is set to zero.
+
+"msglen" specifies the length of the event data message.  Optimal performance
+results from the use of messages less than or equal to EN_BRIEF_MSG_LEN
+bytes in length.
+
+"msg_flags" should be specified as zero or constructed by OR'ing together
+the following flags (as appropriate):
+
+    EN_POST_FLAG_LOCAL - post event message locally only
+    EN_POST_FLAG_DONT_NTFY_SENDER - do not deliver event message to
+        the sender (i.e., the process that posted the event message)
+
+The EN_POST_FLAG_DONT_NTFY_SENDER flag has no effect unless the client
+process posting the event is also currently registered for notification
+of that event.  Note that a client process posting an event will be
+notified of receipt of that event only if the process is currently
+registered for notification of that event *and* if this flag was *not*
+set when the event was posted by the client process.
+
+The macro EN_POST_MAX_MSGLEN sets the maximum event post message
+length at compile time.
+
+The EN client notification signal (default: SIGUSR1) is blocked while
+the event notification is posted.  SIGPIPE is ignored while the event
+notification is posted.
+
+The POSIX HOME environment variable must be defined.
+
+RETURN VALUES
+Zero on success or a negative value corresponding to one of the following
+macros on failure:
+
+EN_POST_MSG_TOO_LONG		attempt to post an excessive EN message
+EN_POST_NULL_MSG_PTR		attempt to post an EN message using a null
+					message pointer
+
+EN_CALLOC_FAILED
+EN_SIGACTION_FAILED
+EN_SIGADDSET_FAILED
+EN_SIGEMPTYSET_FAILED
+EN_SIGPROCMASK_FAILED
+EN_WRITE_FAILED
+
+FILES
+$HOME/en_client.s - default client socket
+
+SEE ALSO
+EN_deregister(3), EN_register(3), rssd(1)
+
+				$Revision: 1.8 $

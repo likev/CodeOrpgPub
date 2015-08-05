@@ -1,0 +1,171 @@
+C
+C RCS info
+C $Author: steves $
+C $Locker:  $
+C $Date: 2002/08/01 20:42:42 $
+C $Id: a31492.ftn,v 1.1 2002/08/01 20:42:42 steves Exp $
+C $Revision: 1.1 $
+C $State: Exp $
+C
+      SUBROUTINE A31492__GET_DLSCALE_MAX(MAXVAL,SCALE_FACTOR, 
+     $                               IN_DATA,  OUT_DATA) 
+
+*.******************************************************************************
+*.            M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A31492__GET_DLSCALE_MAX
+*.
+*.  MODULE VERSION: 0000
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER              NOTES
+*.       ----------    -------   --------------------   -----------------
+*.        07/31/02      0000      Jihong Liu             CCR NA02-15801 
+*.
+*.
+*.  CALLING SEQUENCE:  A31492__GET_DLSCALE_MAX(MAXVAL,SCALE_FACTOR, IN_DATA,
+*.     $                                       OUT_DATA)
+*.
+*.
+*.  MODULE FUNCTION:
+*.
+*.     This routine finds the maximum value in the digital storm total grid, 
+*.     determines the scale factor, and adjusts the grid point values by
+*.     the scale factor.  Note that storm total accumulations are in units of
+*.     .01 inches.
+*.
+*.  MODULES CALLED: None
+*.
+*.
+*.  PRAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*. *  INPUT         TYPE        DESCRIPTION
+*. -  ------        ----        -----------
+*. P  IN_DATA       I*2         buffer for digital storm total
+*.
+*.
+*. *  OUTPUT        TYPE        DESCRIPTION
+*. -  -------       ----        -----------
+*. P  OUT_DATA       I*2        buffer containg for DSP data level
+*. P  MAXVAL         I*4        Maximum value in the digital storm total 
+*. P  SCALE_FACTOR   I*4        Used to convert the data level to real data 
+*. 
+*. *   ACTUAL ARGUMENTS  TYPE    DESCRIPTION
+*. -   ----------------  ----    -----------
+*. P  IN_DATA        I*2         buffer for digital storm total
+*. P  OUT_DATA       I*2         buffer containg for DSP data level
+*. P  MAXVAL         I*4         Maximum value in the digital storm total 
+*. P  SCALE_FACTOR   I*2         Used to convert the data level to real data
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME           TYPE        DESCRIPTION
+*.    ----           ----        -----------
+*.    MAX_DATA_VAL   I*4         Maximum data level for DSP
+*.    RAD            I*4         Index for looping buffer in_data
+*.    BIN            I*4         Index for looping buffer in_data
+*.    NEAR_FAC       R*4         Factor used for rounding data level 
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    None
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A314C2
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  MISC:  None
+*.
+*.
+*.******************************************************************************
+
+C
+C RCS info
+C $Author: steves $
+C $Locker:  $
+C $Date: 2002/07/31 13:57:50
+C $Id: a31492.ftn,v 1.1 2002/08/01 20:42:42 steves Exp $
+C $Revision: 1.1 $
+C $State: Exp $
+C
+      IMPLICIT NONE
+
+$INCLUDE A304.INC/G,**A304P4 (NLIST)
+
+$INCLUDE A313HBUF.INC/G,**A313HYPP (NEND NLIST)
+
+$INCLUDE A3143.INC/G,**A3143P4 (NLIST)
+
+$INCLUDE A3146.INC/G,**A3146P3 (NLIST)
+$INCLUDE             **A3146P1 (NLIST)
+
+
+      INTEGER RAD, BIN 
+      INTEGER MAX_DATA_VAL, SCALE_FACTOR 
+      INTEGER MAXVAL
+      REAL NEAR_FAC
+      INTEGER*2 IN_DATA(MAX_ADJBINS, MAX_AZMTHS)
+      INTEGER*2 OUT_DATA(MAX_ADJBINS, MAX_AZMTHS)
+       
+      PARAMETER(MAX_DATA_VAL=255) 
+      
+
+C FIND THE MAXIMUM VALUE IN THE DIGITAL STORM TOTAL GRID 
+
+      DO 100  RAD = 1, MAX_AZMTHS
+        DO 200  BIN = 1, MAX_ADJBINS
+C
+          IF ((IN_DATA(BIN, RAD) .GT. IINIT) .AND. 
+     $          (IN_DATA(BIN, RAD) .GT. MAXVAL)) THEN
+             
+             MAXVAL=IN_DATA(BIN, RAD)
+          ENDIF
+
+200     CONTINUE
+100   CONTINUE
+
+C GET THE SCALE FACTOR
+
+      IF(MAXVAL .LE. MAX_DATA_VAL) THEN
+         SCALE_FACTOR = 1
+       ELSE
+         SCALE_FACTOR=INT((MAXVAL-1)/MAX_DATA_VAL) + 1 
+       ENDIF
+      
+
+C DETERMINE THE DATA LEVEL FOR EACH GRID POINT
+
+      DO 300  RAD = 1, MAX_AZMTHS
+        DO 400 BIN = 1, MAX_ADJBINS  
+
+           IF (IN_DATA(BIN, RAD) .GT. IINIT) THEN
+              
+              IF(SCALE_FACTOR .GT. 1) THEN
+                 NEAR_FAC=SCALE_FACTOR*1.0
+                 OUT_DATA(BIN, RAD)=NINT(IN_DATA(BIN,RAD)/NEAR_FAC)
+              ELSE
+                OUT_DATA(BIN, RAD)=IN_DATA(BIN,RAD)
+              ENDIF
+          
+           ELSE
+          
+              OUT_DATA(BIN, RAD) = IINIT
+
+           ENDIF
+
+400     CONTINUE
+300   CONTINUE
+      
+      RETURN
+      END

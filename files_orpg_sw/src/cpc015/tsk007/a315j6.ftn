@@ -1,0 +1,190 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/16 19:40:48 $
+C $Id: a315j6.ftn,v 1.3 2002/12/16 19:40:48 christie Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A315J6__UPDATE_TABLES
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A315J6__UPDATE_TABLES
+*.
+*.  MODULE VERSION: 0016
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       08 16 85      0000      DENNIS MILLER        BUILD 2
+*.       05 07 86      0001      DENNIS MILLER        SPR # 304
+*.       07 10 86      0002      DENNIS MILLER        SPR # 60313
+*.       07 10 86      0002      DENNIS MILLER        SPR # 60367
+*.       11 15 86      0003      M STEWART            SPR # 60346
+*.       03 21 90      0005      RICH MIHOCI          SPR # 90697
+*.       02 22 91      0006      DENNIS MILLER        SPR # 91256
+*.       02 15 91      0006      JOHN DEPHILIP        SPR # 91762
+*.       12 03 91      0007      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0008      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0009      Toolset              SPR 91895
+*.       03/25/93      0010      Toolset              SPR NA93-06801
+*.       01/28/94      0011      Toolset              SPR NA94-01101
+*.       03/03/94      0012      Toolset              SPR NA94-05501
+*.       04/01/95      0013      Toolset              SPR NA95-11802
+*.       05/25/95      0014      STEVE SMITH          SPR NA94-26302
+*.       12/23/96      0015      Toolset              CCR NA95-11807
+*.       03/16/99      0016      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A315J6__UPDATE_TABLES
+*.
+*.  MODULE FUNCTION:
+*.
+*.  This routine updates the indices referring to the last, next-to-
+*.  last, previous and current volumes in the Storm Correlation and
+*.  Position-History tables.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT    TYPE        DESCRIPTION
+*.    -   -----    ----        -----------
+*.    C   CORLTABL I*4         Correlation table containing IDs to the cells
+*.                             for all previous volumes (up to the maximum).
+*.    C   IXC      I*4         Index to the current volume scan in the
+*.                             forecast error arrays, 1 to NPVOL.
+*.    C   IXCUR    I*4         Index to the current volume scan in the
+*.                             correlation table
+*.    C   IXNEX    I*4         Index to the next volume scan in the
+*.                             correlation table
+*.    C   IXOLD    I*4         Index to the oldest storm information
+*.    C   IXP      I*4         Index to the previous volume scan in the
+*.                             forecast error arrays
+*.    C   NPVOL    I*4         The Number of Past Volumes (scans) in local
+*.                             common.  The max. # of scans stored in the
+*.                             correlation table, including the current.
+*.    C   NSTMHIST I*4         Array of the # of cells/volume scan in
+*.                             correlation table.
+*.
+*.    *   OUTPUT   TYPE        DESCRIPTION
+*.    -   ------   ----        -----------
+*.    C   CORLTABL I*4         Correlation table containing IDs to the cells
+*.                             for all previous volumes (up to the maximum).
+*.    C   IXC      I*4         Index to the current volume scan in the
+*.                             forecast error arrays, 1 to NPVOL.
+*.    C   IXCUR    I*4         Index to the current volume scan in the
+*.                             correlation table
+*.    C   IXNEX    I*4         Index to the next volume scan in the
+*.                             correlation table
+*.    C   IXOLD    I*4         Index to the oldest storm information
+*.    C   IXP      I*4         Index to the previous volume scan in the
+*.                             forecast error arrays
+*.    C   IXPRE    I*4         Index to the previous volume scan in the
+*.                             correlation table
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME  TYPE        DESCRIPTION
+*.    ----  ----        -----------
+*.    IL    I*4         Do-loop index for storms of Oldest
+*.    IN    I*4         Do-loop index for storms of Next-Oldest
+*.    IXT   I*4         Temporary index used in Forecast-Error tables.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A315C6T
+*.    A315CTT
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:
+*.
+*.     If no storms are present in any of the volume scans being
+*.   processed, zero-trip do-loops are assumed.
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     Compiled using COMP15.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     Linked using LINK15.CSS
+*.
+*.  MISC:  None
+*.
+C********************************************************************
+C
+C                STORM TRACKING: UPDATE TABLES  SUBROUTINE
+C
+C********************************************************************
+C
+      IMPLICIT NONE
+C
+C**Attach internal common block (of "STORM_TRACK" output variables).
+$INCLUDE A315.INC/G,**A315C6T (NLIST)
+C
+C**Attach internal common block (of "STORM_TRACK" local variables).
+$INCLUDE **A315CTT(NLIST)
+C
+      INTEGER  IL, IN, OLDLAB, ISTAT, IXT
+C
+C****************** BEGIN MAIN PROCESSING SECTION *******************
+C
+C** Update indices into Storm Correlation & History tables to prepare
+C** for new volume scan. (Note that after updating but before new
+C** storm information has been input to the tables in the "current"
+C** index position, that index (i.e. IXCUR) still refers to the
+C** oldest storm information and is equivalently referred to as
+C** IXOLD).
+C
+      IXPRE = IXCUR
+      IXCUR = IXNEX
+      IXNEX = IXNEX + 1
+      IF ( IXNEX.GT.NPVOL )  IXNEX = 1
+C
+C** Rotate indices into Forecast-Error tables to prepare for next
+C** volume scan.
+C
+      IXT = IXC
+      IXC = IXP
+      IXP = IXT
+C
+C** The Correlation table is a linked-list: any positive value refers
+C** to the position of the same storm cell in the previous column
+C** (volume scan); any negative value is the end of the chain (also
+C** the negative of the Storm Cell Label).  The column for the oldest
+C** volume will always contain labels only.
+C
+      DO 200  IL = 1, NSTMHIST( IXOLD )
+         DO 100  IN = 1, NSTMHIST( IXNEX )
+C
+C**  If reference found to storm cell in oldest col. in next-oldest,
+C**  advance that ID to next column-- do not delete label.
+C
+            IF ( CORLTABL(IN,IXNEX).EQ.IL )  THEN
+               CORLTABL( IN,IXNEX ) = CORLTABL( IL,IXOLD )
+               GO TO 200
+            END IF
+ 100     CONTINUE
+C
+ 200  CONTINUE
+C
+C************** END OF PROCESSING FOR SUBROUTINE ********************
+C
+      RETURN
+      END

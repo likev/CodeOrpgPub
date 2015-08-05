@@ -1,0 +1,845 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/17 14:56:40 $
+C $Id: a317a7.ftn,v 1.4 2002/12/17 14:56:40 christie Exp $
+C $Revision: 1.4 $
+C $State: Exp $
+C
+      SUBROUTINE A317A7__TDA1D_BUF_CNTRL( PARAM )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A317A7__TDA1D_BUF_CNTRL
+*.
+*.  MODULE VERSION: 0001
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       05/29/97      0000      BOB LEE              CCR NA95-21503
+*.       03/16/99      0001      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A317A7__TDA1D_BUF_CNTRL( PARAM )
+*.
+*.  MODULE FUNCTION:
+*.
+*.    This is the routine which is entered for the task in reponse to
+*.  a queued "wake-up" parameter, and which obtains and releases input
+*.  and output buffers (i.e.memory blocks within the master RPG shared
+*.  memory buffer) as needed by algorithms TDA1D
+*.   enabling them to execute in real time in coordination
+*.  with the other tasks of the RPG (CPC-03).
+*.
+*.  MODULES CALLED: A31211__GET_INBUF, A31212__REL_INBUF, A31215__GET_OUTBUF, 
+*.                  A31216__REL_OUTBUF, A317D7__DEF_TDA1D, A317G7__INIT_SCAN, 
+*.                  A317I7__INIT_RAD, A317T7__ABORT_PROCESSING, 
+*.                  A317X7__INIT_ADAP, A3CM39__EXTRACT_RADSTAT, 
+*.                  A3CM53__WHAT_MOMENTS 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT                TYPE        DESCRIPTION
+*.    -   -----                ----        -----------
+*.    G   MEM                  I*4         Array in RPG shared memory set
+*.                                         aside for buffer sharing.
+*.    G   PV_AZIM              R*4         Azimuth of each radial.
+*.    G   BASEDATA             I*4         (CONSTANT)DATA BUFFER COUNT OF
+*.                                         BUFFERS TYPE-BASE DATA
+*.    G   BEG_ELEV             I*4         (CONSTANT)Radial status flag:
+*.                                         Beginning of elevation scan.
+*.    G   BEG_VOL              I*4         (CONSTANT)Radial status
+*.                                         flag:Beginning of volume scan.
+*.    G   END_ELEV             I*4         (CONSTANT)Radial status flag: End
+*.                                         of elevation scan.
+*.    G   END_VOL              I*4         (CONSTANT)Radial status flag: End
+*.                                         of volume scan.
+*.    G   FORWARD              I*4         (CONSTANT)Parameter to indicate
+*.                                         that an output buffer is to be
+*.                                         forwarded to successor tasks
+*.    G   HEDO                 I*4         (CONSTANT)Offset in base radial
+*.                                         header input buffer for
+*.                                         preprocessed base radial headers
+*.                                         (in words).
+*.    G   NORMAL               I*4         (CONSTANT)Parameter which indicates
+*.                                         normal completion of requested
+*.                                         operation to acquire input or
+*.                                         output buffer
+*.    G   NOT_REQD             I*4         (CONSTANT)Mnemonic used as output
+*.                                         from A31211__GET_ INBUF. Indicates
+*.                                         data type for which output buffer
+*.                                         was requested is not required.
+*.    G   NO_MEM               I*4         (CONSTANT)Parameter which indicates
+*.                                         no memory available on attempt to
+*.                                         acquire output buffer
+*.    G   PROD_DISABLED_MOMENT I*4         (CONSTANT)Abort status for moment
+*.                                         disabled product.
+*.    G   PROD_MEM_SHED        I*4         (CONSTANT)(CONSTANT)Parameter which
+*.                                         indicates that product aborted due
+*.                                         to memory load shedding
+*.    G   PSEND_ELEV           I*4         (CONSTANT)Radial status flag:
+*.                                         Pseudo end of elevation scan.
+*.    G   PSEND_VOL            I*4         (CONSTANT)Radial status flag:
+*.                                         Pseudo end of volume scan.
+*.    G   REFO                 I*4         (CONSTANT)Offset to base radial
+*.                                         reflectivity data in input buffer
+*.                                         (relative O from 'MEM(PTR)').
+*.    G   TERMINATE            I*4         (CONSTANT)Mnemonic used as output
+*.                                         from A31211__GET_ INBUF and
+*.                                         A31215__GET_OUTBUF. Indicates
+*.                                         "terminate processing".
+*.    G   VELO                 I*4         (CONSTANT)Offset to base radial
+*.                                         velocity data in input buffer.
+*.    C   BUFF_FULL            L*4         Logical flag that is set when TDA
+*.                                         buffer is full
+*.    C   GOOD_RAD             L*4         A flag indicating good radial read
+*.                                         from the tape / input buffer
+*.    C   IPRLOR               I*2         Input array holding biased
+*.                                         reflectivity data
+*.    C   IPRLOV               I*2         Input array holding biased velocity
+*.                                         data
+*.    C   PVCOUNT              I*4         Count of pattern vectors found in
+*.                                         an elevation scan
+*.    C   RADCOUNT             I*4         Number of radials in an elevation
+*.                                         scan.
+*.    C   RADELEV              R*4         The elevation of a radial
+*.    C   RAD_STAT             I*4         A flag indicating beginning, end,
+*.                                         and potential end of elevation
+*.                                         scans and volume scans
+*.    C   REF_FLAG             L*4         A flag value returned from
+*.                                         WHAT_MOMENTS that indicates
+*.                                         reflectivity data is available from
+*.                                         the input buffer.
+*.    C   SUM_ELEV             R*4         Sum of elevations of all radials in
+*.                                         an elevation scan.
+*.    C   TDAAZPTR             I*4         Pointer to 1st good azimuthal index
+*.                                         within the TDA1D attributes array
+*.                                         (1 or 401)
+*.    C   TDAHIFLG             L*4         Flag to indicate which half of the
+*.                                         tda1d attributes array was updated
+*.                                         most recently.
+*.    C   VEL_FLAG             L*4         Flag indicating whether velocity
+*.                                         moment is available
+*.    C   WID_FLAG             L*4         Flag indicationg whether spectrum
+*.                                         width moment is available
+*.    C   AVAILABLE            L*4         (CONSTANT)Switch to tell program
+*.                                         when TDA1D buffer is available for
+*.                                         reading or writing.
+*.    C   TBAE                 I*4         (CONSTANT)Index to Avg. Elev angle
+*.                                         in the elevation scan in the output
+*.                                         buffer
+*.    C   TBAZP                I*4         (CONSTANT)Index in the output
+*.                                         buffer to a pointer to 1st good
+*.                                         azimuthal index within the tda1d
+*.                                         attributes array (1 or 401).
+*.    C   TBBS                 I*4         (CONSTANT)Index in Tda output
+*.                                         buffer to the doppler bin size
+*.    C   TBESF                I*4         (CONSTANT)Index in TDA output
+*.                                         buffer to the elevation status
+*.                                         within the volume.
+*.    C   TBET                 I*4         (CONSTANT)Index in TDA output
+*.                                         buffer to beginning time of the
+*.                                         elevation scan (msec).
+*.    C   TBHF                 I*4         (CONSTANT)Index in TDA output
+*.                                         buffer to the logical flag which
+*.                                         indicates which half of the TDA1D
+*.                                         attribute buffer was most recently
+*.                                         updated.
+*.    C   TBPVC                I*4         (CONSTANT)Index in TDA output
+*.                                         buffer to the number of pattern
+*.                                         vectors in the elevation scan.
+*.    C   TBPVIP               I*4         (CONSTANT)Index in TDA output
+*.                                         buffer to a pointer to 1st good
+*.                                         pattern vector index within the
+*.                                         TDA1D attributes array (0 or 3000).
+*.    C   TBRC                 I*4         (CONSTANT)Index in TDA output
+*.                                         buffer to number of radials in the
+*.                                         elevation scan.
+*.    C   TBRIP                I*4         (CONSTANT)Index in TDA output
+*.                                         buffer to a pointer to 1st good
+*.                                         radial index within the TDA1D
+*.                                         attributes array (1 or 401).
+*.    C   TDA1DATR             I*4         (CONSTANT)Data Buffer Type: TDA 1D
+*.                                         attributes buffer
+*.    C   UNAVAILABLE          L*4         (CONSTANT)Switch to tell program
+*.                                         when TDA1D buffer is available for
+*.                                         reading or writing.
+*.
+*.    *   OUTPUT       TYPE        DESCRIPTION
+*.    -   ------       ----        -----------
+*.    G   MEM          I*4         Array in RPG shared memory set aside for
+*.                                 buffer sharing.
+*.    G   PV_AZIM      R*4         Azimuth of each radial.
+*.    G   TDA_BUF_LOCK L*4         Flag inidcating whether the TDA buffer is
+*.                                 available for processing
+*.    C   GOOD_RAD     L*4         A flag indicating good radial read from the
+*.                                 tape / input buffer
+*.    C   RADCOUNT     I*4         Number of radials in an elevation scan.
+*.    C   RAD_STAT     I*4         A flag indicating beginning, end, and
+*.                                 potential end of elevation scans and volume
+*.                                 scans
+*.    C   REF_FLAG     L*4         A flag value returned from WHAT_MOMENTS
+*.                                 that indicates reflectivity data is
+*.                                 available from the input buffer.
+*.    C   SUM_ELEV     R*4         Sum of elevations of all radials in an
+*.                                 elevation scan.
+*.    C   TDAHIFLG     L*4         Flag to indicate which half of the tda1d
+*.                                 attributes array was updated most recently.
+*.    C   VEL_FLAG     L*4         Flag indicating whether velocity moment is
+*.                                 available
+*.    C   WID_FLAG     L*4         Flag indicationg whether spectrum width
+*.                                 moment is available
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    G   MEM               I*4         Array in RPG shared memory set aside
+*.                                      for buffer sharing.
+*.    C   GOOD_RAD          L*4         A flag indicating good radial read
+*.                                      from the tape / input buffer
+*.    C   IPRLOR            I*2         Input array holding biased
+*.                                      reflectivity data
+*.    C   IPRLOV            I*2         Input array holding biased velocity
+*.                                      data
+*.    C   RAD_STAT          I*4         A flag indicating beginning, end, and
+*.                                      potential end of elevation scans and
+*.                                      volume scans
+*.    C   REF_FLAG          L*4         A flag value returned from
+*.                                      WHAT_MOMENTS that indicates
+*.                                      reflectivity data is available from
+*.                                      the input buffer.
+*.    C   VEL_FLAG          L*4         Flag indicating whether velocity
+*.                                      moment is available
+*.    C   WID_FLAG          L*4         Flag indicationg whether spectrum
+*.                                      width moment is available
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME            TYPE        DESCRIPTION
+*.    ----            ----        -----------
+*.    AVG_ELEV        R*4         Average elevation of all radials in a sweep
+*.    DUMMY_FLAG      L*4         A logical that intercepts a function return
+*.                                value and does nothing with it.
+*.    ELEVAVG         I*4         Integer representation of the average
+*.                                elevation of a sweep
+*.    EL_LAST         I*4         Elevation status parameter for determining
+*.                                that the highest elevation scan has been
+*.                                processed.
+*.    EL_MID          I*4         Status indicating that the elevation is in
+*.                                the middle of a volume scan
+*.    HI              I*4         A constant parameter used to index array IPR
+*.    IDATID          I*4         Returned from GET_INBUF.  Not actively used
+*.                                in program
+*.    IPR             I*4         Array of input buffer ID numbers assigned by
+*.                                the system
+*.    IPRTOG1         I*4         A flag that tells the program to use the
+*.                                lower or upper TDA1D buffer
+*.    IPRTOG2         I*4         A flag that tells the program to use the
+*.                                lower or upper TDA1D buffer
+*.    IPRTOGLE        I*4         A flag that tells the program to use the
+*.                                lower or upper TDA1D buffer
+*.    ISTAT           I*4         Return status from getting input buffer
+*.    KEY             I*4         A flag that toggles alternatively between
+*.                                LOW and HIGH which points to different areas
+*.                                of the TDA1D buffer
+*.    MID             I*4         A constant that points to the low end of
+*.                                TDA1D buffer.
+*.    MODULUS2_P1     I*4         A constant parameter of 3.
+*.    N               I*4         Do loop index
+*.    NULL            I*4         Parameter value of zero.
+*.    ONE             I*4         Parameter value of one.
+*.    OPR             I*4         Pointer to starting position of output
+*.                                buffer in MEM
+*.    OSTAT           I*4         Status flag for output buffer as given by
+*.                                buffer Manager to indicate retrieval status.
+*.    PROCESS_RADIAL  L*4         A logical flag used to process radials.  A
+*.                                good radial is to be processed and it
+*.                                contains good data.
+*.    REALZERO        R*4         Parameter value of real zero.
+*.    SIZ_TDA         I*4         Size of the TDA1D output buffer.
+*.    TDA_BUF_UNAVAIL L*4         Flag which specifies whether the TDA buffer
+*.                                is available for use or not.
+*.    ZERO            I*4         Program parameter for 0.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A317LOCK
+*.    A3CD00
+*.    PVECS09
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A317C3T
+*.    A317CCT
+*.    A317CGT
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:
+*.
+*.     If return status (i.e."ISTAT") from call to "GET_INBUF" is not
+*.   normal, the input data stream has been prematurely terminated:
+*.   Processing is aborted; the output buffer is released for destruc-
+*.   tion; and control is returned to the calling routine (Trap-Wait
+*.   state).
+*.
+*.     If return status (i.e."OSTAT") from call to "GET_OUTBUF" is not
+*.   normal, the output data is not required by the system at this
+*.   time, or insufficient memory is available: Processing is aborted;
+*.   and control is returned to the calling routine (Trap-Wait state)
+*.
+*.     The subroutine is entered, and processing for the task init-
+*.   iated, in response to a queued parameter trap received from
+*.   RPG Buffer Control.
+*.
+*.     When not processing, the task is in Trap-Wait state.
+*.
+*.     If a call is made to GET_INBUF when the input buffer is not
+*.   yet available, the task is suspended until that data becomes
+*.   available.
+*.
+*.     Radial-status flags, which control the sequence of processing,
+*.   are assumed to be in correct, logical order.
+*.
+*.     No processing is performed upon any radial flagged "bad",--
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     Compiled using COMP17.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     Linked using LINK17.CSS
+*.
+*.  MISC:  None
+*.
+C********************************************************************
+C
+C                TDA1D: BUFFER CONTROL ROUTINE
+C
+C********************************************************************
+C
+      IMPLICIT NONE
+C
+C** Attach Input Parameter-definition file from "Unpack_radial_data"
+$INCLUDE A304.INC/G,**A304P4
+C
+C**Attach output parameter-definition file
+$INCLUDE A317BUF.INC/G,**A317P3T
+C
+C**Attach segment buffer lock defintions.
+$INCLUDE A317BUF.INC/G, **A317LOCK (NEND)
+$INCLUDE A317BUF.INC/G, **A317CLOK (NEND)
+C
+$INCLUDE A317.INC/G,**A317C3T
+C
+C**Attach LOGICAL AND LOCAL FLAGS
+$INCLUDE A317.INC/G,**A317CCT
+C
+C**Attach TDA1D local common
+$INCLUDE A317.INC/G, **A317CGT
+C
+C
+C**Attach master parameter file of named RPG data files.
+$INCLUDE A309.INC/G,**A3PM00
+$INCLUDE A309.INC/G,**A3CD09BL
+C
+C**Attach parameter file of radial status flags.
+$INCLUDE A309.INC/G,**A3PM02
+C
+C**Include no memory abort parameters
+$INCLUDE A309.INC/G,**A3PM07
+C
+C**Connect with master shared memory buffer for RPG.
+$INCLUDE A309.INC/G,**A3CD00
+C
+C************************ DATA DECLARATIONS *************************
+C
+C** Communication with Buffer Management:
+C
+      INTEGER  PARAM, IDATID, ISTAT, OSTAT
+      INTEGER  IPRTOGLE, OPR, IPRTOG1, IPRTOG2
+C$INSERT      INTEGER MID_STAT, HI_STAT
+C
+C** Logical & local flags:
+C
+      INTEGER IPR(2)
+      INTEGER KEY, N, MID, HI, MODULUS2_P1
+      INTEGER ELEVAVG
+      INTEGER NULL, ZERO, ONE, EL_LAST, EL_MID
+      REAL    REALZERO, AVG_ELEV
+      LOGICAL PROCESS_RADIAL, TDA_BUF_UNAVAIL, DUMMY_FLAG
+C
+C********************** DATA INITIALIZATIONS ************************
+C
+      PARAMETER ( REALZERO = 0.0, ZERO = 0, ONE = 1, NULL = 0)
+      PARAMETER ( EL_MID = 0, EL_LAST = 1 )
+      PARAMETER ( MID = 1, HI = 2, MODULUS2_P1 = 3 )
+C
+C** Equivalenced parameters.
+C
+      EQUIVALENCE (AVG_ELEV, ELEVAVG)
+C
+C****************** BEGIN MAIN PROCESSING SECTION *******************
+C
+C** Initialize logical & other flags.
+C
+      SUM_ELEV = REALZERO
+      RADCOUNT = ZERO
+      PROCESS_RADIAL = .TRUE.
+      TDA_BUF_UNAVAIL = .FALSE.
+C$INSERT      MID_STAT = ONE
+C$INSERT      HI_STAT = ONE
+C
+C** Acquire TDA1D output buffer (on an elevation basis).
+C
+      CALL A31215__GET_OUTBUF( TDA1DATR,SIZ_TDA,OPR,OSTAT )
+      IF ( OSTAT .EQ. NORMAL )  THEN
+C
+C** If output buffer successfully acquired, initialize single-element
+C** variables in the buffer to zero.  These are:
+C** OFFSET 0 (TBHF):  TDAHIFLG : TDA Buff High Flag
+C**        1 (TBPVIP):  TDABFPTR : TDA Buff Pattern Vector Ptr
+C**        2 (TBRIP):  TDANXPTR : TDA Buff Pattern Vector Index Pointer
+C**        3 (TBAZP):  TDAAZPTR : TDA Buff Azimuthal Index Pointer
+C**        4 (TBAE):  AVG_ELEV : TDA Buff Average Elevation Angle
+C**        5 (TBPVC): PVCOUNT : TDA Buff Pattern Vector Count
+C**        6 (TBET):  ELV_TIME : TDA Buff Elevation Time
+C**        7 (TBESF):  ELEVSTAT : TDA Buff Elevation Status
+C**        8 (TBRC): RADCOUNT : TDA Buff RADIAL COUNT
+C**        9 (TBBS): DBINSIZE : DOPPLER BIN SIZE
+C
+      DO 150  N = TBHF, TBBS
+         MEM( OPR + N ) = 0
+150    CONTINUE
+C
+C** Acquire first input buffer of radial data.  Do not start
+C** processing data until beginning of volume or beginning of
+C** elevation scan encountered.
+C
+200   CONTINUE
+      CALL A31211__GET_INBUF( BASEDATA,IPR(MID),IDATID,ISTAT )
+      IF (ISTAT .EQ. NORMAL) THEN
+
+C$INSERT         MID_STAT = NULL
+         CALL A3CM39__EXTRACT_RADSTAT( MEM(IPR(MID)+HEDO),GOOD_RAD,
+     1                                 RAD_STAT )
+
+         IF  (RAD_STAT .EQ. BEG_VOL) THEN
+C
+C** Check which moments are enabled.
+C
+            CALL A3CM53__WHAT_MOMENTS( MEM(IPR(MID)),REF_FLAG,
+     1                                 VEL_FLAG,WID_FLAG )
+C
+C** Reflectivity data or velocity data is disabled.  Abort processing.
+C
+            IF  (.NOT. REF_FLAG .OR. .NOT. VEL_FLAG) THEN
+
+C$INSERT               CALL A317T7__ABORT_PROCESSING( IPR(MID), MID_STAT, 
+C$INSERT     1                                     IPR(HI), HI_STAT, OPR,
+C$INSERT     2                                     NULL, PROD_DISABLED_MOMENT,
+C$INSERT     3                                     AVAILABLE )
+C$DELETE
+               CALL A317T7__ABORT_PROCESSING( IPR(MID), NULL, IPR(HI),
+     1                                        NOT_REQD, OPR, NULL,
+     2                                        PROD_DISABLED_MOMENT,
+     3                                        AVAILABLE )
+C$ENDDELETE
+               GO TO 300
+
+            ELSE
+C
+C** Perform beginning of volume scan initialization.
+C
+               CALL A317X7__INIT_ADAP( MEM(IPR(MID)+HEDO) )
+               CALL A317G7__INIT_SCAN( IPR(MID), MEM(OPR+TBHF),
+     1                    MEM(OPR+TBPVIP),MEM(OPR+TBRIP),MEM(OPR+TBAZP),
+     2                    MEM(OPR+TBBS),MEM(IPR(MID)+REFO),
+     3                    MEM(IPR(MID)+VELO),MEM(IPR(MID)+HEDO),
+     4                    TDA_BUF_UNAVAIL, KEY )
+            ENDIF
+
+         ELSE IF  (RAD_STAT .EQ. BEG_ELEV) THEN
+C
+C** Perform beginning of elevation scan initialization.
+C
+               CALL A317G7__INIT_SCAN( IPR(MID), MEM(OPR+TBHF),
+     1                    MEM(OPR+TBPVIP),MEM(OPR+TBRIP),MEM(OPR+TBAZP),
+     2                    MEM(OPR+TBBS),MEM(IPR(MID)+REFO),
+     3                    MEM(IPR(MID)+VELO),MEM(IPR(MID)+HEDO),
+     4                    TDA_BUF_UNAVAIL, KEY )
+         ELSE
+C
+C** Release this radial and try again.  Need beginning of volume or
+C** elevation scan radial.
+C
+              CALL A31212__REL_INBUF(IPR(MID))
+C$INSERT              MID_STAT = ONE
+              GO TO 200
+
+         ENDIF
+C
+C** Beginning of volume or elevation encountered.
+C
+C** Check the TDA_BUF_UNAVAIL flag.  This flag is set when TDA1D
+C** wishes to write TDA1D data to TDAMAIN array but TDA2D is
+C** not done processing the data that was previously placed in the
+C** array.  This probably should never happen, but just in case...
+C
+         IF ( TDA_BUF_UNAVAIL ) THEN
+C$INSERT            CALL A317T7__ABORT_PROCESSING( IPR(MID), MID_STAT, IPR(HI),
+C$INSERT     1            HI_STAT, OPR, NULL, PROD_MEM_SHED, UNAVAILABLE )
+C$DELETE
+            CALL A317T7__ABORT_PROCESSING( IPR(MID), NULL, IPR(HI),
+     1            NOT_REQD, OPR, NULL, PROD_MEM_SHED, UNAVAILABLE )
+C$ENDDELETE
+            GO TO 300
+         ENDIF
+C
+C** Radial is "bad".  What makes it bad, who knows?  Abort
+C** processing.
+C
+         IF ( .NOT. GOOD_RAD ) THEN
+
+C$DELETE
+            CALL A317T7__ABORT_PROCESSING( IPR(MID), NULL, IPR(HI),
+     1              NOT_REQD, OPR, NULL, PROD_MEM_SHED, AVAILABLE )
+C$ENDDELETE
+C$INSERT            CALL A317T7__ABORT_PROCESSING( IPR(MID), MID_STAT, IPR(HI),
+C$INSERT     1              HI_STAT, OPR, NULL, NULL, AVAILABLE )
+            GO TO 300
+
+         ENDIF
+C
+C** Get radial header information for first radial.
+C
+         CALL A317I7__INIT_RAD( IPR(MID), MEM(IPR(MID)+HEDO),
+     1                          MEM(OPR+TBET))
+C
+C** Get second radial.
+C
+         CALL A31211__GET_INBUF( BASEDATA,IPR(HI),IDATID,ISTAT )
+         If (ISTAT .NE. NORMAL) THEN
+C
+C** Couldn't get the second radial, so abort.
+C
+C$DELETE
+            CALL A317T7__ABORT_PROCESSING( IPR(MID), NULL, IPR(HI),
+     1                   NOT_REQD, OPR, NULL, PROD_DISABLED_MOMENT,
+     2                   AVAILABLE )
+C$ENDDELETE
+C$INSERT            CALL A317T7__ABORT_PROCESSING( IPR(MID), MID_STAT, IPR(HI),
+C$INSERT     1                   HI_STAT, OPR, NULL, NULL, AVAILABLE )
+            GO TO 300
+
+         ENDIF
+
+C$INSERT         HI_STAT = NULL
+C
+C** Get radial status of second radial.
+C
+         CALL A3CM39__EXTRACT_RADSTAT( MEM(IPR(HI)+HEDO),GOOD_RAD,
+     1                                 RAD_STAT )
+C
+         IPRTOGLE = HI
+C
+C** DO FOR ALL (radials this elevation scan)
+C
+ 100     CONTINUE
+C
+C** If this radial is a "good" radial, then process it.
+C
+            IF ( GOOD_RAD ) THEN
+
+               CALL A317I7__INIT_RAD( IPR(IPRTOGLE),
+     1                                MEM(IPR(IPRTOGLE)+HEDO),
+     2                                MEM(OPR+TBET))
+C
+C** If the allotted space for TDA1Ds is full, no need to process
+C** any more radial data.
+C
+               IF ( .NOT. BUFF_FULL ) THEN
+C
+C** Determine indices for current and previous radials.
+C
+                  IF (IPRTOGLE.EQ.HI) THEN
+                     IPRTOG1=MID
+                     IPRTOG2=HI
+                  ELSE
+                     IPRTOG1=HI
+                     IPRTOG2=MID
+                  ENDIF
+C
+C** Process the 2 radials.
+C
+                  CALL A317D7__DEF_TDA1D( MEM(IPR(IPRTOG1) + REFO),
+     1                                    MEM(IPR(IPRTOG2) + REFO),
+     2                                    MEM(IPR(IPRTOG1) + VELO),
+     3                                    MEM(IPR(IPRTOG2) + VELO) )
+
+                  IF((RAD_STAT.EQ.PSEND_ELEV) .OR.
+     >               (RAD_STAT.EQ.PSEND_VOL)) THEN
+C
+C** Pseudo-end of elevation or volume.  We don't need to process any
+C** more radials this elevation or volume scan, respectively.
+C
+                     PROCESS_RADIAL = .FALSE.
+C
+C** If pseudo-end azimuth is the same as the scan's beginning azimuth, go
+C** back one radial and compare with the first radial.  Otherwise, compare
+C** current radial with first radial.
+C
+                     IF( PV_AZIM(RADCOUNT+TDAAZPTR) .NE.
+     >                   PV_AZIM(ONE+TDAAZPTR) ) THEN
+
+                        RADCOUNT=RADCOUNT+ONE
+                        PV_AZIM(RADCOUNT+TDAAZPTR)=PV_AZIM(ONE+TDAAZPTR)
+
+                        CALL A317D7__DEF_TDA1D( MEM(IPR(IPRTOGLE)+REFO),
+     1                                          IPRLOR(1),
+     2                                          MEM(IPR(IPRTOGLE)+VELO),
+     3                                          IPRLOV(1) )
+
+                     ELSE
+
+                        PV_AZIM( RADCOUNT+TDAAZPTR) =
+     >                                        PV_AZIM(ONE+TDAAZPTR)
+                        IPRTOG1 = MODULUS2_P1 - IPRTOGLE
+
+                        CALL A317D7__DEF_TDA1D( MEM(IPR(IPRTOG1)+REFO),
+     1                                          IPRLOR(1),
+     2                                          MEM(IPR(IPRTOG1)+VELO),
+     3                                          IPRLOV(1) )
+C
+C** Subtract off this elevation since we won't be using the current radial.
+C
+                        SUM_ELEV = SUM_ELEV - RADELEV
+
+                     END IF
+C
+C** Decrement by one the number of radials processed.
+C
+                     RADCOUNT=RADCOUNT-ONE
+
+                  ENDIF
+               END IF
+            END IF
+C
+C** Release the input buffer for current radial of data
+C
+            IF (IPRTOGLE .EQ. HI) THEN
+              IPRTOGLE = MID
+C$INSERT              MID_STAT = ONE
+            ELSE
+              IPRTOGLE = HI
+C$INSERT              HI_STAT = ONE
+            ENDIF
+C
+            CALL A31212__REL_INBUF( IPR(IPRTOGLE))
+C
+C** If not at the end of elevation or volume, continue acquiring and
+C** releasing radials.
+C
+            IF (RAD_STAT.NE.END_ELEV .AND. RAD_STAT.NE.END_VOL) THEN
+C
+C** Get another input buffer.
+C
+                CALL A31211__GET_INBUF( BASEDATA,IPR(IPRTOGLE),
+     1                                   IDATID, ISTAT)
+C
+C** Check status of operation. If normal,....
+C
+                IF (ISTAT .EQ. NORMAL) THEN
+         
+C$INSERT                  IF( IPRTOGLE .EQ. MID ) THEN
+C$INSERT                      MID_STAT = NULL
+C$INSERT                   ELSE
+C$INSERT                      HI_STAT = NULL
+C$INSERT                   END IF
+C
+C** Get status of most recently acquired radial.
+C
+                  CALL A3CM39__EXTRACT_RADSTAT(
+     1                           MEM(IPR(IPRTOGLE+HEDO)), GOOD_RAD,
+     2                                        RAD_STAT )
+C
+C** Clear the "GOOD RADIAL" flag if past the psuedo end of elevation
+C** or volume, or the radial is "bad".
+C
+                  GOOD_RAD = PROCESS_RADIAL .AND. GOOD_RAD
+C
+C** If unexpected start of elevation occurred, need to re-initialize
+C** scan variables to prevent task fault. Unexpected beginning of
+C** volume is handled by TASK MANAGEMENT with "RPG TASK CLEANUP".
+C
+                  IF ((RAD_STAT .EQ. BEG_ELEV) .OR.
+     >               (RAD_STAT .EQ. BEG_VOL)) THEN
+C
+C** Initialize the summation variables for average delta azimuth and
+C** average elevation.
+C
+                     SUM_ELEV = REALZERO
+                     RADCOUNT = ZERO
+C$INSERT                     PROCESS_RADIAL = .TRUE.
+C
+C** NOT the TDAHIFLG flag so that the segment table pointers for this
+C** elevation cut are "not" ping-ponged. We don't care about the
+C** TDA_BUF_UNAVAIL flag in this case!!  However, to prevent buffer
+C** lock-out, reset the lock for the buffer already in use.
+C
+                     TDA_BUF_LOCK( KEY ) = .FALSE.
+                     TDAHIFLG = .NOT. TDAHIFLG
+C
+                     CALL A317G7__INIT_SCAN(IPR(IPRTOGLE),
+     1                                      MEM(OPR+TBHF),
+     2                                      MEM(OPR+TBPVIP),
+     3                                      MEM(OPR+TBRIP),
+     4                                      MEM(OPR+TBAZP),
+     5                                      MEM(OPR+TBBS),
+     6                                      MEM(IPR(IPRTOGLE)+REFO),
+     7                                      MEM(IPR(IPRTOGLE)+VELO),
+     8                                      MEM(IPR(IPRTOGLE)+HEDO),
+     9                                      DUMMY_FLAG, KEY)
+                  END IF
+                  GO TO 100
+               ELSE
+C
+C** Status is not NORMAL.  Destroy the output buffer, release any
+C** input buffers, and abort task processing.
+C
+C$DELETE
+                 IF (IPRTOGLE.EQ.HI) THEN
+                    CALL A317T7__ABORT_PROCESSING( IPR(MID), NULL,
+     1                           IPR(HI), NOT_REQD, OPR, NULL,
+     2                           PROD_DISABLED_MOMENT, AVAILABLE )
+                 ELSE
+                   CALL A317T7__ABORT_PROCESSING( IPR(MID), NOT_REQD,
+     1                          IPR(HI), NULL, OPR, NULL,
+     2                          PROD_DISABLED_MOMENT, AVAILABLE)
+                 ENDIF
+C$ENDDELETE
+
+C$INSERT                 CALL A317T7__ABORT_PROCESSING( IPR(MID), MID_STAT,
+C$INSERT     1                           IPR(HI), HI_STAT, OPR, NULL,
+C$INSERT     2                           NULL, AVAILABLE )
+                GO TO 300
+              END IF
+            END IF
+C
+C** At the end of the elevation scan.
+C
+            IF(RADCOUNT .GT. ZERO) THEN
+C
+C** Compute average elevation angle and save in output buffer.
+C
+              AVG_ELEV = SUM_ELEV/FLOAT(RADCOUNT)
+              MEM(OPR+TBAE) = ELEVAVG
+C
+C** Store the number of radials in the elevation scan.
+C
+              MEM(OPR+TBRC) = RADCOUNT
+C
+C** Store the number of Pattern Vectors in the elevation scan.
+C
+              MEM(OPR+TBPVC) = PVCOUNT
+C
+C** Set the elevation status to either middle elevation, or last
+C** elevation if this is the top scan of the VCP.
+C
+              IF((RAD_STAT.EQ.PSEND_ELEV).OR.
+     >           (RAD_STAT.EQ.END_ELEV)) THEN
+
+                 MEM(TBESF+OPR) = EL_MID
+
+              ELSE
+
+                 MEM(TBESF+OPR) = EL_LAST
+
+              ENDIF
+C
+C** Unlock the segment buffer lock for the buffer just written.
+C
+              TDA_BUF_LOCK( KEY ) = .FALSE.
+            ELSE
+C
+C** No good radials were processed.  Abort processing and exit
+C** module.
+C
+C$DELETE
+                 CALL A317T7__ABORT_PROCESSING( IPR(MID), NULL,
+     1                        IPR(HI), NULL, OPR, NULL,
+     2                        NULL, AVAILABLE )
+C$ENDDELETE
+C$INSERT                 CALL A317T7__ABORT_PROCESSING( IPR(MID), MID_STAT,
+C$INSERT     1                        IPR(HI), HI_STAT, OPR, NULL,
+C$INSERT     2                        NULL, AVAILABLE )
+               GO TO 300
+
+            ENDIF
+          ELSE
+C
+C** Else If input buffer status indicates data stream Terminated,
+C** abort processing & set output buffer-action flag to "Destroy".
+C
+            CALL A317T7__ABORT_PROCESSING( IPR(MID), MID_STAT, IPR(HI),
+     1                           HI_STAT, OPR, NULL, NULL, AVAILABLE )
+C$DELETE
+            CALL A317T7__ABORT_PROCESSING( IPR(MID), NOT_REQD, IPR(HI),
+     1                           NOT_REQD, OPR, NULL, NULL, AVAILABLE )
+C$ENDDELETE
+            GO TO 300
+C
+          END IF
+C
+C** Release output buffer, with appropriate action to be taken.
+C
+          CALL A31216__REL_OUTBUF( OPR,FORWARD )
+C
+C** Release the input buffer which hasn't been released yet.
+C
+          IPRTOGLE = MODULUS2_P1 - IPRTOGLE
+          CALL A31212__REL_INBUF( IPR(IPRTOGLE) )
+C$INSERT          IF( IPRTOGLE .EQ. MID ) THEN
+C$INSERT             MID_STAT = ONE
+C$INSERT          ELSE
+C$INSERT             HI_STAT = ONE
+C$INSERT          ENDIF
+        ELSE
+C
+C** Else If output buffer status indicates data-type Not Required or
+C** No Memory available, abort processing & return to Trap Wait.
+C
+          IF (OSTAT .EQ. NO_MEM) THEN
+C$DELETE
+            CALL A317T7__ABORT_PROCESSING( IPR(MID), TERMINATE, IPR(HI),
+     1             TERMINATE, OPR, TERMINATE, PROD_MEM_SHED, AVAILABLE )
+C$ENDDELETE
+C$INSERT            CALL A317T7__ABORT_PROCESSING( IPR(MID), MID_STAT, IPR(HI),
+C$INSERT     1             HI_STAT, OPR, TERMINATE, PROD_MEM_SHED, AVAILABLE )
+
+          ELSE
+
+C$DELETE
+            CALL A317T7__ABORT_PROCESSING( IPR(MID), TERMINATE, IPR(HI),
+     1                      TERMINATE, OPR, TERMINATE, NULL, AVAILABLE )
+C$ENDDELETE
+
+C$INSERT            CALL A317T7__ABORT_PROCESSING( IPR(MID), MID_STAT, IPR(HI),
+C$INSERT     1                      MID_STAT, OPR, TERMINATE, NULL, AVAILABLE )
+
+          END IF
+      END IF
+C
+C************** END OF PROCESSING FOR SUBROUTINE ********************
+C
+ 300  CONTINUE
+      RETURN
+      END

@@ -1,0 +1,1624 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<html>
+
+<head>
+<meta name="GENERATOR" content="Microsoft FrontPage 3.0">
+<title> Vol 3. Doc 1. Sec II - Getting Started with the Algorithm API </title>
+</head>
+
+<body text="Black" bgcolor="#EEEEEE" link="Blue" vlink="#551A8B" alink="Red">
+
+<h2>Vol 3. Document 1 -<br>
+The WSR-88D Algorithm API </h2>
+
+<h2>Section&nbsp;II&nbsp;&nbsp;Getting Started with the Algorithm API </h2>
+
+<p><br>
+</p>
+
+<table width="80%" cellpadding="10" align="center" bgcolor="#00FF80">
+  <tr>
+    <td bgcolor="White">This document does not provide a complete reference to the Algorithm
+    API. Rather, it is a tutorial covering API functions required to build an integrated
+    algorithm and also supplements documentation included with the ORPG source code. This
+    guide was created from information contained in the existing ORPG documentation and
+    through reviewing examples of use and the source code for the API services. This guide is
+    oriented toward constructing algorithms in ANSI-C (vice FORTRAN). </td>
+  </tr>
+</table>
+
+<p><br>
+</p>
+
+<hr size="4">
+
+<h2>Part A. Introduction </h2>
+
+<p>The documentation provided with the ORPG currently consists of the UNIX man page <tt><b>rpg(3)</b></tt>,
+which documents the API used in the legacy FORTRAN algorithms, and associated include
+files. The <tt><b>rpg(3)</b></tt> man page contains essential information on using the
+Algorithm API but also includes implementation details and other information not of
+interest to an algorithm developer. Keep the following in mind when referring to <tt><b>rpg(3)</b></tt>.
+
+<ol type="a">
+  <li>The man page is dated. Some of the API calls have changed and some newer functions are
+    not documented. </li>
+  <li>The function call signatures provided are for the underlying C source code
+    implementation, not the actual FORTRAN calls. See the <a href="original_chart.html">Algorithm
+    API chart</a> for the actual form of the API subroutine calls in both FORTRAN and ANSI-C. </li>
+</ol>
+
+<p><b>The following API discussion is oriented toward a developer writing a new algorithm
+in ANSI-C so topics such as ITC blocks and timer services are not included.</b> Since all
+operational algorithms currently are written in FORTRAN there are very few ANSI-C examples
+at this time. </p>
+
+<p><b><font color="#990000">Note</font></b>: The reader should be familiar with the
+instructions for configuring new algorithms and the description of ORPG configuration
+files contained in CODE Guide Volume 2 - <em>ORPG Application Software Development Guide</em>.
+Some terms used here (e.g. <tt>&lt;Buffer_Number&gt;</tt>, <tt>&lt;Prod_Buffer_Name&gt;</tt>,
+and <tt>&lt;Product_Code&gt;</tt>) are defined in Document 2 Section III of that guide, <em>ORPG
+Configuration for Application Developers</em>. </p>
+
+<p>The Algorithm API functions can be divided into two categories. First are the service
+registration / initialization routines. These are called one time after the algorithm task
+is launched. The rest are functional services that are used in the body of the algorithm
+during processing. </p>
+
+<p><br>
+</p>
+
+<hr size="4">
+
+<h2><a name="Data_Registration">Part B. API Service Registration / Initialization</a> </h2>
+
+<p>The service registration / initialization routines are called only when the algorithm
+task is launched. These initialize internal data structures that enable the underlying
+infrastructure to function correctly. Note: These registration services do not actually
+&quot;register&quot; data stores and tasks with the ORPG. That is accomplished through
+configuration tables. </p>
+
+<p><em>Input data registration</em>, <em>output data registration</em>, <em>task timing
+initialization</em>, and <em>summary scan registration</em> calls are required for all
+algorithms. <em>Input data registration</em> is not required for event driven algorithms
+not using product data as input. The <em>task timing initialization</em> must follow all
+others. See the discussion of <em>algorithm control loop</em> under Functional API
+Services for an explanation of how the registration / initialization services affect
+algorithm processing. </p>
+
+<p><br>
+</p>
+
+<hr align="left" width="50%">
+
+<h3>1. <a name="Input_Data_Registration">Input Data Registration</a> </h3>
+
+<p>All input data (i.e., base data and any product data produced by another algorithm )
+must be registered. These data are called <em>products</em> and each has an entry in the
+product attribute table contained in the <tt><b>product_tables</b></tt> configuration
+file. </p>
+
+<p><tt><b>RPGC_in_data</b></tt> registers a product as an input to the algorithm. A
+subsequent call to <tt><b>RPGC_in_opt</b></tt> designates the input as optional and
+prevents the data read function from blocking excessively if the product is not available.
+</p>
+
+<table width="95%" cellspacing="2" cellpadding="5" bgcolor="White">
+  <tr>
+    <td colspan="3" bgcolor="Silver"><tt><b>int RPGC_in_data( int datatype, int timing )</b></tt>
+    </td>
+  </tr>
+  <tr valign="top">
+    <td width="10%"><font face="sans-serif" size="-1">INPUT:</font> </td>
+    <td width="15%"><tt><b>datatype</b></tt><br>
+    </td>
+    <td width="75%">The input buffer id. </td>
+  </tr>
+  <tr valign="top">
+    <td>&nbsp; </td>
+    <td><tt><b>timing</b></tt><br>
+    </td>
+    <td>The frequency that the input product is produced. </td>
+  </tr>
+  <tr valign="top">
+    <td colspan="2"><font face="sans-serif" size="-1">RETURN VALUE:</font><br>
+    </td>
+    <td>Not Used </td>
+  </tr>
+  <tr>
+    <td colspan="3">Registers the product as an input to the algorithm. For data driven
+    algorithms, this data must be available for a task to begin the production of an output
+    product (see <em>Algorithm Control Loop</em>). </td>
+  </tr>
+</table>
+
+<p><br>
+</p>
+
+<table width="95%" cellspacing="2" cellpadding="5" bgcolor="White">
+  <tr>
+    <td colspan="3" bgcolor="Silver"><tt><b>int RPGC_in_opt( int datatype, int timing )</b></tt>
+    </td>
+  </tr>
+  <tr valign="top">
+    <td width="10%"><font face="sans-serif" size="-1">INPUT:</font> </td>
+    <td width="15%"><tt><b>datatype</b></tt><br>
+    </td>
+    <td width="75%">The input buffer id. </td>
+  </tr>
+  <tr valign="top">
+    <td>&nbsp; </td>
+    <td><tt><b>timing</b></tt><br>
+    </td>
+    <td>The maximum block time (in seconds) when the data is read. </td>
+  </tr>
+  <tr valign="top">
+    <td colspan="2"><font face="sans-serif" size="-1">RETURN VALUE:</font><br>
+    </td>
+    <td>Not Used </td>
+  </tr>
+  <tr>
+    <td colspan="3">Designates the registered input as optional. Must be used after the input
+    is registered with the &nbsp;<tt><b>RPGC_in_data</b></tt>&nbsp; function. See <em>Reading
+    Input Data</em> for an explanation of how this registration affects <tt><b>RPGC_get_inbuf</b></tt>
+    function which reads the input data. </td>
+  </tr>
+</table>
+
+<h4>Parameter Descriptions </h4>
+
+<dl>
+  <dt><tt><b>datatype</b></tt><br>
+  </dt>
+  <dd>The identity of the linear buffer that is the source of the input data. Product buffer
+    id's are defined in <tt><b>a309.h</b></tt> / <tt><b>a309.inc</b></tt>. If the header file
+    has not been modified to include this new product, the <tt>&lt;Buffer_Number&gt;</tt> must
+    be entered literally rather than the <tt>&lt;Prod_Buffer_Name&gt;</tt>. This parameter
+    must be the same as the <tt><b>prod_id</b></tt> attribute in the product attribute table
+    entry.&nbsp;&nbsp;<b>NOTE:</b> Using base data as an input is a special case. To use base
+    data, either <tt><b>REFLDATA</b></tt> or <tt><b>COMBBASE</b></tt> is registered as the
+    input type. When the data is actually read with <tt><b>RPGC_get_inbuf</b></tt>, the data
+    type is specified as <tt><b>BASEDATA</b></tt>. <tt><b>REFLDATA</b></tt> is used when only
+    reflectivity data are needed and <tt><b>COMBBASE</b></tt> is used when interested in
+    Doppler data (velocity and spectrum width). </dd>
+  <dt><tt><b>timing</b></tt> (used with <tt><b>RPGC_in_data</b></tt>)<br>
+  </dt>
+  <dd>The frequency that the input product is produced. The following are defined as
+    enumerations in <tt><b>rpg_port.h</b></tt> / <tt><b>rpg_port.inc</b></tt>:&nbsp;&nbsp; <tt><b>ELEVATION_DATA,
+    VOLUME_DATA, RADIAL_DATA, UNDEFINED_DATA,</b></tt> and <tt><b>DEMAND_DATA</b></tt>.&nbsp;&nbsp;
+    Entering a positive integer for the parameter value represents a &quot;timed product&quot;
+    that is produced at the specified interval in seconds (minimum / maximum values not
+    specified). &nbsp;<tt><b>UNDEFINED_DATA</b></tt> is not supported by the API. &nbsp;<tt><b>DEMAND_DATA</b></tt>
+    is used for a product whose production is not tied to a specific frequency (for example, a
+    product of an event driven algorithm having no data inputs). This parameter corresponds to
+    the <tt><b>type</b></tt> attribute in the product attribute table entry. NOTE: The actual
+    numerical codes used differ. For example, <tt><b>type</b></tt> <b>0</b> in the product
+    attribute table represents &quot;Volume&quot; while parameter value <tt><b>VOLUME_DATA</b></tt>
+    is defined as <b>-2</b> in <tt><b>rpg_port.h</b></tt>. &nbsp; </dd>
+  <dt><tt><b>timing</b></tt> (used with <tt><b>RPGC_in_opt</b></tt>)<br>
+  </dt>
+  <dd>The maximum block time (in seconds) when the input is read by <tt><b>RPGC_get_inbuf</b></tt>.
+  </dd>
+</dl>
+
+<h4>Notes / Rules for use (for a data driven task): </h4>
+
+<ol>
+  <li>Multiple data inputs are allowed. </li>
+  <li>There can only be one <tt><b>RADIAL_DATA</b></tt> input. With respect to legacy
+    algorithms, all algorithms that have a <tt><b>RADIAL_DATA</b></tt> input have no other
+    input. </li>
+  <li>In the case where the algorithm blocks until a specific input is available (<tt><b>RPGC_wait_act</b></tt>
+    used for the algorithm control loop), the first (or only) input registered is the
+    &quot;driving&quot; input. If there is more than one input, the driving input must be the
+    first data input actually read in the body of the algorithm. </li>
+  <li>In the case where the algorithm blocks until any one of several inputs are available (<tt><b>RPGC_wait_for_any_data</b></tt>
+    used for the algorithm control loop), the order of registration is not critical. </li>
+  <li>If there is more than one input registered, inputs in addition to the
+    &quot;driving&quot; input must either be of the same timing (<tt><b>RADIAL_DATA,
+    ELEVATION_DATA, VOLUME_DATA, DEMAND_DATA</b></tt>) or must be specified as a time-based
+    input. The ORPG has no legacy products that are time-based or of type <tt><b>UNDEFINED_DATA</b></tt>.
+    EXCEPTION: There is one legacy event driven algorithm with a mixture of <tt><b>ELEVATION_DATA</b></tt>
+    and <tt><b>VOLUME_DATA</b></tt>. Perhaps this exception is applicable only for event
+    driven algorithms. </li>
+</ol>
+
+<p><br>
+</p>
+
+<hr align="left" width="50%">
+
+<h3>2. Output Data Registration </h3>
+
+<p>All output data must be registered. More specifically, any data produced as an
+intermediate product (that is generally available to other algorithms) or as a final
+product must be registered. These data are called <em>products</em> and each has an entry
+in the product attribute table contained in the <tt><b>product_tables</b></tt>
+configuration file.&nbsp; </p>
+
+<p><tt><b>RPGC_out_data</b></tt> registers a product as an output of the algorithm. A
+second form of this service, <tt><b>RPGC_out_data_wevent</b></tt> also results in a
+specified event being posted when a product is output. </p>
+
+<table width="95%" cellspacing="2" cellpadding="5" bgcolor="White">
+  <tr>
+    <td colspan="3" bgcolor="Silver"><tt><b>int RPGC_out_data( int datatype, int timing, int
+    product_code )</b></tt> </td>
+  </tr>
+  <tr valign="top">
+    <td width="10%"><font face="sans-serif" size="-1">INPUT:</font> </td>
+    <td width="15%"><tt><b>datatype</b></tt><br>
+    </td>
+    <td width="75%">The output buffer id. </td>
+  </tr>
+  <tr valign="top">
+    <td>&nbsp; </td>
+    <td><tt><b>timing</b></tt><br>
+    </td>
+    <td>The frequency that the output product is produced. </td>
+  </tr>
+  <tr valign="top">
+    <td>&nbsp; </td>
+    <td><tt><b>product_code</b></tt><br>
+    </td>
+    <td>The code used by legacy user systems when requesting products. </td>
+  </tr>
+  <tr valign="top">
+    <td colspan="2"><font face="sans-serif" size="-1">RETURN VALUE:</font><br>
+    </td>
+    <td>Not Used </td>
+  </tr>
+  <tr>
+    <td colspan="3">Registers the product as an output of the algorithm. </td>
+  </tr>
+</table>
+
+<p><br>
+</p>
+
+<table width="95%" cellspacing="2" cellpadding="5" bgcolor="White">
+  <tr>
+    <td colspan="3" bgcolor="Silver"><tt><b>int RPGC_out_data_wevent( int datatype, int
+    timing, en_t event_id, int product_code )</b></tt> </td>
+  </tr>
+  <tr valign="top">
+    <td width="10%"><font face="sans-serif" size="-1">INPUT:</font> </td>
+    <td width="15%"><tt><b>datatype</b></tt><br>
+    </td>
+    <td width="75%">The output buffer id. </td>
+  </tr>
+  <tr valign="top">
+    <td>&nbsp; </td>
+    <td><tt><b>timing</b></tt><br>
+    </td>
+    <td>The frequency that the output product is produced. </td>
+  </tr>
+  <tr valign="top">
+    <td>&nbsp; </td>
+    <td><tt><b>event_id</b></tt><br>
+    </td>
+    <td>The event that is posted when the product is produced. </td>
+  </tr>
+  <tr valign="top">
+    <td>&nbsp; </td>
+    <td><tt><b>product_code</b></tt><br>
+    </td>
+    <td>The code used by legacy user systems when requesting products. </td>
+  </tr>
+  <tr valign="top">
+    <td colspan="2"><font face="sans-serif" size="-1">RETURN VALUE:</font><br>
+    </td>
+    <td>Not Used </td>
+  </tr>
+  <tr>
+    <td colspan="3">Registers the product as an output of the algorithm.&nbsp; In addition,
+    designates an event that will be posted when the product is written to the product linear
+    buffer. One example of an event is <tt><b>ORPGEVT_CPC4MSG</b></tt> which is posted when
+    the product <tt><b>CPC4MSG</b></tt> is generated. </td>
+  </tr>
+</table>
+
+<h4>Parameter Descriptions </h4>
+
+<dl>
+  <dt><tt><b>datatype</b></tt><br>
+  </dt>
+  <dd>The identity of the linear buffer into which the output product is written. Product
+    buffer id's are defined in <tt><b>a309.h</b></tt> / <tt><b>a309.inc</b></tt>. If the
+    header file has not been modified to include this new product, the <tt>&lt;Buffer_Number&gt;</tt>
+    must be entered literally rather than the <tt>&lt;Prod_Buffer_Name&gt;</tt>. This
+    parameter must be the same as the <tt><b>prod_id</b></tt> attribute in the product
+    attribute table entry.&nbsp; </dd>
+  <dt><tt><b>timing</b></tt><br>
+  </dt>
+  <dd>The frequency that the output product is produced. The following are defined in <tt><b>rpg_port.h</b></tt>
+    / <tt><b>rpg_port.inc</b></tt>:&nbsp;&nbsp; <tt><b>ELEVATION_DATA, VOLUME_DATA,
+    RADIAL_DATA, UNDEFINED_DATA,</b></tt> and <tt><b>DEMAND_DATA</b></tt>.&nbsp;&nbsp;
+    Entering a positive integer for the parameter value represents a &quot;timed product&quot;
+    that is produced at the specified interval in seconds (minimum / maximum values not
+    specified). &nbsp;<tt><b>UNDEFINED_DATA</b></tt> is not supported by the API. <tt><b>DEMAND_DATA</b></tt>
+    is used for a product whose production is not tied to a specific frequency (for example, a
+    product of an event driven algorithm having no data inputs). This parameter corresponds to
+    the <tt><b>type</b></tt> attribute in the product attribute table entry (<b>see exception
+    in rule 4 below</b>). NOTE: The actual numerical codes used differ. For example, <tt><b>type</b></tt>
+    <b>0</b> in the product attribute table represents &quot;Volume&quot; while parameter
+    value <tt><b>VOLUME_DATA</b></tt> is defined as <b>-2</b> in <tt><b>rpg_port.h</b></tt>.
+    &nbsp; </dd>
+  <dt><tt><b>product_code</b></tt> </dt>
+  <dd>The <tt>&lt;Product_Code&gt;</tt> is used by legacy user systems when requesting
+    products. This parameter must be the same as the <tt><b>prod_code</b></tt> attribute in
+    the product attribute table entry. A special value for this parameter (<tt><b>INT_PROD</b></tt>)
+    is used to designate this product as an intermediate product.&nbsp; </dd>
+  <dt><tt><b>event_id</b></tt> </dt>
+  <dd>The identity of the ORPG event that is posted when the product is produced. Available
+    ORPG events are defined in <tt><b>orpgevt.h</b></tt>. &nbsp; </dd>
+</dl>
+
+<h4>Notes / Rules for use (for a data driven task): </h4>
+
+<ol>
+  <li>Each algorithm task must have at least one registered output. </li>
+  <li>Multiple data outputs are allowed.&nbsp; </li>
+  <li>Man page <tt><b>rpg(3)</b></tt> is silent concerning restrictions for the types of
+    output data permitted with multiple outputs registered. With legacy algorithms, multiple
+    outputs have the same type (<tt><b>RADIAL_DATA, ELEVATION_DATA, VOLUME_DATA</b></tt>) with
+    the exception that <tt><b>DEMAND_DATA</b></tt> and <tt><b>VOLUME_DATA</b></tt> output
+    types are mixed. The ORPG has no legacy products that are of type <tt><b>UNDEFINED_DATA</b></tt>.&nbsp;
+  </li>
+  <li>EXCEPTIONS: Product <tt><b>CPC10MSG</b></tt> is configured as a <tt><b>type 3</b></tt>
+    for &quot;On Demand&quot; in the <tt><b>product_tables</b></tt> configuration file. This
+    product is written by 7 different tasks, 6 register the output as <tt><b>DEMAND_DATA</b></tt>
+    and one task as a time-based product. This is the only example of an inconsistency between
+    the configuration file and the registration parameter and the only instance of a
+    time-based product. </li>
+  <li>There is no documented restriction on the order that multiple products are
+    produced.&nbsp; </li>
+</ol>
+
+<p><br>
+</p>
+
+<hr align="left" width="50%">
+
+<h3>3. Scan Summary / Adaptation Data Registration </h3>
+
+<h4><a name="Scan_Summary_Registration">Scan Summary Registration </a></h4>
+
+<p>The function <tt><b>RPGC_reg_scan_summary</b></tt> registers the <em>Scan Summary Table</em>
+by obtaining a memory address to be referenced. The <em>Scan Summary Table</em> contains
+information about the current volume scan that is used by various parts of the ORPG
+infrastructure. This registration call should be included after the input / output data
+registration along with any required adaptation data registration. </p>
+
+<h4><a name="Adapt_Data_Registration">Adaptation Data Registration</a> </h4>
+
+<p>From the application's point of view, the major purpose of adaptation data is to
+parameterize certain characteristics of an algorithm to permit changing its behavior using
+ORPG configuration files. Adaptation data also include site specific information and the
+default color table associated with certain products. </p>
+
+<p>The recently developed ANSI-C adaptation data services have a completely different
+implementation (and different source of data) than the legacy FORTRAN services. The block
+definitions for the FORTRAN API are contained in <tt><b>rpg_adaptation.c</b></tt>. It is
+not clear how many are implemented for the ANSI-C API. The new adaptation data files are <tt><b>misc_adapt</b></tt>,
+<tt><b>algorithms</b></tt>, and <tt><b>prod_params</b></tt> configuration files. &nbsp; </p>
+
+<p>For guidance on how to define, create, and install adaptation data for use by an
+algorithm, see the CODE Guide Volume 2, Document 3, Section III - <i>Algorithm Adaptation
+Data - Configuration &amp; Use</i>. </p>
+
+<p>Adaptation data are registered (and initially read) with the <tt><b>RPGC_reg_adpt_object</b></tt>
+function. The data are subsequently accessed via one of the function parameters. This is
+the only function that is necessary in order to use adaptation data. <tt><b>RPGC_update_adapt_object</b></tt>
+can be used to update all of the registered adaptation data but this is also accomplished
+automatically by the ORPG infrastructure at the beginning of every volume. NOTE: In order
+to use <tt><b>RPGC_update_adapt_object</b></tt>, you must be using ORPG beta 1.150
+(provided with CODE 1.2) or newer. The only purpose of <tt><b>RPGC_is_adapt_object_registered</b></tt>
+is to prevent the same adaptation data from being registered more than once, but this can
+be handled by the logical structure of the algorithm. </p>
+
+<table width="95%" cellspacing="2" cellpadding="5" bgcolor="White">
+  <tr>
+    <td colspan="3" bgcolor="Silver"><tt><b>void RPGC_reg_scan_summary( )</b></tt> </td>
+  </tr>
+  <tr valign="top">
+    <td width="10%"><font face="sans-serif" size="-1">INPUT:</font> </td>
+    <td width="15%"><tt><b>&nbsp;</b></tt> <br>
+    </td>
+    <td width="75%">None &nbsp; </td>
+  </tr>
+  <tr valign="top">
+    <td colspan="2"><font face="sans-serif" size="-1">RETURN VALUE:</font><br>
+    </td>
+    <td>Not Used </td>
+  </tr>
+  <tr>
+    <td colspan="3">Registers the <em>Scan Summary Table</em> for those parts of the
+    infrastructure that require access of this data. </td>
+  </tr>
+</table>
+
+<h4>Notes / Rules for use </h4>
+
+<ol>
+  <li>Include in all algorithms. Note: While a call to <tt><b>RPGC_reg_scan_summary</b></tt>
+    is not necessary for some algorithms it is required in many cases (for example, algorithms
+    producing a volume based product or algorithms reading the replay data stream). </li>
+  <li>NOTE: In order to use this function, you must be using ORPG beta 1.150 (provided with
+    CODE 1.2) or newer. </li>
+</ol>
+
+<p><br>
+</p>
+
+<table width="95%" cellspacing="2" cellpadding="5" bgcolor="White">
+  <tr>
+    <td colspan="3" bgcolor="Silver"><tt><b>int RPGC_reg_adpt_object( char *name, char* buf,
+    int timing, ... )</b></tt> </td>
+  </tr>
+  <tr valign="top">
+    <td width="10%"><font face="sans-serif" size="-1">INPUT:</font> </td>
+    <td width="15%"><tt><b>name</b></tt><br>
+    </td>
+    <td width="75%">Text Name of the adaptation data block. &nbsp; </td>
+  </tr>
+  <tr valign="top">
+    <td>&nbsp; </td>
+    <td><tt><b>buf</b></tt><br>
+    </td>
+    <td>The address of the block of adaptation data. Data is accessed via this pointer. </td>
+  </tr>
+  <tr valign="top">
+    <td>&nbsp; </td>
+    <td><tt><b>timing</b></tt><br>
+    </td>
+    <td>Frequency of update.&nbsp; </td>
+  </tr>
+  <tr valign="top">
+    <td>&nbsp; </td>
+    <td><tt><b>[<i>optional</i>]</b></tt><br>
+    </td>
+    <td>The event that triggers update for <tt><b>WITH_EVENT</b></tt> frequency.&nbsp; </td>
+  </tr>
+  <tr valign="top">
+    <td colspan="2"><font face="sans-serif" size="-1">RETURN VALUE:</font><br>
+    </td>
+    <td>Returns the 'handle' of the adaptation object. Used by the API call <tt><b>RPGC_is_adapt_object_registered</b></tt>.
+    Otherwise, the return value is apparently not used. </td>
+  </tr>
+  <tr>
+    <td colspan="3">Registers a block of adaptation data for access by the algorithm. <font
+    face="sans-serif" size="-1"><br>
+    EXAMPLE:</font><br>
+    <tt><b>RPGC_reg_adpt_object(&quot;Site Information&quot;,(char *) &amp;SITE_AD,
+    BEGIN_ELEVATION);</b></tt><br>
+    where <tt><b>SITE_AD</b></tt> is type <tt><b>Siteadp_adpt_t</b></tt> (see <tt><b>siteadp.h</b></tt>)
+    </td>
+  </tr>
+</table>
+
+<h4>Parameter Descriptions </h4>
+
+<dl>
+  <dt><tt><b>name</b></tt> </dt>
+  <dd>A free text name for the block of adaptation data, for example &quot;Site
+    Information&quot;. The C API uses the name of the adaptation block for reference while the
+    FORTRAN API uses the block id. The <tt><b>misc_adapt</b></tt>, <tt><b>algorithms</b></tt>,
+    and <tt><b>prod_params</b></tt> configuration files indicate the block names that are
+    available. All configuration files are located in the <tt><b>cfg</b></tt> directory.&nbsp;
+  </dd>
+  <dt><tt><b>buf</b></tt> </dt>
+  <dd>The address of the block of adaptation data. Each block is referenced by a pointer to a
+    specific C structure that is cast to type <tt><b>char *</b></tt>. One example is the
+    structure for site adaptation data, <tt><b>struct Siteadp_adpt_t</b></tt>, defined in <tt><b>siteadp.h</b></tt>.
+    Data in this block are accessed via this pointer.&nbsp; </dd>
+  <dt><tt><b>timing</b></tt> </dt>
+  <dd>Frequency of update. This parameter can have the following values defined in <tt><b>rpg_port.h</b></tt>:
+    <tt><b>BEGIN_ELEVATION, BEGIN_VOLUME, ON_CHANGE, WITH_EVENT</b></tt>. &nbsp; </dd>
+  <dt><tt><b>[<i>optional</i>]</b></tt> </dt>
+  <dd>This is the ORPG event id, type <tt><b>en_t</b></tt> (which is an integer), that
+    triggers an update of adaptation data. ORPG events must be defined in <tt><b>orpgevt.h</b></tt>
+  </dd>
+</dl>
+
+<h4>Notes / Rules for use </h4>
+
+<ol>
+  <li>Each adaptation block is registered by a separate call. </li>
+  <li>If using the ANSI-C services to construct the <em>Product Description Block</em> and the
+    <em>Message Header Block</em> of the final product, there is no need to register for Site
+    Adaptation Data to complete that header information. However, if that information (the
+    elevation and location of the radar antenna) is needed by the algorithm, the data must be
+    registered and accessed via the address returned by the second parameter. </li>
+  <li>The only other adaptation data of interest to algorithm developers would be the
+    parameterization of the algorithm logic processing in order to be able to make adjustments
+    to the resulting product via ORPG configuration files, obviating the need to change
+    include files / source code. For guidance on how to define, create, and install adaptation
+    data for use by an algorithm, see the CODE Guide Volume 2, Document 3, Section III - <i>Algorithm
+    Adaptation Data - Configuration &amp; Use</i>. </li>
+</ol>
+
+<p><br>
+</p>
+
+<hr align="left" width="50%">
+
+<h3>4. Event Registration </h3>
+
+<p>The registering of events can be used to interrupt the algorithm and accomplish
+processing via a callback routine whenever an ORPG event is raised. This feature can be
+used with data driven algorithms (<tt><b>RPGC_wait_act</b></tt> or <tt><b>RPGC_wait_for_any_data</b></tt>
+used for the loop control) or with event driven algorithms (<tt><b>RPGC_wait_for_event</b></tt>
+used for loop control).&nbsp; </p>
+
+<p>Very few algorithms have a need to register for events. NOTE: In order to use these
+functions, you must be using ORPG beta 1.150 (provided with CODE 1.2) or newer. </p>
+
+<table width="95%" cellspacing="2" cellpadding="5" bgcolor="White">
+  <tr>
+    <td colspan="3" bgcolor="Silver"><tt><b>int RPGC_reg_for_internal_event( int event_code,
+    void (*service_routine)(), int queued_parameter )</b></tt> </td>
+  </tr>
+  <tr valign="top">
+    <td width="10%"><font face="sans-serif" size="-1">INPUT:</font> </td>
+    <td width="15%"><tt><b>event_code</b></tt><br>
+    </td>
+    <td width="75%">ID of event being registered. &nbsp; </td>
+  </tr>
+  <tr valign="top">
+    <td>&nbsp; </td>
+    <td><tt><b>(*service_routine)&nbsp;()</b></tt><br>
+    </td>
+    <td>Pointer to a function <tt><b>service_routine</b></tt> which contains the logic to be
+    executed when the event is posted. </td>
+  </tr>
+  <tr valign="top">
+    <td>&nbsp; </td>
+    <td><tt><b>queued_parameter</b></tt><br>
+    </td>
+    <td>A parameter that will be passed to the event service routine when called.&nbsp; </td>
+  </tr>
+  <tr valign="top">
+    <td colspan="2"><font face="sans-serif" size="-1">RETURN VALUE:</font><br>
+    </td>
+    <td>Not used. </td>
+  </tr>
+  <tr>
+    <td colspan="3">Registers one of the two internal events that are defined <font
+    face="sans-serif" size="-1"><br>
+    EXAMPLE:</font><br>
+    <tt><b>RPGC_reg_for_internal_event(EVT_ANY_INPUT_AVAILABLE, &amp;ALG_Event_Handler,
+    (int)0);</b></tt><br>
+    where <tt><b>ALG_Event_Handler</b></tt> is a function with one parameter of type <tt><b>int</b></tt>,
+    <tt><b>EVT_ANY_INPUT_AVAILABLE</b></tt> is an event that is posted when any one of the
+    registered data inputs is available </td>
+  </tr>
+</table>
+
+<p><br>
+</p>
+
+<table width="95%" cellspacing="2" cellpadding="5" bgcolor="White">
+  <tr>
+    <td colspan="3" bgcolor="Silver"><tt><b>int RPGC_reg_for_external_event( int event_code,
+    void (*service_routine)(), int queued_parameter )</b></tt> </td>
+  </tr>
+  <tr valign="top">
+    <td width="10%"><font face="sans-serif" size="-1">INPUT:</font> </td>
+    <td width="15%"><tt><b>event_code</b></tt><br>
+    </td>
+    <td width="75%">ID of event being registered. &nbsp; </td>
+  </tr>
+  <tr valign="top">
+    <td>&nbsp; </td>
+    <td><tt><b>(*service_routine)&nbsp;()</b></tt><br>
+    </td>
+    <td>Pointer to a function <tt><b>service_routine</b></tt> which contains the logic to be
+    executed when the event is posted. </td>
+  </tr>
+  <tr valign="top">
+    <td>&nbsp; </td>
+    <td><tt><b>queued_parameter</b></tt><br>
+    </td>
+    <td>A parameter that will be passed to the event service routine when called.&nbsp; </td>
+  </tr>
+  <tr valign="top">
+    <td colspan="2"><font face="sans-serif" size="-1">RETURN VALUE:</font><br>
+    </td>
+    <td>Not used. </td>
+  </tr>
+  <tr>
+    <td colspan="3">Registers one of the external events that are defined <font
+    face="sans-serif" size="-1"><br>
+    EXAMPLE:</font><br>
+    <tt><b>RPGC_reg_for_external_event(ORPGEVT_START_OF_VOLUME, &amp;ALG_Event_Handler,
+    (int)0);</b></tt><br>
+    where <tt><b>ALG_Event_Handler</b></tt> is a function with one parameter of type <tt><b>int</b></tt>,
+    <tt><b>ORPGEVT_START_OF_VOLUME</b></tt> is a globally defined event that is posted at
+    every start of volume scan. </td>
+  </tr>
+</table>
+
+<h4>Parameter Descriptions </h4>
+
+<dl>
+  <dt><tt><b>event_code</b></tt> </dt>
+  <dd>The identity of the registered event. There is only one <i>internal</i> event of
+    interest: <tt><b>EVT_ANY_IPNUT_AVAILABLE</b></tt>. This event is posted by the API
+    infrastructure when any of the algorithm's registered data inputs is available. <i>External</i>
+    events are global to the ORPG. The are defined in <tt><b>orpgevt.h</b></tt>. </dd>
+  <dt><tt><b>(*service_routine)&nbsp;()</b></tt> </dt>
+  <dd>A pointer to a service routine. This is the address of a function of the folowing type: <tt><b>void&nbsp;defined_function&nbsp;(int);</b></tt>
+    This function contains logic to be executed when the registered event is posted.&nbsp; </dd>
+  <dt><tt><b>queued_parameter</b></tt> </dt>
+  <dd>A parameter passed to the event handler service routine. This parameter is useful in the
+    following situation. Severeral events are registered all using the same event handler
+    service routine. The parameter passed is based upon which event was posted. </dd>
+</dl>
+
+<h4>Notes / Rules for use </h4>
+
+<ol>
+  <li>&nbsp; </li>
+  <li>&nbsp; </li>
+</ol>
+
+<p><br>
+</p>
+
+<hr align="left" width="50%">
+
+<h3>5. Task Timing Initialization </h3>
+
+<p>The registering of task timing affects the behavior of the algorithm control loop. <tt><b>RPGC_task_init</b></tt>
+determines when a task will begin processing once the routine begins or after aborting an
+output product.&nbsp; </p>
+
+<table width="95%" cellspacing="2" cellpadding="5" bgcolor="White">
+  <tr>
+    <td colspan="3" bgcolor="Silver"><tt><b>int RPGC_task_init( int what_based, int argc, char
+    *argv[] )</b></tt> </td>
+  </tr>
+  <tr valign="top">
+    <td width="10%"><font face="sans-serif" size="-1">INPUT:</font> </td>
+    <td width="15%"><tt><b>what_based</b></tt><br>
+    </td>
+    <td width="75%">The timing base for the task.&nbsp; </td>
+  </tr>
+  <tr valign="top">
+    <td>&nbsp; </td>
+    <td><tt><b>argc</b></tt><br>
+    </td>
+    <td>Not used.&nbsp; </td>
+  </tr>
+  <tr valign="top">
+    <td>&nbsp; </td>
+    <td><tt><b>*argv[]</b></tt><br>
+    </td>
+    <td>Not used.&nbsp; </td>
+  </tr>
+  <tr valign="top">
+    <td colspan="2"><font face="sans-serif" size="-1">RETURN VALUE:</font><br>
+    </td>
+    <td>Not Used </td>
+  </tr>
+  <tr>
+    <td colspan="3">Registers the timing base for the task. This determines one of the release
+    conditions of the algorithm control loop. If <tt><b>VOLUME_BASED</b></tt>, the algorithm
+    control resume time is &quot;new-volume&quot;, otherwise the resume time is
+    &quot;new-elevation&quot;. <font face="sans-serif" size="-1"><br>
+    EXAMPLE:</font><br>
+    <tt><b>RPGC_task_init(ELEVATION_BASED,argc,argv);</b></tt><br>
+    where <tt><b>argc</b></tt> and <tt><b>argv</b></tt> are the standard parameters from the <tt><b>main()</b></tt>
+    function. </td>
+  </tr>
+</table>
+
+<h4>Parameter Descriptions </h4>
+
+<dl>
+  <dt><tt><b>what_based</b></tt> </dt>
+  <dd>Timing base for the task. The allowed values for this parameter (defined in <tt><b>rpg_port.h</b></tt>)
+    are: <tt><b>ELEVATION_BASED, VOLUME_BASED, TIME_BASED, RADIAL_BASED, EVENT_BASED</b></tt>.&nbsp;
+  </dd>
+</dl>
+
+<h4>Notes / Rules for use </h4>
+
+<ol>
+  <li>Must be called after all other registrations.&nbsp; </li>
+  <li>Tasks that are <tt><b>EVENT_BASED</b></tt>, must be registered for an event, and must be
+    event driven (<tt><b>RPGC_wait_for_event</b></tt> used for algorithm loop control) with no
+    registered data inputs. On the other hand, event driven algorithms with registered data
+    inputs should have a task timing basis compatible with the input data (typically <tt><b>VOLUME_BASED</b></tt>).
+  </li>
+</ol>
+
+<p><br>
+</p>
+
+<hr size="4">
+
+<h2>Part C. Functional API Services </h2>
+
+<p>After registrations and initialization, the algorithm enters into the processing phase.
+The algorithm remains in this phase until the ORPG is shut down or the task fails. The <em>algorithm
+control loop</em> service determines when the algorithm begins processing data. All other
+services involve data input, product construction, data output and abort. The legacy
+FORTRAN API included some support for data manipulation services (for example, run length
+encoding) through common modules; the current ANSI-C API does not. &nbsp; </p>
+
+<p><br>
+</p>
+
+<hr align="left" width="50%">
+
+<h3>1. Algorithm Control Loop </h3>
+
+<p>The algorithm control loop is a continuous loop that holds processing until certain
+conditions are met. All but one of the existing algorithms are data driven. Data driven
+algorithms begin processing only when required input is available. Algorithms can be event
+driven where processing is blocked until a particular ORPG event is posted. &nbsp; </p>
+
+<p>There are two forms of data driven algorithms. 
+
+<ul>
+  <li>The most common form uses <tt><b>RPGC_wait_act</b></tt> of the control loop with one or
+    more inputs. With multiple inputs registered, generally all are necessary though some can
+    be designated as optional with <tt><b>RPGC_in_opt</b></tt>. Algorithms using this form of
+    the control loop read input(s) with individual calls to <tt><b>RPGC_get_inbuf</b></tt>. </li>
+  <li>The other form of the algorithm control loop uses <tt><b>RPGC_wait_for_any_data</b></tt>
+    with several registered inputs. This type of algorithm produces a product from any one of
+    several inputs. The available input is read with a call to <tt><b>RPGC_get_inbuf_any</b></tt>.
+  </li>
+</ul>
+
+<p>Event driven algorithms use <tt><b>RPGC_wait_for_event</b></tt> version of the
+algorithm control loop. NOTE: In order to use <tt><b>RPGC_wait_for_event</b></tt>, you
+must be using ORPG beta 1.150 (provided with CODE 1.2) or newer. There are two forms of
+event driven algorithms. 
+
+<ul>
+  <li>Event driven algorithms that are also registered for product input data use a task
+    timing appropriate for the registered input, for example <tt><b>RPGC_task_init(VOLUME_BASED,argc,argv)</b></tt>.
+    The available input data is read with <tt><b>RPGC_get_inbuf_any</b></tt>. </li>
+  <li>Event driven algorithms that are not registered for product input data use a task timing
+    of <tt><b>RPGC_task_init(EVENT_BASED,argc,argv)</b></tt> </li>
+</ul>
+
+<table width="90%" cellpadding="5" align="center" bgcolor="Maroon">
+  <tr>
+    <td bgcolor="White"><b><font color="#990000">Note</font></b>:&nbsp; The API supplied with
+    the current version of the ORPG (Beta Open Build 1 version 1.19) contains logic errors
+    that prevent event driven algorithms in ANSI-C from functioning. The fixes have been
+    identified and will be included with future releases of the ORPG. </td>
+  </tr>
+</table>
+
+<p><br>
+<br>
+</p>
+
+<table width="95%" cellspacing="2" cellpadding="5" bgcolor="White">
+  <tr>
+    <td colspan="3" bgcolor="Silver"><tt><b>int RPGC_wait_act( int wait_for )</b></tt> </td>
+  </tr>
+  <tr valign="top">
+    <td width="10%"><font face="sans-serif" size="-1">INPUT:</font> </td>
+    <td width="15%"><tt><b>wait_for</b></tt><br>
+    </td>
+    <td width="75%">Parameter must be set to <tt><b>WAIT_ALL</b></tt> for normal
+    functioning.&nbsp; </td>
+  </tr>
+  <tr valign="top">
+    <td colspan="2"><font face="sans-serif" size="-1">RETURN VALUE:</font><br>
+    </td>
+    <td>Not Used </td>
+  </tr>
+  <tr>
+    <td colspan="3">Algorithm processing is blocked as follows. If the input parameter is <tt><b>WAIT_ALL</b></tt>
+    three conditions must be met. First, if the algorithm has just been launched or has just
+    aborted processing, it blocks until the 'resume time' (either new-volume or new-elevation)
+    determined by the <tt><b>RPGC_task_init</b></tt> parameter. Second, at least one of the
+    registered output products must be requested. And finally, the driving input (the first
+    registered data input) must be available. The order that these checks are performed
+    depends whether the algorithm is reading the real-time or replay data stream; these
+    details need not concern the algorithm developer. If the parameter is <tt><b>WAIT_ANY</b></tt>
+    the processing proceeds immediately (there are no legacy algorithms using this value of
+    the parameter). </td>
+  </tr>
+</table>
+
+<p><br>
+</p>
+
+<table width="95%" cellspacing="2" cellpadding="5" bgcolor="White">
+  <tr>
+    <td colspan="3" bgcolor="Silver"><tt><b>int RPGC_wait_for_any_data( int wait_for )</b></tt>
+    </td>
+  </tr>
+  <tr valign="top">
+    <td width="10%"><font face="sans-serif" size="-1">INPUT:</font> </td>
+    <td width="15%"><tt><b>wait_for</b></tt><br>
+    </td>
+    <td width="75%">Parameter must be set to <tt><b>WAIT_ANY</b></tt> for normal
+    functioning.&nbsp; </td>
+  </tr>
+  <tr valign="top">
+    <td colspan="2"><font face="sans-serif" size="-1">RETURN VALUE:</font><br>
+    </td>
+    <td>Not Used </td>
+  </tr>
+  <tr>
+    <td colspan="3">Continually checks the availability of all registered inputs. If any input
+    has been updated, returns and allows processing to proceed. This loop control function is
+    only valid for inputs other than <tt><b>RADIAL_DATA</b></tt> and supports only <tt><b>VOLUME_BASED</b></tt>
+    tasks. </td>
+  </tr>
+</table>
+
+<h4>Parameter Descriptions </h4>
+
+<dl>
+  <dt><tt><b>wait_for</b></tt> </dt>
+  <dd>The purpose of this parameter is not clear. Use the value of <tt><b>WAIT_ALL</b></tt>
+    for <tt><b>RPGC_wait_act</b></tt> and the value <tt><b>WAIT_ANY</b></tt> for <tt><b>RPGC_wait_for_any_data</b></tt>.&nbsp;
+  </dd>
+</dl>
+
+<h4>Notes / Rules for use </h4>
+
+<ol>
+  <li>All legacy FORTRAN data-driven algorithms use the &quot;wait_act&quot; form of algorithm
+    loop control.&nbsp; </li>
+</ol>
+
+<p><br>
+</p>
+
+<hr align="left" width="50%">
+
+<h3>2. Reading Input Data </h3>
+
+<p>The API provides a high-level access for reading the input product linear buffer. When
+used correctly, all sequencing checks and (with multiple inputs) data synchronization
+checks are accomplished with these services. &nbsp; 
+
+<ul>
+  <li>For algorithms that block until a particular input is available (<tt><b>RPGC_wait_act</b></tt>
+    used for the algorithm control loop), the data are actually read (and synchronized ) with <tt><b>RPGC_get_inbuf</b></tt>
+    for each individual input. </li>
+  <li>For algorithms that block until any one of several inputs is available (<tt><b>RPGC_wait_for_any_data</b></tt>
+    used for the algorithm control loop), the data must be read with <tt><b>RPGC_get_inbuf_any</b></tt>.
+  </li>
+  <li><tt><b>RPGC_rel_inbuf</b></tt> is used to deallocate the memory that was obtained when
+    the buffer was read. </li>
+</ul>
+
+<table width="90%" cellpadding="5" align="center" bgcolor="Maroon">
+  <tr>
+    <td bgcolor="White"><b><font color="#990000">Note</font></b>:&nbsp; The API supplied with
+    the current version of the ORPG (Beta Open Build 1 version 1.19) contains logic errors
+    that prevent <tt><b>RPGC_get_inbuf_any</b></tt> from functioning properly. The fixes have
+    been identified and will be included with future releases of the ORPG. </td>
+  </tr>
+</table>
+
+<p><br>
+</p>
+
+<table width="95%" cellspacing="2" cellpadding="5" bgcolor="White">
+  <tr>
+    <td colspan="3" bgcolor="Silver"><tt><b>void* RPGC_get_inbuf( int reqdata, int *opstat )</b></tt>
+    </td>
+  </tr>
+  <tr valign="top">
+    <td width="10%"><font face="sans-serif" size="-1">INPUT:</font> </td>
+    <td width="15%"><tt><b>reqdata</b></tt><br>
+    </td>
+    <td width="75%">Linear buffer id of the product to be read.&nbsp; </td>
+  </tr>
+  <tr valign="top">
+    <td>&nbsp; </td>
+    <td><tt><b>opstat</b></tt><br>
+    </td>
+    <td>Pointer to status of the operation.&nbsp; </td>
+  </tr>
+  <tr valign="top">
+    <td colspan="2"><font face="sans-serif" size="-1">RETURN VALUE:</font><br>
+    </td>
+    <td>Pointer to the buffer containing input data or NULL if an error occurred. The returned
+    pointer must be cast to the appropriate type for the product message being input. </td>
+  </tr>
+  <tr>
+    <td colspan="3">Returns a pointer to a block of memory containing the input data message.
+    The buffer is always allocated and must be cast to the proper type of an awaiting pointer.
+    See the description of the parameter <tt><b>opstat</b></tt> for additional guidance on
+    using this API function.<br>
+    <font face="sans-serif" size="-1">EXAMPLE (Using Base Data):</font><br>
+    <tt><b>basedataPtr=(Base_data_radial*)RPGC_get_inbuf(BASEDATA,&amp;opstatus);</b></tt><br>
+    where <tt><b>struct Base_data_radial</b></tt> is defined in <tt><b>basedata.h</b></tt>.
+    The header information for the base data radial is <tt><b>struct Base_data_header</b></tt>
+    also defined in <tt><b>basedata.h</b></tt>. See CODE Guide Volume 2 - <em>The ORPG
+    Application Development Guide</em> for an introduction to the structure of the ORPG base
+    data radial message. </td>
+  </tr>
+</table>
+
+<p><br>
+</p>
+
+<table width="95%" cellspacing="2" cellpadding="5" bgcolor="White">
+  <tr>
+    <td colspan="3" bgcolor="Silver"><tt><b>int RPGC_rel_inbuf( void *bufptr )</b></tt> </td>
+  </tr>
+  <tr valign="top">
+    <td width="10%"><font face="sans-serif" size="-1">INPUT:</font> </td>
+    <td width="15%"><tt><b>bufptr</b></tt><br>
+    </td>
+    <td width="75%">Pointer to the input buffer to be released. &nbsp; </td>
+  </tr>
+  <tr valign="top">
+    <td colspan="2"><font face="sans-serif" size="-1">RETURN VALUE:</font><br>
+    </td>
+    <td>Not Used </td>
+  </tr>
+  <tr>
+    <td colspan="3">Deallocates buffer created by <tt><b>RPGC_get_inbuf</b></tt>.<br>
+    <font face="sans-serif" size="-1">EXAMPLE:</font><br>
+    <tt><b>RPGC_rel_inbuf((void*)basedataPtr);</b></tt><br>
+    where <tt><b>basedataPtr</b></tt> is the value returned by <tt><b>RPGC_get_inbuf</b></tt>.
+    </td>
+  </tr>
+</table>
+
+<h4>Parameter Descriptions </h4>
+
+<dl>
+  <dt><tt><b>reqdata</b></tt> </dt>
+  <dd>Normally, the linear buffer id of the data to be read. Except for base data, the value
+    of this parameter is the same as the first parameter in the data registration call. For
+    base data, the parameter value is <tt><b>BASEDATA</b></tt>. The type of base data radial
+    read depends upon the registered buffer id, either <tt><b>REFLDATA</b></tt> or <tt><b>COMBBASE</b></tt>.&nbsp;
+  </dd>
+  <dt><tt><b>opstat</b></tt> </dt>
+  <dd>Pointer to status of the operation. This is the status returned for the read operation.
+    Return values are defined in <tt><b>a309.h</b></tt>. There are two cases for correctly
+    handling the returned status. It is the programmers responsibility to ensure that the
+    algorithm handles this correctly. <font face="sans-serif" size="-1">CASE 1</font>: For
+    required inputs, with any value other than <tt><b>NORMAL</b></tt>, the algorithm must be
+    aborted. <font face="sans-serif" size="-1">CASE 2</font>: If the registered input is
+    optional (<tt><b>RPGC_in_opt</b></tt> called), the value <tt><b>NO_DATA</b></tt> indicates
+    the read attempt has timed out. The algorithm must account for the missing data in this
+    event. &nbsp; </dd>
+  <dt><tt><b>bufptr</b></tt> </dt>
+  <dd>Pointer to the input buffer to be released. This is the pointer returned by the
+    corresponding <tt><b>RPGC_get_inbuf</b></tt> call cast to type <tt><b>void *</b></tt>.&nbsp;
+  </dd>
+</dl>
+
+<h4>Notes / Rules for use </h4>
+
+<ol>
+  <li>For data driven algorithms: <tt><b>RPGC_get_inbuf</b></tt> cannot be used with the <tt><b>RPGC_wait_for_any_data</b></tt>
+    algorithm control loop, it must be used with <tt><b>RPGC_wait_act</b></tt>. </li>
+  <li>It is not clear whether this form of reading input data is compatible with event driven
+    algorithms. Recommend use only with data driven algorithms. </li>
+  <li>An input buffer must be successfully obtained with <tt><b>RPGC_get_inbuf</b></tt> before
+    calling <tt><b>RPGC_rel_inbuf</b></tt> </li>
+  <li>If <tt><b>RPGC_get_inbuf</b></tt> is called, then <tt><b>RPGC_rel_inbuf</b></tt> must be
+    called before returning to the beginning of the algorithm control loop (both for
+    successful product generation and when aborting the product). </li>
+  <li>For a data driven algorithm with a driving input, the first input product read must
+    correspond to the first registered product. </li>
+  <li>The first <tt><b>RPGC_get_inbuf</b></tt> call reads the driving input and accomplishes
+    data sequencing checks. Additional <tt><b>RPGC_get_inbuf</b></tt> calls (if any) check to
+    see if the data is synchronized with the driving input. The <tt><b>opstat</b></tt> must be
+    checked after each call, and if any value other than <tt><b>NORMAL</b></tt>, the algorithm
+    must be aborted properly (for required inputs). </li>
+  <li>Only one input buffer of any product type should be open (obtained) at any time.
+    Actually, 2 buffers of a particular product type may be open (perhaps to facilitate
+    comparison). </li>
+</ol>
+
+<p><br>
+</p>
+
+<table width="95%" cellspacing="2" cellpadding="5" bgcolor="White">
+  <tr>
+    <td colspan="3" bgcolor="Silver"><tt><b>void* RPGC_get_inbuf_any( int *datatype, int
+    *opstat )</b></tt> </td>
+  </tr>
+  <tr valign="top">
+    <td width="10%"><font face="sans-serif" size="-1">INPUT:</font> </td>
+    <td width="15%"><tt><b>datatype</b></tt><br>
+    </td>
+    <td width="75%">A pointer to the linear buffer id of the data read.&nbsp; </td>
+  </tr>
+  <tr valign="top">
+    <td>&nbsp; </td>
+    <td><tt><b>opstat</b></tt><br>
+    </td>
+    <td>Pointer to status of the operation.&nbsp; </td>
+  </tr>
+  <tr valign="top">
+    <td colspan="2"><font face="sans-serif" size="-1">RETURN VALUE:</font><br>
+    </td>
+    <td>Pointer to the buffer containing input data or NULL if an error occurred. The returned
+    pointer must be cast to the appropriate type for the product message being input. </td>
+  </tr>
+  <tr>
+    <td colspan="3">Returns a pointer to a block of memory containing the input data message.
+    The buffer is always allocated and must be cast to the proper type of an awaiting pointer.<br>
+    <font face="sans-serif" size="-1">EXAMPLE :</font><br>
+    </td>
+  </tr>
+</table>
+
+<h4>Parameter Descriptions </h4>
+
+<dl>
+  <dt><tt><b>datatype</b></tt> </dt>
+  <dd>A pointer to the linear buffer id of the data actually read. This will be one of the
+    types of input data registered with <tt><b>RPGC_in_data</b></tt>. </dd>
+  <dt><tt><b>opstat</b></tt> </dt>
+  <dd>Pointer to status of the operation. This is the status returned for the read operation.
+    Return values are defined in <tt><b>a309.h</b></tt>. With any value other than <tt><b>NORMAL</b></tt>,
+    the algorithm must be aborted. It is the programmers responsibility to ensure that the
+    algorithm handles this correctly.&nbsp; </dd>
+</dl>
+
+<h4>Notes / Rules for use </h4>
+
+<ol>
+  <li>For data driven algorithms: <tt><b>RPGC_get_inbuf_any</b></tt> must be used with the <tt><b>RPGC_wait_for_any_data</b></tt>
+    algorithm control loop, it cannot be used with <tt><b>RPGC_wait_act</b></tt>. </li>
+  <li>This form of reading input data is compatible with event driven algorithms. </li>
+  <li><tt><b>RPGC_get_inbuf_any</b></tt> must be called before <tt><b>RPGC_rel_inbuf</b></tt>.
+  </li>
+  <li>If <tt><b>RPGC_get_inbuf_any</b></tt> is called, then <tt><b>RPGC_rel_inbuf</b></tt>
+    must be called before returning to the beginning of the algorithm control loop (both for
+    successful product generation and when aborting the product). </li>
+  <li>Only one legacy FORTRAN algorithm (an event driven algorithm) uses this form of reading
+    input data. This is: <tt><b>RPG_get_inbuf(ANY_TYPE,...)</b></tt> with the FORTRAN version
+    of the API. </li>
+</ol>
+
+<p><br>
+</p>
+
+<hr align="left" width="50%">
+
+<h3>3. Final Product Construction </h3>
+
+<p>The Original API has some support for the construction of ICD format final products.
+The following subroutines construct the two blocks always present in any ICD graphic
+product: the <em>Message Header Block</em> and the <em>Product Description Block</em>.
+Additional work is required for correct setting of product dependent parameters. There is
+no support for the construction of the <em>Symbology Block</em> or the data packet arrays.
+The assembly of the complete product is complex and is demonstrated in the sample
+algorithms provided in the next section.&nbsp; </p>
+
+<table width="95%" cellspacing="2" cellpadding="5" bgcolor="White">
+  <tr>
+    <td colspan="3" bgcolor="Silver"><tt><b>int RPGC_prod_desc_block( void *ptr, int prod_id,
+    int vol_num )</b></tt> </td>
+  </tr>
+  <tr valign="top">
+    <td width="10%"><font face="sans-serif" size="-1">INPUT:</font> </td>
+    <td width="15%"><tt><b>ptr</b></tt><br>
+    </td>
+    <td width="75%">Pointer to a temporary product buffer returned by <tt><b>RPGC_get_outbuf</b></tt>.&nbsp;
+    </td>
+  </tr>
+  <tr valign="top">
+    <td>&nbsp; </td>
+    <td><tt><b>prod_id</b></tt><br>
+    </td>
+    <td>Linear buffer id of the output product.&nbsp; </td>
+  </tr>
+  <tr valign="top">
+    <td>&nbsp; </td>
+    <td><tt><b>vol_num</b></tt><br>
+    </td>
+    <td>A sequential volume number. &nbsp; </td>
+  </tr>
+  <tr valign="top">
+    <td colspan="2"><font face="sans-serif" size="-1">RETURN VALUE:</font><br>
+    </td>
+    <td>Not Used </td>
+  </tr>
+  <tr>
+    <td colspan="3">Creates the <em>Product Description Block</em> portion of the ICD graphic
+    product. Those portions of the block representing the 16 threshold levels, the 10 product
+    dependent parameters, and block offsets are not set by this function, and must be set
+    manually at a later time. </td>
+  </tr>
+</table>
+
+<p><br>
+</p>
+
+<table width="95%" cellspacing="2" cellpadding="5" bgcolor="White">
+  <tr>
+    <td colspan="3" bgcolor="Silver"><tt><b>int RPGC_set_dep_params( void *ptr, short *params
+    )</b></tt> </td>
+  </tr>
+  <tr valign="top">
+    <td width="10%"><font face="sans-serif" size="-1">INPUT:</font> </td>
+    <td width="15%"><tt><b>ptr</b></tt><br>
+    </td>
+    <td width="75%">Pointer to a temporary product buffer returned by <tt><b>RPGC_get_outbuf</b></tt>.&nbsp;
+    </td>
+  </tr>
+  <tr valign="top">
+    <td>&nbsp; </td>
+    <td><tt><b>params</b></tt><br>
+    </td>
+    <td>Pointer to an array of product dependent parameters. &nbsp; </td>
+  </tr>
+  <tr valign="top">
+    <td colspan="2"><font face="sans-serif" size="-1">RETURN VALUE:</font><br>
+    </td>
+    <td>Not Used </td>
+  </tr>
+  <tr>
+    <td colspan="3">Sets the 10 product dependent parameters within the <em>Product
+    Description Block</em> by direct mapping from an array of 10 elements (short integers). </td>
+  </tr>
+</table>
+
+<p><br>
+</p>
+
+<table width="95%" cellspacing="2" cellpadding="5" bgcolor="White">
+  <tr>
+    <td colspan="3" bgcolor="Silver"><tt><b>int RPGC_prod_hdr( void *ptr, int prod_id, int
+    *length )</b></tt> </td>
+  </tr>
+  <tr valign="top">
+    <td width="10%"><font face="sans-serif" size="-1">INPUT:</font> </td>
+    <td width="15%"><tt><b>ptr</b></tt><br>
+    </td>
+    <td width="75%">Pointer to a temporary product buffer returned by <tt><b>RPGC_get_outbuf</b></tt>.
+    &nbsp; </td>
+  </tr>
+  <tr valign="top">
+    <td>&nbsp; </td>
+    <td><tt><b>prod_id</b></tt><br>
+    </td>
+    <td>Linear buffer id of the output product.&nbsp; </td>
+  </tr>
+  <tr valign="top">
+    <td>&nbsp; </td>
+    <td><tt><b>length</b></tt><br>
+    </td>
+    <td>Pointer to the current length of the product, in bytes. &nbsp; </td>
+  </tr>
+  <tr valign="top">
+    <td colspan="2"><font face="sans-serif" size="-1">RETURN VALUE:</font><br>
+    </td>
+    <td>Returns <b>0</b> upon success. </td>
+  </tr>
+  <tr>
+    <td colspan="3">Creates the <em>Message Header Block</em> portion of the ICD graphic
+    product. </td>
+  </tr>
+</table>
+
+<h4>Parameter Descriptions </h4>
+
+<dl>
+  <dt><tt><b>ptr</b></tt> </dt>
+  <dd>Pointer to a temporary product buffer that is returned by the corresponding <tt><b>RPGC_get_outbuf</b></tt>
+    call.&nbsp; </dd>
+  <dt><tt><b>prod_id</b></tt> </dt>
+  <dd>Linear buffer id of the corresponding output product. This is the same value of the
+    first parameter in the <tt><b>RPGC_out_data</b></tt> registration.&nbsp; </dd>
+  <dt><tt><b>vol_num</b></tt> </dt>
+  <dd>A sequential volume number. The current volume sequence number is obtained via the <tt><b>RPGC_get_current_vol_num</b></tt>
+    function.&nbsp; </dd>
+  <dt><tt><b>params</b></tt> </dt>
+  <dd>Pointer to an array of product dependent parameters.&nbsp; </dd>
+  <dt><tt><b>length</b></tt> </dt>
+  <dd>A pointer to the product length in bytes. The length of the product ( <tt><b>*length</b></tt>
+    ) when <tt><b>RPGC_prod_hdr</b></tt> is called is the total length of the assembled
+    product minus the 120 bytes associated with the <em>Message Header Block</em> and the <em>Product
+    Description Block</em>. The length of the product returned by <tt><b>RPGC_prod_hdr</b></tt>
+    is the total length of the ICD product (<em>Product Description Block</em> and <em>Message
+    Header Block</em> length added). &nbsp; </dd>
+</dl>
+
+<h4>Notes / Rules for use </h4>
+
+<ol>
+  <li>The functions must be used in the following order: <tt><b>RPGC_prod_desc_block</b></tt>,
+    <tt><b>RPGC_set_dep_params</b></tt>, <tt><b>RPGC_prod_header</b></tt>. </li>
+  <li>The programmer is responsible for assembling the <em>symbology block</em> (and any other
+    blocks) and calculating its length prior to calling <tt><b>RPGC_prod_header</b></tt>. </li>
+  <li>These functions are not used in the legacy FORTRAN algorithms. </li>
+</ol>
+
+<p><br>
+</p>
+
+<hr align="left" width="50%">
+
+<h3>4. Writing Output Data </h3>
+
+<p>A high-level service is provided for product output (writing to the appropriate ORPG
+product data store). This output service also accomplishes necessary functions to announce
+product output to the ORPG infrastructure that handles product distribution. <tt><b>RPGC_get_outbuf</b></tt>
+allocates a working space in which the product is constructed. The actual product output
+is accomplished by <tt><b>RPGC_rel_outbuf</b></tt>.&nbsp; </p>
+
+<table width="95%" cellspacing="2" cellpadding="5" bgcolor="White">
+  <tr>
+    <td colspan="3" bgcolor="Silver"><tt><b>void* RPGC_get_outbuf( int datatype, int bufsiz,
+    int *opstat )</b></tt> </td>
+  </tr>
+  <tr valign="top">
+    <td width="10%"><font face="sans-serif" size="-1">INPUT:</font> </td>
+    <td width="15%"><tt><b>datatype</b></tt><br>
+    </td>
+    <td width="75%">Linear buffer id of the product to be output. &nbsp; </td>
+  </tr>
+  <tr valign="top">
+    <td>&nbsp; </td>
+    <td><tt><b>bufsiz</b></tt><br>
+    </td>
+    <td>The requested size of the output buffer minus 120 bytes (in 4-byte integers). &nbsp; </td>
+  </tr>
+  <tr valign="top">
+    <td>&nbsp; </td>
+    <td><tt><b>opstat</b></tt><br>
+    </td>
+    <td>Pointer to the status of the operation. &nbsp; </td>
+  </tr>
+  <tr valign="top">
+    <td colspan="2"><font face="sans-serif" size="-1">RETURN VALUE:</font><br>
+    </td>
+    <td>Pointer to buffer for the output product. This should be cast to type <tt><b>short *</b></tt>
+    in order to use some of the common services related to product construction. </td>
+  </tr>
+  <tr>
+    <td colspan="3">Returns a pointer to a block of memory in which the output product will be
+    placed.<br>
+    <font face="sans-serif" size="-1">EXAMPLE:</font><br>
+    <tt><b>buffer=(short *)RPGC_get_outbuf(DIGREFL,BUFSIZE,&amp;opstatus);</b></tt> </td>
+  </tr>
+</table>
+
+<p><br>
+</p>
+
+<table width="95%" cellspacing="2" cellpadding="5" bgcolor="White">
+  <tr>
+    <td colspan="3" bgcolor="Silver"><tt><b>int RPGC_rel_outbuf( void *bufptr, int disposition
+    )</b></tt> </td>
+  </tr>
+  <tr valign="top">
+    <td width="10%"><font face="sans-serif" size="-1">INPUT:</font> </td>
+    <td width="15%"><tt><b>bufptr</b></tt><br>
+    </td>
+    <td width="75%">Pointer to the output buffer to be released. &nbsp; </td>
+  </tr>
+  <tr valign="top">
+    <td>&nbsp; </td>
+    <td><tt><b>disposition</b></tt><br>
+    </td>
+    <td>Flag to determine whether product is distributed (successful construction). &nbsp; </td>
+  </tr>
+  <tr valign="top">
+    <td colspan="2"><font face="sans-serif" size="-1">RETURN VALUE:</font><br>
+    </td>
+    <td>Not Used </td>
+  </tr>
+  <tr>
+    <td colspan="3">Deallocates buffer created by <tt><b>RPGC_get_outbuf</b></tt>. With <tt><b>disposition
+    = FORWARD</b></tt>, the product is written to the appropriate linear buffer and a
+    successful product generation message is generated. If <tt><b>disposition = DESTROY</b></tt>,
+    an unsuccessful product generation message is generated.<br>
+    <font face="sans-serif" size="-1">EXAMPLE:</font><br>
+    <tt><b>RPGC_rel_outbuf((void*)buffer,FORWARD);</b></tt><br>
+    where <tt><b>buffer</b></tt> is the value returned by <tt><b>RGGC_get_outbuf</b></tt>. </td>
+  </tr>
+</table>
+
+<h4>Parameter Descriptions </h4>
+
+<dl>
+  <dt><tt><b>datatype</b></tt> </dt>
+  <dd>The linear buffer id of the product to be output. </dd>
+  <dt><tt><b>bufsiz</b></tt> </dt>
+  <dd>Size of product in 4-byte integers. This must be sufficient to accommodate the largest
+    possible product. The programmer is responsible for allocating sufficient space in which
+    to construct the product. The maximum buffer size that can be allocated is 2,000,000
+    integers (much larger than any existing product). </dd>
+  <dt><tt><b>opstat</b></tt> </dt>
+  <dd>Pointer to status of the operation. This is the status returned by the operation of
+    allocating buffer space.&nbsp; </dd>
+  <dt><tt><b>bufptr</b></tt> </dt>
+  <dd>Pointer to the output buffer to be released. This is the pointer returned by the
+    corresponding <tt><b>RPGC_get_outbuf</b></tt> call.&nbsp; </dd>
+  <dt><tt><b>disposition</b></tt> </dt>
+  <dd>Flag to determine whether product is distributed (successful construction). The value <tt><b>FORWARD</b></tt>
+    is used when product construction has been successful. The value <tt><b>DESTROY</b></tt>
+    is used when product generation has not been successful. &nbsp; </dd>
+</dl>
+
+<h4>Notes / Rules for use </h4>
+
+<ol>
+  <li>It is critical that the first parameter passed to <tt><b>RPGC_rel_outbuf</b></tt> is the
+    same as the buffer pointer returned by the corresponding <tt><b>RPGC_get_outbuf</b></tt>
+    call. </li>
+  <li>An output buffer must be successfully obtained with <tt><b>RPGC_get_outbuf</b></tt>
+    before calling <tt><b>RPGC_rel_outbuf</b></tt>. </li>
+  <li>If <tt><b>RPGC_get_outbuf</b></tt> is called, then <tt><b>RPGC_rel_outbuf</b></tt> must
+    be called before returning to the beginning of the algorithm control loop (both for
+    successful product generation and when aborting product). </li>
+  <li>Only one output buffer of a specific product type can be open (obtained) at any time. </li>
+</ol>
+
+<p><br>
+</p>
+
+<hr align="left" width="50%">
+
+<h3>5. Algorithm Abort </h3>
+
+<p>The typical reason an algorithm is aborted is an inability to read input data or input
+data that are out of sequence. The algorithm developer is responsible for accomplishing an
+abort in this case. When aborting product generation, all output buffers successfully
+obtained must be released with <tt><b>RPGC_rel_outbuf</b></tt> using the value <tt><b>DESTROY</b></tt>
+for the <tt><b>disposition</b></tt> parameter. All input buffers successfully obtained
+must be released with <tt><b>RPGC_rel_inbuf</b></tt>. One of the RPGC abort routines must
+be called. Finally, control must be returned to the <em>algorithm control loop</em>
+function. </p>
+
+<p>This guidance is based upon the general pattern of usage in the legacy FORTRAN
+algorithms. It should be noted that the legacy algorithms were not completely consistent
+in this regard. </p>
+
+<table width="95%" cellspacing="2" cellpadding="5" bgcolor="White">
+  <tr>
+    <td colspan="3" bgcolor="Silver"><tt><b>int RPGC_abort( )</b></tt> </td>
+  </tr>
+  <tr valign="top">
+    <td width="10%"><font face="sans-serif" size="-1">INPUT:</font> </td>
+    <td width="15%"><tt><b>&nbsp;</b></tt> <br>
+    </td>
+    <td width="75%">None &nbsp; </td>
+  </tr>
+  <tr valign="top">
+    <td colspan="2"><font face="sans-serif" size="-1">RETURN VALUE:</font><br>
+    </td>
+    <td>Not Used </td>
+  </tr>
+  <tr>
+    <td colspan="3">Accomplishes infrastructure house cleaning before returning to the <em>algorithm
+    control loop</em>. </td>
+  </tr>
+</table>
+
+<p><br>
+</p>
+
+<table width="95%" cellspacing="2" cellpadding="5" bgcolor="White">
+  <tr>
+    <td colspan="3" bgcolor="Silver"><tt><b>int RPGC_abort_because( int reason )</b></tt> </td>
+  </tr>
+  <tr valign="top">
+    <td width="10%"><font face="sans-serif" size="-1">INPUT:</font> </td>
+    <td width="15%"><tt><b>reason</b></tt><br>
+    </td>
+    <td width="75%">Abort reason code. &nbsp; </td>
+  </tr>
+  <tr valign="top">
+    <td colspan="2"><font face="sans-serif" size="-1">RETURN VALUE:</font><br>
+    </td>
+    <td>Not Used </td>
+  </tr>
+  <tr>
+    <td colspan="3">Accomplishes infrastructure house cleaning before returning to the <em>algorithm
+    control loop</em>. Passes abort reason code via appropriate messages. </td>
+  </tr>
+</table>
+
+<p><br>
+</p>
+
+<table width="95%" cellspacing="2" cellpadding="5" bgcolor="White">
+  <tr>
+    <td colspan="3" bgcolor="Silver"><tt><b>int RPGC_abort_datatype_because( int datatype, int
+    reason )</b></tt> </td>
+  </tr>
+  <tr valign="top">
+    <td width="10%"><font face="sans-serif" size="-1">INPUT:</font> </td>
+    <td width="15%"><tt><b>datatype</b></tt><br>
+    </td>
+    <td width="75%">Linear buffer id of the product not being generated. &nbsp; </td>
+  </tr>
+  <tr valign="top">
+    <td>&nbsp; </td>
+    <td><tt><b>reason</b></tt><br>
+    </td>
+    <td>Abort reason code. &nbsp; </td>
+  </tr>
+  <tr valign="top">
+    <td colspan="2"><font face="sans-serif" size="-1">RETURN VALUE:</font><br>
+    </td>
+    <td>Not Used </td>
+  </tr>
+  <tr>
+    <td colspan="3">Accomplishes infrastructure house cleaning before returning to the <em>algorithm
+    control loop</em>. This abort function is used by algorithms producing more than one
+    product. </td>
+  </tr>
+</table>
+
+<h4>Parameter Descriptions </h4>
+
+<dl>
+  <dt><tt><b>reason</b></tt> </dt>
+  <dd>Abort reason code. Abort reason codes are defined in <tt><b>a309.h</b></tt>. In the
+    ORPG, the legacy algorithms only utilize two of these defined codes: <tt><b>PROD_MEM_SHED</b></tt>
+    and <tt><b>PROD_DISABLED_MOMENT</b></tt> . In addition, some existing algorithms pass the <em>opstat</em>
+    as a result of <em>get_inbuf</em> calls. &nbsp; </dd>
+  <dt><tt><b>datatype</b></tt> </dt>
+  <dd>Linear buffer id of the product not being produced. &nbsp; </dd>
+</dl>
+
+<h4>Notes / Rules for use </h4>
+
+<ol>
+  <li>If all products cannot be successfully completed, at least one abort service must be
+    called.&nbsp; </li>
+  <li>If the reason for aborting the product is due to inability to obtain required memory,
+    then <tt><b>RPGC_abort_because( PROD_MEM_SHED )</b></tt> is called instead of <tt><b>RPGC_abort(
+    )</b></tt> </li>
+  <li>In the case of algorithms producing more than one final product, <tt><b>RPGC_abort_datatype_because</b></tt>
+    is called for those products not produced. The only reason code passed in this case is an
+    inability to obtain memory (<tt><b>PROD_MEM_SHED</b></tt>) </li>
+  <li>In the case of algorithms with base data as their input, <tt><b>RPGC_abort_because(
+    PROD_DISABLED_MOMENT )</b></tt> is called if any of the base data moments required are not
+    enabled in the RDA. </li>
+</ol>
+
+<p><br>
+</p>
+
+<hr align="left" width="50%">
+
+<h3>6. Miscellaneous Functions </h3>
+
+<p>This section includes a few helper functions. &nbsp; </p>
+
+<table width="95%" cellspacing="2" cellpadding="5" bgcolor="White">
+  <tr>
+    <td colspan="3" bgcolor="Silver"><tt><b>int RPGC_get_current_vol_num( )</b></tt> </td>
+  </tr>
+  <tr valign="top">
+    <td width="10%"><font face="sans-serif" size="-1">INPUT:</font> </td>
+    <td width="15%"><tt><b>&nbsp;</b></tt> <br>
+    </td>
+    <td width="75%">None &nbsp; </td>
+  </tr>
+  <tr valign="top">
+    <td colspan="2"><font face="sans-serif" size="-1">RETURN VALUE:</font><br>
+    </td>
+    <td>Volume scan sequence number. </td>
+  </tr>
+  <tr>
+    <td colspan="3">Returns the sequence number of the current volume scan (cycles 1 though
+    80). This information is an input to the function <tt><b>RPGC_prod_desc_block</b></tt>. </td>
+  </tr>
+</table>
+
+<p><br>
+</p>
+
+<table width="95%" cellspacing="2" cellpadding="5" bgcolor="White">
+  <tr>
+    <td colspan="3" bgcolor="Silver"><tt><b>int RPGC_get_current_elev_index( )</b></tt> </td>
+  </tr>
+  <tr valign="top">
+    <td width="10%"><font face="sans-serif" size="-1">INPUT:</font> </td>
+    <td width="15%"><tt><b>&nbsp;</b></tt> <br>
+    </td>
+    <td width="75%">None &nbsp; </td>
+  </tr>
+  <tr valign="top">
+    <td colspan="2"><font face="sans-serif" size="-1">RETURN VALUE:</font><br>
+    </td>
+    <td>The elevation index (1 through N, with N being the number of elevations in the VCP in
+    use) </td>
+  </tr>
+  <tr>
+    <td colspan="3">Returns the &quot;RPG&quot; elevation index. This is the ordinal of the
+    elevation within the Volume Coverage Pattern in use. </td>
+  </tr>
+</table>
+
+<p><br>
+</p>
+
+<table width="95%" cellspacing="2" cellpadding="5" bgcolor="White">
+  <tr>
+    <td colspan="3" bgcolor="Silver"><tt><b>int RPGC_what_moments( Base_data_header *hdr, int
+    *ref_flag, int *vel_flag, int *wid_flag )</b></tt> </td>
+  </tr>
+  <tr valign="top">
+    <td width="10%"><font face="sans-serif" size="-1">INPUT:</font> </td>
+    <td width="15%"><tt><b>hdr</b></tt><br>
+    </td>
+    <td width="75%">Pointer to the Base Data Header portion of the radial message. &nbsp; </td>
+  </tr>
+  <tr valign="top">
+    <td>&nbsp; </td>
+    <td><tt><b>ref_flag</b></tt><br>
+    </td>
+    <td>Pointer to a flag indicating whether the reflectivity moment is enabled.&nbsp; </td>
+  </tr>
+  <tr valign="top">
+    <td>&nbsp; </td>
+    <td><tt><b>vel_flag</b></tt><br>
+    </td>
+    <td>Pointer to a flag indicating whether the velocity moment is enabled. &nbsp; </td>
+  </tr>
+  <tr valign="top">
+    <td>&nbsp; </td>
+    <td><tt><b>wid_flag</b></tt><br>
+    </td>
+    <td>Pointer to a flag indicating whether the spectrum width moment is enabled.&nbsp; </td>
+  </tr>
+  <tr valign="top">
+    <td colspan="2"><font face="sans-serif" size="-1">RETURN VALUE:</font><br>
+    </td>
+    <td>Not Used </td>
+  </tr>
+  <tr>
+    <td colspan="3">Returns boolean flags indicating which of the moments (reflectivity,
+    velocity, and spectrum width) are currently enabled in the RDA. </td>
+  </tr>
+</table>
+
+<h4>Parameter Descriptions </h4>
+
+<dl>
+  <dt><tt><b>hdr</b></tt> </dt>
+  <dd>Pointer to the base data header portion of the radial message. The header is the first
+    part of the base data radial message. <tt><b>struct Base_data_header</b></tt> is defined
+    in <tt><b>basedata.h</b></tt>.&nbsp; </dd>
+  <dt><tt><b>ref_flag</b></tt> </dt>
+  <dd>A pointer to the reflectivity enabled flag. Flag set to TRUE if enabled. &nbsp; </dd>
+  <dt><tt><b>vel_flag</b></tt> </dt>
+  <dd>A pointer to the velocity enabled flag. Flag set to TRUE if enabled. &nbsp; </dd>
+  <dt><tt><b>wid_flag</b></tt> </dt>
+  <dd>A pointer to the spectrum width enabled flag. Flag set to TRUE if enabled.&nbsp; </dd>
+</dl>
+
+<h4>Notes / Rules for use </h4>
+
+<ol>
+  <li><tt><b>RPGC_what_moments</b></tt> is used when base data is the registered input (either
+    <tt><b>REFLDATA</b></tt> or <tt><b>COMBBASE</b></tt>). The flag value of the applicable
+    moment(s) should be checked immediately after the first time a base data message is read (<tt><b>RPGC_get_inbuf</b></tt>)
+    during the construction of a product. If a needed moment is disabled (flag not TRUE), the
+    construction and output of the product must be aborted.&nbsp; </li>
+</ol>
+
+<p><br>
+<br>
+</p>
+
+<hr>
+
+<h2>Part D. Summary of Algorithm Structure </h2>
+
+<p>A summary of rules for the structure of an algorithm and the use of the API services is
+provided in the next section of this guide titled, <em>WSR-88D Algorithm Structure &amp;
+Sample Algorithms</em>. </p>
+</body>
+</html>

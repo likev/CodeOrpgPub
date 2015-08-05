@@ -1,0 +1,1144 @@
+#!/bin/sh
+
+# RCS info
+# $Author: steves $
+# $Locker:  $
+# $Date: 2014/10/03 17:52:24 $
+# $Id: site_CD_update.script,v 1.12 2014/10/03 17:52:24 steves Exp $
+# $Revision: 1.12 $
+# $State: Exp $
+
+#**************************************************************************
+#
+# Title:        site_CD_update
+#
+# Description:  Install site-specific data
+#
+#**************************************************************************
+
+CD_DIR=""
+NODE_TYPE=""
+DEFAULT_ADAPT_FILE=""
+MERGED_ADAPT_FILE=""
+PREVIOUS_BUILD_ADAPT_DIR=$HOME/.previous_build_adapt
+PREVIOUS_BUILD_ADAPT_FILE=""
+CURRENT_BUILD_ADAPT_DIR=$CFG_DIR/adapt/installed
+CURRENT_BUILD_ADAPT_FILE=""
+PREVIOUS_SITE_CD_DIR=$HOME/.previous_site_specific
+MERGE_FLAG=NONE # NONE, PREVIOUS_BUILD, CURRENT_BUILD, ARCHIVE_CD
+OLD_ADAPT_DIR=/tmp/site$$/merge/old
+NEW_ADAPT_DIR=/tmp/site$$/merge/new
+COMPARE_1_ADAPT_DIR=/tmp/site$$/compare/old
+COMPARE_2_ADAPT_DIR=/tmp/site$$/compare/new
+INTERACTIVE_FLAG=YES
+RPG_INFO_FILE=$CFG_DIR/rpg_install.info
+RPG_LOG_DIR=$HOME/data/logs
+INSTALLED_SITE_FILES_FLAG=NO
+
+#**************************************************************************
+#**************************************************************************
+#
+# Start of Functions
+#
+#**************************************************************************
+#**************************************************************************
+
+#**************************************************************************
+# PRINT_USAGE: Display "help" to screen.
+#**************************************************************************
+
+print_usage ()
+{
+  echo
+  echo
+  echo "************************************************"
+  echo "This script installs files that are specific to"
+  echo "this site"
+  echo
+  echo "The following are valid flags"
+  echo
+  echo "-h - help"
+  echo "-N - non-interactive (invoked from script)"
+  echo "************************************************"
+  echo
+  echo
+}
+
+#**************************************************************************
+# ECHO_STDOUT: Echo to stdout.
+#**************************************************************************
+
+echo_stdout ()
+{
+  echo -e $1
+  echo -e $1 | $LE_LOG_CMD
+}
+
+#**************************************************************************
+# ECHO_STDERR: Echo to stderr.
+#**************************************************************************
+
+echo_stderr ()
+{
+  echo -e $1 >&2
+  echo -e $1 | $LE_ERR_CMD
+}
+
+#**************************************************************************
+# ECHO_INT: Echo if interactive. Output does not go to log file.
+#**************************************************************************
+
+echo_int ()
+{
+  if [ $INTERACTIVE_FLAG = "YES" ]
+  then
+    echo -e $1
+  fi
+}
+
+#**************************************************************************
+# ECHO_ERROR: Echo error message and exit.
+#**************************************************************************
+
+echo_error ()
+{
+  if [ $# -eq 1 ]
+  then 
+    exit_code=1
+  else
+    exit_code=$2
+  fi
+
+  echo_int
+  echo_int
+  echo_int "IN SCRIPT: $0"
+  echo_stderr "ERROR: $1"
+  echo_int "Stopping script"
+  echo_int "Use -h option for help"
+  echo_int
+  echo_int
+  if [ $INSTALLED_SITE_FILES_FLAG = "YES" ]
+  then
+    echo_stdout "A problem was encountered while installing adaptation data."
+    echo_stdout "System-level files were installed and require an immediate"
+    echo_stdout "reboot for the system to operate properly. Attempts to"
+    echo_stdout "remedy adaptation data problems should continue when the"
+    echo_stdout "reboot is complete."
+    echo_int    "Press Enter to reboot the system."
+    read
+    sudo reboot
+  fi
+  exit $exit_code
+}
+
+#**************************************************************************
+# INIT_LE_LOG: Initialize logging.
+#**************************************************************************
+
+init_le_log ()
+{
+  LE_NUM_LINES=100
+
+  LE_UID=`id -u rpg 2>/dev/null`
+  ret=$?
+  if [ $ret -ne 0 -o -z "$LE_UID" ]
+  then
+    echo_stderr "Unable to initiialize user id"
+    echo_error "Command \"id -u rpg 2>/dev/null\" failed ($ret)"
+  fi
+  LE_GID=`id -g rpg 2>/dev/null`
+  ret=$?
+  if [ $ret -ne 0 -o -z "$LE_GID" ]
+  then
+    echo_stderr "Unable to initiialize group id"
+    echo_error "Command \"id -g rpg 2>/dev/null\" failed ($ret)"
+  fi
+  LE_FILE_NAME=`basename $0 2>/dev/null`
+  ret=$?
+  if [ $ret -ne 0 -o -z "$LE_FILE_NAME" ]
+  then
+    echo_stderr "Unable to initiialize log file name"
+    echo_error "Command \"basename $0 2>/dev/null\" failed ($ret)"
+  fi
+
+  LE_LOG_CMD="le_pipe -t $LE_FILE_NAME -n $LE_NUM_LINES -w $LE_UID -g $LE_GID"
+  LE_ERR_CMD="$LE_LOG_CMD -e GL_ERROR"
+}
+
+#**************************************************************************
+# PARSE_INPUT: Parse command line input.
+#**************************************************************************
+
+parse_input ()
+{
+  # Parse input options/arguments. If option doesn't have an argument (and
+  # requires one) or option isn't valid, print message and exit.
+
+  while getopts hN optionflag
+  do
+    case $optionflag in
+       h) print_usage; exit 0;;
+       N) INTERACTIVE_FLAG=NO;;
+      \?) echo_error "Invalid input flag"
+    esac
+  done
+}
+
+#**************************************************************************
+# INITIAL_SETUP: Set initial variables.
+#**************************************************************************
+
+initial_setup ()
+{
+  # Mount CD.
+
+  echo_stdout "Mounting Site-Specific CD"
+
+  CD_DIR=`medcp -pm cd`
+  ret=$?
+
+  if [ $ret -ne 0 ]
+  then
+    echo_stderr "Unable to initialize CD"
+    echo_error "Unable to mount CD" $ret
+  elif [ -z "$CD_DIR" ]
+  then
+    echo_error "CD directory undefined"
+  fi
+  echo_stdout "CD mount: $CD_DIR"
+
+  # Get site name.
+
+  SITE_NAME=`find_adapt -S 2>/dev/null`
+  ret=$?
+
+  if [ $ret -ne 0 ]
+  then
+    echo_stderr "Unable to determine ICAO using find_adapt"
+    echo_error "Command \"find_adapt -S\" failed" $ret
+  elif [ -z "$SITE_NAME" ]
+  then
+    echo_error "Unable to determine ICAO"
+  fi
+  echo_stdout "Site name: $SITE_NAME"
+
+  # Get node type.
+
+  NODE_TYPE=`find_adapt -N 2>/dev/null`
+  ret=$?
+
+  if [ $ret -ne 0 ]
+  then
+    echo_stderr "Unable to determine node using find_adapt"
+    echo_error "Command \"find_adapt -N\" failed" $ret
+  elif [ -z "$NODE_TYPE" ]
+  then
+    echo_error "Unable to determine node type"
+  fi
+  echo_stdout "Node type: $NODE_TYPE"
+
+  # Make sure archive directory exists.
+
+  if [ ! -d $PREVIOUS_SITE_CD_DIR ]
+  then
+    mkdir -p $PREVIOUS_SITE_CD_DIR
+    ret=$?
+    if [ $ret -ne 0 ]
+    then
+      echo_stderr "Unable to create directory for archiving"
+      echo_error "Command \"mkdir -p $PREVIOUS_SITE_CD_DIR\" failed" $ret
+    fi
+  fi
+
+}
+
+#**************************************************************************
+# INSTALL_SITE: Install site-specific files
+#**************************************************************************
+
+install_site ()
+{
+  # Get site directory and make sure it exists on CD.
+
+  site_specific_dir=`find_adapt -I 2>/dev/null`
+  ret=$?
+  if [ $ret -ne 0 ]
+  then
+    echo_stderr "Unable to install site-specific files"
+    echo_stderr "Unable to determine site-specific directory using find_adapt"
+    echo_error "Command \"find_adapt -I 2>/dev/null\" failed" $ret
+  elif [ -z "$site_specific_dir" ]
+  then
+    echo_stderr "Unable to install site-specific files"
+    echo_error "Unable to determine site-specific directory"
+  elif [ ! -d $CD_DIR/$site_specific_dir ]
+  then
+    echo_stderr "Unable to install site-specific files"
+    echo_error "Directory $CD_DIR/$site_specific_dir does not exist"
+  fi
+  echo_stdout "Site install directory: $site_specific_dir"
+
+  # Compare new and previously installed site files and check
+  # for differences. If there are none, do not continue. If the
+  # previously installed files don't exist or an error ocurrs,
+  # then assume there are differences and install the new files.
+
+  echo_stdout "Comparing new and previously installed site files"
+
+  if [ ! -d $PREVIOUS_SITE_CD_DIR/$site_specific_dir ]
+  then
+    echo_stdout "Previous site files not found. Install site files."
+  else
+    diff -r $CD_DIR/$site_specific_dir $PREVIOUS_SITE_CD_DIR/$site_specific_dir > /dev/null 2>&1
+    if [ $? -eq 0 ]
+    then
+      echo_stdout "No differences detected. Skip installation of site files."
+      return 0
+    elif [ $? -eq 1 ]
+    then
+      echo_stdout "Files are different. Install site files."
+    else
+      echo_stdout "Error ($?) finding differences. Install site files."
+    fi
+  fi
+
+  # Install the site files.
+
+  echo_stdout "Extracing MAC addresses from network config files."
+
+  sudo -S site_CD_hwaddr -b
+
+  echo_stdout "Install the site files using restore_adapt -n -i -c"
+
+  sudo -S restore_adapt -n -i -c
+  ret=$?
+  if [ $ret -ne 0 ]
+  then
+    echo_stderr "Unable to install site-specific files"
+    echo_error "Command \"restore_adapt -n -i -c\" failed" $ret
+  fi
+
+  echo_stdout "Injecting MAC addresses into site-specific network config files."
+
+  sudo -S site_CD_hwaddr -r
+
+  # Successfully installed site files. Remove previously saved copy
+  # if it exists.
+
+  INSTALLED_SITE_FILES_FLAG=YES
+
+  echo_stdout "Remove previous site files archive"
+
+  if [ -d $PREVIOUS_SITE_CD_DIR/$site_specific_dir ]
+  then
+    # Ignore errors.
+    echo_stdout "Removing previous site files in $PREVIOUS_SITE_CD_DIR/$site_specific_dir"
+    rm -rf $PREVIOUS_SITE_CD_DIR/$site_specific_dir > /dev/null 2>&1
+  fi
+
+  # Archive new site files. They will be used in the above comparison.
+
+  echo_stdout "Archive site files to $PREVIOUS_SITE_CD_DIR/$site_specific_dir"
+
+  cp -rfL $CD_DIR/$site_specific_dir $PREVIOUS_SITE_CD_DIR
+  if [ $? -ne 0 ]
+  then
+    echo_stderr "Warning: Command \"cp -rf $CD_DIR/$site_specific_dir $PREVIOUS_SITE_CD_DIR\" failed"
+    echo_stderr "Warning: Unable to archive site files for future comparison."
+  fi
+
+  echo_stdout "Finished installing site files"
+}
+
+#**************************************************************************
+# INSTALL_ADAPT: Install adaptation data
+#**************************************************************************
+
+install_adapt ()
+{
+  # Adaptation data is only valid on RPGA.
+
+  if [ $NODE_TYPE != "rpga" ]
+  then
+    echo_stdout "Adaptation data not required for node $NODE_TYPE"
+    return 0
+  fi
+
+  # Make sure CD contains adaptation data file.
+
+  DEFAULT_ADAPT_FILE=`basename \`find_adapt -D $CD_DIR\` 2>/dev/null`
+  ret=$?
+  if [ $ret -ne 0 ]
+  then
+    echo_stderr "Unable to install adaptation data"
+    echo_error "Command \"basename \`find_adapt -D $CD_DIR\` 2>/dev/null\" failed." $ret
+  elif [ -z "$DEFAULT_ADAPT_FILE" ]
+  then
+    echo_stderr "Unable to install adaptation data"
+    echo_error "Adaptation data not found in $CD_DIR"
+  fi
+  echo_stdout "Default adaptation file: $CD_DIR/$DEFAULT_ADAPT_FILE"
+
+  # Compare new and previously installed adaptation files and
+  # check for differences. If there are none, do not continue.
+
+  check_for_adaptation_differences
+  if [ $? -eq 0 ]
+  then
+    echo_stdout "No differences detected for adaptation data"
+    echo_stdout "No installation of adaptation data necessary"
+    return 0
+  fi
+  echo_stdout "Files are different. Install adaptation data."
+
+  # Copy new default adaptation data to /tmp to free up the CD drive.
+  # If the installation of adaptation data is successful, then the
+  # file will be copied to an archive directory for future comparison.
+
+  cp -f $CD_DIR/$DEFAULT_ADAPT_FILE /tmp
+  if [ $? -ne 0 ]
+  then
+    echo_stderr "Warning: Command \"cp -f $CD_DIR/$DEFAULT_ADAPT_FILE /tmp\" failed"
+    echo_stderr "Warning: Unable to archive adaptation data for future comparison."
+  fi
+
+  # Get names of adaptation data files for the previous build and
+  # currently running build (if applicable). The previous build will
+  # only exist the first time adaptation data is installed after a
+  # new build. The currently running build will only exist after
+  # adaptation data has been successfully installed and the RPG
+  # started.
+
+  PREVIOUS_BUILD_ADAPT_FILE=`basename \`find_adapt -D $PREVIOUS_BUILD_ADAPT_DIR\` 2>/dev/null`
+  CURRENT_BUILD_ADAPT_FILE=`basename \`find_adapt -D $CURRENT_BUILD_ADAPT_DIR\` 2>/dev/null`
+
+  # User will be prompted to make choices regarding what to install
+  # and/or merge. Determine which choices will be offered and create
+  # necessary prompts.
+
+  num_choice=0
+  display_string=""
+
+  # Choice to install default adaptation data. This will always be a
+  # choice.
+
+  num_choice=`expr $num_choice + 1`
+  install_default_num=$num_choice
+  display_string="$display_string\n$num_choice - Install the default adaptation data"
+
+  # Choice to merge with the adaptation data of the previous build. This
+  # is a choice only when adaptation data for the previous build exists.
+
+  if [ "$PREVIOUS_BUILD_ADAPT_FILE" != "" ]
+  then
+    num_choice=`expr $num_choice + 1`
+    previous_build_num=$num_choice
+    display_string="$display_string\n$num_choice - Merge with the previously installed adaptation data"
+    echo_stdout "Previous build's adaptation file: $PREVIOUS_BUILD_ADAPT_FILE"
+  fi
+
+  # Choice to merge with the adaptation data of the currently running
+  # build. This is a choice only when adaptation data for the currently
+  # running build exists.
+
+  if [ "$CURRENT_BUILD_ADAPT_FILE" != "" ]
+  then
+    num_choice=`expr $num_choice + 1`
+    current_build_num=$num_choice
+    display_string="$display_string\n$num_choice - Merge with the currently installed adaptation data"
+    echo_stdout "Current build's adaptation file: $CURRENT_BUILD_ADAPT_FILE"
+  fi
+
+  # Choice to merge with an archived adaptation CD. This will always
+  # be a choice.
+
+  num_choice=`expr $num_choice + 1`
+  archive_cd_num=$num_choice
+  display_string="$display_string\n$num_choice - Merge with an archived adaptation CD"
+
+  # Prompt for and validate user input.
+
+  while true
+  do
+    echo_stdout
+    echo_stdout "The CD contains default adaptation data for this site"
+    echo_stdout
+    echo_stdout "Your choices are to:"
+    echo_stdout
+    echo_stdout "$display_string"
+    echo_stdout
+    echo_stdout "Enter choice (1-$num_choice) and press Enter"
+    read user_reply
+    # Check validity of user input.
+    echo $user_reply | egrep '^[0-9]+$' > /dev/null 2>&1
+    if [ $? -ne 0 ]
+    then
+      echo_stdout "Error: Must enter a numeric value"
+      echo_stdout "Try again"
+      continue
+    elif [ $user_reply -lt 0 -a $user_reply -gt $num_choice ]
+    then
+      echo_stdout "Error: Value is out of range (1-$num_choice)"
+      echo_stdout "Try again"
+      continue
+    else
+      if [ $user_reply = $install_default_num ]
+      then
+        MERGE_FLAG=NONE
+        echo_stdout "User selected to skip merge"
+      elif [ $user_reply = "$previous_build_num" ]
+      then
+        MERGE_FLAG=PREVIOUS_BUILD
+        echo_stdout "User selected to merge with previous build"
+      elif [ $user_reply = "$current_build_num" ]
+      then
+        MERGE_FLAG=CURRENT_BUILD
+        echo_stdout "User selected to merge with current build"
+      else
+        MERGE_FLAG=ARCHIVE_CD
+        echo_stdout "User selected to merge with previously created CD"
+      fi
+      break
+    fi
+  done
+
+  # Take appropriate action based on user input.
+
+  if [ $MERGE_FLAG = "NONE" ]
+  then
+    # Skip merge and simply install the default adaptation data.
+    echo_stdout "Install adaptation data using restore_adapt -n -c"
+    restore_adapt -n -c
+    ret=$?
+    if [ $ret -ne 0 ]
+    then
+      echo_stderr "Unable to install default adaptation data"
+      echo_error "Command \"restore_adapt -n -c\" failed" $ret
+    fi
+    # Modify file to show adaptation data has been installed
+    echo_stdout "Calling modify_rpg_info_file"
+    modify_rpg_info_file
+    # Copy adaptation data to directory for future comparison
+    echo_stdout "Calling cp_adapt_to_previous_site_dir"
+    cp_adapt_to_previous_site_dir /tmp/$DEFAULT_ADAPT_FILE
+  else
+    # Merge.
+    echo_stdout "Calling perform_merge_adapt"
+    perform_merge_adapt
+    # Install the newly merged adaptation data.
+    echo_stdout "Install adaptation data using restore_adapt -D $NEW_ADAPT_DIR"
+    restore_adapt -D $NEW_ADAPT_DIR
+    ret=$?
+    if [ $ret -ne 0 ]
+    then
+      echo_stderr "Unable to install merged adaptation data"
+      echo_error "Command \"restore_adapt -D $NEW_ADAPT_DIR\" failed" $ret
+    fi
+    # Modify file to show adaptation data has been installed
+    echo_stdout "Calling modify_rpg_info_file"
+    modify_rpg_info_file
+    # Copy adaptation data to directory for future comparison
+    echo_stdout "Calling cp_adapt_to_previous_site_dir"
+    cp_adapt_to_previous_site_dir /tmp/$DEFAULT_ADAPT_FILE
+    # Create archive CDs.
+    echo_stdout "Calling create_merge_CD"
+    create_merge_CD
+  fi
+
+  # Remove adaptation data from a previous build if detected.
+  # It should only exist for the initial installation.
+
+  if [ -d $PREVIOUS_BUILD_ADAPT_DIR ]
+  then
+    # Ignore errors.
+    rm -rf $PREVIOUS_BUILD_ADAPT_DIR > /dev/null 2>&1
+  fi
+
+  echo_stdout "Finished installing adaptation data"
+}
+
+#**************************************************************************
+# CHECK_FOR_ADAPTATION_DIFFERENCES: Compare adaptation data files and check
+#     for differences. Return 0 if not different, 1 otherwise.
+#**************************************************************************
+
+check_for_adaptation_differences ()
+{
+  echo_stdout "Checking for differences in adaptation data"
+
+  # Create directories to perform comparison in.
+
+  mkdir -p $COMPARE_1_ADAPT_DIR
+  if [ $? -ne 0 ]
+  then
+    echo_stdout "Command \"mkdir -p $COMPARE_1_ADAPT_DIR\" failed"
+    echo_stdout "Assume adaptation data is different."
+    return 1
+  fi
+
+  mkdir -p $COMPARE_2_ADAPT_DIR
+  if [ $? -ne 0 ]
+  then
+    echo_stdout "Command \"mkdir -p $COMPARE_2_ADAPT_DIR\" failed"
+    echo_stdout "Assume adaptation data is different."
+    return 1
+  fi
+
+  # Create temporary filenames, since they will be modified.
+
+  previous_adapt_file=`basename \`find_adapt -D $PREVIOUS_SITE_CD_DIR\` 2>/dev/null`
+  if [ $? -ne 0 ]
+  then
+    echo_stdout "Command \"basename \`find_adapt -D $PREVIOUS_SITE_CD_DIR\` 2>/dev/null\" failed"
+    echo_stdout "Assume adaptation data is different."
+    return 1
+  elif [ -z "$previous_adapt_file" ]
+  then
+    echo_stdout "Unable to determine name of previously installed adaptation data."
+    echo_stdout "Assume adaptation data is different."
+    return 1
+  fi
+
+  new_adapt_file=$DEFAULT_ADAPT_FILE
+
+  echo_stdout "Previous adaptation file: $PREVIOUS_SITE_CD_DIR/$previous_adapt_file"
+  echo_stdout "New adaptation file: $CD_DIR/$new_adapt_file"
+
+  # Copy adaptation data files to new locations for comparison.
+
+  echo_stdout "Copy adaptation data to temp directories for comparison"
+
+  cp -f $PREVIOUS_SITE_CD_DIR/$previous_adapt_file $COMPARE_1_ADAPT_DIR
+  if [ $? -ne 0 ]
+  then
+    echo_stdout "Command \"cp -f $PREVIOUS_SITE_CD_DIR/$previous_adapt_file $COMPARE_1_ADAPT_DIR\" failed"
+    echo_stdout "Assume adaptation data is different."
+    return 1
+  fi
+
+  cp -f $CD_DIR/$new_adapt_file $COMPARE_2_ADAPT_DIR
+  if [ $? -ne 0 ]
+  then
+    echo_stdout "Command \"cp -f $CD_DIR/$new_adapt_file $COMPARE_2_ADAPT_DIR\" failed"
+    echo_stdout "Assume adaptation data is different."
+    return 1
+  fi
+
+  # Uncompress/untar files to perform comparison.
+
+  echo_stdout "Uncompress/untar adaptation files for comparison"
+
+  cd $COMPARE_1_ADAPT_DIR
+  ret=$?
+  if [ $ret -ne 0 ]
+  then
+    echo_stderr "Unable to merge adaptation data"
+    echo_error "Command \"cd $COMPARE_1_ADAPT_DIR\" failed" $ret
+  fi
+  uncompress $previous_adapt_file
+  ret=$?
+  if [ $ret -ne 0 ]
+  then
+    echo_stderr "Unable to merge adaptation data"
+    echo_error "Command \"uncompress $previous_adapt_file\" failed" $ret
+  fi
+  previous_adapt_file=`echo $previous_adapt_file | sed 's/\.Z$//'`
+  tar -xf $previous_adapt_file
+  ret=$?
+  if [ $ret -ne 0 ]
+  then
+    echo_stderr "Unable to merge adaptation data"
+    echo_error "Command \"tar -xf $previous_adapt_file\" failed" $ret
+  fi
+
+  cd $COMPARE_2_ADAPT_DIR
+  ret=$?
+  if [ $ret -ne 0 ]
+  then
+    echo_stderr "Unable to merge adaptation data"
+    echo_error "Command \"cd $COMPARE_2_ADAPT_DIR\" failed" $ret
+  fi
+  uncompress $new_adapt_file
+  ret=$?
+  if [ $ret -ne 0 ]
+  then
+    echo_stderr "Unable to merge adaptation data"
+    echo_error "Command \"uncompress $new_adapt_file\" failed" $ret
+  fi
+  new_adapt_file=`echo $new_adapt_file | sed 's/\.Z$//'`
+  tar -xf $new_adapt_file
+  ret=$?
+  if [ $ret -ne 0 ]
+  then
+    echo_stderr "Unable to merge adaptation data"
+    echo_error "Command \"tar -xf $new_adapt_file\" failed" $ret
+  fi
+
+  # Compare adaptation data using merge_adapt_data tool.
+
+  echo_stdout "Compare using merge_adapt -c -s $COMPARE_1_ADAPT_DIR -d $COMPARE_2_ADAPT_DIR"
+  merge_adapt_data -c -s $COMPARE_1_ADAPT_DIR -d $COMPARE_2_ADAPT_DIR
+  return $?
+}
+
+#**************************************************************************
+# PERFORM_MERGE_ADAPT: Merge adaptation data
+#**************************************************************************
+
+perform_merge_adapt ()
+{
+  echo_stdout "Performing merge"
+
+  # Create directories to perform merge in.
+
+  echo_stdout "Create temp directores for merge"
+
+  mkdir -p $OLD_ADAPT_DIR
+  ret=$?
+  if [ $ret -ne 0 ]
+  then
+    echo_stderr "Unable to merge adaptation data"
+    echo_error "Command \"mkdir -p $OLD_ADAPT_DIR\" failed" $ret
+  fi
+
+  mkdir -p $NEW_ADAPT_DIR
+  ret=$?
+  if [ $ret -ne 0 ]
+  then
+    echo_stderr "Unable to merge adaptation data"
+    echo_error "Command \"mkdir -p $NEW_ADAPT_DIR\" failed" $ret
+  fi
+
+  # Copy new adaptation data file to new location for merge.
+
+  echo_stdout "Copy adaptation files to temp directories for merge"
+
+  cp -f $CD_DIR/$DEFAULT_ADAPT_FILE $NEW_ADAPT_DIR
+  ret=$?
+  if [ $ret -ne 0 ]
+  then
+    echo_stderr "Unable to merge adaptation data"
+    echo_error "Command \"cp -f $CD_DIR/$DEFAULT_ADAPT_FILE $NEW_ADAPT_DIR\" failed" $ret
+  fi
+  new_adapt_file=$DEFAULT_ADAPT_FILE
+
+  # Copy adaptation data file being merged to new location. If the user
+  # wants to merge with a previously created adaptation CD, then prompt
+  # the user to insert the CD and copy the file over.
+
+  if [ $MERGE_FLAG = "PREVIOUS_BUILD" ]
+  then
+    cp -f $PREVIOUS_BUILD_ADAPT_DIR/$PREVIOUS_BUILD_ADAPT_FILE $OLD_ADAPT_DIR
+    ret=$?
+    if [ $ret -ne 0 ]
+    then
+      echo_stderr "Unable to merge adaptation data"
+      echo_error "Command \"cp -f $PREVIOUS_BUILD_ADAPT_DIR/$PREVIOUS_BUILD_ADAPT_FILE $OLD_ADAPT_DIR\" failed" $ret
+    fi
+    old_adapt_file=$PREVIOUS_BUILD_ADAPT_FILE
+  elif [ $MERGE_FLAG = "CURRENT_BUILD" ]
+  then
+    cp -f $CURRENT_BUILD_ADAPT_DIR/$CURRENT_BUILD_ADAPT_FILE $OLD_ADAPT_DIR
+    ret=$?
+    if [ $ret -ne 0 ]
+    then
+      echo_stderr "Unable to merge adaptation data"
+      echo_error "Command \"cp -f $CURRENT_BUILD_ADAPT_DIR/$CURRENT_BUILD_ADAPT_FILE $OLD_ADAPT_DIR\" failed" $ret
+    fi
+    old_adapt_file=$CURRENT_BUILD_ADAPT_FILE
+  else
+    echo_stdout "Prompt user for adaptation archive CD"
+    # Eject Site-Specific CD and prompt user to insert
+    # CD with adaptation data file to merge with.
+    medcp -ue cd > /dev/null 2>&1
+    echo_stdout "Insert previously created adaptation CD and press Enter"
+    read user_reply
+    # Mount CD.
+    echo_stdout "Mounting previously created adaptation CD"
+    CD_DIR=`medcp -pm cd`
+    ret=$?
+    if [ $ret -ne 0 ]
+    then
+      echo_stderr "Unable to mount adaptation data CD"
+      echo_error "Command \"medcp -pm cd\" failed" $ret
+    elif [ -z "$CD_DIR" ]
+    then
+      echo_stderr "Unable to merge adaptation data"
+      echo_error "Unable to determine mount point of CD"
+    fi
+    echo_stdout "CD mount: $CD_DIR"
+    # Determine name of adaptation file on CD. Make sure there is
+    # only one file on the CD, as is expected.
+    echo_stdout "Get name of adaptation file on CD in $CD_DIR"
+    num_files=`ls $CD_DIR | egrep "^adapt.*\.$SITE_NAME\.*" | wc -l`
+    if [ $num_files -eq 0 ]
+    then
+      echo_stderr "Unable to merge adaptation data"
+      echo_error "Adaptation file not found in $CD_DIR"
+    elif [ $num_files -ne 1 ]
+    then
+      echo_stderr "Unable to merge adaptation data"
+      echo_error "Multiple adaptation files found in $CD_DIR"
+    else
+      previously_created_cd_file=`ls $CD_DIR | egrep "^adapt.*\.$SITE_NAME\.*"`
+      if [ -z "$previously_created_cd_file" ]
+      then
+        echo_stderr "Unable to merge adaptation data"
+        echo_error "Unable to determine name of adaptation file in $CD_DIR"
+      fi
+    fi
+    echo_stdout "Adaptation file from CD: $previously_created_cd_file"
+    # Copy file from CD for merging.
+    cp -f $CD_DIR/$previously_created_cd_file $OLD_ADAPT_DIR
+    ret=$?
+    if [ $ret -ne 0 ]
+    then
+      echo_stderr "Unable to merge adaptation data"
+      echo_error "Command \"cp -f $CD_DIR/$previously_created_cd_file $OLD_ADAPT_DIR\" failed" $ret
+    fi
+    old_adapt_file=$previously_created_cd_file
+  fi
+
+  echo_stdout "New adaptation data file: $NEW_ADAPT_DIR/$new_adapt_file"
+  echo_stdout "Old adaptation data file: $OLD_ADAPT_DIR/$old_adapt_file"
+
+  # Start merge by uncompressing/untarring adaptation file.
+
+  echo_stdout "Start merge by uncompressing/untarring adaptation data files"
+
+  cd $OLD_ADAPT_DIR
+  ret=$?
+  if [ $ret -ne 0 ]
+  then
+    echo_stderr "Unable to merge adaptation data"
+    echo_error "Command \"cd $OLD_ADAPT_DIR\" failed" $ret
+  fi
+  uncompress $old_adapt_file
+  ret=$?
+  if [ $ret -ne 0 ]
+  then
+    echo_stderr "Unable to merge adaptation data"
+    echo_error "Command \"uncompress $old_adapt_file\" failed" $ret
+  fi
+  old_adapt_file=`echo $old_adapt_file | sed 's/\.Z$//'`
+  tar -xf $old_adapt_file
+  ret=$?
+  if [ $ret -ne 0 ]
+  then
+    echo_stderr "Unable to merge adaptation data"
+    echo_error "Command \"tar -xf $old_adapt_file\" failed" $ret
+  fi
+  rm -f $old_adapt_file
+  ret=$?
+  if [ $ret -ne 0 ]
+  then
+    echo_stderr "Unable to merge adaptation data"
+    echo_error "Command \"rm -f $old_adapt_file\" failed" $ret
+  fi
+
+  cd $NEW_ADAPT_DIR
+  ret=$?
+  if [ $ret -ne 0 ]
+  then
+    echo_stderr "Unable to merge adaptation data"
+    echo_error "Command \"cd $NEW_ADAPT_DIR\" failed" $ret
+  fi
+  uncompress $new_adapt_file
+  ret=$?
+  if [ $ret -ne 0 ]
+  then
+    echo_stderr "Unable to merge adaptation data"
+    echo_error "Command \"uncompress $new_adapt_file\" failed" $ret
+  fi
+  new_adapt_file=`echo $new_adapt_file | sed 's/\.Z$//'`
+  tar -xf $new_adapt_file
+  ret=$?
+  if [ $ret -ne 0 ]
+  then
+    echo_stderr "Unable to merge adaptation data"
+    echo_error "Command \"tar -xf $new_adapt_file\" failed" $ret
+  fi
+  rm -f $new_adapt_file
+  ret=$?
+  if [ $ret -ne 0 ]
+  then
+    echo_stderr "Unable to merge adaptation data"
+    echo_error "Command \"rm -f $new_adapt_file\" failed" $ret
+  fi
+
+  # Execute merge routine.
+
+  echo_stdout "Perform merge using merge_adapt_data -v -s $OLD_ADAPT_DIR -d $NEW_ADAPT_DIR"
+
+  merge_adapt_data -v -s $OLD_ADAPT_DIR -d $NEW_ADAPT_DIR
+  ret=$?
+  if [ $ret -ne 0 ]
+  then
+    echo_stderr "Unable to merge adaptation data"
+    echo_error "Command \"merge_adapt_data -v -s $OLD_ADAPT_DIR -d $NEW_ADAPT_DIR\" failed" $ret
+  fi
+
+  # Finish merge by compressing/tarring merged adaptation file.
+
+  echo_stdout "Finish merge by compressing/tarring merged adaptation files"
+
+  cd $NEW_ADAPT_DIR
+  ret=$?
+  if [ $ret -ne 0 ]
+  then
+    echo_stderr "Unable to merge adaptation data"
+    echo_error "Command \"cd $NEW_ADAPT_DIR\" failed" $ret
+  fi
+  node_channel=`find_adapt -C`
+  ret=$?
+  if [ $ret -ne 0 ]
+  then
+    echo_stderr "Unable to merge adaptation data"
+    echo_error "Command \"find_adapt -C\" failed" $ret
+  elif [ -z "$node_channel" ]
+  then
+    echo_stderr "Unable to merge adaptation data"
+    echo_error "Unable to determine node channel"
+  fi
+  echo_stdout "Node channel: $node_channel"
+  MERGED_ADAPT_FILE=`find_adapt -c $node_channel -f`
+  ret=$?
+  if [ $ret -ne 0 ]
+  then
+    echo_stderr "Unable to merge adaptation data"
+    echo_error "Command \"find_adapt -c $node_channel -f\" failed" $ret
+  elif [ -z "$MERGED_ADAPT_FILE" ]
+  then
+    echo_stderr "Unable to merge adaptation data"
+    echo_error "Unable to determine name for newly merged file"
+  fi
+  echo_stdout "Name of merged file: $MERGED_ADAPT_FILE"
+  tar -cf $MERGED_ADAPT_FILE *.adapt##
+  ret=$?
+  if [ $ret -ne 0 ]
+  then
+    echo_stderr "Unable to merge adaptation data"
+    echo_error "Command \"tar -cf $MERGED_ADAPT_FILE\" failed" $ret
+  fi
+  compress $MERGED_ADAPT_FILE
+  ret=$?
+  if [ $ret -ne 0 ]
+  then
+    echo_stderr "Unable to merge adaptation data"
+    echo_error "Command \"compress $MERGED_ADAPT_FILE\" failed" $ret
+  fi
+  MERGED_ADAPT_FILE=${MERGED_ADAPT_FILE}.Z
+
+  echo_stdout "Finished merge routine"
+}
+
+#**************************************************************************
+# MODIFY_RPG_INFO_FILE: Modify rpg_install.info file to show adaptation
+#     data has been installed.
+#**************************************************************************
+
+modify_rpg_info_file ()
+{
+  temp_file=/tmp/temp_file.txt
+
+  cat $RPG_INFO_FILE | awk '{ if( $1 ~ /^ADAPTATION_DATA_LOADED:$/ ){ $2="YES"; print $1"\t"$2 } else{ print $0 } }' > $temp_file
+  cp $temp_file $RPG_INFO_FILE
+  ret=$?
+  if [ $ret -ne 0 ]
+  then
+    echo_stderr "Unable to install adaptation data"
+    echo_error "Unable to modify $RPG_INFO_FILE" $ret
+  fi
+  rm -f $temp_file > /dev/null 2>&1
+}
+
+#**************************************************************************
+# CP_ADAPT_TO_PREVIOUS_SITE_DIR: Copy adaptation data to directory containing
+#     previously installed site data.
+#**************************************************************************
+
+cp_adapt_to_previous_site_dir ()
+{
+  # Make sure file exists. If it does, copy to archive directory.
+
+  if [ -f $1 ]
+  then
+    # Remove any previously archived adapt files.
+    rm -f $PREVIOUS_SITE_CD_DIR/adapt*.Z > /dev/null 2>&1
+    # Copy file to archive directory.
+    echo "Copying $1 to $PREVIOUS_SITE_CD_DIR"
+    cp $1 $PREVIOUS_SITE_CD_DIR > /dev/null
+    ret=$?
+    if [ $ret -ne 0 ]
+    then
+      echo_stderr "Command \"cp $1 $PREVIOUS_SITE_CD_DIR\" failed" $ret
+      echo_stderr "Unable to save adaptation data for future comparison"
+    fi
+  else
+    echo_stderr "File: $1 does not exist"
+    echo_stderr "Unable to save adaptation data for future comparison"
+  fi
+}
+
+#**************************************************************************
+# CREATE_MERGE_CD: Create CDs with merged adaptation data
+#**************************************************************************
+
+create_merge_CD ()
+{
+  # Eject CD-tray and prompt user to insert blank CD.
+  medcp -ue cd > /dev/null 2>&1
+
+  # Prompt user for blank CDs. Don't send to log.
+
+  echo_stdout "Prompt user for blank CDs"
+
+  echo_int
+  echo_int
+  echo "The adaptation data was successfully merged. You are"
+  echo "now required to create two CDs containing the new data."
+  echo "One CD is to be kept locally as an archive in case the"
+  echo "merged data needs to be restored again at a later date."
+  echo "The other CD is to be returned to the Radar Operations"
+  echo "Center (ROC)."
+  echo
+  echo "When you have two blank CDs and are ready to continue,"
+  echo "insert one of the blank CDs into the tray and press Enter."
+  echo_int
+  echo_int
+  read ignore_input
+
+  # Define files to burn to cd
+
+  adapt_file=$NEW_ADAPT_DIR/$MERGED_ADAPT_FILE
+  log_file=$RPG_LOG_DIR/${LE_FILE_NAME}.log
+
+  # Burn files to first cd
+
+  echo_stdout "Burn CD using medcp -ce $adapt_file $log_file cd"
+
+  medcp -ce $adapt_file $log_file cd
+  ret=$?
+  if [ $ret -ne 0 -a $ret -ne 115 ]
+  then
+    # Error code 115 is due to eject -t. It doesn't work on RPGA, so ignore.
+    echo_error "Error ($ret) creating CD. Try again later using \"Save Adapt\" GUI"
+  fi
+
+  # Eject CD-tray and prompt user to insert blank CD.
+
+  echo_stdout "Eject CD and prompt for another blank CD"
+
+  medcp -ue cd > /dev/null 2>&1
+
+  echo_int
+  echo_int
+  echo "Insert second blank CD and press Enter."
+  echo_int
+  echo_int
+  read ignore_input
+
+  # Burn files to second cd
+
+  echo_stdout "Burn CD using medcp -ce $adapt_file $log_file cd"
+
+  medcp -ce $adapt_file $log_file cd
+  ret=$?
+  if [ $ret -ne 0 -a $ret -ne 115 ]
+  then
+    # Error code 115 is due to eject -t. It doesn't work on RPGA, so ignore.
+    echo_error "Error ($ret) creating CD. Try again later using \"Save Adapt\" GUI"
+  fi
+
+  echo_stdout "Finished creating archive CDs"
+}
+
+#**************************************************************************
+# CLEANUP_FUNCTION: Clean up loose ends.
+#**************************************************************************
+
+cleanup_function ()
+{
+  echo_stdout "Performing cleanup"
+
+  # Cleanup directories.
+
+  if [ -d $COMPARE_1_ADAPT_DIR ]
+  then
+    rm -rf $COMPARE_1_ADAPT_DIR > /dev/null 2>&1
+  fi
+  if [ -d $COMPARE_2_ADAPT_DIR ]
+  then
+    rm -rf $COMPARE_2_ADAPT_DIR > /dev/null 2>&1
+  fi
+  if [ -d $OLD_ADAPT_DIR ]
+  then
+    rm -rf $OLD_ADAPT_DIR > /dev/null 2>&1
+  fi
+  if [ -d $NEW_ADAPT_DIR ]
+  then
+    rm -rf $NEW_ADAPT_DIR > /dev/null 2>&1
+  fi
+
+  # If CD is mounted, change directory out of CD path and unmount/eject.
+  if medcp -p cd > /dev/null 2>&1
+  then
+    cd > /dev/null 2>&1
+    medcp -ue cd > /dev/null 2>&1
+  fi
+}
+
+#**************************************************************************
+# CHECK_FOR_REBOOT: Determine if system reboot is necessary.
+#**************************************************************************
+
+check_for_reboot ()
+{
+  echo_stdout "Determine if reboot required"
+
+  # If site files have been installed, then a reboot is required.
+
+  if [ $INSTALLED_SITE_FILES_FLAG = "NO" ]
+  then
+    echo_stdout "Site files not installed. No reboot required."
+    return
+  fi
+
+  echo_stdout "The system must be rebooted to complete the update."
+  echo_int    "Press Enter to reboot the system."
+  read
+  sudo reboot
+}
+
+#**************************************************************************
+#**************************************************************************
+#
+# End of Functions
+#
+#**************************************************************************
+#**************************************************************************
+
+#**************************************************************************
+#**************************************************************************
+#
+# Main Body of Script
+#
+#**************************************************************************
+#**************************************************************************
+
+init_le_log
+parse_input "$@"
+initial_setup
+install_site
+install_adapt
+cleanup_function
+check_for_reboot
+
+echo_int
+echo_int
+echo_stdout "Successful installation of site-specific files"
+echo_int
+echo_int
+
+exit 0
+

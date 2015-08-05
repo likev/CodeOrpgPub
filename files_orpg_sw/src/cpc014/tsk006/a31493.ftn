@@ -1,0 +1,323 @@
+C
+C RCS info
+C $Author: steves $
+C $Locker:  $
+C $Date: 2007/06/12 20:27:03 $
+C $Id: a31493.ftn,v 1.6 2007/06/12 20:27:03 steves Exp $
+C $Revision: 1.6 $
+C $State: Exp $
+C
+      SUBROUTINE A31493__DIG_RADIAL( STMINFO_LINEAR, PRODBUF, LYR1EN )
+
+*.***********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A31493__DIG_RADIAL
+*.
+*.  MODULE VERSION: 0001
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER              NOTES
+*.       ----------    -------   ------------------     -----------------
+*.       07/31/02       0000      Jihong Liu             CCR  NA02-15801 
+*.       10/26/05       0001      Cham Pham              CCR  NA05-28503
+*.
+*.
+*.  CALLING SEQUENCE: CALL A31493__DIG_RADIAL( STMINFO_LINEAR,
+*.                                             PRODBUF, LYR1EN )
+*.
+*.  MODULE FUNCTION:
+*.
+*.     This module packs two (2) 256-level radial data  per (I*2)
+*.     halfword of the product buffer.  This corresponds to the format
+*.     described in Fig. 3-11c of the RPG-Associated PUP ICD for the
+*.     Digital Radial Data Array Packet.
+*.
+*.
+*.  MODULES CALLED: ISBYTE
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT           TYPE        DESCRIPTION
+*.    -   -----           ----        -----------
+*.    G   BLOCKIDOFF      I*4         (CONSTANT)Product block ID offset.
+*.    G   DIV2OFF         I*4         (CONSTANT)Product block offset: Second
+*.                                    divider.
+*.    G   FRBOFF          I*4         (CONSTANT)Display header offset (for
+*.                                    radially formatted products):Range to
+*.                                    first bin.
+*.    G   ICNTOFF         I*4         (CONSTANT)Display header offset (For
+*.                                    radially formatted products): I Center
+*.                                    of sweep.
+*.    G   JCNTOFF         I*4         (CONSTANT)Display header offset (for
+*.                                    radially formatted products): J Center
+*.                                    of sweep.
+*.    G   LYRDIVOFF       I*4         (CONSTANT)PRODUCT BLOCK OFFSET: LAYER
+*.                                    DIVIDER
+*.    G   LYRLLSWOFF      I*4         (CONSTANT)Product block offset:  Layer
+*.                                    length (LSW).
+*.    G   LYRLMSWOFF      I*4         (CONSTANT)Product block offset: Layer
+*.                                    length (MSW).
+*.    G   MAX_AZMTHS      I*4         (CONSTANT)Maximum number of azimuths in
+*.                                    a scan (index into output buffer of
+*.                                    adjusted values).
+*.    G   MAX_ADJBINS     I*4         (CONSTANT)Maximum number of bins in a
+*.                                    radial.
+*.    G   NLYROFF         I*4         (CONSTANT)Product block offsets: Number
+*.                                    of layers.
+*.    G   NRBOFF          I*4         (CONSTANT)Display header offset (For
+*.                                    radially formatted products): Number of
+*.                                    range bins.
+*.    G   OPCDOFF         I*4         (CONSTANT)Display header offset (For
+*.                                    radially formatted products): Operation
+*.                                    code.
+*.    G   RADOFF          I*4         (CONSTANT)Display header offset
+*.                                    descriptions (For radially formatted
+*.                                    products): Number of radials.
+*.    G   SFACOFF         I*4         (CONSTANT)Display header offset (For
+*.                                    radially formatted products): Scale
+*.                                    factor.
+*.    C   INCRMENT        I*4         (CONSTANT)Parameter used to increment by
+*.                                    one.
+*.    P   STMINFO_LINEAR  I*2         One-dimensional representation of
+*.                                    digital storm total values
+*.    P   PRODBUF         I*2         Product output buffer
+*.
+*.
+*.    *   OUTPUT           TYPE       DESCRIPTION
+*.    -   ------           ----       -----------
+*.    P   LYR1EN           I*4        Ending index of DSP product layer 1
+*.    P   PRODBUF          I*2        Product output buffer
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE      DESCRIPTION
+*.    -   ----------------  ----      -----------
+*.    P   PRODBUF           I*2        Product output buffer
+*.
+*.  DATABASE/FILE REFERENCE:  NONE
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME             TYPE        DESCRIPTION
+*.    ----             ----        -----------
+*.    BIN              I*4         Sample bin index on digital storm grid
+*.    BIN_P1           I*4         Bin incr. used to determine if bin = 116
+*.    DIG_RAD_HDRLNG   I*4         Digital Radial Data packet header length
+*.    DIVIDER          I*4         Parameter for block divider in product
+*.                                 buffer
+*.    FIRST            I*4         Reference to first radial or sample bin
+*.    FIRST_BIN        I*4         Index of first sample bin of a new run
+*.    I4WORD           I*4         Generic I*4 word used for assigning values
+*.                                 to an I*2 product buffer via equivalencing
+*.                                 -2.1474838x10**9 to +2.1474837x10**9
+*.    ICENTER          I*4         I coordinate center of sweep
+*.    JCENTER          I*4         J coordinate center of sweep
+*.    LAST_BIN         I*4         Index of last sample bin of a new run
+*.    LEFTBYTE         I*4         Reference to left (most significant) byte
+*.                                 in I*2 word
+*.    NI2              I*4         Ratio of I*4 bytes to I*2 bytes
+*.    OBFRIND          I*4         Present output buffer index
+*.    OPCODE_DIG_PKT   I*4         Packet code for Digital Radial Data packet
+*.    PIX_VALUE        I*4         Pixel value to be compacted into product
+*.                                 buffer
+*.    RAD              I*4         Radial index on Digital Storm Total  grid
+*.    RAD_MULT_FACT    I*4         Multiplication factor for Radial Start and
+*.                                 Delta angles
+*.    RANGE_MULT_FACT  I*4         Multiplication factor for determining Range
+*.                                 Scale Factor
+*.    RANGE_SCALE_FACT I*4         Scale factor in Digital Radial Data Array
+*.                                 packet indicating number of pixels per
+*.                                 range bin
+*.    RGTBYTE          I*4         Reference to right (least significant) byte
+*.                                 in I*2 word
+*.    SCALE_DELTA      I*4         Scaled radial delta angle
+*.    SOBUFFIND        I*4         Saved output buffer index used for later
+*.                                 storage of no. Of bytes in radial
+*.    SYMB_BLKID       I*4         Block ID for Product Symbology block
+*.    TWO              I*4         Constant used for no. of DSP product layers
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+
+C
+C RCS info
+C $Author: steves $
+C $Locker:  $
+C $Date: 2002/07/31 13:57:50
+C $Id: a31493.ftn,v 1.6 2007/06/12 20:27:03 steves Exp $
+C $Revision: 1.6 $
+C $State: Exp $
+C
+      IMPLICIT NONE
+C
+C **** Include data flags and offsets into product header:
+C
+$INCLUDE A304.INC/G, **A304P4 (NLIST)
+C
+$INCLUDE A309.INC/G,**A3PM01 (NEND NLIST)
+C
+C *** Include Hydromet-related parameters:
+C
+$INCLUDE A313HBUF.INC/G,**A313HYPP (NLIST)
+C
+$INCLUDE A3143.INC/G,**A3143P4 (NLIST)
+C
+$INCLUDE A3146.INC/G,**A3146P1 (NLIST)
+$INCLUDE             **A3146P3 (NLIST)
+C
+C--------------------------------------------------------------------
+C
+      INTEGER    BIN, RAD, PIX_VALUE, OBFRIND, SOBUFFIND
+      INTEGER    FIRST_BIN, LAST_BIN, LYR1EN
+C
+      INTEGER    LEFTBYTE, RGTBYTE, NULL, FIRST, TWO,
+     +           DIVIDER, SYMB_BLKID
+#IFDEF LINUX
+      PARAMETER (LEFTBYTE=1,RGTBYTE=0)
+#ELSE
+      PARAMETER (LEFTBYTE=0,RGTBYTE=1)
+#ENDIF
+      PARAMETER (NULL=0,FIRST=1, TWO=2,DIVIDER=-1, SYMB_BLKID=1 )
+C
+      INTEGER    OPCODE_DIG_PKT
+      PARAMETER (OPCODE_DIG_PKT=16)
+C
+      INTEGER    DIG_RAD_HDRLNG
+      PARAMETER (DIG_RAD_HDRLNG=7)
+C
+      INTEGER    ICENTER, JCENTER
+      PARAMETER (ICENTER=0, JCENTER=0)
+C
+      INTEGER    RANGE_MULT_FACT, RANGE_SCALE_FACT
+      PARAMETER (RANGE_MULT_FACT=1000,
+     +           RANGE_SCALE_FACT=(230/MAX_ADJBINS)*RANGE_MULT_FACT)
+
+C
+      INTEGER    RAD_MULT_FACT, SCALE_DELTA
+      PARAMETER (RAD_MULT_FACT=10, SCALE_DELTA=RAD_MULT_FACT)
+
+C
+      INTEGER    BIN_P1
+      INTEGER    I4WORD
+C
+      INTEGER*2 STMINFO_LINEAR(MAX_ADJBINS*MAX_AZMTHS)
+      INTEGER*2 PRODBUF(*)
+C
+C*******************************************************************
+C
+C** Executable code:
+C
+C** Set output buffer index to index passed in:
+C
+      OBFRIND  = START_WORD
+C
+C** Initialize variables:
+C
+      RAD = FIRST
+      FIRST_BIN = FIRST
+      LAST_BIN = MAX_ADJBINS
+C
+C** Fill in packet header for Digital Radial Data Array Packet:
+C
+      PRODBUF(OPCDOFF) = OPCODE_DIG_PKT
+      PRODBUF(FRBOFF ) = NULL 
+      PRODBUF(NRBOFF ) = MAX_ADJBINS+1
+      PRODBUF(ICNTOFF) = ICENTER
+      PRODBUF(JCNTOFF) = JCENTER
+      PRODBUF(SFACOFF) = RANGE_SCALE_FACT
+C
+C** Do for all radials in the input buffer:
+C
+ 103  IF( RAD .LE. MAX_AZMTHS ) THEN
+         SOBUFFIND = OBFRIND
+         OBFRIND   = OBFRIND + INCRMENT
+C
+C** Store Radial Start Angle & Delta Angle (scaled by 10) in Prodbuf:
+C
+         PRODBUF(OBFRIND) = (RAD -FIRST) * RAD_MULT_FACT
+         OBFRIND  = OBFRIND + INCRMENT
+         PRODBUF(OBFRIND) = SCALE_DELTA
+         OBFRIND  = OBFRIND + INCRMENT
+C
+C** Do for all sample bins:
+C
+         DO 102 BIN = FIRST_BIN, LAST_BIN,2
+C
+C** Restrict range to (0-255)
+C
+            PIX_VALUE = STMINFO_LINEAR( BIN )
+C
+C** ... Store color level on left:
+C
+            CALL ISBYTE( PIX_VALUE, PRODBUF(OBFRIND), LEFTBYTE )
+
+C** Determine if this bin is last bin (i.e. 116) in each radial 
+
+            BIN_P1 = BIN+1 
+
+            IF (mod(BIN_P1,MAX_ADJBINS) .NE. 1) THEN
+               PIX_VALUE = STMINFO_LINEAR( BIN+1 )
+            ELSE
+               PIX_VALUE=0
+            ENDIF   
+
+C** ... Store color level on right:
+C
+            CALL ISBYTE( PIX_VALUE, PRODBUF(OBFRIND), RGTBYTE )
+            OBFRIND = OBFRIND + INCRMENT
+ 102     CONTINUE
+C
+C  End of radial:
+C
+C Store # bytes for this radial:
+C
+         PRODBUF(SOBUFFIND) = MAX_ADJBINS+1
+C
+C** Next sample bin will be the first (of the new radial).
+C
+         RAD = RAD + INCRMENT
+         FIRST_BIN = FIRST_BIN + MAX_ADJBINS
+         LAST_BIN = LAST_BIN + MAX_ADJBINS
+         GO TO 103
+C
+C** Above GOTO used to simulate while loop.
+C
+      ENDIF
+C
+C** Store count of radials in packet sub-header.
+C
+      PRODBUF(RADOFF) = RAD - INCRMENT
+C
+C** Fill in Product Symbology Block Header:
+C
+      PRODBUF(DIV2OFF   ) = DIVIDER
+      PRODBUF(BLOCKIDOFF) = SYMB_BLKID
+      PRODBUF(NLYROFF   ) = TWO
+      PRODBUF(LYRDIVOFF ) = DIVIDER
+C
+C** ...Layer Length for Digital Radial Data RLE Packet:
+C
+      I4WORD = (OBFRIND - START_WORD + DIG_RAD_HDRLNG) * NI2
+      call RPG_set_product_int( PRODBUF(LYRLMSWOFF), I4WORD )
+C
+C** ...Calculate value of Layer 1 End:
+C
+      LYR1EN = OBFRIND - INCRMENT
+C
+      RETURN
+      END

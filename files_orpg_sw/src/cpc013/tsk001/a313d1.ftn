@@ -1,0 +1,477 @@
+C 
+C RCS info 
+C $Author: steves $ 
+C $Locker:  $ 
+C $Date: 2014/04/25 17:26:46 $ 
+C $Id: a313d1.ftn,v 1.8 2014/04/25 17:26:46 steves Exp $ 
+C $Revision: 1.8 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A313D1__VIL_ET( VCP,HDR,IZC,ETPAR,ETVAL,OVERLAY,
+     $                           VILPAR,VILVAL,MYSTAT,BEAM_DEPTH)
+*.  MODULE VERSION: 0012
+*.
+*.  MODULE LANGUAGE:  FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       05 25 85      0000      Bradley Sutker
+*.       09 28 88      0001      CHI CHAN             SPR # 80293
+*.       02 13 91      0002      BAYARD JOHNSTON      SPR # 91254
+*.       12 03 91      0003      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0004      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0005      Toolset              SPR 91895
+*.       03/25/93      0006      Toolset              SPR NA93-06801
+*.       01/28/94      0007      Toolset              SPR NA94-01101
+*.       03/03/94      0008      Toolset              SPR NA94-05501
+*.       05/05/94      0009      STEVE SMITH          CCR 93158-003A00
+*.       04/11/96      0010      Toolset              CCR NA95-11802
+*.       12/23/96      0011      Toolset              CCR NA95-11807
+*.       03/16/99      0012      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:
+*.             CALL A313D1__VIL_ET(VCP,HDR,IZC,ETPAR,ETVAL,OVERLAY,
+*.                         VILPAR,VILVAL,MYSTAT,BEAM_DEPTH)
+*.
+*.  MODULE FUNCTION:
+*.     This is the principle processing subroutine of the
+*.     VIL/ECHO TOPS algorithm.  The main purpose of this routine
+*.     is decision making based on the radial status flag.  The first
+*.     decision is whether to initialize the partial VIL and maximum
+*.     liquid water arrays (initialized if beginning of an elevation
+*.     or volume scan). The next step is to compute pre-set HEIGHTS.
+*.     CALL ROUTINE TO COMPUTE THE BEAM DEPTH TABLE FOR THE WHOLE
+*.     COVERAGE AREA(23O KM) AT EACH ELEVATION OF THE VOLUME COVERAGE
+*.     PATTERN THAT IS BEING RUN.
+*.      This is done because the elevation angle is
+*.     assumed to be stable within an elevation cut.  If the elevat-
+*.     ION angle used to compute the pre-set heights and  is
+*.     different from the current elevation angle than the pre-set
+*.     heights  are re-computed. Next, the liquid water
+*.     value is determined...only if the reflectivity is above
+*.     a minimum threshold, however.  This is done only for good
+*.     radials.  The next step is the mapping of polar coordinate
+*.     data onto a Cartesian 4 x 4 box grid and also to compute
+*.     partial VIL and current Echo Tops values.  There are two
+*.     distinct mapping subroutines...one is called only when the
+*.     maximum elevation is being processed, so as to check
+*.     echo tops determined at the last elevation cut.  The other
+*.     is called every remaining radial.  Finally, if the end
+*.     of the volume has been reached then the total VIL is
+*.     computed and the maximum Echo Top and VIL and their positions
+*.     are determined.  Otherwise if the end of an elevation cut
+*.     has been reached then compute the cumulative VIL values.
+*.
+*.
+*.  MODULES CALLED: A313E1__HEIGHT_DEPTH, A313F1__LIQWAT_REFCHECK, 
+*.                  A313G1__CART_MAP1, A313H1__MAXVIL_MAXET, A313J1__CART_MAP2, 
+*.                  A3CM56__GET_ELEV_ANGLE 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT      TYPE        DESCRIPTION
+*.    -   -----      ----        -----------
+*.    G   BADBEL     I*4         (CONSTANT)Radial status flag: Bad beginning
+*.                               of elevation cut.
+*.    G   BADBVOL    I*4         (CONSTANT)Radial status flag: Bad beginning
+*.                               of volume scan.
+*.    G   BENDEL     I*4         (CONSTANT)Radial status flag: Bad end of
+*.                               elevation cut.
+*.    G   BENDVOL    I*4         (CONSTANT)Radial status flag: Bad end of
+*.                               volume scan.
+*.    G   COSAOFS1   I*4         (CONSTANT)Offset to cosine of azimuth angle
+*.                               (first half of R*4) in preprocessed radial
+*.                               header.
+*.    G   COSAOFS2   I*4         (CONSTANT)Offset to cosine of azimuth angle
+*.                               (second half of R*4) in preprocessed radial
+*.                               header.
+*.    G   EIOFFSET   I*4         (CONSTANT)Offset to elevation cut number in
+*.                               preprocessed radial header.
+*.    G   GENDEL     I*4         (CONSTANT)Radial status flag: Good end of
+*.                               elevation cut.
+*.    G   GENDVOL    I*4         (CONSTANT)Radial status flag: Good end of
+*.                               volume scan.
+*.    G   GOODBEL    I*4         (CONSTANT)Radial status flag: Good beginning
+*.                               of elevation cut.
+*.    G   GOODBVOL   I*4         (CONSTANT)Radial status flag: Good beginning
+*.                               of volume scan.
+*.    G   GOODTHRHI  I*4         (CONSTANT)Radial status flag: Highest good
+*.                               status value.
+*.    G   LASTELVOL  I*4         (CONSTANT)Position in radial header
+*.                               indicating last elevation in volume scan.
+*.    G   LEOFFSET   I*4         (CONSTANT)Offset to last elevation in volume
+*.                               scan flag in preprocessed radial header
+*.                               (halfwords).
+*.    G   NCOL       I*4         (CONSTANT)Number of analysis box columns.
+*.    G   NROW       I*4         (CONSTANT)Number of analysis box rows.
+*.    G   NSOFFSET   I*4         (CONSTANT)Offset to number of surveillance
+*.                               bins in preprocessed radial header (relative
+*.                               1 from beginning) in halfwords.
+*.    G   PBENDEL    I*4         (CONSTANT)Radial status flag: Pseudo bad end
+*.                               of elevation cut.
+*.    G   PBENDVOL   I*4         (CONSTANT)Radial status flag: Pseudo bad end
+*.                               of volume scan.
+*.    G   PGENDEL    I*4         (CONSTANT)Radial status flag: Pseudo good end
+*.                               of elevation cut.
+*.    G   PGENDVOL   I*4         (CONSTANT)Radial status flag: Pseudo good end
+*.                               of volume scan.
+*.    G   PHEDSIZE   I*4         (CONSTANT)Size of preprocessed base radial
+*.                               header.
+*.    G   PREFSIZE   I*4         (CONSTANT)Size of preprocessed base radial
+*.                               reflectivity data.
+*.    G   RGFSBOFF   I*4         (CONSTANT)Offset to range to first
+*.                               surveillance bin (in bins) in preprocessed
+*.                               radial header (relative 1 from beginning).
+*.    G   RSOFFSET   I*4         (CONSTANT)Offset to radial status in
+*.                               preprocessed radial header (relative 1 from
+*.                               beginning).
+*.    G   SINAOFS1   I*4         (CONSTANT)Offset to sine of azimuth angle
+*.                               (first half of R*4) in preprocessed radial
+*.                               header (relative 1 from beginning).
+*.    G   SINAOFS2   I*4         (CONSTANT)Offset to sine of azimuth angle
+*.                               (second half of R*4) in preprocessed radial
+*.                               header (relative 1 from beginning).
+*.    C   BOXHGHT    I*4         (CONSTANT)Height (Y-direction) of a VIL/ECHO
+*.                               tops analysis box.
+*.    C   BOXWDTH    I*4         (CONSTANT)The width (X - direction) of a
+*.                               VIL/ECHO tops analysis box.
+*.    C   MAXBINS    I*4         (CONSTANT)Maximum number of bins to be
+*.                               processed.
+*.    P   BEAM_DEPTH R*4         COMPUTED beam depth TABLE array, in km.
+*.    P   ETPAR      I*4         ARRAY OF ECHO TOPS AUXILIARY PARAMETERS
+*.    P   ETVAL      I*2         Array of Echo Tops Values in thousands of
+*.                               feet.
+*.    P   HDR        I*2         The base data radial header array. elevation
+*.                               angle.
+*.    P   IZC        I*2         The scaled biased integer reflectivity value.
+*.    P   OVERLAY    I*4         Bit map defining which echo tops were found
+*.                               at the maximum elevation angle.
+*.    P   VCP        I*4         Current VCP number
+*.    P   VILPAR     I*4         VIL supplemental variable output array.
+*.    P   VILVAL     I*2         The array of VIL values, in kg/m**2.
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    P   ETPAR   I*4         ARRAY OF ECHO TOPS AUXILIARY PARAMETERS
+*.    P   ETVAL   I*2         Array of Echo Tops Values in thousands of feet.
+*.    P   MYSTAT  I*4         An internal flag telling the routine when to
+*.                            quit.
+*.    P   OVERLAY I*4         Bit map defining which echo tops were found at
+*.                            the maximum elevation angle.
+*.    P   VILPAR  I*4         VIL supplemental variable output array.
+*.    P   VILVAL  I*2         The array of VIL values, in kg/m**2.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    P   BEAM_DEPTH        R*4         COMPUTED beam depth TABLE array, in
+*.                                      km.
+*.    P   ETPAR             I*4         ARRAY OF ECHO TOPS AUXILIARY
+*.                                      PARAMETERS
+*.    P   ETVAL             I*2         Array of Echo Tops Values in thousands
+*.                                      of feet.
+*.    P   HDR               I*2         The base data radial header array.
+*.                                      elevation angle.
+*.    P   IZC               I*2         The scaled biased integer reflectivity
+*.                                      value.
+*.    P   OVERLAY           I*4         Bit map defining which echo tops were
+*.                                      found at the maximum elevation angle.
+*.    P   VCP               I*4         Current VCP number
+*.    P   VILPAR            I*4         VIL supplemental variable output
+*.                                      array.
+*.    P   VILVAL            I*2         The array of VIL values, in kg/m**2.
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME        TYPE        DESCRIPTION
+*.    ----        ----        -----------
+*.    CONVERT     R*4         Conversion factor deg*10 to radians.
+*.                            radians/deg
+*.    COSAZ       R*4         Cosine of the radial azimuth angle
+*.    COSEL       R*4         The cosine of the bench_mark elevation angle.
+*.    DONE        I*4         The value of the flag when to quit (111).
+*.    ELEVANG     I*4         Radial elevation angle in deg*10.0
+*.    ELNUMR      I*4         Elevation number for current elevation angle.
+*.    ENDRAD      I*4         Internal radial status flag, if = RADFLAG, end
+*.                            of current elevation (good or bad, regular or
+*.                            pseudo), has been reached, assigned a value of
+*.                            2.
+*.    FOUND       L*4         Flag set if elevation angle retrieved
+*.                            successfully
+*.    FULLWORD    R*4         Used to store sine and cosine data from radial
+*.                            header
+*.    HALFWORD    I*2         Used to extract sine and cosine data from radial
+*.                            header
+*.    HEIGHT      I*2         The echo height array, in thousands of feet.
+*.    HUNDRETH    R*4         Used to complete accumulative VIL values.
+*.    INDEX       I*4         Do-Loop index
+*.    INIT        I*4         Used to initialize MYSTAT, an internal flag
+*.                            telling the routine when to quit.
+*.    INTRAD      I*4         Internal radial status flag, if = RADFLAG, end
+*.                            of current elevation (good or bad, regular or
+*.                            pseudo), has not been reached, assigned a value
+*.                            of 1.
+*.    LASTBIN     I*4         The computed last bin number, either the
+*.                            equivalent of the maximum range, or the start
+*.                            bin plus the total number of bins.
+*.    LIQWAT      I*2         Liquid water value array, in hundredths of
+*.                            g/m**3.
+*.    MAXEL       I*4         Dimension of BEAM_DEPTH array.
+*.    MAXRBIN     I*4         Dimension of array BEAM_DEPTH.
+*.    MXLIQWAT    I*2         The maximum liquid water value array in
+*.                            hundreths of g/m**3.
+*.    NCURBIN     I*4         The number of bins in the current radial
+*.    NSTAT       I*2         Radial status flag.
+*.    PRESHGT     I*2         The pre-set echo height array (in tens of
+*.                            meters).
+*.    PTLVIL      R*4         Partial VIL array in kg/m**3.
+*.    RADFLAG     I*4         Internal radial status flag. If = INTRAD, end of
+*.                            current elevation has not been reached. If
+*.                            RADFLAG = ENDRAD, end of elevation has been
+*.                            reached.
+*.    SHIFTFAC    I*4         Factor used in Cartesian mapping
+*.    SINAZ       R*4         Sine of radial azimuth
+*.    SINEL       R*4         Sine of the "Bench_Mark" elevation angle.
+*.    XAZFUNC_PTL R*4         Partial x Cartesian mapping parameter
+*.    YAZFUNC_PTL R*4         Partial y Cartesian mapping parameter
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:
+*.
+*.    The Surveillance data sample interval size is assumed 1 kilometer.
+*.    If the sample size changes, the variables XAZFUNC_PTL and YAZFUNC_PTL
+*.    must be multipled by the sample interval size in kilometers.
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP13.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK13.CSS
+*.
+*.  MISC:
+*.
+*.     Further description of the Product Index and Disk Space Map
+*.     organization may be found in the CPCI 03 C5 document.
+*.
+*.*******************************************************************
+C************************************************************
+C*                  THE VIL/ECHO TOPS                       *
+C*                PRINCIPAL PROCESSING                      *
+C*                     SUBROUTINE                           *
+C*                     A313D1.FTN                           *
+C*                                                          *
+C************************************************************
+C
+      IMPLICIT NONE
+C
+C Include common parameter file
+C
+$INCLUDE A313BUF.INC/G,**A313P0 (NLIST)
+$INCLUDE               **A313Z0 (NLIST)
+$INCLUDE               **A313Z1 (NLIST)
+C
+C Include common data and parameter declaration files
+C
+$INCLUDE A309.INC/G,**A3PM02 (NLIST)
+$INCLUDE            **A3PM50 (NLIST)
+$INCLUDE A304.INC/G,**A304P4 (NLIST)
+C
+C Local data definitions
+C
+      INTEGER*2 IZC(PREFSIZE),HDR(PHEDSIZE)
+      INTEGER NCURBIN,INDEX,DONE,MYSTAT,PVIL
+      INTEGER INTRAD,ENDRAD,RADFLAG,LASTBIN,INIT
+      INTEGER MAXEL,MAXRBIN,ELNUMR,ELN,VCP,ELEVANG
+      PARAMETER(MAXEL=20,MAXRBIN=230)
+C
+      PARAMETER(INTRAD=1,ENDRAD=2,DONE=111)
+C
+      INTEGER*2 PRESHGT(MAXBINS),HEIGHT(MAXBINS),NSTAT
+      INTEGER*2 LIQWAT(MAXBINS),MXLIQWAT(NCOL*NROW)
+C
+      REAL COSEL, SINEL, CONVERT, HUNDRETH, SINAZ, COSAZ
+      REAL XAZFUNC_PTL, YAZFUNC_PTL
+      REAL BEAM_DEPTH(MAXRBIN,MAXEL), PTLVIL(NCOL*NROW)
+C
+      LOGICAL FOUND
+C
+      INTEGER*2 HALFWORD(2)
+      REAL FULLWORD
+      EQUIVALENCE (HALFWORD(1),FULLWORD)
+
+
+      INTEGER ALLOW_SUPPL_SCANS
+      COMMON/SAILS/ ALLOW_SUPPL_SCANS
+C
+C Data declarations
+C
+      PARAMETER (CONVERT = 0.0174532/10.0)
+      DATA HUNDRETH /0.01/
+C
+C Rename radial status flag
+C
+      NSTAT=HDR(RSOFFSET)
+C
+C If this is the first (good or bad) radial of the
+C elevation scan then ....
+C
+      IF ( NSTAT.EQ.GOODBEL .OR. NSTAT.EQ.GOODBVOL
+     $ .OR. NSTAT.EQ.BADBEL .OR. NSTAT.EQ.BADBVOL ) THEN
+C
+C Variable initializations
+C
+        MYSTAT = INIT
+C
+C Set the internal radial flag to INTRAD (intermediate
+C elevation radial)
+C
+        RADFLAG=INTRAD
+C
+C Set internal partial VIL and maximum liquid water grids to zero
+C
+        DO 20 INDEX=1,NROW*NCOL
+          PTLVIL(INDEX)=0.0
+          MXLIQWAT(INDEX)=0
+   20   CONTINUE
+C
+C Determine COSINE and SINE of current elevation angle, and current
+C elevation number.
+C
+        ELN=HDR(EIOFFSET)
+        CALL A3CM56__GET_ELEV_ANGLE(VCP, ELN, ELEVANG, FOUND)
+
+        COSEL = COS(ELEVANG*CONVERT)
+        SINEL = SIN(ELEVANG*CONVERT)
+C
+C Compute partial Cartesian mapping parameters.
+C
+        XAZFUNC_PTL = (COSEL/BOXWDTH)*SHIFTFAC
+        YAZFUNC_PTL = (COSEL/BOXHGHT)*SHIFTFAC
+C
+C Call Subroutine to compute all sample heights for all slant ranges.
+C
+        CALL A313E1__HEIGHT_DEPTH ( SINEL, NCURBIN, PRESHGT )
+      END IF
+C
+C If the end of the elevation or volume has been reached
+C already (ie. between elevations or radials) then skip
+C to the end
+C
+      IF (RADFLAG.NE.ENDRAD) THEN
+C
+C If the radial status indicates a bad radial...skip all processing
+C
+        IF ( NSTAT.LE.GOODTHRHI ) THEN
+C
+C Call Subroutine to compute liquid water values if above
+C a reflectivity threshold...otherwise set all height and
+C partial VIL values to a background level
+C
+          CALL A313F1__LIQWAT_REFCHECK(IZC,HDR(RGFSBOFF),HDR(NSOFFSET),
+     $                         NCURBIN,LASTBIN,PRESHGT,HEIGHT,LIQWAT )
+C
+C Extract the sine and cosine of the azimuth from radial header.
+C
+          HALFWORD(1) = HDR(SINAOFS1)
+          HALFWORD(2) = HDR(SINAOFS2)
+          SINAZ = FULLWORD
+          HALFWORD(1) = HDR(COSAOFS1)
+          HALFWORD(2) = HDR(COSAOFS2)
+          COSAZ = FULLWORD
+C
+C If this is the end of the last elevation cut in the current volume
+C coverage then call Cartesian mapping routine #2 which includes
+C maximum elevation Echo Top processing otherwise call Cartesian
+C mapping routine #1 only
+C
+C Remape the elevation number, if necessary.  With SAILS, elevation
+C numbers will not be contiguous for algorithms which do not process
+C the SAILS cuts.  Therefore using elvation number to index an array
+C can be problematic.  The RPG_remap_rpg_elev_index remaps the 
+C elevation number, extracted from the radial header, to the elevation
+C number as if the VCP had no SAILS cuts.  If SAILS is not active, 
+C the function call has no effect. 
+C
+          ELNUMR=ELN
+          CALL RPG_remap_rpg_elev_index(VCP, ELNUMR)
+
+          IF( HDR(LEOFFSET).EQ.LASTELVOL ) THEN
+            CALL A313J1__CART_MAP2( HDR(RGFSBOFF),LASTBIN,HEIGHT,
+     $       SINAZ,COSAZ,XAZFUNC_PTL,YAZFUNC_PTL,LIQWAT,PTLVIL,
+     $       MXLIQWAT,ETVAL,OVERLAY,BEAM_DEPTH(1,ELNUMR))
+C
+C Otherwise call Cartesian mapper #1
+C
+          ELSE
+            CALL A313G1__CART_MAP1( HDR(RGFSBOFF),LASTBIN,HEIGHT,
+     $       SINAZ,COSAZ,XAZFUNC_PTL,YAZFUNC_PTL,LIQWAT,PTLVIL,
+     $       MXLIQWAT,ETVAL,BEAM_DEPTH(1,ELNUMR))
+          END IF
+C
+        END IF
+C
+C If the pseudo-end (good or bad) of the elevation has been reached,
+C then...
+C
+        IF( NSTAT.EQ.PGENDEL.OR.NSTAT.EQ.GENDEL.OR.
+     $      NSTAT.EQ.BENDEL.OR.NSTAT.EQ.PBENDEL ) THEN
+C
+C Check internal radial status flag to see if it has been
+C switched to ENDRAD yet
+C
+          IF ( RADFLAG.EQ.INTRAD ) THEN
+C
+C Compute cumulative VIL values, in kg/m**2
+C
+            DO 100 INDEX=1,NROW*NCOL
+               CALL RPG_NINT( (PTLVIL(INDEX)*HUNDRETH), PVIL )
+               VILVAL(INDEX) = VILVAL(INDEX) + PVIL
+  100       CONTINUE
+C
+C Set the internal radial status flag to ENDRAD
+C (end of elevation radial)
+C
+            RADFLAG=ENDRAD
+          ENDIF
+C
+C Otherwise, if the (pseudo) end (good or bad) of the volume
+C has been reached then....
+C
+        ELSE IF( NSTAT.EQ.PGENDVOL.OR.NSTAT.EQ.GENDVOL.OR.
+     $        NSTAT.EQ.BENDVOL.OR.NSTAT.EQ.PBENDVOL ) THEN
+C
+C Call subroutine to compute total VIL values
+C and determine maximum VIL and Echo Top and their positions
+C
+            CALL A313H1__MAXVIL_MAXET ( PTLVIL,ETPAR,ETVAL,
+     $       VILPAR,VILVAL )
+C
+C Set the internal radial flag to ENDRAD (end of volume radial)
+C Also set time to quit flag
+C
+            RADFLAG = ENDRAD
+            MYSTAT = DONE
+C
+C Otherwise, don't do cumulative VIL computation and return
+C to buffer control for next input buffer
+C
+        END IF
+C
+      END IF
+C
+      RETURN
+      END

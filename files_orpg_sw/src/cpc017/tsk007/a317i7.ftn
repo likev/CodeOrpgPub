@@ -1,0 +1,269 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/17 15:47:53 $
+C $Id: a317i7.ftn,v 1.2 2002/12/17 15:47:53 christie Exp $
+C $Revision: 1.2 $
+C $State: Exp $
+C
+      SUBROUTINE A317I7__INIT_RAD( PTR, BDRADHDR, ELEVTIME )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A317I7__INIT_RAD
+*.
+*.  MODULE VERSION: 0001
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       05/29/97      0000      BOB/LEE              CCR NA94-26302
+*.       03/16/99      0001      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A317I3__INIT_RAD( PTR, BDRADHDR,
+*.                                           ELEVTIME )
+*.
+*.  MODULE FUNCTION:
+*.
+*.  This subroutine initializes flags & variables for each new radial
+*.  from the Radial Header.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT        TYPE        DESCRIPTION
+*.    -   -----        ----        -----------
+*.    G   AOFFSET1     I*4         (CONSTANT)Offset to angle measurement
+*.                                 (first half of R*4) in preprocessed radial
+*.                                 header.
+*.    G   AOFFSET2     I*4         (CONSTANT)Offset to angle measurement
+*.                                 (second half of R*4) in preprocessed radial
+*.                                 header.
+*.    G   BEG_ELEV     I*4         (CONSTANT)Radial status flag: Beginning of
+*.                                 elevation scan.
+*.    G   BEG_VOL      I*4         (CONSTANT)Radial status flag:Beginning of
+*.                                 volume scan.
+*.    G   EOFFSET1     I*4         (CONSTANT)Offset to elevation angle
+*.                                 measurement (first half of R*4) in
+*.                                 preprocessed radial header.
+*.    G   EOFFSET2     I*4         (CONSTANT)Offset to elevation angle
+*.                                 measurement (second half of R*4) in
+*.                                 preprocessed radial header.
+*.    G   PHEDSIZE     I*4         (CONSTANT)Size of preprocessed base radial
+*.                                 header.
+*.    G   TOFFSET1     I*4         (CONSTANT)Offset to generation time of
+*.                                 radial (first half of I*4) in preprocessed
+*.                                 radial header.
+*.    G   TOFFSET2     I*4         (CONSTANT)Offset to generation time of
+*.                                 radial (second half of I*4) in preprocessed
+*.                                 radial header.
+*.    C   PROG_ELEVANG R*4         System programmed elevation angle.
+*.    C   RADCOUNT     I*4         Number of radials in an elevation scan.
+*.    C   RADELEV      R*4         The elevation of a radial
+*.    C   RADTIME      I*4         Time of a radial.
+*.    C   RAD_STAT     I*4         A flag indicating beginning, end, and
+*.                                 potential end of elevation scans and volume
+*.                                 scans
+*.    C   SUM_ELEV     R*4         Sum of elevations of all radials in an
+*.                                 elevation scan.
+*.    C   TDAAZPTR     I*4         Pointer to 1st good azimuthal index within
+*.                                 the TDA1D attributes array (1 or 401)
+*.    P   BDRADHDR     I*2         Buffer array that holds radial header
+*.                                 information
+*.
+*.    *   OUTPUT   TYPE        DESCRIPTION
+*.    -   ------   ----        -----------
+*.    G   PV_AZIM  R*4         Azimuth of each radial.
+*.    C   RADAZIM  R*4         Azimuth Angle of radial
+*.    C   RADCOUNT I*4         Number of radials in an elevation scan.
+*.    C   RADELEV  R*4         The elevation of a radial
+*.    C   RADTIME  I*4         Time of a radial.
+*.    C   SUM_ELEV R*4         Sum of elevations of all radials in an
+*.                             elevation scan.
+*.    P   ELEVTIME I*4         Time of the beginning of an elevation sweep
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME     TYPE        DESCRIPTION
+*.    ----     ----        -----------
+*.    AZIMFULL R*4         A real word holding the azimuthal size of one
+*.                         radial
+*.    AZIMHALF I*2         A half word holding a radial azimuth
+*.    ELEVFULL R*4         Full word elevation angle value
+*.    ELEVHALF I*2         Two half words holding an elevation angle
+*.    ELEV_TOL R*4         Elevation tolerance
+*.    FWVHW    I*4         Size (2) of two words that combine to form whole
+*.                         word values.  See TIMEHALF, AZIMHALF, ELEVHALF,
+*.                         SINEHALF, COSEHALF
+*.    ONE      I*4         Parameter value of one.
+*.    TIMEFULL I*4         Time of a radial.(equivalenced to TIMEHALF)
+*.    TIMEHALF I*2         Two-halfword array containing TIMEFULL
+*.    TWO      I*4         :Program parameter value of 2.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    PVECS09
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A317C3T
+*.    A317CCT
+*.    A317CGT
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:
+*.
+*.     Even if a radial is flagged as "bad", the information in its
+*.   header is assumed to be valid.
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     Compiled using COMP15.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     Linked using LINK15.CSS
+*.
+*.  MISC:  None
+*.
+C********************************************************************
+C
+C              TDA1D: INITIALIZE RADIAL  ROUTINE
+C
+C********************************************************************
+C
+      IMPLICIT NONE
+C
+C**Attach input parameter-definition file (from "UNPACK_RADIAL_DATA")
+$INCLUDE A304.INC/G,**A304P4 (NLIST)
+C
+C**Attach parameter file of radial status flags.
+$INCLUDE A309.INC/G,**A3PM02 (NLIST)
+C
+C** Attach buffers/pointers
+$INCLUDE A317BUF.INC/G,**A317P3T (NLIST)
+C
+C**  Attach pointers for adaptation data
+$INCLUDE A317BUF.INC/G,**A317PTAD (NLIST)
+C
+C**  Attach Storm adaptation data declaration
+$INCLUDE A317BUF.INC/G,**A317CTAD (NLIST)
+C
+C** Attach parameters and pointers for Segments Image
+$INCLUDE A317.INC/G,**A317C3T (NLIST)
+C
+C** Attach Segments logical and local flags (CCS)
+$INCLUDE A317.INC/G,**A317CCT (NLIST)
+C
+C**  Attach derived adaptation data common block (CDS)
+$INCLUDE A317.INC/G,**A317CDT (NLIST)
+C
+C**Attach internal common block (CG)
+$INCLUDE A317.INC/G,**A317CGT (NLIST)
+C
+C** Attach Segments image
+$INCLUDE A309.INC/G,**A3CD09BL (NLIST)
+C
+C********************** DATA DECLARATIONS ***************************
+C
+C** Input:
+C
+      INTEGER*2 BDRADHDR( PHEDSIZE )
+      INTEGER   PTR
+C
+C** Local:
+C
+C** --Parameterize full word/half word size ratio.
+C
+      INTEGER   FWVHW
+      INTEGER   ELEVTIME
+      PARAMETER ( FWVHW=2 )
+C
+C** --Define full words & half words for equivalencing.
+C
+      INTEGER*2 TIMEHALF(FWVHW), AZIMHALF(FWVHW), ELEVHALF(FWVHW)
+      INTEGER*2 SINEHALF(FWVHW), COSEHALF(FWVHW)
+      INTEGER   TIMEFULL
+      INTEGER   ONE, TWO
+
+      REAL      AZIMFULL, ELEVFULL
+      REAL      COSEFULL, SINEFULL
+C
+C** --Define other local variables.
+C
+      REAL      ELEV_TOL
+
+C
+C************************* EQUIVALENCES *****************************
+C
+      EQUIVALENCE ( TIMEFULL,TIMEHALF( 1 ) )
+     $           ,( AZIMFULL,AZIMHALF( 1 ) )
+     $           ,( ELEVFULL,ELEVHALF( 1 ) )
+     $           ,( SINEFULL,SINEHALF(1) )
+     $           ,( COSEFULL,COSEHALF(1) )
+C
+C********************** DATA INITIALIZATIONS ************************
+C
+      PARAMETER ( ELEV_TOL = 0.5 )
+      PARAMETER ( ONE = 1, TWO = 2 )
+C
+C****************** BEGIN MAIN PROCESSING SECTION *******************
+C
+C** Increment the number of radials processed.
+C
+      RADCOUNT= RADCOUNT + 1
+C
+C** Initialize variables from input radial buffer for output buffer.
+C
+C** Radial Time:
+C
+      TIMEHALF( ONE ) = BDRADHDR( TOFFSET1 )
+      TIMEHALF( TWO ) = BDRADHDR( TOFFSET2 )
+      RADTIME     = TIMEFULL
+C
+C** Set the elevation and volume time to the time of the first radial
+C
+      IF(RAD_STAT .EQ. BEG_ELEV .OR. RAD_STAT .EQ. BEG_VOL)
+     $        ELEVTIME = RADTIME
+C
+C** Azimuth Angle:
+C
+      AZIMHALF( ONE ) = BDRADHDR( AOFFSET1 )
+      AZIMHALF( TWO ) = BDRADHDR( AOFFSET2 )
+      RADAZIM     = AZIMFULL
+      PV_AZIM(RADCOUNT + TDAAZPTR) = AZIMFULL
+C
+C** Elevation Angle:
+C
+      ELEVHALF( ONE ) = BDRADHDR( EOFFSET1 )
+      ELEVHALF( TWO ) = BDRADHDR( EOFFSET2 )
+      RADELEV     = ELEVFULL
+C
+C** If programmed elevation angle is greater than 0.5 degrees
+C** from measured angle, set the measured angle to the programmed
+C** value.  This elimates contamination from spurious values.
+C
+      IF( ABS(PROG_ELEVANG - RADELEV) .GT. ELEV_TOL )
+     $                       RADELEV = PROG_ELEVANG
+C
+C** Sum the elevation angle.
+C
+      SUM_ELEV = SUM_ELEV + RADELEV
+C
+C************** END OF PROCESSING FOR SUBROUTINE ********************
+C
+      RETURN
+      END

@@ -1,0 +1,118 @@
+/*
+ * RCS info
+ * $Author: steves $
+ * $Locker:  $
+ * $Date: 2003/03/10 21:44:05 $
+ * $Id: rpgcs_wid_conversion.mac,v 1.1 2003/03/10 21:44:05 steves Exp $
+ * $Revision: 1.1 $
+ * $State: Exp $
+ */
+
+#define MIN_WID_VALUE                   0
+#define MAX_WID_VALUE                 255
+
+#define MIN_WMS_VALUE                0.0f
+#define MAX_WMS_VALUE               10.0f
+
+#define INVALID_WID_MS            -777.0f
+
+/* Conversion table for spectrum width */
+static float SPW_MAC[256] = { -999.,-888.,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,
+                              0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,
+                              0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,
+                              0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,
+                              0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,
+                              0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,
+                              0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,
+                              0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,
+                              0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.,.5,1.,1.5,2.,2.5,
+                              3.,3.5,4.,4.5,5.,5.5,6.,6.5,7.,7.5,8.,8.5,9.,9.5,10.0,10.0,
+                              10.0,10.0,10.0,10.0,10.0,10.0,10.0,10.0,10.0,10.0,10.0,10.0,
+                              10.0,10.0,10.0,10.0,10.0,10.0,10.0,10.0,10.0,10.0,10.0,10.0,
+                              10.0,10.0,10.0,10.0,10.0,10.0,10.0,10.0,10.0,10.0,10.0,10.0,
+                              10.0,10.0,10.0,10.0,10.0,10.0,10.0,10.0,10.0,10.0,10.0,10.0,
+                              10.0,10.0,10.0,10.0,10.0,10.0,10.0,10.0,10.0,10.0,10.0,10.0,
+                              10.0,10.0,10.0,10.0,10.0,10.0,10.0,10.0,10.0,10.0,10.0,10.0,
+                              10.0,10.0,10.0,10.0,10.0,10.0,10.0,10.0,10.0,10.0,10.0,10.0,
+                              10.0,10.0,10.0,10.0,10.0,10.0,10.0,10.0,10.0,10.0,10.0,10.0,
+                              10.0,10.0,10.0,10.0,10.0,10.0,10.0,10.0,10.0};
+
+
+/******************************************************************
+
+   Description:
+      Sets the Below Threshold and RF DBZ values.
+
+   Inputs:
+      BELOW_THR_VAL, RF_VAL
+
+******************************************************************/
+#define RPGCS_SET_WID_FLAG_VALS( BELOW_THR_VAL, RF_VAL )		\
+									\
+   SPW_MAC[MIN_WID_VALUE] = (BELOW_THR_VAL);					\
+   SPW_MAC[MIN_WID_VALUE+1] = (RF_VAL);
+
+
+/******************************************************************
+
+   Description:
+      Given the base data spectrum width value (as defined in 
+      RDA/RPG ICD), return the corresponding m/s value.  
+
+   Inputs:
+      WID - the data value in scaled and biased units (i.e.,
+            ICD format).
+
+   Outputs:
+      MS - the spectrum width, in m/s.
+
+   Notes:
+      Assumes MIN_WID_VALUE <= WID <= MAX_WID_VALUE
+   
+
+******************************************************************/
+#define RPGCS_WID_TO_MS( WID, MS )					\
+									\
+   (MS) = SPW_MAC[(WID)];
+
+
+/******************************************************************
+
+   Description:
+      Converts m/s to scaled and biased units.  
+
+   Inputs:
+      MS - the data value in m/s.
+
+   Outputs:
+      WIDTH - the data value in RDA/RPG ICD units.
+
+   Notes:
+      If m/s value is out of bounds of the array SPW, the value
+      DATA_OUT_OF_RANGE is returned.
+
+******************************************************************/
+#define RPGCS_MS_TO_WID( MS, WIDTH )					\
+									\
+   {									\
+      int ispw = 0;							\
+      float wid = 0.0;							\
+									\
+      /* Verify the velocity value. */					\
+      if( ((MS) < MIN_WMS_VALUE]) || ((MS) > MAX_WMS_VALUE]) )		\
+         (WID) = DATA_OUT_OF_RANGE;					\
+									\
+      else{								\
+									\
+         /* Scale the spectrum width. */				\
+         wid = ((MS) + (MS) + 127.0; 					\
+ 									\
+         /* Take nearest integer. */					\
+         NEAREST_INTEGER( wid, (WIDTH) );				\
+									\
+         /* Bias the spectrum width. */					\
+         (WIDTH) += 2;							\
+									\
+      }									\
+									\
+   }

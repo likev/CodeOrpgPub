@@ -1,0 +1,363 @@
+C 
+C RCS info 
+C $Author: nolitam $ 
+C $Locker:  $ 
+C $Date: 2002/11/27 15:16:53 $ 
+C $Id: a3146f.ftn,v 1.4 2002/11/27 15:16:53 nolitam Exp $ 
+C $Revision: 1.4 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A3146F__INIT_FILE
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3146F__INIT_FILE
+*.
+*.  MODULE VERSION: 0015
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       09 15 88      0000      M.J.STALEY           SPR# 90348
+*.       03 27 90      0001      DAVE HOZLOCK         SPR# 90697
+*.       07 13 90      0002      EDWARD WENDOWSKI     SPR# 90775
+*.       11 04 90      0003      PAUL JENDROWSKI      SPR# 91255
+*.       12 03 91      0004      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0005      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0006      Toolset              SPR 91895
+*.       03/25/93      0007      Toolset              SPR NA93-06801
+*.       01/28/94      0008      Toolset              SPR NA94-01101
+*.       03/03/94      0009      Toolset              SPR NA94-05501
+*.       08/10/94      0010      C. Stephenson        CCR NW-94-084-02
+*.       04/01/95      0011       Toolset             CCR NA95-11802
+*.       07/09/96      0012       C. Stephenson       CCR NA96-19201
+*.       12/23/96      0013      Toolset              CCR NA95-11807
+*.       03/16/99      0014      Toolset              CCR NA98-23803
+*.       01/31/02      0015      Dennis A. Miller     CCR NA01-27501
+*.
+*.  CALLING SEQUENCE: CALL A3146F__INIT_FILE
+*.
+*.  MODULE FUNCTION:  INITIALIZES THE DISK FILE
+*.
+*.  MODULES CALLED: A31215__GET_OUTBUF, A31216__REL_OUTBUF, A31468__PDB_IO,
+*.                  SNDMSG
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT          TYPE        DESCRIPTION
+*.    -   -----          ----        -----------
+*.    G   MEM            I*4         Array in RPG shared memory set aside for
+*.                                   buffer sharing.
+*.    G   DESTROY        I*4         (CONSTANT)Mnemonic used as input to
+*.                                   A31216__REL_OUTBUF. Indicates "do not
+*.                                   pass data to other tasks".
+*.    G   FLAG_SET       I*4         (CONSTANT)Parameter for a set flag.
+*.    G   SCRATCH        I*4         (CONSTANT)DATA BUFFER TYPE FOR TASK
+*.                                   SCRATCH DATA BUFFERS
+*.    C   FILE_REC       I*4         Array of file records where the hourly
+*.                                   scans are stored on disk. Accessed with
+*.                                   rotating indicies: Knewest, kmiddle,
+*.                                   koldest.
+*.    C   KMIDDLE        I*4         Index of the middle of the 3 hourly
+*.                                   scans.
+*.    C   KNEWEST        I*4         Index of the newest of the 3 hourly
+*.                                   scans.
+*.    C   KOLDEST        I*4         Index of the oldest of the 3 hourly
+*.                                   scans.
+*.    C   NEWEST_RS_INDX I*4         Index in database of newest rate scan.
+*.    C   START_DIR      I*4         Start address of directory common block
+*.                                   (dummy variable).
+*.    C   DIR_REC        I*4         (CONSTANT)Disk file record index for the
+*.                                   directory record.
+*.    C   DPA_REC        I*4         (CONSTANT)Disk file record index for the
+*.                                   DPA database.
+*.    C   GOOD           I*4         (CONSTANT)Status flag value.
+*.    C   INCRMENT       I*4         (CONSTANT)Variable used to increment by
+*.                                   1.
+*.    C   KDENOM_WORDS   I*4         (CONSTANT)Number of fullwords in halfword
+*.                                   (I2) 232x232 denominator array.
+*.    C   KMISSING       I*4         (CONSTANT)Flag value when hourly data is
+*.                                   missing.
+*.    C   NSCANS         I*4         (CONSTANT)Number of scans that can go
+*.                                   into 3HR accumulation.
+*.    C   RLE_REC        I*4         (CONSTANT)Disk record index for RLE data.
+*.    C   STM_REC        I*4         (CONSTANT)(Constant) Index of 5th record.
+*.    C   WRITKODE       I*4         (CONSTANT)I/O code indicating write to
+*.                                   disk I/O operation should be performed.
+*.
+*.    *   OUTPUT          TYPE        DESCRIPTION
+*.    -   ------          ----        -----------
+*.    G   MEM             I*4         Array in RPG shared memory set aside for
+*.                                    buffer sharing.
+*.    C   BIAS_ESTM_1HR   R*4         Radar bias estimate. One hour product
+*.                                    uses mean HYDRSUPL(CUR_BIAS).
+*.    C   BIAS_ESTM_3HR   R*4         Radar bias estimate three hour average.
+*.    C   BIAS_GRPSIZ_1HR R*4         Gage-Radar Pair estimate. One hour product
+*.                                    uses mean HYDRSUPL(CUR_GRPSIZ).
+*.    C   BIAS_GRPSIZ_3HR R*4         Effective sample size three hour average.
+*.    C   BIAS_MSPAN_1HR  R*4         Memory Span estimate. One hour product
+*.                                    uses mean HYDRSUPL(CUR_MSPAN).
+*.    C   BIAS_MSPAN_3HR  R*4         Memory span three hour average.
+*.    C   FILE_REC        I*4         Array of file records where the hourly
+*.                                    scans are stored on disk. Accessed with
+*.                                    rotating indicies: Knewest, kmiddle,
+*.                                    koldest.
+*.    C   FIL_STAT        I*4         Status of disk file.
+*.    C   FLG_ADJUST      I*4         Array of flags which when set indicate
+*.                                    data is not adjusted.
+*.    C   FLG_NO_3HR      I*4         Flag indicating, if set, that there is a
+*.                                    3 hr total on the disk.
+*.    C   FLG_NO_HRLY     I*4         Array to save the flags for no hourly
+*.                                    accumulation.
+*.    C   FLG_ZERO_HRLY   I*4         Array to save the flags for zero hourly
+*.                                    accumulations.
+*.    C   HRLY_EDATE      I*4         Ending dates of hourly data.
+*.    C   HRLY_ETIME      I*4         Ending times of hourly data.
+*.    C   HRLY_SCAN_TYPE  I*4         Hourly data scan type flags.
+*.    C   KMIDDLE         I*4         Index of the middle of the 3 hourly
+*.                                    scans.
+*.    C   KNEWEST         I*4         Index of the newest of the 3 hourly
+*.                                    scans.
+*.    C   KOLDEST         I*4         Index of the oldest of the 3 hourly
+*.                                    scans.
+*.    C   LAST_OPERATION  I*4         Flag to keep track of last I/O operation
+*.                                    code to product database.
+*.    C   LAST_REC        I*4         Flag to keep track of last record number
+*.                                    I/O'ed to product database.
+*.    C   MXVAL_3HR       I*4         Maximum value in 3HR. product
+*.                                    accumulation.
+*.    C   NEWEST_RS_INDX  I*4         Index in database of newest rate scan.
+*.    C   OLDEST_RS_INDX  I*4         Index in database of oldest rate scan.
+*.    C   RLE_WORDS       I*4         Number of halfwords in run length
+*.                                    encoding for 3 hr. accumulation.
+*.    C   START_DIR       I*4         Start address of directory common block
+*.                                    (dummy variable).
+*.    C   STMTOT_FLG_FRST L*4         Flag indicating storm total sum is to be
+*.                                    reinitialized.
+*.    C   SUM_TIMES       I*4         Temporary flag array indicating which
+*.                                    hourly periods went into 3 hr.
+*.                                    accumulation.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    G   MEM               I*4         Array in RPG shared memory set aside
+*.                                      for buffer sharing.
+*.    C   FILE_REC          I*4         Array of file records where the hourly
+*.                                      scans are stored on disk. Accessed
+*.                                      with rotating indicies: Knewest,
+*.                                      kmiddle, koldest.
+*.    C   NEWEST_RS_INDX    I*4         Index in database of newest rate scan.
+*.    C   START_DIR         I*4         Start address of directory common
+*.                                      block (dummy variable).
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME        TYPE        DESCRIPTION
+*.    ----        ----        -----------
+*.    ERRPHR      CHAR*60     Software error message text
+*.    HRA_REC     I*4         First file record available to store an hourly
+*.                            accumulation scan.
+*.    HRB_REC     I*4         Second file record available to store an hourly
+*.                            accumulation scan.
+*.    HRC_REC     I*4         Third file record available to store an hourly
+*.                            accumulation scan.
+*.    I           I*4         Do loop index variable
+*.    IOSTAT      I*4         Status returned from disk I/O
+*.    LOG_MESSAGE CHAR*64     Status message for A3CM70
+*.    NULL        I*4         Parameterized null value, =0
+*.    RNULL       R*4         Parameter for real zero
+*.    SCPTR       I*4         Scratch Buffer Pointer
+*.    SCSTAT      I*4         Status of getting scratch buffer via a call to
+*.                            A31215
+*.    STAT        I*4         Status
+*.    STATMESS    I*4         Character representation of message to STATMON
+*.    STATMON     CHAR*8      STATMON task mnemonic
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD00
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3146C2
+*.    A3146C3
+*.    A3146CD
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK14.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+ 
+ 
+C
+C** 'X' IN COLUMN-1 INDICATES CONDITIONALLY COMPILED DEBUG CODE...
+C
+      IMPLICIT NONE
+C
+$INCLUDE A309.INC/G,**A3PM00 (NEND NLIST)
+$INCLUDE            **A3PM01 (NEND NLIST)
+$INCLUDE            **A3PM04 (NEND NLIST)
+$INCLUDE            **A3PM07 (NEND NLIST)
+$INCLUDE            **A3CD00 (NEND NLIST)
+C
+$INCLUDE A313HBUF.INC/G,**A313HYPP (NEND NLIST)
+$INCLUDE A3146.INC/G,**A3146P1 (NEND NLIST)
+$INCLUDE           **A3146C2 (NLIST)
+$INCLUDE           **A3146C3 (NLIST)
+$INCLUDE           **A3146PD (NEND NLIST)
+$INCLUDE           **A3146CD (NLIST)
+C
+C ******************* L O C A L   D A T A  *************************
+C
+      INTEGER I, IOSTAT, NULL
+      INTEGER SCPTR ,SCSTAT, STAT
+      REAL RNULL
+      PARAMETER (NULL=0, RNULL=0.)
+C      PARAMETER (GOOD = 0)
+      CHARACTER*8 STATMON
+      PARAMETER (STATMON='STATMON')
+C
+      INTEGER*4 STATMESS(16)
+      CHARACTER*64 LOG_MESSAGE
+      EQUIVALENCE (LOG_MESSAGE,STATMESS)
+      CHARACTER*60 ERRPHR
+      DATA ERRPHR
+     + /'Unable to INITIALIZE HYPROD.DAT'/
+C
+C******************** E X E C U T A B L E  *************************
+C
+X      TYPE *,'A3146F: STARTING A3146F'
+C
+C** Initialize the GRID_ORDER control pointers of the accumulations
+C
+      KNEWEST = INCRMENT
+      KMIDDLE = KNEWEST + INCRMENT
+      KOLDEST = KMIDDLE + INCRMENT
+C
+C** Initialize hourly scan disk file indices
+C
+      FILE_REC(KNEWEST) = HRB_REC
+      FILE_REC(KMIDDLE) = HRC_REC
+      FILE_REC(KOLDEST) = HRA_REC
+C
+X     TYPE *,'A3146F: INITIALIZED GRID_ORDER ARRAY'
+C
+C** Initialize the other things in the directory record
+C
+      DO 10 I=1,NSCANS
+C
+C** Initialize times for each of the 3 clock hour accumumations
+C
+        HRLY_EDATE(I)     = NULL
+        HRLY_ETIME(I)     = NULL
+C
+C** Set flags for each of the 3 clock hourly accumulation scans
+C
+        FLG_ZERO_HRLY(I)  = FLAG_SET
+        FLG_NO_HRLY(I)    = FLAG_SET
+        HRLY_SCAN_TYPE(I) = NULL
+        SUM_TIMES(I)      = KMISSING
+C
+C** Initialize hourly bias related values
+C
+        BIAS_ESTM_1HR(I)   = RNULL
+        BIAS_GRPSIZ_1HR(I) = RNULL
+        BIAS_MSPAN_1HR(I)  = RNULL
+10    CONTINUE
+      FLG_ADJUST = NULL
+C
+C** Initialize multi-hourly bias related values
+C
+      BIAS_ESTM_3HR   = RNULL
+      BIAS_GRPSIZ_3HR = RNULL
+      BIAS_MSPAN_3HR  = RNULL
+      RLE_WORDS = NULL
+      MXVAL_3HR = NULL
+      FLG_NO_3HR = FLAG_SET
+C
+C** SET FLAG FOR NEW STORM TOTAL
+C
+      STMTOT_FLG_FRST = .TRUE.
+C
+C** Initialize data in the Common
+C
+      FIL_STAT = NULL
+      LAST_REC = NULL
+      LAST_OPERATION = NULL
+C
+X     TYPE *,'A3146F: INITIALIED DIRECTORY RECORD'
+C
+C** Write the directory to disk
+C
+X     TYPE *,'A3146F: CALL A31468 TO WRITE TO REC#1 ON DISK'
+C
+      CALL A31468__PDB_IO(WRITKODE,DIR_REC,START_DIR,IOSTAT)
+C
+X     TYPE *,'A3146F: BACK FROM A31468... STATUS=',IOSTAT
+C
+C  GET A SCRATCH BUFFER AND INITIALIZE IT TO ZEROS
+C
+      CALL A31215__GET_OUTBUF(SCRATCH,KDENOM_WORDS,SCPTR,SCSTAT)
+      IF (SCSTAT.EQ.GOOD) THEN
+C
+C  SET ARRAY TO ZERO
+C
+         DO 100 I = SCPTR,SCPTR+KDENOM_WORDS-1
+            MEM(I) = NULL
+  100    CONTINUE
+C
+C INITIALIZE THE THREE ONE-HOUR POLAR ARRAYS
+C
+         DO 200 I = 1,NSCANS
+C
+            CALL A31468__PDB_IO(WRITKODE,FILE_REC(I),MEM(SCPTR),IOSTAT)
+200      CONTINUE
+C
+C INITIALIZE THE STORM TOTAL ON DISK
+C
+         CALL A31468__PDB_IO(WRITKODE,STM_REC,MEM(SCPTR),IOSTAT)
+C
+C INITIALIZE THE ENCODE 3 HOUR ON DISK
+C
+         CALL A31468__PDB_IO(WRITKODE,RLE_REC,MEM(SCPTR),IOSTAT)
+C
+C INITIALIZE THE DPA RECORD
+C
+         NEWEST_RS_INDX = NULL
+         OLDEST_RS_INDX = NULL
+C
+         CALL A31468__PDB_IO(WRITKODE,DPA_REC,NEWEST_RS_INDX,IOSTAT)
+C
+C  RELEASE SCRATCH BUFFER
+C
+          CALL A31216__REL_OUTBUF(SCPTR,DESTROY)
+      ELSE
+C
+C  IF COULD NOT GET A SCRATCH BUFFER
+C  SEND A MESSAGE TO STATMON FOR THE STATUS LOG
+C
+          WRITE(LOG_MESSAGE,400)ERRPHR
+ 400      FORMAT(4X,A60)
+          CALL SNDMSG (STATMON,STATMESS,STAT)
+      ENDIF
+      RETURN
+      END

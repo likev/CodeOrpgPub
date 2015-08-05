@@ -1,0 +1,131 @@
+
+NAME
+    cm_ping - The IP connection monitoring program.
+
+SYNOPSIS
+    cm_ping [-piodtabvh] 
+
+DESCRIPTION
+    cm_ping is the task that performs two services described later on behalf
+    of other applications. Although it was originally designed for monitoring
+    the RPG communications servers and restarting the comms manager
+    applications, this tool can be used for monitoring other remote hosts as
+    well.
+
+    The first service of cm_ping is monitoring the IP connectivity to remote
+    hosts as requested by other applications. cm_ping tests the Internet
+    connections to remote hosts by periodically sending ICMP (type ICMP_ECHO)
+    to those hosts and receiving echo packets from them.
+
+    The second service of cm_ping is terminating a process and running a
+    command at scheduled time as requested by another application. The command
+    is usually used for restarting the terminated process.
+
+    cm_ping reads service requests from its input LB. The currently supported
+    request message types are CMP_IN_TCP_MON and CMP_IN_PROC_MON for requesting
+    TCP connectivity info service and process termination and command execution
+    service respectively. Refer to cm_ping.h for detailed definition of these
+    two types of messages. The connectivity info is published in an output LB,
+    which can be accessed by all applications. An IP connectivity info request
+    will expire in 10 minutes. One can renew it by sending another requests
+    before the old expires if continuing monitoring is required. For the second
+    service, cm_ping uses SIGKILL to terminate the process and then executes
+    the user provided command. The command is started with "/bin/bash -l -c"
+    and in the background.
+
+    cm_ping creates the input and output LBs if they do not exist. The names of
+    the LBs can be specified from the cm_ping command line options, although
+    the default values are normally used. These files are in the project work
+    directory (See MISC library) unless an alternative one is specified through
+    the "-d" command option.
+
+    in an operational environment cm_ping is usually started in foreground in
+    the application initialization phase. It will go to background after
+    completing initialization jobs. This will guarantee that it will not miss
+    any user requests sent from operational tasks that started after the
+    application initialization phase. The two phases can also be performed
+    separately. "cm_ping -a" (mode a) conducts initialization only and
+    terminates after that. It should be run in foreground. "cm_ping -b"
+    performs the routine work without initialization. It should be run in
+    background. If "cm_ping -a" completes without error, any requests sent
+    after "cm_ping -a" completion (event before "cm_ping -b" starts) will be
+    processed by "cm_ping -b". "cm_ping -b" should not be restarted without
+    running "cm_ping -a". Otherwise, all requests left in the cm_ping input LB
+    will be processed again.
+
+    cm_ping must be owned by the "root" and has the "setuid" bit set. (e.g.
+    chmod +s cm_ping). cm_ping uses the infrastructure library. There are
+    restrictions on certain OSs to use shared library by a "setuid" process.
+    Thus we link the libinfr.a statically.
+
+
+OPTIONS
+    -p	sample_period
+	Specifies an alternative sampling period in seconds for IP connectivity
+	testing. The default period is 5 seconds.
+
+    -i	input_lb_name
+	Specifies an alternative input LB file name. The default is
+	"cmp_in.lb".
+
+    -o	output_lb_name
+	Specifies an alternative output LB file name. The default is
+	"cmp_out.lb".
+
+    -d	LB_dir
+	Specifies an alternative directory for cm_ping input and output LBs.
+	The default is the project working directory (See MISC).
+
+    -t	Runs in foreground for testing.
+
+    -a	Runs in mode a: Terminates after initialization. The default is 
+	starting in foreground and going into background after initialization.
+
+    -b	Runs in mode b: Runs in foreground without initialization.
+
+    -v	Runs in verbose mode.
+
+    -h	Print usage info and terminates.
+
+EXAMPLES
+    Example 1: cm_ping -p 2
+	Starts cm_ping with IP connectivity testing period of 2 seconds.
+
+    Example 2: cm_ping -a
+	Runs cm_ping for initializing the input and output LBs. It runs in
+	foreground and terminates after initialization.
+
+    Example 3: cm_ping -b -v &
+	Starts cm_ping in background assuming "cm_ping -a" has been invoked
+	successfully.
+
+ENVIRONMENT VARIABLES
+
+    WORK_DIR	The project working directory. The default location for cm_ping
+		input and output LBs.
+
+    LE_DIR_EVENT
+		Environmental variable used by the log/error module. See 
+		"man le" for more details.
+
+EXIT STATUS
+    0:		Terminated normally. 
+
+    non-zero:	Terminated because an error was detected.
+
+FILES
+
+    Log file
+	The name of the file is defined by LE_DIR_EVENT. An example of the file
+	is $HOME/data/logs/cm_ping.log. cm_ping log messages are stored here.
+
+    cm_ping input LB file
+	For receiving cm_ping service requests.
+
+    cm_ping output LB file
+	For publishing IP connectivity info.
+
+SEE ALSO
+    icmp(7P), ping(1M), comm_manager(1)
+
+NOTES

@@ -1,0 +1,229 @@
+C 
+C RCS info 
+C $Author: steves $ 
+C $Locker:  $ 
+C $Date: 2007/02/05 19:10:58 $ 
+C $Id: a3136n.ftn,v 1.6 2007/02/05 19:10:58 steves Exp $ 
+C $Revision: 1.6 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A3136N__READ_BTABL( FLG_IOERR )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3136N__READ_BTABL
+*.
+*.  MODULE VERSION: 0002
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       01/31/02      0000      Dennis A. Miller     CCR NA01-27501
+*.       05/03/05      0001      Steve Smith          CCR NA05-09802
+*.       01/26/07      0002      Jihong Liu           CCR NA07-01702 
+*.
+*.  CALLING SEQUENCE:  CALL A3136N__READ_BTABL
+*.
+*.  MODULE FUNCTION:
+*.     Reads the Bias Table (created and shipped from AWIPS) from disk, once
+*.     per hour.  The data is read into a Bias Table array in local common.
+*.
+*.  MODULES CALLED: A3CM04__FULL_NAME, A3CM08__CHANGE_NOTICE
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT         TYPE        DESCRIPTION
+*.    -   -----         ----        -----------
+*.    G   DISK_BY_READ  I*4         Disk performance monitoring information -
+*.                                  Number of bytes read from disk.
+*.    G   BTABL_FN      CHAR*12     Generic file name of Bias Table disk file
+*.    G   CNDISKFILE    I*4         (CONSTANT)File/disk access change
+*.                                  notification constant-distribution task
+*.    G   HYALARM_FLG   I*4         (CONSTANT)Hydromet alarm flag value -
+*.    C   BTABLNAM      CHAR*24     Full local name of Bias Table disk file
+*.    C   BTABLBYTES    I*4         (CONSTANT)Number of bytes read during
+*.                                  ingest of Bias Table data
+*.    C   BTABLSCTRS    I*4         No. sectors needed for Bias Table disk file
+*.    C   BTABLU        I*4         (CONSTANT)Bias Table disk file log. unit no.
+*.    C   HYDRO_ACCT    CHAR*5      (CONSTANT)ASCII account number for files.
+*.    C   IINIT         I*4         (CONSTANT)Constant zero for initialization.
+*.    C   SEC0_BTABL    I*4         (CONSTANT)1st sector of Bias Table disk file
+*.    C   BLOCK_DIVIDR  I*4         Block Divider (1st field of Bias Table data
+*.                                  packet received from AWIPS)  
+*.    P   FLG_IOERR     I*4         I/O error status code
+*.
+*.    *   OUTPUT        TYPE        DESCRIPTION
+*.    -   ------        ----        -----------
+*.    G   DISK_BY_READ  I*4         Disk performance monitoring information -
+*.                                  Number of bytes read from disk.
+*.    C   BTABLNAM      CHAR*24     Full local name of Bias Table disk file
+*.    C   BLOCK_DIVIDR  I*4         Block Divider (1st field of Bias Table data
+*.                                  packet received from AWIPS)  
+*.    P   FLG_IOERR     I*4         I/O error status code
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE    DESCRIPTION
+*.    -   ----------------  ----    -----------
+*.
+*.
+*.  DATABASE/FILE REFERENCE:  HYBTABLAIR.DAT; CREATE
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME          TYPE        DESCRIPTION
+*.    ----          ----        -----------
+*.    NORMAL        I*4         Parameter for I/O status okay
+*.    OPEN_ERR      I*4         Parameter for I/O status Disk Open Error
+*.    HDR_FLD       I*4         Index for the internal bias header array
+*.    I4BTABL_HEADR I*4         Internal bias header array
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3136C5
+*.    A3CD07
+*.    ENVIRON
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS: None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP13.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK13.CSS
+*.
+*.  MISC:  None
+*.
+*.**********************************************************************
+C
+      IMPLICIT NONE
+C
+$INCLUDE A309ADPT.INC/G,**A3CD70P6 (NEND NLIST)
+$INCLUDE                **A3CD70CA (NEND NLIST)
+$INCLUDE                **A3CD70C8 (NLIST)
+$INCLUDE                **A3CD70C4 (NLIST)
+$INCLUDE A309.INC/G,**A3CD07       (NLIST)
+$INCLUDE A313HBUF.INC/G,**A313HYPP (NLIST)
+$INCLUDE A313H.INC, **A3136P       (NLIST)
+$INCLUDE **A3136P5                 (NLIST)
+$INCLUDE **A3136C5                 (NLIST)
+$INCLUDE **A3136C4                 (NLIST)
+$INCLUDE ORPGDAT.INC/G,**ORPGDAT   (NLIST)
+C
+C************************* DATA DECLARATIONS ***************************
+C
+C  Equivalence Bias Table retrieved from linear buffer to internallly
+C  definined Bias Table in common
+C
+      INTEGER  FLG_IOERR
+C
+      integer  ni, nf, nl
+C
+      integer*2 btabl_headr( btabl_I2_hdr_siz )
+      integer*2 i2bias_tabl( 2*n_bias_flds,n_bias_lines )
+      integer   i4bias_tabl( n_bias_flds,n_bias_lines )
+      integer   i4value, field 
+C
+      equivalence( block_dividr,btabl_headr )
+C
+      INTEGER  SIZ_I2_BTABL
+      PARAMETER( SIZ_I2_BTABL=BTABLBYTES/2 ) 
+C
+      INTEGER*2  BTABL_DATA( SIZ_I2_BTABL )
+C
+      INTEGER  BTABL_BLOCK_ID
+      PARAMETER( BTABL_BLOCK_ID = 1 )
+C
+      INTEGER  STATUS
+C
+      CHARACTER*80 TEXT
+
+      INTEGER HDR_FLD 
+      INTEGER I4BTABL_HEADR(11)
+
+C
+C**************************** EXECUTABLE *******************************
+C
+C** ...Note: FLG_IOERR initialized to NORMAL upon entry to routine
+C
+C** Ingest Bias Table from linear buffer
+C
+      call RPG_data_access_read( ORPGDAT_ENVIRON_DATA_MSG, BTABL_DATA,
+     $                           BTABLBYTES, BTABL_BLOCK_ID, STATUS )
+C
+C        WRITE(14, *) '-----------the beginning---------'
+C        WRITE(14, 2) STATUS, BTABLBYTES 
+C 2      format(1X, 'STATUS  and btbytes for read is ', I6, 1X, I6) 
+
+C** and return status to calling routine a31361
+C
+      IF( STATUS .EQ. BTABLBYTES ) THEN
+C
+         FLG_IOERR = FLAG_CLEAR
+C
+C** Transfer Bias header data retrieved from linear buffer into internal
+C** arrays (I*2 to I*4 for table, itself)
+C
+         call a3136x__mem_xfer( btabl_data, btabl_headr, 
+     $                          btabl_I2_hdr_siz)
+         FIELD = 0
+
+         DO 25 HDR_FLD=1,21,2
+
+            FIELD = FIELD + 1
+
+            IF (HDR_FLD .EQ. 21) THEN
+               I4BTABL_HEADR(FIELD)=BTABL_HEADR(HDR_FLD)
+            ELSE
+               CALL RPG_GET_PRODUCT_INT( BTABL_HEADR(HDR_FLD),
+     $                                   I4BTABL_HEADR(FIELD))
+            END IF
+
+ 25      CONTINUE      
+
+C
+C Retrieve the bias souce id value from internal array (i4btabl_headr)
+C
+         IEQV_SOURCE_ID=I4BTABL_HEADR(3)
+C
+C** Transfer Bias table data retrieved from linear buffer into internal
+C** arrays (I*2 to I*4 for table, itself)
+C
+         call a3136x__mem_xfer( btabl_data(btabl_I2_hdr_siz+1),
+     $                          i2bias_tabl, btabl_I2_tbl_siz )
+C
+         do 51 nl=1,n_bias_lines
+
+            field = 0
+            do 52 nf=1,2*n_bias_flds,2
+
+               field = field + 1
+               call RPG_get_product_int( i2bias_tabl(nf,nl), 
+     $                                   i4bias_tabl(field,nl))
+
+ 52          continue
+ 51       continue
+
+         call a3136x__mem_xfer( i4bias_tabl,
+     $                          ibias_tabl, btabl_I2_tbl_siz )
+
+C        
+      ELSE
+
+         FLG_IOERR = FLAG_SET
+
+      END IF
+C
+C** Exit subroutine
+C
+      RETURN
+      END

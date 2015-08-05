@@ -1,0 +1,55 @@
+      Program VAD
+C***********************************************************************
+C
+C	Description: This module contains the main function for the 
+C	velocity azimuth display product. 
+C
+C***********************************************************************
+C
+C RCS info
+C $Author: steves $
+C $Locker:  $
+C $Date: 2011/02/25 15:26:11 $
+C $Id: vad.ftn,v 1.8 2011/02/25 15:26:11 steves Exp $
+C $Revision: 1.8 $
+C $State: Exp $
+C
+C
+	IMPLICIT NONE
+
+$INCLUDE rpg_port.inc,**rpg_port	
+
+C adaptation common blocks
+$INCLUDE A309ADPT.INC, **A3CD70CA
+$INCLUDE A309ADPT.INC, **A3CD70C8
+$INCLUDE A309ADPT.INC, **A3CD70C7
+$INCLUDE A309ADPT.INC, **A3CD70C5
+
+$INCLUDE A309.INC/G,**A3PM00		
+
+        integer param, status
+
+	;** Specify inputs.
+	call RPG_in_data ( VADTMHGT, VOLUME_DATA )
+
+	;** Specify outputs.
+        call RPG_out_data ( VADVER2, VOLUME_DATA, 84 )
+
+	;** Register adapdation blocks and scan summary array.
+	call RPG_reg_adpt( COLRTBL_ID, COLRTBL_FIRST, BEGIN_VOLUME ) 
+	call RPG_reg_adpt( PRODSEL_ID, PRODSEL_FIRST, BEGIN_VOLUME ) 
+	call RPG_reg_adpt( RDACNT_ID, RDACNT_FIRST, BEGIN_VOLUME ) 
+	call RPG_reg_scan_summary()
+
+        ;** Register for site info adaptation data
+        call RPG_reg_site_info( SIRDALAT )
+
+        ;** Initialize this task.
+        call RPG_task_init( VOLUME_BASED )
+
+	;** The main loop, which will never end.
+ 10     call RPG_wait_act( WAIT_DRIVING_INPUT )
+        call A31871__BUFFER_CONTROL( param )
+	goto 10
+
+	end

@@ -1,0 +1,306 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/16 20:36:09 $
+C $Id: a3163a.ftn,v 1.4 2002/12/16 20:36:09 christie Exp $
+C $Revision: 1.4 $
+C $State: Exp $
+C
+      SUBROUTINE A3163A__FORM_LIN1(J,BUFOUT,STORMIDTYP,STORMOTION,
+     >                             STORMFORW,FORCADAP)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3163A__FORM_LIN1
+*.
+*.  MODULE VERSION: 0017
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       10 25 85      0000      Mary Jo Staley       Part 2, RPG Build 3
+*.       05 05 86      0001      MARY JO STALEY       SPR# 60124
+*.       06 26 86      0002      ATARA WEINSTEIN      SPR# 60313
+*.       10 02 86      0003      J GROMMONS           SPR # 60346
+*.       12 20 88      0004      VALERIE HOLDEN       SPR # 80565
+*.       05 09 89      0005      TERRI LEWIS          SPR # 80611
+*.       08 09 90      0006      MARY LOU ECKERLE     SPR # 90827
+*.       01 30 91      0007      David M. Lynch       SPR # 91257
+*.       05 28 91      0007      Dennis A. Miller     SPR # 92195
+*.       10 14 91      0008      EDWARD WENDOWSKI     SPR # 92410
+*.       12 03 91      0009      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0010      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0011      Toolset              SPR 91895
+*.       03/25/93      0012      Toolset              SPR NA93-06801
+*.       01/28/94      0013      Toolset              SPR NA94-01101
+*.       03/03/94      0014      Toolset              SPR NA94-05501
+*.       04/01/95      0015      Toolset              CCR NA95-11802
+*.       05/01/95      0016      STEVE SMITH          CCR NA94-26302
+*.       12/23/96      0016      Toolset              CCR NA95-11807
+*.       03/16/99      0017      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A3163A__FORM_LIN1(J,BUFOUT,STORMIDTYP,
+*.                                  STORMOTION,STORMFORW,FORCADAP)
+*.
+*.  MODULE FUNCTION:
+*.
+*.     This routine is used to format the first data line of the
+*.     tabular block of the storm track product.
+*.
+*.  MODULES CALLED: A3163C__MOVE_DATA 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT      TYPE        DESCRIPTION
+*.    -   -----      ----        -----------
+*.    G   KM_TO_NM   R*4         (CONSTANT)DEFINES THE SCALING FACTOR FOR
+*.                               KILOMETER TO NAUTICAL MILES PARAMETER
+*.    G   MPS_TO_KTS R*4         (CONSTANT)SCALING FACTOR FOR METERS PER
+*.                               SECOND TO KNOTS
+*.    G   STA_NFOR   I*4         (CONSTANT)Offset to the Number of (Forecast)
+*.                               Intervals in the adaptation data part of the
+*.                               centroids & tracking/forecast output buffers.
+*.    G   STF_DIR    I*4         (CONSTANT)Offset to the cell direction (deg)
+*.                               in the STORMOTION part of the
+*.                               tracking/forecast output buffer.
+*.    G   STF_ERR    I*4         (CONSTANT)Offset to the forecast error (km)
+*.                               in the STORMOTION part of the
+*.                               tracking/forecast output buffer.
+*.    G   STF_ID     I*4         (CONSTANT)Offset to the cell ID index in the
+*.                               STORMIDTYP part of the tracking/forecast
+*.                               output buffer.
+*.    G   STF_MFE    I*4         (CONSTANT)Offset to the mean forecast error
+*.                               (km) in the STORMOTION part of the
+*.                               tracking/forecast output buffer.
+*.    G   STF_SPD    I*4         (CONSTANT)Offset to the cell speed (m/s) in
+*.                               the STORMOTION part of the tracking/forecast
+*.                               output buffer.
+*.    G   STF_TYP    I*4         (CONSTANT)Offset to the cell type in the
+*.                               STORMIDTYP part of the tracking/forecast
+*.                               output buffer.
+*.    G   STF_X0     I*4         (CONSTANT)Offset to the x-coord. of the
+*.                               centroid (km) in the STORMOTION part of the
+*.                               tracking/forecast output buffer.
+*.    G   STF_XF     I*4         (CONSTANT)Offset to the forecasted x
+*.                               locations (km) in the STORMBACK part of the
+*.                               tracking/forecast output buffer.
+*.    G   STF_Y0     I*4         (CONSTANT)Offset to the y-coord. of the
+*.                               centroid (km) in the STORMOTION part of the
+*.                               tracking/forecast output buffer.
+*.    G   STF_YF     I*4         (CONSTANT)Offset to the forecasted y
+*.                               locations (km) in the STORMBACK part of the
+*.                               tracking/forecast output buffer.
+*.    G   TYP_NEW    I*4         (CONSTANT)Flag that indicates that a storm is
+*.                               newly identified in the current volume scan.
+*.    G   UNDEF      R*4         (CONSTANT)Value that shows that storm cell
+*.                               attributes of motion cannot be calculated
+*.                               because there is no storm cell history.
+*.    P   BUFOUT     I*2         PRODUCT OUTPUT BUFFER
+*.    P   FORCADAP   I*4         Array of Storm Series Adaptation Data.
+*.    P   J          I*4         INDEX OF THE STORM TO FORMAT.
+*.    P   STORMFORW  R*4         Three dimensional array of forcast positions.
+*.    P   STORMIDTYP I*4         2-D array of supplementary storm desciption
+*.                               information per volume scan
+*.    P   STORMOTION R*4         2-D array of storm cell motion attributes.
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    P   BUFOUT  I*2         PRODUCT OUTPUT BUFFER
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    P   BUFOUT            I*2         PRODUCT OUTPUT BUFFER
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME        TYPE        DESCRIPTION
+*.    ----        ----        -----------
+*.    AZ          R*4         The azimuth of the storm cell
+*.    CD          CHAR*80     INTERNAL FILE FOR ASCII DATA
+*.    CHARIDTABLE CHAR*2      Character table of storm IDs.
+*.    COVTO360    I*4         PARAMETER SET TO 360
+*.    I           I*4         Loop index variable.
+*.    IDATA       I*2         INTEGER FOR DATA TRANSFER
+*.    IDEGREE     I*4         INTEGER AZIMIUTH DEGREES
+*.    IRNGE       I*4         PRODUCT RANGE
+*.    ISPEED      I*4         TEMP VARIABLE FOR STORM SPEED
+*.    IVARIABLE   I*4         FOR TYPE CONVERSION .
+*.    NEW_STORM   CHAR*7      Text string indicating that the storm cell in
+*.                            question was first detected in the current
+*.                            volume scan
+*.    NUM_FORCAST I*4         NUMBER OF FORECAST POSITIONS.
+*.    RADFACT     R*4         Factor to convert radians to deg.
+*.    RNGE        R*4         PRODUCT RANGE
+*.    RTEMP       R*4         TEMP REAL TYPED VARIABLE
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS:  NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP16.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK16.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+$INCLUDE A309.INC/G,**A3PM50 (NLIST)
+$INCLUDE A315BUF.INC/G,**A315P7F (NEND NLIST)
+$INCLUDE A315BUF.INC/G,**A315D7 (NEND NLIST)
+$INCLUDE A315BUF.INC/G,**A315PSAD (NEND NLIST)
+$INCLUDE A316.INC/G, **A316C3 (NLIST NEND)
+C
+C*******      D A T A   D E F I N I T I O N   ***************
+C
+      CHARACTER*80 CD
+C
+      INTEGER*2 IDATA(40),BUFOUT(*)
+      INTEGER IVARIABLE,IRNGE,IDEGREE,NUM_FORCAST
+      INTEGER I,J,COVTO360,ISPEED
+C
+      REAL RNGE,AZ,RADFACT,RTEMP
+C
+      CHARACTER*7 NEW_STORM
+C
+      PARAMETER(COVTO360=360,NUM_FORCAST=4,RADFACT=57.29578)
+      PARAMETER(NEW_STORM = '  NEW  ')
+C
+      EQUIVALENCE(CD,IDATA)
+C
+C** GET THE ASCII TABLE FOR STORM ID
+C
+$INCLUDE A309.INC/G,**A3CD08 (NLIST)
+$INCLUDE A309.INC/G,**A3CD08D (NEND NLIST)
+C
+C********************* E X E C U T A B L E *********************
+C
+C** FORMAT DATA INTO INTERNAL FILE CD
+C
+      WRITE(CD,9)
+      WRITE(CD(3:4),7) CHARIDTABLE(STORMIDTYP(STF_ID,J))
+C
+C** CALCULATE THE AZIMUTH AND RANGE OF THE STORM FROM THE X AND Y
+C
+      RNGE=(STORMOTION(STF_X0,J)*STORMOTION(STF_X0,J)+
+     1     STORMOTION(STF_Y0,J)*STORMOTION(STF_Y0,J))**.5
+C
+      IF( STORMOTION(STF_X0,J) .EQ. 0.0 .AND. STORMOTION(STF_Y0,J)
+     >  .EQ. 0.0 ) THEN
+        IDEGREE = 0
+      ELSE
+         AZ=ATAN2(STORMOTION(STF_X0,J),STORMOTION(STF_Y0,J))
+         IDEGREE = NINT(AZ*RADFACT)
+         IF(IDEGREE .LE.0) IDEGREE=IDEGREE+COVTO360
+      ENDIF
+C
+      WRITE(CD(10:12),1) IDEGREE
+      CD(13:13) = '/'
+C
+C** CONVERT RANGE FROM KILOMETERS TO NAUTICAL MILES
+C** PUT THE RANGE INTO THE BUFFER
+C
+      IRNGE=NINT(RNGE*KM_TO_NM)
+      WRITE(CD(14:16),1) IRNGE
+C
+C** PROCESS THE STORM SPEED AND DIRECTION.  IF THIS IS A NEW STORM,
+C** PLACE "NEW" IN SPEED/DIRECTION FIELD
+C
+      IF (STORMIDTYP(STF_TYP,J) .NE. TYP_NEW) THEN
+         IVARIABLE= NINT(ABS(STORMOTION(STF_DIR,J)))
+         WRITE(CD(20:22),1) IVARIABLE
+         CD(23:23)='/'
+C
+C** CONVERT SPEED FROM METERS/SEC TO NEAREST KNOT
+C
+         ISPEED=NINT(ABS(STORMOTION(STF_SPD,J)*MPS_TO_KTS))
+         WRITE(CD(24:26),1) ISPEED
+      ELSE
+C
+C** FIRST TIME DETECTION OF THIS STORM.  MARK IT AS NEW.
+C
+         CD(20:26) = NEW_STORM
+      END IF
+C
+C** PROCESS FORECAST POSITS FOR FIRST LINE
+C** FORECAST POSITS ARE CONVERTED FROM KILOMETERS TO NEAREST NM
+C
+      DO 10 I=1,FORCADAP(STA_NFOR)
+         IF(STORMFORW(STF_XF,I,J).EQ.UNDEF)THEN
+            CD(32+(I-1)*10:32+(I-1)*10+6) ='NO DATA'
+         ELSE
+            RNGE = (STORMFORW(STF_XF,I,J)*STORMFORW(STF_XF,I,J) +
+     >              STORMFORW(STF_YF,I,J)*STORMFORW(STF_YF,I,J))**.5
+            IRNGE = NINT(RNGE*KM_TO_NM)
+            IF( STORMFORW(STF_XF,I,J) .EQ. 0.0 .AND.
+     >         STORMFORW(STF_YF,I,J) .EQ. 0.0 ) THEN
+               IDEGREE = 0
+            ELSE
+               AZ=ATAN2(STORMFORW(STF_XF,I,J),STORMFORW(STF_YF,I,J))
+               IDEGREE = NINT(AZ*RADFACT)
+               IF(IDEGREE .LE.0) IDEGREE=IDEGREE+COVTO360
+            ENDIF
+            WRITE(CD(32+(I-1)*10:32+(I-1)*10+6),5) IDEGREE,IRNGE
+         ENDIF
+10    CONTINUE
+C
+C** SPECIAL PROCESSING IF ADAPTABLE NUMBER OF FORECAST POSITIONS
+C** LESS THAN MAXIMUM NUMBER ALLOWED
+C
+      IF ( FORCADAP(STA_NFOR).LT.NUM_FORCAST ) THEN
+         DO 12 I=FORCADAP(STA_NFOR)+1,NUM_FORCAST
+            CD(32+(I-1)*10:32+(I-1)*10+6) ='NO DATA'
+12       CONTINUE
+      END IF
+C
+C** PUT THE ERROR FORECAST/MEAN IN THE LINE
+C
+      IF(STORMOTION(STF_ERR,J).EQ.UNDEF) THEN
+        RTEMP= 0.0
+      ELSE
+        RTEMP = (STORMOTION(STF_ERR,J)*KM_TO_NM)
+      ENDIF
+      WRITE(CD(72:75),6) RTEMP
+C
+      IF(STORMOTION(STF_MFE,J).EQ.UNDEF) THEN
+         RTEMP = 0.0
+      ELSE
+         RTEMP = (STORMOTION(STF_MFE,J)*KM_TO_NM)
+      ENDIF
+      CD(76:76) = '/'
+      WRITE(CD(77:80),6) RTEMP
+C
+C** STORE THE DATA INTO THE OUTPUT BUFFER
+C
+      CALL A3163C__MOVE_DATA(IDATA,BUFOUT)
+C
+C** FORMAT STATEMENTS
+C
+1     FORMAT(I3)
+5     FORMAT(I3,'/',I3)
+6     FORMAT(F4.1)
+7     FORMAT(A2)
+9     FORMAT(80(' '))
+C
+C** RETURN TO CALLER ROUTINE
+C
+      RETURN
+      END

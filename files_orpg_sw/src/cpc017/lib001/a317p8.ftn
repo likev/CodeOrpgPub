@@ -1,0 +1,341 @@
+C
+C RCS info
+C $Author: steves $
+C $Locker:  $
+C $Date: 2005/04/20 19:11:25 $
+C $Id: a317p8.ftn,v 1.3 2005/04/20 19:11:25 steves Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A317P8__2DF_CONTROL()
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A317P8__2DF_CONTROL
+*.
+*.  MODULE VERSION: 0001
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       05/29/97      0000      MARK FRESCH          CCR NA95-21503
+*.       03/16/99      0001      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A317P8__2DF_CONTROL()
+*.
+*.  MODULE FUNCTION: Controls processing of Pot. 2D Features
+*.    Pot. 2D features will be thresholded for min. # of pattern
+*.    vectors & then have their pattern vectors sorted by range.
+*.    Then, A317D8 is called to trim each Potential 2D Feature
+*.    so that only 1 pattern vector remains at each range. Next,
+*.    A317U8 is called to compute the remaining Pot. 2D Feature
+*.    attributes, and, finally, A317K8 is called to store non-
+*.    overlapping 2D features.
+*.
+*.  MODULES CALLED: A317D8__TRIM_P2DF, A317K8__SAVE_2DF, A317U8__COMP_P2DF_ATTR, 
+*.                  SNDMSG 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT        TYPE        DESCRIPTION
+*.    -   -----        ----        -----------
+*.    G   ADPMFAR      R*4         TDA 2D FEATURE ASPECT RATIO THRESHOLD
+*.    G   ADPMN2D      I*4         TDA MAXIMUM # 2D FEATURES THRESHOLD
+*.    G   ADPMPVF      I*4         TDA MINIUM # VECTORS/2D FEATURE THRESHOLD
+*.    G   TDAMAIN      R*4         An array that holds pattern attributes.
+*.    G   N1D_MAX      I*4         (CONSTANT)MAXIMUM # OF PATTERN VECTORS THAT
+*.                                 CAN BE IDENTIFIED IN AN ELEVATION SCAN
+*.    C   LAB_TABL     I*4         ARRAY OF ACTIVE POTENTIAL 2D FEATURE ID'S
+*.                                 FOR THE DIFFERENTIAL VELOCITY THRESHOLD
+*.    C   NEW_P2DF_CNT I*4         # OF POTENTIAL 2D FEATURES IDENTIFIED FOR
+*.                                 THE DIFFERENTIAL VELOCITY THRESHOLD ON THE
+*.                                 ELEVATION SCAN
+*.    C   OFFSET       I*4         EQUAL TO TDABFPTR - OFFSET USED TO CORRECT
+*.                                 PATTERN VECTOR POINTERS IN THE VECT_ATTR
+*.                                 ARRAY FROM TWO SIDED TDAMAIN ARRAY
+*.    C   P2DFEAT      R*4         ARRAY CONTAINING ATTRIBUTES OF THE P2DF's
+*.    C   P2DF_PTR     I*4         POINTER TO THE FIRST PATTERN VECTOR OF A
+*.                                 P2DF IN THE LINKED LIST
+*.    C   P2DF_PV_INDX I*4         LINKED LIST OF PAT. VECTS BELONGING TO
+*.                                 P2DFs CONTAINING THE INDICES INTO TDAMAIN
+*.                                 OF THE LAST, CURRENT, AND NEXT PATTERN
+*.                                 VECTORS IN THE P2DF
+*.    C   TOT_2DF      I*4         TOTAL NUMBER OF 2D FEATURES IN THE VOLUME
+*.                                 SCAN
+*.    C   MAX_PV_RAD   I*4         (CONSTANT)MAXIMUM NUMBER OF PATTERN VECTORS
+*.                                 PER RADIAL IN THE RAD_PV ARRAY
+*.    C   P2D_ARA      I*4         (CONSTANT)INDEX INTO P2DFEAT TO THE ASPECT
+*.                                 RATIO (IN KM/KM) OF A POTENTIAL 2D FEATURE
+*.    C   P2D_NPV      I*4         (CONSTANT)INDEX INTO P2DFEAT TO THE # OF
+*.                                 PATTERN VECTORS IN A POTENTIAL 2D FEATURE
+*.    C   PTR_NEX      I*4         (CONSTANT)INDEX INTO P2DF_PV_INDX TO THE
+*.                                 NEXT PATTERN VECTOR IN THE LINKED LIST FOR
+*.                                 EACH POTENTIAL 2D FEATURE
+*.    C   PV_BAZ       I*4         (CONSTANT)Index to Pattern vector beginning
+*.                                 azimuth.
+*.    C   PV_BIN       I*4         (CONSTANT)Index in TDAMAIN to pattern
+*.                                 vector bin numbers
+*.
+*.    *   OUTPUT     TYPE        DESCRIPTION
+*.    -   ------     ----        -----------
+*.    G   ADPMFAR    R*4         TDA 2D FEATURE ASPECT RATIO THRESHOLD
+*.    G   ADPMN2D    I*4         TDA MAXIMUM # 2D FEATURES THRESHOLD
+*.    G   ADPMPVF    I*4         TDA MINIUM # VECTORS/2D FEATURE THRESHOLD
+*.    C   NO_ROOM_2D L*4         FLAG INDICATING WHETHER THERE IS NO ROOM FOR
+*.                               MORE 2D FEATURES; ALG. PROCESSING SHOULD SKIP
+*.                               TO 3D
+*.    C   P2DFEAT    R*4         ARRAY CONTAINING ATTRIBUTES OF THE P2DF's
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    C   P2DFEAT           R*4         ARRAY CONTAINING ATTRIBUTES OF THE
+*.                                      P2DF's
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME        TYPE        DESCRIPTION
+*.    ----        ----        -----------
+*.    AZIM        R*4         Azimuth of the current pattern vector
+*.    ERRORPHR    CHAR*64     Inform status monitor of error
+*.    ERRORPHR_I4 I*4         An integer representation of ERRORPHR
+*.    NUM_PV      I*4         Number of pattern vectors in the potential 2D
+*.                            feature
+*.    P2DF        I*4         Do loop variable for Potential 2D features
+*.    PV1         I*4         Do loop variable for pattern vectors
+*.    PV2         I*4         Do loop variable for pattern vectors
+*.    PVNO        I*4         Do loop variable for pattern vectors in a
+*.                            feature
+*.    PV_IDX      I*4         The pointer to the first pattern vector index in
+*.                            the  Potential 2D Feature
+*.    P_P2DF      I*4         The pointer to the P2DF label
+*.    RANGE       R*4         Pattern vector's range
+*.    RANGRANK    I*4         Pattern Vector range rank list
+*.    SEND_STATUS I*4         Status of the call to SNDMSG.
+*.    STATUS_TASK CHAR*8      ASCII name of Status Monitor task
+*.    TEMPRANK    I*4         Temporary storage for the current rank of the
+*.                            pattern vector used for sorting
+*.    TRIMMED     I*4         An array of pointers of the saved pattern
+*.                            vectors
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A317CTAD
+*.    PVECS09
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A315P2DC
+*.    A317TC2
+*.    A317TCA
+*.    A317TVA
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     Compiled using COMP17.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     Linked using LINK17.CSS
+*.
+*.  MISC:  None
+*.
+C********************************************************************
+C
+C                    TDA 2D PROCESSING:
+C              2D FEATURE CONTROL & RANGE RANKING ROUTINE
+C
+C********************************************************************
+C
+      IMPLICIT NONE
+C
+$INCLUDE A317BUF.INC/G, **A317P3T (NLIST)
+$INCLUDE                **A317PTAD (NLIST)
+$INCLUDE                **A317CTAD (NLIST)
+C
+$INCLUDE A309.INC/G, **A3PM50 (NLIST)
+$INCLUDE             **A3CD09BL (NLIST)
+C
+$INCLUDE A317.INC/G, **A317TCP (NLIST)
+$INCLUDE             **A317TCA (NLIST)
+$INCLUDE             **A317TVA (NLIST)
+$INCLUDE             **A317P2DP (NLIST)
+$INCLUDE             **A317P2DC (NLIST)
+$INCLUDE             **A317TP2 (NLIST)
+$INCLUDE             **A317TC2 (NLIST)
+C
+C********************** DATA DECLARATIONS *************************
+C
+      INTEGER  PVNO, PV1, PV2, TEMPRANK, P2DF, RANGRANK(N1D_MAX)
+      INTEGER TRIMMED(MAX_PV_RAD), NUM_PV, PV_IDX, P_P2DF
+      REAL AZIM, RANGE
+C
+C** Declarations needed for the SNDMSG call
+C
+      CHARACTER*64 ERRORPHR
+      CHARACTER*8  STATUS_TASK
+      INTEGER*4    ERRORPHR_I4(16), SEND_STATUS
+      EQUIVALENCE(ERRORPHR_I4(1),ERRORPHR)
+      PARAMETER ( STATUS_TASK = 'tda2d3d ' )
+C
+C******************* BEGIN MAIN PROCESSING SECTION ****************
+C
+C** Loop through all potential 2D features found at this VD_TH
+C** in this elevation scan.
+C
+      DO 1000 P2DF = 1, NEW_P2DF_CNT
+C
+C** Get the pointer to the P2DF label
+C
+        P_P2DF = LAB_TABL(P2DF)
+C
+C** If the P2DF_PTR array is zero then the Potential 2D feature
+C** has been deleted.
+C
+        IF (P2DF_PTR(P_P2DF) .NE. 0) THEN
+C
+C** Test pot. 2D feature against Min. #  Pattern Vector Threshold
+C** In the AEL this check doesn't come until later, but if the
+C** pot. 2D feature doesn't have enough pattern vectors now, it
+C** will never have enough.  So, why continue processing the feature?
+C** Test against maximum number of potential components allowed.
+C** Also, the number of potential 2D features per elevation scan
+C** has been tested, but now test against the max. # of potential
+C** 2D features allowed per volume scan.
+C
+          NUM_PV = P2DFEAT( P2D_NPV, P_P2DF )
+C
+C** Ensure that the number of pattern vectors in the potential 2D
+C** feature doesn't exceed the size of TRIMMED, i.e. MAX_PV_RAD.
+C
+          IF ( NUM_PV .GT. MAX_PV_RAD) NUM_PV = MAX_PV_RAD
+C
+          IF ( NUM_PV .GE. ADPMPVF ) THEN
+            IF ( TOT_2DF .LT. ADPMN2D ) THEN
+C
+C** Initialize the pattern vector range rank list for
+C** the Potential 2D Feature. Get the pointer to the 1st pattern
+C** vector index (into TDAMAIN) in this Potential 2D Feature.
+C
+              PV_IDX = P2DF_PTR(P_P2DF)
+C
+C** Loop thru all the pattern vectors in the feature.
+C
+              DO 10 PVNO = 1, NUM_PV
+C
+C** Save the index into PV_MAIN and the ranking
+C
+                RANGRANK(PVNO) = PV_IDX
+C
+C** If this isn't the last pattern vector in the Pot. 2D Feature,
+C** Get the pointer to the next pattern vector from the linked list
+C
+                IF (PVNO .NE. NUM_PV) PV_IDX =
+     >             P2DF_PV_INDX(PTR_NEX,PV_IDX-OFFSET)
+ 10           CONTINUE
+C
+C** Using a Straight Insertion sorting method, sort the pattern
+C** vectors in increasing range bin and 2ndly increasing azimuth.
+C
+              DO 100 PV1 = 2, NUM_PV
+C
+C** Compile a list of pointers to the sorted pattern vectors.
+C** Get the range, azimuth, and current rank of the current pattern
+C** vector.  The range is the bin number.
+C
+                RANGE    = TDAMAIN(PV_BIN,RANGRANK(PV1))
+                AZIM     = TDAMAIN(PV_BAZ,RANGRANK(PV1))
+                TEMPRANK = RANGRANK(PV1)
+C
+C** Loop through all the previously sorted pattern vectors and
+C** determine where this pattern vector belongs in the list.
+C
+                DO 200 PV2 = PV1-1,1,-1
+C
+C** Determine if the sorted pattern vector's range is less than
+C** that of the current pattern vector.  If the range is equal,
+C** then sort secondly by (increasing) azimuth.
+C
+                  IF ((TDAMAIN(PV_BIN,RANGRANK(PV2)).LT.RANGE)
+     >             .OR.((TDAMAIN(PV_BIN,RANGRANK(PV2)).EQ.RANGE)
+     >             .AND.(TDAMAIN(PV_BAZ,RANGRANK(PV2)).LE.AZIM)))
+     >               GOTO 300
+                  RANGRANK(PV2+1) = RANGRANK(PV2)
+C
+ 200            CONTINUE
+                PV2 = 0
+ 300            RANGRANK(PV2+1) = TEMPRANK
+ 100          CONTINUE
+C
+C** Call the routine to trim the potential 2D features so that
+C** only 1 pattern vector remains at each range w/in the feature.
+C** The result will be an array of pointers of the saved
+C** pattern vectors, TRIMMED, & a corrected # of pattern vectors.
+C
+              CALL A317D8__TRIM_P2DF(RANGRANK, NUM_PV,
+     >           P2DFEAT( 1,P_P2DF ), TRIMMED)
+C
+C** Check again to ensure that the Potential 2D Feature has
+C** enough pattern vectors.
+C
+              IF ( NUM_PV .GE. ADPMPVF ) THEN
+C
+C** Call the routine to compute the remainder of the potential
+C** 2D feature attributes.
+C
+C
+                CALL A317U8__COMP_P2DF_ATTR( P2DFEAT( 1,P_P2DF ),
+     >                                       TRIMMED )
+C
+C** Test the Pot. 2D Feature against the Max. 2D Feature Aspect
+C** Ratio Threshold; those that pass become 2D Features.
+C
+                IF ( P2DFEAT( P2D_ARA, P_P2DF) .LT. ADPMFAR ) THEN
+C
+C** Call the routine to test for overlap and save those
+C**  which survive as 2D features.
+C
+                  CALL A317K8__SAVE_2DF( P2DFEAT( 1,P_P2DF ) )
+                END IF
+              END IF
+C
+C** There isn't room left for any more 2D Features; so, don't
+C** bother processing any more potential 2D Features (or saving
+C** them).  Notify the user of the situation by calling SNDMSG.
+C
+            ELSE
+              WRITE (ERRORPHR,11)
+ 11           FORMAT(4X,'TDA2D3D: Too many 2D Feats.',
+     >             ' Increase TDA Max. # 2D Feats.')
+              CALL SNDMSG( STATUS_TASK,ERRORPHR_I4,SEND_STATUS )
+C
+C** Notify A317S8 by setting NO_ROOM_2D to true.  Then jump out
+C** of the processing loop.   When processing returns to A317S8,
+C** 2D processing should end, skipping to 3D processing.
+C
+              NO_ROOM_2D = .TRUE.
+              GOTO 1010
+            END IF
+          END IF
+C
+C** Potential 2D features which don't go through the 'normal'
+C** processing are not saved as 2D features
+C
+        END IF
+ 1000 CONTINUE
+ 1010 CONTINUE
+C
+C**************** END SUBROUTINE PROCESSING ***********************
+C
+      RETURN
+      END

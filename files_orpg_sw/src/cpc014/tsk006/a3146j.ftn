@@ -1,0 +1,392 @@
+C
+C RCS info
+C $Author: steves $
+C $Locker:  $
+C $Date: 2007/02/05 19:11:53 $
+C $Id: a3146j.ftn,v 1.8 2007/02/05 19:11:53 steves Exp $
+C $Revision: 1.8 $
+C $State: Exp $
+C
+      SUBROUTINE A3146J__PROD79_BLOCK3 (PRODBUF,VSNUM,ERRCODE,
+     $                   BLK3_I2OFF, B3ENIDX)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3146J__PROD79_BLOCK3
+*.
+*.  MODULE VERSION: 0016
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       07 25 89      0000      Paul Jendrowski      SPR# 90348
+*.       03 27 90      0001      DAVE HOZLOCK         SPR# 90697
+*.       02 14 91      0002      PAUL JENDROWSKI      SPR# 91255
+*.       12 03 91      0003      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0004      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0005      Toolset              SPR 91895
+*.       03/25/93      0006      Toolset              SPR NA93-06801
+*.       01/28/94      0007      Toolset              SPR NA94-01101
+*.       03/03/94      0008      Toolset              SPR NA94-05501
+*.       08/10/94      0009      C. Stephenson        CCR NW-94-084-02
+*.       04/01/95      0010      Toolset              CCR NA95-11802
+*.       05/31/95      0011      ROBERT RIERSON       CCR NA94-35301 (SPR NA94-08102)
+*.       12/23/96      0012      Toolset              CCR NA95-11807
+*.       03/16/99      0013      Toolset              CCR NA98-23803
+*.       01/31/02      0014      Dennis A. Miller     CCR NA01-27501
+*.       07/31/02      0015      C. Pham, D. Miller   CCR NA02-20602
+*.       01/26/07      0016      Jihong Liu           CCR NA07-01702
+*.
+*.  CALLING SEQUENCE: CALL A3146J__PROD79_BLOCK3( PRODBUF, VSNUM,
+*.                                    ERRCODE, BLK3_I2OFF, B3ENIDX)
+*.
+*.  MODULE FUNCTION:
+*.
+*.      This module formats the alphanumeric part (block 3) of the
+*.    3-hour accumulation product.
+*.
+*.  MODULES CALLED: A3146G__BLOCK3_HEADER, A3146T__CNVTIME
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT           TYPE      DESCRIPTION
+*.    -   -----           ----      -----------
+*.    G   SUMMARY         I*4       Volume Scan Summary Table
+*.    G   DIV2OFF         I*4       (CONSTANT)Product block offset: Second
+*.                                  divider.
+*.    G   FLAG_CLEAR      I*4       (CONSTANT)Parameter for a cleared flag
+*.    G   LGLSWOFF        I*4       (CONSTANT)Product header offset: Length
+*.                                  of message (LSW).
+*.    G   LGMSWOFF        I*4       (CONSTANT)Product header offset: Length
+*.                                  of message (MSW).
+*.    G   SCAN_DATE       I*4       (CONSTANT)(CONSTANT)Volume Scan Date
+*.                                  index into Scan Summary Table
+*.    G   SCAN_TIME       I*4       (CONSTANT)(CONSTANT)Volume Scan Time
+*.                                  index into Scan Summary Table
+*.    C   BIAS_ESTM_1HR   R*4       Radar bias estimate. One hour product
+*.                                  uses mean HYDRSUPL(CUR_BIAS).
+*.    C   BIAS_GRPSIZ_1HR R*4       Gage-Radar Pair estimate. One hour product
+*.                                  uses mean HYDRSUPL(CUR_GRPSIZ).
+*.    C   BIAS_MSPAN_1HR  R*4       Memory Span estimate. One hour product
+*.                                  uses mean HYDRSUPL(CUR_MSPAN).
+*.    C   FLG_ADJUST      I*4       Array of flags which when set indicate
+*.                                  data is not adjusted.
+*.    C   HOURLY_BUFFERS  I*4       Number of hourly scans used in 3 hr
+*.                                  total.
+*.    C   HRLY_EDATE      I*4       Ending dates of hourly data.
+*.    C   HRLY_ETIME      I*4       Ending times of hourly data.
+*.    C   HRLY_SCAN_TYPE  I*4       Hourly data scan type flags.
+*.    C   SB_STAT_3HR     I*4       Spot Blanking status for the 3 hour
+*.                                  Accumulation product
+*.    C   SUM_TIMES       I*4       Temporary flag array indicating which
+*.                                  hourly periods went into 3 hr.
+*.                                  accumulation.
+*.    C   CODE_3HR        I*4       (CONSTANT)3 HR. Accumulation product
+*.                                  code.
+*.    C   IBEG            I*4       (CONSTANT)Constant used as loop control
+*.                                  variable (initial value).
+*.    C   INCRMENT        I*4       (CONSTANT)Variable used to increment by
+*.                                  1.
+*.    C   KMISSING        I*4       (CONSTANT)Flag value when hourly data is
+*.                                  missing.
+*.    C   NSCANS          I*4       (CONSTANT)Number of scans that can go
+*.                                  into 3HR accumulation.
+*.    C   SOURCE_ID       CHAR*4    Bias source id 
+*.
+*.    P   B3ENIDX         I*4       Ending index of the product's Block 3
+*.    P   BLK3_I2OFF      I*4       Offset in product buffer to the start
+*.    P   ERRCODE         I*4       Error code for the 3-hour grid
+*.    P   PRODBUF         I*2       Product buffer
+*.    P   VSNUM           I*4       The current volume scan number
+*.
+*.    *   OUTPUT          TYPE      DESCRIPTION
+*.    -   ------          ----      -----------
+*.    P   B3ENIDX         I*4       Ending index of the product's Block 3
+*.    P   PRODBUF         I*2       Product buffer
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    G   SUMMARY           I*4         Volume Scan Summary Table
+*.    C   HRLY_EDATE        I*4         Ending dates of hourly data.
+*.    P   BLK3_I2OFF        I*4         Offset in product buffer to the start
+*.    P   PRODBUF           I*2         Product buffer
+*.    P   VSNUM             I*4         The current volume scan number
+*.
+*.  DATABASE/FILE REFERENCE: NONE
+*.
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME           TYPE        DESCRIPTION
+*.    ----           ----        -----------
+*.    B3HDR          I*4         Block 3 header offset
+*.    B3HDROFF       I*4         Block 3 header offset
+*.    B3IDX          I*4         Offset to start of each line
+*.    B3LNGLSW       I*4         Positional parameter for LSW of block 3
+*.                               length
+*.    B3LNGMSW       I*4         Positional parameter for MSW of block
+*.    B3_NPGOFF      I*4         Positional parameter for number of
+*.    BLANK          CHAR*80     Parameter for blank line
+*.    CHARLINE       CHAR*80     Array for character data to be put
+*.    CHARLN_ERRS    CHAR*80     Character array with error message.
+*.    CHARLN_REASONS CHAR*80     Array of reasons for error message.
+*.    CHAR_DATE_TIME CHAR*14     Character string for date and time
+*.    CLEAR          I*4         Parameter for no error
+*.    CNO            CHAR*1      Parameter for character 'N'
+*.    CYES           CHAR*1      Parameter for character 'Y'
+*.    DIVIDER        I*4         Parameter for divider value
+*.    END_PG         I*4         Parameter for end of page divider
+*.    FLGADJ         CHAR*1      Variable used for character versions of
+*.                               FLG_ADJUST information
+*.    I              I*4         Do-loop index for number of scans
+*.    I2LINE         I*2         Array equivalenced to CHARLINE used to put
+*.                               character data into product.
+*.    I4WORD         I*4         Equivalenced to I2WORD
+*.    II             I*4         Do-loop index for number of lines in
+*.    L1             I*4         Parameter for line 1
+*.    L1T1           I*4         Parameter for line 1, character 1
+*.    L1T4           I*4         Parameter for line 1, tab setting for
+*.    L2             I*4         Parameter for line 2
+*.    L4             I*4         Parameter for line 4
+*.    L4T3           I*4         Parameter for line 4, tab for start
+*.    L4T4           I*4         Parameter for line 4, tab for end of
+*.    L5             I*4         Parameter for line 5
+*.    L6             I*4         Parameter for line 6
+*.    L7A            I*4         Parameter for line 7
+*.    L7B            I*4         Parameter for continuation of line 7
+*.    LJ3            I*4         Parameter for line 3
+*.    NCHAR_I2LN     I*4         Equivalent I*2 word length of NCHAR_LN
+*.    NCHAR_LN       I*4         Parameter for number of characters in a line
+*.                               in block 3.
+*.    NI2            I*4         Dimension of I2WORD
+*.    NJLINES        I*4         Number of lines in CHARLINE
+*.    NJPAGES        I*4         Parameter for number of pages in the
+*.    NUMLINES       I*4         Number of lines actually in block 3
+*.    SB_VALUE       I*4         Spot Blanking flag
+*.    SECONDS        I*4         Houly end time in seconds
+*.    SEC_IN_MIN     I*4         Number of seconds in a minute
+*.    TIM_EN         I*4         Tab setting in line for end of time
+*.    TIM_ST         I*4         Tab setting in line for start of time
+*.    TITLE1         CHAR*80     First line of charater title
+*.    TITLE2         CHAR*80     2nd line of charater title
+*.    BIAS_ON        I*4         Trigger to write the bias source id 
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD05
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3146C2
+*.
+*.  ERROR CONDITIONS: None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS: None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK14.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+C
+C** 'X' IN COLUMN-1 INDICATES CONDITIONALLY COMPILED DEBUG CODE...
+C
+      IMPLICIT NONE
+C
+$INCLUDE A313HBUF.INC/G,**A313HYPP (NEND NLIST)
+C
+$INCLUDE A3146.INC/G ,  **A3146P1  (NEND NLIST)
+$INCLUDE                **A3146C2  (NEND NLIST)
+$INCLUDE                **A3146C3  (NEND NLIST)
+$INCLUDE                **A3146PS  (NEND NLIST)
+C
+$INCLUDE A309.INC/G,    **A3PM00   (NEND NLIST)
+$INCLUDE                **A3PM01   (NEND NLIST)
+$INCLUDE                **A3PM06   (NEND NLIST)
+$INCLUDE                **A3CD05   (NEND NLIST)
+C
+$INCLUDE A313H.INC,**A3136P5 (NLIST)
+$INCLUDE           **A3136C5 (NEND NLIST)
+C
+      INTEGER    ERRCODE, BLK3_I2OFF, B3HDR, B3ENIDX
+      INTEGER    NJLINES, NCHAR_I2LN, NI2
+      PARAMETER (NJLINES=15,NI2=2,B3HDR=3,
+     $           NCHAR_I2LN=NCHAR_LN/NI2 )
+C
+      INTEGER    I,II,NUMLINES, NJPAGES, SECONDS, SEC_IN_MIN,
+     $           B3_NPGOFF, CLEAR, END_PG,
+     $           B3LNGMSW,B3LNGLSW
+      PARAMETER (CLEAR=0, END_PG=-1, NJPAGES=1, SEC_IN_MIN=60,
+     $           B3LNGMSW=2, B3LNGLSW=3,
+     $           B3_NPGOFF=B3HDR+DIV2OFF+1)
+C
+      INTEGER    B3IDX, VSNUM, B3HDROFF, DIVIDER
+      PARAMETER (DIVIDER=-1)
+      INTEGER*2  PRODBUF(*), I2LINE(NCHAR_I2LN,NJLINES)
+      INTEGER    I4WORD, SB_VALUE
+      CHARACTER  FLGADJ*1
+      CHARACTER  CHARLINE(NJLINES)*(NCHAR_LN)
+      EQUIVALENCE (I2LINE,CHARLINE)
+C
+      CHARACTER*1 CYES, CNO
+      PARAMETER  (CYES="Y",CNO="N")
+C
+      CHARACTER*80 TITLE1,TITLE2,TITLE3,BLANK
+      PARAMETER ( TITLE1=
+     $ ' DATE     ENDING   ADJUSTED    BIAS   SAMPLE SIZE    MEM SPAN')
+      PARAMETER ( TITLE2=
+     $ ' ......   HOUR      (Y/N)      ....  (# G-R PAIRS)    (HOURS)')
+      PARAMETER (BLANK='
+     $                                ')
+C
+      INTEGER L1,L2,LJ3,L4,L5,L6,L7A,L7B,
+     $        L1T1,L1T4, L4T3,L4T4, TIM_ST,TIM_EN,
+     $        LB1, LB27, LB28, LB80, BIAS_ON
+      PARAMETER (L1=1,L2=2,LJ3=3,L4=4,L5=5,L6=6,L7A=7,L7B=8,
+     $        L1T1=1,L1T4=44, L4T3=33,L4T4=34, LB1=1, LB27=27,
+     $         LB28=28, LB80=80)
+      PARAMETER (TIM_ST=60, TIM_EN=73)
+      CHARACTER*14 CHAR_DATE_TIME
+C
+      DATA CHARLINE(L1)(L1T1:NCHAR_LN)
+     $            /'          3-HOUR PRECIPITATION ACCUMULATION   '/
+      DATA CHARLINE(L2) /BLANK/
+      DATA CHARLINE(LJ3) /BLANK/
+      DATA CHARLINE(L4) (L1T1:NCHAR_LN)
+     $            /' NUMBER OF CONTRIBUTING HOURS :   '/
+C
+C-------------------
+C
+C** SET SPOT BLANK STATUS
+C
+      SB_VALUE = SB_STAT_3HR
+
+C** INITIALIZE THE TRIGGER TO WRITE THE BIAS HEADER (i.e.) SOURCE ID
+ 
+      BIAS_ON = 0
+
+C
+C** INSERT BLOCK3 HEADER & MESSAGE HEADER DATA :
+C
+      CALL A3146G__BLOCK3_HEADER (PRODBUF,B3HDROFF,BLK3_I2OFF,
+     $                                  CODE_3HR,VSNUM,SB_VALUE)
+C
+C GET DATE AND TIME IN A CHARACTER FORMAT
+C
+      CALL A3146T__CNVTIME(SUMMARY(SCAN_TIME,VSNUM),
+     $              SUMMARY(SCAN_DATE,VSNUM),CHAR_DATE_TIME)
+      CHARLINE(L1)(TIM_ST:TIM_EN) = CHAR_DATE_TIME
+C
+C SET DIVIDER AND NUMBER OF PAGES N PRODUCT BUFFER
+C
+      PRODBUF(BLK3_I2OFF+B3HDR+DIV2OFF) = DIVIDER
+      PRODBUF(BLK3_I2OFF+B3_NPGOFF)  = NJPAGES
+C
+      WRITE(CHARLINE(L4)(L4T3:L4T4),'(I2)') HOURLY_BUFFERS
+C
+C** CHECK FOR ERROR CONDITION
+C
+      IF (ERRCODE.NE.CLEAR) THEN
+C
+C** THERE IS A PROBLEM WITH THE R.L.E. DATA FOR THIS PRODUCT,
+C** AND IT IS NOT IN THE PRODUCT BUFFER. IN THIS CASE, BLOCK3
+C** CONTAINS ONLY AN ERROR MESSAGE, AND NOT THE ADAPTATION DATA.
+C
+         NUMLINES = L6
+         WRITE(CHARLINE(L5),999) CHARLN_ERRS(IBEG)
+         WRITE(CHARLINE(L6),999) CHARLN_REASONS(ERRCODE)
+ 999     FORMAT(A54)
+C
+      ELSE
+C
+C** FILL BLOCK3 NORMALLY
+C
+         WRITE(CHARLINE(L5),'(A80)') BLANK
+         WRITE(CHARLINE(L6),'(A80)') BLANK
+         WRITE(CHARLINE(L7A),'(A80)') TITLE1
+         WRITE(CHARLINE(L7B),'(A80)') TITLE2
+C
+C CHECK EACH OF 3 POSSIBLE HOURLY SCANS IF THEY WENT INTO 3-HOUR TOTAL
+C
+         NUMLINES = L7B
+         DO 19 I=IBEG,NSCANS
+           IF (SUM_TIMES(I).NE.KMISSING) THEN
+C
+C THIS IS A GOOD HOURLY ACCUMULATION
+C
+             NUMLINES = NUMLINES + INCRMENT
+             FLGADJ = CYES
+             BIAS_ON = 1 
+             IF (FLG_ADJUST.EQ.FLAG_CLEAR) FLGADJ = CNO                 9408402
+C
+C** CONVERT DATE AND TIME TO A CHARACTER STRING
+C
+             SECONDS = HRLY_ETIME(I)*SEC_IN_MIN
+             CALL A3146T__CNVTIME(SECONDS,HRLY_EDATE(I),CHAR_DATE_TIME)
+C
+C** FILL IN DETAIL LINE
+C
+             WRITE(CHARLINE(NUMLINES),1000) CHAR_DATE_TIME, FLGADJ,
+     $        BIAS_ESTM_1HR(I), BIAS_GRPSIZ_1HR(I), BIAS_MSPAN_1HR(I)
+           END IF
+  19     CONTINUE
+ 1000    FORMAT(1X,A14,7X,A1,7X,F5.2,4X,F8.2,5X,F8.2)
+
+C
+C* BIAS SOURCE ID INFORMATION IS NOT DISPLAYED UNTIL GOOD HOURLY 
+C* ACCUMULATION IS OBTAINED 
+C
+         IF (BIAS_ON .EQ. 1) THEN
+            NUMLINES = NUMLINES + INCRMENT
+            WRITE(CHARLINE(NUMLINES)(LB1:LB27),1200)
+     $      ' MOST RECENT BIAS SOURCE : '
+            WRITE(CHARLINE(NUMLINES)(LB28:LB80),1500) SOURCE_ID
+            BIAS_ON = 0
+         ENDIF
+
+ 1200     FORMAT(A27)
+ 1500     FORMAT(A4)
+C
+      ENDIF
+C
+      B3IDX=B3_NPGOFF+INCRMENT
+C
+C** MOVE ALPHANUMERIC DATA TO PRODUCT BUFFER'S BLOCK3
+C
+      DO 30 II=INCRMENT,NUMLINES
+         PRODBUF(BLK3_I2OFF+B3IDX) = NCHAR_LN
+C
+C COPY LINE OF EQUIVALENCED CHARACTER DATA TO PRODUCT BUFFER
+C
+         DO 31 I=INCRMENT,NCHAR_I2LN
+            PRODBUF(BLK3_I2OFF+B3IDX+I)=I2LINE(I,II)
+  31     CONTINUE
+         B3IDX=B3IDX+NCHAR_I2LN+INCRMENT
+  30  CONTINUE
+      B3ENIDX = BLK3_I2OFF+B3IDX
+      PRODBUF(B3ENIDX) = END_PG
+C
+C** FILL IN BUFFER LENGTH AND BLOCK3 HEADER ITEMS :
+C
+      I4WORD = (B3ENIDX-BLK3_I2OFF+INCRMENT)*NI2
+      call RPG_set_product_int( PRODBUF(BLK3_I2OFF+B3LNGMSW),
+     1                          I4WORD )
+C
+      I4WORD = I4WORD - ((B3HDR + INCRMENT) * NI2)
+      call RPG_set_product_int( PRODBUF(BLK3_I2OFF+B3HDR+LGMSWOFF),
+     1                          I4WORD )
+C
+      RETURN
+      END

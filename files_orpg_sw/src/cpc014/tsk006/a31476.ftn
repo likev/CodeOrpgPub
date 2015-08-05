@@ -1,0 +1,162 @@
+C 
+C RCS info 
+C $Author: nolitam $ 
+C $Locker:  $ 
+C $Date: 2002/11/27 15:17:13 $ 
+C $Id: a31476.ftn,v 1.3 2002/11/27 15:17:13 nolitam Exp $ 
+C $Revision: 1.3 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A31476__COPY_SUPL(HYDRSUPL)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A31476__COPY_SUPL
+*.
+*.  MODULE VERSION: 0002
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   -----------------    --------------------
+*.       10/25/95      0000      ELLIOTT P. FRIEND    CCR NA94-08462
+*.       12/23/96      0001      Toolset              CCR NA95-11807
+*.       03/16/99      0002      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A31476__COPY_SUPL(HYDRSUPL)
+*.
+*.  MODULE FUNCTION:
+*.
+*.     This routine is called to copy the Supplemental Data array (filled
+*.     and passed along through the various, preceding Precipitation
+*.     algorithms) from the task's Input Buffer to the User Selectable
+*.     Output Buffer HYUSPBUF. The Output Buffer will serve as a "trigger"
+*.     to awaken the User Selectable (Product 31) task.
+*.
+*.  MODULES CALLED: A31169__ABORT_DATATYPE_BECAUSE, A31215__GET_OUTBUF, 
+*.                  A31216__REL_OUTBUF 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT         TYPE        DESCRIPTION
+*.    -   -----         ----        -----------
+*.    G   FORWARD       I*4         (CONSTANT)Parameter to indicate that an
+*.                                  output buffer is to be forwarded to
+*.                                  successor tasks
+*.    G   HYZ_SUPL      I*4         (CONSTANT)Size of Supplemental Data array
+*.                                  in Hybrid Scan output buffer.  SSIZ_PRE +
+*.                                  SSIZ_RATE + SSIZ_ACUM + SSIZ_ADJU (=
+*.                                  (13+14+16+5) = 48)
+*.    G   NORMAL        I*4         (CONSTANT)Parameter which indicates normal
+*.                                  completion of requested operation to
+*.                                  acquire input or output buffer
+*.    G   PROD_MEM_SHED I*4         (CONSTANT)(CONSTANT)Parameter which
+*.                                  indicates that product aborted due to
+*.                                  memory load shedding
+*.    C   HYUSPBUF      I*4         (CONSTANT)Data type: USP input buffer - to
+*.                                  awaken task
+*.    P   HYDRSUPL      I*4         Supplemental data array.
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    G   MEM     I*4         Array in RPG shared memory set aside for buffer
+*.                            sharing.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE: NONE
+*.
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME      TYPE        DESCRIPTION
+*.    ----      ----        -----------
+*.    HYUSPPTR  I*4         Pointer into MEM for USP buffer
+*.    HYUSPSTAT I*4         Status from A31215 on get the USP buffer
+*.    I         I*4         LOOP COUNTER
+*.    INCR      I*4         Increment value
+*.    OREF_INDX I*4         Output buffer reference
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD00
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK14.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+C...'X' IN COLUMN-1 INDICATES CONDITIONALLY COMPILED DEBUG CODE...
+C
+      IMPLICIT NONE
+C
+$INCLUDE A309.INC/G,**A3PM00 (NEND NLIST)
+$INCLUDE            **A3PM07 (NEND NLIST)
+$INCLUDE            **A3CD00 (NEND NLIST)
+C
+$INCLUDE A313HBUF.INC/G,**A313HYPP (NEND NLIST)
+$INCLUDE                **A313HYDD (NEND NLIST)
+C
+      INTEGER HYUSPPTR, HYUSPSTAT
+      INTEGER I, OREF_INDX, INCR
+      PARAMETER(INCR=1)
+C
+C---------------------
+C
+X     TYPE *,'A31476: STARTING A31476'
+C
+C
+C**  REQUEST HYUSPBUF OUPUT BUFFER SPACE...
+C                    IF BUFFER IS RECEIVED NORMALLY, PROCEED...
+C
+      CALL A31215__GET_OUTBUF(HYUSPBUF,HYZ_SUPL,HYUSPPTR,HYUSPSTAT)
+C
+X     WRITE(14,*) 'A31476: BACK FROM A31215, HYUSPSTAT = ',HYUSPSTAT
+C
+      IF (HYUSPSTAT .EQ. NORMAL) THEN
+C
+X       WRITE(14,*) 'A31476: HYUSPSTAT IS NORMAL'
+C
+C** COPY SUPPLEMENTAL DATA TO OUTPUT BUFFER FROM INPUT BUFFER
+C
+        OREF_INDX = HYUSPPTR-INCR
+        DO I=1,HYZ_SUPL
+          MEM(OREF_INDX+I) = HYDRSUPL(I)
+        ENDDO
+C
+C** RELEASE OUTPUT BUFFER TO WAKE UP USER SELECTABLE (PRODUCT 31) TASK
+C
+        CALL A31216__REL_OUTBUF(HYUSPPTR,FORWARD)
+C
+      ELSE
+C
+C  ABORT PRODUCT DATATYPE
+C
+        CALL A31169__ABORT_DATATYPE_BECAUSE(HYUSPBUF,PROD_MEM_SHED)
+
+      ENDIF
+
+C
+X     TYPE *,'A31476: EXITING A31476... '
+C
+      RETURN
+      END

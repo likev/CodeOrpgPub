@@ -1,0 +1,156 @@
+pbd(1) 		      RPG   		pbd(1)
+
+NAME
+pbd - Process Base Data
+
+SYNOPSIS
+pbd [options]
+
+DESCRIPTION
+
+   Process Base Data (pbd) performs r54 major functions:
+
+     a. RDA VCP Data Processing
+
+        Before the start of every volume scan, the RDA sends a VCP definition
+        to the RPG.  This VCP definition is subsequently stored by pbd in ID 
+        ORPGDAT_ADAPTATION, message ID RDA_RDACNT.  This definition reflects 
+        what the RDA intends to execute for the upcoming volume scan.  If 
+        Supplemental, Adaptive, Intra-volume Low-elevation Scan (SAILS) is 
+        active, this definition contains the supplemental cuts.  Because SAILS
+        can vary from volume scan to volume scan where the supplemental cuts
+        are inserted, pbd maintains a short history of the RDA VCP definitions
+        it posts to RDA_RDACNT.  This history is needed by the product scheduler
+        to not only schedule products but accurately track products that are 
+        generated.  Currently pbd maintains the current and previous volume 
+        scans. 
+
+        When SAILS is active, pbd inserts the supplemental cuts in the any VCP 
+        definition received either in response to the Auto PRF function or manual
+        download command.  The location of the supplemental cuts within the VCP
+        will be based on the termination angle of the previous VCP (the previous 
+        VCP may have been terminated early owing to Automated Volume Scan 
+        Evaluation and Termination (AVSET)).  Also when SAILS is active,
+        pbd checks when the last elevation is started and will adjust the VCP
+        definition previously downloaded in the AVSET termination angle is 
+        different than expected.
+           
+     b. Digital Radar Data Format Conversion
+
+        Converts incoming Digital Radar Data format data (Refer to RDA/RPG 
+        ICD) to internal RPG base data format for use by meteorological 
+        algorithms.  In addition, for any low elevation cut whose data was 
+        acquired in a two-pass process (first cut: surveillance; second cut: 
+        Doppler) the following procedure is applied:
+
+	  1) Save surveillance cut;
+
+	  2) Identify surveillance radial whose azimuth angle is closest to 
+             Doppler radial azimuth angle;
+
+	  3) Combine surveillance and Doppler data into a single record with 
+             azimuths labeled as on Doppler radial.
+
+     c. Radial Status Processing
+
+        Process Base Data monitors the radial status for start/end of volume
+        and/or elevation.  The following actions are performed:
+
+          Start Of Volume: 
+
+             The VCP number is validated (i.e., the VCP has been defined 
+             in RDACNT adaptation data).  Data will not be processed for an 
+             invalid or undefined VCP number.
+
+             If the VCP is valid, the volume scan sequence number is incremented,
+             the volume status data is updated (data store ID ORPGDAT_GSM_DATA, 
+             message ID VOL_STAT_GSM_ID), the scan summary data is updated (data 
+             store ID ORPGDAT_GSM_DATA, message ID SCAN_SUMMARY_ID), and an 
+             ORPGEVT_SCAN_INFO event it posted indicating the start of volume.  
+             pbd also posts an ORPGEVT_START_OF_VOLUME_SCAN event and will 
+             suspend processing of digital radar data until either the event 
+             ORPGEVT_PROD_GEN_CONTROL is received or 5 seconds has 
+             elapsed.  The ORPGEVT_PROD_GEN_CONTROL event signals pbd that the 
+             product generation tables for the current volume scan have been 
+             initialized.  Either way, an ORPGEVT_START_OF_VOLUME_DATA event
+             is posted to indicate to downstream consumers that radial data 
+             is being processed.
+
+          Start Of Elevation:
+
+             At start of elevation, the spot blanking status in the scan summary
+             array is updated for the current elevation cut, then the 
+             ORPGEVT_SCAN_INFO event is posted indicating start of elevation.  
+
+
+          End of Elevation:
+          End Of Volume:
+
+             The ORPGEVT_SCAN_INFO event is posted indicating end of elevation
+             or volume, respectively.
+
+     d. Data Sequencing Error Detection and Recovery
+
+        Process Base Data maintains two algorithm control variables in the RPG
+        radial header: PBD_ALG_CONTROL and PBD_ABORTED_VOLUME  This information 
+        is used by algorithms processes to perform corrective actions when data 
+        sequencing errors are detected.  PBD_ALG_CONTROL is set to PBD_NORMAL if 
+        none of the following errors are detected. 
+
+	Detection of "Beginning of Elevation Cut" prior to receiving "End of 
+	Elevation Cut" status for the same elevation cut in current Volume 
+	Scan causes PBD_ALG_CONTROL to be set to PBD_ABORT_FOR_NEW_VV.  
+        PBD_ABORTED_VOLUME is set to the current volume scan number.  If
+        the RDA is in REMOTE CONTROL and not PLAYBACK, pbd issues a volume
+        scan restart.  Otherwise, pbd waits till start of volume.   Any Base 
+        Data received prior to detection of a "Beginning of Volume Scan" status 
+        is not processed.  The unexpected start of elevation cut is recorded in
+        the system status log.
+
+	Detection of "Beginning of Volume Scan" prior to receiving "End of 
+	Volume Scan" causes PBD_ALG_CONTROL to be set to PBD_ABORT_FOR_NEW_EV. 
+        The PBD_ABORTED_VOLUME is set to the previous volume scan number.  The
+        unexpected start of volume scan is recorded in the system status log.
+
+	Detection of "Beginning of Elevation Cut of an elevation angle other 
+	than what was expected or the beginning of a different elevation angle 
+	prior to completion of the previous elevation angle causes PBD_ALG_CONTROL 
+        to be set to PBD_ABORT_FOR_NEW_VV and PBD_ABORTED_VOLUME to be set to
+        the current volume scan number.  If the RDA is in REMOTE CONTROL and not 
+        PLAYBACK, pbd issues a volume scan restart.  Otherwise, pbd waits till
+        start of volume.   Any Base Data received prior to detection of a 
+        "Beginning of Volume Scan" status is not processed.  The unexpected 
+        elevation cut is recorded in the system status log.
+
+	Detection of an azimuthal angle difference greater than 2 degrees within 
+	an elevation cut causes automatic elevation restart if RDA is in REMOTE 
+        CONTROL and not PLAYBACK.  If the elevation cut is the first cut of the 
+        volume, then a volume scan restart if issued.  If the RDA is in LOCAL 
+        CONTROL or PLAYBACK, pbd stops processing data until start of next volume 
+        scan. The occurrence of the "fat" radial is recorded in the system status 
+        log.
+
+        Detection of an elevation angle difference greater than 0.5 degrees from 
+        that expected (as defined by adaptation data) causes pbd to set the 
+        elevation angle to that expected.  The elevation out of tolerance is 
+        recorded in the system status log.
+
+     3) Radial Accounting
+
+        Process Base Data maintains radial accounting data.  Data include 
+        date/times for start/end of elevation/volume, number of radials per 
+        elevation, elevation angle of each cut, and start/stop azimuth of end and
+        pseudo end of elevation/volume.  This information is stored in data store
+        ID ORPGDAT_ACCDATA.  
+
+        Furthermore, every 4 seconds pbd checks and reports the input buffer load.
+        The input buffer load is the ratio of unread messages to total messages in
+        the communication manager response buffer expressed as a percent.  This
+        value provides an indication of whether or not the RPG is keeping up with
+        the input radial rate.
+
+
+    Options:
+
+       -l log error file length (# messages, default 200)
+       -h help

@@ -1,0 +1,165 @@
+#
+# RCS info
+# $Author: steves $
+# $Locker:  $
+# $Date: 2014/06/04 16:14:22 $
+# $Id: mscf.conf.tmpl,v 1.14 2014/06/04 16:14:22 steves Exp $
+# $Revision: 1.14 $
+# $State: Exp $
+#
+# This is the template file for mscf.conf
+SET _gdc_set_interpreting = #-! indent=
+IF FAA_CH2:  SET _gdc_install_file = cfg/mscf2.conf
+ELSE:     SET _gdc_install_file = cfg/mscf1.conf
+#
+# MSCF configuration file. mscf reads this file when it is started up.
+
+
+!define variables 2, OUT_FILE_NAME, RPG_HCI_CMD and REMOTE_NODES.
+SET 2 = 
+SET OUT_FILE_NAME = /tmp/mscf.tmp
+IF NODE_NAME==mscf: {
+    IF SAT_CONN_MSCF: SET RPG_HCI = hci -S
+    ELSE: SET RPG_HCI = hci -l
+}
+ELSE: SET RPG_HCI = hci
+SET REMOTE_NODES = mscf rpga1 rpga2 rpgb1 rpgb2 rda1 rda2 network rpgrtr1 rpgrtr2 rdartr1 rdartr2 lan1 lan2
+IF FAA_CH1: {
+    SET RPG_HCI_CMD = "$RPG_HCI -A 1 &"
+    SET OUT_FILE_NAME = /tmp/mscf1.tmp
+}
+ELSEIF FAA_CH2: {
+    SET RPG_HCI_CMD = "$RPG_HCI -A 2 &"
+    SET OUT_FILE_NAME = /tmp/mscf2.tmp
+    SET 2 = 2
+}
+ELSEIF DOD: {
+    SET RPG_HCI_CMD = "$RPG_HCI -A 1 &"
+    SET REMOTE_NODES = mscf rpga rpgb rda network rpgrtr rdartr lan
+}
+ELSEIF NWS_RED: {
+    SET RPG_HCI_CMD = "hci -A 1 &"
+    SET REMOTE_NODES = mscf rpga rpgb rda1 rda2 network rpgrtr rdartr2 lan
+}
+ELSE: {
+    SET RPG_HCI_CMD = "hci -A 1 &"
+    SET REMOTE_NODES = mscf rpga rpgb rda network rpgrtr rdartr lan
+}
+
+
+# command starting RPG HCI
+Start_rpg_command:	$RPG_HCI_CMD
+
+# command starting RDA HCI
+Start_rda_command:	"startCh1MSCF.sh &"
+Start_rda_command2:	"startCh2MSCF.sh &"
+
+# command output file name.
+Output_file_name:		$OUT_FILE_NAME
+
+# remote nodes to be connectivity monitored.
+Remote_nodes: $REMOTE_NODES
+
+Power_control_device_address:	pwradm$2
+
+# Power switch version command
+Pv_cmd: "snmpwalk -m ALL -c npios -v 1 %s sysObjectID"
+
+# Power control commands and output parsing strings
+Pc_cmd: "snmpset -m ALL -c npios -v 1 %s sPDUOutletControlMSPOutletCommand.%d.1.%d i %d"
+Pc_ret_strs: "immediateOnMSP(" "immediateOffMSP(" "immediateRebootMSP("
+Pc_key: "sPDUOutletControlMSPOutletCommand."
+
+# Power socket name command and output parsing strings
+Pn_cmd: "snmpwalk -m ALL -c npios -v 1 %s sPDUOutletControlMSPOutletName"
+Pn_key: "sPDUOutletControlMSPOutletName."
+
+# Power socket status command and output parsing strings
+Ps_cmd: "snmpwalk -m ALL -c npios -v 1 %s sPDUOutletStatusMSPOutletState"
+Ps_ret_strs: "outletStatusMSPOn(" "outletStatusMSPOff("
+Ps_key: "sPDUOutletStatusMSPOutletState."
+
+#  Gracefully power down the rpga machine before rebooting or turning of the master switch for outlet 1
+Pc_host_name_1: RPGA
+Pc_host_shutdown_cmd_1: "rpg_powerfail"
+Pc_host_shutdown_delay_1: 180
+
+#  Gracefully power down the rpgb machine before rebooting or turning of the master switch for outlet 6
+Pc_host_name_6: RPGB
+Pc_host_shutdown_cmd_6: "rpg_powerfail"
+Pc_host_shutdown_delay_6: 180
+
+#  Disable Turn off and Turn On command form the LAN and the ROUTER
+Pc_cmd_disable_2: "on off"
+Pc_cmd_disable_3: "on off"
+Pc_cmd_disable_4: "on off"
+Pc_cmd_disable_7: "on off"
+
+# Hardware status/warning LE log name.
+Hsw_file_name:		trap
+
+# Hardware status/warning circular buffer size. At least 1.
+Hsw_buf_size:		10000
+
+# Hardware status/warning maximum read size (the latest part of the file).
+Hsw_max_data_size:	1000000
+
+# HSW display high-light colors
+Red_hsw_patterns:	"Link Down Trap"
+Green_hsw_patterns:	"Link Up Trap"
+
+# entries in the "Show" selection
+Show_selections: {
+
+    # All messages are selected
+    All_Messages	""
+
+    # HSW critical info pattern
+    Critical		"Link Down" "Link Up"
+
+    # pattern
+    APC			"apc"
+
+    # pattern
+    CISCO		"cisco"
+
+}
+
+# comms status configuration
+# For each column we must specify the title and the command for it.
+# The title width will determine the field width.
+Cs_device_0: {
+    Name:	"CISCO Switch"
+    Command:	"snmpwalk -m ALL -c npios -v 1 lan$2 "
+    Col_0:	"      Device Name       "	ifAlias
+    Col_1:	"OpStatus "			ifOperStatus
+    Col_2:	"    Description     "		ifDescr
+    Col_3:	"          Type          "	ifType
+    Col_4:	" Collisions "			locIfCollisions
+    Col_5:	"IReset "			locIfResets
+}
+
+Cs_device_1: {
+    Name:	"CISCO Router"
+    Command:	"snmpwalk -m ALL -c npios -v 1 rpgrtr$2 "
+    Col_0:	"      Device Name       "	ifAlias
+    Col_1:	"OpStatus "			ifOperStatus
+    Col_2:	"    Description     "		ifDescr
+    Col_3:	"              Type              "	ifType
+    Col_4:	" Collisions "			locIfCollisions
+    Col_5:	"IReset "			locIfResets
+}
+
+Cs_device_2: {
+    Name:       "Router Card Status"
+    Command:	"snmpwalk -m ALL -c npios -v 1 rpgrtr$2 "
+    Col_0:      "  Index "      		cardIndex
+    Col_1:      "       Type       "                     cardType
+    Col_2:      "          Description          "          	cardDescr
+    Col_3:      "  OpStatus "   	cardOperStatus
+    Col_4:      "  Hardware Version "          	cardHwVersion
+    Col_5:      "  Slots (On Card) "      	cardSlots
+    Col_6:      "  Contained by Index "   	cardContainedByIndex
+    Col_7:      "  Slot Number "   		cardContainedByIndex
+}
+

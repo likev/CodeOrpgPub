@@ -1,0 +1,318 @@
+NAME mngred - The ORPG redundant manager
+
+
+OVERVIEW
+
+Note: All information discussed pertains to FAA redundant configurations only
+unless it is specified that the dicussion applies to NWS redundant
+configurations.
+
+The mngred process performs the channel management and channel
+synchronization between the two channels in FAA and NWS redundant
+configurations.  The site configuration type is read from the
+adaptation data during process initialization. If the site is a redundant
+site, the mngred process initializes for that redundant type (ie.  FAA redundant
+or NWS redundant site). If the adaptation data has not been set to a redundant
+configuration, then process mngred is not launched by the manage rpg process
+at orpg startup.
+
+One of the principal responsibilities of mngred is to ensure data
+synchronization between the two channels. The two types of data managed are
+Adaptation Data and State Data. Adaptation Data is data modified by the 
+user/operator and is changed either through the HCI or through the RMS.
+State Data is data that affects the operating characteristics of the RDA. The
+principal State Data is the VCP data that is downloaded to the RDA to specify the
+VCP characteristics for any given volume scan.
+
+Static configuration file "redundant.cfg" is used to identify all the linear
+buffers and message ids within the linear buffers that the redundant manager is
+responsible for managing. This file is separated into three main sections which
+are identified by the keys "hostnames", "Adaptation_data" and "State_data". The
+first section, hostnames, is used only in a LAN development/test environment and
+is not used in an operational system. The other two sections are used in an
+operational environment and contain the data ids (the linear buffer numerical
+identifiers) and the redundant relevant message ids in each linear buffer that
+the redundant manager manages. (A message is a data segment within a linear
+buffer and is the smallest granularity in which data can be managed.) When data
+is copied from one channel to the other, it is copied one message at a time. If
+all messages in a linear buffer are to be copied, then the message id is set to
+-1 in the redundant.cfg configuration file.
+
+The main sections of the redundant manager are: initialization, processing data
+in the active and inactive states, channel switchover, and verifying RPG/PRG
+channel link connectivity.  The following sections describe each of these areas in
+more detail:
+
+
+A.  Initialization:
+
+When mng_redundant initializes for NWS redundant configurations, the callback
+routine is registered that processes commands sent to the redundant manager by
+the HCI.  The main loop for NWS configurations is then executed.  When a
+download Bypass Map or Download Clutter Censor Zone command is issued by the
+operator through the HCI to perform a download to the currently active RDA, the
+HCI writes the appropriate download command in the redundant manager command linear 
+buffer (LB).  The redundant manager callback routine is then called which sets 
+local flags indicating that the download(s) were performed.  When the main loop 
+detects that the RDA channel number has changed due to a channel switchover, 
+the internal download flag(s) are checked and if they are set, the redundant manager 
+issues the download commands to process conrtol_rda which then downloads the 
+Bypass Map and/or Clutter file to the RDA that just changed to the controilling. 
+This is the only function the redundant manager performs in NWS redundant 
+configurations.
+
+For FAA redundant initialization, the redundant manager must determine the
+name of the redundant channel, register all the redundant relevant LBs for
+callback, construct the pathnames of all the redundant relevant LBs for the
+redundant channel, open and populate the LB lookup table with the local and
+redundant paired LB information, and initialize any redundant specific
+messages and state flags to known states to prime the logic to enter the
+main runtime loop.
+
+The redundant manager constructs the hostname of the redundant channel by 
+changing the channel number in its own hostname to the number for the other 
+channel (two assumptions are made here:  1. All hosts on all WSR-88D systems 
+will use the standard naming convention developed by the ROC for the ORPG systems; 
+2. All FAA redundant hostnames will either be channel 1 or 2). Once the 
+redundant channel's hostname is constructed, the redundant configuration file 
+(redundant.cfg) is traversed for LB registration one message at a time for each 
+data id listed. The pathname of each local LB is obtained and appended to the 
+redundant channel's hostname to construct the fully qualified pathname for each 
+redundant channel LB. The local channel and redundant channel LBs are then opened 
+and their LB descriptors are returned by the open operation. If the local channel 
+fails to open , then this is a non-recoverable failure and the redundant manager 
+task will abort. If the redundant channel's LB fails to open then its LB descriptor 
+is set to an uninitialized state and will be opened at a later time. Once the open 
+operations for the LB being processed have completed, each message id for the LB is 
+read from the redundant configuration file and the local channel LB, message id are 
+registered for callback. Failure to register for callback is also fatal and will 
+cause the redundant manager process to abort. The last step is to take the local 
+channel and redundant channel LB paired information along with the message id just 
+registered and enter this data in the LB lookup table as a single entry (other data
+entered in the lookup table are: the data id, the type of data the message 
+contains(adaptation data or state data), the redundant channel's linear buffer 
+path, and an update required flag - this flag is used to identify the message(s) 
+that need to be updated on the redundant channel). The LB lookup table is the 
+mechanism used to flag the LBs that need to be updated on the redundant channel. 
+
+Once all the Adaptation Data and State Data LBs have been processed, the redundant
+manager channel messages LB (redundant manager IPC LB) and redundant manager command 
+messages LB are registered for callback. The channel messages LB is the mechanism 
+used by the redundant manager to send queries, data and commands to the redundant 
+manager on the other channel. The messages sent between the redundant managers on
+the two channels can be found in header file orpgred.h in section "redundant 
+channel manager LB message ids". The command messages LB is the LB used by other 
+processes (HCI, RMS, etc.) on the local channel to send commands to the local 
+channel's redundant manager. The command messages can be found in header file
+orpgred.h in section "ORPG-to-Redundant manager commands".
+
+The remaining tasks to complete initialization are to register the interval
+timer, open the Digital Input/Output (ie. DIO) driver, and initialize any 
+redundant specific messages and state flags to known states to prime the logic to 
+enter the main runtime loop. The interval timer is used to determine when to 
+check the condition of the RPG/RPG channel link. The DIO driver controls the 
+DIO card which is used to control the switching of the narrowband comms relay 
+between the two channels.
+
+
+B. Process Channel Data:
+
+The principal responsibility of the redundant manager process is to copy
+State data and Adaptation data between the two ORPGs. State data is data that
+defines or affects the characteristics of the VCP and the products generated for
+each VCP. Adaptation data is site specific and non-site specific data and is copied 
+to the redundant channel when either the user changes Adaptation data on the active 
+channel, or when the user commands all Adaptation data to be updated (ie. forces an 
+update) from either channel when both channels are in an inactive state.
+
+The LB Notification mechanism is used to notify the redundant manager when Adaptation
+data has been modified. If the channel is active, then the "update required" flag in
+the LB lookup table is set for the LB, message id that was modified. If at any time
+the callback routine detects there is a risk of getting the Adaptation data 
+out of sync between the two channels by just updating a single message, then all
+messages for all Adaptation data will be flagged for updating. This feature ensures 
+that data integrity is not compromised between the two channels by performing partial 
+Adaptation data updates. The local channel's Adaptation Data Updated time stamp is 
+then updated with the current system time. If the channel is inactive, then only the 
+Adaptation Data Updated time stamp is updated. LBs, messages are not automatically 
+flagged for updating when the channel is inactive.
+
+The main loop periodically calls a routine that checks the LB lookup table
+for pending inter-channel updates. When an Adpatation Data update is detected, a
+deliberate delay is imposed to allow for multiple message updates generated from single
+command saves to complete before servicing the lookup table. This minimizes the chance
+of having several Adaptation data updated messages from being written to the system
+status log for a single save command. If no Adpatation data updates have occurred, 
+then the lookup table is serviced every iteration of the loop so that State data 
+updates are copied to the redundant channel without delay. When all Adaptation Data 
+have been copied then the sending channel copies its Adaptation Data Updated time 
+stamp to the redundant channel. The redundant channel then sets its Adaptation Data 
+Updated time stamp to the sending channel's time. This implementation not only 
+guarantees that the time stamps will exactly match but it also overcomes the 
+shortcoming of the two RPG system clcoks not being synchronized.
+
+The redundant manager is notified of State data updates by LB Notification, by
+commands sent to the redundant manager by other processes and by polling the states of
+several components that are not obtained by the other methods. The components that are 
+polled are PRF Enabled/Disabled and Spot Blanking. When a new VCP is selected or 
+downloaded, process control_rda sends the redundant manager a command with the relevant 
+VCP information.  The redundant manager then sends the information to the redundant 
+channel's redundant manager who then converts the information back to control_rda 
+command format and sends the command to control_rda for processing. 
+
+There are several commands sent to the redundant manager by the HCI and RMS processes.
+These commands are sent whenever a Bypass Map or Clutter Censor Zone is downloaded to 
+the RDA. The redundant manager sets internal flags to define what was downloaded to 
+the RDA. The flags are later serviced in the main loop and passed to the redundant 
+channel via an Inter-Process Communications (IPC) message - IPC messages are used to 
+pass information and commands between the redundant managers on the two channels. The 
+IPC message is then interrogated by the redundant manager and its equivalent download 
+command is sent to control_rda for processing.
+
+
+C. CHANNEL SWITCHOVER:
+
+Channel switchover is initiated when the RDA Channel Control Status changes. Under 
+normal conditions, the active channel begins its transition from active to inactive 
+when its RDA changes from controlling to non-controlling. During this transition phase, 
+a command is sent to process manage_rpg to notify the process that the channel is 
+transitioning to inactive. Manage_rpg then notifies all interested processes so the 
+narrowband lines can be disconnected. While the redundant manager is waiting for all 
+narrowband lines to disconnect, it services the LB lookup table and copies all 
+outstanding Adpatation Data and State Data messages that have yet to be copied to the 
+inactive channel. The redundant manager also copies all outstanding IPC messages that 
+have not been serviced. Once the redundant manager is notified that all NB lines have 
+disconnected, or that the redundant channel has switched to Active, the redundant 
+manager clears out the LB lookup table and all internal IPC message flags then changes 
+its state to inactive.
+
+The inactive channel begins its transition to active when it detects that its RDA 
+Channel Control status has changed from non-controlling to controlling. While the 
+inactive channel is waiting for the active channel to go inactive, it services any 
+outstanding RDA download commands that need to be sent to process control_rda. If the 
+active channel does not switch to inactive after a pre-determined amount of time, the 
+inactive channel continues its transition sequence and attempts to acquire the 
+narrowband comms relay. When the comms relay is acquired, the redundant_manager 
+notifies process manage_rpg that the channel state has changed to active who then 
+notifies all the interested processes so the connection sequence is started for all 
+the narrowband lines. At this point, all internal RDA download command flags are 
+cleared and the channel state is set to active.
+
+
+D. VERIFYING THE RPG/RPG LINK:
+
+An application layer ping mechanism is used to verify the state of the RPG/RPG channel 
+link. There are several reasons for using an application layer ping instead of using 
+the ICMP ping command delivered with Unix or verifying that an LB write is possible 
+to determine the state of the channel link. Using the ICMP ping only detects that the 
+other channel's OS is booted and running. This ping checks the connectivity between 
+two hosts at the TCP/IP layer and tells us nothing about the status of the RPG 
+application software. Using LB writes have the same weakness in that it can tell us 
+nothing about the state of the RPG application software. Performing writes across the 
+network to different hosts uses Remote System Services via the Remote System Services 
+Deamon (RSSD) which runs on all RPG hosts. This deamon normally runs even when the 
+RPG application software has been shutdown. Because the RSSD is normally running all 
+the time, it is possible to perform remote host writes to LBs even if the RPG 
+application software is shutdown. It was decided that this behavior is undesirable and 
+that remote host writes should be allowed only when the RPG application software is 
+running on the remote host.
+
+An application layer ping solves the problems encountered with the previous methods 
+discussed above. It is assumed that if the redundant manager process is running, then 
+the RPG application software must be running and the channel is operational. The 
+redundant managers on the two channels periodically ping each other using IPC messages 
+to see if the other redundant manager can respond. If a ping response is received, 
+then the RPG/RPG channel link is determined to be up. If, on the other hand, a ping 
+response is not received within a certain amount of time, then the channel link is 
+determined to be down. The inactive channel pings the active channel at a slower rate 
+than the  active channel pings the inactive channel to minimize chatter on the 
+network. A side effect of this totally independent, asynchronous mechanism is that 
+the channels usually detect a connection and disconnection at different times and the 
+inactive channel usually lags the active channel updating the link state. It is not 
+uncommon for the active channel to detect a link connection first and to start 
+transmitting data to the inactive channel before the inactive channel has detected 
+the channel link is up.
+
+
+E. DOCUMENT DEFINITIONS:
+
++++ PROC
+
+DATA IN
+        ORPGDAT_REDMGR_CMDS.4
+
+DATA BI
+        ITC_100200.4
+        ORPGDAT_ADAPTATION.4
+        ORPGDAT_ALERT_THRESHOLD.4
+        ORPGDAT_ADAPT.4
+        ORPGDAT_BASELINE_ADAPT.4
+        ORPGDAT_BASELINE_ADAPTATION.4
+        ORPGDAT_BASELINE_PROD_INFO.4
+        ORPGDAT_BASELINE_USER_PROFILES.4
+        ORPGDAT_CLUTTERMAP.4
+        ORPGDAT_HCI_DATA.4
+        ORPGDAT_LOAD_SHED_CAT.4
+        ORPGDAT_PROD_INFO.4
+        ORPGDAT_REDMGR_CHAN_MSGS.4
+        ORPGDAT_USER_PROFILES.4
+
+APIs USED
+        LB.3
+        LE.3
+        ORPGRDA.3
+
+DOC ATCH
+
+MAN ATCH
+        mngred.1
+---
+
+
+F. TASK SOURCE FILES:
+
+mngred_channel_link_services.c - Contains the routines used to determine the state
+                                 of the channel link. It also periodically sends
+                                 channel status updates to the other channel.
+
+mngred_channel_status.c        - Updates and processes channel status information,
+                                 and it processes misc state data which is not
+                                 obtained and processed via LB notification.
+
+mngred_comms_relay.c           - Manages the narrowband comm relay.
+
+mngred_download_cmds.c         - Contains the routines that process RPG-to-RPG and
+                                 RDA download commands between the active and
+                                 inactive channels in FAA redundant and NWS
+                                 redundant configurations.
+
+mngred_initialize.c            - Initializes the channel for the redundant type
+                                 (ie. FAA redundant or NWS redundant) the system
+                                 is configured for. All LB registration is performed
+                                 in this file and the LB lookup table is constructed
+                                 for FAA redundant configurations.
+
+mngred_main.c                  - Calls the initialization routines and contains
+                                 the runtime loops for both FAA redundant and NWS
+                                 redundant configurations. The termination handler
+                                 is also contained in this file.
+
+mngred_mng_lookup_table.c      - Contains all the routines that manage the LB
+                                 lookup table. The lookup table contains the paired
+                                 local and redundant channel LB descriptors along
+                                 with the msg_id, datastore id (data_id), redundant
+                                 channel lb path, the update required flag, and the
+                                 redundant relevant LB type. A LB that has multiple
+                                 message ids will have a separate table entry for
+                                 each message.
+
+mngred_process_callbacks.c     - Contains all the LB notification callback
+                                 routines.
+
+mngred_processing_states.c     - Performs all the functions for each of the
+                                 different channel states. The different states
+                                 are: active, inactive, transition to active, and
+                                 transition to inactive.
+
+mngred_write_channel_data.c    - Writes the data to the redundant channel in
+                                 FAA redundant configurations.

@@ -1,0 +1,84 @@
+
+NAME
+    prod_query - RPG product database query tool.
+
+SYNOPSIS
+    prod_query [-sdpftTvewn]
+
+DESCRIPTION
+    prod_query is a tool that performs RPG product database search and prints
+    the results. It, with -s option, also reads the products from the database
+    and stores them in files. prod_query starts the database server if it is
+    not already started. Thus it can be used while RPG is shutdown. prod_query 
+    only works on the RPG host.
+
+    See example later for how to use this tool.
+
+    prod_query can be used as a template on how to query the RPG databases.
+
+OPTIONS
+
+    -p  product_code[,product_code_max]
+	Specifies the product code to query. Default: All product code. If
+	both product_code and product_code_max are specified, a product code
+	range is searched. Otherwise, a single product code is searched.
+
+    -t  start_vol_time[,end_vol_time] 
+	Specifies the product volume time to query. Default: All time. 
+	start_vol_time and end_vol_time must be in format 
+	"mm/dd/yyyy:hh:mm:ss". e.g. -t 10/16/1994-08:11:51,10/16/1994-08:23:42
+
+    -T  (Same as -t except that the display is reversed in time)
+
+    -e  elev_min[,elev_max] 
+	Specifies the product elevation to query. Default: All elevations.
+	Elevation is in .1 degrees. e.g. -e 5 (Searching .5 degrees).
+
+    -w  warehoused_prod_ID 
+	Specifies the warehoused product ID to query.
+	Default: Non-warehoused products.
+
+    -f  Prints detailed product info. Default: No.
+
+    -n  max_n_records
+	Specifies the maximum number of records printed. Default: 16.
+
+    -q  text (Search by SQL text)
+	Performs query with SQL text "text".
+        Available keys are prod_code, vol_t, elev and warehoused.
+        e.g. -q "prod_code = 19 and elev >= 5 and elev <= 34"
+             -q "prod_code = 19 and vol_t = 10/16/1994-08:11:51"
+
+    -s  dir 
+	Specifies the directory to write the products found in the search. 
+	Default: The products are not read and saved.
+
+    -h  (Prints usage info)
+
+
+EXAMPLES
+
+    prod_query -p 19
+    prod_query -q "prod_code = 19"
+	Queries for all product 19 in the RPG product database.
+
+    prod_query -p 19 -t "01/03/2001-12:00:00"
+    prod_query -q "prod_code = 19 and vol_t = 01/03/2001-12:00:00"
+	Queries for all product 19 of volume time equal to 12:00:00 of January
+	3, 2001, in the RPG product database.
+
+    prod_query -p 19 -t "01/03/2001-12:00:00,01/03/2001-14:00:00"
+    prod_query -q "prod_code = 19 and vol_t >= 01/03/2001-12:00:00 and vol_t <= 01/03/2001-14:00:00"
+	Queries for all product 19 of volume time in the range of from 12:00:00
+	to 14:00:00 of January 3, 2001, in the RPG product database.
+
+    prod_query -q "prod_code = 19 and elev = 5 and vol_t = 01/03/2001-12:00:00" -s $HOME/tmp
+	Saves product 19, elevation .5 degree and volume time 
+	01/03/2001-12:00:00, in a file in directory "$HOME/tmp".
+
+SEE ALSO
+    rpgdbm(1)
+
+
+
+

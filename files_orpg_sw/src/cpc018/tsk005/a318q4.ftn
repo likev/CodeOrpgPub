@@ -1,0 +1,232 @@
+C
+C RCS info
+C $Author: steves $
+C $Locker:  $
+C $Date: 2004/01/12 17:02:38 $
+C $Id: a318q4.ftn,v 1.5 2004/01/12 17:02:38 steves Exp $
+C $Revision: 1.5 $
+C $State: Exp $
+C
+      SUBROUTINE A318Q4__TVS_GRAPHIC(TVSATTR,BUF)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A318Q4__TVS_GRAPHIC
+*.
+*.  MODULE VERSION: 0014
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       10 16 85      0000      JSGROMMONS
+*.       05 01 86      0001      JSGROMMONS           SPR# 60119
+*.       05 01 86      0001      JSGROMMONS           SPR# 60124
+*.       05 20 88      0002      STEVE D SMITH        SPR# 80087
+*.       08 13 90      0003      PENNY J YELSHIN      SPR# 90919
+*.       11 06 90      0004      MEI   OU             SPR# 91259
+*.       12 03 91      0005      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0006      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0007      Toolset              SPR 91895
+*.       03/25/93      0008      Toolset              SPR NA93-06801
+*.       01/28/94      0009      Toolset              SPR NA94-01101
+*.       03/03/94      0010      Toolset              SPR NA94-05501
+*.       04/11/96      0011      Toolset              CCR NA95-11802
+*.       12/23/96      0012      Toolset              CCR NA95-11807
+*.       05/06/97      0013      DAVE ZITTEL          CCR NA95-21503
+*.       03/16/99      0014      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:
+*.     CALL A318Q4__TVS_GRAPHIC (TVSATTR,BUF)
+*.
+*.  MODULE FUNCTION:
+*.     BUILD THE GRAPHICS PACKETS FOR TVS
+*.
+*.  MODULES CALLED: A318QH__TVS_PAGES 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT      TYPE        DESCRIPTION
+*.    -   -----      ----        -----------
+*.    G   OGLSWOFF   I*4         (CONSTANT)Product header offset: graphic
+*.                               attributes (LSW).
+*.    G   OGMSWOFF   I*4         (CONSTANT)Product header offset: graphic
+*.                               attributes (MSW).
+*.    G   TVFEAT_CHR I*4         (CONSTANT)# OF TVS FEATURE ATTRIBUTES IN
+*.                               TVS_MAIN AND OTHER ARRAYS
+*.    G   TVFEAT_MAX I*4         (CONSTANT)MAXIMUM # OF TVS FEATURES IN
+*.                               TVS_MAIN AND OTHER ARRAYS
+*.    C   GPHLNG     I*4         Length of graphic block in I*2 words.
+*.    C   NDX        I*4         Working subscript for moving data into the
+*.                               output buffer.
+*.    C   PGNO       I*2         Page number of tabular block.
+*.    C   TVSIDX     I*4         TVS product output buffer index for pointing
+*.                               to next location in array BUF.
+*.    P   BUF        I*2         OUTPUT BUFFER
+*.    P   TVSATTR    R*4         Array of TVS and ETVS attributes.
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    C   GPHLNG  I*4         Length of graphic block in I*2 words.
+*.    C   IPIX    I*2         I pixel location for graphic packet.
+*.    C   JPIX    I*2         J pixel location for graphic packet.
+*.    C   K1      I*4         Lower limit for graphic attribute fields to be
+*.                            written.
+*.    C   K2      I*4         Upper limit for graphic attribute fields to be
+*.                            written.
+*.    C   KI      I*4         Index for 3D correlated shear storm ID.
+*.    C   N1      I*4         Lower limit of fields to be moved into line
+*.                            array.
+*.    C   N2      I*4         Upper limit of fields to be moved into line
+*.                            array.
+*.    C   NDX     I*4         Working subscript for moving data into the
+*.                            output buffer.
+*.    C   PGNO    I*2         Page number of tabular block.
+*.    C   PLNGTH  I*2         Page length (in halfwords).
+*.    C   PNDX    I*4         Index in output buffer for page number, page
+*.                            length.
+*.    C   TVSIDX  I*4         TVS product output buffer index for pointing to
+*.                            next location in array BUF.
+*.    C   WIND    I*4         Last block written indicator.
+*.    P   BUF     I*2         OUTPUT BUFFER
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    P   BUF               I*2         OUTPUT BUFFER
+*.    P   TVSATTR           R*4         Array of TVS and ETVS attributes.
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME     TYPE        DESCRIPTION
+*.    ----     ----        -----------
+*.    BLNGTH   I*2         LENGTH OF PACKET BLOCK IN I*2 WORDS
+*.    DIVIDER  I*2         DIVIDER IN PRODUCT OUTPUT BUFFER
+*.    GPHLNGX  I*4         LENGTH OF GRAPHIC BLOCK IN BYTES
+*.    GPHOFF   I*4         CONSTANT 5 FOR OFFSET FOR PAGENO
+*.    NCOLS    I*4         MAXIMUM NUMBER OF COLUMNS
+*.    NPGS     I*2         NO OF PAGES WRITTEN IN BUF
+*.    NROWS    I*4         MAXIMUM NUMBER OF ROWS
+*.    ODX      I*4         VALUE OF IDX FOR STORING
+*.    PAGEOVHD I*4         OVERHEAD FOR GRAPHIC ATTRIBUTES PAGE
+*.    PNDXOFF  I*4         Offset to text packet (= 5)
+*.    PRDBLK   I*2         Block ID for Graphics Attribute (= 2)
+*.    SVNDX    I*4         SAVED VALUE OF IDX
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    BLKB
+*.    TVSINDEX
+*.
+*.  ERROR CONDITIONS:  NONE
+*.
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     THIS MODULE IS COMPILED USING THE COMP18.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     THIS MODULE IS LINKED USING THE LINK18.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+C
+C    INCLUDE FILES:
+C
+C    PARAMETERS AND OFFSETS FOR PRODUCT HEADER BLOCK
+$INCLUDE A309.INC/G,**A3PM01 (NEND NLIST)
+C     TORNADO DETECTION ALGORITHM COMMON
+$INCLUDE A318.INC/G,**A318TVS (NEND NLIST)
+$INCLUDE A318.INC/G,**A318TVS1 (NEND NLIST)
+$INCLUDE A317BUF.INC/G,**A317TP9  (NEND NLIST)
+C
+C            TVS ALGORITHM ATTRIBUTES:
+      REAL TVSATTR(TVFEAT_CHR,TVFEAT_MAX)
+C
+C            LOCAL DEFINITIONS:
+C
+      INTEGER*4  NROWS,NCOLS
+      PARAMETER  (NROWS=40,NCOLS=6)
+C
+      INTEGER*2  BUF(*)
+C
+C
+      INTEGER*2  TBUF(NROWS,NCOLS)
+      INTEGER*2  DIVIDER,PRDBLK,NPGS,BLNGTH
+      INTEGER*2  PGNO,PLNGTH,IPIX,JPIX
+C
+      INTEGER PAGEOVHD
+      PARAMETER (PAGEOVHD=2)
+      INTEGER*4  SVNDX,I,ODX,PNDXOFF,GPHOFF,GPHLNGX
+      INTEGER*4  NDX,PNDX,GPHLNG,WIND,N1,N2,K1,K2,KI
+C
+      PARAMETER (DIVIDER=-1,PRDBLK=2,PNDXOFF=5,GPHOFF=5)
+C
+C     LOCAL COMMON:
+C
+      COMMON/BLKA/TBUF
+      COMMON/BLKB/NDX,PNDX,GPHLNG,WIND,N1,N2,K1,K2,KI,
+     X        IPIX,JPIX,PLNGTH,PGNO
+C
+*****************************************************************
+C   EXECUTABLE:
+C
+C   INITIALIZE
+      NDX = TVSIDX
+      SVNDX = NDX
+      PNDX = NDX + PNDXOFF
+      PLNGTH = 0
+      GPHLNG = 0
+C   SET POINTERS
+      K1 = 0
+      K2 = 0
+      N1 = 1
+      N2 = 0
+      PGNO = 0
+C   SET IPIX,JPIX
+      IPIX = 0
+      JPIX = 1
+      KI = 0
+      WIND = 0
+C
+C   BUILD TVS PACKETS
+      CALL A318QH__TVS_PAGES(TVSATTR,BLNGTH,BUF)
+C
+C   DETERMINE TOTAL NUMBER OF PAGES
+      NPGS = PGNO
+      GPHLNG = GPHLNG + GPHOFF+PAGEOVHD
+      GPHLNGX = GPHLNG * 2
+C
+C   SET OUTPUT BUFFER TOTALS
+      TVSIDX = NDX
+      ODX = SVNDX
+      BUF(ODX) = DIVIDER
+      ODX = ODX + 1
+C   SET BLOCK ID
+      BUF(ODX) = PRDBLK
+      ODX = ODX + 1
+C   SET OUTPUT BUFFER LENGTHS
+      call RPG_set_product_int( BUF(ODX), GPHLNGX )
+      ODX = ODX + 2
+      BUF(ODX) = NPGS
+C
+C   OFFSET TO ATTRIBUTES (GRAPHICS)
+      GPHLNGX = SVNDX - 1
+      call RPG_set_product_int( BUF(OGMSWOFF), GPHLNGX )
+C
+      RETURN
+C
+      END

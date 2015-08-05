@@ -1,0 +1,76 @@
+rms_message(3)               ORPG SUM Manpage              rms_message(3)
+
+NAME
+rms_message - Library routines used by ORPG RMS to read, process and respond
+to messages from the FAA/RMMS.
+
+SYNOPSIS
+        #include <rms_message.h>
+
+        int strip_header(UNSIGNED_BYTE *msg_buffer, struct header* header_values);
+        int build_header(ushort *message_size, ushort message_type, UNSIGNED_BYTE *msg_buf, ushort ack_seq);
+        int build_ack(struct header *msg_header);
+        int receive_ack(UNSIGNED_BYTE *in_buf);
+        int send_message (UNSIGNED_BYTE *write_buf, ushort msg_type, int msg_group);
+        void add_terminator (UNSIGNED_BYTE *buf_ptr);
+        void pad_message(UNSIGNED_BYTE *buf_ptr, int message_size, int final_length);
+        void send_status_msg();
+        void check_resend();
+        void send_rms_up_msg();
+        void rms_send_rpg_state();
+        void rms_send_alarm();
+        int rms_rec_wb_command (UNSIGNED_BYTE *rda_wb_buf);
+        int rms_rec_rda_state_command (UNSIGNED_BYTE *rda_change_buf);
+        int rms_rec_rda_mode_command (UNSIGNED_BYTE *rda_mode_buf);
+        int rms_rec_rda_channel_command (UNSIGNED_BYTE *rda_channel_buf);
+        int rms_rec_clutter_command (UNSIGNED_BYTE *rda_clutter_buf);
+        int rms_rec_download_clutter_command (UNSIGNED_BYTE *rda_clutter_buf);
+        int rms_rec_bypass_command (UNSIGNED_BYTE *rda_bypass_buf);
+        int rms_rec_download_bypass_command (UNSIGNED_BYTE *rda_bypass_buf);
+        int rms_rec_arch_command (UNSIGNED_BYTE *rda_arch_buf);
+        int rms_rec_loopback_command (UNSIGNED_BYTE *loopback_buf);
+        int rms_rec_adaptation_command (UNSIGNED_BYTE *adaptation_buf);
+        void rms_handle_msg();
+        int rms_rec_load_shed_command (UNSIGNED_BYTE *load_shed_buf);
+        int rms_rec_download_load_shed_command (UNSIGNED_BYTE *auth_user_buf);
+        int rms_rec_pup_id_command (UNSIGNED_BYTE *pup_id_buf);
+        int rms_rec_download_pup_id_command (UNSIGNED_BYTE *pup_id_buf);
+        int rms_rec_nb_cfg_command (UNSIGNED_BYTE *nb_cfg_buf);
+        int rms_rec_download_nb_cfg_command (UNSIGNED_BYTE *nb_cfg_buf);
+        int rms_rec_dial_cfg_command (UNSIGNED_BYTE *dial_cfg_buf);
+        int rms_rec_download_dial_cfg_command (UNSIGNED_BYTE *dial_cfg_buf);
+        int rms_rec_free_text_command(UNSIGNED_BYTE *free_text_buf);
+        void rms_send_free_text_msg();
+        void rms_send_status_log_msg();
+        int rms_rec_rpg_control_command (UNSIGNED_BYTE *rpg_change_buf);
+        int rms_send_RPG_command ();
+        int rms_inhibit (int seconds);
+        int init_rms_interface();
+        int reset_rms_interface();
+        void close_rms_interface();
+        void rms_send_record_log_msg (int fd, LB_id_t msgid, int msg_info, void *arg);
+        void rms_clear_record_log();
+
+DESCRIPTION :
+
+      This library is used by rms_interface only and does not affect any of the
+      other parts of the ORPG.  These routines are responsible for retrieving,
+      processing and sending messages that pass between the ORPG/RMS and
+      the FAA/RMMS.  The library was designed so each message type has its own
+      library call which allows for isolating the messages from each other, and
+      facilitates adding and removing messages if necessary.
+
+      The routines communicate with the interface using linear buffers, event calls,
+      timers, and LB notification.  The main distribution process is through the
+      handle_msg routine which strips the header from the incoming message,
+      determines the message type, and sends it to the appropiate handling routine.
+
+      Reads and writes to the FAA/RMMS are accomplished using linear buffers and
+      the send and receive library functions in librms_ptmgr.
+
+Options: None
+
+SEE ALSO rms_interface(1) rms_ptmgr(3) rms_util(3) rms_message(doc)
+
+$Revision: 1.2 $
+

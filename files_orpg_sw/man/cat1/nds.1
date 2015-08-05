@@ -1,0 +1,120 @@
+
+NAME
+    nds - Computer node data service
+
+SYNOPSIS
+    nds [-fv]
+
+DESCRIPTION
+
+    nds is a task that retrieves certain real-time OS information data and
+    makes them available for other applications. The data are published either
+    upon data update or upon request from other applications. In a distributed
+    application, nds runs on each host and publishes OS data of the host. The
+    data then can be reached from application processes on all of the hosts in
+    the system. nds provides efficient local real-time OS information retrieval
+    and insolates other tasks from relying on some of the OS specific and less
+    portable functions.
+
+    The OS data retrieved and published by nds are, for the moment, status
+    information of a list of processes of a set of specified tasks. Other OS
+    data can be added in the future when necessities arise.
+
+    nds receives requests and publishes OS data through a replaceable Linear
+    Buffer (LB) named, by default, "nds.lb". Alternative LB name can be
+    specified through the -f command line option. nds does not create the LB.
+    The LB must exist before nds can be started. Four messages, defined in
+    "nds.h", are used:
+
+    NDS_PROC_LIST - For specifying the list of tasks to be monitored. This
+    message is a null terminated string of task names separated by space, tab
+    or line return characters.
+
+    NDS_PS_REQ - For requesting complete process information including resource
+    utilization. The message contents are not used. Any non-empty message is
+    fine.
+
+    NDS_PROC_STATUS - For publishing complete process information. This is
+    published on request (on receiving an NDS_PS_REQ message). The message
+    consists of a list of Nds_ps_struct data structures sorted in terms of
+    process name. Each item in the list corresponds to a running instance (a
+    process) of a task specified in the NDS_PROC_LIST message. Duplicated
+    processes of a task are listed as separate items. Tasks not running do not
+    have instances and thus are not in the list.
+
+    NDS_PROC_TABLE - For publishing process creation/termination information.
+    This is updated when a process is started or terminated (with a maximum
+    delay of not more than 1 second). The message has the same format as
+    NDS_PROC_STATUS. Fields "cpu" and "mem" may not be up-to-date.
+
+    The Nds_ps_struct data structure, defined in "nds.h", has the following
+    fields:
+
+	int size;			/* size of this including following
+					   data (int aligned) */
+	int name_off;			/* process name location in this. */
+	int cmd_off;			/* command line location in this. */
+	int cpu;			/* CPU time used in ms */
+	int mem;			/* memory used in bytes */
+	int pid;			/* process id */
+	time_t st_t;			/* process starting time */
+
+    Only one nds instance should be running at any given time on a host for a
+    given input/output LB. An nds instance holds a lock of the LB for making
+    sure that another instance cannot be started. The lock can also be used for
+    testing whether nds is running and ready for accepting requests. Requests
+    sent before nds is ready may not be processed. Because LB is a persistent
+    storage object, nds can be restarted to continue the service in cases it is
+    killed or dead for any reason.
+
+    nds uses the LE service.
+
+OPTIONS
+    -v  Verbose mode: LE verbose level is set to 3. The LE verbose level is set
+	to 0 without this option.
+
+    -f	nds_LB_name
+	Specifies an alternative LB name for nds input and output. The default
+	is "nds.lb".
+
+EXAMPLES
+    In a typical application, one creates the LB for nds and then starts nds in
+    background. The process list can be sent to the LB before or after nds is
+    started. The list can be updated at any time. One can register for LB
+    update notification on messages NDS_PROC_STATUS and NDS_PROC_TABLE and read
+    the messages upon update. To get the complete process info
+    (NDS_PROC_STATUS) one need to send an NDS_PS_REQ message. In a distributed
+    environment, one must start an nds instance on each host.
+
+ENVIRONMENT VARIABLES
+    LE_DIR_EVENT
+		Environmental variable used by the log/error module. See 
+		"man le" for more details.
+
+EXIT STATUS
+    0:		Terminated normally. 
+
+    non-zero:	Terminated because an error was detected.
+
+FILES
+
+    Log file
+	The name of the file is defined by LE_DIR_EVENT. An example of the file
+	is $HOME/data/logs/mrpg.log. nds log messages are stored here.
+
+    nds input/output file
+	Replaceable LB file specified by option -f with default of "nds.lb".
+
+SEE ALSO
+    mrpg (1), rpg_ps(1), orpgmgr(3)
+
+NOTES
+    The current implementation of nds assumes that a new process is spawned
+    within 20 seconds after "fork". I have another implementation that removes
+    this assumption.
+
+
+
+
+
+

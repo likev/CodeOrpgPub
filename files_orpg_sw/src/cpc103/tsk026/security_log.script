@@ -1,0 +1,482 @@
+#!/bin/sh
+#
+# File: security_log.script
+# Purpose: Log security information to file
+#
+# RCS info
+# $Author: ccalvert $
+# $Locker:  $
+# $Date: 2010/02/19 16:19:45 $
+# $Id: security_log.script,v 1.1 2010/02/19 16:19:45 ccalvert Exp $
+# $Revision: 1.1 $
+# $State: Exp $
+#
+
+MAX_NUM_LOG_FILES=30
+
+#####################################################################
+# PRINT_USAGE: Display usage of this script
+#####################################################################
+
+print_usage ()
+{
+    echo
+    echo "Usage: security_log [Options]"
+    echo
+    echo "Options:"
+    echo "     -c    Write the security log file to CD."
+    echo "     -h    Print the usage message."
+    echo "     -l    List previously created security logs for this node."
+    echo "     -r    Remove previously created security logs for this node."
+    echo "     -p    Security log file name is only output when finished."
+    echo
+    echo "Note: Security logs are automatically created in ~/security_logs"
+    echo "      with the following file naming convention:"
+    echo "      YYYYMMDD.HHMMSS.security_log.nnnn.ch#.tar.gz"
+    echo "      where YYYYMMDD.HHMMSS is the timestamp, nnnn is the"
+    echo "      node name, \"#\" is the channel number."
+    echo
+    echo "      In addition, only the latest $MAX_NUM_LOG_FILES security log files are"
+    echo "      kept in ~/security_logs. Older files are removed as new"
+    echo "      security log files are created."
+    echo
+    echo "Examples:"
+    echo
+    echo "   security_log"
+    echo "     - creates a security log in ~/security_logs"
+    echo
+    echo "   security_log -c"
+    echo "     - creates a security log in ~/security_logs"
+    echo "       and writes the file to CD"
+    echo
+    echo "   security_log -h"
+    echo "     - prints the usage message"
+    echo
+}
+
+#**************************************************************************
+# ECHO_STDOUT: Echo to stdout.
+#**************************************************************************
+
+echo_stdout ()
+{
+  echo -e $1
+}
+
+#**************************************************************************
+# ECHO_STDERR: Echo to stderr.
+#**************************************************************************
+
+echo_stderr ()
+{
+  echo -e $1 >&2
+}
+
+#**************************************************************************
+# ECHO_ERROR: Echo error message and exit.
+#**************************************************************************
+
+echo_error ()
+{
+  if [ $# -eq 1 ]
+  then
+    exit_code=1
+  else
+    exit_code=$2
+  fi
+
+  echo_stderr "ERROR: $1"
+
+  exit $exit_code
+}
+
+#####################################################################
+# INITIALIZE_VARIABLES: Initialize variables.
+#####################################################################
+
+initialize_variables ()
+{
+  install_file=$HOME/cfg/rpg_install.info
+
+  if [ ! -f $install_file ]
+  then
+    echo_error "File $install_file does not exist"
+  fi
+
+  NODE_TYPE=`cat $install_file | egrep 'TYPE:' | awk '{print $2}'`
+  if [ -z "$NODE_TYPE" ]
+  then
+    echo_error "TYPE: not found in $install_file"
+  fi
+
+  NODE_ICAO=`cat $install_file | egrep 'ICAO:' | awk '{print $2}'`
+  if [ -z "$NODE_ICAO" ]
+  then
+    echo_error "ICAO: not found in $install_file"
+  fi
+
+  NODE_CHANNEL=`cat $install_file | egrep 'CHANNEL:' | awk '{print $2}'`
+  if [ -z "$NODE_CHANNEL" ]
+  then
+    NODE_CHANNEL=0
+  fi
+
+  TIME_STRING=`date +%Y%m%d.%H%M%S`
+
+  SECURITY_LOG_DIR=$HOME/security_logs
+}
+
+#####################################################################
+# LIST_FILES: List previously created security log files.
+#####################################################################
+
+list_files ()
+{
+  if [ ! -d $SECURITY_LOG_DIR ]
+  then
+    echo_error "Directory $SECURITY_LOG_DIR does not exist"
+    exit 1
+  else
+    cd $SECURITY_LOG_DIR
+    for security_log_file in `ls -c *.tar.gz 2> /dev/null`
+    do
+      echo "$security_log_file `stat -c '%s' $security_log_file` bytes"
+    done
+    exit 0
+  fi
+}
+
+#####################################################################
+# REMOVE_FILES: Remove previously created security log files.
+#####################################################################
+
+remove_files ()
+{
+  if [ ! -d $SECURITY_LOG_DIR ]
+  then
+    echo_error "Directory $SECURITY_LOG_DIR does not exist"
+    exit 1
+  else
+    cd $SECURITY_LOG_DIR
+    for security_log_file in `ls -c *.tar.gz 2> /dev/null`
+    do
+      rm -f $security_log_file > /dev/null 2>&1
+    done
+    exit 0
+  fi
+}
+
+#####################################################################
+# PARSE_CMDLINE: Parse the command line arguments.
+#####################################################################
+
+parse_cmdline ()
+{
+  COPY_TO_CD=0
+  PRINT_FILENAME_ONLY=0
+
+  while getopts chlrp option
+  do
+    case $option in
+       c) COPY_TO_CD=1 ;;
+       h) print_usage; exit 0 ;;
+       l) list_files;;
+       r) remove_files;;
+       p) PRINT_FILENAME_ONLY=1 ;;
+      \?) print_usage; exit 1 ;;
+    esac
+  done
+}
+
+#####################################################################
+# VERIFY_ROOT: Verify user has root privileges.
+#####################################################################
+
+verify_root ()
+{
+  if [ `whoami` != "root" ]
+  then
+    echo_error "You do not have root privileges"
+  fi
+}
+
+#####################################################################
+# BUILD_FILENAME: Build name of security log file.
+#####################################################################
+
+build_filename ()
+{
+  if [ $NODE_CHANNEL -eq 0 ]
+  then
+    SECURITY_LOG_FILENAME="${NODE_ICAO}.${TIME_STRING}.security_log.${NODE_TYPE}"
+  else
+    SECURITY_LOG_FILENAME="${NODE_ICAO}.${TIME_STRING}.security_log.${NODE_TYPE}.ch${NODE_CHANNEL}"
+  fi
+}
+
+#####################################################################
+# CREATE_SECURITY_LOG_FILE: Create the actual security log file.
+#####################################################################
+
+create_security_log_file ()
+{
+  # Make sure security logs directory exists or can be created.
+
+  if [ ! -d $SECURITY_LOG_DIR ]
+  then
+    if ! mkdir $SECURITY_LOG_DIR > /dev/null 2>&1
+    then
+      echo_error "Cannot create directory $SECURITY_LOG_DIR"
+    fi
+  fi
+
+  # Temporary directory named "security_logPID" is created to
+  # collect files and provide top-level directory in
+  # tar file. PID is the process id of the task. Using PID
+  # allows multiple security_log tasks to be running at the same
+  # time. Start fresh by removing "security_logPID" if it exists
+  # and then re-creating it.
+
+  temp_dir_name=security_log$$
+
+  temp_dir=$SECURITY_LOG_DIR/$temp_dir_name
+  if [ -d $temp_dir ]
+  then
+    if ! /bin/rm -rf $temp_dir > /dev/null 2>&1
+    then
+      echo_error "Cannot remove directory $temp_dir"
+    fi
+  fi
+  if ! mkdir $temp_dir > /dev/null 2>&1
+  then
+    echo_error "Cannot create directory $temp_dir"
+  fi
+
+  # Create log file for this security log
+
+  LOG_FILE=$temp_dir/security_log.log
+  if ! touch $LOG_FILE > /dev/null 2>&1
+  then
+    /bin/rm -rf $temp_dir > /dev/null 2>&1
+    echo_error "Cannot create file $LOG_FILE"
+  fi
+  echo_stdout "Creating $SECURITY_LOG_FILENAME" >> $LOG_FILE 2>&1
+  echo_stdout "Begin saving files to $temp_dir" >> $LOG_FILE 2>&1
+
+  # Command last
+
+  echo_stdout "Running last:" >> $LOG_FILE 2>&1
+  if ! last -R > $temp_dir/last 2>&1
+  then
+    echo_stderr "Command last -R failed" >> $LOG_FILE 2>&1
+  fi
+
+  # Command passwd
+
+  echo_stdout "Running passwd:" >> $LOG_FILE 2>&1
+  num_accts=0
+  for name in `cat /etc/passwd | awk -F: '{print $1}'`
+  do
+    if ! passwd -S $name >> $temp_dir/passwd 2>&1
+    then
+      echo_stderr "Command passwd -S failed for $name" >> $LOG_FILE 2>&1
+    fi
+    num_accts=`expr $num_accts + 1`
+  done
+  echo "NUM ACCOUNTS: $num_accts" >> $temp_dir/passwd
+
+  # Command md5sum /etc/passwd
+
+  echo_stdout "Running md5sum /etc/passwd:" >> $LOG_FILE 2>&1
+  if ! md5sum /etc/passwd > $temp_dir/md5sum.passwd 2>&1
+  then
+    echo_stderr "Command md5sum /etc/passwd failed" >> $LOG_FILE 2>&1
+  fi
+
+  # Command md5sum /etc/shadow
+
+  echo_stdout "Running md5sum /etc/shadow:" >> $LOG_FILE 2>&1
+  if ! md5sum /etc/shadow > $temp_dir/md5sum.shadow 2>&1
+  then
+    echo_stderr "Command md5sum /etc/shadow failed" >> $LOG_FILE 2>&1
+  fi
+
+  # Command pwck
+
+  echo_stdout "Running pwck:" >> $LOG_FILE 2>&1
+  if ! pwck -r > $temp_dir/pwck 2>&1
+  then
+    echo_stderr "Command pwck failed" >> $LOG_FILE 2>&1
+  fi
+
+  # Command grpck
+
+  echo_stdout "Running grpck:" >> $LOG_FILE 2>&1
+  if ! grpck -r > $temp_dir/grpck 2>&1
+  then
+    echo_stderr "Command grpck failed" >> $LOG_FILE 2>&1
+  fi
+
+  # Get files from /syslog
+
+  if ls /syslog/*.log > /dev/null 2>>$LOG_FILE
+  then
+    echo_stdout "Saving /syslog/*.log files" >> $LOG_FILE 2>&1
+    sudo tar -cf - `ls /syslog/*.log` 2>>$LOG_FILE | tar -C $temp_dir -xf - 2>>$LOG_FILE
+  else
+    echo_stderr "No /syslog/*.log files found" >> $LOG_FILE 2>&1
+  fi
+
+  # Get files from /var/log
+
+  if ls /var/log/secure* > /dev/null 2>>$LOG_FILE
+  then
+    echo_stdout "Saving /var/log/secure files" >> $LOG_FILE 2>&1
+    sudo tar -cf - `ls /var/log/secure*` 2>>$LOG_FILE | tar -C $temp_dir -xf - 2>>$LOG_FILE
+  else
+    echo_stderr "No /var/log/secure files found" >> $LOG_FILE 2>&1
+  fi
+
+  if ls /var/log/boot.log* > /dev/null 2>>$LOG_FILE
+  then
+    echo_stdout "Saving /var/log/boot.log files" >> $LOG_FILE 2>&1
+    sudo tar -cf - `ls /var/log/boot.log*` 2>>$LOG_FILE | tar -C $temp_dir -xf - 2>>$LOG_FILE
+  else
+    echo_stderr "No /var/log/boot.log files found" >> $LOG_FILE 2>&1
+  fi
+
+  if ls /var/log/cron* > /dev/null 2>>$LOG_FILE
+  then
+    echo_stdout "Saving /var/log/cron files" >> $LOG_FILE 2>&1
+    sudo tar -cf - `ls /var/log/cron*` 2>>$LOG_FILE | tar -C $temp_dir -xf - 2>>$LOG_FILE
+  else
+    echo_stderr "No /var/log/cron files found" >> $LOG_FILE 2>&1
+  fi
+
+  if ls /var/log/messages* > /dev/null 2>>$LOG_FILE
+  then
+    echo_stdout "Saving /var/log/messages files" >> $LOG_FILE 2>&1
+    sudo tar -cf - `ls /var/log/messages*` 2>>$LOG_FILE | tar -C $temp_dir -xf - 2>>$LOG_FILE
+  else
+    echo_stderr "No /var/log/messages files found" >> $LOG_FILE 2>&1
+  fi
+
+  # RPM list
+
+  echo_stdout "Saving list of installed RPMs" >> $LOG_FILE 2>&1
+  rpm -qa | sort > $temp_dir/rpm.list 2>&1
+
+  # Virus Scan version
+
+  echo_stdout "Saving version of Virus Scan software" >> $LOG_FILE 2>&1
+  uvscan --version > $temp_dir/uvscan.version 2>&1
+
+  echo_stdout "Finished saving files to $temp_dir" >> $LOG_FILE 2>&1
+
+  # Tar the temporary directory containing the security log info. Build new
+  # name of security log (post tar). Create new variable taking path into
+  # account.
+
+  SECURITY_LOG_FILENAME="${SECURITY_LOG_FILENAME}.tar"
+
+  new_tarfile=$SECURITY_LOG_DIR/$SECURITY_LOG_FILENAME
+
+  if ! tar -C $SECURITY_LOG_DIR -cf $new_tarfile $temp_dir_name > /dev/null 2>&1
+  then
+    echo_error "Command: tar -C $SECURITY_LOG_DIR -cf $new_tarfile $temp_dir failed."
+    /bin/rm -rf $temp_dir > /dev/null 2>&1
+  fi
+
+  # Compress the tar file containing the security log info.
+
+  if ! gzip -f $new_tarfile > /dev/null 2>&1
+  then
+    echo_error "Command: gzip -f $new_tarfile failed."
+    /bin/rm -f $new_tarfile > /dev/null 2>&1
+    /bin/rm -rf $temp_dir > /dev/null 2>&1
+  fi
+
+  # Build new name of security log (post gzip).
+
+  SECURITY_LOG_FILENAME="${SECURITY_LOG_FILENAME}.gz"
+
+  # Set permissions of security log.
+
+  chown rpg:rpg $SECURITY_LOG_DIR/$SECURITY_LOG_FILENAME > /dev/null 2>&1
+  chmod 640 $SECURITY_LOG_DIR/$SECURITY_LOG_FILENAME > /dev/null 2>&1
+
+  # Print name of new file if flag is set.
+
+  if [ $PRINT_FILENAME_ONLY -eq 1 ]
+  then
+    echo_stdout "$SECURITY_LOG_FILENAME"
+  fi
+
+  # Remove temporary directory
+
+  /bin/rm -rf $temp_dir > /dev/null 2>&1
+}
+
+#####################################################################
+# PURGE_OLD_FILES: Remove old security log files.
+#####################################################################
+
+purge_old_files ()
+{
+  # Keep the $MAX_NUM_LOG_FILES most recent security log files.
+  # Remove the rest. Note where user is currently located
+  # and make sure to return there when finished.
+
+  current_dir=`pwd`
+  cd $SECURITY_LOG_DIR
+  echo `ls -ct *.tar.gz 2> /dev/null` | awk '{for( i=num_files+1; i<=NF; i++ ){system( "rm -f " $i )}}' num_files=$MAX_NUM_LOG_FILES
+  cd $current_dir
+}
+
+#####################################################################
+# COPY_TO_MEDIA: Copy security log file to media.
+#####################################################################
+
+copy_file_to_media ()
+{
+  temp_filename="${SECURITY_LOG_DIR}/${SECURITY_LOG_FILENAME}"
+
+  if [ $COPY_TO_CD -eq 1 ]
+  then
+    medcp -ce $temp_filename cd > /dev/null 2>&1
+    return_value=$?
+    if [ $return_value -ne 0 -a $return_value -ne 115 ]
+    then
+      # Exit code 115 is due to eject -t. It doesn't  work on RPGA, so ignore.
+      echo_error "Failed copying $temp_filename to CD ($return_value)"
+    fi
+  fi
+}
+
+####################################################################
+#
+# MAIN BODY OF SCRIPT
+#
+####################################################################
+
+# Initialize variables
+initialize_variables
+
+# Read the command line options
+parse_cmdline $*
+
+# Verify root privilege
+verify_root
+
+# Read the command line options
+build_filename
+
+# Create the security log file
+create_security_log_file
+
+# Remove old security log files
+purge_old_files
+
+# Copy security log file to media
+copy_file_to_media
+

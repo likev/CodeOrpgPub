@@ -1,0 +1,233 @@
+hci_ccz(1) 		       ORPG SUM Man page                     hci_ccz(1)
+
+NAME
+
+hci_ccz
+
+SYNOPSIS
+
+hci_ccz [options]
+
+DESCRIPTION
+
+The "hci_ccz" command invokes the Clutter Regions Editor task for the RPG. It
+is a GUI based task which runs in an X Windows/Motif environment.  It is part
+of the Human-Computer Interface family (HCI) of tasks, typically  launched from
+the RPG Control/Status task (refer to man page hci(1)).  However, it can be run
+as a stand-alone application from the command line.
+
+OPTIONS
+
+hci_ccz recognizes the following options:
+
+	-h	      print usage message and exit
+	
+	-iconic       Launch the task in an iconic state
+	
+	-l	      low bandwidth mode; compress data passed to/from
+		      RPG data stores.
+
+	-m <name>     RPG computer name
+	
+	-name <title> Window title
+	
+	-s <rate>     Set the simulated baud rate
+	
+OVERVIEW
+
+**** NOTE NOTE NOTE NOTE NOTE NOTE NOTE ****
+
+While both the legacy RDA and ORDA are being supported, temporary design
+changes have been implemented. There are now three executables. The main
+executable (hci_ccz) determines what the RDA configuration is. Once determined,
+hci_ccz calls either hci_ccz_legacy (for the legacy RDA) or hci_ccz_orda (for
+the ORDA configuration). The legacy version is described below. The ORDA version
+is similar, except that ORDA no longer has multiple clutter suppression
+channels (surveillance and doppler). Instead, there is only one clutter
+suppression channel.
+
+*******************************************
+
+The hci_ccz task provides a graphical user interface to view and edit RPG
+Clutter Suppression Regions data.  The RPG clutter suppression regions data
+store holds up to 20 separate clutter suppression regions files.  A clutter
+suppression regions file can contain up to 15 regions.  There is always at
+least one clutter suppression regions file defined.  This file, named
+"Default", cannot be changed.  However, it can be used as a template, edited,
+and saved as a different file.  The RPG maintains two copies of the clutter
+suppression regions data: a working copy and a backup (baseline) copy.  All
+edits are made to the working copy.
+
+When activated, the Clutter Regions window is displayed.  The window title,
+"Clutter Regions", also contains the name of the currently active file and the
+date/time it was last modified.  By default, the "Default" file is displayed.
+
+The Clutter Regions window consists of the following components: A set of file
+control buttons, a display/edit area, a display control area, and a clutter
+regions table.  Since clutter suppression regions data are password protected,
+a lock icon button is displayed in the upper right corner of the Clutter 
+Regions window.  By default, the "Restore" and "Update" buttons in the main
+window are locked as well as the "Save" and "Delete" buttons in the Clutter
+Region Files window.  To unlock the windows the user selects the lock icon
+button to activate the Password window.  From this window the user selects
+the password level and enters a password.
+
+
+File Control
+------------
+
+The file control buttons are displayed at the top of the window.  Selecting the
+"Close" button exits the task.  If any unsaved edits are detected when the
+"Close" button is selected, a warning popup window is displayed allowing the
+user a last chance to save them.
+
+The "File" button actives the Clutter Region Files window.  This window
+contains a set of buttons and a list of clutter suppression regions files.  To
+open a file for display/edit select (double click) on a list entry.  A list
+entry contains a file label and the date/time it was last updated.  The default
+file should have a date/time of all zeros. If the Clutter Regions window has
+been unlocked for editing, the "Delete" button in the Clutter Region Files
+window is sensitized.  If edits have been made the "Save" button is also
+sensitized.
+
+If the "New" button is selected, a blank filename is displayed in the window
+title and two regions are defined; one for each segment.  The regions are
+identical with bypass map defined as the select code with high and medium
+filtering for the Doppler and surveillance channels, respectively.  If the
+"Save" button is subsequently selected, a popup window is displayed for
+the user to specify a filename.  Canceling the save operation will result
+in the loss of any user defined regions and the default file being loaded
+and displayed.
+
+If the "Save As" buttons are selected, a popup window is displayed for the
+user to specify a new filename.  If the filename is already used, a warning
+popup is displayed informing the user to choose a different name.
+
+The "Undo" button discards all edits made to the current file and restores
+the display to the pre-edit state.
+
+The "Download" button is used to download the currently selected clutter
+suppressions regions file to the RDA.  When selected, a warning popup is
+displayed from which the user can continue with or cancel the download.  If
+accepted, a download command is written to a message which is read by the
+Control RDA task, formatted into the proper ICD format, and sent to the RDA.
+If the RPG Control/Status window is open, the message "Downloading new Clutter
+Censor Zones" is displayed in the feedback line and "Clutter Censor Zones
+Received" is displayed in the status line.
+
+The "Restore" button replaces the current (working) clutter suppression regions
+files data with baseline (backup) values.
+
+The "Update" button replaces the baseline (backup) clutter suppression regions
+files data with current (working) values.
+
+Display/Edit Area
+-----------------
+
+The display/edit area is broken up into two parts: a clutter regions edit
+area and a composite bypass map area.  The clutter regions edit area is where
+the user can define new clutter regions using the mouse.  Region overlays
+are displayed over either a base reflectivity product or a CFC product.  The
+CFC product is typically used to verify clutter regions which were sent to
+the RDA.  The base reflectivity product is defined in the "hci_task_data"
+configuration file (residing in the "$ORPGDIR/cfg" directory). 
+
+As the cursor is moved over the clutter regions edit area, its relative 
+position from the radar (azimuth and range) is displayed in the upper left
+corner.  By default, range units are in nautical miles.  The "Km" and "NM"
+radio buttons beneath the composite bypass map area are used to toggle the
+units between kilometers and nautical miles.  Initially, clutter region
+boundaries for the low segment are displayed over a 0.5 degree base
+reflectivity product (if one is available).  The "Reflectivity" and "CFC"
+radio buttons below the clutter regions edit area can be used to switch between
+a base reflectivity product background and clutter filter control product (CFC) 
+background.
+
+The composite bypass map area contains a graphical representation of the
+clutter bypass map data defined in the current file; one each for the 
+surveillance and Doppler channels.  Color codes are assigned to the various
+filters.  For overlapping boundaries, the highest priority filter is displayed.
+The main purpose of the composite displays are to give the user an idea of how
+the resultant clutter suppression regions data will look as a whole.  It may
+help the user decide which regions are unnecessary in the case of overlapping
+regions.
+
+Display Control
+---------------
+
+The "Low" and "High" radio buttons to the right of the "Segment" label are used
+to define which clutter suppression regions segment is used for display and
+editing.  There are two choices as to which type of background product is
+displayed with the sector data.  The first radio button corresponds to a
+user defined radial product.  The full name of the product is displayed to
+the right of the radio button.  The product can be changed by selecting an
+item from the "Change Background Product" menu displayed when the radio button
+is selected.  The contents of the menu are built from the contents of the
+"hci_task_data" configuration file.  A default product is defined for both
+the low and high bandwidth configurations.  The software will automatically
+determine which configuration the user is currently editing in and change
+the appropriate item.  Selecting a new product from the list forces the
+generation of this product in subsequent volume scans (until the product is
+changed).  If the product selected is currently being generated then it will
+be immediately displayed.  If not, it won't be available until the next
+volume scan.  The user should select the low or high segment buttons to
+force a redisplay when the product becomes available.  When the low segment
+radio button is selected the product corresponding to the lowest cut below
+1.5 degrees is displayed.  When the high segment radio button is selected
+the product corresponding to the lowest cut above 1.5 and below 4.5 degrees
+is displayed.  When no product is available then the string "Background
+Product Data Not Available" is displayed.  If the product can be found in the
+product database but the time of the latest product is more than 15 minutes
+old the string "Background Product Data Expired" is displayed.
+
+If the "CFC" radio button is set, the user can choose which CFC channel is
+displayed.  The CFC product will correspond to the "Segment" radio button which
+is set.
+
+The "Zoom" and "Sector" radio buttons to the right of the "Mode" label define
+the actions of the mouse buttons when the cursor is inside the clutter regions
+edit area.  If "Zoom" is set, the mouse is in zoom mode.  When in zoom mode,
+selecting any button recenters the display with the selected location moved to
+the clutter regions edit area.  Selecting the left mouse button also increases
+the magnification by a factor of 2 (maximum magnification is 32:1).  Selecting
+the right mouse button decreases the magnification by a factor of 1/2 (minimum
+magnification is 1:1).  Increasing the magnification makes it easier to
+define small-scale regions close to the radar.  If "Sector" is set, the mouse
+is in sector mode.  When in sector mode, the user can define new regions by
+selecting a sector corner, dragging the cursor to the opposite corner, and
+then releasing the button.  An entry for each new region is added to the
+clutter regions table.
+
+
+Clutter Regions Table
+---------------------
+
+The clutter regions table displays textually, the properties of all defined
+clutter suppression regions in the currently selected segment.  The user can
+edit these properties directly.  Any changes to the table will be reflected
+in the data displayed in the display/edit area.  The user can select a table
+entry (clutter suppression region) by selecting a button in the "Region"
+column.  This makes the entry active so if the "Delete" button above the table
+is selected, that region is deleted from the table and display/edit area.
+
+To create a new region, move the cursor into the clutter regions edit area.
+Move the cursor to one of the sector corners of the new region, press the left
+mouse button, drag the mouse until the cursor is at the opposite sector corner,
+and then release the button.  The new sector is added to the clutter regions
+table.  The default select code is "Bypass Map" and the notch widths are "Low"
+for both channels.  You can change the select code and notch widths by
+selecting the buttons.  The select code buttons will toggle between "Bypass 
+Map", "All Bins" and "None". The notch width buttons will toggle between "Low",
+"Medium", and "High" when the select code is either "Bypass Map" or "All Bins".
+
+NOTES
+
+In FAA redundant configurations, the label "(FAA:x)" is appended to the window
+title ("x" is the RDA channel number).  Refer to the header file "clutter.h"
+for detailed information on clutter suppression regions formats and IDs.
+
+SEE ALSO
+
+orpg(3) hci(1) hci_agent(1)
+
+				$Revision: 1.11 $

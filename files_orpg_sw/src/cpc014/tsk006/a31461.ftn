@@ -1,0 +1,519 @@
+C 
+C RCS info 
+C $Author: steves $ 
+C $Locker:  $ 
+C $Date: 2007/02/05 19:11:52 $ 
+C $Id: a31461.ftn,v 1.9 2007/02/05 19:11:52 steves Exp $ 
+C $Revision: 1.9 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A31461__BUFFER_CONTROL (PARAM)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A31461__BUFFER_CONTROL
+*.
+*.  MODULE VERSION: 0021
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       06 13 89      0000      P.A.JENDROWSKI       SPR# 90348
+*.       03 20 90      0001      DAVE HOZLOCK         SPR# 90697
+*.       08 27 90      0002      PAUL JENDROWSKI      SPR# 90899
+*.       02 22 91      0003      PAUL JENDROWSKI      SPR# 91255
+*.       03 13 91      0003      PAUL JENDROWSKI      SPR# 91825
+*.       10 14 91      0004      EDWARD WENDOWSKI     SPR# 92410
+*.       12 03 91      0005      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0006      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0007      Toolset              SPR 91895
+*.       10/20/92      0008      BRADLEY SUTKER       CCR NA92-28001
+*.       03/25/93      0009      Toolset              SPR NA93-06801
+*.       01/28/94      0010      Toolset              SPR NA94-01101
+*.       03/03/94      0011      Toolset              SPR NA94-05501
+*.       08/04/94      0012      C. Stephenson        CCR NW-94-084-02
+*.       04/01/95      0013      TOOLSET              CCR NA95-11802
+*.       08/28/95      0014      TIM O'BANNON         CCR 94-33207
+*.       10/03/95      0014      JAY BREIDENBACH      CCR NA94-33201
+*.       12/05/95      0014      ELLIOTT P. FRIEND    CCR NA94-08462
+*.       12/23/96      0015      Toolset              CCR NA95-11807
+*.       03/16/99      0016      Toolset              CCR NA98-23803
+*.       01/31/02      0017      Dennis A. Miller     CCR NA01-27501
+*.       06/30/03      0018      Dennis A. Miller     CCR NA02-06508
+*.       12/09/03      0019      CHRIS CALVERT        CCR NA03-30002
+*.       10/26/05      0020      Cham Pham            CCR NA05-21401
+*.       01/26/07      0021      Jihong Liu           CCR NA07-01702 
+*.
+*.  CALLING SEQUENCE: CALL A31461__BUFFER_CONTROL (PARAM)
+*.
+*.  MODULE FUNCTION:
+*.
+*.     This routine determines the type of Hydromet data which has
+*.     been indicated as being available, and calls the appropriate
+*.     routine to perform the processing. This routine first
+*.     retrieves the precipitation status message in order to obtain
+*.     the precipitation category, which indicates if there was
+*.     precipitation within the last hour. The next available
+*.     data buffer is then retrieved, and processing is performed
+*.     based on the type of data in the buffer.
+*.
+*.  MODULES CALLED: A31145__ABORT_ME, A31210__CHECK_DATA, A31211__GET_INBUF,
+*.                  A31212__REL_INBUF, A31218__BUF_VOL, A31463__SCAN_TO_SCAN,
+*.                  A31465__UPDATE_HRLYDB, A31468__PDB_IO,
+*.                  A3146I__UPDATE_DPA_DB, A3146V__PROD82_SUPPLEMENTAL,
+*.                  A31475__UPDATE_USDB, A31476__COPY_SUPL,
+*.                  A31482__HOURLY_PRODUCTS
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT        TYPE        DESCRIPTION
+*.    -   -----        ----        -----------
+*.    G   BIAS_FLAG    L*4         Flag indicating wheter the Gage Adjustment
+*.                                 Bias should be applied to the Precipitation
+*.                                 Product.
+*.    G   MEM          I*4         Array in RPG shared memory set aside for
+*.                                 buffer sharing.
+*.    G   RESETBI      R*4         Reset Value of Bias.
+*.    G   BEYOND_RANGE I*4         (CONSTANT)Flag value for points beyond 230
+*.                                 km. in the 1/4 LFM Rate scan grid.
+*.    G   HYADJSCN     I*4         (CONSTANT)Parameter for adjusted scans
+*.                                 input buffer data type.
+*.    G   HYO_ADAP     I*4         (CONSTANT)OFFSET INTO IO
+*.                                 BUFFERS-ACCUMULATION OR RATE ARRAYS
+*.    G   HYO_ADJHRLY  I*4         (CONSTANT)Offset for adjusted hourly
+*.                                 accumulation scan array.
+*.    G   HYO_ADJSCAN  I*4         (CONSTANT)Offset for adjusted scan-to-scan
+*.                                 accumulation scan array.
+*.    G   HYO_BHEADER  I*4         (CONSTANT)Offset in output buffer to Bias 
+*.                                 source id in the header 
+*.    G   HYO_BTABL    I*4         (CONSTANT)Offset in output buffer to Bias
+*.                                 accumulation scan array.
+*.    G   HYO_LFM4     I*4         (CONSTANT)Offset for 1/4 LFM grid in input
+*.                                 buffer.
+*.    G   HYO_MESG     I*4         (CONSTANT)Offset for precipitation status
+*.                                 message in input buffer.
+*.    G   HYO_SUPL     I*4         (CONSTANT)Offset to Supplemental
+*.                                 Data array in Hybrid Scan output buffer.
+*.                                 HYZ_MESG + HYZ_ADAP (= (6 + 45) = 51)
+*.    G   HYZ_LFM4     I*4         (CONSTANT)Dimension of the 1/4 LFM rate
+*.                                 scan grid.
+*.    G   MM_TO_IN     R*4         (CONSTANT)SCALING FACTOR FOR MILLIMETERS TO
+*.                                 INCHES
+*.    G   NORMAL       I*4         (CONSTANT)(CONSTANT)Parameter which
+*.                                 indicates normal completion of requested
+*.                                 operation to acquire input or output buffer
+*.    C   FIL_STAT     I*4         Status of disk file.
+*.    C   START_DIR    I*4         Start address of directory common block
+*.                                 (dummy variable).
+*.    C   DIR_REC      I*4         (CONSTANT)Disk file record index for the
+*.                                 directory record.
+*.    C   GOOD         I*4         (CONSTANT)Status flag value.
+*.    C   HY1HRACC     I*4         (CONSTANT)Constant indicating 1 hour
+*.                                 accumulation product buffer data type.
+*.    C   HY1HRDIG     I*4         (CONSTANT)Constant indicating digital
+*.                                 precipitation array product buffer data
+*.                                 type.
+*.    C   HY3HRACC     I*4         (CONSTANT)Constant indicating 3 hr.
+*.                                 accumulation product buffer data type.
+*.    C   HYSUPPLE     I*4         (CONSTANT)Constant indicating supplemental
+*.                                 data product buffer data vtype.
+*.    C   HYUSPBUF     I*4         (CONSTANT)
+*.    C   WRITKODE     I*4         (CONSTANT)I/O code indicating write to disk
+*.                                 I/O operation should be performed.
+*.
+*.    *   OUTPUT      TYPE        DESCRIPTION
+*.    -   ------      ----        -----------
+*.    G   RESET_BIAS  R*4         Reset value for bias accumulation.
+*.    C   BIAS_TOGGLE L*4         Local adaptaion copy of BIAS_FLAG
+*.    C   START_DIR   I*4         Start address of directory common block
+*.                                (dummy variable).
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    G   MEM               I*4         Array in RPG shared memory set aside
+*.                                      for buffer sharing.
+*.    C   START_DIR         I*4         Start address of directory common
+*.                                      block (dummy variable).
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME         TYPE        DESCRIPTION
+*.    ----         ----        -----------
+*.    ADJH_IPTR    I*4         Offset into MEM for Adjusted Hourly
+*.    ADJS_IPTR    I*4         Offset into MEM for Adjusted Scan-to-
+*.    ADPT_IPTR    I*4         Offset into MEM for Adaptation array
+*.    BIAS_FCTR    R*4         Parameter used to bias the MM to inches
+*.                             conversion of the 1/4 LFM rate scan grid
+*.    BHDR_IPTR    I*4         Offset into MEM for Bias Source ID in the header 
+*.    BTBL_IPTR    I*4         Offset into MEM for Bias Table
+*.    BUFTYP_RECVD I*4         Data type of input buffer received
+*.    FLAG31       L*4         Flag for whether Product 31 (USP) requested
+*.    FLAG78       L*4         Flag for product 78 requested
+*.    FLAG79       L*4         Flag for product 79 requested
+*.    FLAG81       L*4         Flag for product 81 requested
+*.    FLAG82       L*4         Flag for product 82 requested
+*.    HYBUF_PTR    I*4         Pointer to start of input buffer
+*.    HYBUF_STATUS I*4         Status of input buffer reception
+*.    I            I*4         Do-Loop index into MEM
+*.    I4SIZE       I*4         Total I*4 word size of the 1/4 LFM rate scan
+*.                             grid
+*.    IOSTAT       I*4         File status returned from A31468__
+*.    J            I*4         Do-Loop index for LFM4GRD
+*.    LFM4GRD      I*2         1/4 LFM rate scan grid
+*.    LFM4_IPTR    I*4         Pointer into MEM of the 1/4 LFM grid
+*.    MAX_VALUE    I*4         Maximum value in 10ths inches for 1/4 LFM grid
+*.                             for when used with color tabl
+*.    MESG_IPTR    I*4         Offset into MEM for Precip. Status
+*.    MISSING      I*4         Color table missing value for 1/4 LFM grid
+*.    OFF          I*4         Offset into linear buffer
+*.    OPSTAT31     I*4         Product Request status flag Product 31 (USP)
+*.    OPSTAT78     I*4         1-hr accum. product request status
+*.    OPSTAT79     I*4         3-hr accum. product request status
+*.    OPSTAT81     I*4         Digital Precipitation Array product request
+*.                             status
+*.    OPSTAT82     I*4         Supplemental Data product request status
+*.    SUPL_IPTR    I*4         Offset into MEM for Supplemental data
+*.    TEMPGRD      I*4         Array equivalenced to LFM4GRD used to copy 1/4
+*.                             LFM grid from input buffer to local storage
+*.    VSNUM        I*4         Volume scan number
+*.    ARR          I*1         Internal array equivalenced to IEQV_SOURCE_ID 
+*.                             to access each character 
+*.    CHAR1        CHAR*1      each character converted from integer 
+*.    CHAR2        CHAR*1      each character converted from integer 
+*.    CHAR3        CHAR*1      each character converted from integer 
+*.    CHAR4        CHAR*1      each character converted from integer 
+*
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3136CA
+*.    A3CD00
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3146C2
+*.    A3146C3
+*.    A314C3
+*.    HYDROMET_ADJ
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK14.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+ 
+ 
+C
+C** 'X' IN COLUMN-1 INDICATES CONDITIONALLY COMPILED DEBUG CODE...
+C
+      IMPLICIT NONE
+C
+$INCLUDE A313HBUF.INC/G,**A313HYPP (NEND NLIST)
+$INCLUDE A313H.INC,**A3136P5 (NLIST)
+$INCLUDE           **A3136C5 (NEND NLIST)
+$INCLUDE A309.INC/G,**A3PM00 (NEND NLIST)
+$INCLUDE            **A3PM50 (NLIST)
+$INCLUDE            **A3CD00 (NEND NLIST)
+$INCLUDE A3146.INC/G,**A3146P1(NEND NLIST)
+$INCLUDE             **A3146C2 (NEND NLIST)
+$INCLUDE             **A3146C3 (NEND NLIST)
+$INCLUDE             **A3146LFP (NEND NLIST)
+$INCLUDE             **A314C3 (NEND NLIST)
+$INCLUDE A309ADPT.INC/G,**A3CD70_HYDROMET_ADJ  (NEND NLIST)
+$INCLUDE A313H.INC/G,**A3136CA  (NEND NLIST)
+C
+      LOGICAL FLAG31, FLAG78, FLAG79, FLAG81, FLAG82
+C
+X     LOGICAL PRINTED
+X     DATA PRINTED /.FALSE./
+C
+      INTEGER PARAM, VSNUM, A31218__BUF_VOL
+      INTEGER HYBUF_PTR, BUFTYP_RECVD, HYBUF_STATUS, IOSTAT
+      INTEGER OPSTAT31, OPSTAT78, OPSTAT79, OPSTAT81, OPSTAT82
+      INTEGER MESG_IPTR, ADPT_IPTR, SUPL_IPTR, ADJS_IPTR, ADJH_IPTR
+      INTEGER LFM4_IPTR, BTBL_IPTR, BHDR_IPTR
+C
+      INTEGER*2 LFM4GRD(HYZ_LFM4,HYZ_LFM4)
+      INTEGER*4 I4SIZE,I,J,OFF,MISSING,MAX_VALUE
+      PARAMETER (I4SIZE=((HYZ_LFM4*HYZ_LFM4)+1)/2,MISSING=256)
+      PARAMETER (MAX_VALUE=255)
+      INTEGER*4 TEMPGRD(I4SIZE)
+C
+      REAL BIAS_FCTR
+      PARAMETER (BIAS_FCTR=1.0)
+C
+      INTEGER*1 ARR(4)
+      CHARACTER*1 CHAR1
+      CHARACTER*1 CHAR2
+      CHARACTER*1 CHAR3
+      CHARACTER*1 CHAR4
+      EQUIVALENCE(ARR(1),IEQV_SOURCE_ID)
+C
+      EQUIVALENCE (TEMPGRD,LFM4GRD)
+C
+C*********************************************************************
+      INTEGER orpg_mem_addr
+C
+X     WRITE(6,*)'A31461: ENTERING A31461'
+C
+C** INITIALIZE STATUS FLAGS:
+C
+      FLAG31 = .FALSE.
+      FLAG78 = .FALSE.
+      FLAG79 = .FALSE.
+      FLAG81 = .FALSE.
+      FLAG82 = .FALSE.
+C
+C** GET INPUT BUFFER FROM PRECIP ADJUSTMENT ALGORITHM
+C
+      CALL A31211__GET_INBUF (HYADJSCN, HYBUF_PTR, BUFTYP_RECVD,
+     $                            HYBUF_STATUS)
+      IF (HYBUF_STATUS .EQ. NORMAL) THEN
+C
+C** COMPUTE OFFSET POINTERS INTO INPUT BUFFER
+C
+         MESG_IPTR = HYBUF_PTR + HYO_MESG
+         ADPT_IPTR = HYBUF_PTR + HYO_ADAP
+         SUPL_IPTR = HYBUF_PTR + HYO_SUPL
+         LFM4_IPTR = HYBUF_PTR + HYO_LFM4
+         BHDR_IPTR = HYBUF_PTR + HYO_BHEADER
+         BTBL_IPTR = HYBUF_PTR + HYO_BTABL
+         ADJS_IPTR = HYBUF_PTR + HYO_ADJSCAN
+         ADJH_IPTR = HYBUF_PTR + HYO_ADJHRLY
+C
+C SET BIAS_TOGGLE FOR THE PRECIPITATION PRODUCTS BEING                  9408402
+C GENERATED.                                                            9408402
+C                                                                       9408402
+         BIAS_TOGGLE = BIAS_FLAG                                        9408402
+X        WRITE(6,*)'A31461: BIAS_TOGGLE SET TO ',BIAS_TOGGLE            9408402
+         RESET_BIAS = RESETBI
+C
+C GET I*2 1/4 LFM RATE VALUES FROM I*4 MEM BUFFER
+C
+         DO 5 I=1,I4SIZE
+           TEMPGRD(I) = orpg_mem_addr(MEM(LFM4_IPTR+I-1))
+ 5       CONTINUE
+C
+C SCALE AND BIAS 1/4 LFM GRID DATA
+C
+         DO 7 J=1,HYZ_LFM4
+           DO 7 I=1,HYZ_LFM4
+             IF (LFM4GRD(I,J).NE.0) THEN
+               IF (LFM4GRD(I,J).EQ.BEYOND_RANGE) THEN
+                 LFM4GRD(I,J) = MISSING
+               ELSE
+C
+C * Note: Changed for LINUX: Added AINT function to fix truncation issue
+C
+                 LFM4GRD(I,J)=AINT(LFM4GRD(I,J)*MM_TO_IN)+BIAS_FCTR 
+C
+C
+C RESET ABOVE MAX VALUE
+C
+                 IF (LFM4GRD(I,J).GT.MAX_VALUE) LFM4GRD(I,J)=MAX_VALUE
+               END IF
+             END IF
+ 7       CONTINUE
+C
+C** UPDATE SUPPLEMENTAL DATA DATABASE FOR THE DPA PRODUCT
+C
+X        WRITE(6,*)'A31461: Calling A3146I to update SUPPL data for DPA'
+C
+         CALL A3146I__UPDATE_DPA_DB(MEM(SUPL_IPTR),LFM4GRD)
+C
+C** GET CURRENT VOLUME SCAN NUMBER
+C
+         VSNUM = A31218__BUF_VOL(HYBUF_PTR)
+C
+X     WRITE(6,*)'A31461: GOT INPUT BUFFER HYADJSCN, PTR= ',HYBUF_PTR
+C
+C** DETERMINE IF IT IS NECESSARY TO GENERATE ANY OF THE FOLLOWING
+C** PRODUCTS, AND SET FLAGS ACCORDINGLY :
+C    TYPE 31 - USER SELECTABLE PRECIPITATION (USP)
+C    TYPE 78 - ONE-HOUR ACCUMULATION
+C    TYPE 79 - THREE-HOUR ACCUMULATION
+C    TYPE 81 - HOURLY DIGITAL PRECIPITATION ARRAY
+C    TYPE 82 - SUPPLEMENTAL DATA
+C
+C
+C** SEE IF PRODUCT 31 (USP) HAS BEEN REQUESTED
+C
+         CALL A31210__CHECK_DATA (HYUSPBUF, OPSTAT31)
+         IF (OPSTAT31 .EQ. NORMAL) FLAG31 = .TRUE.
+C
+C** SEE IF PRODUCT 78 DATA HAS BEEN REQUESTED
+C
+         CALL A31210__CHECK_DATA (HY1HRACC, OPSTAT78)
+         IF (OPSTAT78 .EQ. NORMAL) FLAG78 = .TRUE.
+C
+C** SEE IF PRODUCT 79 DATA HAS BEEN REQUESTED
+C
+         CALL A31210__CHECK_DATA (HY3HRACC, OPSTAT79)
+         IF (OPSTAT79 .EQ. NORMAL) FLAG79 = .TRUE.
+C
+C** SEE IF PRODUCT 81 DATA HAS BEEN REQUESTED
+C
+         CALL A31210__CHECK_DATA (HY1HRDIG, OPSTAT81)
+         IF (OPSTAT81 .EQ. NORMAL) FLAG81 = .TRUE.
+C
+C** SEE IF PRODUCT 82 HAS BEEN REQUESTED
+C
+         CALL A31210__CHECK_DATA (HYSUPPLE, OPSTAT82)
+         IF (OPSTAT82 .EQ. NORMAL) FLAG82 = .TRUE.
+C
+C
+X        WRITE(6,*)'A31461: PRODUCTS REQUESTED ARE:'
+X        IF (FLAG78.OR.FLAG79.OR.FLAG81) THEN
+X          WRITE(6,*)'FLAG78, FLAG79, FLAG81=',FLAG78,FLAG79,FLAG81
+X          WRITE(6,*)'FLAG82:',FLAG82
+X        ELSE
+X          WRITE(6,*)'A31461: NO PRODUCTS REQUESTED (78,79,81,82)'
+X        ENDIF
+C
+C** UPDATE THE DISK FILE THAT IS MAINTAINED BY THIS TASK.
+C
+X        WRITE(6,*)'A31461: Call A31465 to update Hourly Database'
+C
+         CALL A31465__UPDATE_HRLYDB(MEM(SUPL_IPTR),MEM(ADJH_IPTR))
+C
+X        WRITE(6,*)'A31461: Back from A31465'
+C
+C---------------------
+C
+C** UPDATE THE DISK FILE THAT IS TO BE USED BY USDB
+C
+X        WRITE(6,*)'A31461: Call A31475 to update USDB'
+C
+         CALL A31475__UPDATE_USDB(VSNUM,MEM(SUPL_IPTR),MEM(ADJH_IPTR))
+C
+X        WRITE(6,*)'A31461: Back from A31475'
+C
+C---------------------
+C
+C-- Retrieve Bias Source Id From Adjustment Task
+C
+         OFF = BHDR_IPTR
+
+         IEQV_SOURCE_ID = orpg_mem_addr( MEM( OFF ) )
+
+C        WRITE(14, 9) IEQV_SOURCE_ID
+C 9      FORMAT(1X,  'IN BUFf IEQV_SOURCE_ID=', I8)
+C
+C -- Convert the integer to the character
+         CHAR1=CHAR(ARR(1))
+         CHAR2=CHAR(ARR(2))
+         CHAR3=CHAR(ARR(3))
+         CHAR4=CHAR(ARR(4))
+C 
+C -- Concatenate characters
+C          
+          SOURCE_ID=CHAR1//CHAR2//CHAR3//CHAR4
+
+C 
+C -- Byte swapping in little endian system and concatenate characters
+C          
+          IF (SOURCE_ID .NE. 'N/A ' ) then
+          SOURCE_ID=CHAR4//CHAR3//CHAR2//CHAR1
+          ENDIF
+
+C         WRITE(14, 10) SOURCE_ID
+C 10      FORMAT(1X, 'SOURCE ID IN TASK14 BUFF IS ', A)
+
+C
+c-- Retrieve Bias Table received from Adjustment task
+C
+
+         OFF = BTBL_IPTR
+         DO 20 J = 1, N_BIAS_LINES
+           DO 20 I = 1, N_BIAS_FLDS
+             IEQV_BIAS_TABL( I, J ) = orpg_mem_addr( MEM( OFF ) ) 
+             OFF = OFF + 1
+  20     CONTINUE
+c
+X        write (6,25)
+X 25     format(/' Bias Table Message follows:')
+c
+X        write (6,35) ((rbias_tabl( I, J ), i = 1, n_bias_flds),
+X    $                                      j = 1, n_bias_lines)
+X 35     format(5f15.3)
+c
+X        WRITE(6,*)'A31461: Call A31482 to handle all Hourly products'
+c
+         CALL A31482__HOURLY_PRODUCTS (VSNUM, MEM(ADJH_IPTR),           9433207
+     1                MEM(ADPT_IPTR), MEM(SUPL_IPTR),                   9433207
+     2                FLAG78, FLAG79, FLAG81)                           9433207
+c
+X        WRITE(6,*)'A31461: Back from A31482'
+C
+C** CALL THE ROUTINE TO PROCESS THE SCAN-TO-SCAN PART OF THE BUFFER
+C
+X        WRITE(6,*)'A31461: Call A31632 to handle STP'
+c
+         CALL A31463__SCAN_TO_SCAN(MEM(MESG_IPTR), MEM(ADJS_IPTR),
+     $                     MEM(ADPT_IPTR), MEM(SUPL_IPTR), VSNUM)
+c
+X        WRITE(6,*)'A31461: Back from A31463'
+C
+C** WRITE THE SUPPLEMENTARY AND DIRECTORY DATA RECORD TO DISK FILE.
+C
+X     WRITE(6,*)'A31461: Directory Record contents:'
+C
+X     WRITE(6,18)
+X 18  FORMAT(' STORM TOTAL VALUES:  BDATE  BTIME  EDATE  ETIME  1ST?')
+X     WRITE(6,19) STMTOT_BDAT,STMTOT_BTIM,STMTOT_EDAT,STMTOT_ETIM,
+X    $            STMTOT_FLG_FRST
+X 19  FORMAT('                    ',4I7,4X,L1)
+C
+X        WRITE(6,*)'A31461: WRITE DIR. RECORD,  FIL_STAT=',FIL_STAT
+C
+         IF (FIL_STAT.EQ.GOOD) CALL A31468__PDB_IO( WRITKODE, DIR_REC,
+     $                                              START_DIR, IOSTAT)
+C
+X        IF (FLAG82) WRITE(6,*)'A31461: Call A3146V to handle SPD'
+C
+         IF (FLAG82) CALL A3146V__PROD82_SUPPLEMENTAL( MEM(SUPL_IPTR),
+     $                                                 VSNUM)
+X        IF (FLAG82) WRITE(6,*)'A31461: Back from  A3146V'
+C
+C** PROCESS USER SELECTABLE PRODUCT (USP) REQUEST, IF ANY
+C
+X        IF (FLAG31) WRITE(6,*)'A31461: CALL A31476 for USDB database'
+C
+         IF (FLAG31) CALL A31476__COPY_SUPL (MEM(SUPL_IPTR))
+c
+X        IF (FLAG31) WRITE(6,*)'A31461: Back from  A31476'
+C
+C** DONE ALL PRODUCTS, RELEASE THE INPUT BUFFER
+C
+         CALL A31212__REL_INBUF (HYBUF_PTR)
+C
+      ELSE
+C
+C** CANNOT GET INPUT BUFFER...
+C
+X        WRITE(6,*)'A31461: CANT GET INPUT HYADJSCN... CALL ABORT'
+C
+         CALL A31145__ABORT_ME
+      ENDIF
+C
+X     WRITE(6,*)'A31461: EXITING A31461'
+C
+      RETURN
+      END

@@ -1,0 +1,535 @@
+#!/bin/sh
+#
+# RCS info
+# $Author: ccalvert $
+# $Locker:  $
+# $Date: 2011/07/01 14:20:40 $
+# $Id: install_tools,v 1.29 2011/07/01 14:20:40 ccalvert Exp $
+# $Revision: 1.29 $
+# $State: Exp $
+
+#**************************************************************************
+#
+# Title:        install_tools
+#
+# Description:  Installs RPG non-operational tools
+#
+#**************************************************************************
+
+WORK_DIR=""
+CD_MOUNTED=NO
+OPERATIONAL_SYSTEM=YES
+IGNORE_VERSION_MISMATCH=YES
+REMOVE_TOOLS=NO
+REMOVE_TOOLS_ONLY=NO
+INTERACTIVE_FLAG=YES
+STAGING_AREA=/tmp/$$tmp
+TOOLS_DIR=$STAGING_AREA/tools
+TOOLS_VERSION_FILE=$TOOLS_DIR/cfg/version_rpg
+RPG_VERSION_FILE=$CFG_DIR/version_rpg
+TOOLS_FILE_LIST=tools_file_list
+
+#**************************************************************************
+#**************************************************************************
+#
+# Start of Functions
+#
+#**************************************************************************
+#**************************************************************************
+
+#**************************************************************************
+# PRINT_USAGE: Display "help" to screen.
+#**************************************************************************
+
+print_usage ()
+{
+  echo
+  echo
+  echo "************************************************"
+  echo "This script installs RPG tools."
+  echo
+  echo "The following are valid flags."
+  echo
+  echo "-h     - help"
+  echo "-d dir - directory location of tools tar file (default: CD directory)"
+  echo "-r     - remove previously installed tools before installing"
+  echo "-R     - remove previously installed tools and exit"
+  echo "-n     - non-operationally configured system"
+  echo "-V     - do not ignore version mismatches (cannot use with -N)"
+  echo "-N     - non-interactive (invoked from script)"
+  echo "************************************************"
+  echo
+  echo
+}
+
+#**************************************************************************
+# ECHO_STDOUT: Echo to stdout.
+#**************************************************************************
+  
+echo_stdout ()
+{ 
+  echo -e $1
+  echo -e $1 | $LE_LOG_CMD
+} 
+
+#**************************************************************************
+# ECHO_STDERR: Echo to stderr.
+#**************************************************************************
+
+echo_stderr ()
+{
+  echo -e $1 >&2
+  echo -e $1 | $LE_ERR_CMD
+}
+
+#**************************************************************************
+# ECHO_INT: Echo if interactive. Output does not go to log file.
+#**************************************************************************
+
+echo_int ()
+{
+  if [ $INTERACTIVE_FLAG = "YES" ]
+  then
+    echo -e $1
+  fi
+}
+
+#**************************************************************************
+# ECHO_ERROR: Echo error message and exit.
+#**************************************************************************
+
+echo_error ()
+{
+  if [ $# -eq 1 ]
+  then
+    exit_code=1
+  else
+    exit_code=$2
+  fi
+
+  remove_staging_area
+
+  echo_int
+  echo_int
+  echo_int "IN SCRIPT: $0"
+  echo_stderr "ERROR: $1"
+  echo_int "Stopping script"
+  echo_int "Use -h option for help"
+  echo_int
+  echo_int
+
+  exit $exit_code
+}
+
+#**************************************************************************
+# INIT_LE_LOG: Initialize logging.
+#**************************************************************************
+
+init_le_log ()
+{
+  LE_NUM_LINES=100
+
+  LE_UID=`id -u 2>/dev/null`
+  if [ $? -ne 0 -o "$LE_UID" = "" ]
+  then
+    echo_error "Command \"id -u 2>/dev/null\" failed ($?)"
+  fi
+  LE_GID=`id -g 2>/dev/null`
+  if [ $? -ne 0 -o "$LE_GID" = "" ]
+  then
+    echo_error "Command \"id -g 2>/dev/null\" failed ($?)"
+  fi
+  LE_FILE_NAME=`basename $0 2>/dev/null`
+  if [ $? -ne 0 -o "$LE_FILE_NAME" = "" ]
+  then
+    echo_error "Command \"basename $0 2>/dev/null\" failed ($?)"
+  fi
+
+  LE_LOG_CMD="le_pipe -t $LE_FILE_NAME -n $LE_NUM_LINES -w $LE_UID -g $LE_GID"
+  LE_ERR_CMD="$LE_LOG_CMD -e GL_ERROR"
+}
+
+#**************************************************************************
+# PARSE_INPUT: Parse command line input.
+#**************************************************************************
+
+parse_input ()
+{
+  # Parse input options/arguments. If option doesn't have an argument (and
+  # requires one) or option isn't valid, print message and exit.
+
+  while getopts hd:rRnVN optionflag
+  do
+    case $optionflag in
+       h) print_usage; exit 0;;
+       d) WORK_DIR=$OPTARG;;
+       r) REMOVE_TOOLS=YES;;
+       R) REMOVE_TOOLS_ONLY=YES;;
+       n) OPERATIONAL_SYSTEM=NO;;
+       V) IGNORE_VERSION_MISMATCH=NO;;
+       N) INTERACTIVE_FLAG=NO;;
+      \?) echo_error "Invalid input flag."
+    esac
+  done
+
+  if [ $IGNORE_VERSION_MISMATCH = "NO" -a $INTERACTIVE_FLAG = "NO" ]
+  then
+    echo_error "Cannot invoke -V and -N options at the same time"
+  elif [ $REMOVE_TOOLS = "YES" -a $REMOVE_TOOLS_ONLY = "YES" ]
+  then
+    echo_error "Cannot invoke -r and -R options at the same time"
+  fi
+}
+
+#**************************************************************************
+# INITIAL_SETUP: Set initial variables.
+#**************************************************************************
+
+initial_setup ()
+{
+  # If only removing tools, no need to continue
+
+  if [ $REMOVE_TOOLS_ONLY = "YES" ]
+  then
+    return 0
+  fi
+
+  # If user did not define working directory, assume CD
+ 
+  if [ "$WORK_DIR" = "" ]
+  then
+    echo_stdout "Mounting RPG Tools CD"
+
+    WORK_DIR=`medcp -pm cd`
+
+    if [ $? -ne 0 ]
+    then
+      echo_error "Unable to mount CD." 2
+    elif [ "$WORK_DIR" = "" ]
+    then
+      echo_error "CD directory undefined"
+    fi
+
+    CD_MOUNTED=YES
+  fi
+
+  # Make sure working directory exists
+
+  if [ ! -d $WORK_DIR ]
+  then
+    echo_error "Directory $WORK_DIR does not exist"
+  fi
+}
+
+#**************************************************************************
+# REMOVE_TOOLS: Remove previously installed tools.
+#**************************************************************************
+
+remove_tools ()
+{
+  # If not removing files, no need to continue
+
+  if [ $REMOVE_TOOLS = "NO" -a $REMOVE_TOOLS_ONLY = "NO" ]
+  then
+    echo_stdout "Previously installed RPG Tools not removed"
+    return 0
+  fi
+
+  # Make sure list of installed files is present
+
+  if [ ! -f $HOME/$TOOLS_FILE_LIST ]
+  then
+    # List of previously installed files is not present. If
+    # tools are being installed, this is not a big deal. Skip
+    # the rest of this section and continue to install tools.
+    # If the user is only removing a previous installation,
+    # then exit with error.
+    if [ $REMOVE_TOOLS = "YES" ]
+    then
+      echo_stdout "File $HOME/$TOOLS_FILE_LIST does not exist"
+      echo_stdout "Skipping removal of previously installed tools"
+      return 0
+    fi
+    echo_error "File $HOME/$TOOLS_FILE_LIST does not exist"
+  fi 
+ 
+  echo_stdout "Removing previously installed RPG Tools"
+
+  # Loop through list and remove installed files.
+  # Remove list when finished.
+
+  cat $HOME/$TOOLS_FILE_LIST | while read file_to_move
+  do
+    rm -f $HOME/$file_to_move
+  done
+
+  rm -f $HOME/$TOOLS_FILE_LIST
+
+  # If only removing files, print exit message.
+
+  if [ $REMOVE_TOOLS_ONLY = "YES" ]
+  then
+    echo_int
+    echo_int
+    echo_stdout "Successfully removed previously installed RPG Tools"
+    echo_int
+    echo_int
+    exit 0
+  fi
+}
+
+#**************************************************************************
+# SETUP_STAGING_AREA: Setup staging area from which to install tools.
+#**************************************************************************
+
+setup_staging_area ()
+{
+  # Make sure the tools tar file exists
+
+  ls $WORK_DIR | grep orpg_toolsbld > /dev/null 2>&1
+  if [ $? -eq 0 ]
+  then
+    t_file=`ls $WORK_DIR/orpg_toolsbld*.bz2 2>/dev/null | sort -r`
+  else
+    echo_error "No RPG tools tar file in $WORK_DIR"
+  fi
+  tools_file=`basename $t_file`
+
+  # Create the staging area
+
+  echo_stdout "Creating the staging area"
+  mkdir -p $STAGING_AREA
+  if [ $? -ne 0 ]
+  then
+    echo_error "Unable to create $STAGING_AREA"
+  fi
+
+  # Copy archive to staging area
+
+  echo_stdout "Copying tools tar file to staging area"
+  cp  $WORK_DIR/$tools_file $STAGING_AREA
+  if [ $? -ne 0 ]
+  then
+    echo_error "Unable to copy $WORK_DIR/$tools_file to $STAGING_AREA" $?
+  fi
+
+  # Unzip archive
+
+  echo_stdout "Unzipping tools tar file"
+  bunzip2 $STAGING_AREA/$tools_file
+  if [ $? -ne 0 ]
+  then
+    echo_error "Unable to bunzip2 $STAGING_AREA/$tools_file"
+  fi
+
+  # Untar archive
+
+  echo_stdout "Extracting tools tar file"
+  tools_file=`echo $tools_file | sed 's/\.bz2$//'`
+  tar xf $STAGING_AREA/$tools_file -C $STAGING_AREA
+  if [ $? -ne 0 ]
+  then
+    echo_error "Problem extracting $STAGING_AREA/$tools_file"
+  fi
+}
+
+#**************************************************************************
+# REMOVE_STAGING_AREA: Delete staging area.
+#**************************************************************************
+
+remove_staging_area ()
+{
+  if [ -d $STAGING_AREA ]
+  then
+    echo_stdout "Removing staging area"
+    rm -rf $STAGING_AREA > /dev/null 2>&1
+  fi
+
+  if [ $CD_MOUNTED = "YES" ]
+  then
+    echo_stdout "Unmount and eject RPG Tools CD"
+    # Change directory to make sure CD unmounts/ejects
+    cd > /dev/null 2>&1
+    medcp -ue cd 2> /dev/null
+  fi
+}
+
+#**************************************************************************
+# DETERMINE_IF_VERSION_MISMATCH: Determines if Apps/Tools versions differ.
+#**************************************************************************
+
+determine_if_version_mismatch ()
+{
+  if [ ! -f $TOOLS_VERSION_FILE -o ! -f $RPG_VERSION_FILE ]
+  then
+    # One (or both) of the versions files do not exist.
+    # Ask user if they want to continue.
+    valid_input=NO
+    until [ $valid_input = "YES" ]
+    do
+      echo_int
+      echo_int
+      echo_int "VERSION FILE MISSING!!!"
+      echo_int
+      if [ ! -f $TOOLS_VERSION_FILE ]
+      then
+        echo_int "File: $TOOLS_VERSION_FILE"
+      else
+        echo_int "File: $RPG_VERSION_FILE"
+      fi
+      echo_int
+      echo_int "The above file doesn't exist. There is"
+      echo_int "no guarantee the version of tools being"
+      echo_int "installed is the same version as the RPG"
+      echo_int "software already installed."
+      echo_int
+      echo_int "Do you want to continue (y/n)? [Default: y]"
+      echo_int
+      read in_prompt
+      echo_int
+      echo $in_prompt | grep -q '^[yn]$'
+      if [ $? -eq 0 ]
+      then
+        valid_input=YES
+      else
+        echo_int
+        echo_int "INVALID INPUT: TYPE EITHER y or n"
+        echo_int
+      fi
+    done
+    if [ $in_prompt = "n" ]
+    then
+      echo_error "User aborted due to missing version file"
+    fi
+  else
+    # Both version files exist. If the files differ, there is a
+    # version mismatch. Ask user if they want to continue.
+    echo_int "Checking for version mismatch"
+    diff $TOOLS_VERSION_FILE $RPG_VERSION_FILE > /dev/null 2>&1
+    if [ $? -ne 0 ]
+    then
+      valid_input=NO
+      until [ $valid_input = "YES" ]
+      do
+        echo_int
+        echo_int "The version of tools being installed is different"
+        echo_int "than the version of RPG software already installed."
+        echo_int
+        echo_int "Do you want to continue (y/n)? [Default: y]"
+        echo_int
+        read in_prompt
+        echo_int
+        echo $in_prompt | grep -q '^[yn]$'
+        if [ $? -eq 0 ]
+        then
+          valid_input=YES
+        else
+          echo_int
+          echo_int "INVALID INPUT: TYPE EITHER y or n"
+          echo_int
+        fi
+      done
+      if [ $in_prompt = "n" ]
+      then
+        echo_error "User aborted due to version mismatch"
+      fi
+    fi
+  fi
+}
+
+#**************************************************************************
+# INSTALL_RPG_TOOLS: Install RPG tools.
+#**************************************************************************
+
+install_RPG_tools ()
+{
+  if [ $IGNORE_VERSION_MISMATCH = "NO" ]
+  then
+    determine_if_version_mismatch
+  fi
+
+  # Remove version_rpg file so it is not copied over. The
+  # version_rpg file in the RPG software account is owned
+  # by root. Trying to overwrite the file will result in
+  # an error.
+
+  rm -f $TOOLS_VERSION_FILE > /dev/null 2>&1
+
+  # If the RPG is configured as an Operational system, make sure
+  # the site_info.dea file is not copied over.
+
+  if [ $OPERATIONAL_SYSTEM = "YES" ]
+  then
+    if [ -f $TOOLS_DIR/cfg/site_info.dea ]
+    then
+      mv $TOOLS_DIR/cfg/site_info.dea $TOOLS_DIR/cfg/site_info.dea.bk 
+    fi
+  fi
+
+  # Make list of files being installed so they can be
+  # easily removed later if necessary.
+
+  cd $TOOLS_DIR
+
+  echo_stdout "Creating $HOME/$TOOLS_FILE_LIST"
+  find . -type f | egrep '[a-zA-Z0-9]' | sed 's/\.\///' > $HOME/$TOOLS_FILE_LIST
+
+  echo_stdout "Copying files in $HOME/$TOOLS_FILE_LIST to $HOME"
+  cat $HOME/$TOOLS_FILE_LIST | while read file_to_move
+  do
+    cp -f --parent $file_to_move $HOME
+  done
+}
+
+#**************************************************************************
+# INSTALL_TOOLS: Install appropriate tools.
+#**************************************************************************
+
+install_tools ()
+{
+  setup_staging_area
+  install_RPG_tools
+}
+
+#**************************************************************************
+# CLEANUP_FUNCTION: Clean up loose ends.
+#**************************************************************************
+
+cleanup_function ()
+{
+  remove_staging_area
+  hash -r /dev/null 2>&1
+}
+
+#**************************************************************************
+#**************************************************************************
+#
+# End of Functions
+#
+#**************************************************************************
+#**************************************************************************
+
+#**************************************************************************
+#**************************************************************************
+#
+# Main Body of Script
+#
+#**************************************************************************
+#**************************************************************************
+
+init_le_log
+parse_input "$@"
+initial_setup
+remove_tools
+install_tools
+cleanup_function
+
+echo_int
+echo_int
+echo_stdout "Successful installation of RPG Tools."
+echo_int
+echo_int
+
+exit 0
+
+

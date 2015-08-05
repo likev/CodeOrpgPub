@@ -1,0 +1,448 @@
+C
+C RCS info
+C $Author: steves $
+C $Locker:  $
+C $Date: 1999/07/30 17:16:26 $
+C $Id: a307c1.ftn,v 1.1 1999/07/30 17:16:26 steves Exp $
+C $Revision: 1.1 $
+C $State: Exp $
+C
+      SUBROUTINE A307C1__BUFFER_CONTROL( PARAM )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A307C1__BUFFER_CONTROL
+*.
+*.  MODULE VERSION: 0000
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       02/12/99      0000      Mike Istok           CCR NA96-17803
+*.
+*.  CALLING SEQUENCE: CALL A307C1__BUFFER_CONTROL( PARAM )
+*.
+*.  MODULE FUNCTION:
+*.    Buffer control routine for Composite Reflectivity AP Edited map program.
+*.
+*.  MODULES CALLED: A30740__CAT_IN_PRODBUF,A30744__PRODUCT_GENERATION_CONTROL, 
+*.                  A30749__END_OF_PRODUCT_PROCESSING, A31145__ABORT_ME, 
+*.                  A31168__ABORT_ME_BECAUSE, A31169__ABORT_DATATYPE_BECAUSE, 
+*.                  A31210__CHECK_DATA, A31211__GET_INBUF, A31212__REL_INBUF, 
+*.                  A31215__GET_OUTBUF, A31216__REL_OUTBUF, A307C2__ADJUST_CODES
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT         TYPE        DESCRIPTION
+*.    -   -----         ----        -----------
+*.    G   MEM           I*4         Array in RPG shared memory set aside for
+*.                                  buffer sharing.
+*.    G   COMBATTR      I*4         (CONSTANT)DATA BUFFER TYPE:  COMBINED
+*.                                  ATTRIBUTES TABLE BUFFER ID
+*.    G   CRPGAPE       I*4         (CONSTANT)Data Buffer Type: AP Edited
+*.                                  Composite Reflectivity Polar Grid(360x460)
+*.    G   DESTROY       I*4         (CONSTANT)Mnemonic used as input to
+*.                                  A31216__REL_OUTBUF. Indicates "do not pass
+*.                                  data to other tasks".
+*.    G   FORWARD       I*4         (CONSTANT)(CONSTANT)Parameter to indicate
+*.                                  that an output buffer is to be forwarded
+*.                                  to successor tasks
+*.    G   NORMAL        I*4         (CONSTANT)(CONSTANT)Parameter which
+*.                                  indicates normal completion of requested
+*.                                  operation to acquire input or output
+*.                                  buffer
+*.    G   NO_MEM        I*4         (CONSTANT)(CONSTANT)Parameter which
+*.                                  indicates no memory available on attempt
+*.                                  to acquire output buffer
+*.    G   PROD_MEM_SHED I*4         (CONSTANT)(CONSTANT)Parameter which
+*.                                  indicates that product aborted due to
+*.                                  memory load shedding
+*.    G   SCRATCH       I*4         (CONSTANT)DATA BUFFER TYPE FOR TASK
+*.                                  SCRATCH DATA BUFFERS
+*.    C   PFLAG         L*4         Array of flags indicating whether products
+*.                                  should be produced.
+*.    C   CRP35         I*4         (CONSTANT)Data Buffer Type: Index for
+*.                                  composite reflectivity product (1x1
+*.                                  resolution, 230 KM range, data level 8).
+*.    C   CRP36         I*4         (CONSTANT)Data Buffer Type:Index for
+*.                                  reflectivity product (4x4 resolution, 460
+*.                                  Km range, data level 8).
+*.    C   CRP37         I*4         (CONSTANT)Data Buffer Type: Index for
+*.                                  composite reflectivity product (1x1
+*.                                  resolution, 230 km range, data level 16).
+*.    C   CRP38         I*4         (CONSTANT)Data Buffer Type: Index to
+*.                                  composite reflectivity product (4x4
+*.                                  resolution, 460 km range, data level 16).
+*.    C   CRPAPE95      I*4         (CONSTANT)Buffer Prod_ID: ID for AP
+*.                                  edited composite reflectivity product (1x1
+*.                                  resolution, 230 km range, data level 8).
+*.    C   CRPAPE96      I*4         (CONSTANT)Buffer Prod_ID: ID for AP
+*.                                  edited composite reflectivity product (4x4
+*.                                  resolution, 460 km range, data level 8).
+*.    C   CRPAPE97      I*4         (CONSTANT)Buffer Prod_ID: ID for AP
+*.                                  edited composite reflectivity product (1x1
+*.                                  resolution, 230 km range, data level 16).
+*.    C   CRPAPE98      I*4         (CONSTANT)Buffer Prod_ID: ID for AP
+*.                                  edited composite reflectivity product (4x4
+*.                                  resolution, 460 km range, data level 16).
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    G   MEM     I*4         Array in RPG shared memory set aside for buffer
+*.                            sharing.
+*.    C   PFLAG   L*4         Array of flags indicating whether products
+*.                            should be produced.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    G   MEM               I*4         Array in RPG shared memory set aside
+*.                                      for buffer sharing.
+*.    C   PFLAG             L*4         Array of flags indicating whether
+*.                                      products should be produced.
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME           TYPE        DESCRIPTION
+*.    ----           ----        -----------
+*.    BSIZ           I*4         Product output buffer sizes in 4 byte words.
+*.    BUILDCAT       L*4         Flag indicating whether to rebuild the
+*.                               combined attributes table. 
+*.    CRCG230_NO_MEM L*4         Indicates no memory to get the SCRATCH buffer 
+*.                               used to convert the polar grid to the 230 km
+*.                               radius coverage area Cartesian grid.
+*.    CRCG460_NO_MEM L*4         Indicates no memory to get the SCRATCH buffer 
+*.                               used to convert the polar grid to the 460 km
+*.                               radius coverage area Cartesian grid.
+*.    CRPTR          I*4         Array of SCRATCH and product output buffer
+*.                               pointers.
+*.    FIRST_PROD     I*4         (Constant) = 3:  The index into the arrays
+*.                               PROD, LIKE_PROD, CRPTR, BSIZ of the first 
+*.                               "product code" output buffer ID. 
+*.    GRID1          I*4         (Constant) = 1:  The index into the arrays
+*.                               PROD, LIKE_PROD, CRPTR, BSIZ of the SCRATCH
+*.                               buffer used create the 230 km radius coverage
+*.                               area Cartesian grid.
+*.    GRID2          I*4         (Constant) = 2: The index into the arrays
+*.                               PROD, LIKE_PROD, CRPTR, BSIZ of the SCRATCH
+*.                               buffer used create the 460 km radius coverage
+*.                               area Cartesian grid
+*.    I              I*4         Do loop index.
+*.    INPTR          I*4         Input buffer Pointer of the COMBATTR buffer.
+*.    INSTAT         I*4         Input buffer Status returned from the request
+*.                               for the CRPGAPE input buffer
+*.    LIKE_PROD      I*4         Table of CR product buffer ids that are
+*.                               parallel to the CRE products that this task 
+*.                               generates (allows CR modules to be shared).
+*.    N              I*4         Do Loop index.
+*.    NBUFS          I*4         Maximum number of output buffers that this
+*.                               task may need and dimension of arrays PROD,
+*.                               BSIZ, CRPTR, LIKE_PROD and upper limit of do
+*.                               loop. 
+*.    NP2            I*4         The index into the arrays PROD, CRPTR, BSIZ
+*.                               of the first "product code" buffer associated
+*.                               with the Cartesian grid in the SCRATCH buffer
+*.    NP4            I*4         The index into the arrays PROD, CRPTR, BSIZ
+*.                               of the last "product code" buffer associated
+*.                               with the Cartesian grid in the SCRATCH buffer
+*.    OPSTAT         I*4         Output buffer status of the calls to obtain
+*.                               Product and SCRATCH buffers.
+*.    OPSTAT1        I*4         Output buffer status of the call to obtain
+*.                               the COMBATTR input buffer.
+*.    PBUFPTR        I*4         Input buffer Pointer of the CRPGAPE buffer
+*.    PROD           I*4         Table of buffer ids that this task needs to
+*.                               generate all four CRE products
+*.    RELSTAT        I*4         Indicates whether product buffer is to be
+*.                               forwarded or destroyed upon release
+*.    REQFLAG        L*4         Flag indicating if any products are to be
+*.                               produced
+*.    RQDAT          I*4         Data Buffer ID of the acquired input buffer
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD00
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: NONE.
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP07.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK07.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+$INCLUDE A309.INC/G,**A3PM00 (NEND NLIST)
+$INCLUDE A309.INC/G,**A3PM07 (NEND NLIST)
+$INCLUDE            **A3CD00 (NEND NLIST)
+$INCLUDE A307.INC,  **A307C9 (NLIST)
+C
+C*** LOCAL DECLARATIONS:
+C
+      INTEGER PARAM
+      INTEGER NBUFS,N,NP2,NP4,I
+      INTEGER GRID1,GRID2, FIRST_PROD
+      INTEGER PBUFPTR,INPTR
+      LOGICAL CRCG230_NO_MEM, CRCG460_NO_MEM
+      PARAMETER (NBUFS=6,GRID1=1,GRID2=2,FIRST_PROD=3)
+C
+      INTEGER PROD(NBUFS), LIKE_PROD(NBUFS)
+      INTEGER BSIZ(NBUFS)
+      INTEGER CRPTR(NBUFS)
+      INTEGER OPSTAT,RELSTAT,OPSTAT1
+      INTEGER RQDAT,INSTAT
+C
+      DATA LIKE_PROD /SCRATCH,SCRATCH,CRP35,CRP36,CRP37,CRP38/
+      DATA PROD /SCRATCH,SCRATCH,CRPAPE95,CRPAPE96,CRPAPE97,CRPAPE98/
+      DATA BSIZ /107658,26922,50000,15000,75000,20000/
+C
+      LOGICAL REQFLAG,BUILDCAT
+C
+C*** EXECUTABLE CODE:
+C    ---------------
+C*** INITIALIZATION:
+C
+      OPSTAT  = NORMAL
+      RELSTAT = FORWARD
+      REQFLAG =.FALSE.
+      DO 10 N = 1,NBUFS,1
+  10  PFLAG(N)= .FALSE.
+      CRCG230_NO_MEM = .FALSE.
+      CRCG460_NO_MEM = .FALSE.
+C
+C*** REQUEST INPUT BUFFER CONTAINING POLAR GRID OF COMP REFL VALUES
+C
+      CALL A31211__GET_INBUF(CRPGAPE,PBUFPTR,RQDAT,INSTAT)
+C
+C***  IF RETURN STATUS IS NORMAL, REQUEST APPROPRIATE OUTPUT BUFFERS
+C     OTHERWISE, IF THE INPUT DATA STREAM HAS BEEN CANCELED FOR ANY
+C     REASON, RETURN TO THE CALLING MODULE TO WAIT FOR FURTHER
+C     INPUT
+C
+      IF (INSTAT .EQ. NORMAL) THEN
+C
+C*** REQUEST ALL POSSIBLE PRODUCT BUFFERS TO SEE AT WHAT RANGES,
+C*** RESOLUTIONS, AND DATA LEVELS COMPOSITE REFLECTIVITY MAPS
+C*** NEED TO BE GENERATED:
+C
+C     PRODUCT-CODE    RANGE (KM.)   RESOLUTION   DATA LEVELS
+C     ------------    -----------   ----------   -----------
+C        N = 1          0 - 230       1 X 1          -
+C        N = 2          0 - 460       4 X 4          -
+C        N = 3          0 - 230       1 X 1          8
+C        N = 4          0 - 460       4 X 4          8
+C        N = 5          0 - 230       1 X 1         16
+C        N = 6          0 - 460       4 X 4         16
+C
+C*** OBTAIN A SCRATCH BUFFER FOR THE UNCOMPRESSED CARTESIAN GRID.
+C    IF THE ATTEMPT FAILS, THEN THERE IS NO POINT IN PROCESSING
+C    FURTHER, SO RETURN TO THE PARAMETER TRAP RECEIVER ROUTINE
+C
+C*** 230-KM CARTESIAN GRID AND PRODUCTS:
+C    ----------------------------------
+        N=GRID1
+        NP2=N+2
+        NP4=N+4
+C
+C*** REQUEST CRPGAPE95 OUTPUT BUFFER FOR PRODUCT CODE 95
+C
+        CALL A31215__GET_OUTBUF(PROD(NP2),BSIZ(NP2),CRPTR(NP2),OPSTAT)
+        IF(OPSTAT.EQ.NORMAL) THEN
+          PFLAG(NP2)=.TRUE.
+        ELSE IF (OPSTAT .EQ. NO_MEM) THEN
+          CALL A31169__ABORT_DATATYPE_BECAUSE(PROD(NP2),PROD_MEM_SHED)
+        END IF
+C
+C*** REQUEST CRPGAPE97 OUTPUT BUFFER FOR PRODUCT CODE 97
+C
+        CALL A31215__GET_OUTBUF(PROD(NP4),BSIZ(NP4),CRPTR(NP4),OPSTAT)
+        IF(OPSTAT.EQ.NORMAL) THEN
+          PFLAG(NP4)=.TRUE.
+        ELSE IF (OPSTAT .EQ. NO_MEM) THEN
+          CALL A31169__ABORT_DATATYPE_BECAUSE(PROD(NP4),PROD_MEM_SHED)
+        ENDIF
+C
+C*** IF PRODUCT 95 OR 97 IS TO BE GENERATED GET SCRATCH BUFFER 
+C*** FOR THE 230 KM RADIUS CARTESIAN GRID
+C
+        IF ((PFLAG(NP2) .OR. PFLAG(NP4))) THEN
+          CALL A31215__GET_OUTBUF(SCRATCH,BSIZ(N),CRPTR(N),OPSTAT)
+          IF (OPSTAT.EQ.NORMAL) THEN
+            REQFLAG=.TRUE.
+            PFLAG(N)=.TRUE.
+          END IF
+        END IF
+C
+C*** IF UNABLE TO ACQUIRE 230 KM RADIUS CARTESIAN GRID SCRATCH BUFFER 
+C*** OWING TO NO MEMORY, DESTROY ANY ACQUIRED BUFFERS DEPENDENT ON THIS GRID
+C
+        IF (OPSTAT .EQ. NO_MEM) THEN
+          CRCG230_NO_MEM = .TRUE.
+          DO 40 I = NP2, NP4, 2
+            IF (PFLAG(I)) THEN
+              CALL A31216__REL_OUTBUF(CRPTR(I),DESTROY)
+              PFLAG(I) = .FALSE.
+C
+C*** IF REASON FOR NOT GETTING THE SCRATCH BUFFER WAS NO_MEM, NOTIFY
+C*** DOWNSTREAM TASKS THE REASON WHY THE PRODUCT WILL NOT BE GENERATED.
+C
+              CALL A31169__ABORT_DATATYPE_BECAUSE(PROD(I),PROD_MEM_SHED)
+            END IF
+ 40       CONTINUE
+        END IF
+C
+C*** 460-KM CARTESIAN GRID AND PRODUCTS:
+C    ----------------------------------
+        N=GRID2
+        NP2=N+2
+        NP4=N+4
+C
+C*** REQUEST CRPGAPE96 OUTPUT BUFFER FOR PRODUCT CODE 96
+C
+        CALL A31215__GET_OUTBUF(PROD(NP2),BSIZ(NP2),CRPTR(NP2),OPSTAT)
+        IF(OPSTAT.EQ.NORMAL) THEN
+          PFLAG(NP2)=.TRUE.
+        ELSE IF (OPSTAT .EQ. NO_MEM) THEN
+          CALL A31169__ABORT_DATATYPE_BECAUSE(PROD(NP2),PROD_MEM_SHED)
+        END IF
+C
+C*** REQUEST CRPGAPE98 OUTPUT BUFFER FOR PRODUCT CODE 98
+C
+        CALL A31215__GET_OUTBUF(PROD(NP4),BSIZ(NP4),CRPTR(NP4),OPSTAT)
+        IF(OPSTAT.EQ.NORMAL) THEN
+          PFLAG(NP4)=.TRUE.
+        ELSE IF (OPSTAT .EQ. NO_MEM) THEN
+          CALL A31169__ABORT_DATATYPE_BECAUSE(PROD(NP4),PROD_MEM_SHED)
+        ENDIF
+C
+C*** IF PRODUCT 96 OR 98 IS TO BE GENERATED GET SCRATCH BUFFER 
+C*** FOR 460 KM RADIUS CARTESIAN GRID
+C
+        IF ((PFLAG(NP2) .OR. PFLAG(NP4))) THEN
+          CALL A31215__GET_OUTBUF(SCRATCH,BSIZ(N),CRPTR(N),OPSTAT)
+          IF (OPSTAT .EQ. NORMAL) THEN
+            REQFLAG=.TRUE.
+            PFLAG(N)=.TRUE.
+          END IF
+        END IF
+C
+C*** UNABLE TO ACQUIRE 460 KM RADIUS CARTESIAN GRID SCRATCH BUFFER
+C*** OWING TO NO MEMORY, DESTROY ANY ACQUIRED BUFFERS DEPENDENT ON THIS GRID
+C
+        IF (OPSTAT .EQ. NO_MEM) THEN
+          CRCG460_NO_MEM = .TRUE.
+          DO 50 I = NP2, NP4, 2
+            IF (PFLAG(I)) THEN
+              CALL A31216__REL_OUTBUF(CRPTR(I),DESTROY)
+              PFLAG(I) = .FALSE.
+C
+C*** IF REASON FOR NOT GETTING THE SCRATCH BUFFER WAS NO_MEM, NOTIFY
+C*** DOWNSTREAM TASKS THE REASON WHY THE PRODUCT WILL NOT BE GENERATED.
+C
+              CALL A31169__ABORT_DATATYPE_BECAUSE(PROD(I),PROD_MEM_SHED)
+            END IF
+ 50       CONTINUE
+        END IF
+C
+C*** CHECK TO SEE IF ANY PRODUCTS ARE REQUESTED:
+C    ------------------------------------------
+C*** IF YES, CONTINUE PROCESSING
+C*** IF NOT, RETURN TO THE PARAMETER TRAP RECEIVER ROUTINE:
+        IF (REQFLAG) THEN
+          DO 20 N=GRID1,GRID2
+            IF (PFLAG(N)) THEN
+              CALL A30744__PRODUCT_GENERATION_CONTROL(PBUFPTR,CRPTR
+     1                                          ,LIKE_PROD,PFLAG,BSIZ,N)
+C
+              DO 21 I=N+2,N+4,2
+                IF (PFLAG(I)) THEN
+C
+C*** CALL A307C2 TO SHIFT PRODUCT AND MESSAGE CODES FROM STANDARD CR
+C*** PRODUCT CODES TO THE CRE PRODUCT CODES.  THIS IS NECESSARY SINCE
+C*** MOST OF THE CR PRODUCT GENERATION SOFTWARE IS BEING USED AS COMMON
+C*** MODULES TO GENERATE THE CRE PRODUCTS.
+C
+                  CALL A307C2__ADJUST_CODES(MEM(CRPTR(I)))
+C
+                ENDIF
+ 21           CONTINUE
+C
+C*** DONE WITH SCRATCH BUFFER SO DESTROY IT
+C
+              CALL A31216__REL_OUTBUF(CRPTR(N),DESTROY)
+              PFLAG(N) = .FALSE.
+            ENDIF
+ 20       CONTINUE
+C
+C*** RELEASE INPUT (POLAR GRID) BUFFER:
+          CALL A31212__REL_INBUF(PBUFPTR)
+C
+C*** BUILD COMBINED ATTRIBUTES TABLE DISPLAY IN PRODUCT BUFFER:
+C    ---------------------------------------------------------
+          CALL A31210__CHECK_DATA(COMBATTR,OPSTAT1)
+          IF(OPSTAT1.EQ.NORMAL) THEN
+            CALL A31211__GET_INBUF(COMBATTR,INPTR,RQDAT,OPSTAT1)
+            IF(OPSTAT1.EQ.NORMAL)THEN
+              BUILDCAT=.TRUE.
+              DO 30 N=FIRST_PROD,NBUFS
+                IF( PFLAG(N) )  THEN
+                  CALL A30740__CAT_IN_PRODBUF( MEM(CRPTR(N)),BSIZ(N),
+     1                                         BUILDCAT,INPTR )
+                  BUILDCAT = .FALSE.
+                END IF
+ 30           CONTINUE
+              CALL A31212__REL_INBUF(INPTR)
+            ENDIF
+          ENDIF
+C
+C*** CALL END OF PRODUCT PROCESSING TO RELEASE THE OUTPUT BUFFERS:
+C    -----------------------------------------------------------
+          CALL A30749__END_OF_PRODUCT_PROCESSING(CRPTR,RELSTAT,PFLAG)
+        ELSE
+C
+C*** RELEASE INPUT (POLAR GRID) BUFFER IF NO PRODUCTS GENERATED
+C
+          CALL A31212__REL_INBUF(PBUFPTR)
+C
+C*** DESTROY ANY OUTSTANDING OUTPUT BUFFERS
+C
+          RELSTAT = DESTROY
+          CALL A30749__END_OF_PRODUCT_PROCESSING(CRPTR,RELSTAT,PFLAG)
+C
+C*** IF COULDN'T DO ANYTHING BECAUSE OF "NO MEM" CALL ABORT_ME_BECAUSE
+C*** MEMORY LOADSHED, OTHERWISE NORMAL ABORT 
+C
+          IF (CRCG230_NO_MEM .AND. CRCG460_NO_MEM) THEN
+            CALL A31168__ABORT_ME_BECAUSE(PROD_MEM_SHED)
+          ELSE
+            CALL A31145__ABORT_ME
+          END IF
+        ENDIF
+C
+C*** NO INPUT BUFFER AVAILABLE
+C
+      ELSE
+C
+        CALL A31145__ABORT_ME
+      END IF
+C
+C    --------------------------------------------------------
+C*** RETURN TO THE CALLING MODULE ROUTINE 
+C
+      RETURN
+      END

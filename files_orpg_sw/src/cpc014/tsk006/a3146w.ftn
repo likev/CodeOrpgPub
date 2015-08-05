@@ -1,0 +1,181 @@
+C 
+C RCS info 
+C $Author: nolitam $ 
+C $Locker:  $ 
+C $Date: 2002/11/27 15:17:05 $ 
+C $Id: a3146w.ftn,v 1.4 2002/11/27 15:17:05 nolitam Exp $ 
+C $Revision: 1.4 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A3146W__PROD82_BLD_PRODBUF(HYDRSUPL,PRODBUF,
+     +                                      VSNUM,ENIDX)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3146W__PROD82_BLD_PRODBUF
+*.
+*.  MODULE VERSION: 0013
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       06 13 89      0000      BRADLEY SUTKER       SPR# 90348
+*.       03 29 90      0001      DAVE HOZLOCK         SPR# 90697
+*.       11 05 90      0002      PAUL JENDROWSKI      SPR# 91255
+*.       12 03 91      0003      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0004      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0005      Toolset              SPR 91895
+*.       01020/92      0006      BRADLEY SUTKER       CCR NA92-28001
+*.       03/25/93      0007      Toolset              SPR NA93-06801
+*.       01/28/94      0008      Toolset              SPR NA94-01101
+*.       03/03/94      0009      Toolset              SPR NA94-05501
+*.       12/12/95      0010      JAY BREIDENBACH      CCR NA94-33201
+*.       12/23/96      0011      Toolset              CCR NA95-11807
+*.       03/16/99      0012      Toolset              CCR NA98-23803
+*.       01/31/02      0013      Dennis A. Miller     CCR NA01-27501
+*.
+*.  CALLING SEQUENCE: CALL A3146W__PROD82_BLD_PRODBUF(HYDRSUPL,
+*.                                     PRODBUF,VSNUM,ENIDX)
+*.
+*.  MODULE FUNCTION: Controls how the Supplemental data product buffer
+*.                   is built.
+*.
+*.  MODULES CALLED: A3148X__PROD82_SUP, A3148T__PROD82_BTABL
+*.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT      TYPE        DESCRIPTION
+*.    -   -----      ----        -----------
+*.    G   BLOCKIDOFF I*4         (CONSTANT)Product block ID offset.
+*.    G   DIV2OFF    I*4         (CONSTANT)Product block offset: Second
+*.                               divider.
+*.    P   HYDRSUPL   I*4         Supplemental data array.
+*.    P   PRODBUF    I*2         Product output buffer space
+*.    P   VSNUM      I*4         VOLUME SCAN NUMBER
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    P   ENIDX   I*4         END INDEX IN PRODUCT BUFFER
+*.    P   PRODBUF I*2         Product output buffer space
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    P   HYDRSUPL          I*4         Supplemental data array.
+*.    P   PRODBUF           I*2         Product output buffer space
+*.    P   VSNUM             I*4         VOLUME SCAN NUMBER
+*.
+*.  DATABASE/FILE REFERENCE:   NONE
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME           TYPE        DESCRIPTION
+*.    ----           ----        -----------
+*.    BLK3_BEGIN     I*4         STARTING INDEX IN OUTPUT BUFFER FOR BLOCK 3
+*.                               DATA
+*.    DIVIDER        I*4         Parameter for block divider
+*.    NI2            I*4         Ratio of I*4 bytes to I*2 bytes (2)
+*.    NPAGES         I*4         TOTAL NUMBER OF PAGES DISPLAYED ON PUP BY SPD
+*.                               PRODUCT
+*.    NPAGES_SUP     I*4         NUMBER OF PAGES OF SUPPLEMENTAL DATA
+*.    NPAGES_BTBL    I*4         NUMBER OF PAGES OF BIAS TABLE DATA
+*.    STARTIDX       I*4         Starting index of the block 3 data
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK14.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+ 
+C
+C...'X' IN COLUMN-1 INDICATES CONDITIONALLY COMPILED DEBUG CODE...
+C
+      IMPLICIT NONE
+C
+$INCLUDE A309.INC/G,    **A3PM01   (NEND NLIST)
+$INCLUDE                **A3PM04   (NEND NLIST)
+C
+$INCLUDE A313HBUF.INC/G,**A313HYPP (NEND NLIST)
+$INCLUDE                **A313HYDD (NEND NLIST)
+C
+C
+      INTEGER*2  PRODBUF(*)
+      INTEGER    DIVIDER, STARTIDX, ENIDX,
+     +           NI2, VSNUM
+      PARAMETER (DIVIDER = -1, NI2 = 2)
+C
+      INTEGER*4 NPAGES, NPAGES_SUP, NPAGES_BTBL
+C
+      INTEGER*4 BLK3_BEGIN
+      PARAMETER (BLK3_BEGIN=63)
+X     INTEGER I
+C
+C
+C**** EXECUTABLE ****
+C     ----------
+C
+C** Fill in 1st part of tabular alphanumeric block:
+C
+      PRODBUF(DIV2OFF)    = DIVIDER
+C
+C     INITIALIZE THE NUMBER OF PAGES IN EACH PART OF THIS BLOCK 3
+C
+      NPAGES = 0
+      NPAGES_SUP = 0
+      NPAGES_BTBL = 0
+C
+C**   Call the routines that actually build the pages of the product;
+C**   Start with the one that writes the Supplemental data to prodbuf
+C**   for Page 1 of the SPD product
+C
+      STARTIDX = BLK3_BEGIN - 1
+C
+      CALL A3148X__PROD82_SUP(HYDRSUPL,VSNUM,PRODBUF,
+     +                       STARTIDX,NPAGES_SUP)
+C
+C**   Now write the complete Bias Table to the product buffer for
+C**   Page 2 of the SPD product
+C
+      CALL A3148T__PROD82_BTABL(HYDRSUPL,PRODBUF,
+     +                         STARTIDX,NPAGES_BTBL)
+C
+C**   Determine total # pages in SPD product and ending index
+C**   in product buffer
+C
+      ENIDX = STARTIDX
+      NPAGES = NPAGES_SUP + NPAGES_BTBL
+      PRODBUF(BLOCKIDOFF) = NPAGES
+C
+X      TYPE *, 'npages ',npages
+X      TYPE *, 'sup    ',npages_sup
+X      TYPE *, 'btbl   ',npages_btbl
+X      TYPE *, 'ENIDX  ',ENIDX
+X      TYPE *, 'STARTIDX ',STARTIDX
+C
+X     DO 900 I=50,75
+X       TYPE *, I,PRODBUF(I)
+X 900 CONTINUE
+C
+      RETURN
+      END

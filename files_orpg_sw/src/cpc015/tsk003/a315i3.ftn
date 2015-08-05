@@ -1,0 +1,496 @@
+      SUBROUTINE A315I3__INIT_RAD( BDRADHDR, ELEVTIME )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A315I3__INIT_RAD
+*.
+*.  MODULE VERSION: 0015
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       08 16 85      0000      DENNIS MILLER        BUILD 2
+*.       05 07 86      0001      DENNIS MILLER        SPR # 304
+*.       07 10 86      0002      DENNIS MILLER        SPR # 60313
+*.       07 10 86      0002      DENNIS MILLER        SPR # 60367
+*.       10 05 88      0003      STEVE D SMITH        SPR # 70206
+*.       06 06 89      0004      DAVID M. LYNCH       SPR # 90298
+*.       05 08 90      0005      STACY RONALD         SPR # 90697
+*.       02 15 91      0006      JOHN DEPHILIP        SPR # 91762
+*.       04 01 91      0006      DENNIS MILLER        SPR # 91256
+*.       12 03 91      0007      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0008      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0009      Toolset              SPR 91895
+*.       03/25/93      0010      Toolset              SPR NA93-06801
+*.       01/28/94      0011      Toolset              SPR NA94-01101
+*.       03/03/94      0012      Toolset              SPR NA94-05501
+*.       04/01/95      0013      Toolset              CCR NA95-11802
+*.       06/21/95      0014      DAVID ZITTEL         CCR NA94-26302
+*.       12/23/96      0014      Toolset              CCR NA95-11807
+*.       03/16/99      0015      Toolset              CCR NA98-23803
+*.       12/31/04      0003      Yukuan Song          CCR NA04-08301
+*.
+*.  CALLING SEQUENCE: CALL A315I3__INIT_RAD(BDRADHDR,
+*.                                           ELEVTIME )
+*.
+*.  MODULE FUNCTION:
+*.
+*.  This subroutine initializes flags & variables for each new radial
+*.  from the Radial Header.
+*.
+*.  MODULES CALLED: A3CM59__MAX_BIN 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT    TYPE        DESCRIPTION
+*.    -   -----    ----        -----------
+*.    G   STRMADAP I*4         Array containing the integer variables in SCIT
+*.                             adaptation data in internal common.
+*.    G   ANOFFSET I*4         (CONSTANT)Offset to azimuth number in
+*.                             preprocessed radial header (relative 1 from
+*.                             beginning) in halfwords.
+*.    G   AOFFSET1 I*4         (CONSTANT)Offset to angle measurement (first
+*.                             half of R*4) in preprocessed radial header.
+*.    G   AOFFSET2 I*4         (CONSTANT)Offset to angle measurement (second
+*.                             half of R*4) in preprocessed radial header.
+*.    G   BEG_ELEV I*4         (CONSTANT)Radial status flag: Beginning of
+*.                             elevation scan.
+*.    G   BEG_VOL  I*4         (CONSTANT)Radial status flag:Beginning of
+*.                             volume scan.
+*.    G   COSAOFS1 I*4         (CONSTANT)Offset to cosine of azimuth angle
+*.                             (first half of R*4) in preprocessed radial
+*.                             header.
+*.    G   COSAOFS2 I*4         (CONSTANT)Offset to cosine of azimuth angle
+*.                             (second half of R*4) in preprocessed radial
+*.                             header.
+*.    G   DTOFFSET I*4         (CONSTANT)Offset to delta angle measurement in
+*.                             preprocessed radial header.
+*.    G   EOFFSET1 I*4         (CONSTANT)Offset to elevation angle measurement
+*.                             (first half of R*4) in preprocessed radial
+*.                             header.
+*.    G   EOFFSET2 I*4         (CONSTANT)Offset to elevation angle measurement
+*.                             (second half of R*4) in preprocessed radial
+*.                             header.
+*.    G   NSOFFSET I*4         (CONSTANT)Offset to number of surveillance bins
+*.                             in preprocessed radial header (relative 1 from
+*.                             beginning) in halfwords.
+*.    G   PHEDSIZE I*4         (CONSTANT)Size of preprocessed base radial
+*.                             header.
+*.    G   RGFSBOFF I*4         (CONSTANT)Offset to range to first surveillance
+*.                             bin (in bins) in preprocessed radial header
+*.                             (relative 1 from beginning).
+*.    G   SINAOFS1 I*4         (CONSTANT)Offset to sine of azimuth angle
+*.                             (first half of R*4) in preprocessed radial
+*.                             header (relative 1 from beginning).
+*.    G   SINAOFS2 I*4         (CONSTANT)Offset to sine of azimuth angle
+*.                             (second half of R*4) in preprocessed radial
+*.                             header (relative 1 from beginning).
+*.    G   SIOFFSET I*4         (CONSTANT)Offset to surveillance range sample
+*.                             interval (meters) in preprocessed radial header
+*.                             (relative 1 from beginning).
+*.    G   STA_RGMX I*4         (CONSTANT)Offset to the Thresh. Max. Segment
+*.                             Range (km) in the adaptation data part of the
+*.                             centroids & tracking/forecast output buffers.
+*.    G   STA_RLVL I*4         (CONSTANT)Offset to the Number of Reflectivity
+*.                             Levels in the adaptation data part of the
+*.                             centroids & tracking/forecast output buffers.
+*.    G   TOFFSET1 I*4         (CONSTANT)Offset to generation time of radial
+*.                             (first half of I*4) in preprocessed radial
+*.                             header.
+*.    G   TOFFSET2 I*4         (CONSTANT)Offset to generation time of radial
+*.                             (second half of I*4) in preprocessed radial
+*.                             header.
+*.    C   ADPLASTB I*4         The least number of sample volumes to exceed
+*.                             the segment length adaptable parameters.
+*.    C   ADPSEGLN R*4         Segment Reflectivity Threshold stored in
+*.                             segments local common.
+*.    C   BAZM_NDX I*4         Index to the segments of the 1st radial for a
+*.                             ref. th. in the segment shared image for an
+*.                             elevation.
+*.    C   FSURBIN  I*4         First good surveillance bin (number) in a
+*.                             radial from the radial header, stored in local
+*.                             common.
+*.    C   GOOD_RAD L*4         Flag passed from A3CM39 indicating whether a
+*.                             radial is good.
+*.    C   LSURBIN  I*4         Last good surveillance bin (number) in a radial
+*.                             based on info from the radial header, stored in
+*.                             local common.
+*.    C   NSURBIN  I*4         Total number of sample volumes within the
+*.                             radial
+*.    C   RADAZIM  R*4         Azimuth Angle of radial
+*.    C   RADELEV  R*4         The elevation angle of a radial.
+*.    C   RADTIME  I*4         Time of a radial.
+*.    C   RAD_STAT I*4         A radial s status within the volume scan (e.g.
+*.                             beginning of volume scan).
+*.    C   SEGAZPTR I*4         The pointer to the first good azimuthal
+*.                             (radial) index (i.e. which half) w/in the
+*.                             segments attributes array (1 or 401).
+*.    C   SEGCTPTR I*4         The pointer to the first good radial index
+*.                             (i.e. which half) w/in the segments attributes
+*.                             array (1 or 401).
+*.    P   BDRADHDR I*2         1-D Array of Radial Header data
+*.    P   PTR      I*4         Input buffer pointer to radial data
+*.
+*.    *   OUTPUT   TYPE        DESCRIPTION
+*.    -   ------   ----        -----------
+*.    G   SEGAZIM  R*4         An array of # of segments found on each radial
+*.                             of an elevation scan.  One half is updated each
+*.                             elevation scan.
+*.    G   STRMADAP I*4         Array containing the integer variables in SCIT
+*.                             adaptation data in internal common.
+*.    C   ADPLASTB I*4         The least number of sample volumes to exceed
+*.                             the segment length adaptable parameters.
+*.    C   BAZM_NDX I*4         Index to the segments of the 1st radial for a
+*.                             ref. th. in the segment shared image for an
+*.                             elevation.
+*.    C   BSEGCNTX I*4         The HI/LO index for array SEGINDX
+*.    C   COSAZ    R*4         The cosine of the radial s azimuth angle.
+*.    C   DELTANG  R*4         Change in azimuth between radials.  This is
+*.                             from the radial header and stored in local
+*.                             common.
+*.    C   FSURBIN  I*4         First good surveillance bin (number) in a
+*.                             radial from the radial header, stored in local
+*.                             common.
+*.    C   LSURBIN  I*4         Last good surveillance bin (number) in a radial
+*.                             based on info from the radial header, stored in
+*.                             local common.
+*.    C   NSURBIN  I*4         Total number of sample volumes within the
+*.                             radial
+*.    C   RADAZIM  R*4         Azimuth Angle of radial
+*.    C   RADELEV  R*4         The elevation angle of a radial.
+*.    C   RADTIME  I*4         Time of a radial.
+*.    C   RNGFCTR  R*4         Half the length (in km) of a range bin.
+*.    C   SEGLEN   I*4         Derived array of segment length thresholds in
+*.                             bins for each reflectivity threshold.
+*.    C   SINAZ    R*4         The cosine of the radial s azimuth angle.
+*.    P   ELEVTIME I*4         Elevation time
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    P   PTR               I*4         Input buffer pointer to radial data
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME             TYPE        DESCRIPTION
+*.    ----             ----        -----------
+*.    AZIMFULL         R*4         Azimuth Angle of radial (equivalenced to
+*.                                 AZIMHALF)
+*.    AZIMHALF         I*2         Two-halfword array containing Az-
+*.    AZIMRAD          R*4         Azimuth Angle of radial (radians)
+*.    CLIPPED_NUM_BINS I*4         Number of radar bins clipped when
+*.                                 determining programed elevation angle
+*.    CNVMTOKM         R*4         Meter to Kilometer conversion factor
+*.    COSEFULL         R*4         Cosine of azimuth angle in preprocessed
+*.                                 radial header
+*.    COSEHALF         I*2         I*2 array used to obtain cosine of azimuth
+*.                                 (Equivalenced to COSEFULL)
+*.    DEFLTSUR         R*4         Default Surveillance Bin Length
+*.    DEGRAD           R*4         Conversion factor for degrees to radians.
+*.    ELEVANG          R*4         Elevation angle
+*.    ELEVFULL         R*4         Elevation Angle of radial (equivalenced to
+*.                                 ELEVHALF).
+*.    ELEVHALF         I*2         Two-halfword array containing Elevation
+*.                                 angle of radial (in degrees).
+*.    ELEV_TOL         R*4         Elevation tolerance between programmed
+*.                                 elevation angle and measured elevation
+*.                                 angle
+*.    FWVHW            I*4         Dimension of TIMEHALF, AZIMHALF and
+*.                                 ELEVHALF, full and half words for
+*.                                 equivalencing.
+*.    HLF_FCTR         R*4         Real parameter value of 0.5
+*.    LENSURV          I*4         Surveillance Bin Length of radial
+*.    MAX_NUM_BINS     I*4         Parameter for maximum number of
+*.                                 reflectivity bins
+*.    ONE              I*4         Parameter value of one.
+*.    RAD_STEP         I*4         Radial bin resolution
+*.    REFBINKM         R*4         Surveillance Sample Volume length in km
+*.    SEG_NDX          I*4         Do loop variable
+*.    SINEFULL         R*4         The sine of azimuth angle from the
+*.                                 preprocessed radial
+*.    SINEHALF         I*2         I*2 array used to obtain sine of azimuth
+*.                                 from preprocessed radial
+*.    SURLEN           R*4         Length of a reflectivity bin in meters.
+*.    SURV_TYPE        I*4         Parameter for surveillance wave type
+*.    TIMEFULL         I*4         Time of radial (equivalenced to TIMEHALF).
+*.    TIMEHALF         I*2         Two-halfword array containing Time
+*.    TWO              I*4         Program parameter value of 2.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A315CSAD
+*.    SGMTS09
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A315C3
+*.    A315CC
+*.    A315CD
+*.    A315CG
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:
+*.
+*.     Even if a radial is flagged as "bad", the information in its
+*.   header is assumed to be valid.
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     Compiled using COMP15.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     Linked using LINK15.CSS
+*.
+*.  MISC:  None
+*.
+C********************************************************************
+C
+C              STORM SEGMENTS: INITIALIZE RADIAL  ROUTINE
+C
+C********************************************************************
+C
+      IMPLICIT NONE
+C
+C**Attach input parameter-definition file (from "UNPACK_RADIAL_DATA")
+$INCLUDE A304.INC/G,**A304P4 (NLIST)
+C
+C**Attach parameter file of radial status flags.
+$INCLUDE A309.INC/G,**A3PM02 (NLIST)
+$INCLUDE            **A3PM06 (NLIST)
+$INCLUDE            **A3CD05 (NLIST)
+C
+C** Attach buffers/pointers
+$INCLUDE A315BUF.INC/G,**A315P3S (NLIST)
+C
+C**  Attach pointers for adaptation data
+$INCLUDE **A315PSAD (NLIST)
+C
+C**  Attach Storm adaptation data declaration
+$INCLUDE **A315CSAD (NLIST)
+C
+C** Attach parameters and pointers for Segments Image
+$INCLUDE A315.INC/G,**A315C3S (NLIST)
+C
+C** Attach Segments logical and local flags (CCS)
+$INCLUDE **A315CCS (NLIST)
+C
+C**  Attach derived adaptation data common block (CDS)
+$INCLUDE **A315CDS (NLIST)
+C
+C**Attach internal common block (CG)
+$INCLUDE **A315CGS (NLIST)
+C
+C** Attach Segments image
+$INCLUDE A309.INC/G,**A3CD09DZ (NLIST)
+C
+C********************** DATA DECLARATIONS ***************************
+C
+C** Input:
+C
+c     INTEGER*2 BDRADHDR( PHEDSIZE )
+      real BDRADHDR( 13 )
+C
+C** Local:
+C
+C** --Parameterize full word/half word size ratio.
+C
+      INTEGER    FWVHW
+      INTEGER ELEVTIME
+      PARAMETER ( FWVHW=2 )
+C
+C** --Define full words & half words for equivalencing.
+C
+      INTEGER*2  TIMEHALF(FWVHW), AZIMHALF(FWVHW), ELEVHALF(FWVHW)
+      INTEGER*2  SINEHALF(FWVHW), COSEHALF(FWVHW)
+      INTEGER    TIMEFULL
+      INTEGER ONE, TWO, SEG_NDX
+      REAL REFBINKM, CNVMTOKM, HLF_FCTR
+      PARAMETER (HLF_FCTR = 0.5, CNVMTOKM = 0.001 )
+      PARAMETER ( ONE = 1, TWO = 2 )
+
+      REAL       AZIMFULL, ELEVFULL
+      REAL       COSEFULL, SINEFULL
+C
+C** --Define other local variables.
+
+       integer radstatus
+       integer radnum_read 
+
+C
+      INTEGER  LENSURV
+      REAL     DEFLTSUR, AZIMRAD, DEGRAD
+
+      INTEGER MAX_NUM_BINS, SURV_TYPE, RAD_STEP, CLIPPED_NUM_BINS
+      REAL    ELEVANG, ELEV_TOL
+
+      PARAMETER( MAX_NUM_BINS = 460 )
+      PARAMETER( SURV_TYPE = 1 )
+      PARAMETER( RAD_STEP = 1 )
+      PARAMETER( ELEV_TOL = 0.5 )
+
+C
+C* Variables for calculating elevation angle and clipped bin number
+C
+      INTEGER SURV_DATA, BINS_QKM
+      LOGICAL FOUND
+      REAL SINANG, DTR, PI, IRRE, TOPHGT, T2, SRTO70
+      PARAMETER (PI   = 3.14159)
+      PARAMETER (DTR  = PI / 180.0)
+      PARAMETER (IRRE = 1.2 * 6371.0)
+      PARAMETER (TOPHGT = 21.21)
+      PARAMETER (T2     = 2.0)
+      PARAMETER (SURV_DATA = 1, BINS_QKM = 4)
+      REAL BIN_FACTOR(BINS_QKM)
+      DATA BIN_FACTOR/4.0, 2.0, 0.0, 1.0/
+
+C
+C************************* EQUIVALENCES *****************************
+C
+      EQUIVALENCE ( TIMEFULL,TIMEHALF( 1 ) )
+     $           ,( AZIMFULL,AZIMHALF( 1 ) )
+     $           ,( ELEVFULL,ELEVHALF( 1 ) )
+     $           ,( SINEFULL,SINEHALF(1) )
+     $           ,( COSEFULL,COSEHALF(1) )
+C
+C********************** DATA INITIALIZATIONS ************************
+C
+      PARAMETER (DEGRAD = 0.01745329, DEFLTSUR = 1000.0)
+C
+C****************** BEGIN MAIN PROCESSING SECTION *******************
+C
+C** Initialize variables from input radial buffer for output buffer.
+C
+C** --Radial Time:
+C
+      RADTIME     = BDRADHDR(2) 
+C
+C** Set the elevation and volume time to the time of the first radial
+C
+      radstatus = BDRADHDR(1)
+      IF(radstatus .EQ. BEG_ELEV .OR. radstatus .EQ. BEG_VOL)
+     $        ELEVTIME = RADTIME
+C
+C** --Azimuth Angle:
+C
+      RADAZIM     = BDRADHDR(3) 
+C
+C** --Set the hi/lo index for the azimuth array
+C
+      BAZM_NDX = BDRADHDR( 4 ) + SEGAZPTR
+C
+C** WRITE(AZIMUTH):
+C
+      SEGAZIM( BAZM_NDX ) = RADAZIM
+C
+C** --Set the hi/lo index for array SEGINDX
+C
+      BSEGCNTX = BDRADHDR( 4 ) + SEGCTPTR
+C
+C** --Elevation Angle:
+C
+      RADELEV     = BDRADHDR(5) 
+C----------------------------------------
+*
+** ELEVATION ANGLE IS FOUND, THEN CALCULATE NUMBER OF BINS
+** ASSIGN THE MINIMUM OF THE VALUES OF MAXBINS AND THE CALCULATED
+** NUMBER OF BINS TO RETAIN THE RESOLUTION.
+** OTHERWISE, ASSIGN THE MAXBINS AS NUMBER OF BINS
+*
+         ELEVANG = RADELEV 
+         SINANG  = SIN( DTR*ELEVANG )
+	 SRTO70 = IRRE*( SQRT(SINANG**2 + T2*TOPHGT/IRRE) - SINANG)
+         IF (SURV_TYPE .EQ. SURV_DATA) THEN
+            CLIPPED_NUM_BINS = SRTO70 / RAD_STEP 
+         ELSE
+            CLIPPED_NUM_BINS = SRTO70 * BIN_FACTOR(RAD_STEP)
+         ENDIF
+         CLIPPED_NUM_BINS = MIN0(MAX_NUM_BINS, CLIPPED_NUM_BINS )
+
+C----------------------------------------------
+C
+C**  --If programmed elevation angle is greater than 0.5 degrees
+C**  --from measured angle, set the measured angle to the programmed
+C**  --value.  This elimates contamination from spurious values
+C
+      IF( ABS(ELEVANG - RADELEV) .GT. ELEV_TOL ) RADELEV = ELEVANG
+C
+C** --Surveillance Sample Volume Length:
+C
+      LENSURV = BDRADHDR( 6 )
+      SURLEN  = FLOAT( LENSURV )
+      IF (SURLEN.LE.0.)  SURLEN = DEFLTSUR
+C
+C** Surveillance Sample Volume length in km
+C
+      REFBINKM = SURLEN * CNVMTOKM
+C
+C** Length of half sample volume in km
+C
+      RNGFCTR = REFBINKM * HLF_FCTR
+C
+C**  If radial is first of volume, compute the least number of
+C**  sample volumes to exceed the segment length adaptable
+C**  parameters.
+C
+
+      IF( RAD_STAT. EQ. BEG_VOL ) THEN
+        ADPLASTB = IFIX(FLOAT(STRMADAP(STA_RGMX))/REFBINKM+HLF_FCTR)
+        DO 100 SEG_NDX = ONE, STRMADAP( STA_RLVL )
+          SEGLEN( SEG_NDX ) = IFIX( ADPSEGLN(SEG_NDX)/REFBINKM +
+     $                       HLF_FCTR )
+ 100    CONTINUE
+      ENDIF
+C
+C** If radial status is "Good", initialize variables from input
+C** radial buffer to be used for Segment processing.
+C
+c     IF ( GOOD_RAD )  THEN
+C
+C**    --Set 1st Surveillance sample volumes:
+C
+         FSURBIN = BDRADHDR( 7 )
+
+C
+C**    --Get total no. of Surveillance sample volumes within radial:
+C
+         NSURBIN = BDRADHDR( 8 )
+C
+C**    --Determine last Surveillance sample volume:
+C
+         LSURBIN = FSURBIN + NSURBIN - ONE
+C
+C**    --Clip data at ceiling of 70 kft:
+C
+         LSURBIN = MIN( LSURBIN, CLIPPED_NUM_BINS )
+
+         IF (LSURBIN .GT. ADPLASTB)LSURBIN = ADPLASTB
+C
+C**    --Set radial delta-angle measure:
+C
+C** NOTE: The radial angle delta is derived in the wideband manager
+C**       task PREPRDAT and supplied to this algorithm in the radial
+C**       header.  This value is required for COMPUTE (average DELTA
+C**       AZIMUTH).
+C
+         DELTANG = BDRADHDR( 9 )
+C
+C**    --Derive sine & cosine of azimuth angle:
+C
+         AZIMRAD = DEGRAD * AZIMFULL
+         SINAZ = BDRADHDR(10) 
+         COSAZ = BDRADHDR(11) 
+C
+c     END IF
+C
+C************** END OF PROCESSING FOR SUBROUTINE ********************
+C
+      RETURN
+      END

@@ -1,0 +1,396 @@
+C
+C RCS info
+C $Author: steves $
+C $Locker:  $
+C $Date: 2006/06/23 22:29:02 $
+C $Id: a3078i.ftn,v 1.7 2006/06/23 22:29:02 steves Exp $
+C $Revision: 1.7 $
+C $State: Exp $
+C
+      SUBROUTINE A3078I__ASSM_PROD2(RAST_BUFF,ISTAR2S,PROD_BUFF,HEAD,
+     $     REQTAB,INDEXX,COLORI,NYROW,MAX,MIN,MAX_X,MAX_Y,MIN_X,MIN_Y)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3078I__ASSM_PROD2
+*.
+*.  MODULE VERSION: 0011
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY: NONE
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       05 01 89      0000      CHARLIE BAUMHER      SPR # 80271
+*.       05 09 90      0001      R VISIOLI            SPR # 90317
+*.       02 13 91      0002      MARK FRESCH          SPR # 91248
+*.       12 03 91      0003      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0004      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/20/92      0005      Toolset              SPR 91895
+*.       03/25/93      0006      Toolset              SPR NA93-06801
+*.       01/28/94      0007      Toolset              SPR NA94-01101
+*.       03/03/94      0008      Toolset              SPR NA94-05501
+*.       04/11/96      0009      Toolset              CCR NA95-11802
+*.       12/23/96      0010      Toolset              CCR NA95-11807
+*.       03/16/99      0011      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:
+*.  CALL A3078I__ASSM_PROD2(RAST_BUFF, ISTAR2S, PROD_BUFF,
+*.                    HEAD, REQTAB, INDEXX, COLORI, NYROW,
+*.                    MAX, MIN, MAX_X, MAX_Y, MIN_X, MIN_Y)
+*.
+*.
+*.  MODULE FUNCTION:
+*.    VERTICAL CROSS SECTION ROUTINE. ALL INFORMATION TO BUILD THE
+*.  FINAL PRODUCT IS NOW AVAILABLE. THIS ROUTINE WILL FILL IN THE
+*.  PRODUCT HEADER, AND MOVE THE RASTER DATA, GRID VECTOR ANNOTATION
+*.  AND THE GRID TEXT ANNOTATION INTO THE FINAL PRODUCT BUFFER.
+*.
+*.
+*.
+*.  MODULES CALLED: A3078M__FORMAT_MAX_MIN 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT         TYPE        DESCRIPTION
+*.    -   -----         ----        -----------
+*.    G   BLOCKIDOFF    I*4         (CONSTANT)Product block ID offset.
+*.    G   CALCONLSW     I*4         (CONSTANT)Product header offset to
+*.                                  calibration constant (LSW).
+*.    G   CALCONMSW     I*4         (CONSTANT)Product header offset to
+*.                                  calibration constant (MSW)
+*.    G   DIV2OFF       I*4         (CONSTANT)Product block offset: Second
+*.                                  divider.
+*.    G   FLAGSOF1      I*4         (CONSTANT)Display header offset (for
+*.                                  raster formatted products): first
+*.                                  opcode/flags offset.
+*.    G   FLAGSOF2      I*4         (CONSTANT)Display header offset (for
+*.                                  raster formatted products):seconds
+*.                                  opcod/flags offset.
+*.    G   FLAGSOF3      I*4         (CONSTANT)Display header offset (for
+*.                                  raster formatted products):Third
+*.                                  opcode/flags offset.
+*.    G   ICDSTOFF      I*4         (CONSTANT)Display header offset (For
+*.                                  raster formatted products): I Coordinate
+*.                                  start.
+*.    G   JCDSTOFF      I*4         (CONSTANT)Display header offset (for
+*.                                  raster formatted products): J Coordinates
+*.                                  start.
+*.    G   LGLSWOFF      I*4         (CONSTANT)Product header offset: Length of
+*.                                  message (LSW).
+*.    G   LRLSWOFF      I*4         (CONSTANT)Product block offset: Length of
+*.                                  product block portion of product (LSW).
+*.    G   LYRDIVOFF     I*4         (CONSTANT)PRODUCT BLOCK OFFSET: LAYER
+*.                                  DIVIDER
+*.    G   LYRLLSWOFF    I*4         (CONSTANT)Product block offset:  Layer
+*.                                  length (LSW).
+*.    G   NLYROFF       I*4         (CONSTANT)Product block offsets: Number of
+*.                                  layers.
+*.    G   NRWSOFF       I*4         (CONSTANT)Display header offset (For
+*.                                  raster formatted products): Number of rows
+*.                                  offset.
+*.    G   OPRLSWOFF     I*4         (CONSTANT)Product header offset
+*.                                  descriptions: Offset to product length
+*.                                  (LSW)
+*.    G   OPRMSWOFF     I*4         (CONSTANT)Product header offset
+*.                                  descriptions: Offset to product length
+*.                                  (MSW)
+*.    G   PACKDESC      I*4         (CONSTANT)Display header offset (For
+*.                                  raster formatted products): Packing
+*.                                  descriptor offset.
+*.    G   PHEADLNG      I*4         (CONSTANT)Number of half words in product
+*.                                  header (its length).
+*.    G   POFFSET1      I*4         (CONSTANT)Offset to PSP scaling constant
+*.                                  (first half of R*4) in preprocessed radial
+*.                                  header (relative 1 from beginning).
+*.    G   POFFSET2      I*4         (CONSTANT)Offset to PSP scaling constant
+*.                                  (second half of R*4) in preprocessed
+*.                                  radial header (relative 1 from beginning).
+*.    G   RASFLG1       I*4         (CONSTANT)Raster flag for first word in
+*.                                  raster header.
+*.    G   RASFLG2       I*4         (CONSTANT)Raster flag for second word in
+*.                                  raster header.
+*.    G   RASFLG3       I*4         (CONSTANT)Raster flag for third word in
+*.                                  raster header.
+*.    G   RAS_PACK_DES  I*4         (CONSTANT)Preset to raster packing
+*.                                  description.
+*.    G   XSCFACFRA     I*4         (CONSTANT)Display header offset (For
+*.                                  raster formatted products): X Scale factor
+*.                                  fraction.
+*.    G   XSCFACINT     I*4         (CONSTANT)Display header offset (For
+*.                                  raster formatted products): X Scale factor
+*.                                  integer.
+*.    G   YSCFACFRA     I*4         (CONSTANT)Display header offset (For
+*.                                  raster formatted products): Y Scale factor
+*.                                  fraction.
+*.    G   YSCFACINT     I*4         (CONSTANT)Display header offset (For
+*.                                  raster formatted products): Y Scale factor
+*.                                  integer.
+*.    C   INTERVAL      I*4         Nautical mile (nm) grid P1-P2 interval.
+*.    C   ONE           I*4         (CONSTANT)Constant value of one.
+*.    C   P1_AZ         I*4         (CONSTANT)Constant used as an index into
+*.                                  request table for P1's Azimuth.
+*.    C   P1_RANGE      I*4         (CONSTANT)Constant used as an index into
+*.                                  request table (REQTAB) for P1's ranges.
+*.    C   P2_AZ         I*4         (CONSTANT)Constant used as an index into
+*.                                  request table for P2's Azimuth.
+*.    C   P2_RANGE      I*4         (CONSTANT)Constant used as an index into
+*.                                  request table for P2's Range.
+*.    C   PCODE         I*4         (CONSTANT)Constant used as an index to
+*.                                  requested product code from the request
+*.                                  table (REQTAB) buffer.
+*.    C   RAS_DATA_X    I*4         (CONSTANT)Starting X-Pixel position of
+*.                                  raster data.
+*.    C   REFLPROD16    I*4         (CONSTANT)Product code for Cross Section
+*.                                  (Reflectivity) 16 data levels.
+*.    C   REFLPROD8     I*4         (CONSTANT)Product code for Cross Section
+*.                                  (Reflectivity) 8 data levels
+*.    C   REQCOLS       I*4         (CONSTANT)Maximum number of request
+*.                                  columns in the request table.
+*.    C   REQROWS       I*4         (CONSTANT)Number of request rows
+*.                                  (parameters) in the request table.
+*.    C   TWO           I*4         (CONSTANT)Constant value of an integer 2.
+*.    C   Y_PIX_PER_BOX I*4         (CONSTANT)Number of Pixels per Y
+*.                                  (vertical) grid box.
+*.    C   ZERO          I*4         (CONSTANT)Program parameter for 0.
+*.    P   HEAD          I*2         HEADER FROM THE 1ST RADIAL
+*.    P   INDEXX        I*4         RECORD NUM IN TABLE OF RQUESTS
+*.    P   ISTAR2S       I*4         Number of I*2 words in raster data.
+*.    P   MAX           R*4         MAX DATA VALUE IN CROSS-SECTION
+*.    P   MAX_X         I*4         X INDEX OF MAX VALUE
+*.    P   MAX_Y         I*4         Y INDEX OF MAX VALUE
+*.    P   MIN           R*4         MIN DATA VALUE IN CROSS-SECTION
+*.    P   MIN_X         I*4         X INDEX OF MIN VALUE
+*.    P   MIN_Y         I*4         Y INDEX OF MIN VALUE
+*.    P   NYROW         I*4         NUMBER OF ROWS IN RASTER DATA
+*.    P   PROD_BUFF     I*2         PRODUCT OUTPUT BUFFER
+*.    P   RAST_BUFF     I*2         SCRATCH OUTPUT BUFFER THAT CONTAINS THE
+*.                                  RASTER DATA.
+*.    P   REQTAB        I*2         TABLE OF PROD.REQUEST INFO
+*.
+*.    *   OUTPUT    TYPE        DESCRIPTION
+*.    -   ------    ----        -----------
+*.    P   PROD_BUFF I*2         PRODUCT OUTPUT BUFFER
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    P   INDEXX            I*4         RECORD NUM IN TABLE OF RQUESTS
+*.    P   MAX               R*4         MAX DATA VALUE IN CROSS-SECTION
+*.    P   MAX_X             I*4         X INDEX OF MAX VALUE
+*.    P   MAX_Y             I*4         Y INDEX OF MAX VALUE
+*.    P   MIN               R*4         MIN DATA VALUE IN CROSS-SECTION
+*.    P   MIN_X             I*4         X INDEX OF MIN VALUE
+*.    P   MIN_Y             I*4         Y INDEX OF MIN VALUE
+*.    P   PROD_BUFF         I*2         PRODUCT OUTPUT BUFFER
+*.    P   REQTAB            I*2         TABLE OF PROD.REQUEST INFO
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME         TYPE        DESCRIPTION
+*.    ----         ----        -----------
+*.    BPTR         I*4         OUTPUT BUFFER POINTER
+*.    GRID         I*4         INDEX OF CROSS-SECTION DISPLAY GRID
+*.    GRIDSIZE     I*4         SIZE OF GRID VECTOR ANNOTAION
+*.    I            I*4         LOOP INDEX
+*.    NEGONE       I*4         CONSTANT VALUE OF -1
+*.    P1AZOFF      I*4         P1 AZIMUTH OFFSET
+*.    P1RGOFF      I*4         P1 RANGE OFFSET
+*.    P2AZOFF      I*4         P2 AZIMUTH OFFSET
+*.    P2RGOFF      I*4         P2 RANGE OFFSET
+*.    RAS_DATA_Y   I*4         Starting Y_Pixel of raster data.
+*.    RSTHDRSIZ    I*4         SIZE OF HEADER FOR RASTER DATA
+*.    SYMHEAD      I*4         SIZE IN BYTES OF SYMBOLOGY HEADER BLOCK
+*.    SYMSIZE      I*2         SIZE OF PROD. SYMBOLOGY BLOCK
+*.    THREE        I*4         CONSTANT VALUE OF 3
+*.    X_PIX_PER_KM I*4         Number of pixels per KM for each grid line.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3078CA
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  NONE
+*.
+*.  DEVIATION FROM STANDARDS:  NONE
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP07.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK07.CSS
+*.
+*.  MISC:  NONE
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+C
+C*
+C*  COMMON DECLARATIONS
+C*
+$INCLUDE A304.INC/G,**A304P4 (NEND NLIST)
+$INCLUDE A309.INC/G,**A3PM00 (NEND NLIST)
+$INCLUDE            **A3PM01 (NEND NLIST)
+$INCLUDE            **A3PM04 (NEND NLIST)
+$INCLUDE            **A3PM06 (NEND NLIST)
+$INCLUDE A307.INC,**A30788  (NLIST)
+$INCLUDE          **A3078CA  (NLIST)
+C*
+C*********************************************************************
+C*  LOCAL DECLARATIONS
+C*
+#IFDEF LINUX
+      INTEGER*4    ISTAR2S
+#ENDIF
+      INTEGER*2    RAST_BUFF(ISTAR2S),  PROD_BUFF(*)
+      INTEGER*2    HEAD(*)
+      INTEGER*2    REQTAB(REQROWS,REQCOLS)
+      INTEGER*4    MAX_X, MAX_Y, MIN_X, MIN_Y
+      REAL         MAX, MIN
+C*
+#IFDEF LINUX
+C     NOTHING
+#ELSE
+      INTEGER*4    ISTAR2S
+#ENDIF
+      INTEGER*4    COLORI, INDEXX
+      INTEGER*4    BPTR
+      INTEGER*4    THREE, SYMHEAD
+      INTEGER*4    NEGONE
+      INTEGER*4    I
+      INTEGER*4    NYROW
+      INTEGER*4    GRIDSIZE, GRID
+      INTEGER*4    P1AZOFF, P1RGOFF, P2AZOFF, P2RGOFF
+      INTEGER*4    SYMSIZE
+C*
+      PARAMETER    ( THREE = 3,  SYMHEAD = 16 )
+      PARAMETER    ( NEGONE = -1 )
+      PARAMETER    ( P1AZOFF = 47, P1RGOFF = 48 )
+      PARAMETER    ( P2AZOFF = 49, P2RGOFF = 50 )
+C*
+C** DEFINE THE SIZE OF THE PRODUCT BUFFER'S RASTER DATA HEADER SIZE.
+C*
+      INTEGER     RSTHDRSIZ
+      PARAMETER   ( RSTHDRSIZ = PACKDESC - FLAGSOF1 + 1 )
+C*
+C*
+C******************************************************************
+C*          A 3 0 7 8 I __ ASSEMBLE THE PRODUCTS ( PART 2 )
+C*
+C*
+C*********************************************************************
+C*  OUTPUT THE USER ENDPOINTS IN THE ORDER IN WHICH THEY WERE INPUT
+C*
+C*
+C*    MOVE POINTS 1 AND 2 DATA FROM REQUEST TABLE TO PRODUCT O/P BUFFER
+C*
+      PROD_BUFF( P1AZOFF   ) = REQTAB(P1_AZ,INDEXX)
+      PROD_BUFF( P1RGOFF   ) = REQTAB(P1_RANGE,INDEXX)
+      PROD_BUFF( P2AZOFF   ) = REQTAB(P2_AZ,INDEXX)
+      PROD_BUFF( P2RGOFF   ) = REQTAB(P2_RANGE,INDEXX)
+C*
+C*    MOVE OFFSET FROM HEADER TO CALIBRATION CONSTANT IN PROD. O/P BUFFER
+C*
+      IF ( REQTAB(PCODE,INDEXX) .EQ. REFLPROD8 .OR.
+     $     REQTAB(PCODE,INDEXX) .EQ. REFLPROD16 ) THEN
+
+        call RPG_set_product_float(PROD_BUFF(CALCONMSW), HEAD(POFFSET1))
+
+      ENDIF
+C*
+C*    INITIALIZE OFFSET TO PRODUCT IN PRODUCT OUTPUT BUFFER
+C*
+      call RPG_set_product_int( PROD_BUFF( OPRMSWOFF ), PHEADLNG )
+C*
+C*********************************************************************
+C*          BUILD THE PRODUCT SYMBOLOGY BLOCK.
+C*
+      PROD_BUFF( DIV2OFF    ) = NEGONE
+      PROD_BUFF( BLOCKIDOFF ) = ONE
+      PROD_BUFF( NLYROFF    ) = TWO
+      PROD_BUFF( LYRDIVOFF  ) = NEGONE
+      call RPG_set_product_int( PROD_BUFF( LYRLMSWOFF ),
+     1                          ( ISTAR2S + RSTHDRSIZ ) * TWO )
+C*
+C*
+C*********************************************************************
+C*
+C*          FILL IN THE RASTER HEADER
+C*
+C*    MOVE INDEX OF INTERVAL TO THE DISPLAY GRID
+C*
+      GRID = INTERVAL(INDEXX)
+C*
+C*    MOVE RASTER FLAGS TO OFFSET IN RASTER HEADER
+C*
+      PROD_BUFF( FLAGSOF1  ) = RASFLG1
+      PROD_BUFF( FLAGSOF2  ) = RASFLG2
+      PROD_BUFF( FLAGSOF3  ) = RASFLG3
+C*
+C*    MOVE STARTING PIXELS OF RASTER DATA TO I&J COORDINATE START POINTS
+C*
+      PROD_BUFF( ICDSTOFF  ) = RAS_DATA_X
+      PROD_BUFF( JCDSTOFF  ) = RAS_DATA_Y
+C*
+C*    INITIALIZE 'X' SCALE FACTOR DATA ITEMS
+C*
+      PROD_BUFF( XSCFACINT ) = X_PIX_PER_KM(GRID)
+      PROD_BUFF( XSCFACFRA ) = ZERO
+C*
+C*    INITIALIZE 'Y' SCALE FACTOR DATA ITEMS
+C*
+      PROD_BUFF( YSCFACINT ) = Y_PIX_PER_BOX
+      PROD_BUFF( YSCFACFRA ) = ZERO
+C*
+C*    MOVE NUMBER OF ROWS TO LAST WORD OF PRODUCT OUTPUT BUFFER
+C*
+      PROD_BUFF( NRWSOFF   ) = NYROW
+C*
+C*    INITIALIZE PACKING DESCRIPTOR OFFSET IN PRODUCT OUTPUT BUFFER
+C*
+      PROD_BUFF( PACKDESC  ) = RAS_PACK_DES
+C*
+C*********************************************************************
+C*          FILL IN THE RASTER DATA
+C*
+      DO 100 I = ONE, ISTAR2S
+        PROD_BUFF( PACKDESC + I) = RAST_BUFF( I )
+100   CONTINUE
+C*
+C*********************************************************************
+C*          NOW FILL IN THE GRID VECTOR AND TEXT ANNOTATIONS.
+C*
+      PROD_BUFF(PACKDESC+ISTAR2S+ 1 ) = NEGONE
+      PROD_BUFF(PACKDESC+ISTAR2S+ 2 ) =  ZERO
+C*
+C*    SET OUTPUT BUFFER POINTER AND CALL A3078M TO FORMAT MAX & MIN
+C*
+      BPTR = PACKDESC + ISTAR2S + THREE
+      CALL A3078M__FORMAT_MAX_MIN(MAX, MIN, MAX_X, MAX_Y, MIN_X,
+     $                    MIN_Y, INDEXX, REQTAB, BPTR, PROD_BUFF )
+C*
+C*    SET FINAL PRODUCT LENGTH IN THE PRODUCT OUTPUT BUFFER
+C*
+      GRIDSIZE = ( BPTR - ( PACKDESC + ISTAR2S ) )
+      PROD_BUFF(PACKDESC+ISTAR2S+THREE) = (GRIDSIZE-THREE)*TWO
+C*
+C*    SET SIZE OF PRODUCT SYMBOLOGY BLOCK
+C*
+      SYMSIZE = SYMHEAD + ( RSTHDRSIZ + ISTAR2S + GRIDSIZE )*TWO
+C*
+C*    MOVE SIZE OF PRODUCT SYMBOLOGY BLOCK INTO PRODUCT OUTPUT BUFFER
+C*
+      call RPG_set_product_int( PROD_BUFF( LRMSWOFF   ), SYMSIZE )
+      call RPG_set_product_int( PROD_BUFF( LGMSWOFF  ),
+     1                          SYMSIZE + ( PHEADLNG * TWO ) )
+C*
+      RETURN
+      END

@@ -1,0 +1,537 @@
+#!/bin/sh
+#    File: build_adapt_master
+# Purpose: Build Adaptation Data Master Directory
+#
+# RCS info
+# $Author: cm $
+# $Locker:  $
+# $Date: 2014/08/28 13:32:50 $
+# $Id: build_adapt_master,v 1.58 2014/08/28 13:32:50 cm Exp $
+# $Revision: 1.58 $
+# $State: Exp $
+#
+
+##################################################
+# PRINT_USAGE: Display script usage.
+##################################################
+
+print_usage () {
+  echo
+  echo
+  echo "Usage: `basename $0` -i input_directory -o output_directory [options]"
+  echo "    Build RPG adaptation data for all sites. Sites are processed in"
+  echo "    alphabetical order. The starting and ending site names can be used"
+  echo "    to build the adaptation data for part of the sites contained in"
+  echo "    the input directory. Processing will stop if an error occurs. RPG"
+  echo "    initialization problems can be diagnosed using the lem tool against"
+  echo "    various RPG initialization tasks."
+  echo "      Options:"
+  echo "        -h Print usage information"
+  echo "        -b [blockage_directory]... blockage.lb output directory"
+  echo "        -c clear the master output directory before generating the new files"
+  echo "        -C clear the shared output directory and exit"
+  echo "        -e [end_site_name]... ending site name"
+  echo "        -i [input_directory]... input directory"
+  echo "        -I interactive mode.  require user input after every site"
+  echo "        -o [output_directory]... output directory"
+  echo "        -q [blockage_input_directory]... site.trd input directory"
+  echo "        -s [start_site_name]... start site name"
+  echo "        -t [terrain_directory]... terrain.lb output directory"
+  echo "        -l [local_site_directory]... local site file directory"
+  echo "        -v verbose mode"
+  echo
+  echo
+}
+
+#********************************************************************
+#  process RPG adaptation data for channel (rpg1 or rpg2) of site site_name.
+#********************************************************************
+
+Process_rpg_adapt () {
+
+    echo "--->Generating Adaptation Data for $channel of site $site_name"
+    err_msg=
+
+    # copy non-site-specific adapt files to the working cfg dir
+    if [ -z "$non_site_file_coppied" ]
+    then
+	echo "--->Copying non-site specific adaptation files to the configuration directory"
+	cp -rf $orpg_cfg_dir/* $cfg_dir
+	non_site_file_coppied="true"
+    fi
+
+    # remove shared site files to make sure we will use the new one
+    for sf in $input_file_list $shared_file_list
+    do
+	rm $cfg_dir/$sf > /dev/null 2>&1
+    done
+
+    echo "--->Copying site specific adaptation files to the configuration directory"
+    for adapt_file_name in $input_file_list
+    do
+	if [ -f "$input_dir_name/$site_name/$channel/$adapt_file_name" ]
+	then
+	    if [ -n "$verbose" ]
+	    then
+		echo "--->Copy $input_dir_name/$site_name/$channel/$adapt_file_name to $cfg_dir/$adapt_file_name"
+	    fi
+	    cp $input_dir_name/$site_name/$channel/$adapt_file_name $cfg_dir/$adapt_file_name
+	else
+	    echo "--->Exiting because of adaptation file copy error"
+	    err_msg="$adapt_file_name does not exist in directory $input_dir_name/$site_name/$channel"
+	fi
+    done
+
+    ind=0
+    for adapt_file_name in $site_shared_file_list
+    do
+	ind=`expr $ind + 1`
+	share_file_name=`echo $shared_file_list | cut -d" " -f${ind} `
+	if [ -f "$input_dir_name/shared/$adapt_file_name" ]
+	then
+	    if [ -n "$verbose" ]
+	    then
+		echo "--->Copy $input_dir_name/shared/$adapt_file_name to $cfg_dir/$share_file_name"
+	    fi
+	    cp $input_dir_name/shared/$adapt_file_name $cfg_dir/$share_file_name
+	else
+	    echo "--->Exiting because of adaptation file copy error"
+	    err_msg="$adapt_file_name does not exist in directory $input_dir_name/shared"
+	fi
+    done
+
+    # find blockage data (site.trd) and copy it to working cfg dir
+    trd_file_name=
+    if [ -n "$block_in_dir_name" -a -d "$block_in_dir_name" -a -n "$blockage_dir_name" -a -d "$blockage_dir_name" ]
+    then
+	if [ -f $block_in_dir_name/"$site_name".trd ]
+	then
+	    trd_file_name=$block_in_dir_name/"$site_name".trd
+	else
+	    echo "----> Terrain resolution data file does not exist" 
+	    exit 1
+	fi
+    fi
+    if [ -n "$trd_file_name" ]
+    then
+	echo "--->Copying terrain resolution data file to $cfg_dir"
+	cp -f $trd_file_name $cfg_dir/"$site_name".trd
+	if [ $? -ne 0 ]
+	then 
+	    echo "----> Copying terrain resolution data file failed"
+	    exit 1
+	fi   
+    fi
+
+    # initialize RPG adaptation data
+    if [ -z "$err_msg" ]
+    then
+	echo "--->Initializing Adaptation Linear Buffers"
+	mrpg init
+	if [ $? -ne 0 ]
+	then
+	    echo "--->Exiting because of MRPG initialization error"
+	    err_msg="MRPG initialization failed, use \"lelb_mon mrpg\" to see error details"
+	fi
+ 
+	if [ -z "`print_dea site_info.rpg_name | grep value: | grep -i $site_name`" ]
+	then
+	    err_msg="Site name is not $site_name. Check site_info.rpg_name in site_info.dea"
+	fi
+ 
+	if [ -z "$err_msg" ]
+	then
+	    echo "--->Saving adaptation data in directory $output_dir_name/$site_name"
+	    save_adapt -l -D $output_dir_name/$site_name -o $channel
+	    if [ $? -ne 0 ]
+	    then
+	        err_msg="save_adapt adapt failed (check with lem)"
+	    fi
+
+	    # add the binary blockage data to site files
+	    install_dir=`find_adapt -I -c $channel -s $site_name`
+	    if [ $? -eq 0 -a -n "$Is_linux" -a -n "$trd_file_name" ]
+	    then
+		full_dir=$output_dir_name/$site_name/$install_dir/user/cfg/bin
+		echo "--->Copy $ORPGDIR/precip/blockage.lb to $full_dir"
+		mkdir -p $full_dir
+		cp $ORPGDIR/precip/blockage.lb $full_dir
+	    fi
+	fi
+    fi
+
+    #save blockage LB 
+    if [ -n "$trd_file_name" ]
+    then
+	echo "--->COPY $ORPGDIR/precip/blockage.lb in directory $blockage_dir_name"
+	cp $ORPGDIR/precip/blockage.lb $blockage_dir_name/"$site_name"_blockage.lb
+
+	if [ -n "$terrain_dir_name" -a -d "$terrain_dir_name" ]
+	then
+	    echo "--->COPY $ORPGDIR/precip/terrain.lb in directory $terrain_dir_name"
+	    cp $ORPGDIR/precip/terrain.lb $terrain_dir_name/"$site_name"_terrain.lb
+	fi   
+    fi
+
+    if [ -f $ORPGDIR/precip/blockage.lb ]
+    then
+	echo "---->Removing blockage file "
+	rm $ORPGDIR/precip/blockage.lb
+    fi
+
+    if [ -n "$err_msg" ]
+    then
+	echo $err_msg
+	exit 1
+    else
+	echo "--->Adaptation data generated successfully for $channel of site $site_name"
+    fi
+}
+
+#********************************************************************
+#  creates site files for node "node_name" (rpg? or mscf), "channel", 
+#  (rpg1, rpg2 or none) of site "site_name".
+#********************************************************************
+
+Create_site_files () {
+
+    comms_files="rpg_router.conf lan_switch.conf hub_router.conf hub2_router.conf"
+    tmpl_files=`find $orpg_cfg_dir -name "*.tmpl"`
+    all_files=""
+    for file in $comms_files
+    do 
+	all_files="$all_files $orpg_cfg_dir/comms/$file"
+    done
+    for file in $tmpl_files
+    do 
+	all_files="$all_files $file"
+    done
+
+    if [ "$verbose" == "true" ]
+    then
+	echo "--->Generating site files for $node_name, $channel of $site_name"
+    fi
+
+    if [ $node_name == "mscf" ]
+    then
+	install_dir=`find_adapt -I -n $node_name -c "none" -s $site_name`
+    else
+	install_dir=`find_adapt -I -n $node_name -c $channel -s $site_name`
+    fi
+    copt=""
+    if [ $channel == "rpg2" ]
+    then
+	copt="-c 2"
+    fi
+
+    for file in $all_files
+    do
+	if [ $channel == "rpg2" -a $node_name == "mscf" -a "`basename $file`" != "mscf.conf.tmpl" -a "`basename $file`" != "mscf_npa.conf.tmpl" ]
+	then
+	    continue
+	fi
+
+	out="$output_dir_name/$site_name/$install_dir"
+	gdc_out=`gdc -S $orpg_cfg_dir/comms -D $out -s $site_name $copt -L $output_dir_name/shared,../shared -d NODE_NAME=$node_name -d HOME=/home/rpg $file`
+	if [ $? != "0" ]
+	then
+	    echo "Failed in processing template $file"
+	    exit 1
+	fi
+	if [ -n "$gdc_out" -a "$verbose" == "true" ]
+	then
+	    echo $gdc_out
+	fi
+
+	# use any local site file
+	if [ -n "$Local_site_dir" -a -n "$gdc_out" ]
+	then
+	    fname=`echo $gdc_out | awk -F' ' '{ if( $1 == "Created" ){ print $2 }}'`
+	    if [ -n "$fname" ] 
+	    then
+
+		base=`basename $fname`;
+		find_out=`find $Local_site_dir/$site_name/$node_name -name $base 2> /dev/null`
+		if [ -z "$find_out" ]
+		then
+		    find_out=`find $Local_site_dir/$site_name -name $base 2> /dev/null`
+		fi
+		if [ -n "$find_out" -a "$?" == "0" ]
+		then
+		    echo "Use local site file: $find_out"
+		    cp -f $find_out $fname
+		    if [ "$?" != "0" ]
+		    then
+		        echo "Failed in copying $find_out to $fname"
+		        exit 1
+		    fi
+		fi
+	    fi
+	fi
+    done
+}
+
+#********************************************************************
+#   Copy mscf.conf across channels for "site_name".
+#********************************************************************
+
+Copy_mscf_conf_across_channels () {
+
+    if [ -n "$verbose" ] 
+    then
+	echo "Copy mscf.conf across channels"
+    fi
+    for node_name in $all_rpg_nodes
+    do
+	install_dir1=`find_adapt -I -n $node_name -c rpg1 -s $site_name`
+	install_dir2=`find_adapt -I -n $node_name -c rpg2 -s $site_name`
+	out1="$output_dir_name/$site_name/$install_dir1"
+	out2="$output_dir_name/$site_name/$install_dir2"
+	mscf1=`find $out1 -name "mscf1.conf"`
+	mscf2=`find $out2 -name "mscf2.conf"`
+	cp $mscf1 `dirname $mscf2`
+	cp $mscf2 `dirname $mscf1`
+	mscf1=`find $out1 -name "mscf1_npa.conf"`
+	mscf2=`find $out2 -name "mscf2_npa.conf"`
+	if [ -n $mscf1 ] 
+	then
+	    cp $mscf1 `dirname $mscf2`
+	    cp $mscf2 `dirname $mscf1`
+	fi
+    done
+}
+
+#********************************************************************
+#   process one site (site_name).
+#********************************************************************
+
+Process_one_site () {
+
+    gdc_out=`gdc -s $site_name -S $orpg_cfg_dir/comms -C HLMANUAL -v`
+    if [ -n "$gdc_out" -a "$?" == "0" ]
+    then
+	# process manual hub load site - not a nexrad site 
+	gdc_out=`gdc -S $orpg_cfg_dir/comms -D $output_dir_name/$site_name -s $site_name -I -d NODE_NAME=mscf hub_router.conf`
+	if [ $? != "0" ]
+	then
+	    echo "Failed in processing template $file"
+	    exit 1
+	fi
+	if [ -n "$gdc_out" -a "$verbose" == "true" ]
+	then
+	    echo $gdc_out
+	fi
+	s_name=`echo $site_name | tr '[:upper:]' '[:lower:]'`
+	cp $output_dir_name/$site_name/root/tftpboot/hub-cfg $output_dir_name/$site_name/"$s_name"-hub-template
+	rm -rf $output_dir_name/$site_name/root
+	return
+    fi
+
+    # get site dependent shared files - set site_shared_file_list
+    site_shared_file_list=""
+    for file_name in $shared_file_list
+    do
+	tmp_name=$file_name;
+	for file in `ls $input_dir_name/shared`
+	do
+	    if [ -n "`echo $file |grep -i _${site_name}_`" -a \
+		 -n "`echo $file |grep ${file_name}`" ]
+	    then
+		tmp_name=$file
+	    fi
+	done
+	site_shared_file_list="$site_shared_file_list $tmp_name"
+    done
+
+    # process each channel
+    for channel in `ls $input_dir_name/$site_name`
+    do
+	if [ -d "$input_dir_name/$site_name/$channel" -a \
+		\( "$channel" = "rpg1" -o "$channel" = "rpg2" \) ]
+	then
+	    for node_name in $all_rpg_nodes
+	    do
+		Create_site_files
+	    done
+	    node_name="mscf"
+	    Create_site_files
+	    node_name="rpga"
+	    Process_rpg_adapt
+
+	    if [ "$channel" = "rpg2" ]
+	    then 
+		Copy_mscf_conf_across_channels
+	    fi
+	fi
+    done
+}
+
+#
+# The main function starts here
+#
+
+# default variable values
+end_site_name=
+start_site_name=
+input_dir_name=
+output_dir_name=
+blockage_dir_name=
+block_in_dir_name=
+terrain_dir_name=
+clear_output=
+clear_shared=
+interactive_mode=
+verbose=
+Local_site_dir=
+
+# read options
+while getopts b:ce:hi:Io:q:s:t:l:Cv input
+do
+    case $input in
+	b) blockage_dir_name="$OPTARG" ;;
+	c) clear_output=true ;;
+	C) clear_shared=true ;;
+	e) end_site_name="$OPTARG" ;;
+	i) input_dir_name="$OPTARG" ;;
+	I) interactive_mode=true ;;
+	h) print_usage; exit 0 ;;
+	\?) print_usage; exit 1 ;;
+	o) output_dir_name="$OPTARG" ;;
+	q) block_in_dir_name="$OPTARG" ;;
+	s) start_site_name="$OPTARG" ;;
+	t) terrain_dir_name="$OPTARG" ;;
+	l) Local_site_dir="$OPTARG" ;;
+	v) verbose=true ;;
+    esac
+done
+
+# Validate input argments
+if [ -z "$input_dir_name" ]
+then
+    echo "Input directory is required"
+    exit 1
+fi
+if [ -z "$output_dir_name" ]
+then
+    echo "Output directory is required"
+    exit 1
+fi
+if [ -z "$CFG_DIR" ]
+then
+    echo "CFG_DIR environment variable must be set"
+    exit 1
+fi
+
+# check if this is Linux
+uname -a | grep Linux > /dev/null 2>&1
+if [ $? -eq 0 ]
+then
+    Is_linux=true
+else
+    Is_linux=
+fi
+
+# initialize variables
+cfg_dir=$CFG_DIR"_temp"
+orpg_cfg_dir=$CFG_DIR
+CFG_DIR=$cfg_dir
+export CFG_DIR
+non_site_file_coppied=
+input_file_list="site_info.dea comms_link.conf hci_passwords"
+shared_file_list="product_user_table"
+if [ -z "$start_site_name" ]
+then
+    past_start_name=true
+else
+    past_start_name=
+fi
+past_end_name=
+tmp_dir=$output_dir_name/tmp
+all_rpg_nodes="rpga rpgb"
+
+rm -rf $tmp_dir
+mkdir -p $tmp_dir
+
+echo "--->Creating build adaptation configuration directory $cfg_dir"
+rm -rf $cfg_dir
+mkdir -p $cfg_dir
+
+echo "--->Copying RPG version file to the configuration directory"
+cp $orpg_cfg_dir/version_rpg $cfg_dir > /dev/null 2>&1
+cp $orpg_cfg_dir/site_info.dea $cfg_dir > /dev/null 2>&1
+
+# get RPG version
+version=`find_adapt -M`"0"
+if [ $? != 0 -o "$version" = "00" ] 
+then
+    echo "RPG version file not found"
+    exit 1
+fi
+echo "--->RPG version $version"
+
+if [ -n "$clear_shared" ]
+then
+    echo "--->Clearing the $output_dir_name/shared directory"
+    rm -rf $output_dir_name/shared
+    exit 0
+fi
+
+# looping through sites
+for site_name in `ls $input_dir_name`
+do
+    # Only process directories
+    if [ -d $input_dir_name/$site_name ]
+    then
+	if [ -n "$start_site_name" -a "$start_site_name" = "$site_name" ]
+	then
+	    past_start_name=true
+	fi
+
+	if [ -n "$past_start_name" -a -z "$past_end_name" -a "$site_name" != "shared" ]
+	then
+	    if [ -n "$interactive_mode" ]
+	    then
+		echo "Enter return to process site $site_name or skip to go to next site"
+		read test
+		if [ "$test" = "skip" ]
+		then continue
+		fi
+	    else
+		echo "--->Process site $site_name"
+	    fi
+	    if [ -n "$clear_output" ]
+	    then
+		echo "--->Clearing the $output_dir_name/$site_name directory"
+		rm -rf $output_dir_name/$site_name
+	    fi
+
+	    Process_one_site
+	    echo ""
+	fi
+
+	if [ -n "$end_site_name" -a "$end_site_name" = "$site_name" ]
+	then
+	    past_end_name=true
+	    break
+	fi
+    fi
+done
+
+if [ -n "$start_site_name" -a -z "$past_start_name" ]
+then
+    if [ -n "$past_end_name" ]
+    then
+	echo "--->Ending site is before starting site"
+    else
+	echo "--->Site $start_site_name not found in $input_dir_name"
+    fi
+else
+    echo "--->Done"
+fi
+
+CFG_DIR=$orpg_cfg_dir
+export CFG_DIR
+
+exit 0
+
+

@@ -1,0 +1,134 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/16 19:41:15 $
+C $Id: a315z4.ftn,v 1.3 2002/12/16 19:41:15 christie Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A315Z4__REM_UNC_SGMTS( DEL_SGCNT, NRSEGC, RADSEGC )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A315Z4__REM_UNC_SGMTS
+*.
+*.  MODULE VERSION: 0002
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       07 20 95      0000      DAVID ZITTEL         CCR NA94-26302
+*.  CALLING SEQUENCE;  CALL A315Z4__REM_UNC_SGMTS( DEL_SGCNT, NRSEGC,
+*.                                                 RADSEGC )
+*.       12/23/96      0001      Toolset              CCR NA95-11807
+*.       03/16/99      0002      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:NONE.
+*.
+*.  MODULE FUNCTION:
+*.
+*.  THIS MODULE REMOVES UNCORRELATED SEGMENTS FROM RADSEG WHEN THE
+*.  COMPONENT ID STACK IS EXHAUSTED ON A REFLECTIVITY BASIS.  IT
+*.  PREVENTS THE INSERTION OF MULTIPLE COMPONENTS WITH THE SAME ID
+*.  OR A COMPONENT WITH AN ID OF ZERO FROM BEING USED.  THE LATTER IS
+*.  ESPECIALLY IMPORTANT SINCE THE COMPONENT IDs ARE USED AS AN INDEX
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT     TYPE        DESCRIPTION
+*.    -   -----     ----        -----------
+*.    C   NRDCHR    I*4         (CONSTANT)Number of segment characteristics
+*.                              stored in RADSEG array.
+*.    C   NRDMAX    I*4         (CONSTANT)Maximum number of segments per
+*.                              reflectivity level per radial that can be
+*.                              stored in the array RADSEG.
+*.    C   RAD_FB    I*4         (CONSTANT)Position of starting bins of
+*.                              segments in RADSEG array.
+*.    C   RAD_ID    I*4         (CONSTANT)Position of ID labels of segments in
+*.                              RADSEG, RADSEGC, and RADSEGP arrays.
+*.    C   RAD_LB    I*4         (CONSTANT)Position of ending bins of segments
+*.                              in RADSEG array.
+*.    P   DEL_SGCNT I*4         Count of deleted segments
+*.    P   NRSEGC    I*4         Number of segments
+*.    P   RADSEGC   I*4         Current radial segment array
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    P   NRSEGC  I*4         Number of segments
+*.    P   RADSEGC I*4         Current radial segment array
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME  TYPE        DESCRIPTION
+*.    ----  ----        -----------
+*.    ID1   I*4         Segment Label ID
+*.    ID2   I*4         Segment Label ID
+*.    IX    I*4         Do loop variable for the number of segments in the
+*.                      current radial
+*.    IXX   I*4         Do loop variable for the number of segments in the
+*.                      current radial
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     Compiled using COMP15.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     Linked using LINK15.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C*********************************************************************
+C
+C
+      IMPLICIT NONE
+$INCLUDE A315.INC/G, **A315CPPC (NLIST)
+      INTEGER DEL_SGCNT, NRSEGC, RADSEGC( NRDCHR, NRDMAX )
+      INTEGER IX,IXX,ID1,ID2
+C
+C**  Begin main processing for module
+c
+      IF( DEL_SGCNT .LT. NRSEGC ) THEN
+        DO 100 IX = 1,NRSEGC
+           ID1 = RADSEGC( RAD_ID, IX )
+           IF( ID1 .EQ. 0 ) THEN
+              DO 110 IXX = IX, NRSEGC
+                ID2 = RADSEGC( RAD_ID, IXX )
+                IF( ID2 .GT. 0 ) THEN
+                  RADSEGC( RAD_ID, IX ) = ID2
+                  RADSEGC( RAD_FB, IX ) = RADSEGC( RAD_FB, IXX )
+                  RADSEGC( RAD_LB, IX ) = RADSEGC( RAD_LB, IXX )
+                  RADSEGC( RAD_ID, IXX ) = 0
+                  GO TO 100
+                ENDIF
+ 110          CONTINUE
+           END IF
+ 100     CONTINUE
+      ENDIF
+      NRSEGC = NRSEGC - DEL_SGCNT
+      RETURN
+      END

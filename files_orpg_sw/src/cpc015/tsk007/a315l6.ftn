@@ -1,0 +1,219 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/16 19:40:53 $
+C $Id: a315l6.ftn,v 1.3 2002/12/16 19:40:53 christie Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A315L6__RETURN_LABELS(CORFLAG)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A315L6__RETURN_LABELS
+*.
+*.  MODULE VERSION: 0002
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       05 25 95      0000      STEVE SMITH         CCR NA84-26302
+*.       12/23/96      0001      Toolset              CCR NA95-11807
+*.       03/16/99      0002      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A315J6__UPDATE_TABLES
+*.
+*.  MODULE FUNCTION:
+*.
+*.  This routine returns Storm Cell Labels to the List of IDS for
+*.  all Storm Cells in the previous volume which are not Correlated
+*.  to Storm Cells in the current volume.
+*.
+*.  MODULES CALLED: ABL 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT            TYPE        DESCRIPTION
+*.    -   -----            ----        -----------
+*.    G   ADPNPVOL         I*4         Adaptation data number of volume scans
+*.                                     without storms threshold stored in
+*.                                     Storm Data
+*.    G   CELL_TREND_INDEX I*2         Array containing indexes for trend data
+*.                                     in the array CELL_TREND_DATA for each
+*.                                     storm cell. Each position in
+*.                                     CELL_TREND_INDEX corresponds to a Storm
+*.                                     ID.
+*.    C   CELL_POINTERS    I*4         Circular list of the beginning
+*.                                     locations of trend data in the array
+*.                                     CELL_TREND_DATA
+*.    C   CORLTABL         I*4         Correlation table containing IDs to the
+*.                                     cells for all previous volumes (up to
+*.                                     the maximum).
+*.    C   IXPRE            I*4         Index to the previous volume scan in
+*.                                     the correlation table
+*.    C   NSTMHIST         I*4         Array of the # of cells/volume scan in
+*.                                     correlation table.
+*.    C   STRMLABL         I*4         Circular list of storm-ID indices.
+*.    P   CORFLAG          I*4         Table of correlation-flags per storm
+*.
+*.    *   OUTPUT           TYPE        DESCRIPTION
+*.    -   ------           ----        -----------
+*.    G   ADPNPVOL         I*4         Adaptation data number of volume scans
+*.                                     without storms threshold stored in
+*.                                     Storm Data
+*.    G   CELL_TREND_INDEX I*2         Array containing indexes for trend data
+*.                                     in the array CELL_TREND_DATA for each
+*.                                     storm cell. Each position in
+*.                                     CELL_TREND_INDEX corresponds to a Storm
+*.                                     ID.
+*.    C   CELL_POINTERS    I*4         Circular list of the beginning
+*.                                     locations of trend data in the array
+*.                                     CELL_TREND_DATA
+*.    C   STRMLABL         I*4         Circular list of storm-ID indices.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    C   CELL_POINTERS     I*4         Circular list of the beginning
+*.                                      locations of trend data in the array
+*.                                      CELL_TREND_DATA
+*.    C   STRMLABL          I*4         Circular list of storm-ID indices.
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME   TYPE        DESCRIPTION
+*.    ----   ----        -----------
+*.    IL     I*4         Do loop varaible for Storm Cell History
+*.    IN     I*4         Do loop variable for Storm Cell ID in CORLTABL
+*.    ISTAT  I*4         Status of return from call to add ID back to
+*.                       available ID list.
+*.    IXVOL  I*4         Index to the previous volume scan in the CORLTABL
+*.    OLDLAB I*4         Storm Cell ID no longer being used.
+*.    UN_COR I*4         Flag value indicating that there is no Storm Cell
+*.                       from the current time with that label
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A315CSAD
+*.    A315TRND
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A315C6T
+*.    A315CTT
+*.    A315TRND
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:
+*.
+*.     If no storms are present in any of the volume scans being
+*.   processed, zero-trip do-loops are assumed.
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     Compiled using COMP15.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     Linked using LINK15.CSS
+*.
+*.  MISC:  None
+*.
+C********************************************************************
+C
+C                STORM TRACKING: RETURN LABELS SUBROUTINE
+C
+C********************************************************************
+C
+      IMPLICIT NONE
+C
+C**Attach local STORMS Adaptation Data parameter file:
+$INCLUDE A315BUF.INC/G,**A315PSAD (NLIST)
+C
+C**Attach local STORMS Adaptation Data definitions:
+$INCLUDE **A315CSAD (NLIST)
+C
+C**Attach cell trend lists.
+$INCLUDE A315BUF.INC/G, **A315P7F (NLIST NEND)
+$INCLUDE **A315PTRD (NLIST NEND)
+$INCLUDE **A315CTRD (NLIST NEND)
+C
+C**Attach internal common block (of "STORM_TRACK" output variables).
+$INCLUDE A315.INC/G,**A315C6T (NLIST)
+C
+C**Attach internal common block (of "STORM_TRACK" local variables).
+$INCLUDE **A315CTT(NLIST)
+C
+      INTEGER  CORFLAG(*)
+      INTEGER  IL, IN, OLDLAB, ISTAT, UN_COR, IXVOL
+      PARAMETER (UN_COR = 0)
+C
+C****************** BEGIN MAIN PROCESSING SECTION *******************
+C
+C**  Return all labels of Storm Cells appearing in previous volume
+C**  scan which are not correlated with storm Cells in the current
+C**  volume scan.
+C
+C**  DO FOR ALL (STORM CELLs for the previous time)
+C
+      DO 200  IL = 1, NSTMHIST( IXPRE )
+C
+C**  IF (Not correlated with a STORM CELL from CURRENT time) THEN
+C
+         IF (CORFLAG( IL ) .EQ. UN_COR) THEN
+C
+C**  Set the volume scan index to IXPRE.  Initialize the Correlation
+C**  Table index.
+C
+            IXVOL = IXPRE
+            IN = IL
+C
+C**  Walk the Correlation Table until the storm cell ID is found at
+C**  the end of the chain.
+C
+C
+C**  If Correlation Table value is positive, the Storm Cell existed
+C**  in the previous volume.
+C
+ 100        IF (CORLTABL( IN,IXVOL ) .GT. 0) THEN
+C
+C**  Update volume scan index and Correlation Table Index to point
+C**  to Correlated Storm Cell in previous (to IXVOL) volume scan.
+C
+               IN =  CORLTABL( IN,IXVOL )
+               IXVOL = IXVOL - 1
+               IF (IXVOL .LT. 1) IXVOL = ADPNPVOL
+               GO TO 100
+            END IF
+C
+C**  If here, no more history.
+C
+C**  Return ID to the bottom of the list of IDS.
+C
+            OLDLAB = -1 * CORLTABL( IN,IXVOL )
+            CALL ABL( OLDLAB,STRMLABL,ISTAT )
+C
+C**  Return cell trend list index for future use.
+C
+            IN = CELL_TREND_INDEX( OLDLAB )
+            CALL ABL( IN,CELL_POINTERS,ISTAT )
+C
+C**  Zero out the index pointer.
+C
+            CELL_TREND_INDEX( OLDLAB ) = 0
+         END IF
+C
+ 200  CONTINUE
+C
+C************** END OF PROCESSING FOR SUBROUTINE ********************
+C
+      RETURN
+      END

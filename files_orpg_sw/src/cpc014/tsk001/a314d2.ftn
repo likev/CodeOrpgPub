@@ -1,0 +1,234 @@
+C 
+C RCS info 
+C $Author: steves $ 
+C $Locker:  $ 
+C $Date: 2004/01/12 16:49:41 $ 
+C $Id: a314d2.ftn,v 1.4 2004/01/12 16:49:41 steves Exp $ 
+C $Revision: 1.4 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A314D2__NO_ECHOES_MESG(GAABLK_START,ET_BUF)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A314D2__NO_ECHOES_MESG
+*.
+*.  MODULE VERSION: 0010
+*.
+*.  MODULE LANGUAGE:  FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       05 03 85      0000      Ze'ev Rivlin         RPG Build 2
+*.       02 14 91      0001      BRADLEY SUTKER       SPR# 91255
+*.       12 03 91      0002      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0003      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0004      Toolset              SPR 91895
+*.       03/25/93      0005      Toolset              SPR NA93-06801
+*.       01/28/94      0006      Toolset              SPR NA94-01101
+*.       03/03/94      0007      Toolset              SPR NA94-05501
+*.       04/11/96      0008      Toolset              CCR NA95-11802
+*.       12/23/96      0009      Toolset              CCR NA95-11807
+*.       03/16/99      0010      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:
+*.    CALL A314D2__NO_ECHOES_MESG(GAABLK_START,ET_BUF)
+*.     (Graphic Alpha Attributes Block starting index in output
+*.                    buffer, Echo Tops Product Output Buffer
+*.                    address)
+*.
+*.  MODULE FUNCTION:
+*.
+*.     This module creates the Graphic Alpha Attributes Block of the
+*.     Echo Tops Product.  This Block will only be included when no
+*.     echoes are detected, i.e. - all values in echo tops grid output
+*.     by Echo Tops Algorithm are 0.  First, the appropriate values
+*.     are assigned to  the block header fields. Then, the ASCII
+*.     message "NO ECHOES DETECTED" is stored in the output buffer.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT         TYPE        DESCRIPTION
+*.    -   -----         ----        -----------
+*.    G   BLKOVRHD      I*4         (CONSTANT)SIZE OF OVERHEAD PORTION OF
+*.                                  PRODUCT SYMBOLOGY BLOCK, IN BYTES
+*.    G   NCOL          I*4         (CONSTANT)Number of analysis box columns.
+*.    G   NROW          I*4         (CONSTANT)Number of analysis box rows.
+*.    G   PHEADLNG      I*4         (CONSTANT)Number of half words in product
+*.                                  header (its length).
+*.    G   RASTER_HEADER I*4         (CONSTANT)Number of half words in raster
+*.                                  packet header.
+*.    P   GAABLK_START  I*4         Graphic Alpha Attributes BLocK STARTing
+*.                                  index in output buffer
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    P   ET_BUF  I*2         Echo Tops output BUFfer address
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME              TYPE        DESCRIPTION
+*.    ----              ----        -----------
+*.    BLENGTH           I*4         The full-word constant which is the
+*.                                  Graphic Alpha-numeric Attributes Block
+*.                                  length
+*.    BLOCK_INFO        I*4         Number of header fields leading off the
+*.                                  Graphic Alpha-numeric Attributes (GAA)
+*.                                  Block
+*.    BYTES             I*4         Number of bytes in a halfword
+*.    DIVIDER           I*2         Parameter used to seperate the Product
+*.                                  Description Block from the Graphic
+*.                                  Alphanumeric Attributes Block
+*.    ET_SIZ            I*4         Size of echo tops output buffer.
+*.    GAA_BLOCKID       I*2         Graphic Alpha-numeric Attributes BLOCK-ID
+*.    HI                I*4         Used to reference MSW.
+*.    HILO              I*4         Used to dimension a 2-element array.
+*.    IDX               I*4         Used to index output buffer.
+*.    IDXINC            I*4         used to increment IDX
+*.    ISTART            I*2         I-coordinate STARTing point on screen
+*.                                  display
+*.    JSTART            I*2         J-coordinate STARTing point on screen
+*.                                  display
+*.    LEN_HEREON        I*2         LENgth of block HEREafter in bytes
+*.    LO                I*4         Used to reference LSW.
+*.    MAX_ROUND         I*4         used to "ROUND" off the echo tops product
+*.                                  size to 50% of maximum size. It's equal to
+*.                                  2, and we divide by it when calculating
+*.                                  ET_SIZ
+*.    MESG_2CHAR        I*4         a loop-index counting off the number of
+*.                                  pairs of ascii characters in the "NO
+*.                                  ECHOES DETECTED" message
+*.    MESG_LN           I*4         used to dimension NOECO_MESG to 18
+*.    MESG_LN2          I*4         the number of pairs of ascii characters in
+*.                                  the "NO ECHOES DETECTED" message = 9
+*.    NOECO_MESG        CHAR*1      Character array containing the message "NO
+*.                                  ECHOES DETECTED".
+*.    NRLEW1            I*4         i*2 word to store Number of Run Length
+*.                                  Encoded Words for each row. used to
+*.                                  calculate ET_SIZ.
+*.    NUM_PAGES         I*2         Number of pages.
+*.    NUM_PGBYTES       I*2         NUMber of PaGe BYTES = 26
+*.    ONE               I*2         a "1" begins the Text and Special Symbols
+*.                                  Format
+*.    PAGE_NUM1         I*2         The code for page #1 of the block is 100 x
+*.                                  page no. + num. packets = 101
+*.    RUNS_PERI2        I*4         number of RUNS PER I*2 word of echo tops
+*.                                  product buffer, = 2 since the run
+*.                                  information can be stored in 1 byte..used
+*.                                  to calculate ET_SIZ.
+*.    TEMP_MESG2        I*2         Array equivalenced to NOECO_MESG thus
+*.                                  containing elements of pairs of
+*.                                  characters.
+*.    TOTAL_HEADER_INFO I*4         Total number of header fields in product,
+*.                                  i.e.- everything except the actual
+*.                                  run-length encoded data.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK14.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+
+      IMPLICIT NONE
+
+C Include predecessor task parameter definitions:
+$INCLUDE A313BUF.INC/G,**A313P0 (NEND NLIST)
+C* include product offsets:
+$INCLUDE A309.INC/G,**A3PM01 (NEND NLIST)
+
+      INTEGER*4 GAABLK_START,ET_SIZ,RUNS_PERI2,
+     1          NRLEW1,MAX_ROUND,TOTAL_HEADER_INFO,BYTES,
+     2          IDX,IDXINC,HILO,HI,LO,MESG_LN,
+     3          BLOCK_INFO,BLENGTH,MESG_LN2,MESG_2CHAR
+      PARAMETER(TOTAL_HEADER_INFO=PHEADLNG+BLKOVRHD/2+RASTER_HEADER)
+
+      PARAMETER(RUNS_PERI2=2,NRLEW1=1,MAX_ROUND=2,MESG_LN2=9,
+     1          BLOCK_INFO=11,
+     2          MESG_LN=18,BYTES=2,
+     3          ET_SIZ=(NROW*(NCOL/RUNS_PERI2
+     4          +NRLEW1))/MAX_ROUND+TOTAL_HEADER_INFO)
+
+      INTEGER*2 DIVIDER,NUM_PAGES,PAGE_NUM1,NUM_PGBYTES,
+     1          ONE,LEN_HEREON,ISTART,JSTART,ET_BUF(ET_SIZ),
+     2          GAA_BLOCKID,TEMP_MESG2(MESG_LN2)
+
+      CHARACTER*1 NOECO_MESG(MESG_LN)
+
+      PARAMETER(DIVIDER=-1,HILO=2,HI=1,LO=2,NUM_PAGES=1,
+     1          PAGE_NUM1=101,NUM_PGBYTES=26,ONE=1,
+     2          LEN_HEREON=24,ISTART=0,JSTART=2,
+     3          BLENGTH=(BLOCK_INFO+MESG_LN2)*BYTES,
+     4          GAA_BLOCKID=2,IDXINC=1)
+
+      EQUIVALENCE(NOECO_MESG,TEMP_MESG2)
+
+
+      DATA NOECO_MESG /'N','O',' ','E','C','H','O','E','S',
+     1                 ' ','D','E','T','E','C','T','E','D'/
+
+
+
+
+
+C executable code:
+
+      IDX = GAABLK_START
+      ET_BUF(IDX) = DIVIDER
+      IDX = IDX + IDXINC
+      ET_BUF(IDX) = GAA_BLOCKID
+      IDX = IDX + IDXINC
+
+      call RPG_set_product_int( ET_BUF(IDX),  BLENGTH )
+      IDX = IDX + 2*IDXINC
+
+      ET_BUF(IDX) = NUM_PAGES
+      IDX = IDX + IDXINC
+      ET_BUF(IDX) = PAGE_NUM1
+      IDX = IDX + IDXINC
+      ET_BUF(IDX) = NUM_PGBYTES
+      IDX = IDX + IDXINC
+      ET_BUF(IDX) = ONE
+      IDX = IDX + IDXINC
+      ET_BUF(IDX) = LEN_HEREON
+      IDX = IDX + IDXINC
+      ET_BUF(IDX) = ISTART
+      IDX = IDX + IDXINC
+      ET_BUF(IDX) = JSTART
+      IDX = IDX + IDXINC
+
+C store "no echoes detected" message in product output buffer:
+      DO 101 MESG_2CHAR = 1,MESG_LN2
+         ET_BUF(IDX) = TEMP_MESG2(MESG_2CHAR)
+         IDX = IDX + IDXINC
+101   CONTINUE
+
+
+      RETURN
+      END

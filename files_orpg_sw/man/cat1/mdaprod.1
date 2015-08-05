@@ -1,0 +1,184 @@
+mdaprod(1)               ORPG SUM Manpage                  mdaprod(1)
+
+NAME:
+       mdaprod
+
+DESCRIPTION :
+        This is the process of the MDA that builds RPG To Class 1 ICD
+        formatted products for distribution to external users.
+         
+        The product mnemonics are MD with its product code of 141 and 
+        DMD with its product code of 149. The MD product is volume based
+        while the DMD is a rapid update, elevation based product.
+
+        Mesocyclone Detection (MD) Product - 
+           
+           The MD product is composed of the following three data blocks:
+           
+           Product Symbology Block:  This block contains the graphic symbols
+           which appear as thick and thin circles at the location of all 3D
+           3D circulations.  The thick symbol is used for circulations that
+           meet or exceed a strength rank threshold (currently, 5).  Those
+           symbols are also accompanied by a circulation ID number.  In
+           addition, if those circulations are detected on the lowest elevation
+           angle or with a base height at or below 1 kilometer, four radial
+           spikes are displayed radiating out of the mesocyclone symbol.
+           
+           Graphic Alphanumeric Block:  This block contains a grid of a few
+           of the attributes computed for the 36 strongest 3D circulations.
+                CIR          MDA detected circulation ID (0 to 999)
+                STMID        Closest SCIT identified cell ID (A0 to Z9)
+           	SR           strength rank (1 = weakest to 25 = strongest)
+           	               An "S" or "L" character appears next to the
+           	               strength rank for shallow and low core
+           	               circulations, respectively.
+           	LLRV         low level (base) rotational velocity (kts)
+           	AZ           azimuth of circulation base (deg)
+           	RAN          range of circulation base (nmi)
+           	HGT          height of the maximum rotational velocity (kfeet)
+           	MXRV         maximum rotational velocity (kts)
+           	BASE         height of the circilation base (kfeet)
+           	               A "<" sign preceeds base height if base height is
+           	               detected on the lowest elevation or height is at
+           	               or below 1 kilometer.
+           	DPTH         depth of the circulation (kfeet)
+           	               A ">" sign preceeds the depth if base is detected
+           	               on the lowest elevation or base height is at or
+           	               below 1 kilometer.
+           
+           Tabular Alphanumeric Block:  This block contains several more
+           attributes for all detected 3D circulations.
+                CIRC ID      circulation ID (0 to 999)
+                AZRAN        azimuth/range of circulation base (deg/nm)
+           	SR           strength rank (1 = weakest to 25 = strongest)
+           	               An "S" or "L" character appears next to the
+           	               strength rank for shallow and low core
+           	               circulations, respectively.
+           	STM ID       Closest SCIT identified cell ID. (A0 to Z9)
+                LOW LEVEL
+                  RV         low level (base) rotational velocity (kts)   
+                  DV         low level (base) gate-to-gate velocity diff. (kts)
+                  BASE       height of the circulation base (kfeet)
+                               A "<" sign preceeds base height if base height is
+                               detected on the lowest elevation or height is at
+           	               or below 1 kilometer.
+                DEPTH
+                  kft        depth of the circulation (kfeet)
+           	               A ">" sign preceeds the depth if base is detected
+           	               on the lowest elevation or base height is at or
+           	               below 1 kilometer.
+                  STMREL%    depth of this circulation as a percentage of
+                              the depth of the average SCIT detected storm
+                MAX RV
+                  kft        height of the maximum rotational velocity (kfeet)
+                  kts        maximum rotational velocity (kts)
+                TVS          Y if a tornadic vortex signature is within 2 km
+                MOTION       direction and speed of the circulation if tracked
+                MSI          mesocyclone strength index (unitless)
+
+
+        Digital Mesocyclone Detection (DMD) Product -
+        
+           This product contains a rapid update of the MDA output from the
+           last complete volume scan.  After the first elevation of a volume
+           scan, features from the previous volume are "extrapolated" meaning
+           each feature's azimuth/range position is adjusted using the feature's
+           motion, or an average motion of all tracked features, if the feature
+           had no computed motion.  Then, features from the current elevation
+           are matched with the extrapolated features from the previous volume.
+           Parameters of matched features are updated with current volume
+           information.  Features that are not matched will be reported at
+           their extrapolated positions until the radar scans 3 kilometers over
+           the circulation top as computed in the previous volume, then they
+           are removed from the DMD product.  With a few exceptions as noted by
+           an asterisk (*) in the list below, the DMD product contains only
+           data that has changed from the previous volume scan.           
+           
+           The DMD product is composed of the following data block:
+           
+           Product Symbology Block:  This block contains the generic format
+           data packet, number 28.  This packet is an implemenation of the UNIX
+           standard xdr format.  See man xdr for details, however, it is
+           not necessary to understand these details in order to interpret the
+           product.  The Radar Operations Center can, upon request, provide an
+           API to decode the xdr format.  Refer also to file orpg_product.h
+           for the C structures that are used to create a generic format data
+           packet. 
+           
+           The DMD product data within the Product Symbology Block has three
+           product parameters as follows:
+           
+   		NAME ; UNITS ; PRECISION OR POSSIBLE VALUES
+   		-------------------------------------------
+		Average Direction of Tracked Features ; deg ; 0.1
+		Average Speed of Tracked Features ; m/s ; 0.1
+		Last Elevation Flag; na ; Values = 0 or 1 if last elevation
+
+           After the three product parameters is a group of feature parameters
+           for each MDA detected circulation (to a maximum of 100 features).
+           These feature parameters are:
+           
+   		NAME ; UNITS ; PRECISION OR POSSIBLE VALUES
+   		-------------------------------------------
+           	*Meso ID ; na ; 1
+		*Detection Status ; na ; Values = "TOP", "EXT", "   "          		
+		*Base Azimuth ; deg ; 0.1
+		*Base Range ; km ; 0.1
+		Age; s ; 1
+		Strength Rank;na ; 1
+		Strength Rank Type; na ; Values = " ", "L" or "S"
+		MSI; na ; 1
+		Base Diameter; km ; 0.1
+		Base Height; km ; 0.1
+		Depth; km ; 0.1
+		Storm Relative Depth; percent ; 1
+		Base Gate-to-Gate Velocity Difference; m/s ; 0.1
+		Base Shear; m/s/km ; 0.1
+		Base Rotational Velocity; m/s ; 0,1
+		Max Rotational Velocity; m/s ; 0.1
+		Height of Max Rotational Velocity; km ; 0.1
+		Max Shear; m/s/km ; 0.1
+		Height of Max Shear; km ; 0.1
+		0-2 km ARL Convergence; m/s ; 0.1
+		2-4 km ARL Convergence; m/s ; 0.1
+		Associated TVS; na ; Values = "Y", "N", "U"
+		Associated Storm ID; na ; Values = "A0" through "Z9"
+		Overlaps Lower Feature; na ; Values = "Y" or "N"
+		Base on Lowest Elevation; na ; Values = "Y" or "N"
+		Direction; deg ; 0.1
+		Speed; m/s ; 0.1
+		Number of Past Positions; na ; 1
+		Past Latitude Position (array); deg; 0.0001
+		Past Longitude Position (array); deg; 0.0001
+		Number of Forecast Positions; na ; 1
+		Forecast Latitude Position (array); deg; 0.0001
+		Forecast Longitude Position (array); deg; 0.0001
+		+Number of 2D Features in this 3D Feature; na ; 1
+		+Elevation Time (array); s ; 1
+		+2D Height (array); km ; 0.1
+		+2D Diameter (array); km ; 1
+		+2D Gate-to-Gate Velocity Difference (array); m/s ; 1
+		+2D Shear (array); m/s/km ; 1
+		+2D Rotational Velocity (array); m/s ; 1
+		+2D Strength Rank (array); na ; 1
+		
+	    * Always included for all features.
+	    + Always included for all features that are not extraplolated.
+		
+		
+ID:
+        1801
+
+DATA IN:
+        295 (mdattnn)
+
+DATA OUT:
+        141, 149 
+
+SEE ALSO:
+	mda1d(1) mda2d(1) mda3d(1) mdattnn(1)
+
+			$Revision: 1.4 $
+
+r all detected 3D circulations.
+       

@@ -1,0 +1,184 @@
+
+orpgvst(3)		ORPG SDD Manpage		orpgvst(3)
+
+NAME
+
+orpgvst - ORPGVST Library Functions.
+
+SYNOPSIS
+
+#include <orpg.h>
+#include <orpgvst.h>
+
+char*  ORPGVST_read ( char* vol_stat )
+int ORPGVST_io_status ()
+int ORPGVST_status_update_flag ()
+time_t ORPGVST_status_update_time ()
+int ORPGVST_get_volume_flag ()
+int ORPGVST_get_volume_duration ()
+int ORPGVST_get_volume_date ()
+int ORPGVST_get_previous_status ()
+int ORPGVST_get_mode ()
+int ORPGVST_get_vcp ()
+int ORPGVST_get_vcp ()
+int ORPGVST_get_volume_scan ()
+int ORPGVST_get_scan_count ()
+int ORPGVST_get_number_elevations ()
+int ORPGVST_get_vcp_id ()
+int ORPGVST_get_elevation (int indx)
+int ORPGVST_get_index (int indx)
+int ORPGVST_get_rda_index (int indx)
+unsigned long ORPGVST_get_volume_number ()
+unsigned long ORPGVST_get_volume_time ()
+int ORPGVST_get_current_vcp ()
+int ORPGVST_get_superres_bitmap()
+int ORPGVST_get_dual_pol_expected()
+int ORPGVST_is_rpg_elev_superres( int rpg_elev_num )
+int ORPGVST_get_vcp_supplemental_data()
+int ORPGVST_get_n_sails_cuts ()
+int ORPGVST_get_sails_cut_seq (int indx)
+
+DESCRIPTION
+
+The ORPGVST family of functions provide an API to reading the Volume Status
+message (VOL_STAT_GSM_ID) component of the General Status Message
+(ORPGDAT_GEN_STAT_MSG) LB.
+
+ORPGVST_read() is used to read the Volume Status message from the General
+Status Message LB.  Normally, this function is invoked internally when a call
+is made to one of the get functions and an internal flag is set indicating the
+message needs to be initialized or updated.
+
+If this function is called externally, the argument passed can either be NULL
+or a valid address to a Vol_stat_gsm_t data structure.  If the argument is NULL, 
+this function allocates storage for a Vol_stat_gsm_t structure to hold the Volume
+Status.  On success, the address of the Vol_stat_gsm_t data structure holding
+the Volume Status data is returned.  On failure, NULL is returned.
+
+If subsequent calls to this function are made, the user should provide the 
+returned address from the first invocation.
+
+ORPGVST_io_status() returns the status of the last Volume Status message read
+operation.
+
+ORPGVST_status_update_flag() returns 0 if the Volume Status message has been
+updated since the last read, otherwise it returns 1.  One would normally use
+this in an application to determine if any local data need to be updated.
+
+ORPGVST_status_update_time() returns the time (in julian seconds) of the last
+Volume Status message update.
+
+ORPGVST_get_volume_number() returns the current volume sequence number.  This
+number is initially set to 0 and increases monotonically with each new volume.
+On failure, ORPGVST_DATA_NOT_FOUND is returned.
+
+ORPGVST_get_volume_scan() returns the current volume scan number.  This
+number is initially set to 0 but is otherwise a number in [1, 80].  The
+volume scan number is the modulo( volume sequence number, 80) + 1. 
+On failure, ORPGVST_DATA_NOT_FOUND is returned.
+
+ORPGVST_get_volume_time() returns the current volume scan time (in milliseconds
+past midnight).  On failure, ORPGVST_DATA_NOT_FOUND is returned.
+
+ORPGVST_get_volume_flag() returns value indicating whether the current volume
+is the first volume.  If the value is set, then the current volume is the
+initial volume.  If the value is not set (0), then it is not the initial
+volume.  On failure,  ORPGVST_DATA_NOT_FOUND is returned.
+
+ORPGVST_get_volume_duration() returns the expected volume duration (in minutes)
+from the time it started.  On failure, ORPGVST_DATA_NOT_FOUND is returned.
+
+ORPGVST_get_volume_date() returns the current volume scan julian date.  On
+failure, ORPGCST_DATA_NOT_FOUND is returned.
+
+ORPGVST_get_previous_status() returns a value indicating the status of the
+previous volume scan.  If the value is 0 (ORPGVST_ABORTED), the previous volume
+scan was aborted.  If the value is 1 (ORPGVST_SUCCESS), the previous volume
+scan was successful.  On failure, ORPGVST_DATA_NOT_FOUND is returned.
+
+ORPGVST_get_mode() returns the current operational mode.  The valid modes are: 
+
+		ORPGVST_PRECIPITATION_MODE,
+		ORPGVST_CLEAR_AIR_MODE
+
+On failure, ORPGVST_DATA_NOT_FOUND not found.
+
+ORPGVST_get_vcp() returns the VCP number associated with the current volume
+scan.  On failure, ORPGVST_DATA_NOT_FOUND is returned.
+
+ORPGVST_get_vcp_id() returns the index of the VCP in the table of VCP data for
+the VCP associated with the current volume scan.  On failure, ORPGVST_DATA_NOT_FOUND 
+is returned.
+
+ORPGVST_get_number_elevations() returns the number of unique elevation cuts in
+the current VCP.  On failure, ORPGVST_DATA_NOT_FOUND is returned.
+
+ORPGVST_get_elevation() returns the scaled (deg*10) elevation angle for the
+specified elevation index (indx) in the current VCP.  On failure,
+ORPGVST_DATA_NOT_FOUND is returned.
+
+ORPGVST_get_index() returns the RPG index number associated with the specified
+elevation index (indx) in the current VCP.  On failure, ORPGVST_DATA_NOT_FOUND
+is returned.
+
+ORPGVST_get_rda_index() returns the RDA index number associated with the specified
+RPG elevation index (indx) in the current VCP.  On failure, ORPGVST_DATA_NOT_FOUND
+is returned.
+
+ORPGVST_get_scan_count() returns the number of start of elevation events
+detected since the start of the current volume scan.  It is set to 1 at the
+start of the volume.  It is initially 0.  On failure, ORPGVST_DATA_NOT_FOUND
+is returned.
+
+ORPGVST_get_current_vcp() returns the current VCP data in the caller supplied 
+buffer.  On failure, ORPGVST_DATA_NOT_FOUND is returned.
+
+ORPGVST_get_superres_bitmap() returns the Super Resolution bitmap stored in 
+the volume status.  Each bit corresponds to an RPG elevation cut with the 
+least significant bit being the first cut.  If the bit is set, the cut is 
+Super Resolution.  On failure, ORPGVST_DATA_NOT_FOUND is returned.
+
+ORPGVST_get_dual_pol_expected() returns 1 if Dual Pol data is expected with
+this VCP, or 0 if Dual Pol data is not expected.   On failure, 
+ORPGVST_DATA_NO_FOUND is returned.
+
+ORPGVST_is_rpg_elev_superres() returns 1 if the RPG elevation index (indx) 
+is a Super Resolution cut or 0 if the RPG elevation is not a Super Resolution
+cut.  On failure, ORPGVST_DTAT_NOT_FOUND is returned.
+
+ORPGVST_get_vcp_supplenmental_data() returns the VCP supplemental data word 
+from the volume status.  Bit definitions can be found in vcp.h.  On failure,
+ORPGVST_DATA_NOT_FOUND is returned.
+
+ORPGVST_get_n_sails_cuts() returns the number of SAILS cuts in the current
+VCP.  On failure, ORPGVST_DATA_NOT_FOUND is returned.  
+ 
+ORPGVST_get_sails_cut_seq() returns the SAILS cut sequence number for the
+specified elevation index (indx) in the current VCP.  On failure,
+ORPGVST_DATA_NOT_FOUND is returned.  Sequence numbers start with 1.  The
+lowest cut of the VCP is not considered a SAILS cut.  If the indx corresponds
+to a non-SAILS cut, 0 is returned.
+ 
+
+EXAMPLES
+
+The following code segment is used to retrieve the current ORPG operational
+mode.
+
+	#include <orpg.h>
+	#include <orpgvst.h>
+	.
+	.
+	int	mode;
+	.
+	.
+	mode = ORPGVST_get_mode ();
+	.
+	.
+
+SEE ALSO
+
+orpg(3)
+
+
+				$Revision: 1.10 $

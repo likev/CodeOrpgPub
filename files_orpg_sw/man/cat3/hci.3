@@ -1,0 +1,1604 @@
+hci(3)				HCI SDD Manpage			hci(3)
+
+NAME
+
+hci - HCI Library
+
+DESCRIPTION
+
+hci is a library containing supporting functions for Human Computer Interface
+(HCI) tasks within the ORPG framework.  This library will be expanded with
+added modules when new shared functions are identified in the development of
+new HCI family applications.  Functions which are to be shared amongst other
+ORPG cpcs should be moved to liborpg.
+
+SYNOPSIS
+
+
+BASEDATA FUNCTIONS
+
+The Basedata family of functions are used to return information about the
+latest digital radar data message read from the RDA 
+
+#include hci_basedata.h
+
+int    hci_basedata_read_radial  (int msg_id, int read_option);
+short *hci_basedata_data         (int moment);
+int    hci_basedata_range_adjust (int moment);
+int    hci_basedata_bin_size     (int moment);
+int    hci_basedata_number_bins  (int moment);
+
+int    hci_basedata_time                ();
+float  hci_basedata_unmbiguous_range    ();
+float  hci_basedata_nyquist_velocity    ();
+float  hci_basedata_elevation           ();
+int    hci_basedata_elevation_number    ();
+float  hci_basedata_azimuth             ();
+int    hci_basedata_azimuth_number      ();
+int    hci_basedata_vcp_number          ();
+int    hci_basedata_msg_type            ();
+int    hci_basedata_velocity_resolution ();
+
+float  hci_basedata_refl_value (int scaled_value);
+float  hci_basedata_dopl_value (int scaled_value);
+float  hci_basedata_range      (int indx, int moment);
+float  hci_basedata_value      (int indx, int moment);
+float  hci_basedata_value_min  (int moment);
+float  hci_basedata_value_max  (int moment);
+
+int    hci_basedata_get_lock_state ();
+void   hci_basedata_set_lock_state (int state);
+
+The function hci_basedata_read_radial() reads a specified digital radar data
+message (msg_id) from the basedata file.  If the message id is "LB_LATEST",
+only the latest message is read.  If the read_option is
+HCI_BASEDATA_PARTIAL_READ, only the message header is read, otherwise the
+entire message is read.
+
+The function hci_basedata_data() returns a pointer to the start of the data
+for the specified moment in the last read digital radar data message.  The
+moment can be one of the following: REFLECTIVITY, VELOCITY, and SPECTRUM WIDTH.
+If the moment cannot be determined, a pointer to the start of reflectivity
+data is returned.
+
+The function hci_basedata_range_adjust() returns the range (in meters) to the
+first gate of the selected moment.  If the specified moment does not exist, 0
+is returned.
+
+The function hci_basedata_bin_size() returns the gate size (in meters) of the
+selected moment.  If the specified moment does not exist, 0 is returned.
+
+The function hci_basedata_number_bins() returns the number of gates defined
+in the radial for the selected moment.  If the specified moment does not exist,
+0 is returned.
+
+The function hci_basedata_time() returns the time (in milliseconds past
+midnight) the radial was created.
+
+The function hci_basedata_unambiguous_range() returns the unambiguous range
+(kilometers) element from the radial header.
+
+The function hci_basedata_nyquist_velocity() returns the Nyquist velocity (in
+meters/second) element from the radial header.
+
+The function hci_basedata_elevation() returns the antenna elevation angle (in
+degrees) of the radial.
+
+The function hci_basedata_elevation_number() returns the elevation cut number
+(1-20) of the radial.
+
+The function hci_basedata_azimuth() returns the antenna azimuth angle (in
+degrees) of the radial.
+
+The function hci_basedata_azimuth_number() returns the azimuth index number
+(1-400) of the radial.
+
+The function hci_basedata_vcp_number() returns the volume coverage pattern
+(VCP) associated with the radial.
+
+The function hci_basedata_msg_type() returns the message type of the current
+message.  Digital radial data should have a message type of "1".
+
+The function hci_basedata_velocity_resolution() returns the velocity resolution
+of the Doppler data contained in the radial.  The possible values are: 2 (0.5
+meters/second) and 4 (1.0 meters/second).
+
+The function hci_basedata_refl_value() returns the unscaled reflectivity value
+(dBZ) for the input scaled value.
+
+The function hci_basedata_dopl_value() returns the unscaled velocity value
+(meters/second) for the input scaled value.
+
+The function hci_basedata_range() returns the distance (kilometers) of the
+center of the specified bin and moment to the radar.
+
+The function hci_basedata_value() returns the unscaled value of the specified
+bin and moment.  If the moment is REFLECTIVITY, the units of the returned
+value is dBZ.  If the moment is VELOCITY or SPECTRUM_WIDTH, the units of the
+returned value is meters/second.
+
+The function hci_basedata_get_lock_state() returns the value of the internal
+lock flag which can be used to prevent one part of an application from reading
+the basedata LB while another part is reading it.  This is useful in situations
+where the file is being read in one function and an interupt is invoked which
+activates a callback which tries to read the same LB.  Use the function
+hci_basedata_set_lock_state() to set/clear the lock flag.  It is up to the
+application to define the states of this flag and determine what to do with
+it.
+
+CLUTTER BYPASS MAP FUNCTIONS
+
+The Clutter Bypass Map family of functions provide an interface to manipulate
+clutter bypass map data and files.  Refer to the RDA/RPG ICD for more specific
+information on the format of the clutter bypass map data.
+
+#include <hci_clutter_bypass_map.h>
+
+void   hci_clutter_bypass_map_init ();
+int    hci_clutter_bypass_map_initialize ();
+int    hci_get_bypass_map_data (float azimuth, float range,
+				    int segment);
+void   hci_get_bypass_map_data (float azimuth, float range,
+			    int segment, int value);
+int    hci_clutter_bypass_map_read  (int id);
+int    hci_clutter_bypass_map_write (int id);
+int    hci_clutter_bypass_map_segments ();
+
+The function hci_clutter_bypass_map_init () initializes the clutter bypass map
+data source and activates data compression on data transfer.
+
+The function hci_clutter_bypass_map_initialize () initializes the local bypass
+map data structure by reading the contents of the edit copy of the clutter
+bypass map into the local bypass map buffer.  If there is an error reading the
+edit copy or if there are no segments defined, then the baseline bypass map is
+read and used to initialize the local bypass map buffer.
+
+The function hci_get_bypass_map_data() returns the element value at the
+specified azimuth, range, and segment of the local clutter bypass map buffer.
+The return value is either 0 (clutter) or 1 (no clutter).
+
+The function hci_clutter_bypass_map_read() reads the specified clutter bypass
+map message and stores it in an internal buffer.  The id can be either
+LBID_BYPASSMAP_LGCY or LBID_BYPASSMAP_ORDA.  On success a positive value is
+returned indicating the number of bytes read.  On failure, a negative value
+is returned.
+
+The function hci_clutter_bypass_map_segments() returns the number of segments
+defined in the local bypass map buffer.
+
+COLOR FUNCTIONS
+
+The Color family of functions provide a common interface for HCI applications
+to use a standard set of colors for GUI objects.
+
+#include <hci_color.h>
+
+int    hci_initialize_read_colors (Display *display, Colormap cmap);
+int    hci_get_color_index        (int color);
+int    hci_get_read_color         (int color);
+
+The function hci_initialize_read_colors() initializes the defined set of read
+only colors to be used for GUI object using the specified display and color
+map data.  This function must be called by any application wishing to use the
+other color functions.  This function tries to read the set of colors from
+the HCI_DATA linear buffer.  If this fails, a set of default colors are
+provided.
+
+The function hci_get_color_index() is used internally by the hci_get_read_color
+function and is usually not referenced directly by an application.  It returns
+an index for a specified color into the internal color lookup table.
+
+The function hci_get_read_color() is used to return a color index value from
+the associated colormap for a specified color object.  The following color
+objects and their defaults are defined:
+
+	ALARM_COLOR1 (red)			ALARM_COLOR2 (orange)
+	NORMAL_COLOR (green)			WARNING_COLOR (yellow)
+	BACKGROUND_COLOR1 (peachpuff3)		BACKGROUND_COLOR2 (gray)
+	BUTTON_BACKGROUND (steelblue)		BUTTON_FOREGROUND (black)
+	EDIT_FOREGROUND	(black)			EDIT_BACKGROUND (lightsteelblue)
+	TEXT_FOREGROUND	(black)			TEXT_BACKGROUND (peachpuff3)
+	ICON_FOREGROUND	(white)			ICON_BACKGROUND (steelblue)
+	LOCA_FOREGROUND	(white)			LOCA_BACKGROUND (peachpuff3)
+	PRODUCT_FOREGROUND_COLOR (white)	PRODUCT_BACKGROUND_COLOR (black)
+	
+
+HCI STATE INFORMATION
+
+The State Information family of functions provide a common interface for HCI
+applications to get/set HCI state information.
+
+#include <hci.h>
+
+int    hci_read_info_msg      (int msg_id);
+int    hci_write_info_msg     (int msg_id, void *data);
+int	   Hci_info_io_status     (int msg_id);
+void   *hci_get_info_msg      (int msg_id);
+int    hci_info_update_status (int msg_id);
+int    hci_info_inhibit_RDA_messges ();
+void   hci_info_set_inhibit_RDA_messages (int state);
+int    hci_info_failed_task_num ();
+int    hci_info_failed_task_id  (int indx);
+char   *hci_info_failed_task_name (int indx);
+
+The function hci_read_info_msg() reads the specified message from the HCI state
+info data store (ORPGDAT_HCI_DATA).  The following message IDs are defined:
+
+	HCI_GUI_INFO_MSG_ID      - contains common color/font information
+	HCI_PASSWORD_INFO_MSG_ID - contains password data
+	HCI_TASK_INFO_MSG_ID     - contains list of failed tasks
+	
+LB updates are registered internally when this function is first called.  The
+number of bytes written is returned on success.  On error a negative value
+is returned (refer to the man page lb(3) for possible read errors).
+
+The function hci_write_info_msg() writes the specified message to the HCI state
+info data store (ORPGDAT_HCI_DATA) and returns a pointer to the data in "data".
+The number of bytes written is returned on success.  On error a negative value
+is returned (refer to the man page lb(3) for possible write errors).
+
+The function Hci_info_io_status() returns the last know read/write status for
+the specified message.
+
+The function hci_info_update_status() returns 1 if the specified message has
+been updated since the last read and 0 if it hasn't.
+
+The function hci_info_inhibit_RDA_messges() returns the current value of the     *
+RDA messages inhibit flag element in the HCI_GUI_INFO_MSG_ID message.  A value
+of 0 indicates that RDA messages are displayed and a value of 1 indicates RDA
+messages are not displayed.
+
+The function hci_info_set_inhibit_RDA_messages() sets the RDA messages inhibit
+flag.  Valid values are 0 (don't inhibit) and 1 (inhibit).
+
+The function hci_info_failed_task_num() returns the number of currently failed
+RPG control tasks.  The tasks which are considered control tasks are defined
+in the "task_table" configuration file.  The HCI agent task is responsible for
+updating this list and maintains it in the HCI_TASK_INFO_MSG_ID message.
+
+The function hci_info_failed_task_name() returns a pointer to the name of a
+failed task specified by index.  Use the function hci_info_failed_task_num()
+to determine how many failed tasks there are.  Valid indexes are from 0 to
+one less than the number of failed tasks.  If the specified index does not
+exist, a null pointer is returned.
+
+The function hci_info_failed_task_id() returns the task ID of a failed task
+specified by index.  Use the function hci_info_failed_task_num() to determine
+how many failed tasks there are.  Valid indexes are from 0 to one less than
+the number of failed tasks.  If the specified index does not exist, -1 is
+returned.
+
+CUSTOM WIDGETS
+
+The Custom Widgets family of functions provide several custom widgets to be
+used by HCI applications.
+
+#include <hci_security.h>
+
+Widget hci_create_confirmation_widget (Widget w, XmString msg,
+	XmString ok, XmString no, int label_fg, int label_bg,
+	int button_fg, int button_bg, void (*ok_callback)(),
+	void (*no_callback)(), XtPointer client_data);
+
+Widget hci_create_loca_widget (Widget w, void (*user_callback)(),
+	int lock, int fg_color, int bg_color);
+
+Widget hci_create_lock_widget (Widget w, void (*user_callback)(),
+	int lock, int fg_color, int bg_color, int unlock_color);
+
+The function hci_create_confirmation_widget() creates a reusable confirmation
+popup window for HCI applications.  Applications have full control over message
+content, button properties, and button callbacks.  The "w" argument must be a
+widget to be used as a parent for the popup dialog.  Typically, the widget is
+a push button.  The "msg" argument contains the message string to be displayed
+in the dialog.  The "ok" argument must contain a string defining the label
+used for an affirmative response.  The "no" argument contains a string defining
+the label for the cancel response.  If one wants to use this function only
+to display an informative popup with a single button, then the "no" argument
+can be defined as NULL.  The "ok_callback" and "no_callback" define user
+callbacks for the response buttons.  The "label_fg", "label_bg", "button_fg",
+and "button_bg" buttons define the colors of the dialog and response buttons
+foreground and background.  You should use the hci_get_read_color() function
+to define the color arguments.  The "client_data" argument defines any user
+data one wants to pass to the response callbacks.  The widget ID of the dialog
+widget is returned.
+
+The function hci_create_loca_widget() creates a rowcolumn widget containing
+a set of radio buttons for each of the level of change authorities (LOCA).
+The "w" argument defines the parent of the rowcolumn widget.  The "lock"
+argument defines which LOCA buttons are defined.  The "fg_color" and "bg_color"
+arguments define the foreground (text) and background colors of the LOCA
+window objects. You should use the hci_get_read_color() function to define the
+color arguments.  Use "user_callback" to define the user callback to be
+invoked when any of the LOCA radio buttons are selected.  The widget ID of the
+rowcolumn widget is returned.
+
+    Widget hci_create_lock_widget (Widget w, void (*user_callback)(),
+		int lock, int fg_color, int bg_color, int unlock_color);
+
+PRODUCT DATA FUNCTIONS
+
+The Product Data family of functions are used to decode RPG product data and
+provide support to display them.
+
+#include <hci_decode_product.h>
+
+int    hci_decode_product (short *product_data);
+int    read_concurrent_product_file (char *filename, short **data);
+
+int    hci_product_type ();
+int    hci_product_radials ();
+int    hci_product_data_elements ();
+float  hci_product_range_interval ();
+float  *hci_product_azimuth_data ();
+unsigned short **hci_product_radial_data ();
+float  *hci_product_azimuth_width ();
+float  hci_product_resolution ();
+int    hci_product_elevation_index ();
+float  hci_product_elevation ();
+int    hci_product_code ();
+int    hci_product_date ();
+int    hci_product_time ();
+int    hci_product_data_levels ();
+void   hci_get_seg_channel (short *data, int *segment, int *channel);
+int    hci_product_attributes_num_data_levels ();
+int    hci_product_attribute_number_of_lines ();
+char   *hci_product_attribute_data_level (int level);
+char   *hci_product_attribute_text (int indx);
+char   *hci_product_attribute_units ();
+int    hci_product_tabular_pages ();
+int    hci_product_tabular_lines (int page);
+char   *hci_product_tabular_line (int page, int line);
+int    hci_load_product_data (int prod_code, int vol_time, short *params);
+int    hci_load_product_io_status ();
+
+int    hci_prf_io_status ();
+int    hci_load_prf_product (int date, int time, float elevation);
+int    hci_prf_get_date ();
+int    hci_prf_get_time ();
+float  hci_prf_get_elevation ();
+int    hci_prf_get_data (int prf, int beam, int bin);
+int    hci_prf_get_index (int prf);
+
+void   hci_display_color_bar (Display *display, Drawable drawable,
+		GC gc, int pixel, int scanl, int height,
+		int box_width, int flag);
+
+void   hci_display_radial_product (Display *display, Drawable drawable,
+		GC gc, int pixel, int scanl, int width,
+		int height, int max_range, int x_offset,
+		int y_offset, int zoom);
+
+void   hci_display_product_radial_data (Display *display,
+		Drawable drawable, GC gc, float x_offset,
+		float y_offset, float scale_x, float scale_y,
+		int center_pixel, int center_scanl, float azimuth,
+		float azimuth_interval, int elements,
+		unsigned char *data, int *product_color);
+
+void   hci_basedata_display_clear (Display *display, Drawable drawable,
+		GC gc, int width, int height, int color);
+
+The function hci_decode_product() decodes the product data contained in the
+argument "product_data" and stores it internally.  Other Product Data family
+functions can be used to retrieve specific data.
+
+The function read_concurrent_product_file() reads a legacy RPG product file.
+The user must specify a filename and pass a pointer to a data buffer to hold
+the product data.
+
+The function hci_product_type() returns the type of the decoded product.  The
+supported types are: RADIAL_TYPE, RASTER_TYPE, DHR_TYPE, VWP_TYPE, STI_TYPE,
+HI_TYPE, MESO_TYPE, TVS_TYPE, SWP_TYPE, SS_TYPE, SPD_TYPE, FTM_TYPE, PUP_TYPE,
+STAND_ALONE_TYPE.  If the type is unknown, -1 is returned.
+
+The function hci_product_radials() returns the number of radials in a radial
+type product.  If the product is not a radial type, -1 is returned.
+
+The function hci_product_data_elements() returns the number of data elements
+along a radial in a radial type product.  If the product is not a radial type,
+-1 is returned.
+
+The function hci_product_range_interval() returns the range interval, in
+kilometers, between bins along a radial in a radial type product.  If the
+product is not a radial type, -1 is returned.
+
+The function hci_product_azimuth_data() returns a pointer to an array containing
+a table of azimuths for all radials in the current radial type product.  If
+the product is not radial type, a NULL pointer is returned.
+
+The function hci_product_radial_data() returns a pointer to an array containing
+radial data for all radials in the current radial type product.  If the product
+is not radial type, a NULL pointer is returned.
+
+The function hci_product_azimuth_width() returns a pointer to an array
+containing a table of beam widths (distances between adjacent radials), in
+degrees, in the current radial type product.  If the product is not radial
+type, a NULL pointer is returned.
+
+The function hci_product_resolution() returns the resolution, in nautical miles,
+of the current radial type product.  If the product is not radial type, -1 is
+returned.
+
+The function hci_product_elevation_index() returns the elevation index of the
+current radial type product.
+
+The function hci_product_code() returns the product code associated with the
+current product.  If no product file is open, -1 is returned.
+
+The function hci_product_date() returns the julian date of the current product.
+
+The function hci_product_time() returns the time, in seconds past midnight,
+of the current product.
+
+The function hci_product_data_levels() returns the number of data levels in
+the current product.  On error, -1 is returned.
+
+The function hci_get_seg_channel() returns the segment and channel numbers
+for the current CFC product.  The user needs to pass a pointer to the product
+data and the address for the segment and channel variables.  If an invalid
+segment or channel is found, -1 is returned for those elements.
+
+The function hci_product_attribute_data_level() returns a pointer to the
+data for the specified product attributes data level.  If an invalid level
+was specified or no data are available, a NULL pointer is returned.
+
+The function hci_product_attributes_num_data_levels() returns the number of
+product attributes data levels for the current product.  If no product
+attributes data are defined, -1 is returned.
+
+The function hci_product_attribute_number_of_lines() returns the number of
+product attributes lines in the current product.  If no product attributes
+data are defined, -1 is returned.
+
+The function hci_product_attribute_text() returns a pointer to the specified
+product attributes text for the current product.  If no product attributes
+data are defined, a NULL pointer is returned.
+
+The function hci_product_attribute_units() returns a pointer to the units
+data in the product attributes block of the current product.  If no product
+attributes data are defined, a NULL pointer is returned.
+
+The function hci_product_tabular_pages() returns the number of pages defined
+in the tabular data block of the current product.  If no tabular data are
+defined, -1 is returned.
+
+The function hci_product_tabular_lines() returns the number of lines defined
+in the specified page in the tabular block of the current product.  If no
+tabular data are defined, -1 is returned.
+
+The function hci_product_tabular_line() returns a pointer to the specified
+page and line of the tabular block in the current product.  If no tabular
+data are defined, a NULL pointer is returned.
+
+The function hci_load_product_data() loads the specified product from the RPG
+products database and decodes it.  Data are stored in an internal buffer and
+can be accessed by other Product Data family functions.  The user specifies
+the product code, date/time, and special parameters.  A query is done and
+the first product found which matches the input criteria is read and decoded.
+On error, 0 is returned.
+
+The function hci_load_product_io_status() returns the status of the last 
+product read operation.  Refer to the header file "lb.h" for specific error
+codes.
+
+The function hci_load_prf_product() loads the specified PRF data from the PRF
+data store.  These data are output from the auto PRF algorithm.  Data are
+stored in an internal buffer and can be accessed by other PRF Product Data
+family functions.  The user specifies the date, time, and elevation.  On error,
+a negative value is returned.  If 0 is returned, the product was not found.
+A positive return value indicates the number of bytes read.
+
+The function hci_prf_io_status() returns the status of the last PRF product
+read operation.  Refer to the header file "lb.h" for specific error codes.
+
+The function hci_prf_get_date() returns the julian date of the current PRF
+product.  If no product is defined, -1 is returned.
+
+The function hci_prf_get_time() returns the time, in seconds past midnight,
+of the current PRF product.  If no product is defined, -1 is returned.
+
+The function hci_prf_get_elevation() returns the elevation angle, in degrees,
+of the current PRF product.  On error, -1 is returned.
+
+The function hci_prf_get_data() returns the data value at a specified PRF,
+radial, and range element in the current PRF product.  On error, -1 is
+returned.  A valid return value is either 0 (no obscuration) or 1 (obscured).
+
+The function hci_prf_get_index() returns the index for the specified PRF
+number in the current PRF product.  If the PRF is not defined, -1 is returned.
+
+The function hci_display_color_bar() displays a color bar for the current
+product.  The user must specify the drawable information and a location and
+size for the color bar.  If the flag argument is 1, the last color index is
+treated as a special value (i.e., to indicate range folding).
+
+The function hci_display_radial_product() displays the current product.  The
+user must specify the drawable information, the location  and dimensions of
+the product display, the maximum range to be displayed, the offset if the
+radar (km in X and Y directions) from the display center, and a zoom factor.
+
+The function hci_display_product_radial_data() displays a single radial
+in the specified drawable.  The user must define a pointer to the radial data
+along with properties about the radial.  The x_offset and y_offset arguments
+define the offset, in km, of the radar from the window center.  The scale_x
+and scale_y arguments define the pixel and scanline scaling to convert
+distance to screen coordinates.  The center_pixel and center_scanl arguments
+define the screen coordinates of the window center.  The azimuth argument
+defines the radial azimuth angle (degrees).  The azimuth_interval argument
+defines the horizontal beamwidth for display (in degrees).  The elements
+argument defines the number of data elements along the radial.  The data
+argument is a pointer to the start of the radial data.  The product_color
+argument is a pointer to the color data for the product.
+
+The function hci_basedata_display_clear() clears the contents of the specified
+drawable.  The width and height arguments define the dimensions of the
+rectangular area to clear (starting with coordinate 0,0).  The color argument
+defines the color to use to clear the area with.
+
+ENDIAN TYPE
+
+The Endian Type family of functions are used to check the endian type of the
+local and RPG systems.
+
+#include <hci_endian.h>
+
+int    hci_ORPG_endian_type ();
+int    hci_local_endian_type ();
+int    hci_change_endian_type (char *buf, int type);
+
+The function hci_ORPG_endian_type() returns the endian type used by the ORPG.
+The possible return values are: ORPG_BIG_ENDIAN and ORPG_LITTLE_ENDIAN.
+
+The function hci_local_endian_type() returns the endian type of the local
+system.  The possible return values are: ORPG_BIG_ENDIAN and
+ORPG_LITTLE_ENDIAN.
+
+The function hci_change_endian_type() converts the specified data type from
+its present endian type to the other.  NOTE:  This function is incomplete
+at this time and may be replaced by librpg or liborpg functions in the future.
+The only type supported at this time is environmental winds (A3CD97).
+
+ENVIRONMENTAL WINDS FUNCTIONS
+
+The Environmental Winds family of functions provide application support for
+environmental winds data.
+
+#include <hci_environmental_wind.h>
+
+A3cd97 hci_get_environmental_wind_data_ptr ();
+int    hci_get_vad_update_flag ();
+int    hci_set_vad_update_flag (int value);
+int    hci_read_environmental_wind_data ();
+int    hci_write_environmental_wind_data ();
+
+The function hci_get_environmental_wind_data_ptr() returns a pointer to the
+start of the internal environmental winds data buffer.
+
+The function hci_get_vad_update_flag() returns the value of the VAD winds
+update flag from the environmental winds data buffer.  The value should be
+either 0 (off) or 1 (on).
+
+The function hci_set_vad_update_flag() sets the value of the VAD winds update
+flag in the environmental winds data buffer to the specified value.  The
+environmental winds data store is read first and then written back out when
+the flag is updated.  The return value is negative on error.  A return value
+of 0 indicates that no action was performed because the user specified value
+was the same as the current value.  A return value greater than zero indicates
+the update was successfull.
+
+The function hci_read_environmental_wind_data() reads the environmental winds
+data from file to an internal buffer.  Although this function is called
+internally by the hci_get_environmental_wind_data_ptr() function if the data
+buffer hasn't been initialized, applications are responsible for updating
+the internal data store if the file is updated by other applications.  A
+negative value is returned on error and a positive value on success.
+
+The function hci_write_environmental_wind_data() writes the contents of the
+internal data buffer to file.  A negative value is returned on error and a
+positive value on success.
+
+
+HCI FONT FUNCTIONS
+
+The HCI Font family of functions provide font support to HCI applications.
+
+#include <hci_font.h>
+
+void   hci_initialize_fonts (Display *display);
+XFontStruct *hci_get_fontinfo (int font);
+XFontStruct *hci_get_fontinfo_adj (int font, float adjustment_factor);
+XFontStruct *hci_free_fontinfo_adj (XFontStruct *ptr);
+XmFontList  hci_get_fontlist (int font);
+Font   hci_get_font (int font);
+Font   hci_get_font_adj (int font, float adjustment_factor);
+void   hci_set_font (int font, int size);
+int    hci_get_font_property (int font, int property);
+int    hci_set_font_property (Display *display, int font, int property,
+			int value);
+
+The function hci_initialize_fonts() must be called prior to calling any other
+font family functions.  Its purpose is to initialize font data.
+
+The function hci_get_fontinfo() returns a pointer to a font structure for the
+specified font ID.  The valid font IDs are: LIST, SMALL, MEDIUM, LARGE,
+EXTRA_LARGE, and SCALED.  This structure is used by several Xlib functions.
+
+The function hci_get_fontinfo_adj() returns a pointer to a font structure for
+the specified font ID and adjustment factor.  The valid font IDs are: LIST,
+SMALL, MEDIUM, LARGE, EXTRA_LARGE, and SCALED. The adjustment factor is a
+ratio to multiply the font by. The function hci_free_fontinfo_adj MUST BE CALLED
+when finished with the returned pointer to a font structure. Failure to do so
+will result in a memory leak. The font associated with the returned XFontStruct
+is guaranteed to be supported by the font server.
+
+The function hci_free_fontinfo_adj should be called when the user is finished
+with the pointer returned from hci_get_fontinfo_adj. The pointer returned from
+hci_get_fontinfo_adj should be passed to hci_free_fontinfo_adj.
+
+The function hci_get_fontlist() returns the font list data for the specified
+font ID.  This function is commonly used the set the XmNfontlist property of
+Motif widgets.  The valid font IDs are: LIST, SMALL, MEDIUM, LARGE,
+EXTRA_LARGE, and SCALED.
+
+The function hci_get_font() returns the Font structure associated with the
+specified font ID.  The valid font IDs are: LIST, SMALL, MEDIUM, LARGE,
+EXTRA_LARGE, and SCALED.
+
+The function hci_get_font_adj() returns the Font structure associated with the
+specified font ID and adjustment factor.  The valid font IDs are: LIST, SMALL,
+MEDIUM, LARGE, EXTRA_LARGE, and SCALED. The adjustment factor is a ratio to
+multiply the font by. The font associated with the returned Font structure is
+guaranteed to be supported by the font server.
+
+The function hci_set_font() sets the scaled font to the specified font ID.  The
+valid font IDs are: LIST, SMALL, MEDIUM, LARGE,and  EXTRA_LARGE.
+
+The function hci_get_font_property() returns the specified property for the
+LIST font.  The valid properties are HCI_FONT_POINT and HCI_FONT_SIZE.
+
+The function hci_set_font_property() sets the specified property of the LIST
+font.  The valid properties are HCI_FONT_POINT and HCI_FONT_SIZE.  The value
+should be a numeric value indicating the point or size.  The values are
+specified in tenths so a point value of 100 would correspond to a 10 point
+font.
+
+MISCELLANEOUS HCI FUNCTIONS
+
+The Miscellaneous HCI family of functions provide several general purpose
+routines which can be shared amongst HCI applications.
+
+float  hci_find_azimuth (int pixel, int scanl, int ref_pixel, int ref_scanl);
+float  decode_angle (unsigned short angle);
+void   hci_force_resize_callback (Widget w, XtPointer client_data,
+			XtPointer call_data);
+int    hci_limit_check (int min, int max, int value);
+void   hci_popup_information_message (Widget w, char *message);
+Window hci_window_query (Display *display, Window window, char *name);
+void   gain_focus_callback (Widget w, XtPointer client_data,
+			XtPointer call_data);
+int    hci_activate_child (Display display, Widget w, char *task_command,
+			char *process_name, char *window_name);
+
+The function hci_find_azimuth() returns the angle (from 0 north) of an input
+window coordinate (pixel, scanl) from a reference coordinate (ref_pixel,
+ref_scanl).  The valid range of values is 0.0 to 360.0.
+
+The function decode_angle() decodes an azimuth or elevation angle returned in
+an RDA digital radar data record.  The angle is returned in degrees.
+
+The function hci_force_resize_callback() can be used to force a windows resize
+callback to be invoked.  The client_data argument should contain the widget
+ID of the top level widget (a resize callback should have been defined for
+the widget in the application).
+
+The function hci_limit_check() provides a general purpose routine for checking
+a data value against a pair of min and max values.  If the value is within
+the defined min and max value, 0 is returned.  If it is outside, then -1 is
+returned.
+
+The function hci_popup_information_message() provides a general purpose
+information popup window.  The popup window displays the user supplied message
+along with a single acknowledgement button.  The specified widget ID is used
+as the parent of the popup window.
+
+The function hci_window_query() checks all child windows of the specified
+window argument and returns the ID of the child window whose title matches
+the specified name string.  0 is returned if no matches were found.  This
+function is useful when one wants to limit the number of instances of a
+particular window.  In this case, one would want to define the "RootWindow"
+as the window argument.
+
+The function hci_activate_child() is used to start a new HCI child process
+or pop its window to the top of the window hierarchy if it already exists.
+The primary purpose of this function is to allow the calling application
+to control the number of instances of a child task it can spawn.  When this
+function is invoked, it first checks all running processes and tries to
+match them with the contents of "process_name".  If a match is found then
+the window tree is searched for a match with the contents of "window_name".
+If matched, then the window is brought to the top of the window hierarchy.
+If no process is matched, the process contained in "task_command" is started
+using a system() call.  If "1" is returned, a new task has been initiated.
+If "2" is returned, the process has been matched and the window found and
+mapped to the top of the window heirarchy.  If "0" is returned, the process
+has been matched but the window name hasn't.  This usually means the process
+has been started but hasn't yet mapped its window to the screen.  A negative
+value is returned on error.
+
+The function gain_focus_callback() is just a stub to be used for the
+XmNfocusCallback callback for a text or text field widget.  If forces the
+text to be visible when the widget gains focus.
+
+PRECIPITATION STATUS FUNCTIONS
+
+The Precipitation Status family of functions provides a common interface
+to precipitation status adaptation data.
+
+#include <hci_precip_status.h>
+
+int    hci_precip_status_init ();
+int    hci_precip_status_callback ();
+int    hci_get_precip_status ();
+
+The function hci_precip_status_init() initializes the precip status struct and
+registers the callback function hci_precip_status_callback().
+
+The function hci_precip_status_callback() is the callback function called when
+the HCI_PRECIP_STATUS_MSG_ID message is changed in the HCI LB. The function
+reads the message and fills the precip status struct with the new values.
+
+The function hci_get_precip_status() returns a copy of the precip status struct
+with the latest values.
+
+PUP STATUS FUNCTIONS
+
+The PUP Status family of functions provide a common interface to access PUP
+status message data.
+
+#include <hci_pup_status.h>
+
+int    hci_pup_api_io_status ();
+int    hci_pup_status_read (int line_ind);
+int    hci_get_pup_status (line_ind);
+int    hci_get_pup_status_errors (int line_ind);
+short  hci_get_pup_status_error (int line_ind, int ind);
+int    hci_pup_status_updated (line_ind);
+char   *hci_get_pup_error_msg (int err_code);
+
+The function hci_pup_api_io_status() returns the status of the latest PUP
+status message read or write operation.
+
+The function hci_pup_status_read() reads the specified message from the PUP
+status data store.  Message IDs are defined by the line index associated with
+the dedicated line in which the PUP is connected.  On success, 0 is returned.
+If an error occurs, -1 is returned.  The first time this function is called,
+LB notification is registered.
+
+The function hci_get_pup_status() returns the latest status for the specified
+line.  If the status for that line has been updated since the last read, the
+message is re-read before the status is returned.
+
+The function hci_get_pup_status_errors() returns the number of active errors
+for the PUP connected to the specified line.  If the status for that line has
+been updated since the last read, the message is re-read before the number of
+active errors is returned.
+
+The function hci_get_pup_status_error() returns the error code for the PUP
+connected to the speficied line.  The user must also specify an error index.
+The index should be in the range 0 to the number of active errors minus 1.  If
+the status for that line has been updated since the last read, the message is
+re-read before the number of active errors is returned.
+
+The function hci_pup_status_updated() returns the state of the update flag for
+the specified line.  If the flag is 1, the message has been updated since the
+last read.  If the flag is 0, the messages hasn't been updated since the last
+read.
+
+The function hci_get_pup_error_msg() returns a pointer to a descriptive string
+for the specified PUP error code.  If the code is invalid, a NULL pointer is
+returned.
+
+RDA ADAPTATION DATA FUNCTIONS
+
+The RDA Adaptation Data family of functions provide a common interface to
+access RDA adaptation data.
+
+#include hci_rda_adaptation_data.h>
+
+int    hci_rda_adaptation_io_status ();
+int    hci_read_rda_adaptation_data ();
+int    hci_write_rda_adaptation_data ();
+short  *hci_rda_adapt_wxmode_table_ptr ();
+int    hci_rda_adapt_wxmode (int mode, int pos);
+short  *hci_rda_adapt_vcp_table_ptr (int pos);
+short  *hci_rda_adapt_elev_indicies_ptr ();
+float  hci_rda_adapt_vcp_elevation_angle (int vcp, int cut);
+short  *hci_rda_adapt_allowable_prf_ptr (int pos);
+int    hci_rda_adapt_allowable_prf_vcp_num (int pos);
+int    hci_rda_adapt_allowable_prf_prfs (int pos);
+int    hci_rda_adapt_allowable_prf_num (int pos, int indx);
+int    hci_rda_adapt_allowable_prf_pulse_count (int pos, int elev_num, int prf);
+float  *hci_rda_adapt_prf_value_ptr ();
+short  *hci_rda_adapt_vcp_times_ptr ();
+int    *hci_rda_adapt_unambiguous_range_ptr ();
+int    hci_rda_adapt_vcp_table_index (int vcp);
+int    hci_rda_adapt_vcp_table_vcp_num (int pos);
+int    hci_rda_adapt_vcp_table_pulse_width (int pos);
+int    hci_rda_adapt_delta_pri ();
+
+The function hci_rda_adaptation_io_status() returns the status of the latest
+RDA adaptation data read or write operation.
+
+The function hci_read_rda_adaptation_data() reads the RDA adaptation data
+control message into an internal buffer.  On success, a positive value is
+returned indicating the  number of bytes read.  On error, a negative value is
+returned (refer to lb.h for specific error codes).
+
+The function hci_write_rda_adaptation_data() writes the RDA adaptation data
+control message from the internal buffer.  On success, a positive value is
+returned indicating the  number of bytes written.  On error, a negative value
+is returned (refer to lb.h for specific error codes).
+
+The function *hci_rda_adapt_wxmode_table_ptr() returns a pointer to the start 
+of the Weather mode table in the RDA adaptation data block.  This table is used
+to determine the wx mode which corresponds to a defined VCP.  The VCP number is
+contained in the table. 
+
+The function hci_rda_adapt_wxmode returns the VCP number for the  specified
+Weather mode table entry.  Valid modes are 0 (Clear Air) and 1 (Precipitation).
+
+The function *hci_rda_adapt_vcp_table_ptr() returns a pointer to the start of
+the data for a specified VCP table entry in the RDA adaptation data block.
+
+The function *hci_rda_adapt_elev_indicies_ptr() returns a pointer to the start
+of the RPG elevation indicies table in the RDA adaptation data block.
+
+The function hci_rda_adapt_vcp_elevation_angle() returns the elevation angle
+(in degrees) associated with a selected VCP and elevation cut.  On error, -1
+is returned.
+
+The function *hci_rda_adapt_allowable_prf_ptr() returns a pointer to the
+start of the allowable PRF table for the specified VCP (referenced by table
+position).
+
+The function hci_rda_adapt_allowable_prf_vcp_num() returns the VCP number from
+the specified allowable PRF table position.
+
+The function hci_rda_adapt_allowable_prf_prfs() returns the number of allowable
+PRFs for a specified allowable PRF table position.
+
+The function hci_rda_adapt_allowable_prf_num() returns the PRF number of the
+specified table position and index in the allowable PRF table.
+
+The function hci_rda_adapt_allowable_prf_pulse_count() returns the pulse count
+of the specified table position, elevation cut, and PRF number in the allowable
+PRF table.
+
+The function *hci_rda_adapt_prf_value_ptr() returns a pointer to the start of 
+the PRF adaptation data in the RDA adaptataion data block.
+
+The function *hci_rda_adapt_vcp_times_ptr() returns a pointer to the start of
+the VCP scan time table in the RDA adaptation data block.
+
+The function *hci_rda_adapt_unambiguous_range_ptr() returns a pointer to the
+start of the unambiguous range table in the RDA adaptation data block.
+
+The function hci_rda_adapt_vcp_table_index() tries to match the input VCP
+number with an entry in the adaptation data VCP table.  If a match is found,
+the position in the adaptation data VCP table is returned.  If not, then a -1
+is returned.
+
+The function hci_rda_adapt_vcp_table_vcp_num() returns the VCP number for a
+specified entry in the VCP adaptation data table.
+
+The function hci_rda_adapt_vcp_table_pulse_width() returns the pulse width for
+a specified entry in the VCP adaptation data table.
+
+The function hci_rda_adapt_delta_pri() returns the delta PRI value from the
+RDA adaptation data block.
+
+RDA PERFORMANCE DATA FUNCTIONS
+
+The RDA Performance Data family of functions provide a common interface to
+access RDA performance data.
+
+#include <hci_rda_performance.h>
+
+int    hci_initialize_rda_performance_data ();
+int    hci_read_rda_performance_data ();
+rda_performance_t *hci_get_rda_performance_data_ptr ();
+int    hci_rda_performance_data (int item);
+void   hci_set_rda_performance_update_flag (int state);
+int    hci_get_rda_performance_update_flag ();
+int    hci_rda_performance_data_initialized ();
+char   *hci_rda_performance_time ();
+
+The function hci_initialize_rda_performance_data() initializes the internal
+RDA performance data buffer by reading the latest RDA performance data from
+file.
+
+The function hci_read_rda_performance_data() reads RDA performance data from
+the RDA Performance linear buffer and stores it in memory so other functions
+can access it using other RDA performance family functions.  On success, the
+number of bytes read is returned.  On failure, a negative value is returned
+(refer to lb.h for specific error code information).
+
+The function *hci_get_rda_performance_data_ptr() returns a pointer to the start
+of RDA performance data buffer. 
+
+The function hci_rda_performance_data() returns the value of the specified RDA
+performance data item.  NOTE: At this time only generator fuel level data are
+supported by this function.
+
+The function hci_set_rda_performance_update_flag() sets the value of the RDA 
+performance data update flag to the specified value (0 = no update needed; non
+zero = update needed).
+
+The function hci_get_rda_performance_update_flag() gets the value of the RDA
+performance data update flag (0 = no update needed; non-zero = update needed).
+
+The function hci_rda_performance_data_initialized () returns the value of the
+RDA performance data initialization flag.  0 means that the LB contains no
+messages.  1 means data has been successfully read and the structure properly
+initialized.
+
+The function *hci_rda_performance_time() returns a pointer to a string with 
+the date/time of the latest RDA Performance data message update.
+
+RPG OPTIONS
+
+#include <hci_rpg_options.h>
+
+The RPG Options family of functions provide a common interface to access RPG
+options adaptation data.  Each function has a complimentary function to support
+remote access to the RPG.  RPG options data are defined in the "rpg_options"
+configuration file.
+
+char   *HCI_get_local_host_name ();
+char   *HCI_get_orpg_func_name (char *function_name, char *host_name);
+int    HCI_num_init_options ();
+char   *HCI_get_init_options_description (int indx);
+char   *HCI_get_init_options_name (int indx);
+char   *HCI_get_init_options_action (int indx);
+char   *HCI_get_init_options_state (int indx);
+char   *HCI_get_init_options_msg (int indx);
+int    HCI_init_options ();
+int    HCI_init_optionsexec (int indx);
+
+The function *HCI_get_local_host_name() returns a pointer to a string
+containing the local host name.  On error, a NULL pointer is returned.
+
+The function *HCI_get_orpg_func_name() returns a pointer to a remote RPG
+function name.  The user must supply the local function name and remote host
+name.
+
+The function HCI_num_init_options() returns the number of RPG initialization
+options which are defined in the "rpg_options" configuration file.
+
+The function *HCI_get_init_options_description() returns a pointer to the
+description string of the specified RPG options list entry.
+
+The function *HCI_get_init_options_name() returns a pointer to the name string
+of the specified RPG options list entry.
+
+The function *HCI_get_init_options_action() returns a pointer to the action
+string of the specified RPG options list entry.
+
+The function *HCI_get_init_options_state() returns a pointer to the state
+string of the specified RPG options list entry.
+
+The function *HCI_get_init_options_msg() returns a pointer to the state string
+of the specified RPG options list entry.
+
+The function HCI_init_options() reads the initialization options.
+
+The function HCI_init_optionsexec() executes the specified TPG option.
+
+SCAN INFO FUNCTIONS
+
+The Scan Info family of functions provide a common interface to access scan
+information contained in the volume scan status message (VOL_STAT_GSM_ID) of
+the general status message LB (ORPGDAT_GSM_DATA).
+
+#include <hci_scan_info.h>
+
+int    hci_scan_info_io_status ();
+short  hci_get_scan_info_key ();
+void   hci_set_scan_info_key (int key);
+void   hci_read_scan_info_data ();
+unsigned long hci_get_scan_volume_number ();
+int    hci_get_scan_mode_operation ();
+int    hci_get_scan_julian_date ();
+int    hci_get_scan_time ();
+int    hci_get_scan_vcp_number ();
+int    hci_get_scan_number_elevation_cuts ();
+int    hci_get_scan_elevation_number (int cut);
+int    hci_get_scan_status ();
+float  hci_get_scan_elevation_angle (int cut);
+int    hci_get_scan_info_flag ();
+void   hci_set_scan_info_flag (int flag);
+int    hci_get_scan_active_flag ();
+void   hci_set_scan_active_flag (int flag);
+
+The function hci_scan_info_io_status() returns the status of the last scan info
+message read or write operation.
+
+The function hci_get_scan_info_key() gets the current scan number.
+
+The function hci_set_scan_info_key() sets the current scan number to the
+specified value.
+
+The function hci_read_scan_info_data() reads the current scan info message.
+
+The function hci_get_scan_volume_number() returns the current scan volume
+number.
+
+The function hci_get_scan_mode_operation() returns the current scan mode.
+
+The function hci_get_scan_julian_date() returns the julian date of the latest
+scan info message.
+
+The function hci_get_scan_time() returns the time (milliseconds past midnight)
+of the latest scan info message.
+
+The function hci_get_scan_vcp_number() returns the current VCP number.
+
+The function hci_get_scan_number_elevation_cuts() returns the number of
+elevation cuts in the current VCP.
+
+The function hci_get_scan_elevation_number() returns the RPG elevation index
+for the specified cut in the current VCP.
+
+The function hci_get_scan_status() returns the status of the previous volume
+scan.
+
+The function hci_get_scan_elevation_angle() returns the elevation angle (in
+degrees) for the specified cut in the current VCP.
+
+The function hci_get_scan_info_flag() returns the flag indicating whether the
+scan info message needs to be read.  Normally, an event handler should use the
+correcponding set function when an update event occurs.
+
+The function hci_set_scan_info_flag() sets the flag indicating whether the
+scan info message needs to be read (0 - no update; 1 = update).
+
+The function hci_get_scan_active_flag() returns a flag indicating if data are
+being processed by pbd.  A non 0 value indicates that new data are being
+processed.
+
+The function hci_set_scan_active_flag() sets a flag indicating if data are
+being processed by pbd.  A non 0 value indicates that new data are being
+processed.
+
+USER INFO FUNCTIONS
+
+The User Info family of functions provide a common interface to access user
+info message information.
+
+#include <hci_user_info.h>
+
+int    hci_user_api_io_status ();
+int    hci_read_user_info ();
+int    hci_get_num_user_entries ();
+int    hci_get_user_class (int indx);
+int    hci_get_user_type (int indx);
+int    hci_get_user_line_index (int indx);
+char   *hci_get_user_name (int indx);
+ 
+The function hci_user_api_io_status() returns the status of the last user info
+read operation.
+
+The function hci_read_user_info() reads the user info message
+(PD_USER_INFO_MSG_ID) in the product distribution data store
+(ORPGDAT_PROD_INFO).  On success, 0 is returned.  On error, -1 is returned.
+
+The function hci_get_num_user_entries() returns the number of defined users
+in the user info message.
+
+The function hci_get_user_class () returns the class of a specified user index
+in the user info message.  
+
+The function hci_get_user_type() returns the type of a specified user index
+in the user info message.
+ 
+The function hci_get_user_line_index() returns the line index of a specified
+user index in the user info message.
+
+The function *hci_get_user_name() returns a pointer to the user name for a
+specified entry in the user info message.
+   
+VCP DATA FUNCTIONS
+
+The VCP Data family of functions provide a common interface to access 
+information about the current VCP.  Current VCP data are stored in the message
+ITC_CD07_VCPINFO.
+
+#include <hci_vcp_data.h>
+
+int    hci_vcp_io_status ();
+int    hci_read_current_vcp_data ();
+int    hci_write_current_vcp_data ();
+int    hci_current_vcp ();
+int    hci_current_vcp_seqnum ();
+int    hci_current_vcp_wxmode ();
+int    hci_current_vcp_id ();
+int    hci_current_vcp_get_vel_resolution ();
+void   hci_current_vcp_set_vel_resolution (int num);
+int    hci_current_vcp_type ();
+int    hci_current_vcp_num ();
+int    hci_current_vcp_num_elevations ();
+int    hci_current_vcp_clutter_map_num ();
+int    hci_current_vcp_pulse_width ();
+int    hci_current_vcp_surv_prf_number (int cut);
+int    hci_current_vcp_wave_type (int cut);
+int    hci_current_vcp_azimuth_rate (int cut);
+int    hci_current_vcp_surv_pulse_count (int cut);
+float  hci_current_vcp_get_sector_azimuth (int sector, int cut);
+void   hci_current_vcp_set_sector_azimuth (int sector, int cut, float azimuth);
+int    hci_current_vcp_get_sector_prf_num (int sector, int cut);
+void   hci_current_vcp_set_sector_prf_num (int sector, int cut, int num);
+int    hci_current_vcp_get_sector_pulse_cnt (int sector, int cut);
+void   hci_current_vcp_set_sector_pulse_cnt (int sector, int cut, int num);
+int    hci_current_vcp_get_ref_noise_threshold (int cut);
+void   hci_current_vcp_set_ref_noise_threshold (int cut, float num);
+int    hci_current_vcp_get_vel_noise_threshold (int cut);
+void   hci_current_vcp_set_vel_noise_threshold (int cut, float num);
+int    hci_current_vcp_get_spw_noise_threshold (int cut);
+void   hci_current_vcp_set_spw_noise_threshold (int cut, float num);
+float  hci_current_vcp_elevation_angle (int cut);
+float  hci_get_prf_value (int prf_num);
+int    hci_get_unambiguous_range (int delta_pri, int prf_num);
+int    hci_current_vcp_update_flag ();
+void   hci_lock_current_vcp_data ()
+void   hci_unlock_current_vcp_data ()
+Vcp_struct *hci_current_vcp_data_ptr ();
+
+The function hci_vcp_io_status() returns the status of the last VCP read/write
+operation.
+
+The function hci_read_current_vcp_data() reads the current VCP data into an
+internal buffer for access by other VCP info family functions.  On success,
+a positive value is returned.  On error, a negative value is returned (refer
+to lb.h for error code information).
+
+The function hci_write_current_vcp_data() writes the current VCP data from the
+internal buffer to file.  On success, a positive value is returned.  On error,
+a negative value is returned (refer to lb.h for error code information).
+
+The function hci_current_vcp() returns the number of the VCP in the current
+VCP data buffer.
+
+The function hci_current_vcp_seqnum() returns the volume sequence number
+associated with the VCP data in the current VCP data buffer.
+
+The function hci_current_vcp_wxmode() returns the weather mode associated with
+the VCP data in the current VCP data buffer (Clear Air = 1; Precipitation = 2).
+
+The function hci_current_vcp_id() returns the index into the RDA VCP adaptation
+data table of the VCP matching the VCP in the current VCP data buffer.
+
+The function hci_current_vcp_get_vel_resolution() returns the velocity
+resolution code associated with the VCP data in the current VCP data buffer.
+The valid velocity resolution codes are: 2 (0.5 m/s) and 4 (1.0 m/s).
+
+The function hci_current_vcp_set_vel_resolution() sets the velocity resolution
+code of the VCP data in the current VCP data buffer.  The valid velocity
+resolution codes are: 2 (0.5 m/s) and 4 (1.0 m/s).
+
+The function hci_current_vcp_type() returns the pattern type of the VCP data
+in the current VCP data buffer.  The valid pattern types are: 2 (constant
+elevation cut), 4 (horizontal raster scan), 8 (vertical raster scan) and 16
+(searchlight).
+
+The function hci_current_vcp_num() returns the volume coverage pattern (VCP)
+number of the VCP data in the current VCP data buffer.
+
+The function hci_current_vcp_num_elevations() returns the number of elevation
+cuts (inluding repeated elevations) in the VCP contained in the current VCP
+data buffer.  The value should be in the range 1-25.
+
+The function hci_current_vcp_clutter_map_num() returns the clutter map group
+number associated with the VCP contained in the current VCP data buffer.  The
+value should be in the range 1 to 99.
+
+The function hci_current_vcp_pulse_width() returns the pulse width code of the
+VCP contained in the current VCP data buffer.  The valid pulse width codes
+are: 2 (short), and 4 (long).
+
+The function hci_current_vcp_surv_prf_number() returns the surveillance PRF
+number of the specified cut in the VCP contained in the current VCP data
+buffer.  The valid range is 1 to 8.
+
+The function hci_current_vcp_wave_type() returns the waveform type of the
+specified cut in the VCP contained in the current VCP data buffer.  The valid
+waveform types are: VCP_WAVEFORM_CS, VCP_WAVEFORM_CD, VCP_WAVEFORM_CDBATCH,
+and VCP_WAVEFORM_BATCH.
+
+The function hci_current_vcp_azimuth_rate() returns the scan rate (in seconds)
+of the specified cut in the VCP contained in the current VCP data buffer.
+
+The function hci_current_vcp_surv_pulse_count() returns the surveillance pulse
+count of the specified cut in the VCP contained in the current VCP data buffer.
+The valid range is 1 to 999.
+
+The function hci_current_vcp_get_sector_azimuth() returns the clockwise edge
+angle (in degrees) for the specified sector and cut in the VCP contained in the
+current VCP data buffer.  The valid range is 0.0 to 360.0.
+
+The function hci_current_vcp_set_sector_azimuth() sets the clockwise edge
+angle (in degrees) for the specified sector and cut in the VCP contained in the
+current VCP data buffer.  The valid range is 0.0 to 360.0.
+
+The function hci_current_vcp_get_sector_prf_num() returns the PRF number for
+the specified sector and cut in the VCP contained in the current VCP data
+buffer.  The valid range is 1 to 8.
+
+The function hci_current_vcp_set_sector_prf_num() sets the PRF number for
+the specified sector and cut in the VCP contained in the current VCP data
+buffer.  The valid range is 1 to 999.
+
+The function hci_current_vcp_get_sector_pulse_cnt() returns the pulse count for
+the specified sector and cut in the VCP contained in the current VCP data
+buffer.  The valid range is 1 to 999.
+
+The function hci_current_vcp_get_ref_noise_threshold() returns the reflectivity
+noise threshold of the specified cut in the VCP contained in the current VCP
+data buffer.  Data are stored in eighths.  The valid range is -12 to 20 dB.
+
+The function hci_current_vcp_get_ref_noise_threshold() sets the reflectivity
+noise threshold of the specified cut in the VCP contained in the current VCP
+data buffer.  Data are stored in eighths.  The valid range is -12 to 20 dB.
+
+The function hci_current_vcp_get_vel_noise_threshold() returns the velocity
+noise threshold of the specified cut in the VCP contained in the current VCP
+data buffer.  Data are stored in eighths.  The valid range is -12 to 20 dB.
+
+The function hci_current_vcp_get_vel_noise_threshold() sets the velocity
+noise threshold of the specified cut in the VCP contained in the current VCP
+data buffer.  Data are stored in eighths.  The valid range is -12 to 20 dB.
+
+The function hci_current_vcp_get_spw_noise_threshold() returns the spectrum
+width noise threshold of the specified cut in the VCP contained in the current
+VCP data buffer.  Data are stored in eighths.  The valid range is -12 to 20 dB.
+
+The function hci_current_vcp_get_spw_noise_threshold() sets the spectrum width
+noise threshold of the specified cut in the VCP contained in the current VCP
+data buffer.  Data are stored in eighths.  The valid range is -12 to 20 dB.
+
+The function hci_current_vcp_elevation_angle() returns the elevation angle (in
+degrees) of the specified cut in the VCP contained in the current VCP data
+buffer.
+
+The function hci_get_prf_value() returns the PRF value for the specified PRF
+number.
+
+The function hci_get_unambiguous_range() returns the unambiguous range (in
+kilometers) for the specified delta PRI and PRF number.
+
+The function hci_current_vcp_update_flag() returns the state of the VCP data
+store update flag.  A value of 0 indicates that the VCP data store has not been
+updated since the last read.  A value of 1 indicates that the VCP data store
+has been updated since the last read.
+
+The function hci_lock_current_vcp_data() places an advisory lock on the VCP
+data store.  This is useful when one wants to edit this data and alert other
+applications that it is being edited by aother user.
+
+The function hci_unlock_current_vcp_data() removes the advisory lock on the VCP
+data store.
+
+The function *hci_current_vcp_data_ptr() returns a pointer to the internal VCP
+data buffer.
+
+VALIDATION FUNCTIONS
+
+The validation family of functions provide a common interface for applications
+to validate user input.
+
+#include <hci_validate.h>
+
+void hci_verify_text_callback (Widget w,
+			XtPointer client_data, XtPointer call_data);
+void   hci_verify_unsigned_float_callback (Widget w,
+			XtPointer client_data, XtPointer call_data);
+void   hci_verify_float_callback (Widget w,
+			XtPointer client_data, XtPointer call_data);
+void   hci_verify_unsigned_integer_callback (Widget w,
+			XtPointer client_data, XtPointer call_data);
+void   hci_verify_signed_integer_callback (Widget w,
+			XtPointer client_data, XtPointer call_data);
+void   hci_verify_unsigned_list_callback (Widget w,
+			XtPointer client_data, XtPointer call_data);
+void   hci_verify_date_callback (Widget w,
+			XtPointer client_data, XtPointer call_data);
+void   hci_verify_month_callback (Widget w,
+			XtPointer client_data, XtPointer call_data);
+void   hci_verify_day_callback (Widget w,
+			XtPointer client_data, XtPointer call_data);
+void   hci_verify_time_callback (Widget w,
+			XtPointer client_data, XtPointer call_data);
+void   hci_verify_hour_callback (Widget w,
+			XtPointer client_data, XtPointer call_data);
+void   hci_verify_minute_callback (Widget w,
+			XtPointer client_data, XtPointer call_data);
+void   hci_verify_second_callback (Widget w,
+			XtPointer client_data, XtPointer call_data);
+void   hci_verify_year_callback (Widget w,
+			XtPointer client_data, XtPointer call_data);
+void   hci_acknowledge_invalid_value (Widget w,
+			XtPointer client_data, XtPointer call_data);
+int    hci_string_in_string (char *s1, char *s2);
+int    hci_validate_date (int month, int day, int year);
+int    hci_number_found (char *s1);
+
+The function hci_verify_text_callback() should be used as the
+XmNmodifyVerifyCallback for Text and TextField type widgets which accept text
+data.  The widget item should contain the widget ID of the Text or TextField
+widget.  The client_data item defines the maximum number of input characters
+allowed for the widget.
+
+The function hci_verify_unsigned_float_callback() should be used as the
+XmNmodifyVerifyCallback for Text and TextField type widgets which accept 
+unsigned floating point data.  The widget item should contain the widget ID of
+the Text or TextField widget.  The client_data item defines the maximum number
+of input characters allowed for the widget.  Input characters other than digits
+and a single decimal point are rejected.
+
+The function hci_verify_float_callback() should be used as the
+XmNmodifyVerifyCallback for Text and TextField type widgets which accept 
+signed floating point data.  The widget item should contain the widget ID of
+the Text or TextField widget.  The client_data item defines the maximum number
+of input characters allowed for the widget.  Input characters other than digits,
+a leading negative sign, and a single decimal point are rejected.
+
+The function hci_verify_unsigned_integer_callback() should be used as the
+XmNmodifyVerifyCallback for Text and TextField type widgets which accept 
+unsigned integer data.  The widget item should contain the widget ID of
+the Text or TextField widget.  The client_data item defines the maximum number
+of input characters allowed for the widget.  Input characters other than digits
+are rejected.
+
+The function hci_verify_integer_callback() should be used as the
+XmNmodifyVerifyCallback for Text and TextField type widgets which accept 
+signed integer data.  The widget item should contain the widget ID of
+the Text or TextField widget.  The client_data item defines the maximum number
+of input characters allowed for the widget.  Input characters other than digits
+and a leading negative sign are rejected.
+
+The function hci_verify_unsigned_list_callback() should be used as the
+XmNmodifyVerifyCallback for Text and TextField type widgets which accept 
+unsigned integer data.  The widget item should contain the widget ID of
+the Text or TextField widget.  The client_data item defines the maximum number
+of input characters allowed for the widget.  Input characters other than digits
+and spaces are rejected.  List items are separated by spaces.
+
+The function hci_verify_date_callback() should be used as the
+XmNactivateCallback and XmNlosingFocusCallback for Text and TextField type
+widgets which accept numeric dates in the form MMDDYY.  If an invalid date
+is detected, a warning popup is displayed.
+
+The function hci_verify_month_callback() should be used as the
+XmNactivateCallback and XmNlosingFocusCallback for Text and TextField type
+widgets which accept numeric month data.  If an invalid month is detected, a
+warning popup is displayed.
+
+The function hci_verify_day_callback() should be used as the
+XmNactivateCallback and XmNlosingFocusCallback for Text and TextField type
+widgets which accept numeric day data.  If an invalid day is detected, a
+warning popup is displayed.
+
+The function hci_verify_year_callback() should be used as the
+XmNactivateCallback and XmNlosingFocusCallback for Text and TextField type
+widgets which accept numeric year data.  If an invalid year is detected, a
+warning popup is displayed.
+
+The function hci_verify_time_callback() should be used as the
+XmNactivateCallback and XmNlosingFocusCallback for Text and TextField type
+widgets which accept numeric time data in the form HHMMSS.  If an invalid time
+is detected, a warning popup is displayed.
+
+The function hci_verify_hour_callback() should be used as the
+XmNactivateCallback and XmNlosingFocusCallback for Text and TextField type
+widgets which accept numeric hour data.  If an invalid hour is detected, a
+warning popup is displayed.
+
+The function hci_verify_minute_callback() should be used as the
+XmNactivateCallback and XmNlosingFocusCallback for Text and TextField type
+widgets which accept numeric minute data.  If an invalid minute is detected, a
+warning popup is displayed.
+
+The function hci_verify_second_callback() should be used as the
+XmNactivateCallback and XmNlosingFocusCallback for Text and TextField type
+widgets which accept numeric second data.  If an invalid second is detected, a
+warning popup is displayed.
+
+The function hci_acknowledge_invalid_value() does nothing but provide a
+callback for warning popup window prompts which require no action (i.e.,
+"No", "Continue", ...).
+
+The function hci_string_in_string() returns 1 if the string s2 is contained 
+in string s1.  If it is not found, 0 is returned.  This function is case
+insensitive.
+
+The function hci_validate_date() returns 0 if the specified month, day, and
+year is valid.  For example, the date 2-30-2000 would be invalid and return
+1 since the month of february doesn't contain 30 days.  The date 2-29-2000
+would be valid since the year 2000 was a leap year.
+
+The function hci_number_found() returns 1 if a digit was found in the string
+s1.  If a string was not found, 0 is returned.
+
+WEATHER (WX) STATUS FUNCTIONS
+
+The Weatehr Status family of functions provides a common interface to weather
+status adaptation data.
+
+#include <hci_wx_status.h>
+
+int    hci_wx_status_init ();
+int    hci_wx_status_callback ();
+int    hci_get_wx_status ();
+
+The function hci_wx_status_init() initializes the weather status struct and
+registers the callback function hci_wx_status_callback().
+
+The function hci_wx_status_callback() is the callback function called when
+the WX_STATUS_ID message is changed in the ORPGDAT_GSM_DATA LB. The function
+reads the message and fills the weather status struct with the new values.
+
+The function hci_get_wx_status() returns a copy of the weather status struct
+with the latest values.
+
+HCI OPTIONS
+
+The HCI Options family of functions process common and custom command line
+options for all HCI applications.  Functions are provided for accessing information
+for common command line parameters.  Custom command line parameters are handled by 
+calling user defined callback during command line processing.
+Since remote machine name is supplied as a command option, functions in this
+section are also responsible for watching and reporting network connectivity
+problems to the user.  If no remote machine is specified, network connectivity
+is not monitored.  When a remote machine is specified, HCI applications are 
+restarted or shutdown  when connectivity problems to the specified machine name 
+occur.  Local and remote HCI applications restart whenever RPG data stores are 
+re-created while HCI is running.  Since a wait dialog is frequently used during
+network connectivity problems, there are API functions to pop up a dialog while
+waiting for some action to occur.  The dialog processes X Events internally so
+the application does not appear to "lock up" while waiting for an event to occur.
+
+HCI configuration options.
+
+#include <hci_options.h>
+
+int    HCI_mscf_mode ();
+char   *HCI_orpg_machine_name ();
+int    HCI_task_reg_term_hdlr (void (*cleanup_fxn_p)(int exit_code));
+void   HCI_task_exit (int error_code);
+int    HCI_is_low_bandwidth ();
+int    HCI_simulation_speed ();
+void   HCI_set_compression (int data_id);
+int    HCI_read_custom_options (int argc, char **argv, const char *options,
+		hci_option_selected_callback_t selected_callback,
+		hci_option_help_callback_t help_callback,
+		void *user_data);
+void   HCI_popdown_wait_dialog (Widget parent);
+int    HCI_refresh_wait_command_text (const char *command_text);
+int    HCI_wait_dialog_is_up ();
+int    HCI_wait_for_command (const char *title_text,
+		const char *command_text, int wait_time_in,
+		XtAppContext app_context_in, Widget parent,
+		hci_wait_for_command_callback_t wait_callback,
+		void *user_data, int cancel_button, int popup_flags);
+void   HCI_wait_for_network_connectivity (Widget main_widget,
+		XtAppContext app_context_in, const char *node_name);
+int    HCI_read_options (int argc, char **argv);
+void   HCI_options_timer_proc (XtPointer user_data, XtIntervalId id);
+
+The function HCI_mscf_mode() returns 1 if the application is running remotely
+on the MSCF machine.  It returns 0 if it is running on the local RPG machine.
+s 
+The function *HCI_orpg_machine_name() returns a pointer to the string
+containing the RPG machine name.
+
+The function HCI_task_reg_term_hdlr() registers a callback to be invoked when
+the application is terminated.
+
+The function HCI_task_exit() passes an error code to the ORPG task termination
+function if the application is running on the RPG machine.  Otherwise, the
+application passes the error code to "exit()".
+
+The function HCI_is_low_bandwidth() returns TRUE if the application is
+running remotely with a low bandwidth connection between the application
+machine and the RPG machine.
+
+The function HCI_simulation_speed() returns -1 if the application is not
+running in simulation mode.  A positive value indicating the simulated baud
+rate is returned if running in simulation mode.
+
+The function HCI_set_compression() activates compression mode for the specified
+data store if running in low bandwidth mode.
+
+The function HCI_read_options () reads all command line arguments and extracts
+all of those common to all HCI applications.  argc is the number of command line
+arguments.  argv is a list of command line arguments.  additional_options are a
+list of custom options in getopt(3) format.  callback is a pointer to a function
+that will be called whenever any of the specified custom options are read from
+the command line.  option_help_callback is a pointer to a function that will be
+called when help text for the custom option needs to be printed to stdout.  
+user_data is a pointer to some data that will be passed to the callback function
+when it is called.
+
+The function HCI_read_custom_options () reads common and custom command line
+arguments.  Common command line options are processed internally.  A callback
+function is called for each custom option that is read from the command line.
+argc is the number of command line arguments.  argv is a list of command line
+arguments.  
+
+The function HCI_popdown_wait_dialog() pops down the wait dialog created by
+the HCI_wait_for_command function.  
+
+The function HCI_wait_dialog_is_up() is true if the wait for command dialog is
+currently visible.
+
+The function HCI_wait_for_command() waits for some command to be executed or
+for some condition to be met.  While waiting, a dialog is shown to the user.
+The dialog can be refreshed automatically or manually.  The dialog processes 
+X Events internally so the application does not appear to lock up while waiting.
+title_text is the Title to be used on the wait dialog
+   command_text is the description of the command that is being waited on
+   wait-time is the maximum amount of time to wait for this command in seconds
+   app_context is the Motif application context
+   parent is the parent widget of the wait for command dialog
+
+   hci_wait_for_command_callback is the callback function that can cause the wait
+   for dialog to disappear before the wait time has expired.  When the callback
+   function returns 1, the command is complete and the wait dialog will
+   disappear.  This parameter is optional.  NULL should be used when a callback
+   is not desired.
+
+   user_data is user data that will be passed to the
+   hci_wait_for_command_callback, can be NULL
+
+   cancel indicates whether the cancel button is visible(cancel=1) or not(cancel=0)
+
+   popup_flags - bit flags - 
+      HCI_WAIT_POPUP causes the dialog to be popped up.
+      HCI_WAIT_POPDOWN causes the dialog to disappear after the wait has expired.
+      HCI_WAIT_MANUAL_REFRESH skips the time remaining refresh loop, the application
+      must call HCI_refresh_command_wait_text to refresh the time remaining on the 
+      wait dialog.  The HCI_WAIT_POPDOWN flag is ignored when the 
+      HCI_WAIT_MANUAL_REFRESH flag is set.
+
+
+The function HCI_monitor_node_connectivity watches for node connectivity
+status changes.  Unlike HCI_monitor_network_status, this routine simply waits
+for connectivity to the specified machine, and then monitors that
+connectivity.  The application will exit when connectivity is lost.  It does
+not copy the system configuration file.  It does not wait for mrpg to be
+started.  main_widget is the main application widget.  app_context is the
+application context.  node_name is the name of the node to monitor.  
+
+The function HCI_monitor_network_status monitors network status changes
+changes on the node identified by HCI_orpg_machine_n ame which is set by 
+HCI_read_options or HCI_read_custom_options If we are not running locally, 
+this routine 
+   1.  Waits for network connectivity to HCI_orpg_machine_name to be established 
+   2.  Copies the sys_cfg file from the orpg machine 
+   3.  Registers for events that indicate data stores have been re-created
+   4.  Monitors for remote procedure call connectivity(rssd) and node 
+       connectivity change s (mnet) @param main_widget - the parent widget 
+       of the information dialog that will be used to notify the
+       user of network status changes @param app_context - GUI application 
+       context 
+
+The HCI_refresh_wait_command_text can be used to refresh the text of the 
+dialog created using the HCI_WAIT_MANUAL_REFRESH option of the HCI_wait_for_command
+function.  command_text is the text that will be placed in the dialog.
+
+
+
+SEE ALSO
+
+orpg(3)
+
+				$Revision: 1.10 $

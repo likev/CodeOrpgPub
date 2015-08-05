@@ -1,0 +1,307 @@
+C 
+C RCS info 
+C $Author: nolitam $ 
+C $Locker:  $ 
+C $Date: 2002/12/11 20:00:51 $ 
+C $Id: a3cm3b.ftn,v 1.3 2002/12/11 20:00:51 nolitam Exp $ 
+C $Revision: 1.3 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A3CM3B__COMP_ADAPT(RBUF,IBUF,OBUF,IDX,EIDX)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3CM3B__COMP_ADAPT
+*.
+*.  MODULE VERSION: 0001
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       04/24/95      0000      STEVE SMITH          CCR NA94-26302
+*.       12/23/96      0001      Toolset              CCR NA95-11807
+*.
+*.  CALLING SEQUENCE:
+*.
+*.     CALL A3CM3B__COMP_ADAPT(RBUF,IBUF,OBUF,IDX,EIDX)
+*.
+*.  MODULE FUNCTION:
+*.
+*.      THIS COMMON MODULE FORMATS THE STORMS CELL CENTROIDS
+*.      ADAPTATION DATA INTO THE USER SUPPLIED OUTPUT BUFFER.
+*.
+*.      RBUF AND IBUF ARE THE SAME ARRAYS; SOME OF THE ADAPTATION
+*.      DATA IS DEFINED AS REAL AND SOME AS INTEGER.  THE
+*.      PARAMETER FILE A315BUF,**A315PSAD IS  INCLUDED TO OBTAIN
+*.      THE OFFSETS INTO THE INPUT BUFFER.
+*.
+*.      OBUF IS THE OUTPUT BUFFER THAT IS THE PRODUCT, TO PREVENT
+*.      ANY ALIGNMENT PROBLEMS THE USER INPUTS THE TOP OF THE
+*.      PRODUCT AND SUPPLIES AN INDEX (IDX) OF WHERE THE OUTPUT
+*.      IS TO BEGIN.  IDX IS NOT CHANGED BY THIS ROUTINE.  THE
+*.      INDEX OF THE LAST I*2 WORD STORED IS RETURNED IN ENDIDX.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT    TYPE        DESCRIPTION
+*.    -   -----    ----        -----------
+*.    G   STA_AZMD I*4         (CONSTANT)Offset to the Azimuthal Separation
+*.                             Threshold (deg) in the adaptation data part of
+*.                             the centroids & tracking/forecast output
+*.                             buffers.
+*.    G   STA_CMPX I*4         (CONSTANT)Offset to the Max. # of
+*.                             Components/Elevation in theadaptation data part
+*.                             of the centroids & tracking/forecast output
+*.                             buffers.
+*.    G   STA_CPA1 I*4         (CONSTANT)Offset to the Threshold Component
+*.                             Area #1 (km**2) in the adaptation data part of
+*.                             the centroids & tracking/forecast output
+*.                             buffers.
+*.    G   STA_CPA2 I*4         (CONSTANT)Offset to the Threshold Component
+*.                             Area #2 (km**2) in the adaptation data part of
+*.                             the centroids & tracking/forecast output
+*.                             buffers.
+*.    G   STA_CPA3 I*4         (CONSTANT)Offset to the Threshold Component
+*.                             Area #3 (km**2) in the adaptation data part of
+*.                             the centroids & tracking/forecast output
+*.                             buffers.
+*.    G   STA_CPA4 I*4         (CONSTANT)Offset to the Threshold Component
+*.                             Area #4 (km**2) in the adaptation data part of
+*.                             the centroids & tracking/forecast output
+*.                             buffers.
+*.    G   STA_CPA5 I*4         (CONSTANT)Offset to the Threshold Component
+*.                             Area #5 (km**2) in the adaptation data part of
+*.                             the centroids & tracking/forecast output
+*.                             buffers.
+*.    G   STA_CPA6 I*4         (CONSTANT)Offset to the Threshold Component
+*.                             Area #6 (km**2) in the adaptation data part of
+*.                             the centroids & tracking/forecast output
+*.                             buffers.
+*.    G   STA_CPA7 I*4         (CONSTANT)Offset to the Threshold Component
+*.                             Area #7 (km**2) in the adaptation data part of
+*.                             the centroids & tracking/forecast output
+*.                             buffers.
+*.    G   STA_DDEL I*4         (CONSTANT)Offset to the Threshold Depth Delete
+*.                             (km) in the adaptation data part of the
+*.                             centroids & tracking/forecast output buffers.
+*.    G   STA_ELMR I*4         (CONSTANT)Offset to the Threshold Elevation
+*.                             Merge (deg) in the adaptation data part of the
+*.                             centroids & tracking/forecast output buffers.
+*.    G   STA_HDEL I*4         (CONSTANT)Offset to the Threshold Horizontal
+*.                             Delete (km) in the adaptation data part of the
+*.                             centroids & tracking/forecast output buffers.
+*.    G   STA_HEMR I*4         (CONSTANT)Offset to the Threshold Height Merge
+*.                             (km) in the adaptation data part of the
+*.                             centroids & tracking/forecast output buffers.
+*.    G   STA_HOMR I*4         (CONSTANT)Offset to the Threshold Horizontal
+*.                             Merge (km) in the adaptation data part of the
+*.                             centroids & tracking/forecast output buffers.
+*.    G   STA_MNSG I*4         (CONSTANT)Offset to the Threshold Min. # of
+*.                             Segments/Comp. in the adaptation data part of
+*.                             the centroids & tracking/forecast output
+*.                             buffers.
+*.    G   STA_MXDS I*4         (CONSTANT)Offset to the Thresh. Max. Detected
+*.                             Cells in the adaptation data part of the
+*.                             centroids & tracking/forecast output buffers.
+*.    G   STA_MXPC I*4         (CONSTANT)Offset to the Thresh. Max. Pot.
+*.                             Components/Elev in the adaptation data part of
+*.                             the centroids & tracking/forecast output
+*.                             buffers.
+*.    G   STA_OVLP I*4         (CONSTANT)Offset to the Thresh. Segment Overlap
+*.                             (km) in the adaptation data part of the
+*.                             centroids & tracking/forecast output buffers.
+*.    G   STA_SRD1 I*4         (CONSTANT)Offset to the Thresh. Search Radius
+*.                             #1 (km) in the adaptation data part of the
+*.                             centroids & tracking/forecast output buffers.
+*.    G   STA_SRD2 I*4         (CONSTANT)Offset to the Thresh. Search Radius
+*.                             #2 (km) in the adaptation data part of the
+*.                             centroids & tracking/forecast output buffers.
+*.    G   STA_SRD3 I*4         (CONSTANT)Offset to the Thresh. Search Radius
+*.                             #3 (km) in the adaptation data part of the
+*.                             centroids & tracking/forecast output buffers.
+*.    G   STA_STMX I*4         (CONSTANT)Offset to the Thresh. Max. Cells/Vol.
+*.                             in the adaptation data part of the centroids &
+*.                             tracking/forecast output buffers.
+*.    G   STA_VILX I*4         (CONSTANT)Offset to the Thresh. Max. VIL
+*.                             (kg/m**2) in the adaptation data part of the
+*.                             centroids & tracking/forecast output buffers.
+*.    P   EIDX     I*4         POINTER TO LAST WORD IN OUTPUT
+*.    P   IBUF     I*4         Input buffer as INTEGER.
+*.    P   IDX      I*4         Index at beginning of output buffer.
+*.    P   RBUF     R*4         Input buffer as REAL.
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    P   EIDX    I*4         POINTER TO LAST WORD IN OUTPUT
+*.    P   OBUF    I*2         Output buffer.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME      TYPE        DESCRIPTION
+*.    ----      ----        -----------
+*.    CD        CHAR*80     Character array for lines of ASCII text.
+*.    DIVIDER   I*4         End of page divider.
+*.    I         I*4         LOOP COUNTER
+*.    IDAT      I*2         HALFWORD ARRAY FOR LINES OF ASCII TEXT
+*.    J         I*4         Do loop counter
+*.    NI2WDS    I*4         Number of halfwords in output buffer line.
+*.    NUM_CHAR  I*4         Number of characters in output buffer line.
+*.    NUM_LINES I*4         Number of lines in output buffer page.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.        THIS MODULE IS COMPILED USING THE COMP09.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.        THIS MODULE IS LINKED USING THE LINK09.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+C
+$INCLUDE A315BUF.INC/G,**A315PSAD (NEND NLIST)
+C
+      REAL RBUF(*)
+      INTEGER*4 IBUF(*), IDX, EIDX
+      INTEGER*2 OBUF(*)
+C
+      INTEGER J,I,NI2WDS,NUM_LINES,NUM_CHAR,DIVIDER
+      PARAMETER(NI2WDS=40,NUM_LINES=14,NUM_CHAR=80,DIVIDER=-1)
+      CHARACTER*80 CD(NUM_LINES)
+      INTEGER*2 IDAT(40,NUM_LINES)
+      EQUIVALENCE (IDAT(1,1),CD)
+C
+C** PURGE LINES WITH BLANKS
+C
+      DO 300 I=1,NUM_LINES
+          WRITE(CD(I),301)
+300   CONTINUE
+C
+C***  STORM CELL SEGMENTS ADAPTATION DATA PROCESSING
+C
+      WRITE(CD(1),900)
+C
+C***  WRITE LINE 3
+C
+      WRITE(CD(3),903) RBUF(STA_CPA1), IBUF(STA_OVLP)
+C
+C***  WRITE LINE 4
+C
+      WRITE(CD(4),904) RBUF(STA_CPA2), RBUF(STA_AZMD)
+C
+C***  WRITE LINE 5
+C
+      WRITE(CD(5),905) RBUF(STA_CPA3), RBUF(STA_DDEL)
+C
+C***  WRITE LINE 6
+C
+      WRITE(CD(6),906) RBUF(STA_CPA4), RBUF(STA_HDEL)
+C
+C***  WRITE LINE 7
+C
+      WRITE(CD(7),907) RBUF(STA_CPA5), RBUF(STA_ELMR)
+C
+C***  WRITE LINE 8
+C
+      WRITE(CD(8),908) RBUF(STA_CPA6), RBUF(STA_HEMR)
+C
+C***  WRITE LINE 9
+C
+      WRITE(CD(9),909) RBUF(STA_CPA7), RBUF(STA_HOMR)
+C
+C***  WRITE LINE 10
+C
+      WRITE(CD(10),910) RBUF(STA_SRD1), IBUF(STA_MNSG)
+C
+C***  WRITE LINE 11
+C
+      WRITE(CD(11),911) RBUF(STA_SRD2), IBUF(STA_CMPX)
+C
+C***  WRITE LINE 12
+C
+      WRITE(CD(12),912) RBUF(STA_SRD3), IBUF(STA_MXPC)
+C
+C***  WRITE LINE 13
+C
+      WRITE(CD(13),913) IBUF(STA_VILX), IBUF(STA_STMX)
+C
+C***  WRITE LINE 14
+C
+      WRITE(CD(14),914) IBUF(STA_MXDS)
+C
+C** NOW STORE THE LINES OF ASCII TEXT INTO USERS BUFFER
+C
+C** BUT FIRST, INITIALIZE INDEX
+C
+      EIDX=IDX-1
+      DO 100 J=1,NUM_LINES
+         EIDX=EIDX+1
+         OBUF(EIDX)=NUM_CHAR
+         DO 200 I=1,NI2WDS
+C
+C** OBTAIN AND SAVE TEXT DATA
+C
+            EIDX=EIDX+1
+            OBUF(EIDX)=IDAT(I,J)
+200      CONTINUE
+100   CONTINUE
+C
+C** STORE THE END OF PAGE DIVIDER
+C
+      EIDX=EIDX+1
+      OBUF(EIDX)=DIVIDER
+C
+C** FORMAT STATEMENTS
+C
+301   FORMAT(80(' '))
+900   FORMAT(20X,'STORM CELL CENTROIDS ADAPTATION DATA')
+903   FORMAT(1X,F4.1,' (KM**2) THRESH (COMPONENT AREA #1)',5X,I2,
+     >       ' (BIN) THRESH (SEGMENT OVERLAP)')
+904   FORMAT(1X,F4.1,' (KM**2) THRESH (COMPONENT AREA #2)',4X,F3.1,
+     >       ' (DEG) THRESH (AZ SEPARATION)')
+905   FORMAT(1X,F4.1,' (KM**2) THRESH (COMPONENT AREA #3)',3X,F4.2,
+     >       '  (KM) THRESH (DEPTH DELETE)')
+906   FORMAT(1X,F4.1,' (KM**2) THRESH (COMPONENT AREA #4)',3X,F4.1,
+     >       '  (KM) THRESH (HORIZONTAL DELETE)')
+907   FORMAT(1X,F4.1,' (KM**2) THRESH (COMPONENT AREA #5)',4X,F3.1,
+     >       ' (DEG) THRESH (ELEVATION MERGE)')
+908   FORMAT(1X,F4.1,' (KM**2) THRESH (COMPONENT AREA #6)',4X,F3.1,
+     >       '  (KM) THRESH (HEIGHT MERGE)')
+909   FORMAT(1X,F4.1,' (KM**2) THRESH (COMPONENT AREA #7)',3X,F4.1,
+     >       '  (KM) THRESH (HORIZONTAL MERGE)')
+910   FORMAT(1X,F4.1,'    (KM) THRESH (SEARCH RADIUS #1) ',5X,I2,
+     >       '       THRESH (# SEGMENTS/COMP)')
+911   FORMAT(1X,F4.1,'    (KM) THRESH (SEARCH RADIUS #2) ',4X,I3,
+     >       '       THRESH (MAX COMPS/ELEV)')
+912   FORMAT(1X,F4.1,'    (KM) THRESH (SEARCH RADIUS #3) ',4X,I3,
+     >       '       THRESH (MAX POT COMPS/ELV)')
+913   FORMAT(2X,I3,' (KG/M**2) THRESH (MX CELL-BASED VIL)',2X,I3,
+     >       '       THRESH (MAX CELLS/VOL)')
+914   FORMAT(44X,I3,'       THRESH (MX DETECTED CELLS)')
+C
+C** RETURN TO CALLER ROUTINE
+C
+      RETURN
+      END

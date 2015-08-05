@@ -1,0 +1,117 @@
+C 
+C RCS info 
+C $Author: steves $ 
+C $Locker:  $ 
+C $Date: 2005/12/02 16:12:57 $ 
+C $Id: a3cm70.ftn,v 1.9 2005/12/02 16:12:57 steves Exp $ 
+C $Revision: 1.9 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A3CM70__REPORT_ERROR(MSG)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3CM70__REPORT_ERROR
+*.
+*.  MODULE VERSION: 0007
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       05 06 88      0000      W.B. EIDSON          SPR# 80056
+*.       02 24 90      0001      BILL EIDSON          SPR # 90613
+*.       11 08 90      0002      JOE WHEELER          SPR # 91250
+*.       12 03 91      0003      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0004      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0005      Toolset              SPR 91895
+*.       03/25/93      0006      Toolset              SPR NA93-06801
+*.       03/03/94      0007      Toolset              SPR NA94-05501
+*.
+*.  CALLING SEQUENCE: CALL A3CM70__REPORT_ERROR(MSG)
+*.
+*.  MODULE FUNCTION:
+*.
+*.     MODULE USED TO REPORT SOFTWARE ERRORS AND OTHER EXTRANEOUS
+*.     CONDITIONS WITHIN THE RPG.
+*.
+*.  MODULES CALLED: SNDMSG
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT       TYPE        DESCRIPTION
+*.    -   -----       ----        -----------
+*.    G   MSG_LU      I*4         (CONSTANT)Logical unit to write message to.
+*.    G   STATUS_TASK CHAR*8      (CONSTANT)Task ID to which Status Change
+*.                                Notification Parameter is queued.
+*.    P   MSG         CHAR*(*)    THE ERROR MESSAGE TO BE REPORTED TO STATMON,
+*.                                60 BYTES ARE RETAINED FOR DISPLAY.
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME       TYPE        DESCRIPTION
+*.    ----       ----        -----------
+*.    ERR_MSG    CHAR*64     LOCAL CHARACTER REPRESENTATION OF ERROR MESSAGE.
+*.                           USED FOR EQUIVALENCE
+*.    ERR_MSG_I4 I*4         ARRAY USED TO ACTUALLY SEND MESSAGE TO STATMON.
+*.                           USED TO EQUIVALENCE. SIZE = 16 FULLWORDS.
+*.    I          I*4         Do loop index.
+*.    STAT4      I*4         STATUS RETURNED ON CALL TO SNDMSG
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.        THIS MODULE IS COMPILED USING THE COMP09.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.        THIS MODULE IS COMPILED USING THE COMP09.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+
+      CHARACTER ERR_MSG*64, MSG*(*)
+      CHARACTER*8 STATUS_TASK
+      PARAMETER (STATUS_TASK = 'STATMON ')
+      INTEGER I, STAT4, ERR_MSG_I4(16)
+
+      EQUIVALENCE (ERR_MSG, ERR_MSG_I4(1))
+
+      DATA ERR_MSG(1:4)/'LOG '/
+*
+*** MOVE FIRST 60 BYTES OF MSG INTO ERR_MSG TO EQUIVALENCE IT TO
+*** INTEGER ARRAY FOR INTER_TASK MESSAGE TO STATUS TASK.
+*
+      DO 100 I=1, 60
+         ERR_MSG(I+4:I+4) = MSG(I:I)
+ 100  CONTINUE
+*
+*** SEND MESSAGE TO STATUS MONITOR TASK...
+*
+      CALL SNDMSG(STATUS_TASK, ERR_MSG_I4, STAT4)
+*
+*** EXIT THE SUBROUTINE
+*
+      RETURN
+      END

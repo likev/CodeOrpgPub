@@ -1,0 +1,243 @@
+LB_open(3) 		   ORPG SDD Manpage   		LB_open(3)
+
+NAME
+LB_open - open a Linear Buffer (LB) file
+
+SYNOPSIS
+#include <lb.h>
+int LB_open (char *lb_name, int flags, LB_attr *attr)
+
+DESCRIPTION
+This function opens an LB of name "lb_name", which must be a valid 
+UNIX file path, and returns a non-negative LB descriptor on success. 
+
+Communicating processes must use the same "lb_name" to be able to 
+connect to the same LB. The argument "flags" specifies additional 
+options for LB_open as described later. The argument attr is a 
+structure specifying the attributes for the LB. Structure LB_attr 
+has the following fields: 
+
+	char remark [LB_REMARK_LENGTH];
+	mode_t mode;
+	int msg_size;
+	int maxn_msgs;
+	int types;
+
+"remark" is a NULL terminated character string which will be stored 
+in the LB for reference. It will not be used by LB module. MB_stat 
+can be used to retrieve it.
+
+"mode" is the permission flag used for opening the file and
+shared memory segment. Refer to "open" or "shmget". "msg_size" 
+and "maxn_msgs" specify the message size and the maximum number of 
+messages that can be buffered in the LB. No more than "maxn_msgs" 
+messages can be stored in the LB at any time. The "msg_size" 
+argument determines the buffer space for all message ("maxn_msgs" * 
+"msg_size" bytes). Thus it specifies the average message size. If 
+the average message size in an LB is larger than "msg_size", less 
+than "maxn_msgs" messages will be allowed to be stored.
+
+"types" is an integer containing the following bit fields:
+
+	Storage type: LB_FILE or LB_MEMORY
+
+	This one bit field specifies the type of storage used: 
+	file LB or shared memory LB. The default is LB_FILE. A file 	
+	type LB uses a file to store all messages and control 
+	information. A shared memory type LB creates a file as well 
+	as a shared memory segment. The file is used for storing 
+	control information and for implementing locks between the 
+	writers. The user should not try to modify or remove the LB 
+	file for a shared memory LB except using LB_remove. 
+	Otherwise shared memory resources may not be appropriately 
+	freed.
+
+	Replaceability: LB_REPLACE or LB_NORMAL
+
+	This one bit field determines if the messages are 
+	replaceable. For a replaceable LB, a new message with the 
+	same id as that of an existing message in the LB will 
+	replace the old message. This replacement is possible only 
+	if the new message has the same length as the old. If the 
+	length is different, an error code is returned. If the LB is 
+	not replaceable (LB_NORMAL), this message will be considered 
+	as new and stored in the LB as a new message. The default is 
+	LB_NORMAL. Messages are not subject to expiration for 
+	replaceable LB. If an LB is full, LB_write can fail.
+
+	Must-read: LB_MUST_READ or LB_NORMAL
+
+	This one bit field determines if messages must be read 
+	before they can be expired. If this bit is set to 
+	LB_MUST_READ, a message will not be subject to expiration if 
+	this message and all messages after it have never been read. 
+
+	Unread messages that can not be expired in an LB may cause 
+	free space to run out for the LB and an LB_write 
+	failure.
+
+	Single writer: LB_SINGLE_WRITER or LB_NORMAL
+
+	If LB_SINGLE_WRITER is set, the LB only allows a single 
+	writer to connect to it. If there is a second writer trying 
+	to open the LB, the second writer will fail. The message 
+	writing into an LB_SINGLE_WRITER LB is more efficient than 
+	writing to an LB_NORMAL LB because the lock needs to be 
+	acquired only once. The default is LB_NORMAL.
+
+	No expiration: LB_NOEXPIRE or LB_NORMAL
+
+	If LB_NOEXPIRE is set, no message in the LB will be expired
+	due to new message writing. When there is no room for the 
+	new message, LB_write will return LB_FULL. The default is 
+	LB_NORMAL.
+
+	LB protection: LB_UNPROTECTED or LB_NORMAL
+
+	Without LB_UNPROTECTED set, the LB is protected by 
+	turning off the write permission for the file or shared 
+	memory before returning to the caller. If LB_UNPROTECTED is 
+	set, no such access control is performed and thus 
+	the LB is more efficient. There is, however, a chance that 
+	the LB can be corrupted by memory leak in the application. 
+	The default is LB_NORMAL.
+
+	LB direct memory access: LB_DIRECT or LB_NORMAL
+
+	This option only works for the LB_MEMORY LB. When LB_DIRECT
+	flag is set, the user can use function LB_direct to get
+	the pointer pointing to the message in the shared memory.
+	This increases, when used for accessing the message, the 
+	efficiency by eliminating a message copy, which LB_read 
+	requires. This option does not support LB_MUST_READ. The 
+	default is LB_NORMAL.
+
+	When this flag is set, the messages are stored in the 
+	shared memory in contiguous segments. The area pointed to 
+	by the pointer returned by LB_direct is set as 
+	read-only unless LB_UNPROTECTED is set. However, the LB 
+	depends on the OS to provide this protection, which may not 
+	be guaranteed on a particular system. The message pointed 
+	to by the returned pointer is not guaranteed to be available 
+	after LB_direct call. The memory area can be used by a 
+	writer for storing a new message and thus the message can 
+	be corrupted at any time.
+
+	The area used for each message is not guaranteed to be 
+	aligned properly in terms of the hardware and data type.
+	The messages are actually placed in the LB one immediately 
+	after another. If alignment is important, the user should 
+	make sure that all message lengths divide the machine 
+	alignment length.
+
+	If the LB is also created as LB_UNPROTECTED, the area 
+	pointed by the returned pointer is also writable. In this
+	case, the area can be used as a segment of conventional 
+	shared memory.
+
+
+The "flags" argument is an integer containing the following bit 
+fields:
+
+	Access mode field: LB_READ or LB_WRITE
+
+	This 1 bit field specifies that the LB is opened for either 
+	read-only or read-and-write. fd opened with LB_READ can not 
+	be used for message write. The default is LB_READ.
+
+	Creation mode field: LB_CREATE or LB_NORMAL
+
+	If LB_CREATE is specified and the named LB does not exist, 
+	a new LB is created. If there exists an LB with the same 
+	name, the old one is removed before creating the new LB.
+
+	If LB_CREATE is not specified, an existing LB is opened. If 
+	"attr" is not NULL, non-zero fields in "attr" are compared 
+	with the attributes of the existing LB. If a difference is 
+	found, the LB_open will fail and return LB_DIFFER. If there 
+	is no existing LB with the specified name, LB_open will fail
+	and return LB_OPEN_FAILED. 
+
+	This field automatically activates the LB_WRITE flag. The 
+	default is LB_NORMAL.
+
+	When an LB is opened for read, its read pointer is set to point
+	to the next incoming message (the message after the latest message 
+	in the buffer if the LB is not empty) if LB_MUST_READ is not set.
+	if LB_MUST_READ is set, the read pointer is set to point
+	to the first unread message.
+
+	When a shared memory LB is created, a file with "lb_name" is also
+	created. In this file some control information is stored. One 
+	should not try to remove this file by "rm". When the LB is removed
+	by LB_remove, the file, as well as the shared memory allocated,
+	will be removed.
+
+	If more than one process creates an LB with the same lb_name at 
+	the same time, the result is undefined. 
+
+	One can only open an LB once before it is closed in one process.
+	If one tries to open an LB that has already been opened in the same
+	process, the second LB_open may fail due to an mmap error (LB_open
+	returns LB_MMAP_FAILED).
+
+	This function returns a non-negative number called the LB 
+	descriptor, which will be used later for LB access just like the 
+	file descriptor returned by the "open" call. On failure the 
+	function returns a negative number indicating one of the following 
+	error conditions:
+
+	LB_BAD_ARGUMENT:	One of the arguments does not make 
+				sense or incompatible types are 
+				specified simultaneously.
+	LB_TOO_MANY_OPENED:	Too many (more than MAX_N_LBS) LBs 
+					opened. 
+	LB_OPEN_FAILED:		Failed in "open" system call because 
+				either the LB file does not exist while
+				LB_CREATE is not set, or the LB file 
+				could not be created due to a 
+				permission problem. Refer to errno for 
+				further information.
+	LB_DIFFER:		An object (file or shm) with the same 
+				lb_name exits, but it is not the LB 
+				as specified, and LB_CREATE is not set.
+	LB_MALLOC_FAILED:	Failed in allocating memory.
+	LB_UPDATE_FAILED:	Failed in writing to the LB file for 
+				initialization.
+	LB_INTERNAL_ERROR:	An internal inconsistency is found. 
+				The LB is damaged due to unknown reason.
+	LB_TOO_MANY_WRITERS:	Another writer is currently opening 
+				this LB for writing and the LB is of 
+				type LB_SINGLE_WRITER.
+	LB_FTOK_FAILED: 	Failed in ftok system call.
+	LB_SHMGET_FAILED:	Failed in shmget system call.
+	LB_FTRUNCATE_FAILED:	Failed in ftruncate system call.
+	LB_SHMDT_FAILED:	Failed in shmdt system call.
+	LB_LOCK_FAILED:		Failed in a lock system call.
+	LB_MMAP_FAILED:		Failed in mmap system call.
+	LB_MPROTECT_FAILED:	Failed in mprotect system call.
+
+Examples:
+
+	lbd = LB_open ("my_lb", LB_READ, NULL) opens an LB "my_lb" for
+	receiving messages. It is open for as long as it is a valid LB 
+	regardless of its attributes.
+
+	LB_attr attr;
+
+	strncpy (attr.remark, "My remark", LB_REMARK_LENGTH);
+	attr.remark [LB_REMARK_LENGTH - 1] = '\0';
+	attr.mode = 0666;
+	attr.msg_size = 1024;
+	attr.maxn_msgs = 512;
+	attr.type = LB_FILE | LB_REPLACE;
+
+	lbd = LB_open ("my_lb", LB_CREATE, &attr) creates a 	
+	new LB that can be read/write accessible by all users. The 
+	average message size is 1024 bytes and at most 512 messages can 
+	be buffered in the LB. The LB is a file LB and is replaceable.
+
+SEE ALSO
+LB_clear(3), LB_close(3), LB_direct(3), LB_list(3), LB_mark(3),
+LB_previous_msgid(3), LB_read(3), LB_remove(3), LB_seek(3), LB_size(3),
+LB_stat(3), LB_write(3), lb(3), lb_create(1), lb_info(1), lb_rm(1)

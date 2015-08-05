@@ -1,0 +1,288 @@
+C
+C RCS info
+C $Author: steves $
+C $Locker:  $
+C $Date: 2004/01/12 17:03:19 $
+C $Id: a318qb.ftn,v 1.5 2004/01/12 17:03:19 steves Exp $
+C $Revision: 1.5 $
+C $State: Exp $
+C
+      SUBROUTINE A318QB__NOTVS_ADTAB(TVSADAP,BUF)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A318QB__NOTVS_ADTAB
+*.
+*.  MODULE VERSION: 0011
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       09 21 90      0000      MARK FRESCH          SPR # 90767
+*.       11 05 90      0001      MEI   OU             SPR # 91259
+*.       04 02 91      0001      PENNY J YELSHIN      SPR # 91958
+*.       12 03 91      0002      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0003      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0004      Toolset              SPR 91895
+*.       03/25/93      0005      Toolset              SPR NA93-06801
+*.       01/28/94      0006      Toolset              SPR NA94-01101
+*.       03/03/94      0007      Toolset              SPR NA94-05501
+*.       04/11/96      0008      Toolset              CCR NA95-11802
+*.       12/23/96      0009      Toolset              CCR NA95-11807
+*.       05/01/97      0010      DAVE ZITTEL          CCR NA95-21503
+*.       03/16/99      0011      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A318QB__NOTVS_ADTAB(SRCHPCT,TVSSTHR,BUF)
+*.
+*.  MODULE FUNCTION:
+*.
+*.     THIS MODULE FORMATS THE ADAPTATION DATA BLOCK FOR THE
+*.     NULL CASE OF THE TVS PRODUCT--THERE IS NO SYMBOLOGY BLOCK.
+*.     THE NULL PRODUCT CONSISTS OF THE PRODUCT HEADER 2 BLOCKS ,
+*.     THE ATTRIBUTES BLOCK FOR THE 'NO TVS' MESSAGE, AND THE
+*.     TABULAR BLOCK WHICH CONTAINS ONLY ONE PAGE FOR THE ADAPTATION
+*.     DATA.
+*.
+*.  MODULES CALLED: A318Q6__TVS_ADAPT 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT      TYPE        DESCRIPTION
+*.    -   -----      ----        -----------
+*.    G   LGLSWOFF   I*4         (CONSTANT)Product header offset: Length of
+*.                               message (LSW).
+*.    G   LGMSWOFF   I*4         (CONSTANT)Product header offset: Length of
+*.                               message (MSW).
+*.    G   MESCDOFF   I*4         (CONSTANT)Product header offset: Message
+*.                               code.
+*.    G   NBLKSOFF   I*4         (CONSTANT)Product header offset: Number of
+*.                               blocks in product.
+*.    G   NTDA_ADP   I*4         (CONSTANT)# OF TDA ADAPTABLE PARAMETERS,
+*.                               INCLUDING IN THE TVSATTR BUFFER
+*.    G   OGLSWOFF   I*4         (CONSTANT)Product header offset: graphic
+*.                               attributes (LSW).
+*.    G   OGMSWOFF   I*4         (CONSTANT)Product header offset: graphic
+*.                               attributes (MSW).
+*.    G   OPRLSWOFF  I*4         (CONSTANT)Product header offset descriptions:
+*.                               Offset to product length (LSW)
+*.    G   OPRMSWOFF  I*4         (CONSTANT)Product header offset descriptions:
+*.                               Offset to product length (MSW)
+*.    G   OTADLSWOFF I*4         (CONSTANT)Product header offset: offset to
+*.                               tabular/adaptation data (LSW)
+*.    G   OTADMSWOFF I*4         (CONSTANT)Product header offset: offset to
+*.                               tabular/adaptation (MSW)
+*.    G   PHEADLNG   I*4         (CONSTANT)Number of half words in product
+*.                               header (its length).
+*.    G   PRDCODOFF  I*4         (CONSTANT)Product header offset descriptions:
+*.                               Product code.
+*.    C   TVSIDX     I*4         TVS product output buffer index for pointing
+*.                               to next location in array BUF.
+*.    P   BUF        I*2         PRODUCT OUTPUT BUFFER
+*.    P   TVSADAP    I*4         Array of Tornado Detection Algorithm
+*.                               adaptable parameters.
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    C   TVSIDX  I*4         TVS product output buffer index for pointing to
+*.                            next location in array BUF.
+*.    P   BUF     I*2         PRODUCT OUTPUT BUFFER
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    P   BUF               I*2         PRODUCT OUTPUT BUFFER
+*.    P   TVSADAP           I*4         Array of Tornado Detection Algorithm
+*.                                      adaptable parameters.
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME         TYPE        DESCRIPTION
+*.    ----         ----        -----------
+*.    ADOFF        I*4         OFFSET IN PRODUCT OUTPUT BUFFER TO ADAPTATION
+*.                             DATA IN THE TABULAR ALPHANUMERIC
+*.    BLOCKID      I*2         BLOCK ID OF TABULAR A.N. BLOCK
+*.    BYTES_PER_I2 I*4         NO. OF BYTES PER I*2
+*.    DIVIDER      I*2         DIVIDER IN PRODUCT OUTPUT BUFFER
+*.    HIDX         I*4         POINTER TO HEADER IN PRODUCT BUFFER
+*.    I            I*4         DO LOOP CONTROL PARAMETER
+*.    INC1         I*4         PARAMETER OF 1 FOR INCREMENTING
+*.    INIT0        I*4         PARAMETER OF 0 FOR INITIALIZATION
+*.    INIT1        I*4         PARAMETER OF 1 FOR INITIALIZATION
+*.    LENGTH       I*4         BLOCK LENGTHS
+*.    LNG          I*4         OFFSET TO BLOCK LENGTH IN PRODUCT BUFFER
+*.    N1           I*4         DO LOOP INITIATING PARAMETER
+*.    NBLKS        I*2         NO. OF BLOCKS IN TABULAR A.N. BLOCK
+*.    TAB_PCODE    I*2         TABULAR ALPHA PRODUCT CODE
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    TVSINDEX
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  NONE
+*.
+*.  DEVIATION FROM STANDARDS:  NONE
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     THIS MODULE IS COMPILED USING THE COMP18.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     THIS MODULE IS LINKED USING THE LINK18.CSS
+*.
+*.  MISC:  NONE
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+C
+C  INCLUDE FILES:
+C
+$INCLUDE A309.INC/G,**A3PM00 (NEND NLIST)
+C
+C  DEFINITIONS FOR CPC-12
+C
+$INCLUDE A309.INC/G,**A3CD00 (NEND NLIST)
+C
+C  PARAMETERS AND OFFSETS FOR PRODUCT HEADER
+C
+$INCLUDE A309.INC/G,**A3PM01 (NEND NLIST)
+C
+C
+C   INCLUDE PARAMETERS FOR TDA
+C
+$INCLUDE A317BUF.INC/G,**A317TP9 (NEND NLIST)
+$INCLUDE A318.INC/G,**A318TVS1 (NEND NLIST)
+C
+C  LOCAL DECLARATIONS:
+C
+      INTEGER*2 BUF(*)
+      INTEGER*4 LNG,LENGTH,I,ADOFF,PTR,HIDX
+      INTEGER*4 TVSADAP(NTDA_ADP)
+C
+      INTEGER*2 TAB_PCODE,NBLKS,DIVIDER,BLOCKID
+      PARAMETER (BLOCKID=3,DIVIDER=-1,NBLKS=3)
+      PARAMETER (TAB_PCODE=104)
+C
+      INTEGER N1, BYTES_PER_I2
+      INTEGER INIT1,INIT0,INC1
+      PARAMETER(N1 = 1,BYTES_PER_I2 = 2)
+      PARAMETER(INIT1=1,INIT0=0,INC1=1)
+C
+C**********************E X E C U T A B L E **************************
+C
+C
+C  The next available location to store into the product header is
+C  the buffer index TVSIDX...
+C
+C   Set up and store the offset to this block
+C   in the main product header.Subtract 1 to make offset
+C   relative to zero.
+C
+      ADOFF = TVSIDX-INC1
+      call RPG_set_product_int( BUF(OTADMSWOFF), ADOFF )
+C
+C   Block three starts with 4 words of "block overhead" which is the
+C   Block divider, Block-Id, 2 half words for the length of block.
+C   First store the divider for Block 3 of the product.
+C
+      BUF(TVSIDX)=DIVIDER
+      TVSIDX=TVSIDX+INC1
+C
+C  Store the block identifier for this block. Block-Id is 3
+C
+      BUF(TVSIDX)=BLOCKID
+      TVSIDX=TVSIDX+INC1
+C
+C  Save the index to store the length of the block.
+C  The length field is 2 halfwords, but only index up by one
+C  until the header fields are stored using the pointers relative to
+C  one (1) can be used with the TVSIDX without subrtacting.
+C
+      LNG=TVSIDX
+      TVSIDX=TVSIDX+INC1
+C
+C  The index TVSIDX is now pointing to one word before the beginning of
+C  the product header for block 3 - this allows us to use the
+C  parameters defined in A3PM01 to set up the header.
+C
+C   Save this value of the index to calculate the length of the
+C   product ( the embedded product) for storage into the header.
+C
+      HIDX = TVSIDX
+C
+C   Copy the main header into the block 3 header and then change the
+C   entries that are unique for this header.
+C
+      DO 20 I=N1,PHEADLNG
+        BUF(TVSIDX+I) = BUF(I)
+ 20   CONTINUE
+C
+C   Now store the words that are unique the the block 3 header.
+C
+C   Store the number of blocks, product codes and offsets fields.
+C   The offsets to the graphic attributes and the tabular blocks
+C   are zero because this embedded product has only one block.
+C   This is a total alpha product the offset to the data is in the
+C   offset to block 1.
+C
+      BUF(TVSIDX+NBLKSOFF) = NBLKS
+C
+      BUF(TVSIDX+MESCDOFF) = TAB_PCODE
+      BUF(TVSIDX+PRDCODOFF) = TAB_PCODE
+C
+      call RPG_set_product_int( BUF(TVSIDX+OTADMSWOFF), 0 )
+      call RPG_set_product_int( BUF(TVSIDX+OGMSWOFF), 0 )
+      call RPG_set_product_int( BUF(TVSIDX+OPRMSWOFF), PHEADLNG )
+C
+C  Now ready to increment TVSIDX and store the text data
+C
+      TVSIDX = TVSIDX + PHEADLNG + INC1
+C
+C  Store the divider
+C
+      BUF(TVSIDX)=DIVIDER
+      TVSIDX=TVSIDX+INC1
+C
+C  Store the number of pages which is 1 for this case
+C
+      BUF(TVSIDX) = INIT1
+      TVSIDX = TVSIDX + INC1
+C
+C  Call routine to format the adaptation data into the buffer.
+C
+      CALL A318Q6__TVS_ADAPT(TVSADAP,BUF)
+C
+C  Store the end of page divider behind the ASCII text and increment
+C  the global index.
+C
+      BUF(TVSIDX) = DIVIDER
+      TVSIDX = TVSIDX + INC1
+C
+C  Store length of block
+C
+      LENGTH=((TVSIDX-INC1)-ADOFF)*BYTES_PER_I2
+      call RPG_set_product_int( BUF(LNG), LENGTH )
+C
+C  Store length in adaptation/tabular header
+C  Remember that HIDX is the value of the index setting one half
+C  word before the start of the header.
+C
+      LENGTH = (TVSIDX-(HIDX+INC1))*BYTES_PER_I2
+      call RPG_set_product_int( BUF(HIDX+LGMSWOFF), LENGTH )
+C
+C   STORE THE TOTAL LENGTH INTO THE MAIN HEADER
+C
+      LENGTH = (TVSIDX-INC1)*BYTES_PER_I2
+      call RPG_set_product_int( BUF(LGMSWOFF), LENGTH )
+C
+      RETURN
+      END

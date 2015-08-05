@@ -1,0 +1,312 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/17 18:34:26 $
+C $Id: a318q9.ftn,v 1.5 2002/12/17 18:34:26 christie Exp $
+C $Revision: 1.5 $
+C $State: Exp $
+C
+      SUBROUTINE A318Q9__TVS_LINE(I,TVATTR,BUF)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A318Q9__TVS_LINE
+*.
+*.  MODULE VERSION: 0018
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       03 15 85      0000      D.A.HUMPHREYS        PART 2, RPG BUILD 1
+*.       06 03 86      0001      JS GROMMONS          SPR#  60124
+*.       06 03 86      0001      JS GROMMONS          SPR#  60210
+*.       09 05 86      0002      MJSTALEY             SPR#  60382
+*.       05 25 89      0003      TERRI LEWIS          SPR#  80613
+*.       04 18 90      0004      JOHN DEPHILIP        SPR#  90697
+*.       06 08 90      0005      PAUL U. PISANI       SPR#  90775 [QAR 1201]
+*.       01 31 91      0006      MEI   OU             SPR#  91259
+*.       10 15 91      0007      EDWARD WENDOWSKI     SPR#  92410
+*.       10 15 91      0007      EDWARD WENDOWSKI     SPR#  92598
+*.       12 03 91      0008      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0009      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0010      Toolset              SPR 91895
+*.       03/25/93      0011      Toolset              SPR NA93-06801
+*.       01/28/94      0012      Toolset              SPR NA94-01101
+*.       03/03/94      0013      Toolset              SPR NA94-05501
+*.       04/01/94      0014      Steve Smith          CCR 93146-002A00
+*.       04/11/96      0015      Toolset              CCR NA95-11802
+*.       12/23/96      0016      Toolset              CCR NA95-11807
+*.       04/16/97      0017      DAVE ZITTEL          CCR NA95-21503
+*.       03/16/99      0018      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:  CALL A318Q9__TVS_LINE(IN,TVSMES,AZ,RAN,HGT,BAZ,BRAN,
+*.                                           BHGT,SHR,ORI,ROT,BUF)
+*.
+*.  MODULE FUNCTION:  WRITE A TABULAR TVS LINE
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT      TYPE        DESCRIPTION
+*.    -   -----      ----        -----------
+*.    G   KM_TO_NM   R*4         (CONSTANT)DEFINES THE SCALING FACTOR FOR
+*.                               KILOMETER TO NAUTICAL MILES PARAMETER
+*.    G   MPS_TO_KTS R*4         (CONSTANT)SCALING FACTOR FOR METERS PER
+*.                               SECOND TO KNOTS
+*.    G   M_TO_FT    R*4         (CONSTANT)SCALING FACTOR FOR METERS TO FEET
+*.    G   TVFEAT_CHR I*4         (CONSTANT)# OF TVS FEATURE ATTRIBUTES IN
+*.                               TVS_MAIN AND OTHER ARRAYS
+*.    G   TV_ADV     I*4         (CONSTANT)INDEX INTO TVS_MAIN TO THE TVS
+*.                               FEATURE AVERAGE DELTA VELOCITY (IN M/S)
+*.    G   TV_AZM     I*4         (CONSTANT)INDEX INTO TVS_MAIN TO THE TVS
+*.                               FEATURE AZIMUTH (IN DEGREES)
+*.    G   TV_BAS     I*4         (CONSTANT)INDEX INTO TVS_MAIN TO THE TVS
+*.                               FEATURE BASE HEIGHT (IN KM)
+*.    G   TV_DEP     I*4         (CONSTANT)INDEX INTO TVS_MAIN TO THE TVS
+*.                               FEATURE DEPTH (IN KM)
+*.    G   TV_LDV     I*4         (CONSTANT)INDEX INTO TVS_MAIN TO THE TVS
+*.                               FEATURE LOW-LEVEL DELTA VELOCITY (IN M/S)
+*.    G   TV_MDV     I*4         (CONSTANT)INDEX INTO TVS_MAIN TO THE TVS
+*.                               FEATURE MAXIMUM DELTA VELOCITY (IN M/S)
+*.    G   TV_MVH     I*4         (CONSTANT)INDEX INTO TVS_MAIN TO THE TVS
+*.                               FEATURE HEIGHT OF THE MAXIMUM DELTA VELOCITY
+*.                               (IN KM)
+*.    G   TV_RAN     I*4         (CONSTANT)INDEX INTO TVS_MAIN TO THE TVS
+*.                               FEATURE RANGE (IN KM)
+*.    G   TV_SHR     I*4         (CONSTANT)INDEX INTO TVS_MAIN TO THE TVS
+*.                               FEATURE MAXIMUM SHEAR (IN M/S/KM)
+*.    G   TV_SRH     I*4         (CONSTANT)INDEX INTO TVS_MAIN TO THE TVS
+*.                               FEATURE HEIGHT OF THE MAXIMUM SHEAR (IN KM)
+*.    G   TV_TOP     I*4         (CONSTANT)INDEX INTO TVS_MAIN TO THE TVS
+*.                               FEATURE TOP HEIGHT (IN KM)
+*.    G   TV_TYP     I*4         (CONSTANT)INDEX INTO TVS_MAIN TO THE TVS
+*.                               FEATURE TYPE (TVS=1 OR ETVS=2)
+*.    C   TVSIDX     I*4         TVS product output buffer index for pointing
+*.                               to next location in array BUF.
+*.    C   TVS_STM_ID I*2         Array to hold the integer equivalent of the
+*.                               two-character label of a storm cell
+*.                               associated with a TVS or an ETVS.
+*.    P   I          I*4         AN INDEX VARIABLE
+*.    P   TVATTR     R*4         Array of attributes for the TVS or ETVS being
+*.                               displayed on the current TDA alphanumeric
+*.                               product line.
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    C   TVSIDX  I*4         TVS product output buffer index for pointing to
+*.                            next location in array BUF.
+*.    P   BUF     I*2         DUMMY OUTPUT BUFFER FOR STORING I*2 DATA INTO
+*.                            I*4 MEMORY
+*.    P   I       I*4         AN INDEX VARIABLE
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME          TYPE        DESCRIPTION
+*.    ----          ----        -----------
+*.    AVDV          I*4         Average delta velocity.
+*.    BHGT          R*4         Height of the TVS base
+*.    BLANK         CHAR*1      Blank character that is a placeholder modifier
+*.                              for various TVSs/ETVSs attributes in the TDA
+*.                              alphanumeric product.
+*.    BSQUALFR      CHAR*1      Qualifier to show if the height of a TVS/ETVS
+*.                              base is at or below the lowest elevation scan.
+*.    CHARNUM       I*2         CURRENT CHARACTER NUMBER
+*.    DPQUALFR      CHAR*1      Qualifier to show the depth of a TVS/ETVS
+*.                              exceeds the reported value if base is on
+*.                              lowest elevation or top is at highest
+*.                              elevation.
+*.    DPTH          R*4         Depth of a TVS or ETVS.
+*.    ETVS          CHAR*4      Literal string of the acronym for elevated
+*.                              tornadic vortex signature ("ETVS")
+*.    FEAT          CHAR*4      Variable character string to display TDA's 3D
+*.                              feature type of either TVS or ETVS on the TDA
+*.                              alphanumeric product.
+*.    FULLCIRC      I*4         Number of degrees in a full circle (360) that
+*.                              is added to a TDA feature's azimuth when it
+*.                              equals zero (0).
+*.    GREATER_THAN  CHAR*1      Character representation of the mathematical
+*.                              "greater than" symbol.
+*.    HTDV          R*4         Height of the maximum velocity difference
+*.                              (delta velocity) in a TVS or ETVS feature.
+*.    IAZ           I*4         INTEGER OF TVS AZIMUTH NUMBER
+*.    IRAN          I*4         TEMP VALUE FOR INTEGERIZED RANGE
+*.    LESS_THAN     CHAR*1      Character representation of the mathematical
+*.                              symbol for "less than."
+*.    LLDV          I*4         Maximum gate-to-gate velocity difference found
+*.                              in the lowest 2D feature in a TVS or ETVS.
+*.    MAX_ALLOW_SHR I*4         Maximum value for shear that will fit an I3
+*.                              format; it is larger than largest expected
+*.                              shear from TDA algorithm.
+*.    MXDV          I*4         Temporarily holds the maximum delta velocity
+*.                              for a TVS or ETVS for the current line in the
+*.                              TDA alphanumeric product.
+*.    MXSH          I*4         Temporarily holds the maximum shear for a TVS
+*.                              or ETVS for the current line in the TDA
+*.                              alphanumeric product.
+*.    NROWS         I*4         ROW CONSTANT
+*.    SHGT          R*4         Temporarily holds the maximum shear height for
+*.                              a TVS or ETVS for the current line in the TDA
+*.                              alpha product.
+*.    STID          I*2         Temporarily holds the storm cell Id for a TVS
+*.                              or ETVS for the current line in the TDA
+*.                              alphanumeric product.
+*.    TB            CHAR*80     TEMP CHARACTER BUFFER
+*.    TBUF          I*2         WORKING BUF ARRAY
+*.    THGT          R*4         Temporarily holds the highest 2D feature's
+*.                              height for a TVS or ETVS for the current line
+*.                              in the TDA alphanumeric product.
+*.    TPQUALFR      CHAR*1      A space or > character qualifier; the latter
+*.                              shows that a TVS/ETVS 2D feature occurred at
+*.                              the top of a volume scan.
+*.    TVS           CHAR*4      Literal string of the acronym for tornadic
+*.                              vortex signature ("TVS")
+*.    ZERO          I*4         Program parameter for 0.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A318TVS
+*.    TVSINDEX
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  NONE
+*.
+*.  DEVIATION FROM STANDARDS:  NONE
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     THIS MODULE IS COMPILED USING THE COMP18.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     THIS MODULE IS LINKED USING THE LINK18.CSS
+*.
+*.  MISC:  NONE
+*.
+*.*******************************************************************
+$EJECT
+      IMPLICIT NONE
+C   PARAMETERS AND OFFSETS FOR MESOCYCLONE ALGORITHM
+$INCLUDE A309.INC/G,**A3PM50 (NLIST)
+$INCLUDE A317BUF.INC/G,**A317TP9 (NLIST)
+$INCLUDE A318.INC/G,**A318TVS (NEND NLIST)
+$INCLUDE A318.INC/G,**A318TVS1 (NEND NLIST)
+C
+C  LOCAL COMMON DEFINITIONS
+C
+      REAL TVATTR(TVFEAT_CHR)
+      INTEGER*4  NROWS
+      PARAMETER  (NROWS=40)
+C
+      INTEGER*2 BUF(*),STID,TBUF(NROWS),CHARNUM
+      CHARACTER*4 TVS,ETVS,FEAT
+      PARAMETER (TVS = ' TVS', ETVS = 'ETVS')
+      INTEGER*4 I,IAZ,IRAN,LLDV,MXDV,AVDV,MXSH,FULLCIRC
+C$INSERT      INTEGER*4 J
+      INTEGER ZERO
+      REAL HTDV,DPTH,BHGT,SHGT,THGT,KM_TO_M
+      INTEGER MAX_ALLOW_SHR
+      PARAMETER (KM_TO_M = 1000.0, MAX_ALLOW_SHR = 999 )
+      CHARACTER*80 TB
+      PARAMETER (CHARNUM=80, FULLCIRC = 360, ZERO = 0)
+      CHARACTER*1 LESS_THAN,GREATER_THAN,BLANK,DPQUALFR,TPQUALFR
+      CHARACTER*1 BSQUALFR
+      PARAMETER (LESS_THAN = '<', GREATER_THAN = '>', BLANK = ' ')
+C
+      EQUIVALENCE (TBUF(1),TB)
+C
+C****************** E X E C U T A B L E ***************************
+C
+C  INTEGERIZE AZ, BAZ, RAN, BRAN, AND SHR FOR TABULAR LAYOUT FORMAT
+      IAZ = NINT( TVATTR(TV_AZM) )
+      IF (IAZ .EQ. ZERO )IAZ = FULLCIRC
+      IRAN = NINT(TVATTR(TV_RAN)*KM_TO_NM)
+      LLDV = NINT(TVATTR(TV_LDV)*MPS_TO_KTS)
+      MXDV = NINT(TVATTR(TV_MDV)*MPS_TO_KTS)
+      AVDV = NINT(TVATTR(TV_ADV)*MPS_TO_KTS)
+C
+C...THE SHEAR HAS UNITS OF 1/S x 1000 AND DOES NOT NEED TO BE SCALED
+C...FOR DISPLAY.  THE SHEAR IS COMPUTED IN A317U8 AS:
+C          [DELTA VELOCITY (m/s)]/[HORIZONTAL DISTANCE (km)]
+C...AND SO IS ALREADY SCALED BY 1000.
+      MXSH = NINT(TVATTR(TV_SHR) )
+      IF( MXSH .GT. MAX_ALLOW_SHR ) MXSH = MAX_ALLOW_SHR
+C
+C...CONVERT FLOATING POINT ATTRIBUTES
+C
+      HTDV = TVATTR(TV_MVH)*M_TO_FT
+      BHGT = TVATTR(TV_BAS)*M_TO_FT
+      THGT = TVATTR(TV_TOP)*M_TO_FT
+      SHGT = TVATTR(TV_SRH)*M_TO_FT
+      DPTH = ABS(TVATTR(TV_DEP)*M_TO_FT)
+C
+C...SET BASE, TOP, AND DEPTH QUALIFIERS TO BLANK
+C
+      DPQUALFR = BLANK
+      TPQUALFR = BLANK
+      BSQUALFR = BLANK
+C
+C...IF BASE IS LESS THAN ZERO FEATURE EXISTS AT LOWEST ELEV.
+C
+      IF(BHGT .LT. ZERO ) THEN
+         BSQUALFR = LESS_THAN
+         DPQUALFR = GREATER_THAN
+         BHGT = - BHGT
+      ENDIF
+C
+C...CHECK IF TOP IS NEGATIVE MEANING FEATURE EXTENDS TO HIGHEST ELV.
+C
+      IF(THGT .LT. ZERO) THEN
+         TPQUALFR = GREATER_THAN
+         DPQUALFR = GREATER_THAN
+         THGT = - THGT
+      ENDIF
+C
+C   INITIALIZE CHARACTER FIELDS STID AND FEAT
+C
+      STID = TVS_STM_ID(I)
+      IF(TVATTR(TV_TYP) .EQ. 1) THEN
+         FEAT = TVS
+      ELSE
+         FEAT = ETVS
+      ENDIF
+C
+C  NUMBER OF CHARACTERS
+C
+      BUF(TVSIDX)=CHARNUM
+C
+C  WRITE THE TABULAR LINES
+C
+      WRITE(TB,1)FEAT,STID,IAZ,IRAN,AVDV,LLDV,MXDV,HTDV,DPQUALFR,DPTH
+     >   ,BSQUALFR,BHGT,TPQUALFR,THGT,MXSH,SHGT
+ 1    FORMAT(1X,A4,4X,A2,3X,I3,'/',I3,3X,I3,3X,I3,3X,I3,'/',F4.1,3X
+     >      ,A1,F4.1,2X,A1,F4.1,'/',A1,F4.1,3X,I3,'/',F4.1,4X)
+C
+C  STORE LINE IN PRODUCT BUFFER
+C
+C$DELETE
+      DO 10 I=1,NROWS
+C$ENDDELETE
+C$INSERT      DO 10 J=1,NROWS
+       TVSIDX=TVSIDX+1
+C$DELETE
+       BUF(TVSIDX)=TBUF(I)
+C$ENDDELETE
+C$INSERT       BUF(TVSIDX)=TBUF(J)
+ 10   CONTINUE
+      TVSIDX=TVSIDX+1
+      RETURN
+      END

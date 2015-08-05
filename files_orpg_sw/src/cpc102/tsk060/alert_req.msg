@@ -1,0 +1,133 @@
+Alert_area_1 {
+   alert_area           1
+   number_cats          4
+   alert_cat            6       9      10      11
+   threshold_code       1       2       2       1
+   prod_req_flag        1       1       1       1
+   alert_grid        row #           grid columns
+                        1    ffff    fff8    0000    0000 
+                        2    ffff    fff8    0000    0000 
+                        3    ffff    fff8    0000    0000 
+                        4    ffff    fff8    0000    0000 
+                        5    ffff    fff8    0000    0000 
+                        6    ffff    fff8    0000    0000 
+                        7    ffff    fff8    0000    0000 
+                        8    ffff    fff8    0000    0000 
+                        9    ffff    fff8    0000    0000 
+                       10    ffff    fff8    0000    0000 
+                       11    ffff    fff8    0000    0000 
+                       12    ffff    fff8    0000    0000 
+                       13    ffff    fff8    0000    0000 
+                       14    ffff    fff8    0000    0000 
+                       15    ffff    fff8    0000    0000 
+                       16    ffff    fff8    0000    0000 
+                       17    ffff    fff8    0000    0000 
+                       18    ffff    fff8    0000    0000 
+                       19    ffff    fff8    0000    0000 
+                       20    ffff    fff8    0000    0000 
+                       21    ffff    fff8    0000    0000 
+                       22    ffff    fff8    0000    0000 
+                       23    ffff    fff8    0000    0000 
+                       24    ffff    fff8    0000    0000 
+                       25    ffff    fff8    0000    0000 
+                       26    ffff    fff8    0000    0000 
+                       27    ffff    fff8    0000    0000 
+                       28    ffff    fff8    0000    0000 
+                       29    ffff    fff8    0000    0000 
+                       30    ffff    fff8    0000    0000 
+                       31    ffff    fff8    0000    0000 
+                       32    ffff    fff8    0000    0000 
+                       33    ffff    fff8    0000    0000 
+                       34    ffff    fff8    0000    0000 
+                       35    ffff    fff8    0000    0000 
+                       36    ffff    fff8    0000    0000 
+                       37    ffff    fff8    0000    0000 
+                       38    ffff    fff8    0000    0000 
+                       39    ffff    fff8    0000    0000 
+                       40    ffff    fff8    0000    0000 
+                       41    ffff    fff8    0000    0000 
+                       42    ffff    fff8    0000    0000 
+                       43    ffff    fff8    0000    0000 
+                       44    ffff    fff8    0000    0000 
+                       45    ffff    fff8    0000    0000 
+                       46    ffff    fff8    0000    0000 
+                       47    ffff    fff8    0000    0000 
+                       48    ffff    fff8    0000    0000 
+                       49    ffff    fff8    0000    0000 
+                       50    ffff    fff8    0000    0000 
+                       51    ffff    fff8    0000    0000 
+                       52    ffff    fff8    0000    0000 
+                       53    ffff    fff8    0000    0000 
+                       54    ffff    fff8    0000    0000 
+                       55    ffff    fff8    0000    0000 
+                       56    ffff    fff8    0000    0000 
+                       57    ffff    fff8    0000    0000 
+                       58    ffff    fff8    0000    0000 
+}
+
+Alert_area_2 {
+   alert_area           2
+   number_cats          5
+   alert_cat            1       2       3       4     5
+   threshold_code       2       3       4       5     6
+   prod_req_flag        1       1       1       0     0
+   alert_grid        row #           grid columns
+                        1    0000    0007    ffff    ffc0
+                        2    0000    0007    ffff    ffc0
+                        3    0000    0007    ffff    ffc0
+                        4    0000    0007    ffff    ffc0
+                        5    0000    0007    ffff    ffc0
+                        6    0000    0007    ffff    ffc0
+                        7    0000    0007    ffff    ffc0
+                        8    0000    0007    ffff    ffc0
+                        9    0000    0007    ffff    ffc0
+                       10    0000    0007    ffff    ffc0
+                       11    0000    0007    ffff    ffc0
+                       12    0000    0007    ffff    ffc0
+                       13    0000    0007    ffff    ffc0
+                       14    0000    0007    ffff    ffc0
+                       15    0000    0007    ffff    ffc0
+                       16    0000    0007    ffff    ffc0
+                       17    0000    0007    ffff    ffc0
+                       18    0000    0007    ffff    ffc0
+                       19    0000    0007    ffff    ffc0
+                       20    0000    0007    ffff    ffc0
+                       21    0000    0007    ffff    ffc0
+                       22    0000    0007    ffff    ffc0
+                       23    0000    0007    ffff    ffc0
+                       24    0000    0007    ffff    ffc0
+                       25    0000    0007    ffff    ffc0
+                       26    0000    0007    ffff    ffc0
+                       27    0000    0007    ffff    ffc0
+                       28    0000    0007    ffff    ffc0
+                       29    0000    0007    ffff    ffc0
+                       30    0000    0007    ffff    ffc0
+                       31    0000    0007    ffff    ffc0
+                       32    0000    0007    ffff    ffc0
+                       33    0000    0007    ffff    ffc0
+                       34    0000    0007    ffff    ffc0
+                       35    0000    0007    ffff    ffc0
+                       36    0000    0007    ffff    ffc0
+                       37    0000    0007    ffff    ffc0
+                       38    0000    0007    ffff    ffc0
+                       39    0000    0007    ffff    ffc0
+                       40    0000    0007    ffff    ffc0
+                       41    0000    0007    ffff    ffc0
+                       42    0000    0007    ffff    ffc0
+                       43    0000    0007    ffff    ffc0
+                       44    0000    0007    ffff    ffc0
+                       45    0000    0007    ffff    ffc0
+                       46    0000    0007    ffff    ffc0
+                       47    0000    0007    ffff    ffc0
+                       48    0000    0007    ffff    ffc0
+                       49    0000    0007    ffff    ffc0
+                       50    0000    0007    ffff    ffc0
+                       51    0000    0007    ffff    ffc0
+                       52    0000    0007    ffff    ffc0
+                       53    0000    0007    ffff    ffc0
+                       54    0000    0007    ffff    ffc0
+                       55    0000    0007    ffff    ffc0
+                       56    0000    0007    ffff    ffc0
+                       57    0000    0007    ffff    ffc0
+                       58    0000    0007    ffff    ffc0
+}

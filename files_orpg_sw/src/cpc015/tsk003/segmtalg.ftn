@@ -1,0 +1,119 @@
+C***********************************************************************
+C
+C	Description: This module contains the main function for the 
+C	Storm Cell Segments algorithm of SCIT. 
+C
+C***********************************************************************
+
+C RCS info
+C $Author: steves $
+C $Locker:  $
+C $Date: 2011/02/25 15:24:34 $
+C $Id: segmtalg.ftn,v 1.12 2011/02/25 15:24:34 steves Exp $
+C $Revision: 1.12 $
+C $State: Exp $
+C
+	IMPLICIT NONE
+
+$INCLUDE rpg_port.inc,**rpg_port	
+				
+C adaptation common blocks
+$INCLUDE a309adpt.inc,**A3CD70C8	;RDACNT
+$INCLUDE a309adpt.inc,**A3CD70_STORM_CELL_SEG
+$INCLUDE a309adpt.inc,**A3CD70_STORM_CELL_COMP
+$INCLUDE a309adpt.inc,**A3CD70_STORM_CELL_TRACK
+$INCLUDE a309adpt.inc,**A3CD70_DEA_NAMES
+
+$INCLUDE A309.INC/G,**A3PM00		
+
+C Attach internal common area (CD)
+$INCLUDE A315BUF.INC/G,**A315P3S (NLIST)
+$INCLUDE A315BUF.INC/G,**A315LOCK (NLIST)
+C
+$INCLUDE A315.INC/G,**A315CDS (NLIST)
+$INCLUDE A315.INC/G,**A315C3S (NLIST)
+$INCLUDE A315C3.FTN
+
+$INCLUDE itc.inc,**SGMTS09		;ITC SGMTS09
+$INCLUDE itc.inc,**A315CSAD		;ITC A315CSAD
+$INCLUDE itc.inc,**A315LOCK		;ITC A315LOCK
+
+	integer param;			;return value from A315A3 call
+
+C$INCLUDE A309.INC/G,**A3CD99		;common /a3cd99/
+C$INCLUDE A3CD99.inc,**A3CD99		;Initialize common /a3cd99/
+$INCLUDE A3CD99.ftn			;Initialize common /a3cd99/
+
+C$INCLUDE a3cd09.ftn,**a3cd09		;Initialize common /SGMTS09/
+$INCLUDE a3cd09.ftn			;Initialize common /SGMTS09/
+
+	INTEGER STORM_CELL_SEG_CALLBACK_FX	;adapt callback f(x)
+	EXTERNAL STORM_CELL_SEG_CALLBACK_FX	;adapt callback f(x)
+	INTEGER STORM_CELL_COMP_CALLBACK_FX	;adapt callback f(x)
+	EXTERNAL STORM_CELL_COMP_CALLBACK_FX	;adapt callback f(x)
+	INTEGER STORM_CELL_TRACK_CALLBACK_FX	;adapt callback f(x)
+	EXTERNAL STORM_CELL_TRACK_CALLBACK_FX	;adapt callback f(x)
+
+	;** specify inputs and outputs
+	call RPG_in_data (REFLDATA_ELEV, ELEVATION_DATA)
+	call RPG_out_data (SEGATTR, ELEVATION_DATA, INT_PROD)
+        call RPG_out_data (FILTERED_REFL_ELEV, ELEVATION_DATA, INT_PROD)
+
+	;** register adapdation blocks and scan summary array
+	call RPG_reg_adpt (RDACNT_ID, RDACNT_FIRST, BEGIN_VOLUME)
+	call RPG_reg_scan_summary ()
+
+	;** register adaptation blocks and the scan summary array
+	call RPG_reg_ade_callback( STORM_CELL_SEG_CALLBACK_FX,
+     $                             REFLECTH,
+     $                             STORM_CELL_SEG_DEA_NAME,
+     $                             BEGIN_VOLUME )
+	call RPG_reg_ade_callback( STORM_CELL_COMP_CALLBACK_FX,
+     $                             OVLAPADJ,
+     $                             STORM_CELL_COMP_DEA_NAME,
+     $                             BEGIN_VOLUME )
+	call RPG_reg_ade_callback( STORM_CELL_TRACK_CALLBACK_FX,
+     $                             NPASTVOL,
+     $                             STORM_CELL_TRACK_DEA_NAME,
+     $                             BEGIN_VOLUME )
+
+	;register ITC outputs
+	call RPG_itc_out (SGMTS09_ID, SGMTS09_FIRST, SGMTS09_LAST (2),
+     1		SEGATTR)
+	call RPG_itc_out (A315CSAD_ID, A315CSAD_FIRST, A315CSAD_LAST (2),
+     1		SEGATTR)
+	call RPG_itc_out (A315LOCK_ID, A315LOCK_FIRST, A315LOCK_LAST (2),
+     1		SEGATTR)
+
+	;** intialization copied from a315m3.ftn
+
+	;** Initialize variables used in DBZ-to-R relationship.
+	ADPMWGTF = 0.0
+	ADPMULTF = 0.0
+	ADPMCOEF = 0.0
+
+	;**Initialize variable to be used in deciding if liquid water
+	;  table needs to be recalculated.
+	ADPMNZ = 95
+
+	;** Initialize the hi/low buffer flag for SEGMAIN and SEGINDX
+	SEGHIFLG = .FALSE.
+
+	;** Unlock the segment buffer locks.
+	SEG_BUF_LOCK( LOW ) = .FALSE.
+	SEG_BUF_LOCK( HIGH ) = .FALSE.
+
+        ;** tell system this task volume-based.  Initialize
+        ;** support environment
+	call RPG_task_init (VOLUME_BASED)
+
+	;** The main loop, which will never end
+10	call RPG_wait_act (WAIT_DRIVING_INPUT)
+	call A315A3__SEGMENT_BUF_CNTRL(param)
+	goto 10
+
+	stop
+	end
+
+
+

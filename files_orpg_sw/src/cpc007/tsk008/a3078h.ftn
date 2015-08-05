@@ -1,0 +1,339 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/04 14:17:20 $
+C $Id: a3078h.ftn,v 1.3 2002/12/04 14:17:20 christie Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A3078H__INIT_QUAD(REQTAB,I,BUFSIZ)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3078H__INIT_QUAD
+*.
+*.  MODULE VERSION: 0012
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       03 09 89      0000      CHARLIE BAUMHER      SPR # 80271
+*.       05 09 90      0001      R VISIOLI            SPR # 90317
+*.       02 13 91      0002      MARK FRESCH          SPR # 91248
+*.       05 09 91      0002      PAUL JENDROWSKI      SPR # 92125
+*.       10 11 91      0003      EDWARD WENDOWSKI     SPR # 92410
+*.       10 22 91      0003      EDWARD WENDOWSKI     SPR # 92598
+*.       12 03 91      0004      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0005      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/20/92      0006      Toolset              SPR 91895
+*.       03/25/93      0007      Toolset              SPR NA93-06801
+*.       01/28/94      0008      Toolset              SPR NA94-01101
+*.       03/03/94      0009      Toolset              SPR NA94-05501
+*.       04/11/96      0010      Toolset              CCR NA95-11802
+*.       12/23/96      0011      Toolset              CCR NA95-11807
+*.       03/16/99      0012      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:
+*.  CALL A3078H__INIT_QUAD(REQTAB, I, BUFSIZ)
+*.
+*.  MODULE FUNCTION:
+*.
+*.     THIS ROUTINE ORIENTS THE USER SELECTED INPUTS, SUCH THAT P1
+*.       (POINT 1) IS THE WESTERNMOST POINT, EXCEPT WHEN P1 AND
+*.       P2 (POINT 2) ARE IN A TRUE NORTH / SOUTH ORIENTATION, THEN P1
+*.       IS THE NORTHERNMOST POINT.
+*.
+*.
+*.  MODULES CALLED: A3078K__INIT_HEMI 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT      TYPE        DESCRIPTION
+*.    -   -----      ----        -----------
+*.    G   FT_TO_KM   R*4         (CONSTANT)DEFINES THE SCALING FACTOR FOR FEET
+*.                               TO KILOMETERS PARAMETERS
+*.    G   NM_TO_KM   R*4         (CONSTANT)SCALING FACTOR FOR NAUTICAL MILES
+*.                               TO KILOMETERS
+*.    C   GRID_XCOLS I*4         Contains the number of Columns calculated for
+*.                               each product.
+*.    C   GRID_YROWS I*4         Contains the number of rows calculated for
+*.                               each product.
+*.    C   ORIG_PTS   R*4         Table of cross-setion end points for each
+*.                               request.
+*.    C   P1P2_LENG  R*4         Length of P1-P2 plane.
+*.    C   BOXHGHT    R*4         (CONSTANT)Height of the cartesian grid box.
+*.    C   BOXWDTH    R*4         (CONSTANT)Width of the cartesian grid box.
+*.    C   DEGTORAD   R*4         (CONSTANT)Constant, used in calculation to
+*.                               convert degrees to radians.
+*.    C   INC1       I*4         (CONSTANT)Constant, used as an incrementor
+*.                               value.
+*.    C   ONE        I*4         (CONSTANT)Constant value of one.
+*.    C   P1_AZ      I*4         (CONSTANT)Constant used as an index into
+*.                               request table for P1's Azimuth.
+*.    C   P1_AZZ     I*4         (CONSTANT)Constant used as an index into the
+*.                               buffer ORIG_PTS for P1's Azimuth.
+*.    C   P1_RAN     I*4         (CONSTANT)Constant used as an index into the
+*.                               buffer ORIG_PTS for P1's Range.
+*.    C   P1_RANGE   I*4         (CONSTANT)Constant used as an index into
+*.                               request table (REQTAB) for P1's ranges.
+*.    C   P2_AZ      I*4         (CONSTANT)Constant used as an index into
+*.                               request table for P2's Azimuth.
+*.    C   P2_AZZ     I*4         (CONSTANT)Constant used as an index into the
+*.                               buffer ORIG_PTS for P2's Azimuth.
+*.    C   P2_RAN     I*4         (CONSTANT)Constant used as an index into the
+*.                               buffer ORIG_PTS for P2's Range.
+*.    C   P2_RANGE   I*4         (CONSTANT)Constant used as an index into
+*.                               request table for P2's Range.
+*.    C   REQCOLS    I*4         (CONSTANT)Maximum number of request columns
+*.                               in the request table.
+*.    C   REQROWS    I*4         (CONSTANT)Number of request rows (parameters)
+*.                               in the request table.
+*.    C   TWO        I*4         (CONSTANT)Constant value of an integer 2.
+*.    P   I          I*4         Product requested index.
+*.    P   REQTAB     I*2         Table of product requests.
+*.
+*.    *   OUTPUT     TYPE        DESCRIPTION
+*.    -   ------     ----        -----------
+*.    C   GRID_XCOLS I*4         Contains the number of Columns calculated for
+*.                               each product.
+*.    C   GRID_YROWS I*4         Contains the number of rows calculated for
+*.                               each product.
+*.    C   INTERVAL   I*4         Nautical mile (nm) grid P1-P2 interval.
+*.    C   ORIG_PTS   R*4         Table of cross-setion end points for each
+*.                               request.
+*.    P   BUFSIZ     I*4         SIZE OF OUTPUT BUFFER
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    P   I                 I*4         Product requested index.
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME        TYPE        DESCRIPTION
+*.    ----        ----        -----------
+*.    AZ_FRMT     R*4         AZIMUTH SCALE FACTOR
+*.    CEILING     I*4         Height axis ceiling (feet).
+*.    GRID1_KM    I*4         GRID 1 HORIZONTAL SIZE IN KM
+*.    GRID2_KM    I*4         GRID 2 HORIZONTAL SIZE IN KM
+*.    GRID3_KM    I*4         GRID 3 HORIZONTAL SIZE IN KM
+*.    NORTH_SOUTH L*4         NORTH-SOUTH ORIENTATION
+*.    RNG_FRMT    R*4         RANGE SCALING FACTOR
+*.    SWITCHED    L*4         SET IF PTS NEED TO BE SWITCHED
+*.    TEMP        R*4         TEMP SAVEAREA FOR SWITCHING PTS
+*.    THREE       I*4         CONSTANT VALUE OF THREE
+*.    XUP1        R*4         X-COORDINATE OF POINT P1
+*.    XUP2        R*4         X-COORDINATE OF POINT P2
+*.    YUP1        R*4         Y-COORDINATE OF POINT P1
+*.    YUP2        R*4         Y-COORDINATE OF POINT P2
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3078CA
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  NONE
+*.
+*.  DEVIATION FROM STANDARDS:  NONE
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP07.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK07.CSS
+*.
+*.  MISC:  NONE
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+C
+C     MODULE    A3078H__INIT_QUAD(REQTAB,I,BUFSIZ)
+C*
+C*  INCLUDE COMMON PARAMETER FILES
+C*
+$INCLUDE A309.INC/G,**A3PM50  (NLIST)
+$INCLUDE A307.INC,**A30788  (     NLIST )
+$INCLUDE          **A3078CA (     NLIST )
+C*
+C*********************************************************************
+C* LOCAL DECLARATIONS
+C*
+      INTEGER*2    REQTAB(REQROWS,REQCOLS)
+      REAL         TEMP(2)
+C
+X     INTEGER      J
+      INTEGER*4    I
+      INTEGER*4    BUFSIZ
+      INTEGER*4    THREE
+      INTEGER*4       GRID1_KM
+      INTEGER*4       GRID2_KM
+      INTEGER*4       GRID3_KM
+C
+      REAL*4       XUP1, YUP1
+      REAL*4       XUP2, YUP2
+      REAL*4       AZ_FRMT, RNG_FRMT
+C
+      LOGICAL      NORTH_SOUTH, SWITCHED
+C
+X     LOGICAL PRINTED
+X     DATA PRINTED /.FALSE./
+C
+      PARAMETER    ( AZ_FRMT = .1 )
+      PARAMETER    ( RNG_FRMT = .1 )
+      PARAMETER    ( THREE = 3 )
+      PARAMETER    ( GRID1_KM  =  92 )
+      PARAMETER    ( GRID2_KM = 153 )
+      PARAMETER    ( GRID3_KM = 230 )
+C
+C*
+C*********************************************************************
+C*  SAVE THE ORIGINAL POINTS (AZ / RAN) FOR OUTPUT TO THE PUP
+C*
+X     TYPE *,'8H: ENTERED A3078H, REQUEST # ',I
+C*
+C*********************************************************************
+C*  CONVERT THE P1/P2 AZ/RANGE TO INTERNAL FORMAT
+C*  AZ: INTEGER DEG*10 TO REAL; RANGE: INTEGER NM*10 TO REAL KM
+C*
+      ORIG_PTS(P1_AZZ,I) = REQTAB(P1_AZ,I) * AZ_FRMT
+      ORIG_PTS(P1_RAN,I) = REQTAB(P1_RANGE,I) * RNG_FRMT * NM_TO_KM
+      ORIG_PTS(P2_AZZ,I) = REQTAB(P2_AZ,I) * AZ_FRMT
+      ORIG_PTS(P2_RAN,I) = REQTAB(P2_RANGE,I) * RNG_FRMT * NM_TO_KM
+C
+X     IF (.NOT. PRINTED) THEN
+X     WRITE(14,*)'A3078H: VALUES IN CALCULATIONS LINES 241 AND 243 '
+X     WRITE(14,*)'REQTAB(P1_RANGE,I)*RNG_FRMT*NM_TO_KM '
+X     WRITE(14,*)'REQTAB(P1_RANGE,I) EQUALS ',REQTAB(P1_RANGE,I)
+X     WRITE(14,*)'REQTAB(P2_RANGE,I) EQUALS ',REQTAB(P2_RANGE,I)
+X     WRITE(14,*)'RNG_FRMT EQUALS ',RNG_FRMT
+X     WRITE(14,*)'NAUTICAL MILES TO KILOMETERS EQUALS ',NM_TO_KM
+X     WRITE(14,*)'A3078H: RESULTS CALCULATION 1 ',ORIG_PTS(P1_RAN,I)
+X     WRITE(14,*)'A3078H: RESULTS CALCULATION 2 ',ORIG_PTS(P2_RAN,I)
+X     ENDIF
+C
+X     TYPE *,'8H: INTERNAL PTS = ',ORIG_PTS(P1_AZZ,I),ORIG_PTS(P1_RAN,
+     $           I),ORIG_PTS(P2_AZZ,I),ORIG_PTS(P2_RAN,I)
+C*
+C*********************************************************************
+C*  CALCULATE THE X,Y COORDINATES FROM THE GIVEN AZIMUTH/RANGES
+C*    FOR P1 AND P2
+C*
+X     TYPE *,'8H: REQTAB = ',(REQTAB(J,I),J=1,10)
+C
+      XUP1 = ORIG_PTS(P1_RAN,I) * SIN(ORIG_PTS(P1_AZZ,I) * DEGTORAD)
+C
+      YUP1 = ORIG_PTS(P1_RAN,I) * COS(ORIG_PTS(P1_AZZ,I) * DEGTORAD)
+C
+      XUP2 = ORIG_PTS(P2_RAN,I) * SIN(ORIG_PTS(P2_AZZ,I) * DEGTORAD)
+C
+      YUP2 = ORIG_PTS(P2_RAN,I) * COS(ORIG_PTS(P2_AZZ,I) * DEGTORAD)
+C
+X     TYPE *,'8H: XP1,YP1,XP2,YP2 = ',XUP1,',',YUP1,' ',XUP2,',',YUP2
+C
+C
+C*********************************************************************
+C  LABEL THE TWO INPUT POINTS BASED ON THE FOLLOWING:
+C    THE WESTERNMOST POINT IS POINT P1 EXCEPT, WHEN THE
+C    POINT ARE IN A TRUE NORTH/SOUTH ORIENTATION, IN WHICH CASE
+C        THE NORTHERNMOST POINT IS POINT P1.
+C
+      NORTH_SOUTH = .FALSE.
+      SWITCHED = .FALSE.
+C
+C     CHECK IF NORTH/SOUTH ORIENTATION
+C
+      IF ( ABS(XUP1 - XUP2) .LT. DEGTORAD ) THEN
+        NORTH_SOUTH = .TRUE.
+C
+C       IF Y-COORDINATE POINT 2 IS GREATER THAN POINT 1, SET FLAG
+C
+        IF (YUP2 .GT. YUP1 ) SWITCHED = .TRUE.
+C
+      ELSE
+C
+C       IF X-COORDINATE POINT 1 IS GREATER THAN POINT 2, SET FLAG
+C
+        IF ( XUP1 .GT. XUP2 ) SWITCHED = .TRUE.
+C
+      ENDIF
+X     TYPE *,'8H: NORTH_SOUTH, SWITCHED = ',NORTH_SOUTH,SWITCHED
+C
+C
+C     IF THE POINTS ARE TO BE SWITCHED, THEN EXCHANGE THEM
+C
+      IF ( SWITCHED ) THEN
+        TEMP(ONE) = ORIG_PTS(P1_AZZ,I)
+        TEMP(TWO) = ORIG_PTS(P1_RAN,I)
+C
+C       POINT 2 INTO POINT 1:
+C
+        ORIG_PTS(P1_AZZ,I) = ORIG_PTS(P2_AZZ,I)
+        ORIG_PTS(P1_RAN,I) = ORIG_PTS(P2_RAN,I)
+C
+C       POINT 1 INTO POINT 2:
+C
+        ORIG_PTS(P2_AZZ,I) = TEMP(ONE)
+        ORIG_PTS(P2_RAN,I) = TEMP(TWO)
+C
+X       TYPE *,'8H: PTS ARE SWITCHED, RQTB = ',REQTAB(PCODE,I)
+X       TYPE *,'8H: ',ORIG_PTS(P1_AZZ,I),ORIG_PTS(P1_RAN,I),ORIG_PTS(
+     $             P2_AZZ,I),ORIG_PTS(P2_RAN,I),REQTAB(ELINDEX,I)
+C
+      ENDIF
+C*
+C*********************************************************************
+C*  CALCULATE ANGLE DELTA_THETA, P1P2 LENGTH, THETA3
+C*
+      CALL A3078K__INIT_HEMI(I,NORTH_SOUTH,XUP1,YUP1,XUP2,YUP2)
+C*
+C*********************************************************************
+C*  CALCULATE SIZE OF THE SCRATCH GRIDS NEEDED BY EACH REQUEST
+C*  AND STORE VALUES INTO TABLE GRID_YROWS,GRID_XCOLS
+C*
+      GRID_XCOLS(I) = NINT( P1P2_LENG(I) / BOXWDTH )
+      GRID_YROWS(I) = NINT((CEILING * FT_TO_KM) / BOXHGHT)
+C
+X     IF (.NOT. PRINTED) THEN
+X     WRITE(14,*)'A3078H: VALUES IN CALCULATION LINE 336 '
+X     WRITE(14,*)'GRID_YROWS(I)=NINT((CEILING*FT_TO_KM)/BOXHGHT)'
+X     WRITE(14,*)'CEILING EQUALS ',CEILING
+X     WRITE(14,*)'FEET TO KILOMETERS EQUALS ',FT_TO_KM
+X     WRITE(14,*)'BOXHGHT EQUALS ',BOXHGHT
+X     WRITE(14,*)'A3078H: RESULTS CALCULATION 3 ',GRID_YROWS(I)
+X     PRINTED = .TRUE.
+X     ENDIF
+C
+      IF ( GRID_XCOLS(I) .LE. GRID1_KM ) THEN
+        INTERVAL(I) = ONE
+      ELSE IF ( GRID_XCOLS(I) .LE. GRID2_KM ) THEN
+        INTERVAL(I) = TWO
+      ELSE
+C
+C*  CASE MUST BE ( GRID_XCOLS(I) .LE. GRID3_KM )
+C
+        INTERVAL(I) = THREE
+        IF (GRID_XCOLS(I).GT.GRID3_KM) GRID_XCOLS(I) = GRID3_KM
+      ENDIF
+C*
+C*********************************************************************
+C*  CALCULATE THE SCRATCH OUTPUT BUFFER SIZE FOR EACH PRODUCT
+C*  REQUESTED, TO BUILD THE CARTESIAN MAP IN.
+C*
+      BUFSIZ = ( GRID_YROWS(I)*GRID_XCOLS(I) + INC1 ) /  TWO
+C
+C
+X     TYPE *,'8H: ROW, COL = ',GRID_YROWS(I),GRID_XCOLS(I),
+     $       '  INTERVAL = ',INTERVAL(I),'  BUFSIZ = ',BUFSIZ
+      RETURN
+      END

@@ -1,0 +1,92 @@
+# RCS info
+# $Author: steves $
+# $Locker:  $
+# $Date: 2014/12/09 22:32:29 $
+# $Id: resource_table,v 1.21 2014/12/09 22:32:29 steves Exp $
+# $Revision: 1.21 $
+# $State: Exp $
+
+# RPG resource allocation table
+
+# Section "node_names" specifies the node names and their host names 
+# (IP address, e.g. 128.34.02.01, can be used for the host name). This section 
+# is required. Only one such section can exist.
+
+# Resource configuration sections. Each such section must have a unique name
+# that is not "node_names" or "ras_*". Each resource configuration section 
+# specifies a particular resource configuration, the way the mrpg distributes 
+# the processes and data stores. mrpg uses the configuration section specified 
+# through its command line. If it is not specified, the first resource 
+# configuration section, in which all nodes are accessible from the default 
+# node, are used.
+
+# In a resource configuration section, each line starts with a node name 
+# followed by one or more "ras_*" names. Each "ras_*" name refers to a group of
+# tasks and data stores (See descriptions in the following sections). The same 
+# node name can appear on multiple lines. The lines in a resource configuration
+# section allocate tasks and data stores to nodes. A line can also be started
+# with key word "replicate". Such a line specifies a data replication path. The
+# format is "replicate data_id source_node destination_node T-type C-cmp_code".
+# Where "T-..." and "C-..." are optional. "type", the struct type of the LB
+# message, is used for byte swapping. The type must be supported by function
+# ORPG_smi_info in liborpg.so. "cmp_code", must be 0 (for GZIP) or 1 (for 
+# BZIP2), is the compression code used in replication.
+
+# Sections with name started with "ras_" are resource allocation sections. Each
+# such section must have a unique name. Each "ras_" section contains a group of
+# products, data stores and tasks. The key words used for them are respectively
+# "product", "data" and "task". Multiple items of the same type can be 
+# specified on the same line. Characters after "#" on a line are not 
+# interpreted.
+
+# It is sometimes necessary to add additional processes on each node to
+# support the distributed environment. These processes are not part of the
+# core RPG and, thus, do note need to be in the task attribute table. To
+# specify such a process, one can add a line in a "ras_" section using key
+# word "process": e.g. process "monitor_node -n rpga". The entire command must
+# be quoted by " and follow the key word. On each process line, only one
+# process can be specified. Processes are managed and monitored by mrpg as a
+# "control task". They are not monitored for duplication.
+
+# The special name of "ras_default" represents the group of all tasks and data
+# stores that are not explicitly assigned to any of the nodes. One does not 
+# need to create this section. The node that has "ras_default" assigned is 
+# called the default node. The first node is treated as the default node if no 
+# default node is explicitly defined with "ras_default".
+
+    node_names {
+	rpga
+	rpgb
+    }
+
+    all_nodes {
+	rpga		ras_basedata_elev ras_default
+	rpgb		ras_basedata_elev 
+	rpgb		ras_migfa 
+	rpgb		ras_ntda 
+	rpgb		ras_ldm_rpgb
+        replicate	303	rpga	rpgb	C-0
+    }
+
+    single_node {
+	rpga
+    }
+
+    ras_basedata_elev {
+        product 301 302 303
+    }
+
+    ras_migfa {
+	task nexradMigfa
+    }
+
+    ras_ntda {
+        task ntda_alg
+        task ntda_fp
+    }
+
+    ras_ldm_rpgb {
+	task levelII_stats_ICAO_ldmping
+        task monitor_archive_II
+    }
+

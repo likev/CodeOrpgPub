@@ -1,0 +1,42 @@
+# RCS info
+# $Author: cm $
+# $Locker:  $
+# $Date: 2013/03/29 20:32:15 $
+# $Id: rc.local.tmpl,v 1.5 2013/03/29 20:32:15 cm Exp $
+# $Revision: 1.5 $
+# $State: Exp $
+#
+# 13-Dec-2012 S. Enders (CCR NA12-00185, ECP 0426P) New configuration. 
+#
+# This template is used for generating site-dependent "rc.local.modify"
+#
+SET _gdc_include = rpg_net_vars.def
+SET _gdc_set_interpreting = !-# 
+#
+
+IF NODE_NAME==rpga: {
+    SET _gdc_install_file = /etc/rc.d/rc.local.modify on rpga
+    SET DID = 7
+    IF FAA_CH2: SET DID = 77
+    IF WARP_NET==*: {
+	WARP_NET[*]:, route add -net $WARP_NET[*] netmask 255.255.255.$FAA_SUBNET_MASK gw 172.25.$SUBNET_ID.$DID dev eth0:0
+    }
+    IF FTI_RT==*: {
+        FTI_RT[*]:, route add -net $FTI_RT[*] netmask 255.255.0.0 gw 172.25.$SUBNET_ID.$DID dev eth0:0
+    }
+    , route add -net 10.6.0.0 netmask 255.255.0.0 gw 172.25.$SUBNET_ID.$DID dev eth0:1
+}
+
+IF NODE_NAME==mscf: {
+  IF DDMSCF: {
+    SET _gdc_install_file = /etc/rc.d/rc.local.modify
+    , route add -net 172.25.$MSCF_IP_O3.0 netmask 255.255.255.128 gw 172.25.$MSCF_IP_O3.100 dev eth0
+    , route add -net 172.25.$MSCF_IP_O3.128 netmask 255.255.255.128 gw 172.25.$MSCF_IP_O3.100 dev eth0
+    , /sbin/ip link set eth0 up
+  }
+  IF ADMSCF: {
+    SET _gdc_install_file = /etc/rc.d/rc.local.modify
+    , /sbin/ip addr add dev eth0 172.25.$SUBNET_ID.23 peer 172.25.$SUBNET_ID.21
+    , /sbin/ip link set eth0 up
+  }
+}

@@ -1,0 +1,85 @@
+
+rms_ptmgr - Library routines used by ORPG RMS to read and write to the
+RS-232 port.  Linear buffers are used to input FAA/RMMS messages into the
+ORPG/RMS interface and to send messages from the ORPG/RMS interface to the
+FAA/RMMS.
+
+FILENAMES and CALLS
+
+        int rms_ptmgr ();
+
+        void ptmgr_send_msg();
+
+        int rms_close_ptmgr();
+
++++ API
+DATA IN
+                ORPGDAT_RDA_ALARMS(4)
+                ORPGDAT_CLUTTERMAP(4)
+                ORPGDAT_GSM_DATA(4)
+                ORPGDAT_RMS_TEXT_MSG(4)
+                ORPGDAT_SYSLOG(4)
+                BASEDATA(4)
+                rms_resend(4)
+                rms_input(4)
+                rms_statlog(4)
+
+DATA OUT
+                ORPGDAT_PROD_INFO(4)
+                ORPGDAT_CLUTTERMAP(4)
+                ORPGDAT_RDA_CONSOLE_MSG(4)
+                ORPGDAT_RDA_COMMAND(4)
+                rms_resend(4)
+                rms_output(4)
+                rms_status(4)
+
+
+EVENTS OUT
+                ORPGEVT_RESET_RMS
+                ORPGEVT_RMS_CHANGE
+                ORPGEVT_PD_USER
+                ORPGEVT_FREE_TXT_MSG
+                ORPGEVT_RMS_SEND_MSG
+                ORPGEVT_RDA_CONTROL_COMMAND
+                ORPGEVT_RDA_STATUS_CHANGE
+
+APIs USED
+                ORPGRDA(3)
+                EN(3)
+                LE(3)
+                LB(3)
+                ORPGEDLOCK(3)
+                ORPGLOAD(3)
+                ORPGSITE(3)
+                ORPGRED(3)
+                ORPGNBC(3)
+                ORPGINFO(3)
+                ORPGGST(3)
+                ORPGCMI(3)
+                ORPGMGR(3)
+---
+
+The library consists of the following sources
+
+rms_ptmgr( ) is used to initialize the RS-232 port. The port manger determines
+which port the computer will use to connect to the FAA/RMMS based on the
+argument supplied with the initial call. The port is then set to wake up every
+1/100th of a second or whenever a minimum of 18 characters are received. The
+port is set to operate at 9600 baud for both input and output speed.
+
+After initializing the port, the port manager forks a child routine call listen.
+The listen routine monitors the port for messages.  When a message is detected
+listen reads the message and checks it for size. If the message is over 18 
+characters long and less than the max message size, it is written to the rms
+input linear buffer. The listen process will then send an event telling the
+ORPG/RMS that a message is in the input linear buffer.
+
+ptmgr_send_msg( ) reads the message from the rms output linear buffer and writes
+it to the port one byte at a time.
+
+rms_close_ptmgr( ) kills the listen routine when the interface is shutdown.
+
+ SEE ALSO rms_interface(1) rms_interface(doc) rms_ptmgr(3)
+
+$Revision: 1.4 $
+

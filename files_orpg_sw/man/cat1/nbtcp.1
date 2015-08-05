@@ -1,0 +1,207 @@
+nbtcp(1)                  ORPG SUM Manpage                 nbtcp(1)
+
+
+NAME
+    nbtcp - Narrowband TCP test tool
+
+
+SYNOPSIS
+    nbtcp [options] rpg_host | link number
+
+
+ENVIRONMENT VARIABLES
+
+This tool uses a set of message files containing different product 
+request messages which are written to the RPG. The tool also uses the RPG
+product_tables file to construct the master RPS file. One of two environment
+variables can be used to specify the directory where these files are located.
+Environment variables TOOLS_DIR or CFG_DIR can be used to specify the
+directory. If both environment variables are defined, the TOOLS_DIR is
+the environment variable used. If neither environment variable is defined 
+or the files can not be found or opened, the tool writes an error message 
+and aborts.
+
+nbtcp has been expanded to optionally use cm_tcp as the communications 
+manager to interface to the RPG. If this interface is selected, the CFG_DIR 
+environment variable is used to specify where the comms_link.conf and
+tcp.conf configuration files are located.
+
+
+DESCRIPTION
+
+nbtcp is a tool that can run on any Linux workstation which has permission 
+to connect over a TCP/IP connection to a host running the RPG operational 
+software load. The tool connects to the RPG's cm_tcp comm manager and 
+emulates a user that sends and receives Class I and Class II user messages.
+
+nbtcp can connect to the RPG by either its own communications interface or by
+using the ROC developed cm_tcp comm manager. The tool determines which 
+comms interface to use by interrogating the last command line argument. If
+the last argument is an integer in the range of 0 to 99, nbtcp assumes this 
+specifies a link number in the comms_link.conf file and will use the cm_tcp 
+comm manager to interface to the RPG. If the last argument is greater than two
+characters long, nbtcp assumes that either a dotted-decimal IP address 
+or a host name has been specified. In this case, nbtcp will use its native 
+communications interface to connect to the RPG. 
+
+When the cm_tcp comm manager is specified, several environment variables are 
+used to initialize the tool and linear buffers(LB). As mentioned previously, 
+CFG_DIR is an environment variable that identifies the directory where the 
+comms_link.conf and tcp.conf files are located. nbtcp and cm_tcp both use 
+these files to initialize.  When nbtcp starts, information is extracted from 
+the comms_link.conf file for the link number defined at tool startup to create the 
+LBs in directory $HOME/nbtcp if they do not already exist. The request LB is 
+named "req.x" where x is the user number in the comms_link.conf file. The 
+response LB is named "resp.x" where x is the comm manager instance number in the 
+comms_link.conf file for the link defined at tool startup. The cm_tcp comm manager 
+must be informed of the location and names of the request and response LBs when 
+it is started. The -i option is used to specify the request LB and the -o option 
+is used to specify the response LB. The ".x" extensions on the request and response 
+LB names are not used when specifying the LB names for cm_tcp.  For more information 
+pertaining to the configuration files and task initialization of cm_tcp, refer to the 
+cm_tcp API and the cm_tcp ICD.
+
+The RPG comms must be configured to allow the tool to connect on a line 
+configured for TCP/IP communications. The RPG comms configuration files can 
+be configured to use the tool's default connection dependent parameters, or 
+these parameters can be supplied to the tool via command line options. The 
+connection dependent parameters are: port number and password. Typing the -h 
+option displays the tool's optional parameters along with their default 
+settings.
+
+When nbtcp first starts, it looks for file "product_tables" in the directory 
+specified by environment variable TOOLS_DIR or CFG_DIR. From this file, a master 
+file called "master_rps_list.dat" is created that contains all the products 
+found in file "product_tables" which are classified as final products, i.e., 
+products in a format that conforms to the RPG to Class 1 User ICD. In addition 
+to containing all the final products, the master RPS file also has all the 
+product dependent parameters initialized to default values. This allows the
+user to use these products as is without having to manually add the product 
+dependent parameters. 
+
+The user edits file "master_rps_list.dat" to create a RPS list file which will 
+contain the desired products to use in the RPS list.  Once the master RPS file 
+has been modified to contain just the products for the RPS list, the user saves 
+the file as a different name and this file becomes the RPS list. The advantages 
+of creating the RPS list file in this manner are: 1) the RPS list products are 
+always generated from the operational RPG's "product_tables" file, so new RPG 
+products added to a software release are automatically picked up by the tool; 
+2) if file "master_rps_list.dat" is somehow corrupted, the user just has to restart
+the tool to re-build the master_rps_list.dat file. The "master_rps_list.dat" file 
+is always recreated on tool startup; 3) every product that is classified as a 
+final product in the "product_tables" file is automatically listed in the master 
+RPS file. 4) all known products that have product dependent parameters are already 
+set to default values which alleviates the user of having to manually populate the 
+product dependent parameters; 5) the user can readily add new products to the
+file by copying and pasting existing products then modifying the product information
+as needed.  Note:  The numbers starting each line in the master_rpg_list.dat file or
+a users defined RPS list are ignored by nbtcp.  The need not be in numeric order.
+
+Several limitations exist that the user should be aware of when creating the 
+RPS file. The user is responsible for ensuring the number of products, the type of 
+products and the product dependent parameters are set to valid values before saving 
+the changes to the file which represents the RPS list. The user must also ensure
+that all fields in the RPS file are properly formatted and column aligned before 
+saving the changes to the RPS file. Retaining the "master_rps_list.dat" column 
+alignment is imperative because no error checking can be performed when the file is 
+read to construct the RPS list product request message. If the column alignment is 
+not retained, then unpredictable results can and probably will occur. This limitation
+is imposed on the design so the "master_rps_list.dat" file can be cleanly formatted 
+for ease of readability and modification. Lastly, the user must ensure that only 
+valid records are in the RPS file.  Comment lines, blank lines, etc. are not allowed 
+in the RPS file.
+
+When the tool initially starts, the program goes into a suspended state 
+after the master RPS file has been created waiting for the user to enter the 
+RPS list file name. After a valid RPS list file name has been entered, the
+tool checks to see if a product directory was specified on the command line 
+at tool startup and if it was, a list of possible product file name formats is 
+displayed for the user to select from. If the WMO/AWIPS header option is selected,
+the product file name format is automatically selected.  This is required so that
+third-party tools such as Gibson Ridge Level 3 will recognize and display the 
+saved products.   The program then either opens the socket connections to the RPG 
+or issues a connect command to the cm_tcp comm manager,depending on which comms 
+interface was selected, then the tool generates the RPS list product request 
+message and sends the RPS list to the RPG. If a connection can not be immediately 
+established, the program loops attempting to establish a connection. After the RPS 
+list is sent, the user interface displays on the screen. The user can send any of the 
+messages listed on the menu to the RPG. Each message is represented by a text message 
+file located in the directory specified by environment variable TOOLS_DIR or CFG_DIR. 
+These text files are read each time a request is made to send the message/request to 
+the RPG, so the user can modify these files on-the-fly and send the modified file to 
+the RPG without having to terminate and restart the tool. 
+
+If product files are saved to a product directory, a product remove option can be 
+specified so that products written to the directory past a threshold number of minutues
+ago are deleted from the directory.  This allows the tool to be run for long periods
+of time without concern for disk space.
+
+The following is a list of the messages currently implemented: 
+ -- alert_req.msg    - Alert Request message
+ -- bias_table.msg   - Bias Table message
+ -- one_time_req.msg - One Time Request message
+
+To terminate the tool, select line item "Terminate Tool" on the user interface or type 
+<ctrl> c on the terminal window the tool is running on.
+
+OPTIONS
+
+	-A add WMO/AWIPS header (used only when products are saved)
+	-C country of origin (used in the WMO header)
+        -R Remove product files older than X minutes old
+        -d directory where the products are saved
+        -D same as -d but deletes file in directory if already exists
+        -p RPG port number to connect on
+        -s RPG site id used in the product file names
+        -t Test flag used to set a 1 second delay between socket reads.
+        -u User id
+        -w RPG logon password
+	-c Make script-based Class 2 one time request via WAN (no RPS list)
+	-o Make interactive Class 2 one time request via WAN (no RPS list)
+	-j Class 2 user password
+	-l Class 2 port password
+	-r Class 2 request repeat interval in minutes
+        -h display the usage message
+
+Note: View the tool's help message screen to obtain the default 
+      settings for the options.
+
+EXAMPLES:
+
+  Example 1:
+  The following example connects to host 172.16.72.444 on port
+  45000 with a logon password oscar. The products received 
+  from the RPG are written as files in subdirectory ./products 
+  with a site id of KCRI. (The RPG host name can be used 
+  in lieu of the IP address if it is listed in an accessible 
+  /etc/hosts file).
+
+  nbtcp -p 45000 -m KCRI -d ./products -w oscar 172.16.72.444
+
+  Example 2:
+  Connect using link 27 defined in the comms_link.conf and tcp.conf files. The cm_tcp
+  comm manager will be used for RPG communications and the tool will communicate with
+  cm_tcp via the req.x and resp.x linear buffers located in directory $HOME/nbtcp:
+
+  nbtcp 27
+
+  Example 3:
+	The following example sends a one time request to host 172.16.72.444 on port
+	4507 with user id 1, ORPG login password "passwd", Class 2 port password
+	"TCP3"and Class 2 user password "OPENUP", the products received in response
+	are then stored in the subdirectory products.
+
+	nbtcp -d products -p 4507 -o -u 1 -w passwd -l TCP3 -j OPENUP 172.16.72.444
+
+  Example 4:
+	The following example connects to host mylinuxbox on port 4489, products are to 
+	be stored in subdirectory products, a WMO/AWIPS header will be added to each of 
+	the stored products, the country of origin is China and the RPG site ID is KRAD.
+ 
+	nbtcp -d products -p 4489 -A -C CI -s KRAD mylinuxbox
+
+SEE ALSO:
+
+   cm_tcp(1)
+
+                             $ Revision: 1.9 $

@@ -1,0 +1,211 @@
+C RCS info
+C $Author: steves $
+C $Locker:  $
+C $Date: 2005/12/27 16:09:27 $
+C $Id: rpg_a311.ftn,v 1.5 2005/12/27 16:09:27 steves Exp $
+C $Revision: 1.5 $
+C $State: Exp $
+C
+
+C********************************************************************
+C
+C       This function simulates the A31137__HARI_KIRI function.
+C
+C       The following is the original function description:
+C
+C       Cause the host task that has committed an unrecoverable error
+C       to exit the system.
+C
+C********************************************************************
+
+      SUBROUTINE A31137__HARI_KIRI
+
+      IMPLICIT NONE
+
+$INCLUDE PROD_GEN_MSG.INC/G, **PROD_GEN_MSG
+
+      call RPG_hari_kiri()
+
+      return
+      end
+
+
+C
+C********************************************************************
+C
+C      This function simulates the A31143__ABORT_REMAINING_VOLSCAN
+C      function.
+C
+C      The following is the original function description:
+C
+C      Delete any queued buffers for the current VOLUME/ELEVATION 
+C      and stop further buffer routing to the calling task.
+C
+C********************************************************************
+
+      SUBROUTINE A31143__ABORT_REMAINING_VOLSCAN
+
+      IMPLICIT NONE
+
+$INCLUDE PROD_GEN_MSG.INC/G, **PROD_GEN_MSG
+
+      integer status
+      character*80 text
+
+      call rpg_clear_msg( 80, text, status )
+      write( text, 1) 
+ 1    format( 1x, 'A31143__ABORT_REMAINING_VOLSCAN Called$' );
+      call rpg_send_msg( text )
+
+      call RPG_abort_processing ( PGM_ABORT_REMAIN_SCAN )
+
+      return
+      end
+
+C********************************************************************
+C
+C      This function simulates the A31145__ABORT_ME function.
+C      The following is the original function description:
+C
+C      Delete any queued buffers for the current VOLUME/ELEVATION and
+C      stop further buffer routing to the calling task. Also, indicate
+C      to dependent tasks that no further buffers will be received
+C      from the calling task.
+C
+C********************************************************************
+
+      SUBROUTINE A31145__ABORT_ME
+
+      IMPLICIT NONE
+
+$INCLUDE PROD_GEN_MSG.INC/G, **PROD_GEN_MSG
+
+      integer*4 reason
+      integer*4 status
+      character*80 text
+
+      call RPG_clear_msg( 80, text, status )
+      write( text, 1) 
+ 1    format( 1x, "A31145__ABORT_ME Called From Application$" );
+      call RPG_send_msg( text )
+
+      ;** Get the abort reason code.
+      call RPG_get_abort_reason ( reason )
+
+      ;** Process according to abort reason code. By default,
+      ;** reason is PGM_SCAN_ABORT.
+      if( reason .eq. PGM_SCAN_ABORT ) then
+         call RPG_abort_processing ( PGM_SCAN_ABORT )
+
+      else if( reason .eq. PGM_CPU_LOADSHED ) then
+         call RPG_abort_processing( PGM_CPU_LOADSHED )
+
+      else if( reason .eq. PGM_TASK_FAILURE ) then
+         call RPG_abort_processing( PGM_TASK_FAILURE )
+
+      else if( reason .eq. PGM_REPLAY_DATA_UNAVAILABLE ) then
+         call RPG_abort_processing( PGM_REPLAY_DATA_UNAVAILABLE )
+
+      else
+         call RPG_abort_processing( PGM_SCAN_ABORT )
+
+      end if
+
+      return
+      end
+
+C********************************************************************
+C
+C      This function simulates the A31168__ABORT_ME_BECAUSE function.
+C      The following is the original function description:
+C
+C      Delete any queued buffers for the current VOLUME/ELEVATION and
+C      stop further buffer routing to the calling task. Also, indicate
+C      to dependent tasks that no further buffers will be received
+C      from the calling task.
+C
+C********************************************************************
+
+      SUBROUTINE A31168__ABORT_ME_BECAUSE( REASON )
+
+      IMPLICIT NONE
+
+$INCLUDE PROD_GEN_MSG.INC/G, **PROD_GEN_MSG
+$INCLUDE A309.INC/G, **A3PM07
+
+      INTEGER REASON
+
+      if( reason .eq. PROD_MEM_SHED ) then
+         call RPG_abort_processing ( PGM_MEM_LOADSHED )
+      else if( reason .eq. PROD_DISABLED_MOMENT ) then
+         call RPG_abort_processing ( PGM_DISABLED_MOMENT )
+      else
+         call RPG_abort_processing ( PGM_SCAN_ABORT )
+      end if
+
+      return
+      end
+
+C********************************************************************
+C
+C     This function simulates the A31169__ABORT_DATATYPE_BECAUSE
+C     function. The following is the original function description:
+C
+C     Delete any queued buffers for the current VOLUME/ELEVATION and
+C     stop further buffer routing to the calling task. Also, indicate
+C     to dependent tasks that no further buffers will be received
+C     from the calling task.
+C
+C********************************************************************
+
+      SUBROUTINE A31169__ABORT_DATATYPE_BECAUSE(DATATYPE,REASON)
+
+      IMPLICIT NONE
+
+$INCLUDE PROD_GEN_MSG.INC/G, **PROD_GEN_MSG
+$INCLUDE A309.INC/G, **A3PM07
+
+      INTEGER REASON, DATATYPE
+
+      if( reason .eq. PROD_MEM_SHED ) then
+         call RPG_abort_datatype_processing ( datatype, 
+     >                                        PGM_MEM_LOADSHED )
+      else if( reason .eq. PROD_DISABLED_MOMENT ) then
+         call RPG_abort_datatype_processing ( datatype, 
+     >                                        PGM_DISABLED_MOMENT )
+      else
+         call RPG_abort_datatype_processing ( datatype, 
+     >                                        PGM_SCAN_ABORT )
+      end if
+
+      return
+      end
+
+C********************************************************************
+C
+C     This function simulates the A31169__ABORT_DATATYPE_BECAUSE
+C     function. The following is the original function description:
+C
+C     Delete any queued buffers for the current VOLUME/ELEVATION and
+C     stop further buffer routing to the calling task. Also, indicate
+C     to dependent tasks that no further buffers will be received
+C     from the calling task.
+C
+C********************************************************************
+
+      SUBROUTINE A31169__ABORT_DATANAME_BECAUSE( DATANAME, REASON )
+
+      IMPLICIT NONE
+
+$INCLUDE PROD_GEN_MSG.INC/G, **PROD_GEN_MSG
+$INCLUDE A309.INC/G, **A3PM07
+
+      INTEGER REASON, DATATYPE
+      CHARACTER*32 DATANAME
+
+      call OB_get_id_from_name( DATANAME, DATATYPE )
+      call A31169__ABORT_DATATYPE_BECAUSE(DATATYPE,REASON)
+
+      return
+      end
+

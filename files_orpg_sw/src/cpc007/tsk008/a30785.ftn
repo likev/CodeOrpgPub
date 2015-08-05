@@ -1,0 +1,467 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/03 14:28:43 $
+C $Id: a30785.ftn,v 1.3 2002/12/03 14:28:43 christie Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A30785__BUILD_PROD_BUFF(REQTAB,BUFFTAB,NUMREQS,
+     $      VOLNUM, HDINFO, ABORT_NO_MEM )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A30785__BUILD_PROD_BUFF
+*.
+*.  MODULE VERSION: 0016
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       06 09 85      0000      BOB BENEDICT         RPG BUILD 2
+*.       08 04 86      0001      MIKE ISTOK           SPR # 60332
+*.       04 14 87      0002      JO STALEY            SPR # 70119
+*.       08 10 88      0003      MIKE ISTOK           SPR # 80217
+*.       10 05 88      0004      STEVE SMITH          SPR # 80338
+*.       05 08 89      0005      CHARLIE BAUMHER      SPR # 80271
+*.       05 09 90      0006      CHI CHAN             SPR # 90697
+*.       02 13 91      0007      MARK FRESCH          SPR # 91248
+*.       05 30 91      0007      PAUL JENDROWSKI      SPR # 92200
+*.       12 03 91      0008      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0009      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/20/92      0010      Toolset              SPR 91895
+*.       03/25/93      0011      Toolset              SPR NA93-06801
+*.       01/28/94      0012      Toolset              SPR NA94-01101
+*.       03/03/94      0013      Toolset              SPR NA94-05501
+*.       04/11/96      0014      Toolset              CCR NA95-11802
+*.       12/23/96      0015      Toolset              CCR NA95-11807
+*.       03/16/99      0016      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:
+*.
+*.  CALL A30785__BUILD_PROD_BUFF( REQTAB, BUFFTAB, NUMREQS, VOLNUM,
+*.                    HDINFO, ABORT_NO_MEM )
+*.
+*.  MODULE FUNCTION:
+*.   THIS VERTICAL CROSS SECTION ROUTINE IS RESPONSIBLE FOR PRODUCING
+*.  THE FINAL PRODUCT BUFFERS FROM THE MAPS THAT HAVE BEEN BUILT FOR
+*.  EACH PRODUCT REQUEST. THE MAP DATA WILL FIRST BE VERTICALLY
+*.  INTERPOLATED, THEN RASTER RUN LENGTH ENCODED. FINALLY HEADERS, AND
+*.  BACKGROUND GRAPHIC DATA (GRID PATTERNS + ANNOTATION) WILL BE
+*.  ADDED.
+*.
+*.
+*.
+*.  MODULES CALLED: A30784__VRT_INTRPOL, A30786__ASSM_PRODUCT, 
+*.                  A30787__MAX_DAT_LEVS, A31215__GET_OUTBUF, 
+*.                  A31216__REL_OUTBUF, A3CM22__RASTER_RUN_LENGTH, 
+*.                  A3CM54__CUST_PROD_MEMSHED 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT      TYPE        DESCRIPTION
+*.    -   -----      ----        -----------
+*.    G   MEM        I*4         Array in RPG shared memory set aside for
+*.                               buffer sharing.
+*.    G   DESTROY    I*4         (CONSTANT)Mnemonic used as input to
+*.                               A31216__REL_OUTBUF. Indicates "do not pass
+*.                               data to other tasks".
+*.    G   DROFFSET   I*4         (CONSTANT)Offset to Doppler velocity
+*.                               resolution in preprocessed radial header.
+*.    G   FORWARD    I*4         (CONSTANT)Parameter to indicate that an
+*.                               output buffer is to be forwarded to successor
+*.                               tasks
+*.    G   NORMAL     I*4         (CONSTANT)Parameter which indicates normal
+*.                               completion of requested operation to acquire
+*.                               input or output buffer
+*.    G   NO_MEM     I*4         (CONSTANT)Parameter which indicates no memory
+*.                               available on attempt to acquire output buffer
+*.    G   PACKDESC   I*4         (CONSTANT)Display header offset (For raster
+*.                               formatted products): Packing descriptor
+*.                               offset.
+*.    G   PFWXCLA    I*4         (CONSTANT)Code Indicating Clear Weather Mode.
+*.    G   PFWXCONV   I*4         (CONSTANT)Code Indicating Convective Weather
+*.                               Mode.
+*.    G   PHEDSIZE   I*4         (CONSTANT)Size of preprocessed base radial
+*.                               header.
+*.    G   WMOFFSET   I*4         (CONSTANT)Offset to weather mode in
+*.                               preprocessed radial header.
+*.    C   GRID_XCOLS I*4         Contains the number of Columns calculated for
+*.                               each product.
+*.    C   GRID_YROWS I*4         Contains the number of rows calculated for
+*.                               each product.
+*.    C   CCOPYNO    I*4         (CONSTANT)Custom copy number used as an index
+*.                               into request table (REQTAB, REQTAB_TEMP).
+*.    C   CUSTIDX    I*4         (CONSTANT)Index into table of product
+*.                               requests.
+*.    C   INC1       I*4         (CONSTANT)Constant, used as an incrementor
+*.                               value.
+*.    C   ONE        I*4         (CONSTANT)Constant value of one.
+*.    C   PCODE      I*4         (CONSTANT)Constant used as an index to
+*.                               requested product code from the request table
+*.                               (REQTAB) buffer.
+*.    C   REFCL16    I*4         (CONSTANT)Index into the color level table
+*.                               COLDAT for all the color tables in the RPG:
+*.                               Reflectivity 16 Level clear air.
+*.    C   REFCL8     I*4         (CONSTANT)Index into the color level table
+*.                               COLDAT for all the color tables in the RPG:
+*.                               Reflectivity 8 Level clear air.
+*.    C   REFLPROD16 I*4         (CONSTANT)Product code for Cross Section
+*.                               (Reflectivity) 16 data levels.
+*.    C   REFLPROD8  I*4         (CONSTANT)Product code for Cross Section
+*.                               (Reflectivity) 8 data levels
+*.    C   REFNC16    I*4         (CONSTANT)Index into the color level table
+*.                               COLDAT for all the color tables in the RPG:
+*.                               Reflectivity 16 Level non-clear air.
+*.    C   REFNC8     I*4         (CONSTANT)Index into the color level table
+*.                               COLDAT for all the color tables in the RPG:
+*.                               Reflectivity 8 Level non-clear air.
+*.    C   REQCOLS    I*4         (CONSTANT)Maximum number of request columns
+*.                               in the request table.
+*.    C   REQROWS    I*4         (CONSTANT)Number of request rows (parameters)
+*.                               in the request table.
+*.    C   SPCL8      I*4         (CONSTANT)Index into the color level table
+*.                               COLDAT for all the color tables in the RPG:
+*.                               Spectrum width 8 level clear air.
+*.    C   SPECTPROD8 I*4         (CONSTANT)Eight level spectrum width product
+*.                               code for cross section
+*.    C   TWO        I*4         (CONSTANT)Constant value of an integer 2.
+*.    C   VCS52      I*4         (CONSTANT)Data Buffer Type: Vertical Cross
+*.                               Section Product. Reflectivity BFR data type
+*.                               D.L.16.
+*.    C   VCS53      I*4         (CONSTANT)Data Buffer Type: Vertical Cross
+*.                               Section Product. Velocity BFR data type
+*.                               D.L.16.
+*.    C   VCS54      I*4         (CONSTANT)Data Buffer Type: Vertical Cross
+*.                               Section Product. Spectrum Width BFR data type
+*.                               D.L.8.
+*.    C   VCSR8      I*4         (CONSTANT)Reflectivity BFR data type D.L.8.
+*.    C   VCSV8      I*4         (CONSTANT)Velocity BFR data type D.L.8.
+*.    C   VELCL162   I*4         (CONSTANT)Index into the color level table
+*.                               COLDAT for all the color tables in the RPG:
+*.                               Velocity 16 level clear air resolution 2.
+*.    C   VELCL81    I*4         (CONSTANT)Index into the color level table
+*.                               COLDAT for all the color tables in the RPG:
+*.                               Velocity 8 level clear air resolution 1.
+*.    C   VELCL82    I*4         (CONSTANT)Index into the color level table
+*.                               COLDAT for all the color tables in the RPG:
+*.                               Velocity 8 level clear air resolution 2.
+*.    C   VELNC161   I*4         (CONSTANT)Index into the color level table
+*.                               COLDAT for all the color tables in the RPG:
+*.                               Velocity 16 level non-clear resolution 1.
+*.    C   VELNC162   I*4         (CONSTANT)Index into the color level table
+*.                               COLDAT for all the color tables in the RPG:
+*.                               Velocity 16 level non-clear resolution 2.
+*.    C   VELNC81    I*4         (CONSTANT)Index into the color level table
+*.                               COLDAT for all the color tables in the RPG:
+*.                               Velocity 8 level non-clear resolution 1.
+*.    C   VELNC82    I*4         (CONSTANT)Index into the color level table
+*.                               COLDAT for all the color tables in the RPG:
+*.                               Velocity 8 level non-clear resolution 2.
+*.    C   VELOPROD16 I*4         (CONSTANT)Velocity PCODE data level 16.
+*.    C   VELOPROD8  I*4         (CONSTANT)Velocity PCODE data level 8.
+*.    C   ZERO       I*4         (CONSTANT)Program parameter for 0.
+*.    P   BUFFTAB    I*4         TABLE OF OUTPUT BUFFER POINTERS
+*.    P   HDINFO     I*2         HEADER INFO FROM 1ST RADIAL
+*.    P   NUMREQS    I*4         NUMBER OF PRODUCTS REQUESTED
+*.    P   REQTAB     I*2         TABLE OF PRODUCT REQUEST INFO
+*.    P   VOLNUM     I*4         VOLUME SCAN NUMBER
+*.
+*.    *   OUTPUT       TYPE        DESCRIPTION
+*.    -   ------       ----        -----------
+*.    G   MEM          I*4         Array in RPG shared memory set aside for
+*.                                 buffer sharing.
+*.    P   ABORT_NO_MEM L*4         ABORT FLAG FOR NO OUTPUT BUFFER
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    G   MEM               I*4         Array in RPG shared memory set aside
+*.                                      for buffer sharing.
+*.    C   GRID_XCOLS        I*4         Contains the number of Columns
+*.                                      calculated for each product.
+*.    C   GRID_YROWS        I*4         Contains the number of rows calculated
+*.                                      for each product.
+*.    P   HDINFO            I*2         HEADER INFO FROM 1ST RADIAL
+*.    P   REQTAB            I*2         TABLE OF PRODUCT REQUEST INFO
+*.    P   VOLNUM            I*4         VOLUME SCAN NUMBER
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME       TYPE        DESCRIPTION
+*.    ----       ----        -----------
+*.    BFPTR      I*4         POINTER TO OUTPUT BUFFER
+*.    BTYPE      I*4         TYPE OF OUTPUT BUFFER REQUIRED
+*.    BUFSIZE    I*4         SIZE OF OUTPUT PRODUCT BUFFER
+*.    BUFSTAT    I*4         STATUS RETURNED FROM R.R.L.E.
+*.    CLTABIND   I*4         INDEX TO COLOR TABLE
+*.    COLTHRIN   I*4         LOOKUP TABLE FOR COLOR TABLE INDXS
+*.    FIVE       I*4         CONSTANT VALUE OF FIVE
+*.    FOUR       I*4         CONSTANT VALUE OF FOUR
+*.    GPTR       I*4         MEM POINTER FOR GRID
+*.    GRIDSIZE   I*4         SIZE OF GRID VECTOR ANNOTATION
+*.    II         I*4         LOOP INDEX
+*.    ISTAR2S    I*4         Number of R.R.L. encoded I*2 words.
+*.    LOOKUP     I*4         COLOR TABLE LOOKUP INDEX
+*.    MAX        R*4         MAX DATA LEVEL
+*.    MAXIND     I*4         MAX I*4 SIZE OF RASTER OUTPUT
+*.    MAX_X      I*4         GRID X OF MAX VALUE
+*.    MAX_Y      I*4         GRID Y OF MAX VALUE
+*.    MIN        R*4         VELOCITY MAX NEGATIVE DATA LEVL
+*.    MIN_X      I*4         GRID X OF MIN VALUE
+*.    MIN_Y      I*4         GRID Y OF MIN VALUE
+*.    MOMENT     I*4         SPECIFIES WHICH RADAR MOMENT IS AVAILABLE
+*.    NUM_NO_MEM I*4         Number of output buffer not acquired because of
+*.                           no memory
+*.    OBUFFIND   I*4         START OF RASTER OUTPUT BUFFER
+*.    OPSTAT     I*4         :Returned status of call to A31215 to get output
+*.                           buffer
+*.    RESOLUT    I*4         RADIAL DATA RESOLUTION
+*.    RQDAT      I*4         OBUFF DATA TYPES FOR A31215
+*.    SEVEN      I*4         CONSTANT VALUE OF SEVEN
+*.    SMALL_XSCT I*4         SMALL CROSS SECTION GRID SIZE
+*.    WTHRMODE   I*4         WEATHER MODE FROM 1ST RADIAL
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD00
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3078CA
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS: NONE
+*.
+*.  DEVIATION FROM STANDARDS:  NONE
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP07.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK07.CSS
+*.
+*.  MISC: NONE
+*.
+*.*******************************************************************
+C
+      IMPLICIT NONE
+C
+$INCLUDE A309ADPT.INC/G,**A3CD70C8 (NEND NLIST)
+$INCLUDE A309.INC/G,**A3PM00       (NEND NLIST)
+$INCLUDE            **A3PM01       (     NLIST)
+$INCLUDE            **A3PM04       (NEND NLIST)
+$INCLUDE            **A3PM07       (NEND NLIST)
+$INCLUDE            **A3CD00       (NEND NLIST)
+$INCLUDE A304.INC/G,**A304P4       (NEND NLIST)
+$INCLUDE A307.INC,**A30788         (     NLIST)
+$INCLUDE          **A3078CA        (     NLIST)
+C
+C********************************************************************
+C LOCAL DATA DECLARATIONS
+C
+      INTEGER*2    REQTAB(REQROWS,REQCOLS)
+      INTEGER*2    HDINFO(PHEDSIZE)
+C
+      INTEGER*4    GRIDSIZE, II, GPTR
+      INTEGER*4    FOUR, FIVE, SEVEN
+      INTEGER*4    MOMENT, RESOLUT
+      INTEGER*4    NUMREQS, VOLNUM
+      INTEGER*4    LOOKUP, WTHRMODE
+      INTEGER*4    BUFSTAT, CLTABIND, OBUFFIND, ISTAR2S, MAXIND
+      INTEGER*4    BUFSIZE, BFPTR, OPSTAT
+      INTEGER*4    BUFFTAB(NUMREQS)
+      INTEGER*4    BTYPE, NUM_NO_MEM
+      INTEGER*4    RQDAT    (REFLPROD16:VELOPROD8)
+      INTEGER*4    MAX_X, MAX_Y, MIN_X, MIN_Y
+      INTEGER*4    SMALL_XSCT
+C
+      REAL         MAX, MIN
+C
+      LOGICAL      ABORT_NO_MEM
+C
+      PARAMETER    ( GRIDSIZE = 300 )
+      PARAMETER    ( FOUR  = 4 )
+      PARAMETER    ( FIVE  = 5 )
+      PARAMETER    ( SEVEN = 7 )
+      PARAMETER    ( SMALL_XSCT = 10 )
+C
+C********************************************************************
+C   DEFINE A    LOOK UP TABLE FOR THE COLOR TABLE AND
+C   THRESHOLD TABLE INDEICIES. TABLE= COLTHRIN.
+C
+C       ROW1 = REFLECTIVITY   DATALEVEL 16, RESOLUTION 1
+C       ROW2 = VELOCITY       DATALEVEL 16, RESOLUTION 1
+C       ROW3 = SPECTRUM WIDTH DATALEVEL  8, RESOLUTION 1
+C       ROW4 = VELOCITY       DATALEVEL 16, RESOLUTION 2
+C       ROW5 = REFLECTIVITY   DATALEVEL  8, RESOLUTION 1
+C       ROW6 = VELOCITY       DATALEVEL  8, RESOLUTION 1
+C       ROW7 = VELOCITY       DATALEVEL  8, RESOLUTION 2
+C
+C       COL1 = WEATHER MODE OF NON CLEAR AIR ( PFWXCONV = 1 ),
+C       COL2 = WEATHER MODE OF CLEAR AIR     ( PFWXCLA  = 2 ).
+C
+      INTEGER COLTHRIN(7,10)
+C
+      DATA COLTHRIN(1,PFWXCONV),COLTHRIN(1,PFWXCLA)/REFNC16 ,REFCL16 /
+      DATA COLTHRIN(2,PFWXCONV),COLTHRIN(2,PFWXCLA)/VELNC161,VELNC161/
+      DATA COLTHRIN(3,PFWXCONV),COLTHRIN(3,PFWXCLA)/SPCL8   ,SPCL8   /
+      DATA COLTHRIN(4,PFWXCONV),COLTHRIN(4,PFWXCLA)/VELNC162,VELCL162/
+      DATA COLTHRIN(5,PFWXCONV),COLTHRIN(5,PFWXCLA)/REFNC8  ,REFCL8  /
+      DATA COLTHRIN(6,PFWXCONV),COLTHRIN(6,PFWXCLA)/VELNC81 ,VELCL81 /
+      DATA COLTHRIN(7,PFWXCONV),COLTHRIN(7,PFWXCLA)/VELNC82 ,VELCL82 /
+C
+      DATA RQDAT(REFLPROD16)             /VCS52/
+      DATA RQDAT(VELOPROD16)             /VCS53/
+      DATA RQDAT(SPECTPROD8)             /VCS54/
+      DATA RQDAT(REFLPROD8 )             /VCSR8/
+      DATA RQDAT(VELOPROD8 )             /VCSV8/
+C
+C******************************************************************
+C
+C          A 3 0 7 8 5 __ BUILD _ PRODUCT _ BUFFER
+C
+C   THIS VERTICAL CROSS SECTION ROUTINE IS RESPONSIBLE FOR PRODUCING
+C   THE FINAL PRODUCT BUFFERS FROM THE MAPS THAT HAVE BUILT FOR EACH
+C   PRODUCT REQUEST. THE MAP DATA WILL FIRST BE VERTICALLY
+C   INTERPOLATED, THEN RASTER RUN LENGTH ENCODED. FINALLY HEADERS AND
+C   BACKGROUND GRAPHIC DATA (GRID PATTERNS+ANNOTATION) WILL BE ADDED.
+C
+C******************************************************************
+C
+X     TYPE *,'85: ENTERED A30785 ROUTINE, NUMREQS = ',NUMREQS
+C
+      NUM_NO_MEM   = ZERO
+      ABORT_NO_MEM = .FALSE.
+C
+C**  DO FOR ALL THE REQUESTS
+C
+      DO 100 II = ONE, NUMREQS
+C
+X       TYPE *,'85: REQUEST ',II,': PCODE = ',REQTAB(PCODE,II)
+C
+C**  CALL THE VERTICAL INTERPOLATION ROUTINE TO "FILL IN THE GAPS"
+C**  THAT ARE LEFT WHEN AZIMUTH SCANS DO NOT OVERLAP, OR ARE
+C**  NON-CONTIGUOUS IN SPACE.
+C
+        GPTR = BUFFTAB( II )
+C
+X       CALL DUMPGRID(II,MEM(GPTR),GRID_YROWS(II),GRID_XCOLS(II) )
+C
+        CALL A30784__VRT_INTRPOL( MEM( GPTR ),
+     $                      GRID_YROWS(II), GRID_XCOLS(II) )
+C
+C**  FIND THE MAXIMUM DATA LEVELS OF THIS PRODUCT FOR THE HEADER.
+C
+X       TYPE *,'85: DUMP THE INTERPOLATED BUFFER ( AFTER 84 CALL ) '
+X       CALL DUMPGRID(II,MEM(GPTR),GRID_YROWS(II),GRID_XCOLS(II) )
+C
+        MOMENT = REQTAB(PCODE,II)
+        RESOLUT = HDINFO(DROFFSET)
+        CALL A30787__MAX_DAT_LEVS(MEM(GPTR), GRID_YROWS(II),
+     $    GRID_XCOLS(II),MOMENT,RESOLUT,MAX,MIN,MAX_X,MAX_Y,MIN_X,MIN_Y)
+C
+C**  CALL THE RASTER RUN LENGTH ENCODE ROUTINE WITH THE INTERPOLATED
+C**  MAP FOR THIS PRODUCT. USE THE SAME BUFFER TO HOLD THE GENERATED
+C**  ( LENGTH OF THE OUTPUT IS ALWAYS < THE LENGTH OF THE INPUT ).
+C
+        OBUFFIND = ONE
+        MAXIND   = ( GRID_YROWS(II) * GRID_XCOLS(II) ) /  TWO
+C
+C**  RESET MAXIND IF THIS IS A SMALL CROSS SECTION TO ALLOW ADEQUATE
+C**  BUFFER SPACE FOR RUN LENGTH ENCODING
+C
+        IF (GRID_XCOLS(II).LE.SMALL_XSCT) THEN
+          MAXIND = MAXIND*TWO
+C
+X         TYPE *,'85: SMALL CROSS SECTION, MAXIND = ',MAXIND,
+     $          ', GRID DIMENSIONS = ',GRID_XCOLS(II),GRID_YROWS(II)
+C
+        END IF
+C
+C**  GET THE COLOR TABLE INDEX. CHANGE THE PRODUCT CODE TO AN INDEX
+C**  AND USE THIS THIS INDEX WITH THE WEATHER MODE TO LOOK UP THE COLOR
+C**  TABLE AND THRESHOLD TABLE INDEX, IN THE COLTHRIN TABLE.
+C
+        LOOKUP = ( REQTAB(PCODE,II) - REFLPROD16 ) + INC1
+        IF ( REQTAB(PCODE,II).EQ.VELOPROD16 .AND.
+     $              HDINFO(DROFFSET).EQ.TWO ) LOOKUP = FOUR
+C
+        IF ( LOOKUP .GT. FOUR )
+     $        LOOKUP = ( REQTAB(PCODE,II) - REFLPROD8 ) + FIVE
+C
+        IF ( REQTAB(PCODE,II) .EQ. VELOPROD8  .AND.
+     $       HDINFO(DROFFSET) .EQ. TWO ) LOOKUP = SEVEN
+C
+        WTHRMODE = HDINFO (WMOFFSET)
+        CLTABIND = COLTHRIN(LOOKUP,WTHRMODE)
+C
+X       TYPE *,'85: LOKUP,WTHRMODE,CLTABIND ',LOOKUP,WTHRMODE,CLTABIND
+X       TYPE *,'85: ROW, COL, II = ',GRID_YROWS(II),GRID_XCOLS(II),II
+X       TYPE *,'85: MEM, PCODE =  ',MEM(GPTR),REQTAB(PCODE,II)
+C
+        CALL A3CM22__RASTER_RUN_LENGTH(GRID_YROWS(II), GRID_XCOLS(II),
+     $    BUFSTAT,MEM(GPTR),CLTABIND,MEM(GPTR),OBUFFIND,ISTAR2S,MAXIND)
+C
+X       TYPE *,'85: RASTER_RUN_LENGTH ENCODED THE DATA STRING '
+C
+C**  NOW CALCULATE THE SIZE OF THE PRODUCT OUTPUT BUFFER REQUIRED.
+C**  AND REQUEST THE BUFFER.
+C**  PACKDESC = THE LENGTH OF THE PRODUCT HEADER+SYMBOLOGY HEADER
+C**  +RASTER DISPLAY HEADER (IN I*2).
+C**  GRIDSIZE MUST ALLOW FOR THE GRID VECTORS AND ANNOTATIONS PRE-
+C**  FORMATTED IN MODULE A3078A PLUS THE MAX AND MIN LABELS, AND THE
+C**  AZ/R POINTS ALONG THE BOTTOM FORMATTED IN MODULE A3078M.
+C
+        BUFSIZE = (PACKDESC + ISTAR2S + GRIDSIZE + INC1 ) / TWO
+        BTYPE = RQDAT(REQTAB(PCODE,II))
+C
+X       TYPE *,'85: READY TO CALL A31215, BSIZ,BTYP = ',BUFSIZE,BTYPE
+C
+        CALL A31215__GET_OUTBUF(BTYPE,BUFSIZE,BFPTR,OPSTAT)
+        IF ( OPSTAT .EQ. NORMAL ) THEN
+C
+C**  NOW CALL A30786 TO ASSEMBLE ALL OF THE DATA TOGETHER
+C**  AND ADD THE HEADERS.
+C
+          CALL A30786__ASSM_PRODUCT(MEM(GPTR),ISTAR2S,
+     $              MEM(BFPTR), VOLNUM, HDINFO, REQTAB, II, CLTABIND,
+     $        MAX, MIN, MAX_X, MAX_Y, MIN_X, MIN_Y, GRID_YROWS(II) )
+C
+C**  THIS PRODUCT IS NOW COMPLETE - RELEASE IT TO THE SYSTEM.
+C
+          CALL A31216__REL_OUTBUF(BFPTR,FORWARD)
+        ELSE
+C
+C**  CALL A3CM54 TO TELL CPC-2 THAT THIS PRODUCT WILL NOT BE MADE
+C
+          CALL A3CM54__CUST_PROD_MEMSHED(REQTAB(CUSTIDX,II)
+     $                 ,REQTAB(CCOPYNO,II),OPSTAT)
+C
+X         TYPE *,'85:  VERT X-SECT. :PRODUCT LOST-NO OUTPUT BUFFER'
+C
+          IF ( OPSTAT .EQ. NO_MEM ) NUM_NO_MEM = NUM_NO_MEM + INC1
+        END IF
+C
+C**  NOW RELEASE THE SCRATCH OUTPUT BUFFER THAT WAS USED TO
+C**  HOLD THE PRODUCT MAP.
+C
+        CALL A31216__REL_OUTBUF( GPTR, DESTROY )
+100   CONTINUE
+C
+C**  SET NO MEMORY ABORT FLAG IF NO BUFFERS SUCESSFULLY ACQUIRED
+C
+      IF ( NUM_NO_MEM .EQ. NUMREQS ) ABORT_NO_MEM = .TRUE.
+C
+X     TYPE *,'85: FINISHED A30785 ROUTINE, NUM_NO_MEM = ',NUM_NO_MEM
+C
+      RETURN
+      END

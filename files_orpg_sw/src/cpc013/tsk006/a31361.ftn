@@ -1,0 +1,416 @@
+C
+C RCS info
+C $Author: steves $
+C $Locker:  $
+C $Date: 2002/08/01 15:39:32 $
+C $Id: a31361.ftn,v 1.10 2002/08/01 15:39:32 steves Exp $
+C $Revision: 1.10 $
+C $State: Exp $
+C
+      SUBROUTINE A31361__PRECIP_ADJUST
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A31361__PRECIP_ADJUST
+*.
+*.  MODULE VERSION: 0015
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       10 21 88      0000      Paul Jendrowski      SPR #80383
+*.       05 16 90      0000      JOHN DEPHILIP        SPR #90697
+*.       01 08 91      0001      PAUL JENDROWSKI      SPR #90888
+*.       02 13 91      0001      BAYARD JOHNSTON      SPR # 91254
+*.       12 03 91      0002      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0003      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0004      Toolset              SPR 91895
+*.       05 22 92      0005      J. WHEELER           SPR# 92149
+*.       03/25/93      0006      Toolset              SPR NA93-06801
+*.       01/28/94      0007      Toolset              SPR NA94-01101
+*.       03/03/94      0008      Toolset              SPR NA94-05501
+*.       07/25/94      0009      Mike Istok           CCR NW-94-084-04
+*.       04/01/94      0010      Toolset              CCR NA94-11802
+*.       10/10/95      0011      Dong-Jun Seo         CCR NA94-33202
+*.       10/31/95      0011      Richard Fulton       CCR NA94-33201
+*.       12/23/96      0012      Toolset              CCR NA95-11807
+*.       03/16/99      0013      Toolset              CCR NA98-23803
+*.       01/31/02      0014      Dennis A. Miller     CCR NA01-27501
+*.       07/31/02      0015      C. Pham, D. Miller   CCR NA02_20602
+*.
+*.  CALLING SEQUENCE: CALL A31361__PRECIP_ADJUST
+*.
+*.  MODULE FUNCTION:
+*.
+*.      This module is the first level of control below the buffer
+*.    control module and executes the branch of the algorithm that
+*.    computes the bias adjustment factor.  A Bias Table, received 
+*.    from AWIPS once per hour or more frequently, if specially
+*.    generated, is examined in order to extract the
+*.    "best" bias, based upon a comparison of successive table rows
+*.    (timespans) to an adaptable threshold indicating the minimum
+*.    required number of effective gage-radar pairs.
+*.
+*.  MODULES CALLED: A31363__GET_HRLY_ACCUMS, A3136A__GAGE_RAD_DIFF,
+*.                  A3136B__VECTORS, A3136C__INNOVATIONS, A3136D__OBSERVATIONS,
+*.                  A3136G__MEAS_COVAR_MTRX, A3136H__COMP_BIAS,
+*.                  A3136J__DEFAULT_BIAS, A3CM08__CHANGE_NOTICE,
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT         TYPE        DESCRIPTION
+*.    -   -----         ----        -----------
+*.    G   DISK_BY_WRITE I*4         Disk performance monitoring information -
+*.                                  Number of bytes written to disk.
+*.    G   CNDISKFILE    I*4         (CONSTANT)FILE/DISK ACCESS CHANGE
+*.                                  NOTIFICATION CONSTANT-DISTRIBUTION TASK
+*.    G   FLAG_CLEAR    I*4         (CONSTANT)Parameter for a cleared flag
+*.    G   HYALARM_FLG   I*4         (CONSTANT)HYDROMET ALARM FLAG VALUE -
+*.                                  CONSTANT
+*.    C   BIBYTES       I*4         (CONSTANT)Number of bytes to write during
+*.                                  write of bias times and values.
+*.    C   DATECUR       I*4         Current Date.
+*.    C   DBTBL_GEN     I*4         Generation date of Bias Table (Julian)
+*.    C   DBTBL_OBS     I*4         Observation Date of Bias Table (Julian)
+*.    C   GASCNLU       I*4         (CONSTANT)Gage accumulation scan disk file
+*.                                  logical unit.
+*.    C   IBEG          I*4         (CONSTANT)Parameter for start of Do Loop.
+*.    C   IINIT         I*4         (CONSTANT)Constant zero for
+*.                                  initialization.
+*.    C   ORPG_SEC0_REC I*4         (CONSTANT)First disk sector of gage
+*.                                  accumulation scan disk file.
+*.    C   TBTBL_GEN     I*4         Generation time of Bias Table (seconds)
+*.    C   TBTBL_OBS     I*4         Observation Time of Bias Table (secs)
+*.    C   TIMECUR       I*4         Current time, in seconds of the volume
+*.                                  scan (from 0 to 86400).
+*.
+*.    *   OUTPUT        TYPE        DESCRIPTION
+*.    -   ------        ----        -----------
+*.    G   DISK_BY_WRITE I*4         Disk performance monitoring information -
+*.                                  Number of bytes written to disk.
+*.    C   DBTBL_GEN     I*4         Generation date of Bias Table (Julian)
+*.    C   DBTBL_OBS     I*4         Observation Date of Bias Table (Julian)
+*.    C   RBIAS_TABL    Real        Unscaled, internal Bias Table, from AWIPS
+*.    C   TBTBL_GEN     I*4         Generation time of Bias Table (seconds)
+*.    C   TBTBL_OBS     I*4         Observation Time of Bias Table (secs)
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    C   IBIAS_TABL        I*4         Scaled, integer Bias Table, from AWIPS
+*.    C   TBUPDT            I*4         Time Bias last updated locally (secs)
+*.    P   FLG_IOERR         I*4         Disk I/O error code
+*.
+*.  DATABASE/FILE REFERENCE: HYGAGSCN.DAT; UPDATE
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME          TYPE    DESCRIPTION
+*.    ----          ----    -----------
+*.    DATE_BTBL_GEN I*4     Date (modified Julian) of Generation of 
+*.                          most recently received Bias Table
+*.    TIME_BTBL_GEN I*4     Time within day (secs) of Generation of
+*.                          most recently received Bias Table
+*.    DATE_BTBL_OBS I*4     Date (modified Julian) of Observation of 
+*.                          most recently received Bias Table
+*.    TIME_BTBL_OBS I*4     Time within day (secs) of Observation of
+*.                          most recently received Bias Table
+*.    FLG_WERR      I*4     Disk write error code
+*.    INITIALIZED   L*4     FLAG PERMITS INITIALIZATION OF DISK INDEX TO
+*.                          BE DONE ONLY ONCE
+*.    LAG           I*4     Lag (hours) betw. Current time & latest Bias Table
+*.    YES           L*4     (CONSTANT) LOGICAL .TRUE.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3136C2
+*.    A3CD07
+*.    ENVIRON
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3136C1
+*.    A3136C3
+*.    A3136CA
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS: None
+*.
+*.  DEVIATION FROM STANDARDS: None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP13.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK13.CSS
+*.
+*.  MISC: None
+*.
+*.*******************************************************************
+C
+      IMPLICIT NONE
+C
+$INCLUDE A309ADPT.INC/G,**A3CD70P6 (NEND NLIST)
+$INCLUDE                **A3CD70CA (NEND NLIST)
+$INCLUDE                **A3CD70C8 (NLIST)
+$INCLUDE                **A3CD70C4 (NLIST)
+$INCLUDE A309.INC/G,**A3CD07 (NLIST)
+$INCLUDE A313HBUF.INC/G,**A313HYPP (NLIST)
+C ORPG Issue 6
+$INCLUDE A309.INC/G, **A3PM00      (NLIST)
+$INCLUDE A313H.INC,**A3136P        (NLIST)
+$INCLUDE **A3136P1                 (NLIST)
+$INCLUDE **A3136P5                 (NLIST)
+$INCLUDE **A3136C3                 (NLIST)
+$INCLUDE **A3136C5                 (NLIST)
+$INCLUDE **A3136CA                 (NLIST)
+C
+C************************* DATA DECLARATIONS ***************************
+C   ORPG Issue 9
+      INTEGER ORPGNDX
+      INTEGER BIAS_DATA(BIBYTES/4)
+      EQUIVALENCE (BIAS_DATA(1),TBUPDT)
+C
+      INTEGER FLG_IOERR, FLG_WERR
+      integer date_btbl_obs, time_btbl_obs
+      integer date_btbl_gen, time_btbl_gen
+      integer lag, delta_time, update_thresh      
+      data  update_thresh/70/
+C
+      INTEGER nf, nl
+      LOGICAL INITIALIZED,YES
+      DATA INITIALIZED /.FALSE./
+      PARAMETER (YES=.TRUE.)
+      LOGICAL new_message, update_tabl
+C
+      real  realval
+C
+      integer ni
+C**************************** EXECUTABLE *******************************
+C
+X     WRITE(6,1)
+X  1  FORMAT(' ***** ENTER A31361')
+C
+      FLG_IOERR = FLAG_CLEAR
+C
+X     WRITE(6,10) FLG_IOERR
+X 10  FORMAT(' A31361: FLG_IOERR=',I4)
+C
+c  Retrieve Bias Table (transmitted from AWIPS) off of disk
+c
+      call a3136n__read_btabl( flg_ioerr )
+c
+X     type *
+X     type *,' FLG_IOERR upon return from a3136n is', FLG_IOERR
+c
+      if ( flg_ioerr.eq.flag_clear ) then
+c
+C** If Bias Table successfully retrieved and all previous disk i/o
+C** operations successful...
+c
+X       type *
+X       write (6,*) 'Data packet with Bias Table read from disk'
+X       type *,' BLOCK_DIVIDR, BLOCK_ID =',
+X    $               BLOCK_DIVIDR, BLOCK_ID
+X       type *,' VERSION_NUM, BLOCK_LEN =',
+X    $               VERSION_NUM, BLOCK_LEN
+X       type *,' SOURCE_ID, RADAR_ID =', SOURCE_ID, RADAR_ID
+X       type *,' OBServation DATE_TIME fields =',
+X    $               (OBS_DATE_TIME(ni),ni=1,n_datim_elems)
+X       type *,' GENeration DATE_TIME fields =',
+X    $               (GEN_DATE_TIME(ni),ni=1,n_datim_elems)
+X       type *,' NROWS =', NROWS
+X       type *
+X       type *,' ...(scaled integer) BIAS_TABL follows:'
+X       write (6,940) ((IBIAS_TABL(nf,nl),nf=1,n_bias_flds),
+X    $                                    nl=1,n_bias_lines)
+X940    format (5i15)
+c
+c** Convert scaled (x1000) integer version of Bias Table (ingested
+c** from disk) to real version, overwriting previous (if table column
+c** is Memory Span, take antilog after conversion)
+c
+        do 300, nl = 1, n_bias_lines
+          do 300, nf = 1, n_bias_flds
+c
+            if( nf.eq.ix_mspan )  then
+              realval = exp( ibias_tabl( nf,nl )/1000.0 )
+              rbias_tabl( nf,nl ) = realval
+            else
+              rbias_tabl( nf,nl ) = ibias_tabl( nf,nl )/1000.0
+            end if
+c
+ 300    continue
+X       type *
+X       type *,' ...(real) BIAS_TABL follows:'
+X       write (6,950) ((RBIAS_TABL(nf,nl),nf=1,n_bias_flds),
+X    $                                    nl=1,n_bias_lines)
+X950    format (5(1x,g20.10))
+c
+c** Convert date & time fields (i.e., yr,mo,da,hr,mn,sc) from latest
+c** Bias Table received to (modified) Julian Date and Time (seconds)
+c** ...for both Bias Table Observation and Generation dates & times.
+c
+X       type *
+X       type *,' a3136q called for Table OBServation time'
+        call a3136q__table_date_time( obs_date_time,
+     $                           date_btbl_obs, time_btbl_obs )
+c
+X       type *,' Observation date (Julian), time (secs) of table',
+X    $          ' just read =', date_btbl_obs,' , ', time_btbl_obs
+X       type *,' vs. that of most recently updated table stored',
+X    $          ' internally =', dbtbl_obs,' , ',tbtbl_obs
+c
+X       type *
+X       type *,' a3136q called for Table GENeration time'
+        call a3136q__table_date_time( gen_date_time,
+     $                           date_btbl_gen, time_btbl_gen )
+c
+X       type *,' Generation date (Julian), time (secs) of table',
+X    $          ' just read = ', date_btbl_gen,' , ', time_btbl_gen
+X       type *,' vs. that of most recently updated table stored',
+X    $          ' internally =', dbtbl_gen,' , ',tbtbl_gen
+c
+c** Compare date & time fields of Bias Table just read to previous 
+c** (stored internally), taking into account possibility of messages
+c** received late or out of sequence.  A message is considered new
+c** if its observation time is later than that of the previous message,
+c** or its observation time is the same but its generation time is later.
+c
+        NEW_MESSAGE = .FALSE.
+        IF( ( (date_btbl_obs - dbtbl_obs)*sec_in_day
+     $       + (time_btbl_obs - tbtbl_obs) ) .gt. 0 .OR.
+     $      ( ( (date_btbl_obs - dbtbl_obs)*sec_in_day
+     $       + (time_btbl_obs - tbtbl_obs) ) .eq. 0 .AND.
+     $        ( (date_btbl_gen - dbtbl_gen)*sec_in_day
+     $       + (time_btbl_gen - tbtbl_gen) ) .gt. 0) ) THEN
+c
+c** Bias Table just read is new: set flag accordingly and replace
+c** internal values of Date & Time latest Bias Table Observed & 
+c** Generated with those values in message just received.
+c
+          NEW_MESSAGE = .TRUE.
+          dbtbl_obs = date_btbl_obs
+          tbtbl_obs = time_btbl_obs
+          dbtbl_gen = date_btbl_gen
+          tbtbl_gen = time_btbl_gen
+        END IF
+X       type * 
+X       type *,' Table just read is new ? : ',new_message
+c
+c** Whether or not message is new, determine time elapsed (in minutes) since
+c** last Date/Time of Bias Table Generation (by comparison to Current Date
+c** (Julian) and Time (secs)).
+c
+        delta_time = ( (datecur - dbtbl_gen)*sec_in_day
+     $                + (timecur - tbtbl_gen) )/ sec_in_min
+X       type *
+X       type *,' Delta Time (min) since Gen. Time of last-received'
+X    $         ,' Bias Table:',delta_time,', vs. threshold for update:'
+X    $         , update_thresh
+        UPDATE_TABL = .FALSE. 
+        if ( delta_time .gt. update_thresh ) then
+c
+c** If a delta-time threshold has been exceeded (i.e., an hour plus several
+c** minutes), determine the Lag in clock hours betweeen the Current Date/Time
+c** and the last Date/Time of Bias Table Observation.
+c
+          lag = 0
+          call a3136u__determ_lag( lag )
+c
+          if( lag.gt.0 .and. lag.le.longst_lag )  then
+c
+c** If Lag is not excessive (i.e., is within the longest allowable threshold),
+c** update the local copy of the Bias Table proportionally to the Lag and set
+c** flag indicating the Bias Table has been updated.
+c
+            call a3136v__update_bias_tabl( lag )
+            UPDATE_TABL = .TRUE. 
+c
+          end if
+        end if
+X       type * 
+X       type *,' Table has been updated internally ? : ',update_tabl
+c
+c** If a new Message has been received this volume scan or the local copy of
+c** the Bias Table has been updated, extract the "best" bias from the table.
+c
+        if (NEW_MESSAGE .or. UPDATE_TABL)  then
+c
+          call a3136p__extract_bias
+c
+        else
+c
+c** Bias Table was successfully read but was not new and was not updated
+c** locally; use existing valus of Bias and related fields.
+c
+X         type *
+X         type *,' >>>Ingested bias table not new and not updated',
+X    $            ' locally, use existing Bias & related fields !'
+X         type *,' Sampl_siz = ',GRPSIZ,', Mem_span = ',MSPAN,
+X    $            ', Loc_bias = ',BIAS
+X         type *
+        end if
+      else
+c
+c** Else if Bias Table not successfully retrieved... write message but do
+c** not abort; attempt to extract Best Bias from a recent, local Bias Table
+c
+X       type *
+X       type *,' --> Problem encountered in reading Bias Table,',
+X    $              ' .... use existing Bias & related fields'
+X       type *,' Sampl_siz = ',GRPSIZ,', Mem_span = ',MSPAN,
+X    $         ', Loc_bias = ',BIAS
+      end if
+C
+X     WRITE(6,23) DBUPDT, TBUPDT, BIAS, GRPSIZ, MSPAN
+X 23  FORMAT(' A31361: BIAS UPDATE DATE/TIME:',2I7,'  BIAS=',F8.4,
+X    $               '  GRPSIZ=',F12.4,'  MSPAN=',F12.4)
+c
+C** If a new Bias value has been extracted from the table, write out
+C** revised Bias Table and Bias Update date & time fields, plus the Bias
+C** value and its associated Gage-Radar Pair Size & Memory Span, to disk.
+C
+      IF (NEW_MESSAGE .or. UPDATE_TABL)  THEN
+C
+X          type *,'A31361: Fields in A3136C3 before write to GASCNLU:'
+C
+X          WRITE(6,11) DBUPDT, TBUPDT, DBTBL_UPD, TBTBL_UPD
+X11        FORMAT(' A3136T: DATE & TIME LAST BIAS VALUE UPDATE:',2I6,
+X    $            ', DATE & TIME BIAS TABLE UPDATE:',2I6)
+X          WRITE(6,12) DBTBL_OBS, TBTBL_OBS, DBTBL_GEN, TBTBL_GEN
+X12        FORMAT(' A3136T: DATE & TIME BIAS TABLE OBSERVATION:',2I6,
+X    $            ', DATE & TIME BIAS TABLE GENERATATION:',2I6)
+X          WRITE(6,13) BIAS, GRPSIZ, MSPAN
+X13        FORMAT(' A3136T: BIAS=',F6.3,'  GRPSIZ=',F10.3,
+X    $                   '  MSPAN=',F10.3)
+X          WRITE(6,15) DATECUR, TIMECUR
+X15        FORMAT(' A3136T: CURRENT VOLUME SCAN DATE AND TIME:',2I6)
+C
+C     ORPG Issue 9
+        WRITE(UNIT=GASCNLU, IOSTAT=FLG_WERR, REC=ORPG_SEC0_REC)
+     $        (BIAS_DATA(ORPGNDX), ORPGNDX=1,(BIBYTES/4))
+C
+C** Write message if there is a write error
+C
+        IF (FLG_WERR.NE.FLAG_CLEAR) THEN
+          CALL A3CM08__CHANGE_NOTICE(CNDISKFILE, HYALARM_FLG, FLG_WERR,
+     $                               GASCNLU, IINIT, IINIT)
+X         WRITE(6,999) FLG_WERR
+          FLG_IOERR = FLG_WERR
+C
+        END IF
+X 999   FORMAT(' Disk write error',I4,' in Module A31361')
+C
+      END IF
+C
+X     WRITE(6,99)
+X 99  FORMAT(' ***** EXIT A31361')
+C
+      RETURN
+      END

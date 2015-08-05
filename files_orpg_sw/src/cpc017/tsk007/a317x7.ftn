@@ -1,0 +1,362 @@
+C
+C RCS info
+C $Author: ccalvert $
+C $Locker:  $
+C $Date: 2003/12/09 21:06:11 $
+C $Id: a317x7.ftn,v 1.3 2003/12/09 21:06:11 ccalvert Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A317X7__INIT_ADAP (HDR)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A317X7__INIT_ADAP
+*.
+*.  MODULE VERSION: 0001
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       05/29/97      0000      BOB/LEE              CCR NA94-26302
+*.       03/16/99      0001      Toolset              CCR NA98-23803
+*.       12/09/03      0002      CHRIS CALVERT        CCR NA03-30002
+*.
+*.  CALLING SEQUENCE: CALL A317X3__INIT_ADAP
+*.
+*.  MODULE FUNCTION:
+*.
+*.  This subroutine makes a local copy of all Adaptation Data for the
+*.  TDA Algorithms (other than Hail) from the shared RPG Adaptation
+*.  Buffer.  Since elements of adaptation data that are of type REAL
+*.  are interspersed with elements that are of type INTEGER, two equi-
+*.  valent local arrays -- one of type REAL and one of type INTEGER --
+*.  are used for transferring the adaptation data, as appropriate for
+*.  each element. Thereafter, local elements of adaptation data are
+*.  referenced by explicit names, where each name has also been equi-
+*.  valenced to a position in the local adaptation data array(s).
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT    TYPE        DESCRIPTION
+*.    -   -----    ----        -----------
+*.    G   MAX2DAR  R*4         Adaptable parameter: maximum allowable aspect
+*.                             ratio (Delta Range (Slant)/ Delta Azimuth) for
+*.                             a 2D Feature.
+*.    G   MAXNUM2D I*4         Adaptable parameter: maximum number of 2D
+*.                             Features the algorithm can process per volume
+*.                             scan.
+*.    G   MAXNUM3D I*4         Adaptable parameter: maximum number of 3D
+*.                             Features the algorithm can process per volume
+*.                             scan.
+*.    G   MAXNUMET I*4         Adaptable parameter: maximum number of elevated
+*.                             TVS's the algorithm can process per volume
+*.                             scan.
+*.    G   MAXNUMPV I*4         Adaptable parameter: maximum number of pattern
+*.                             vectors the algorithm can process per elevation
+*.                             scan.
+*.    G   MAXNUMTV I*4         Adaptable parameter: maximum number of TVSs the
+*.                             algorithm can process per volume scan.
+*.    G   MAXPVAD  R*4         Adaptable parameter: maximum azimuthal distance
+*.                             allowed for two Pattern Vectors to be
+*.                             associated into the same 2D Feature.
+*.    G   MAXPVHT  R*4         Adaptable parameter: maximum pattern vector
+*.                             height.
+*.    G   MAXPVRD  R*4         Adaptable parameter: maximum radial distance
+*.                             allowed between two Pattern Vectors to be
+*.                             associated into the same 2D Feature.
+*.    G   MAXPVRNG I*4         Adaptable parameter: maximum Range(Slant) at
+*.                             which Pattern Vectors are identified.
+*.    G   MAXTSTMD R*4         Adaptable parameter: maximum distance from a
+*.                             storm within which to associate TVS and ETVS
+*.                             detections with storm cell detections.
+*.    G   MIN1DP2D I*4         Adaptable parameter: minimum number of Pattern
+*.                             Vectors required to declare a 2D Feature.
+*.    G   MIN2DP3D I*4         Adaptable parameter: minimum number of 2D
+*.                             Features needed to make a 3D feature.
+*.    G   MINADVHT R*4         Adaptable parameter: minimum height below which
+*.                             all 2D circulations comprising a 3D Feature are
+*.                             assigned an equal weighting of 1.
+*.    G   MINLLDV  I*4         Adaptable parameter: minimum radial velocity
+*.                             difference at the base elevation scan required
+*.                             to declare a TVS or ETVS.
+*.    G   MINMTDV  I*4         Adaptable parameter: minimum radial velocity
+*.                             difference of the maximum 3D Feature delta
+*.                             velocity required to declare a TVS.
+*.    G   MINPVDV  I*4         Adaptable parameter: The minimum required
+*.                             gate-to gate velocity difference required for
+*.                             Pattern Vectors and should be equal to TH2DDV1.
+*.    G   MINREFL  I*4         Adaptable parameter: minimum reflectivity value
+*.                             required in a sample volume for it to be used
+*.                             in a Pattern Vector.
+*.    G   MINTVSBE R*4         Adaptable parameter: lowest elevation angle to
+*.                             which the base of a 3D Feature must extend to
+*.                             declare a TVS.
+*.    G   MINTVSBH R*4         Adaptable parameter: Minimum height AGL to
+*.                             which the base of a 3D Feature must extend to
+*.                             be declared a TVS.
+*.    G   MINTVSD  R*4         Adaptable parameter: Minimum depth required to
+*.                             declare a TVS or an ETVS.
+*.    G   TADADAP  R*4         Array holding adaptable parameter values.
+*.    G   TDAADAP  I*4         Array holding the TDA adaptable parameters from
+*.                             TDA1D.
+*.    G   TH2DDV1  I*4         Adaptable parameter: The first of six velocity
+*.                             difference thresholds used as criteria for
+*.                             building 2D Features.
+*.    G   TH2DDV2  I*4         Adaptable parameter: The second of six velocity
+*.                             difference thresholds used as criteria for
+*.                             building 2D Features.
+*.    G   TH2DDV3  I*4         Adaptable parameter: The third of six velocity
+*.                             difference thresholds used as criteria for
+*.                             building 2D Features.
+*.    G   TH2DDV4  I*4         Adaptable parameter: The fourth of six velocity
+*.                             difference thresholds used as criteria for
+*.                             building 2D Features.
+*.    G   TH2DDV5  I*4         Adaptable parameter: The fifth of six velocity
+*.                             difference thresholds used as criteria for
+*.                             building 2D Features.
+*.    G   TH2DDV6  I*4         Adaptable parameter: The sixth of six velocity
+*.                             difference thresholds used as criteria for
+*.                             building 2D Features.
+*.    G   THCR1    R*4         Adaptable parameter: Max horizontal radius used
+*.                             for searching 2D Features on adjacent/same
+*.                             elevation scans.  Use when range is LT/EQ to
+*.                             Circulation Radius
+*.    G   THCR2    R*4         Adapt Parameter: Max horizontal radius used for
+*.                             searching 2D Features on adjacent or same
+*.                             elevation scans used when range is GT
+*.                             Circulation Radius Range.
+*.    G   THCRR    I*4         Adapt Parameter: Range (Slant) beyond which
+*.                             Thresh(Circulation Radius2) is invoked, other
+*.                             wise Thresh(Circulation Radius1) is used.
+*.    G   DROFFSET I*4         (CONSTANT)Offset to Doppler velocity resolution
+*.                             in preprocessed radial header.
+*.    G   PHEDSIZE I*4         (CONSTANT)Size of preprocessed base radial
+*.                             header.
+*.    G   TDA_CR1  I*4         (CONSTANT)Index of TDA adapt data for THCR1.
+*.    G   TDA_CR2  I*4         (CONSTANT)Index of TDA adaptation data for
+*.                             THCR2
+*.    G   TDA_CRR  I*4         (CONSTANT)Index into TDA adaptation data for
+*.                             THCRR
+*.    G   TDA_DV1  I*4         (CONSTANT)Index into TDA adaptation data for
+*.                             TH2DDV1
+*.    G   TDA_DV2  I*4         (CONSTANT)Index into TDA adaptation data for
+*.                             TH2DDV2
+*.    G   TDA_DV3  I*4         (CONSTANT)Index into TDA adaptation data for
+*.                             TH2DDV3
+*.    G   TDA_DV4  I*4         (CONSTANT)Index into TDA adaptation data for
+*.                             TH2DDV4
+*.    G   TDA_DV5  I*4         (CONSTANT)Index into TDA adaptation data for
+*.                             TH2DDV5
+*.    G   TDA_DV6  I*4         (CONSTANT)Index into TDA adaptation data for
+*.                             TH2DDV6
+*.    G   TDA_MADH I*4         (CONSTANT)Index into TDA adaptation data for
+*.                             MINADVHT
+*.    G   TDA_MDV  I*4         (CONSTANT)Index into TDA adaptation data for
+*.                             MINPVDV
+*.    G   TDA_MFAR I*4         (CONSTANT)Index into TDA adaptation data for
+*.                             MAX2DAR
+*.    G   TDA_MFPD I*4         (CONSTANT)Index into TDA adaptation data for
+*.                             MIN2DP3D
+*.    G   TDA_MLDV I*4         (CONSTANT)Index into TDA adaptation data for
+*.                             MINLLDV
+*.    G   TDA_MN2D I*4         (CONSTANT)Index into TDA adaptation data for
+*.                             MAXNUM2D
+*.    G   TDA_MN3D I*4         (CONSTANT)Index into TDA adaptation data for
+*.                             MAXNUM3D
+*.    G   TDA_MNET I*4         (CONSTANT)Index into TDA adaptation data for
+*.                             MAXNUMET
+*.    G   TDA_MNPV I*4         (CONSTANT)Index into TDA adaptation data for
+*.                             MAXNUMPV
+*.    G   TDA_MNT  I*4         (CONSTANT)Index into TDA adaptation data for
+*.                             MAXNUMTV
+*.    G   TDA_MPVF I*4         (CONSTANT)Index into TDA adaptation data for
+*.                             MIN1DP2D
+*.    G   TDA_MPVH I*4         (CONSTANT)Index into TDA adaptation data for
+*.                             MAXPVHT
+*.    G   TDA_MPVR I*4         (CONSTANT)Index into TDA adaptation data for
+*.                             MAXPVRNG
+*.    G   TDA_MRV  I*4         (CONSTANT)Index into TDA adaptation data for
+*.                             MINREFL
+*.    G   TDA_MTBE I*4         (CONSTANT)Index into TDA adaptation data for
+*.                             MINTVSBE
+*.    G   TDA_MTBH I*4         (CONSTANT)Index into TDA adaptation data for
+*.                             MINTVSBH
+*.    G   TDA_MTDV I*4         (CONSTANT)Index into TDA adaptation data for
+*.                             MINMTDV
+*.    G   TDA_MTED I*4         (CONSTANT)Index into TDA adaptation data for
+*.                             MINTVSD
+*.    G   TDA_MVAD I*4         (CONSTANT)Index into TDA adaptation data for
+*.                             MAXPVAD
+*.    G   TDA_MVRD I*4         (CONSTANT)Index into TDA adaptation data for
+*.                             MAXPVRD
+*.    G   TDA_SAD  I*4         (CONSTANT)Index into TDA adaptation data for
+*.                             MAXTSTMD
+*.    P   HDR      I*2         Array holding radial header information
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    G   TADADAP R*4         Array holding adaptable parameter values.
+*.    G   TDAADAP I*4         Array holding the TDA adaptable parameters from
+*.                            TDA1D.
+*.    C   BADPRFL I*4         Biased reflectivity threshold below which no TVS
+*.                            possible
+*.    C   BADPVEL I*4         Biased velocity threshold below which no TVS
+*.                            identified
+*.    C   VMULFCT R*4         Multiplicative factor to convert velocity values
+*.                            to biased velocity values.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME     TYPE        DESCRIPTION
+*.    ----     ----        -----------
+*.    MULTFACT R*4         Factor for converting velocity from m/s to biased
+*.                         values.
+*.    OFFACT   R*4         Offset factor to turn reflectivity threshold into a
+*.                         biased value
+*.    RADDFCT  I*4         Factor used in the conversion of dBZ to biased
+*.                         units.
+*.    RMULTFCT I*4         Parameter used to convert reflectivity from dBZ to
+*.                         biased units.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A317CTAD
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A317CGT
+*.    TDA
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:
+*.
+*.     Since a local copy of all the Adaptation Data pertinent to the
+*.   TDA is made from the shared RPG Adaptation Buffer at the start
+*.   of each volume scan and only then, the Adaptation variables
+*.   seen by the TDA will be constant throughout each volume scan.
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     Compiled using COMP15.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     Linked using LINK15.CSS
+*.
+*.  MISC:  None
+*.
+C********************************************************************
+C
+C           TDA: INITIALIZE ADAPTATION DATA  ROUTINE
+C
+C********************************************************************
+C
+      IMPLICIT NONE
+C
+C**Attach Shared RPG Adaptation Data definition file:
+$INCLUDE A304.INC/G,**A304P4 (NLIST)
+C
+C**Attach Shared RPG Adaptation Data definition file:
+$INCLUDE A309ADPT.INC/G,**A3CD70_TDA (NLIST)
+C
+C**Attach local TDA Adaptation Data parameter file:
+$INCLUDE A317BUF.INC/G,**A317PTAD (NLIST)
+C
+C**Attach local TDA Adaptation Data definitions:
+$INCLUDE A317BUF.INC/G,**A317CTAD (NLIST)
+C**Attach internal common block (CG)
+$INCLUDE A317.INC/G,**A317CGT (NLIST)
+C
+C******************* BEGIN MAIN PROCESSING SECTION ******************
+C
+C** LOCAL ASSIGNMENTS
+C
+      REAL       MULTFACT, OFFACT
+      INTEGER*2  HDR(PHEDSIZE)
+      INTEGER    RADDFCT, RMULTFCT
+      PARAMETER ( RADDFCT = 32, RMULTFCT = 2, OFFACT = 2.0 )
+C
+C** Make local copy of all Adaptation parameters for TDA
+C** Algorithm.
+C
+C ** Integer adaptation for TDA 1D
+C
+      TDAADAP( TDA_MRV  ) = MINREFL
+      TDAADAP( TDA_MDV ) = MINPVDV
+      TDAADAP( TDA_MPVR ) = MAXPVRNG
+      TDAADAP( TDA_MNPV ) = MAXNUMPV
+C
+C ** Real adaptation for TDA 1D
+C
+      TADADAP (TDA_MPVH ) = MAXPVHT
+C
+C ** Integer adaptation for TDA 2D
+C
+      TDAADAP( TDA_DV1 ) = TH2DDV1
+      TDAADAP( TDA_DV2 ) = TH2DDV2
+      TDAADAP( TDA_DV3 ) = TH2DDV3
+      TDAADAP( TDA_DV4 ) = TH2DDV4
+      TDAADAP( TDA_DV5 ) = TH2DDV5
+      TDAADAP( TDA_DV6 ) = TH2DDV6
+      TDAADAP( TDA_MPVF ) = MIN1DP2D
+      TDAADAP( TDA_CRR ) = THCRR
+      TDAADAP( TDA_MN2D ) = MAXNUM2D
+C
+C ** Real adaptation for TDA 2D
+C
+      TADADAP( TDA_MVRD ) = MAXPVRD
+      TADADAP( TDA_MVAD ) = MAXPVAD
+      TADADAP( TDA_MFAR ) = MAX2DAR
+      TADADAP( TDA_CR1 ) = THCR1
+      TADADAP( TDA_CR2 ) = THCR2
+C
+C ** Integer adaptation for TDA 3D
+
+C
+      TDAADAP( TDA_MFPD )  = MIN2DP3D
+      TDAADAP( TDA_MLDV ) = MINLLDV
+      TDAADAP( TDA_MTDV ) = MINMTDV
+      TDAADAP( TDA_MN3D ) = MAXNUM3D
+      TDAADAP( TDA_MNT ) = MAXNUMTV
+      TDAADAP( TDA_MNET ) = MAXNUMET
+C
+C ** Real adaptation for TDA 3D
+C
+      TADADAP( TDA_MTED ) = MINTVSD
+      TADADAP( TDA_MTBH ) = MINTVSBH
+      TADADAP( TDA_MTBE ) = MINTVSBE
+      TADADAP( TDA_MADH ) = MINADVHT
+      TADADAP( TDA_SAD ) = MAXTSTMD
+C
+C Convert Refl and Vel Thresholds (received Adaptation Data)
+C from dBz and m/s to equivalant biased units used in TDA 1D.
+C
+      IF (HDR(DROFFSET) .EQ. 1) THEN
+        MULTFACT=2.0
+        VMULFCT=0.5
+      ELSE
+        MULTFACT=1.0
+        VMULFCT=1.0
+      ENDIF
+
+      BADPRFL = (RMULTFCT * (TDAADAP(TDA_MRV)+RADDFCT)) + OFFACT
+      BADPVEL = MULTFACT * TDAADAP(TDA_MDV)
+C
+C************** END OF PROCESSING FOR SUBROUTINE ********************
+C
+      RETURN
+      END

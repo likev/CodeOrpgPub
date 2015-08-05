@@ -1,0 +1,134 @@
+C 
+C RCS info 
+C $Author: nolitam $ 
+C $Locker:  $ 
+C $Date: 2002/11/27 15:17:21 $ 
+C $Id: a3147g.ftn,v 1.3 2002/11/27 15:17:21 nolitam Exp $ 
+C $Revision: 1.3 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A3147G__GEN_CHR_PKCTS(X,Y,INARRAY,NUMCHARS,BPTR,
+     +   USPBUF)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3147G__GEN_CHR_PKCTS
+*.
+*.  MODULE VERSION:0002
+*.
+*.  MODULE LANGUAGE:NONE.
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       10/19/95      0000      Cheryl Stephenson   CCR NA94-08462
+*.       12/23/96      0001      Toolset              CCR NA95-11807
+*.       03/16/99      0002      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A3147G__GEN_CHR_PKCTS(X,Y,INARRAY,NUMCHARS
+*.                                  ,BPTR,USPBUF)
+*.
+*.  MODULE FUNCTION:  This module generates character packets for the Null
+*.                    USP product and stores them in the product buffer.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT    TYPE        DESCRIPTION
+*.    -   -----    ----        -----------
+*.    P   BPTR     I*4         Buffer pointer
+*.    P   INARRAY  I*2         Array used to pass in text message
+*.    P   NUMCHARS I*2         Number of characters to plot
+*.    P   X        R*4         Row number to start characters in
+*.                             graphic message
+*.    P   Y        R*4         Column number to start characters in
+*.                             graphic message.
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    P   BPTR    I*4         Buffer pointer
+*.    P   USPBUF  I*2         USP product buffer
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE: NONE.
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME        TYPE        DESCRIPTION
+*.    ----        ----        -----------
+*.    BLK_OVRHD   I*2         (CONSTANT)Number of bytes of overhead in this
+*.                            packet
+*.    BPHW        I*2         (CONSTANT)Bytes per halfword
+*.    HDR_LEN     I*2         (CONSTANT)Length of header
+*.    HW          I*2         Do loop index
+*.    IDOFS       I*2         (CONSTANT)Offest to the packet code
+*.    ISOFS       I*2         (CONSTANT)Offset to the I start position
+*.    JSOFS       I*2         (CONSTANT)Offset to the J start position
+*.    LENOFS      I*2         (CONSTANT)Offset to the packet length
+*.    PACKET_CODE I*2         Code indicating this packet as a text packet
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: NONE.
+*.
+*.  ASSUMPTIONS/RESTRICTIONS: NONE.
+*.
+*.  DEVIATION FROM STANDARDS: NONE.
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK14.CSS
+*.
+*.  MISC: NONE.
+*.
+*.********************************************************************
+      IMPLICIT NONE
+      INTEGER*2 INARRAY(*), USPBUF(*), C, NUMCHARS, HW, PACKET_CODE
+      INTEGER*2 BPHW, LENOFS
+      REAL X, Y
+      INTEGER BPTR
+      INTEGER*2 IDOFS, VALOFS, ISOFS, JSOFS, HDR_LEN, BLK_OVRHD
+      PARAMETER (IDOFS = 1)
+      PARAMETER (LENOFS= 2)
+      PARAMETER (BPHW  = 2)
+      PARAMETER (ISOFS = 3)
+      PARAMETER (JSOFS = 4)
+      PARAMETER (BLK_OVRHD = 4)
+      PARAMETER (HDR_LEN = 4)
+      PARAMETER (PACKET_CODE = 1)
+C*
+C------------------------- EXECUTABLE ---------------------------
+X     Write(14,*)'ENTER A3147G'
+C
+      USPBUF(BPTR +  IDOFS)  =  PACKET_CODE
+      USPBUF(BPTR + LENOFS)  =  NUMCHARS + BLK_OVRHD
+      USPBUF(BPTR +  ISOFS)  =  NINT(X)
+      USPBUF(BPTR +  JSOFS)  =  NINT(Y)
+C
+C** FILL IN CHARACTER HALFWORDS
+C
+      DO 100 HW=1, (NUMCHARS+1)/BPHW, 1
+         USPBUF(BPTR + HDR_LEN + HW) = INARRAY(HW)
+ 100  CONTINUE
+C
+C** UPDATE BPTR TO NEXT POSITION
+C
+      BPTR = BPTR + (NUMCHARS+1)/BPHW + HDR_LEN
+C
+C** RETURN TO CALLING ROUTINE
+C
+X     WRITE(14,*)'LEAVING A3147G'
+      RETURN
+      END

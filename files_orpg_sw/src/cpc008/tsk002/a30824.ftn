@@ -1,0 +1,285 @@
+C
+C RCS info
+C $Author: steves $
+C $Locker:  $
+C $Date: 2004/01/12 16:36:16 $
+C $Id: a30824.ftn,v 1.5 2004/01/12 16:36:16 steves Exp $
+C $Revision: 1.5 $
+C $State: Exp $
+C
+      SUBROUTINE A30824__HEADER(BUFOUT,GENDATE,GENTIME,VOLNUM,
+     *                          PROD_BYTES)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A30824__HEADER
+*.
+*.  MODULE VERSION: 0015
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       01 06 86      0000      JO Staley            Part 2, RPG Build 3
+*.       04 28 86      0001      MIKE ISTOK           SPR # 60124
+*.       02 03 87      0002      ATARA WEINSTEIN      SPR # 70069
+*.       02 26 88      0003      VALERIE HOLDEN       SPR # 80002
+*.       07 19 90      0004      JO STALEY            SPR # 90881
+*.       02 22 91      0005      VALERIE HOLDEN       SPR # 91249
+*.       02 15 91      0005      JOHN DEPHILIP        SPR # 91762
+*.       12 03 91      0006      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0007      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/20/92      0008      Toolset              SPR 91895
+*.       03/25/93      0009      Toolset              SPR NA93-06801
+*.       01/28/94      0010      Toolset              SPR NA94-01101
+*.       03/03/94      0011      Toolset              SPR NA94-05501
+*.       04/01/95      0012      Toolset              CCR NA95-11802
+*.       04/05/95      0013      C. Stephenson        CCR NA94-35301
+*.       12/23/96      0014      Toolset              CCR NA95-11807
+*.       03/16/99      0015      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A30824__HEADER(BUFOUT,GENDATE,GENTIME,
+*.                       VOLNUM,PROD_BYTES)
+*.
+*.  MODULE FUNCTION:
+*.
+*.     This module stores the header data into the output buffer for
+*.     the  RADAR CODED MESSAGE PRODUCT
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT          TYPE        DESCRIPTION
+*.    -   -----          ----        -----------
+*.    G   SIRDAHGT       I*4         Site Adaptation - RDA Height.
+*.    G   SIRDALAT       I*4         Site Adaptation - RDA Latitude.
+*.    G   SIRDALON       I*4         Site Adaptation - RDA Longitude.
+*.    G   SIRPGID        I*4         Site Adaptation - RPG ID Number.
+*.    G   SUMMARY        I*4         Volume Scan Summary Table
+*.    G   DIV1OFF        I*4         (CONSTANT)Product header offset: First
+*.                                   divider.
+*.    G   GDPRDOFF       I*4         (CONSTANT)Product header offset:
+*.                                   generation date of product.
+*.    G   GTLSWOFF       I*4         (CONSTANT)Product header
+*.                                   offset:Generation time of product (LSW).
+*.    G   GTMSWOFF       I*4         (CONSTANT)Product header offset.
+*.                                   Generation time of product (MSW).
+*.    G   LGLSWOFF       I*4         (CONSTANT)Product header offset: Length
+*.                                   of message (LSW).
+*.    G   LGMSWOFF       I*4         (CONSTANT)Product header offset: Length
+*.                                   of message (MSW).
+*.    G   LNLSWOFF       I*4         (CONSTANT)Product header offset:
+*.                                   Longitude of radar (LSW).
+*.    G   LNMSWOFF       I*4         (CONSTANT)Product header offset:
+*.                                   Longitude of radar (MSW).
+*.    G   LTLSWOFF       I*4         (CONSTANT)Product header offset: Latitude
+*.                                   of radar (LSW).
+*.    G   LTMSWOFF       I*4         (CONSTANT)Product header offset: Latitude
+*.                                   of radar (MSW)
+*.    G   MESCDOFF       I*4         (CONSTANT)Product header offset: Message
+*.                                   code.
+*.    G   NBLKSOFF       I*4         (CONSTANT)Product header offset: Number
+*.                                   of blocks in product.
+*.    G   NMAPSOFF       I*4         (CONSTANT)Product header offset
+*.                                   descriptions: Number of maps.
+*.    G   OPRLSWOFF      I*4         (CONSTANT)Product header offset
+*.                                   descriptions: Offset to product length
+*.                                   (LSW)
+*.    G   PHEADLNG       I*4         (CONSTANT)Number of half words in product
+*.                                   header (its length).
+*.    G   PRDCODOFF      I*4         (CONSTANT)Product header offset
+*.                                   descriptions: Product code.
+*.    G   RADHGTOFF      I*4         (CONSTANT)Product header offset
+*.                                   descriptions: Height of radar.
+*.    G   SBON           I*2         (CONSTANT)Spot Blanking flag indicating
+*.                                   it is enabled in product
+*.    G   SCAN_DATE      I*4         (CONSTANT)Volume Scan Date index into
+*.                                   Scan Summary Table
+*.    G   SCAN_MODE      I*4         (CONSTANT)Weather Mode index into Scan
+*.                                   Summary Table
+*.    G   SCAN_SB        I*4         (CONSTANT)Spot Blanking Flag index into
+*.                                   Volume Scan Summary Table
+*.    G   SCAN_TIME      I*4         (CONSTANT)Volume Scan Time index into
+*.                                   Scan Summary Table
+*.    G   SCAN_VCP       I*4         (CONSTANT)Volume Coverage Pattern index
+*.                                   into Scan Summary Table
+*.    G   SRCIDOFF       I*4         (CONSTANT)Product header offset: Source
+*.                                   ID-Number.
+*.    G   VCPOFF         I*4         (CONSTANT)Product header offset:  Volume
+*.                                   coverage pattern.
+*.    G   VOL_SPOT_BLANK I*2         (CONSTANT)Spot Blank field in Scan
+*.                                   Summary table definition
+*.    G   VSDATOFF       I*4         (CONSTANT)Product header offset: Volume
+*.                                   scan date.
+*.    G   VSNUMOFF       I*4         (CONSTANT)Product header offset
+*.                                   descriptions: Volume scan number.
+*.    G   VSTLSWOFF      I*4         (CONSTANT)Product header offset: Volume
+*.                                   scan time (LSW).
+*.    G   VSTMSWOFF      I*4         (CONSTANT)Product header offset:  Volume
+*.                                   scan time (MSW).
+*.    G   WTMODOFF       I*4         (CONSTANT)Product header offset:  Weather
+*.                                   mode.
+*.    C   RCMIDX         I*4         Index to current position in Radar Coded
+*.                                   Message output buffer (from top of
+*.                                   buffer).
+*.    P   GENDATE        I*4         GENERATION DATE.
+*.    P   GENTIME        I*4         GENERATION TIME.
+*.    P   PROD_BYTES     I*4         NUMBER OF BYTES IN PRODUCT
+*.    P   VOLNUM         I*4         Volumn scan number
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    C   RCMIDX  I*4         Index to current position in Radar Coded Message
+*.                            output buffer (from top of buffer).
+*.    P   BUFOUT  I*2         Product Header
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME       TYPE        DESCRIPTION
+*.    ----       ----        -----------
+*.    BLOCK_ID   I*4         BLOCK ID NUMBER
+*.    BLOCK_OVER I*4         NUMBER OF BYTES OF BLOCK OVERHEAD
+*.    DIVIDER    I*4         DIVIDER IN HEADER.
+*.    FRSTI2WD   I*4         Index for 1st I*2 words of a pair which is
+*.                           equivalenced to one I*4 word
+*.    I          I*4         INDEX CONTROL VARIABLE
+*.    INC1       I*4         INCREMENTAL VALUE OF 1
+*.    LENLSW     I*4         LENGTH OF BLOCK LSW OFFSET
+*.    LENMSW     I*4         LENGTH OF BLOCK MSW OFFSET
+*.    MSGID      I*4         MESSAGE ID FOR RADAR CODED MESSAGE
+*.    NBLKS      I*4         Number of blocks.
+*.    NUM2       I*4         PROGRAM PARAMETER FOR NUMBER 2
+*.    NUM3       I*4         PROGRAM PARAMETER FOR NUMBER 3
+*.    NUMBYTES   I*4         NUMBER OF BYTES IN I*2 WORD
+*.    ONEOFF     I*4         OFFSET OF ONE
+*.    SAVE_BLOCK I*4         Temporary storage for total length variable.
+*.    SCNDI2WD   I*4         Index for 2nd word of a pair of I*2 words
+*.                           equivalenced to MSW (I*4 word).
+*.    TOTLENG    I*4         TOTAL LENGTH VARIABLE
+*.    TOTLNG     I*2         I*2 ARRAY TO DETERMINE MSW AND LSW
+*.    ZERO       I*4         PROGRAM PARAMETER FOR 0
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD05
+*.    SITEADP
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A308P2
+*.
+*.  ERROR CONDITIONS: none
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     THIS MODULE IS COMPILED USING COMP08.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     THIS MODULE IS LINKED USING LINK08.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+C*
+$INCLUDE A309.INC/G, **A3PM00      (NEND NLIST)
+$INCLUDE             **A3PM01      (NLIST NEND)
+$INCLUDE             **A3PM04      (NLIST NEND)
+$INCLUDE             **A3PM06      (NLIST NEND)
+$INCLUDE             **A3CD05      (NLIST NEND)
+$INCLUDE A309ADPT.INC/G,**A3CD70CA (NLIST NEND)
+$INCLUDE A309ADPT.INC/G,**A3CD70C5 (NLIST NEND)
+$INCLUDE A308.INC,**A308P2         (NLIST NEND)
+C 
+C
+      INTEGER*2    BUFOUT(*)
+      INTEGER*4    NBLKS,DIVIDER,PROD_BYTES,FRSTI2WD,SCNDI2WD
+      INTEGER*4    MSGID,GENDATE,GENTIME,VOLNUM,TOTLENG,I
+      INTEGER*4    BLOCK_ID,BLOCK_OVER,SAVE_BLOCK,ZERO,NUM3,NUM2
+      INTEGER*4    BLCKOFF,LENMSW,LENLSW,NUMBYTES,ONEOFF,INC1
+      PARAMETER    (BLCKOFF=1,LENMSW=2,LENLSW=3,NUMBYTES=2,NUM3=3)
+      PARAMETER    (DIVIDER=-1,NBLKS=3,FRSTI2WD=1,SCNDI2WD=2)
+      PARAMETER    (MSGID=74,BLOCK_ID=3,BLOCK_OVER=8,INC1=1)
+      PARAMETER    (ONEOFF=1,ZERO=0,NUM2=2)
+
+      logical os32btests
+
+C
+C  STORE BLOCK DIVIDER, AND BLOCK ID
+      BUFOUT(RCMIDX) = DIVIDER
+      BUFOUT(RCMIDX+ONEOFF) = BLOCK_ID
+C 
+C  CALCULATE LENGTH OF BLOCK FOR RCM PRODUCT
+      TOTLENG = PROD_BYTES - (RCMIDX * NUMBYTES) + NUM2
+      SAVE_BLOCK = TOTLENG
+      call RPG_set_product_int( BUFOUT(RCMIDX+LENMSW), TOTLENG )
+      RCMIDX = RCMIDX + NUM3
+C
+C  INIT HEADER TO ZERO
+      DO 100 I=RCMIDX+INC1,PHEADLNG+RCMIDX
+        BUFOUT(I)=ZERO
+100   CONTINUE
+C
+C  MESSAGE ID, SOURCE ID, NUMBER OF BLOCKS AND DIVIDER
+      BUFOUT(MESCDOFF+RCMIDX)=MSGID
+      BUFOUT(SRCIDOFF+RCMIDX)=SIRPGID
+      BUFOUT(NBLKSOFF+RCMIDX)=NBLKS
+      BUFOUT(DIV1OFF +RCMIDX)=DIVIDER
+C 
+C  RADAR LAT/LNG
+      call RPG_set_product_int( BUFOUT(LTMSWOFF+RCMIDX), SIRDALAT )
+      call RPG_set_product_int( BUFOUT(LNMSWOFF+RCMIDX), SIRDALON )
+C
+C  RADAR HEIGHT ABOVE SEA LEVEL IN FEET
+      BUFOUT(RADHGTOFF+RCMIDX)=SIRDAHGT
+C
+C  WEATHER MODE
+      BUFOUT(WTMODOFF+RCMIDX)=SUMMARY(SCAN_MODE,VOLNUM)
+C
+C  VOLUME COVERAGE PATTERN
+      BUFOUT(VCPOFF+RCMIDX)=SUMMARY(SCAN_VCP,VOLNUM)
+C
+C  PRODUCT CODE
+      BUFOUT(PRDCODOFF+RCMIDX)=MSGID
+C
+C  VOL SCAN NUMBER
+      BUFOUT(VSNUMOFF+RCMIDX)=VOLNUM
+C 
+C  VOLUME SCAN DATE AND TIME
+      BUFOUT(VSDATOFF+RCMIDX)=SUMMARY(SCAN_DATE,VOLNUM)
+      call RPG_set_product_int( BUFOUT(VSTMSWOFF+RCMIDX), 
+     $                          SUMMARY(SCAN_TIME,VOLNUM) )
+C 
+C  GENERATION DATE/TIME
+      BUFOUT(GDPRDOFF+RCMIDX)=GENDATE
+      call RPG_set_product_int( BUFOUT(GTMSWOFF+RCMIDX), GENTIME )
+C
+C  SET SPOT BLANK STATUS
+      IF (os32btestS(SUMMARY(SCAN_SB,VOLNUM),VOL_SPOT_BLANK))
+     >    BUFOUT(NMAPSOFF+RCMIDX)= SBON
+C
+C  OFFSET TO PRODUCT INFO
+      call RPG_set_product_int( BUFOUT(OPRMSWOFF+RCMIDX), PHEADLNG )
+C
+C LENGTH OF MESSAGE FOR ENTIRE RCM BUFFER 83 AND 74
+      call RPG_set_product_int( BUFOUT(LGMSWOFF), PROD_BYTES )
+C
+C  LENGTH OF MESSAGE FOR RCM BUFFER 74
+      TOTLENG = SAVE_BLOCK - BLOCK_OVER
+
+      call RPG_set_product_int( BUFOUT(LGMSWOFF+RCMIDX), TOTLENG )
+      RETURN
+      END

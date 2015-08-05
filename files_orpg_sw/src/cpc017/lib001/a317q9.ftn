@@ -1,0 +1,250 @@
+C
+C RCS info
+C $Author: ccalvert $
+C $Locker:  $
+C $Date: 2003/12/10 23:22:22 $
+C $Id: a317q9.ftn,v 1.3 2003/12/10 23:22:22 ccalvert Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A317Q9__DERIVE_ADAP(DBINSIZE)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A317Q9__DERIVE_ADAP
+*.
+*.  MODULE VERSION: 0001
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       05/29/97      0000      MARK FRESCH          CCR NA95-21503
+*.       03/16/99      0001      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A317Q9__DERIVE_ADAP(DBINSIZE)
+*.
+*.  MODULE FUNCTION:
+*.
+*.  This subroutine derives adaptation data values used in the
+*.  2D & 3D TDA Processing.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT         TYPE        DESCRIPTION
+*.    -   -----         ----        -----------
+*.    G   ADPCR1        R*4         TDA CIRCULATION RADIUS #1 THRESHOLD
+*.    G   ADPCR2        R*4         TDA CIRCULATION RADIUS #2 THRESHOLD
+*.    G   ADPDV1        I*4         DIFFERENTIAL VELOCITY THRESHOLD #1
+*.    G   ADPDV2        I*4         DIFFERENTIAL VELOCITY THRESHOLD #2
+*.    G   ADPDV3        I*4         DIFFERENTIAL VELOCITY THRESHOLD #3
+*.    G   ADPDV4        I*4         DIFFERENTIAL VELOCITY THRESHOLD #4
+*.    G   ADPDV5        I*4         DIFFERENTIAL VELOCITY THRESHOLD #5
+*.    G   ADPDV6        I*4         DIFFERENTIAL VELOCITY THRESHOLD #6
+*.    G   ADPMADH       R*4         TDA AVERAGE DELTA VELOCITY HEIGHT
+*.                                  THRESHOLD
+*.    G   ADPMDV        I*4         TDA MINIMUM VECTOR VELOCITY DIFFERENCE
+*.                                  THRESHOLD
+*.    G   ADPMPVH       R*4         Adaptable Parameter Max Pattern Vector
+*.                                  Height
+*.    G   ADPMVAD       R*4         TDA 2D VECTOR AZIMUTHAL DISTANCE THRESHOLD
+*.    G   ADPMVRD       R*4         TDA 2D VECTOR RADIAL DISTANCE THRESHOLD
+*.    G   M_TO_KM       R*4         (CONSTANT)Conversion factor from meters to
+*.                                  kilometers.
+*.    C   BINSIZ        R*4         Biased Doppler bin size
+*.    C   NUM_PREV_RADS I*4         # OF PREVIOUS RADIALS WITH PATTERN VECTORS
+*.                                  BEING COMPARED IN THE 2D PROCESSING -
+*.                                  RELATED TO THE MAX. PATTERN VECTOR
+*.                                  AZIMUTHAL DISTANCE THRESH.
+*.    C   VD_TH         R*4         ARRAY OF DIFFERENTIAL VELOCITY THRESHOLDS
+*.                                  ORGANIZED FROM SMALLEST TO GREATEST
+*.    C   NUM_VD_TH     I*4         (CONSTANT)NUMBER OF DIFFERENTIAL VELOCITY
+*.                                  THRESHOLDS
+*.    P   DBINSIZE      I*4         Doppler bin size multiplied by one radian.
+*.
+*.    *   OUTPUT         TYPE        DESCRIPTION
+*.    -   ------         ----        -----------
+*.    G   ADPCR1         R*4         TDA CIRCULATION RADIUS #1 THRESHOLD
+*.    G   ADPCR2         R*4         TDA CIRCULATION RADIUS #2 THRESHOLD
+*.    G   ADPDV1         I*4         DIFFERENTIAL VELOCITY THRESHOLD #1
+*.    G   ADPDV2         I*4         DIFFERENTIAL VELOCITY THRESHOLD #2
+*.    G   ADPDV3         I*4         DIFFERENTIAL VELOCITY THRESHOLD #3
+*.    G   ADPDV4         I*4         DIFFERENTIAL VELOCITY THRESHOLD #4
+*.    G   ADPDV5         I*4         DIFFERENTIAL VELOCITY THRESHOLD #5
+*.    G   ADPDV6         I*4         DIFFERENTIAL VELOCITY THRESHOLD #6
+*.    G   ADPMADH        R*4         TDA AVERAGE DELTA VELOCITY HEIGHT
+*.                                   THRESHOLD
+*.    G   ADPMDV         I*4         TDA MINIMUM VECTOR VELOCITY DIFFERENCE
+*.                                   THRESHOLD
+*.    G   ADPMPVH        R*4         Adaptable Parameter Max Pattern Vector
+*.                                   Height
+*.    G   ADPMVAD        R*4         TDA 2D VECTOR AZIMUTHAL DISTANCE
+*.                                   THRESHOLD
+*.    G   ADPMVRD        R*4         TDA 2D VECTOR RADIAL DISTANCE THRESHOLD
+*.    C   BINSIZ         R*4         Biased Doppler bin size
+*.    C   CIRTH1_SQ      R*4         CIRCULATION RADIUS #1 THRESHOLD SQUARED
+*.    C   CIRTH2_SQ      R*4         CIRCULATION RADIUS #2 THRESHOLD SQUARED
+*.    C   MIN_VD_TH_INDX I*4         INDEX TO THE LOWEST DIFFERENTIAL VELOCITY
+*.                                   THRESHOLD
+*.    C   NUM_BIN_2D_TH  I*4         THE 2D VECTOR RADIAL DISTANCE THRESHOLD
+*.                                   CONVERTED TO # OF BINS
+*.    C   NUM_PREV_RADS  I*4         # OF PREVIOUS RADIALS WITH PATTERN
+*.                                   VECTORS BEING COMPARED IN THE 2D
+*.                                   PROCESSING - RELATED TO THE MAX. PATTERN
+*.                                   VECTOR AZIMUTHAL DISTANCE THRESH.
+*.    C   N_PREV_2       I*4         TWO TIMES THE # OF PREVIOUS RADIALS WITH
+*.                                   PATTERN VECTORS BEING COMPARED IN THE 2D
+*.                                   PROCESSING
+*.    C   VD_TH          R*4         ARRAY OF DIFFERENTIAL VELOCITY THRESHOLDS
+*.                                   ORGANIZED FROM SMALLEST TO GREATEST
+*.    C   WT_INTCPT      R*4         Y-INTERCEPT OF THE WEIGHTING FUNCTION
+*.                                   (DEPENDENT ON HEIGHT) OF MAX. DELTA
+*.                                   VELOCITY OF A 2D FEATURE FOR COMPUTING
+*.                                   AVE. DELTA VEL.
+*.    C   WT_SLOPE       R*4         SLOPE OF THE WEIGHTING FUNCTION
+*.                                   (DEPENDENT ON HEIGHT) OF MAX. DELTA
+*.                                   VELOCITY OF A 2D FEATURE FOR COMPUTING
+*.                                   AVE. DELTA VEL.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME           TYPE        DESCRIPTION
+*.    ----           ----        -----------
+*.    MAX_2D_AZ_DIST I*4         MAXIMUM NUMBER OF RADIALS THAT CAN SEPARATE 2
+*.                               PATTERN VECTORS BEING CORRELATED
+*.    VINDX          I*4         Do loop index to find the lowest velocity
+*.                               difference threshold
+*.    WT_HI_ALT      R*4         High altitude value used to determine the
+*.                               slope of height -weighted function for
+*.                               computing average delta velocity.
+*.    WT_LO_ALT      R*4         Low altitude value used to determine the
+*.                               slope of height -weighted function for
+*.                               computing average delta velocity.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A317CTAD
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A317CDAD
+*.    A317TDNE
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:
+*.
+*.     A constant Doppler bin length of 0.25 km is assumed.
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     Compiled using COMP17.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     Linked using LINK17.CSS
+*.
+*.  MISC:  None
+*.
+C********************************************************************
+C
+C          TDA 2D & 3D: DERIVE ADAPTATION DATA
+C
+C********************************************************************
+C
+      IMPLICIT NONE
+C
+C**Atttach global units conversion parameters
+$INCLUDE A309.INC/G, **A3PM50 (NLIST)
+C
+C**Attach parameter-definition file (of "STORM CENTROIDS")
+$INCLUDE A317BUF.INC/G,**A317P3T (NLIST)
+$INCLUDE                 **A317PTAD (NLIST)
+$INCLUDE                 **A317CTAD (NLIST)
+C
+C**Attach internal common areas
+$INCLUDE A317.INC/G,**A317TD1  (NLIST)
+$INCLUDE              **A317TDNE (NLIST)
+$INCLUDE              **A317TCP  (NLIST)
+$INCLUDE              **A317TCA  (NLIST)
+$INCLUDE              **A317CDAD (NLIST)
+C
+C********************** DATA DECLARATIONS ***************************
+C
+      INTEGER  VINDX
+      REAL WT_HI_ALT, WT_LO_ALT
+      PARAMETER (WT_HI_ALT = 0.0, WT_LO_ALT = 1.0)
+C
+C******************* BEGIN MAIN PROCESSING SECTION ******************
+C
+C** Determine the number of radials to search for the 2D Feature
+C** building process, assuming a 1 degree beam width.  Round up
+C** just to be conservative.  The actual azimuthal separation will
+C** be checked again (for each pair of radials) in A317S8.
+C
+      NUM_PREV_RADS = MIN(MAX_2D_AZ_DIST,INT(ADPMVAD+1))
+      N_PREV_2 = NUM_PREV_RADS * 2
+C
+C** Save the Doppler Bin Size - It is assumed to be constant
+C** for the volume scan.
+C
+      BINSIZ = DBINSIZE * M_TO_KM
+C
+C** Determine the number of bins to search for the 2D Feature
+C** building process, assuming a 0.25 km Doppler bin length.
+C
+      NUM_BIN_2D_TH = INT(ADPMVRD/BINSIZ)
+C
+C** Square the circulation radii to save time in the computation.
+C
+      CIRTH1_SQ = ADPCR1 * ADPCR1
+      CIRTH2_SQ = ADPCR2 * ADPCR2
+C
+C** Compute slope and intercept for weighting delta velocity as a
+C** function of height for the Average Delta Velocity computation
+C** using the adaptable parameters for maximum pattern vector height
+C** and the height below which all 2D features are assigned a weight
+C** of 1.
+C
+      IF(ADPMPVH .NE. ADPMADH)THEN
+         WT_SLOPE = (WT_HI_ALT - WT_LO_ALT)/(ADPMPVH - ADPMADH)
+         WT_INTCPT = ADPMPVH /(ADPMPVH - ADPMADH)
+      ELSE
+         WT_SLOPE = 0.0
+         WT_INTCPT = 0.0
+      ENDIF
+C
+C** Store the Velocity Difference Thresholds in an array
+C
+      VD_TH(1) = ADPDV1
+      VD_TH(2) = ADPDV2
+      VD_TH(3) = ADPDV3
+      VD_TH(4) = ADPDV4
+      VD_TH(5) = ADPDV5
+      VD_TH(6) = ADPDV6
+C
+C** Determine the lowest Velocity Difference Threshold
+C** based on the Vector Velocity Difference Threshold
+C
+      DO 10 VINDX = NUM_VD_TH, 1, -1
+        IF (ADPMDV .LE. VD_TH(VINDX)) THEN
+           MIN_VD_TH_INDX = VINDX
+           GO TO 10
+        END IF
+ 10   CONTINUE
+C
+C**************** END OF PROCESSING FOR SUBROUTINE ******************
+C
+      RETURN
+      END

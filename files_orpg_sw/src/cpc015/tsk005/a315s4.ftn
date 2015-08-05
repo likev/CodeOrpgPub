@@ -1,0 +1,535 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/16 19:41:02 $
+C $Id: a315s4.ftn,v 1.3 2002/12/16 19:41:02 christie Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+$INLINE A315L4__COMPARE_RADS,A315L4.FTN
+      SUBROUTINE A315S4__PROCESS_SCAN( )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A315S4__PROCESS_SCAN
+*.
+*.  MODULE VERSION: 0015
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       03 24 86      0000      DENNIS MILLER        BUILD 2
+*.       05 07 86      0001      DENNIS MILLER        SPR # 304
+*.       07 10 86      0002      DENNIS MILLER        SPR # 60313, 60367
+*.       06 06 89      0003      DAVID M. LYNCH       SPR # 90298
+*.       03 28 90      0004      PAUL U. PISANI       SPR # 90697
+*.       02 22 91      0005      DENNIS MILLER        SPR # 91256
+*.       02 15 91      0005      JOHN DEPHILIP        SPR # 91762
+*.       12 03 91      0006      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0007      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0008      Toolset              SPR 91895
+*.       03/25/93      0009      Toolset              SPR NA93-06801
+*.       01/28/94      0010      Toolset              SPR NA94-01101
+*.       03/03/94      0011      Toolset              SPR NA94-05501
+*.       04/01/95      0012      Toolset              CCR NA95-11802
+*.       06/26/95      0013      STEVE SMITH          CCR NA94-26302
+*.       12/23/96      0014      Toolset              CCR NA95-11807
+*.       03/16/99      0015      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:  A315S4__PROCESS_SCAN ( )
+*.
+*.  MODULE FUNCTION:
+*.
+*.  This routine performs high-level processing control for the
+*.  algorithm.
+*.
+*.  MODULES CALLED: A315G4__BEGIN_COMP, A315J4__CLOSE_COMP, 
+*.                  A315L4__COMPARE_RADS, A315N4__COMPLETE_SCAN, 
+*.                  A315Z4__REM_UNC_SGMTS, RTL 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT       TYPE        DESCRIPTION
+*.    -   -----       ----        -----------
+*.    G   ADPRSGMX    I*4         Adaptation data maximum number of segments
+*.                                stored in Storm Data
+*.    G   SEGAZIM     R*4         An array of # of segments found on each
+*.                                radial of an elevation scan.  One half is
+*.                                updated each elevation scan.
+*.    G   SEGINDX     I*2         Array of indices to the 1st & last segments
+*.                                for radials in the SEGMAIN array.  One half
+*.                                is updated each elevation.
+*.    G   SEGMAIN     R*4         The segment attributes array in the segment
+*.                                data shared image.  One half is updated each
+*.                                elevation scan.
+*.    G   ONE_RADIAN  R*4         (CONSTANT)PARAMETER VALUE FOR ONE RADIAN
+*.    G   PI_CONST    R*4         (CONSTANT)PARAMETER VALUE FOR PI
+*.    C   AZANGLE     R*4         Azimuth angles, in radians, of first,
+*.                                current and previous radials and used to
+*.                                determine the 0 degree cross-over.
+*.    C   AZC         I*4         Points to current azimuth in radial status
+*.                                arrays.
+*.    C   AZCOUNT     R*4         Count of the number of radials in an
+*.                                elevation scan.
+*.    C   AZP         I*4         Points to previous azimuth in radial status
+*.                                arrays.
+*.    C   AZT         I*4         Temporary pointer used for rotating the
+*.                                indices for the radial status arrays.
+*.    C   BAZM_NDX    I*4         Beginning azimuthal position of segment
+*.                                index array.
+*.    C   BSEG_NXC    I*4         Beginning segment pointer for entry into
+*.                                SEGMAIN for the specified radial and
+*.                                reflectivity threshold.
+*.    C   CMPFEAT     R*4         An array of 16 characteristics for up to 120
+*.                                componets for 7 reflectivity levels
+*.    C   DAZMAVG     R*4         Average azimuthal separation between radials
+*.                                in angulaR measure for one complete
+*.                                elevation scan.
+*.    C   DELTAZM     R*4         Maximum azimuthal separation (radians) that
+*.                                segments in adjacent radials can be
+*.                                separated by and be part of the same
+*.                                component.
+*.    C   DTHETA      R*4         Average azimuthal separation between radials
+*.                                in radian measure for one complete elevation
+*.                                scan.
+*.    C   EAZM_NDX    I*4         Ending azimuthal position of segment index
+*.                                array.
+*.    C   ESEG_NXC    I*4         Ending segment pointer for entry into
+*.                                SEGMAIN for the specified radial and
+*.                                reflectivity threshold.
+*.    C   FIRSTAZ     R*4         Pointer for first azimuth in elevation scan.
+*.    C   IDSTACK     I*4         IDSTACK(NIDTOT*NCFRFLEV)  Circular stacks of
+*.                                component IDs for each reflectivity level.
+*.    C   LAB         I*4         ID label assigned to a new component.
+*.    C   NRSEG       I*4         Number of segments in the first radial of
+*.                                the elevation scan and each succeeding pair
+*.                                of radials by reflectivity index.
+*.    C   RADFLAG     I*4         Array indicates processing status of
+*.                                segments in RADSEG as either uncorrelated,
+*.                                correlated, or finished.
+*.    C   RADSEG      I*4         Subset of SEGMAIN segments array used for
+*.                                correlating segments from pairs of adjacent
+*.                                radials.
+*.    C   REF_MAX_NDX I*4         Lower limit of reflectivity index for
+*.                                processing segments and components.
+*.    C   REF_MIN_NDX I*4         Upper limit of reflectivity index for
+*.                                processing segments and components.
+*.    C   RINDX       I*4         Index used to point to current reflectivity
+*.                                level for processing segment index array and
+*.                                component arrays.
+*.    C   SCANCOND    I*4         Monitor which radial in an elevation scan is
+*.                                being processed by components and centroids
+*.    C   FEA_FAZ     I*4         (CONSTANT)Location of the radial number of a
+*.                                component's first (most counter-clockwise)
+*.                                segment in the CMPFEAT array.
+*.    C   FLG_FIN     I*4         (CONSTANT)Constant (flag) used to avoid
+*.                                redundant processing of other segments in a
+*.                                component already correlated with a new
+*.                                segment.
+*.    C   FLG_UNC     I*4         (CONSTANT)Constant (flag) used to show that
+*.                                a segment has not yet been correlated
+*.                                (associated) with a component.
+*.    C   RAD_FB      I*4         (CONSTANT)Position of starting bins of
+*.                                segments in RADSEG array.
+*.    C   RAD_ID      I*4         (CONSTANT)Position of ID labels of segments
+*.                                in RADSEG, RADSEGC, and RADSEGP arrays.
+*.    C   RAD_LB      I*4         (CONSTANT)Position of ending bins of
+*.                                segments in RADSEG array.
+*.    C   SC_FIRST    I*4         (CONSTANT)Parameter indicating the first
+*.                                radial of an elevation scan is being
+*.                                processed.
+*.    C   SEG_FBN     I*4         (CONSTANT)Index to the beginning range bin
+*.                                in the segments attribute array in the
+*.                                shared data image.
+*.    C   SEG_LBN     I*4         (CONSTANT)Index to ending range bin in
+*.                                segments attribute array in the shared data
+*.                                image.
+*.
+*.    *   OUTPUT     TYPE        DESCRIPTION
+*.    -   ------     ----        -----------
+*.    G   ADPRSGMX   I*4         Adaptation data maximum number of segments
+*.                               stored in Storm Data
+*.    C   AZANGLE    R*4         Azimuth angles, in radians, of first, current
+*.                               and previous radials and used to determine
+*.                               the 0 degree cross-over.
+*.    C   AZC        I*4         Points to current azimuth in radial status
+*.                               arrays.
+*.    C   AZCOUNT    R*4         Count of the number of radials in an
+*.                               elevation scan.
+*.    C   AZP        I*4         Points to previous azimuth in radial status
+*.                               arrays.
+*.    C   AZT        I*4         Temporary pointer used for rotating the
+*.                               indices for the radial status arrays.
+*.    C   BSEG_NXC   I*4         Beginning segment pointer for entry into
+*.                               SEGMAIN for the specified radial and
+*.                               reflectivity threshold.
+*.    C   CMPFEAT    R*4         An array of 16 characteristics for up to 120
+*.                               componets for 7 reflectivity levels
+*.    C   DTHETA     R*4         Average azimuthal separation between radials
+*.                               in radian measure for one complete elevation
+*.                               scan.
+*.    C   ESEG_NXC   I*4         Ending segment pointer for entry into SEGMAIN
+*.                               for the specified radial and reflectivity
+*.                               threshold.
+*.    C   FIRSTAZ    R*4         Pointer for first azimuth in elevation scan.
+*.    C   JXC        I*4         Index pointing to segment in SEGMAIN.
+*.    C   LAB        I*4         ID label assigned to a new component.
+*.    C   NRSEG      I*4         Number of segments in the first radial of the
+*.                               elevation scan and each succeeding pair of
+*.                               radials by reflectivity index.
+*.    C   RADFLAG    I*4         Array indicates processing status of segments
+*.                               in RADSEG as either uncorrelated, correlated,
+*.                               or finished.
+*.    C   RADSEG     I*4         Subset of SEGMAIN segments array used for
+*.                               correlating segments from pairs of adjacent
+*.                               radials.
+*.    C   RINDX      I*4         Index used to point to current reflectivity
+*.                               level for processing segment index array and
+*.                               component arrays.
+*.    C   SCANCOND   I*4         Monitor which radial in an elevation scan is
+*.                               being processed by components and centroids
+*.    C   ZERO_CROSS L*4         Flags the 360-0 degree azimuthal transition
+*.                               for special testing of feature limits when
+*.                               building or merging components.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    C   CMPFEAT           R*4         An array of 16 characteristics for up
+*.                                      to 120 componets for 7 reflectivity
+*.                                      levels
+*.    C   IDSTACK           I*4         IDSTACK(NIDTOT*NCFRFLEV)  Circular
+*.                                      stacks of component IDs for each
+*.                                      reflectivity level.
+*.    C   NRSEG             I*4         Number of segments in the first radial
+*.                                      of the elevation scan and each
+*.                                      succeeding pair of radials by
+*.                                      reflectivity index.
+*.    C   RADSEG            I*4         Subset of SEGMAIN segments array used
+*.                                      for correlating segments from pairs of
+*.                                      adjacent radials.
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME      TYPE        DESCRIPTION
+*.    ----      ----        -----------
+*.    AZM_NDX   I*4         Do loop index for processing all the azimuths
+*.    BEG_PTR   I*4         The beginning segment indice for the reflectivity
+*.                          threshold and radial.
+*.    DAZMFLG   L*4         Flag indicating that the radial delta azimuth is
+*.                          less than threshold
+*.    DEL_SGCNT I*4         Count of deleted segments
+*.    DTHETA1   R*4         Radial angle delta
+*.    END_PTR   I*4         The ending segment indices for the reflectivity
+*.                          threshold and radial.
+*.    ID        I*4         ID-label assigned to a new component, received for
+*.                          ID-stack.
+*.    INDX3     I*4         Constant used to initialize variable AZT to 3.
+*.    ISTAT     I*4         Status of return from call to circular
+*.                          stack-manipulation routine.
+*.    IXC       I*4         Loop index used for referencing "current"
+*.                          radial-segments.
+*.    IXP       I*4         Loop index used for referencing "previous" radial
+*.                          segment.
+*.    IXX       I*4         Loop index used for referencing segments
+*.    SC_MIDDLE I*4         Parameter used to indicate a radial other than
+*.                          first radial of an elevation scan is being
+*.                          processed.
+*.    TWOPI     R*4         Parameter value of 2 times PI
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A315CSAD
+*.    SGMTS09
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A315COCC
+*.    A315CPCC
+*.    A315CQCC
+*.    A315CWCC
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:
+*.
+*.     An incoming radial flagged as "missing" or "bad" need not nec-
+*.   essarily break a Building-Component. Only when the two nearest
+*.   "good" radials are separated by more than a threshold distance
+*.   will all components be broken. (That threshold is currently set
+*.   equal to an adaptable parameter whose default value is 1.0
+*.   degrees).
+*.
+*.   Otherwise, component fields are computed as a function of the
+*.   azimuthal difference between centers of adjacent segments, thus
+*.   accounting for instances when this azimuthal distance may be
+*.   greater than normal but still less than the threshold.
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     Compiled using COMP15.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     Linked using LINK15.CSS
+*.
+*.  MISC:  None
+*.
+C********************************************************************
+C
+C            STORM CELL COMPONENTS: PROCESS SCAN SUBROUTINE
+C
+C********************************************************************
+C
+      IMPLICIT NONE
+C
+C**Attach Storm Segments "pseudo-input buffer"
+$INCLUDE A315BUF.INC/G, **A315P3S (NLIST)
+$INCLUDE A309.INC/G, **A3CD09DZ (NLIST)
+C
+C**Attach internal common area (COCC)
+$INCLUDE A315.INC/G,**A315COCC (NLIST)
+C
+C**Attach internal common area (CPCC)
+$INCLUDE  A315.INC/G, **A315CPPC (NLIST)
+$INCLUDE              **A315CPCC (NLIST)
+C
+C**Attach internal common area (CQCC)
+$INCLUDE  A315.INC/G, **A315CQPC (NLIST)
+$INCLUDE              **A315CQCC (NLIST)
+C
+C**Attach internal common area (CWCC)
+$INCLUDE A315BUF.INC/G, **A315PSAD (NLIST)
+$INCLUDE                **A315CSAD (NLIST)
+$INCLUDE  A315.INC/G, **A315CWCC (NLIST)
+C
+$INCLUDE A309.INC/G, **A3PM50 (NLIST NEND)
+C
+C********************** DATA DECLARATIONS ***************************
+C
+      INTEGER  ISTAT, AZM_NDX, IXX, IXP, IXC, DEL_SGCNT
+      INTEGER  ID, BEG_PTR, END_PTR
+      PARAMETER (BEG_PTR = 1, END_PTR = 2)
+C
+      REAL     TWOPI,  DTHETA1
+C
+      LOGICAL  DAZMFLG
+C
+C******************** DATA INITIALIZATIONS **************************
+C
+      PARAMETER  (TWOPI = 2.0*PI_CONST)
+C
+C****************** BEGIN MAIN PROCESSING SECTION *******************
+C
+C** Convert the average delta azimuth from degrees to radians
+C
+      DTHETA  = DAZMAVG*ONE_RADIAN
+C
+C** DO FOR ALL AZIMUTHS
+C
+      DO 100 AZM_NDX = BAZM_NDX, EAZM_NDX
+C
+C** Convert radial azimuth in degrees to radians.
+C
+         AZANGLE( AZC ) = SEGAZIM( AZM_NDX )*ONE_RADIAN
+C
+C** Clear the radial azimuth delta flags and zero degree cross
+C** flags.
+C
+         DAZMFLG = .FALSE.
+         ZERO_CROSS = .FALSE.
+C
+C** If processing first radial,
+C
+         IF ( SCANCOND .EQ. SC_FIRST )  THEN
+C
+C** Set the radial angle delta to the average delta, and set the
+C** azimuth angle of the previous radial to the azimuth angle of the
+C** current radial.
+C
+            FIRSTAZ = 1.0
+            DTHETA1 = DTHETA
+            AZANGLE(AZP)=AZANGLE(AZC)
+         ELSE
+C
+C** Set the radial angle delta to the actual delta.  If the actual
+C** delta is greater than PI radians, subtract 2*PI from the delta
+C** and set the flag indicating the two radials straddle 0 degrees.
+C
+            DTHETA1 = ABS( AZANGLE(AZC) - AZANGLE(AZP) )
+            IF ( DTHETA1 .GT. PI_CONST) THEN
+               DTHETA1 = TWOPI - DTHETA1
+               ZERO_CROSS = .TRUE.
+            END IF
+         END IF
+C
+C** Increment the radial counter.
+C
+         AZCOUNT = AZCOUNT + 1
+C
+C** Compare the radial angle delta with the threshold value DELTAZM.
+C** If less than the threshold, set flag indicating such.
+C
+         IF ( DTHETA1 .LT. DELTAZM ) DAZMFLG = .TRUE.
+C
+C** Begin main processing of comparing segments in adjacent radials
+C
+         DO 110 RINDX = REF_MIN_NDX, REF_MAX_NDX ,-1
+C
+C** Extract the beginning and ending segment indices for this
+C** reflectivity threshold and radial.
+C
+            BSEG_NXC = SEGINDX( BEG_PTR, RINDX, AZM_NDX ) - 1
+            ESEG_NXC = SEGINDX( END_PTR, RINDX, AZM_NDX )
+            IF(ESEG_NXC.GT.0) THEN
+C
+C** Set the number of segments for this radial and reflectivity
+C** threshold as the difference between the ending and beginning
+C** indices.
+C
+               NRSEG( RINDX, AZC ) = ESEG_NXC - BSEG_NXC
+            ELSE
+C
+C** There are no segments for this reflectivity threshold on this
+C** radial.
+C
+               NRSEG( RINDX, AZC ) = 0
+            ENDIF
+            IF (NRSEG( RINDX, AZC ) .GT. ADPRSGMX) THEN
+C
+C** If segment count greater than maximum allowed for this radial,
+C** clip count.
+C
+               NRSEG( RINDX, AZC ) = ADPRSGMX
+            END IF
+C
+C** DO FOR ALL SEGMENTS this radial....
+C
+            DO 120  IXC = 1, NRSEG( RINDX, AZC )
+C
+C** Move the first bin location and last bin location into radial
+C** segment array (indexed by reflectivity index).  Initialize the
+C** segment as uncorrelated.
+C
+               RADSEG( RAD_FB, IXC, RINDX, AZC ) =
+     >               SEGMAIN( SEG_FBN, IXC + BSEG_NXC )
+               RADSEG( RAD_LB, IXC, RINDX, AZC ) =
+     >               SEGMAIN( SEG_LBN, IXC + BSEG_NXC )
+               RADSEG( RAD_ID, IXC, RINDX, AZC ) = FLG_UNC
+ 120        CONTINUE
+C
+C** If distance (radians) between adjacent radials is less than or
+C** equal to threshold, test for overlap between pairs of segments
+C** in "current" and "previous" radials & combine into components
+C** if overlap sufficient
+C
+            IF ( DAZMFLG )  THEN
+               IF (NRSEG( RINDX, AZC ).GT. 0 .AND.
+     >             NRSEG( RINDX, AZP) .GT. 0) THEN
+C
+                  CALL A315L4__COMPARE_RADS( NRSEG( RINDX, AZP ),
+     >                NRSEG( RINDX, AZC ), RADSEG( 1, 1, RINDX, AZP),
+     >                RADSEG( 1, 1, RINDX, AZC) )
+               END IF
+            END IF
+C
+C** After all segment pairs tested, close any components associated
+C** with segments in the "previous" radial which were not correlated
+C** (unless that component was alive in the 1st radial).
+C
+            DO 130  IXP = 1, NRSEG( RINDX, AZP )
+               IF ( RADFLAG(RINDX, IXP) .EQ. FLG_UNC )  THEN
+                  LAB = RADSEG( RAD_ID, IXP, RINDX, AZP )
+C
+C**
+C
+                  IF (CMPFEAT( FEA_FAZ,LAB,RINDX ) .NE. FIRSTAZ) THEN
+                     CALL A315J4__CLOSE_COMP(CMPFEAT(1, LAB, RINDX))
+                  END IF
+C
+C** Mark any additional branches (i.e. segments) of closed component
+C** as "finished" to avoid duplicate processing.
+C
+                  DO 140  IXX = 1, NRSEG( RINDX, AZP )
+                     IF (RADSEG( RAD_ID, IXX, RINDX, AZP ) .EQ. LAB)
+     $                           RADFLAG( RINDX, IXX ) = FLG_FIN
+ 140              CONTINUE
+C
+               END IF
+ 130        CONTINUE
+C
+C** Also, after all segment pairs tested, for any segments in the
+C** "current" radial which emerged from the test uncorrelated, begin
+C** a new component.
+C
+            DEL_SGCNT = 0
+            DO 150  IXC = 1, NRSEG( RINDX, AZC )
+               IF (RADSEG( RAD_ID,IXC,RINDX,AZC ) .EQ. FLG_UNC)  THEN
+C
+C** Begin a new component.  Get a component ID from the stack.
+C
+                  JXC = IXC + BSEG_NXC
+                  CALL RTL( ID, IDSTACK( 1, RINDX ), ISTAT )
+                  IF( ISTAT .EQ. 2 ) THEN
+C
+C** The stack is empty!
+C
+                     DEL_SGCNT = DEL_SGCNT + 1
+                  ELSE
+C
+C** Begin analysis upon the new component by initializing its
+C** attributes from its first segment.
+C
+                    RADSEG( RAD_ID, IXC, RINDX, AZC ) = ID
+                    CALL A315G4__BEGIN_COMP( CMPFEAT( 1,ID,RINDX ) )
+                  END IF
+C
+               END IF
+C
+ 150        CONTINUE
+C
+C** Remove segments from RADSEG if the ID stack was exhausted
+C
+            IF( DEL_SGCNT .GT. 0 ) CALL A315Z4__REM_UNC_SGMTS(
+     >         DEL_SGCNT, NRSEG( RINDX, AZC ),
+     >         RADSEG( 1, 1, RINDX, AZC ) )
+C
+ 110     CONTINUE
+C
+C** Flip-flop indices of current & previous radials to prepare for
+C** processing next pair.  Reset correlation flags to "uncorrelated".
+C
+            AZP = AZC
+            AZC = AZT
+            IF ( SCANCOND .EQ. SC_FIRST )  THEN
+               AZT = INDX3
+               SCANCOND = SC_MIDDLE
+            ELSE
+               AZT = AZP
+            END IF
+C
+C** Set radial flags for previous azimuth to "uncorrelated".
+C
+          DO 170 RINDX = REF_MIN_NDX,REF_MAX_NDX,-1
+            DO 160  IXP = 1,NRSEG( RINDX, AZP )
+               RADFLAG( RINDX, IXP ) = FLG_UNC
+ 160        CONTINUE
+ 170      CONTINUE
+ 100  CONTINUE
+C
+C** Complete elevation scan processing by comparing segments in last
+C** azimuth of scan with segments in first azimuth of scan.
+C
+      CALL A315N4__COMPLETE_SCAN( )
+C
+C************** END OF PROCESSING FOR SUBROUTINE ********************
+C
+      RETURN
+      END

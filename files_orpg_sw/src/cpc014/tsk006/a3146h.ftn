@@ -1,0 +1,319 @@
+C 
+C RCS info 
+C $Author: steves $ 
+C $Locker:  $ 
+C $Date: 2004/01/12 16:45:45 $ 
+C $Id: a3146h.ftn,v 1.4 2004/01/12 16:45:45 steves Exp $ 
+C $Revision: 1.4 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A3146H__PROD79_3HR_RLE ( PRODBUF, RLENI2, IERR)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3146H__PROD79_3HR_RLE
+*.
+*.  MODULE VERSION: 0011
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       06 13 89      0000      P.A.JENDROWSKI       SPR# 90348
+*.       03 27 90      0001      DAVE HOZLOCK         SPR# 90697
+*.       11 04 90      0002      PAUL JENDROWSKI      SPR# 91255
+*.       12 03 91      0003      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0004      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0005      Toolset              SPR 91895
+*.       03/25/93      0006      Toolset              SPR NA93-06801
+*.       01/28/94      0007      Toolset              SPR NA94-01101
+*.       03/03/94      0008      Toolset              SPR NA94-05501
+*.       04/11/96      0009      Toolset              CCR NA95-11802
+*.       12/23/96      0010      Toolset              CCR NA95-11807
+*.       03/16/99      0011      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A3146H__PROD79_3HR_RLE(PRODBUF,RLENI2,IERR)
+*.
+*.  MODULE FUNCTION: WRITES RUN-LENGTH-ENCODED DATA TO PRODUCT BUFFER.
+*.
+*.  MODULES CALLED: A31215__GET_OUTBUF, A31216__REL_OUTBUF, A31468__PDB_IO, 
+*.                  A3CM22__RASTER_RUN_LENGTH 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT          TYPE        DESCRIPTION
+*.    -   -----          ----        -----------
+*.    G   MEM            I*4         Array in RPG shared memory set aside for
+*.                                   buffer sharing.
+*.    G   BLKOVRHD       I*4         (CONSTANT)SIZE OF OVERHEAD PORTION OF
+*.                                   PRODUCT SYMBOLOGY BLOCK, IN BYTES
+*.    G   BLOCKIDOFF     I*4         (CONSTANT)Product block ID offset.
+*.    G   DESTROY        I*4         (CONSTANT)Mnemonic used as input to
+*.                                   A31216__REL_OUTBUF. Indicates "do not
+*.                                   pass data to other tasks".
+*.    G   DIV2OFF        I*4         (CONSTANT)Product block offset: Second
+*.                                   divider.
+*.    G   FLAGSOF1       I*4         (CONSTANT)Display header offset (for
+*.                                   raster formatted products): first
+*.                                   opcode/flags offset.
+*.    G   FLAGSOF2       I*4         (CONSTANT)Display header offset (for
+*.                                   raster formatted products):seconds
+*.                                   opcod/flags offset.
+*.    G   FLAGSOF3       I*4         (CONSTANT)Display header offset (for
+*.                                   raster formatted products):Third
+*.                                   opcode/flags offset.
+*.    G   FLAG_CLEAR     I*4         (CONSTANT)Parameter for a cleared flag
+*.    G   FLAG_SET       I*4         (CONSTANT)Parameter for a set flag.
+*.    G   ICDSTOFF       I*4         (CONSTANT)Display header offset (For
+*.                                   raster formatted products): I Coordinate
+*.                                   start.
+*.    G   JCDSTOFF       I*4         (CONSTANT)Display header offset (for
+*.                                   raster formatted products): J Coordinates
+*.                                   start.
+*.    G   LRLSWOFF       I*4         (CONSTANT)Product block offset: Length of
+*.                                   product block portion of product (LSW).
+*.    G   LRMSWOFF       I*4         (CONSTANT)Product block offset: Length of
+*.                                   product block portion of product (MSW).
+*.    G   LYRDIVOFF      I*4         (CONSTANT)PRODUCT BLOCK OFFSET: LAYER
+*.                                   DIVIDER
+*.    G   LYRLLSWOFF     I*4         (CONSTANT)Product block offset:  Layer
+*.                                   length (LSW).
+*.    G   LYRLMSWOFF     I*4         (CONSTANT)Product block offset: Layer
+*.                                   length (MSW).
+*.    G   NLYROFF        I*4         (CONSTANT)Product block offsets: Number
+*.                                   of layers.
+*.    G   NRWSOFF        I*4         (CONSTANT)Display header offset (For
+*.                                   raster formatted products): Number of
+*.                                   rows offset.
+*.    G   PACKDESC       I*4         (CONSTANT)Display header offset (For
+*.                                   raster formatted products): Packing
+*.                                   descriptor offset.
+*.    G   PPHRLYNC       I*4         (CONSTANT)Color table index for
+*.                                   precipitation, 1 and 3HR products (Not
+*.                                   clear air).
+*.    G   RASFLG1        I*4         (CONSTANT)Raster flag for first word in
+*.                                   raster header.
+*.    G   RASFLG2        I*4         (CONSTANT)Raster flag for second word in
+*.                                   raster header.
+*.    G   RASFLG3        I*4         (CONSTANT)Raster flag for third word in
+*.                                   raster header.
+*.    G   RASTA_BEGIN    I*4         (CONSTANT)Product buffer beginning index
+*.                                   for storing raster run-length encoded
+*.                                   data. To be used for raster products
+*.                                   only.
+*.    G   RASTER_HEADER  I*4         (CONSTANT)Number of half words in raster
+*.                                   packet header.
+*.    G   RAS_PACK_DES   I*4         (CONSTANT)Preset to raster packing
+*.                                   description.
+*.    G   SCRATCH        I*4         (CONSTANT)DATA BUFFER TYPE FOR TASK
+*.                                   SCRATCH DATA BUFFERS
+*.    G   XSCFACFRA      I*4         (CONSTANT)Display header offset (For
+*.                                   raster formatted products): X Scale
+*.                                   factor fraction.
+*.    G   XSCFACINT      I*4         (CONSTANT)Display header offset (For
+*.                                   raster formatted products): X Scale
+*.                                   factor integer.
+*.    G   YSCFACFRA      I*4         (CONSTANT)Display header offset (For
+*.                                   raster formatted products): Y Scale
+*.                                   factor fraction.
+*.    G   YSCFACINT      I*4         (CONSTANT)Display header offset (For
+*.                                   raster formatted products): Y Scale
+*.                                   factor integer.
+*.    C   FIL_STAT       I*4         Status of disk file.
+*.    C   FLG_NO_3HR     I*4         Flag indicating, if set, that there is a
+*.                                   3 hr total on the disk.
+*.    C   HOURLY_BUFFERS I*4         Number of hourly scans used in 3 hr
+*.                                   total.
+*.    C   RLE_WORDS      I*4         Number of halfwords in run length
+*.                                   encoding for 3 hr. accumulation.
+*.    C   GOOD           I*4         (CONSTANT)Status flag value.
+*.    C   INCRMENT       I*4         (CONSTANT)Parameter used to increment by
+*.                                   one.
+*.    C   KDENOM_WORDS   I*4         (CONSTANT)Number of fullwords in halfword
+*.                                   (I2) 232x232 denominator array.
+*.    C   KGRID_SIZE     I*4         (CONSTANT)Number of boxes on each side of
+*.                                   cartesian grid, area of grid equivalent
+*.                                   to polar grid with 460 KM. diameter.
+*.    C   READKODE       I*4         (CONSTANT)I/O code indicating input
+*.                                   should be read.
+*.    C   RLE_REC        I*4         (CONSTANT)Disk record index for RLE data.
+*.    P   IERR           I*4         Error flag if product cannot be made
+*.                                   Error flag if product cannot be made
+*.    P   PRODBUF        I*2         Product buffer space
+*.    P   RLENI2         I*4         Number of run-length encoded I*2 words in
+*.                                   product buffer
+*.
+*.    *   OUTPUT    TYPE        DESCRIPTION
+*.    -   ------    ----        -----------
+*.    G   MEM       I*4         Array in RPG shared memory set aside for
+*.                              buffer sharing.
+*.    C   RLE_WORDS I*4         Number of halfwords in run length encoding for
+*.                              3 hr. accumulation.
+*.    P   IERR      I*4         Error flag if product cannot be made Error
+*.                              flag if product cannot be made
+*.    P   PRODBUF   I*2         Product buffer space
+*.    P   RLENI2    I*4         Number of run-length encoded I*2 words in
+*.                              product buffer
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    G   MEM               I*4         Array in RPG shared memory set aside
+*.                                      for buffer sharing.
+*.    P   IERR              I*4         Error flag if product cannot be made
+*.                                      Error flag if product cannot be made
+*.    P   PRODBUF           I*2         Product buffer space
+*.    P   RLENI2            I*4         Number of run-length encoded I*2 words
+*.                                      in product buffer
+*.
+*.  DATABASE/FILE REFERENCE: NONE
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME      TYPE        DESCRIPTION
+*.    ----      ----        -----------
+*.    BLKID     I*4         Block ID
+*.    CDST      I*4         Parameter used for image position on PUP graphic
+*.                          screen
+*.    DIVIDER   I*4         Product buffer 'divider'.
+*.    I         I*4         Do-Loop index for scratch buffer
+*.    I4WD      I*4         I*4 word equivalenced to I2WD
+*.    MIN_HOURS I*4         Min number hours needed to create 3-hour
+*.                          accumulation
+*.    NI2       I*4         Dimension of I2WD (=2)
+*.    NLYR      I*4         Number of layers
+*.    NULL      I*4         Parameter for integer 0
+*.    SCFACFRA  I*4         Fractional part of scale factor
+*.    SCFACINT  I*4         Integer part of scale factor
+*.    SC_PTR    I*4         Pointer to start of scratch buffer
+*.    STAT1     I*4         Buffer status of scratch buffer
+*.    STAT2     I*4         Status returned from A3CM22
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD00
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3146C2
+*.    A3146C3
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK14.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+
+
+C
+C** 'X' IN COLUMN-1 INDICATES CONDITIONALLY COMPILED DEBUG CODE...
+C
+      IMPLICIT NONE
+C
+$INCLUDE A309.INC/G,**A3PM00 (NEND NLIST)
+$INCLUDE            **A3PM01 (NEND NLIST)
+$INCLUDE            **A3PM04 (NEND NLIST)
+$INCLUDE            **A3PM07 (NEND NLIST)
+$INCLUDE            **A3CD00 (NEND NLIST)
+$INCLUDE A3146.INC ,**A3146P1 (NEND NLIST)
+$INCLUDE           **A3146C2 (NEND NLIST)
+$INCLUDE           **A3146C3 (NEND NLIST)
+$INCLUDE A313HBUF.INC/G,**A313HYPP (NLIST)
+C
+      INTEGER   IERR, BLKID, NLYR, DIVIDER, NULL,
+     +          CDST, SCFACINT, SCFACFRA, SC_PTR, STAT1, STAT2,
+     +          I4WD, NI2, RLENI2, I, MIN_HOURS
+      PARAMETER(NULL=0, DIVIDER=-1, BLKID=1, NLYR=1,
+     +          CDST=1, SCFACINT=2, SCFACFRA=0,
+     +          NI2=2, MIN_HOURS=2)
+C
+      INTEGER*2    PRODBUF(*)
+C
+C-------------------------
+C
+C  SET DIVIDER AND BLOCK ID IN PRODUCT BUFFER
+C
+      PRODBUF(DIV2OFF)    = DIVIDER
+      PRODBUF(BLOCKIDOFF) = BLKID
+      PRODBUF(NLYROFF)    = NLYR
+      PRODBUF(LYRDIVOFF)  = DIVIDER
+C
+C  SET RASTER FLAGS
+C
+      PRODBUF(FLAGSOF1) = RASFLG1
+      PRODBUF(FLAGSOF2) = RASFLG2
+      PRODBUF(FLAGSOF3) = RASFLG3
+      PRODBUF(ICDSTOFF) = CDST
+      PRODBUF(JCDSTOFF) = CDST
+C
+C  SET SCALE FACTORS
+C
+      PRODBUF(XSCFACINT)= SCFACINT
+      PRODBUF(XSCFACFRA)= SCFACFRA
+      PRODBUF(YSCFACINT)= SCFACINT
+      PRODBUF(YSCFACFRA)= SCFACFRA
+      PRODBUF(NRWSOFF ) = KGRID_SIZE
+      PRODBUF(PACKDESC) = RAS_PACK_DES
+C
+C  GET RUN LENGTH ENCODED 3-HOUR ACCUMULATION DATA FROM DISK
+C
+      IF (FIL_STAT.EQ.GOOD .AND. FLG_NO_3HR.EQ.FLAG_CLEAR) THEN
+        CALL A31468__PDB_IO (READKODE,RLE_REC,PRODBUF(RASTA_BEGIN),
+     $                                         IERR)
+        RLENI2 = RLE_WORDS
+      ELSE
+         IERR = FLAG_SET
+      END IF
+C
+C EVEN IF NO DATA EXISTS ... MUST PRODUCE A NULL PRODUCT
+C
+      IF (IERR.NE.FLAG_CLEAR.OR.FLG_NO_3HR.NE.FLAG_CLEAR.OR.
+     $    HOURLY_BUFFERS.LT.MIN_HOURS) THEN
+        RLE_WORDS=NULL
+        CALL A31215__GET_OUTBUF(SCRATCH,KDENOM_WORDS,SC_PTR,STAT1)
+C
+C IF GOT SCRATCH BUFFER ... ZERO IT OUT ... CALL RUN LENGTH
+C ENCODER TO PRODUCE NULL PRODUCT
+C
+        IF (STAT1.EQ.NULL) THEN
+          DO 200 I=SC_PTR,SC_PTR+KDENOM_WORDS-INCRMENT
+             MEM(I) = NULL
+ 200      CONTINUE
+          CALL A3CM22__RASTER_RUN_LENGTH(KGRID_SIZE,KGRID_SIZE,STAT2,
+     $     MEM(SC_PTR),PPHRLYNC,PRODBUF,RASTA_BEGIN,RLENI2,KDENOM_WORDS)
+          CALL A31216__REL_OUTBUF (SC_PTR,DESTROY)
+          IERR = FLAG_CLEAR
+C
+        ELSE
+C
+C NO MEM FOR PRODUCT
+C
+          IERR = FLAG_SET
+        END IF
+      END IF
+C
+C** LAYER LENGTH, IN BYTES (RLE & RLE HEADER ONLY)...
+C
+      I4WD = (RLENI2+RASTER_HEADER) *NI2
+      call RPG_set_product_int( PRODBUF(LYRLMSWOFF), I4WD )
+C
+C** BLOCK LENGTH, IN BYTES (RLE LAYER & BLOCK HEADER)...
+C
+      I4WD = I4WD + BLKOVRHD
+      call RPG_set_product_int( PRODBUF(LRMSWOFF), I4WD )
+C
+      RETURN
+      END

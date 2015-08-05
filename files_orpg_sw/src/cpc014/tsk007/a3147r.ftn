@@ -1,0 +1,199 @@
+C 
+C RCS info 
+C $Author: nolitam $ 
+C $Locker:  $ 
+C $Date: 2002/11/27 15:17:31 $ 
+C $Id: a3147r.ftn,v 1.4 2002/11/27 15:17:31 nolitam Exp $ 
+C $Revision: 1.4 $ 
+C $State: Exp $ 
+C 
+        SUBROUTINE A3147R__BUILD_THRESH(INITIALIZE)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3147R__BUILD_THRESH
+*.
+*.  MODULE VERSION: 0002
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       11/27/95       0000     CHERYL STEPHENSON    CCR NA94-08462
+*.       12/23/96      0001      Toolset              CCR NA95-11807
+*.       03/16/99      0002      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:
+*.     CALL A3147R__BUILD_THRESH(INITIALIZE)
+*.
+*.  MODULE FUNCTION: This module on startup or whenever the One/Three
+*.  threshold is changed, calulates the threshold for switching from
+*.  the One/Three Hour Color Table to the STP Color Tables.
+*.
+*.
+*.  MODULES CALLED: ILBYTE 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT         TYPE        DESCRIPTION
+*.    -   -----         ----        -----------
+*.    G   OHP_EDIT_FLAG L*4         Flag indicating whether the OHP/THP data
+*.                                  levels have been edited.
+*.    G   STP_EDIT_FLAG L*4         STP Data Level edit flag
+*.    G   THRESH        I*2         Adaptation Data for Color Data Table
+*.                                  Thresholds (color-level code, color table
+*.                                  number).
+*.    G   PPHRLYNC      I*4         (CONSTANT)Color table index for
+*.                                  precipitation, 1 and 3HR products (Not
+*.                                  clear air).
+*.    C   RTHRESH       R*4         Threshold value for switching from the
+*.                                  OHP/THP color table to STP color table
+*.    P   INITIALIZE    L*4         Flag on whether calculating the threshold
+*.                                  value due to STARTUP or whether the OHP
+*.                                  and THP Thresholds were edited
+*.
+*.    *   OUTPUT        TYPE        DESCRIPTION
+*.    -   ------        ----        -----------
+*.    G   OHP_EDIT_FLAG L*4         Flag indicating whether the OHP/THP data
+*.                                  levels have been edited.
+*.    G   STP_EDIT_FLAG L*4         STP Data Level edit flag
+*.    C   RTHRESH       R*4         Threshold value for switching from the
+*.                                  OHP/THP color table to STP color table
+*.    P   INITIALIZE    L*4         Flag on whether calculating the threshold
+*.                                  value due to STARTUP or whether the OHP
+*.                                  and THP Thresholds were edited
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    G   THRESH            I*2         Adaptation Data for Color Data Table
+*.                                      Thresholds (color-level code, color
+*.                                      table number).
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME         TYPE        DESCRIPTION
+*.    ----         ----        -----------
+*.    BUILD_PPHR   L*4         Flag whether the threshold value needs to be
+*.                             calculated
+*.    BYTE_1       I*4         (CONSTANT)Parameter value for the first byte
+*.    CLEAR        I*4         Parameter used to zero-out (clear) a variable.
+*.    DIFF         I*4         The difference between the Level 16 and Level
+*.                             15 threshold values
+*.    RTEMP        R*4         Real temporary storage used to convert encoded
+*.                             threshold values to real
+*.    SCALE_05     R*4         (CONSTANT)Scale value for converting OHP and
+*.                             THP threshold values to real values
+*.    TMP_THRESH15 I*4         Temporary storage for the encoded Level 15
+*.                             threshold value from the PPS threshold table
+*.                             for use with COLDAT
+*.    TMP_THRESH16 I*4         Temporary storage for the encoded Level 16
+*.                             threshold value from the PPS threshold table
+*.                             for COLDAT
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD07
+*.    COLRTBL
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3147C5
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK14.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+$INCLUDE A309ADPT.INC/G,**A3CD70PA  (NLIST)
+$INCLUDE                **A3CD70P6  (NLIST)
+$INCLUDE                **A3CD70P8  (NLIST)
+$INCLUDE                **A3CD70C5  (NLIST)
+$INCLUDE A309.INC/G,**A3PM04        (NLIST)
+$INCLUDE            **A3PM50        (NLIST)
+$INCLUDE            **A3CD07        (NLIST)
+$INCLUDE A3147.INC/G,**A3147C5      (NLIST)
+      INTEGER TMP_THRESH16, CLEAR
+      INTEGER TMP_THRESH15, DIFF
+      PARAMETER (CLEAR = 0)
+      REAL CONVERT, ROUND
+      PARAMETER (ROUND=.5)
+      INTEGER BYTE_1
+      PARAMETER (BYTE_1 = 1)
+      REAL*4 RTEMP
+      REAL*4 SCALE_05
+      PARAMETER (SCALE_05 = 0.05)
+      LOGICAL INITIALIZE, BUILD_PPHR
+
+C*************** E X E C U T A B L E ******************************
+C
+X     WRITE(14,*)'ENTERING A3147R - CALCULATE THRESHOLD'
+X     WRITE(14,*)'FLAG SETTINGS'
+X     WRITE(14,*)'INITIALIZE = ',INITIALIZE,' STP EDIT FLAG = ',
+X    &  STP_EDIT_FLAG,' OHP/THP EDIT FLAG = ',OHP_EDIT_FLAG
+C
+C  Initialize flag
+C
+      BUILD_PPHR = .FALSE.
+C
+C  Check if Startup or has OHP/THP Threshold Tables
+C  been edited.
+C
+      IF(INITIALIZE)THEN
+         BUILD_PPHR = .TRUE.
+      ELSEIF (OHP_EDIT_FLAG)THEN
+         BUILD_PPHR = .TRUE.
+      ENDIF
+X     WRITE(14,*)'7R:BUILD PPHR = ',BUILD_PPHR
+C
+C Get the maximum threshold for OHP and THP Color Table
+C
+      IF(BUILD_PPHR)THEN
+         TMP_THRESH15 = CLEAR
+         TMP_THRESH16 = CLEAR
+         CALL ILBYTE (TMP_THRESH15, THRESH (15, PPHRLYNC),BYTE_1)
+         CALL ILBYTE (TMP_THRESH16, THRESH (16, PPHRLYNC),BYTE_1)
+C
+C Scale and convert it to a real number
+C
+         RTHRESH = TMP_THRESH16
+         RTEMP = TMP_THRESH15
+         DIFF = (RTHRESH - RTEMP)/2
+         RTHRESH = (RTHRESH + DIFF)*SCALE_05
+X        WRITE(14,*)'7R:RTHRESH = ',RTHRESH
+      ENDIF
+C
+C  Reset Edit flags.
+C
+      IF(INITIALIZE)THEN
+         INITIALIZE = .FALSE.
+         STP_EDIT_FLAG = .FALSE.
+         OHP_EDIT_FLAG = .FALSE.
+      ELSEIF (BUILD_PPHR)THEN
+         OHP_EDIT_FLAG = .FALSE.
+         STP_EDIT_FLAG = .FALSE.
+      ELSEIF (STP_EDIT_FLAG)THEN
+         STP_EDIT_FLAG = .FALSE.
+      ENDIF
+X     WRITE(14,*)'FLAG SETTINGS'
+X     WRITE(14,*)'INITIALIZE = ',INITIALIZE,' STP EDIT FLAG = ',
+X    &  STP_EDIT_FLAG,' OHP/THP EDIT FLAG = ',OHP_EDIT_FLAG
+X     WRITE(14,*)'EXIT A3147R'
+      RETURN
+      END

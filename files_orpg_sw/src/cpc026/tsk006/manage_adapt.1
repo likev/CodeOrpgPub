@@ -1,0 +1,180 @@
+manage_adapt (1) 		 ORPG Manpage   		manage_adapt(1)
+
+    
+NAME
+    manage_adapt
+    
+SYNOPSIS
+    manage_adapt [options]
+    
+DESCRIPTION
+
+    "manage_adapt" performs the following functions:
+
+	a. Compares site adaptation data between two builds and prints all 
+	differences.
+
+	b. Creates adaptation data files for all or selected sites for a new 
+	build.
+
+    The adaptation data files processed by "manage_adapt" is the source RPG
+    adaptation data files that are used for building the adaptation archive to
+    be distributed to the radar sites. The source RPG adaptation data files are
+    organized in a directory called the master directory. A master directory
+    may have the following subdirectories: "roc", "generic", "beta" and
+    "release" each of which is a category (group) of sites. In each of the
+    category directory, there are site subdirectories each of which is for a
+    radar site. In the site directory, a directory is created for each
+    redundant channel (rpg1 or rpg2). Finally, in each of the channel
+    directory, source RPG adaptation data files are stored.
+
+    Option "-o" is used for creating adaptation data files. Option -o specifies
+    the (output) master directory where the adaptation data will be created. To
+    create the adaptation data files, manage_adapt reads the following files:
+    "siteinfo.csv", "hcipassword.csv", "comms_link.conf", "commslink.csv",
+    "masterlist.csv" and site dependent masterlist files, such as
+    "masterlistrcwf.csv". These files must be stored in subdirectory "src_data"
+    of the master directory.
+
+    If the "-i" option is specified, the source RPG adaptation data files of an
+    existing master directory specified by the option, the input master
+    directory, is read and merged with the data in the "csv" files to create
+    the adaptation data files. The data in the "csv" files override that read
+    from the input master directory.
+
+    Each site belongs to a category. The site category is specified in file
+    "site_category" in subdirectory "src_data" of the output master directory.
+    The category of sites that are not specified in "site_category" is
+    determined by their location in the input master directory. If no input
+    master dir is specified, they are assumed to be in "release". Site category
+    is used for site comparison or creation of sites selected by category.
+
+    The product user tables are created in subdirectory "shared" in the output
+    directory (-o option). Site dependent files are supported by adding site
+    names in the file name. For example, product_user_table_rshi_ will be for
+    site "rshi". Multiple sites can share the same file. For example,
+    product_user_table_rshi_rcwf_. The files in "shared" must be put in the
+    "$input_dir_name/shared" when running build_adapt_master.
+
+    To differ adaptation data between two master directories, use the "-i" and
+    "-d" options.
+
+OPTIONS
+
+    "manage_adapt" recognizes the following options:
+
+        -i input_dir		Specifies the input master dir.
+        -d comp_dir 		Specifies the master dir to compare difference.
+        -o output_dir		Specifies the output master dir for generation.
+        -t			Tars and compresses the site adapt files after 
+				creation.
+        -s site_name		Specifies a site for processing. Multiple -s
+				is acceptable. The default is all sites.
+        -c category		("A", "B", "G" or "R"). The default is all.
+				R - ROC; G - Generic; B - Beta sites; A - All 
+				other sites.
+        -u			Reads, verifies and prints the users.
+        -v ver			Specifies a version number (e.g. 8.0) for 
+				master dir creation. The default is using the 
+				RPG version number on the local host.
+	-p format 		("site" or "comp") Print format of differences.
+				"site" - Site diff only; "comp" compact format.
+	-n			No category subdirectories are used in master 
+				dir creation. All sites are created in the 
+				output dir.
+        -h			Prints usage info.
+
+    
+EXAMPLES
+
+    manage_adapt -i /export/home/jing/adapt/adapt7 -d /export/home/jing/adapt/adapt8
+
+    Compares adaptation data between sites in master directory 
+    "/export/home/jing/adapt/adapt7" and master directory 
+    "/export/home/jing/adapt/adapt8" and prints the differences.
+
+    manage_adapt -i /export/home/jing/adapt/adapt7 -d /export/home/jing/adapt/adapt8 -g R
+
+    The same as above except that comparisons only performed for "roc" sites.
+
+    manage_adapt -i /export/home/jing/adapt/adapt7 -d /export/home/jing/adapt/adapt8 -s KTLX -s KCRI
+
+    The same as above except that comparisons only performed for radar sites 
+    "KTLX" and "KCRI".
+
+    manage_adapt -i /export/home/jing/adapt/adapt7 -o /export/home/jing/adapt/adapt8
+
+    Creates RPG source adaptation data for all sites from data in master 
+    directory "/export/home/jing/adapt/adapt7" and CM DB view files in 
+    "/export/home/jing/adapt/adapt8/src_data"
+
+    manage_adapt -o /export/home/jing/adapt/adapt8
+
+    Creates RPG source adaptation data for all sites from CM DB view files in 
+    "/export/home/jing/adapt/adapt8/src_data". The files created are in the
+    directory "/export/home/jing/adapt".
+	
+    manage_adapt -t -o /export/home/jing/adapt/adapt8 -c R
+
+    The same as above except that the RPG source adaptation data are created 
+    only for "roc" sites and the tar files are also created.
+
+PROCEDURE FOR CREATING ADAPTATION DATA
+
+    This is an outline of the current process in place for requesting and
+    creating RPG adaptation data.
+
+    1. CM requests adaptation data be created (usually an email)
+    2. CM supplies the .csv files (6) (CM will point you to the drive location).
+       Ignoring case, the 6 files should be:
+       a. commslink.csv
+       b. hcipassword.csv
+       c. masterlist.csv
+       d. masterlistrcwf.csv
+       e. masterlistrshi.csv
+       f. siteinfo.csv
+    3. CM also supplies the comms_link.conf file (only if there are changes,
+       otherwise use the version in Razor - cpc104).
+    4. Make sure the required directories and files are in place.
+        a. If it doesn't already exist, create the destination directory
+	   (i.e., /import/orpg/adapt/adapt8).
+	b. If it doesn't already exist, create a subdirectory named "src_data"
+	   in the destination directory.
+    4. Create a new repository subdirectory under "src_data" to hold the new
+       ".csv" files.  Traditionally the current date is used (i.e., 102305).
+    5. Copy all of the new ".csv" files from CM into the newly created
+       repository directory.
+    6. Change the file names of all of the new ".csv" files to be lower case.
+    7. Copy the newly renamed files to the "src_data" directory (overwrite the
+       existing files).
+    8. Go to the top-level adaptation data directory(i.e., /import/orpg/adapt)
+       and run the manage_adapt program:
+
+	manage_adapt -t -o /import/orpg/adapt/adapt8 -v 8.0
+
+       This will create adaptation data for all sites that are in 
+       "siteinfo.csv". To create specific sites ont can use the -s option. To 
+       create sites of a specific category, on can use the -c option.
+      
+       For example, if all of the ROC test site adaptation data files are to be
+       generated, the command looks like:
+
+       manage_adapt -o adapt8 -t -c R -v 8.0
+
+       See EXAMPLES for more examples of using manage_adapt.
+
+    9. Provide the compressed tar files to CM. The compressed tar files will be
+       located in a directory that depends on the category that was used. For
+       example, if the "roc" category was used (-c R), the files will be in the
+       /import/orpg/adapt/adapt8/roc directory. Be sure to give CM all of the
+       compressed tar files and the "shared.tar.gz" file. DON'T FORGET TO GIVE
+       CM THE SHARED FILE (shared.tar.gz). It should be located in the
+       destination directory (i.e., /import/orpg/adapt/adapt8).
+
+   10. Create an archived copy of all of the files you gave to CM (use the
+       /import/orpg/adapt/archive directory, follow the method used
+       previously).
+
+
+SEE ALSO
+    build_adapt_master (1), build_adapt_floppy (1)

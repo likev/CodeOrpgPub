@@ -1,0 +1,222 @@
+ The RDA COMMAND structure is used to communicate information to the 
+ Control RDA module.  Any process desiring to send a command to the 
+ Control RDA module uses this format.
+
+ The RDA COMMAND structure is defined as follows:
+
+ 	struct rda_command{
+
+           int  command;
+           int  line_number;
+           int  parameter_1;
+           int  parameter_2;
+           int  parameter_3;
+           int  parameter_4;
+           int  parameter_5;
+           char message_data[1600]
+
+	}
+  
+ The command field lists the requested command.  The currently defined
+ commands are listed below.
+
+ The line_number field is used to identify the sender of the command.
+ Possible values are:
+
+   HCI_INITIATED_RDA_CTRL_CMD       -100 
+   PBD_INITIATED_RDA_CTRL_CMD       -200 
+   RMS_INITIATED_RDA_CTRL_CMD       -300 
+   MSF_INITIATED_RDA_CTRL_CMD       -400
+   RED_INITIATED_RDA_CTRL_CMD       -500
+   APP_INITIATED_RDA_CTRL_CMD       -600
+   HCI_VCP_INITIATED_RDA_CTRL_CMD   -700
+   TST_INITIATED_RDA_CTRL_CMD       -999
+
+ See orpgrda.h for definitions.
+
+ The parameter_1, parameter_2, and parameter_3 fields are parameters
+ that describe the command.  Most commands have at least parameter_1 
+ defined.  For most commands, parameter_1 is sufficient to describe 
+ the command.  
+
+ The last field is for message data, such as for a console message 
+ sent to the RDA.
+
+ The following describes the RDA commands and the parameters necessary
+ to invoke the command.  Unless otherwise specified, all parameters 
+ are 0.
+
+ command:
+
+	COM4_LBTEST	-  Perform RPG to RDA Loopback Test (404).	
+
+        COM4_WBMSG	-  Send Console Message to RDA/Wideband User (406).
+
+		parameter_1:
+			MTYP_RDACON 	- RPG to RDA Console Message.
+			MTYP_USER_SITE 	- RPG to User Site Console Message.
+
+		parameter_2:
+			400 - Number of 4 bytes words in message.	
+
+                
+		message_date:
+			Actual Message.  Limited to 1600 characters.
+
+	COM4_WBENABLE	-  Enable Wideband Line (407).	
+
+		line_number:
+			1 - RDA_PRIMARY		
+ 			2 - RDA_SECONARY
+			3 - WIDEBAND USER
+
+
+	COM4_WBDISABLE	-  Enable Wideband Line (408).	
+
+		line_number:
+			1 - RDA_PRIMARY		
+ 			2 - RDA_SECONARY
+			3 - WIDEBAND USER
+
+	COM4_WMVCPCHG	-  Change Weather Mode (410).
+
+		parameter_1:
+			1 - PFWXCONV (Precipitation Mode)
+			2 - PFWXCLA (Clear Air Mode)
+
+
+	COM4_RDACOM 	- RDA Control Command (411)
+
+		parameter_1:
+
+		CRDA_STANDBY            -  Command RDA to Stand-by (1).
+		CRDA_OFFOPER            -  Command the RDA to Off-line Operate (2).
+		CRDA_OPERATE		-  Command RDA to Operate (3).
+		CRDA_RESTART            -  Command RDA to Restart (4).
+		CRDA_BDENABLE		-  Base Data Enable (5).
+
+			parameter_2 for CRDA_BDENABLE:
+				Any Combination of Base data flags 
+          	        	OR'd together:
+					Reflectivity	RCOM_BDELABLER
+					Velocity 	RCOM_BDENABLEV
+					Width		RCOM_BDENABLEW
+					None		RCOM_BDELABLEN
+
+                CRDA_REQREMOTE		-  Request Remote RDA Control (10).
+		CRDA_ACCREMOTE		-  Accept Remote RDA Control (11).
+		CRDA_ENALOCAL		-  Enable Local RDA Control (12).
+
+                CRDA_CTLISU             -  Control Interference Suppression Unit
+		                           (14).
+		CRDA_AUXGEN		-  Switch to Auxilliary Power (15).
+		CRDA_RESTART_VCP	-  Restart VCP (16).
+		CRDA_RESTART_ELEV	-  Restart Elevation Cut (17).
+		CRDA_SELECT_VCP		-  Change VCP (18).
+		CRDA_UTIL		-  Switch to Utility Power (20).
+
+			parameter_2 for CRDA_SELECT_VCP:
+				Valid VCP Number:
+					VCP number          1 - 767
+					Use Remote Pattern  0
+
+		CRDA_ARCH_COLLECT	-  Collect Arch II data (21).
+
+			parameter_2 for CRDA_ARCH_COLLECT:
+				Number of volume scans:
+					Continuous Recording    0
+					# of Volume Scans  1 - 255
+
+		CRDA_ARCH_REPLAY	-  Playback Arch II Data (22).
+
+			parameter_2 for CRDA_ARCH_REPLAY
+				Begin time (millisecs past midnight):
+					Time  0 - 86399999
+
+			parameter_3 for CRDA_ARCH_REPLAY
+				Begin date (Modified Julian).
+
+			parameter_4 for CRDA_ARCH_REPLAY
+				End time (millisecs past midnight):
+					Time  0 - 86399999
+
+			parameter_5 for CRDA_ARCH_REPLAY
+				End date (Modified Julian).
+
+                               NOTE:  If both start and stop date/times are non
+			       zero, data for the specified time window are 
+			       replayed.  If only the start date/time is 
+                               non-zero, then replay will start at the specified
+			       time and stop at end-of-tape.  If only the end
+			       date/time is non-zero, then replay will start
+			       from the beginning of tape and stop at the 
+			       specified date/time.
+
+		CRDA_ARCH_STOP		-  Stop Arch II Recording (23).
+		CRDA_FORCE_RED_STANDBY  -  Force Redundant Channel Standby (24).
+		CRDA_MODE_OP		-  Select Operational Mode (25).
+		CRDA_MODE_MNT		-  Select Maintenance Mode (26).
+		CRDA_CHAN_CTL		-  Set to Controlling Channel (27).
+		CRDA_CHAN_NONCTL	-  Set to Non-Controlling Channel (28).
+		CRDA_SB_ENAB		-  Enable Spot Blanking (29).
+		CRDA_SB_DIS		-  Disable Sport Blanking (30).
+		CRDA_SR_ENAB		-  Enable Super Resolution (31).
+		CRDA_SR_DISAB		-  Enable Super Resolution (32).
+		CRDA_CMD_ENAB		-  Enable Clutter Mitigation Decision (33).
+		CRDA_CMD_DISAB		-  Disable Clutter Mitigation Decision (34).
+		CRDA_AVSET_ENAB		-  Enable AVSET (35).
+		CRDA_AVSET_DISAB	-  Disable AVSET (36).
+		CRDA_PERF_CHECK		-  Perform Performance Check (37).
+
+
+	COM4_REQRDADATA - Request For RDA Data (412).
+
+                parameter_1:
+
+		DREQ_STATUS		-  Request RDA Status Data (0x0081).
+                DREQ_PERFMAINT          -  Request Performance/Maintenance Data
+                                           (0x0082).
+		DREQ_CLUTMAP		-  Request Bypass Map (0x0084).
+		DREQ_NOTCHMAP		-  Request Notchwidth Map (0x0088).
+
+
+	COM4_DLOADVCP	-  Download VCP to RDA (413).
+
+		parameter_1:
+			0		-  Current VCP
+			1 - 767		-  Adaptation Data Version
+		parameter_2:
+			0		- No VCP data follows in command.
+                        1               - VCP data follows in command. Data 
+                                          stored in "msg" and is of type 
+					  Vcp_struct.
+                parameter_3:
+                        0               - VCP is to be translated (Supports VCP 
+                                          Translation.
+                        0x1234          - VCP is not to be translated.
+
+
+	COM4_SENDEDCLBY	-  Send Editted Bypass Map to RDA (414).
+
+
+	COM4_SENDCLCZ 	-  Send Clutter Censor Zones to RDA (415). 
+
+		parameter_1:
+			Number of Zones Defined (Maximum 16)
+
+		parameter_2:
+			File Number (Censor Zone ID)
+
+
+	COM4_SB_ENABLE	-  Spot Blanking Enable (420).
+
+
+	COM4_SB_DISABLE	-  Spot Blanking Disable (421).
+
+	COM4_VEL_RESO -  VCP Velocity Resolution (422).
+
+		parameter_1:
+			2		- High Velocity Resolution
+			4		- Low Velocity Resolution
+
+

@@ -1,0 +1,181 @@
+C 
+C RCS info 
+C $Author: steves $ 
+C $Locker:  $ 
+C $Date: 2005/12/01 21:41:42 $ 
+C $Id: a3cm35.ftn,v 1.6 2005/12/01 21:41:42 steves Exp $ 
+C $Revision: 1.6 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A3CM35__CHANGE_WXMODE (NEWWMODE)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3CM35__CHANGE_WXMODE
+*.
+*.  MODULE VERSION: 0011
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       03 24 86      0000      DENNIS MILLER
+*.       10 02 86      0001      J GROMMONS           SPR # 60346
+*.       08 23 88      0002      W.B. EIDSON          SPR # 80248
+*.       02 24 90      0003      BILL EIDSON          SPR # 90613
+*.       11 08 90      0004      J. WHEELER           SPR # 91250
+*.       12 03 91      0005      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0006      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0007      Toolset              SPR 91895
+*.       03/25/93      0008      Toolset              SPR NA93-06801
+*.       03/03/94      0009      Toolset              SPR NA94-05501
+*.       12/23/96      0010      Toolset              CCR NA95-11807
+*.       03/16/99      0011      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:
+*.
+*.     CALL A3CM35__CHANGE_WXMODE(NEWWMODE)
+*.
+*.  MODULE FUNCTION:
+*.
+*.      FORCE CPC4 TO CHANGE RPG WEATHER MODE.  THIS CHANGE WILL BE
+*.          IMMEDIATE (I.E. CAUSES CHANGE IN VCP AND RESTART
+*.           OF VOLUME SCAN ON RDA).
+*.
+*.  MODULES CALLED: A31215__GET_OUTBUF, A31216__REL_OUTBUF 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT         TYPE        DESCRIPTION
+*.    -   -----         ----        -----------
+*.    G   RDA_PRIMARY   I*4         Line number of the primary RDA.
+*.    G   COM4_WMVCPCHG I*4         (CONSTANT)CPC 04 command to weather mode
+*.                                  VCP change.
+*.    G   CPC4MSG       I*4         (CONSTANT)Data Buffer Type: CPC 04
+*.                                  Message.
+*.    G   CPC4M_COMMAND I*4         (CONSTANT)CPC 04 (Wideband) message line
+*.                                  number index, array element no.2.
+*.    G   CPC4M_LINENO  I*4         (CONSTANT)CPC 04 message line number
+*.                                  index.
+*.    G   CPC4M_P1      I*4         (CONSTANT)CPC4M_P1 message parameter No.1
+*.                                  index, array element no.3.
+*.    G   CPC4M_P2      I*4         (CONSTANT)CPC 04 Message parameter No.2
+*.                                  index, array element no.4
+*.    G   FORWARD       I*4         (CONSTANT)Parameter to indicate that an
+*.                                  output buffer is to be forwarded to
+*.                                  successor tasks
+*.    G   NORMAL        I*4         (CONSTANT)Parameter which indicates normal
+*.                                  completion of requested operation to
+*.                                  acquire input or output buffer
+*.    P   NEWWMODE      I*4         VARIABLE CONTAINING NEW WEATHER
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    G   MEM     I*4         Array in RPG shared memory set aside for buffer
+*.                            sharing.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME       TYPE        DESCRIPTION
+*.    ----       ----        -----------
+*.    BUFPTR     I*4         BUFFER INDEX
+*.    CPC4BUFSIZ I*4         OUTPUT BUFFER SIZE
+*.    OPSTAT     I*4         OPERATION STATUS
+*.    OPTR       I*4         OUTPUT BUFFER POINTER
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD00
+*.    STATFIL
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.        THIS MODULE IS COMPILED USING THE COMP09.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.        THIS MODULE IS LINKED USING THE LINK09.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C*********************************************************************
+C
+C     A3CM35__CHANGE_WXMODE  -  FORCE CPC4 TO CHANGE RPG WEATHER
+C                               MODE.  THIS CHANGE WILL BE IMMEDIATE
+C                               (I.E. CAUSES CHANGE IN VCP AND RESTART
+C                                OF VOLUME SCAN ON RDA).
+C
+C        ARGUMENTS:
+C
+C                  NEWWMODE  -  I*4 VARIABLE CONTAINING NEW WEATHER
+C                               MODE.
+C
+C*********************************************************************
+      IMPLICIT NONE
+C
+      INTEGER*4 NEWWMODE
+C
+$INCLUDE A309ADPT.INC/G,**A3CD70P6 (NLIST)
+$INCLUDE                **A3CD70CA (NLIST)
+$INCLUDE A309.INC/G,**A3PM00 (NLIST)
+$INCLUDE **A3PM06 (NLIST)
+$INCLUDE **A3CD00 (NLIST)
+$INCLUDE **A3CD07 (NLIST)
+$INCLUDE A304.INC/G,**A304P7 (NLIST)
+C
+C---------------------------------------------------------------------
+C     LOCAL DATA
+C---------------------------------------------------------------------
+C
+      INTEGER*4 CPC4BUFSIZ
+      PARAMETER (CPC4BUFSIZ = 4)
+C
+      INTEGER*4 OPTR, BUFPTR, OPSTAT
+C
+C*********************************************************************
+C
+C**** GET OUTPUT BUFFER FOR CPC4 MESSAGE
+C
+      CALL A31215__GET_OUTBUF (CPC4MSG,CPC4BUFSIZ,OPTR,OPSTAT)
+C
+C**** IF STATUS NORMAL, BUILD BUFFER AND PASS TO CPC4
+C
+      IF (OPSTAT .EQ. NORMAL) THEN
+C
+C****    GET BUFFER POINTER FOR INDEXING BY ONE
+C
+         BUFPTR = OPTR - 1
+C
+C****    INSERT CPC4 COMMAND TYPE AND LINE NUMBER (ALWAYS PRIMARY RDA)
+C
+         MEM (BUFPTR+CPC4M_COMMAND) = COM4_WMVCPCHG
+C
+         MEM (BUFPTR+CPC4M_LINENO) = RDA_PRIMARY
+C
+C****    INSERT PASSED WEATHER MODE INTO CPC4 BUFFER
+C
+         MEM (BUFPTR+CPC4M_P1) = NEWWMODE
+         MEM (BUFPTR+CPC4M_P2) = 0
+C
+C****    PASS BUFFER TO CPC4
+C
+         CALL A31216__REL_OUTBUF (OPTR,FORWARD)
+C
+      ENDIF
+      RETURN
+      END

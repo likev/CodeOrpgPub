@@ -1,0 +1,301 @@
+C 
+C RCS info 
+C $Author: nolitam $ 
+C $Locker:  $ 
+C $Date: 2002/11/27 15:17:25 $ 
+C $Id: a3147k.ftn,v 1.3 2002/11/27 15:17:25 nolitam Exp $ 
+C $Revision: 1.3 $ 
+C $State: Exp $ 
+C 
+        SUBROUTINE A3147K__USP_PAGES(USPBUF)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3147K__USP_PAGES
+*.
+*.  MODULE VERSION: 0002
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       10/18/95       0000      CHERYL STEPHENSON    CCR NA94-08462
+*.       12/23/96      0001      Toolset              CCR NA95-11807
+*.       03/16/99      0002      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:
+*.     CALL A3147K__USP_PAGES(USPBUF)
+*.
+*.  MODULE FUNCTION:
+*.     BUILD THE PAGES FOR THE GRAPHIC BLOCK
+*.
+*.
+*.  MODULES CALLED: A3147N__PACKET_WRITE, A3147O__PACKET_MOVE, 
+*.                  A3CM29__GRID_VECTORS 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT      TYPE        DESCRIPTION
+*.    -   -----      ----        -----------
+*.    C   AVAIL_HRS  I*2         An array of the available hours in the User
+*.                               Selectable Data Base
+*.    C   BEG_INDX   I*2         Index into USDB_HRS_OLD for the beginning
+*.                               hour of the USP product
+*.    C   END_INDX   I*2         Index into USDB_HRS_OLD for the end hour of
+*.                               USP product
+*.    C   GPHLNG     I*4         Length of graphic attribute block in
+*.                               halfwords
+*.    C   N2         I*4         Upper limit of hours to be written per
+*.                               graphic page
+*.    C   NDX        I*4         Working subscript for moving data into output
+*.                               buffer
+*.    C   NP         I*4         Number of pages in graphic attribute table to
+*.                               be written
+*.    C   PGNO       I*2         Page Number of graphic attribute table
+*.    C   PNDX       I*4         Pointer into output buffer
+*.    C   START_TIME I*2         The start hour of the data in the User
+*.                               Selectable Database
+*.    C   TIMESPAN   I*2         Duration of USP product
+*.    C   GLOFF      I*4         (CONSTANT)Offset to beginning of graphics
+*.                               line within graphic attribute page
+*.    C   GPOFF      I*4         (CONSTANT)Offset to beginning of first
+*.                               graphic attribute page
+*.    C   HRS_24     I*2         (CONSTANT)Number of hours in a day
+*.    C   INIT_VAL   I*2         (CONSTANT)Value indicating date/time are
+*.                               initial value
+*.    C   NCOLS      I*4         (CONSTANT)Second dimension of TBUF (55)
+*.    P   USPBUF     I*2         USP product buffer
+*.
+*.    *   OUTPUT   TYPE        DESCRIPTION
+*.    -   ------   ----        -----------
+*.    C   GPHLNG   I*4         Length of graphic attribute block in halfwords
+*.    C   IPIX     I*2         I pixel location for graphic packet (row)
+*.    C   JPIX     I*2         J pixel location for graphic packet (column)
+*.    C   K1       I*4         Index of starting hour to be written on graphic
+*.                             page
+*.    C   K2       I*4         Index of ending hour to be written on graphic
+*.                             page
+*.    C   N2       I*4         Upper limit of hours to be written per graphic
+*.                             page
+*.    C   NDX      I*4         Working subscript for moving data into output
+*.                             buffer
+*.    C   NP       I*4         Number of pages in graphic attribute table to
+*.                             be written
+*.    C   PGNO     I*2         Page Number of graphic attribute table
+*.    C   PNDX     I*4         Pointer into output buffer
+*.    C   TEMP_HRS I*2         Temporary array of hours in the USP product for
+*.                             generating the attribute table
+*.    P   USPBUF   I*2         USP product buffer
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    P   USPBUF            I*2         USP product buffer
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME    TYPE        DESCRIPTION
+*.    ----    ----        -----------
+*.    BL      I*4         Number of characters per line
+*.    BLNGTH  I*4         LENGTH OF PACKET BLOCK IN BYTES
+*.    GUPLIM  I*4         (CONSTANT)Upper limit for number of hours per
+*.                        graphic page
+*.    HOURS   I*4         Number of hours the product covers
+*.    I       I*4         LOOP COUNTER
+*.    IDNX    I*4         Index to buffer for storing screen
+*.    IK      I*4         Number of hours moved into graphic attribute table
+*.    IKK     I*4         Temporary storage for IK
+*.    ISTART  I*4         Starting index for Tabular Alphanumeric Page in
+*.                        product
+*.    NPX     I*4         Intermediate Number of pages
+*.    PLNGTH  I*4         Page length (in halfwords)
+*.    PLNGTHX I*2         Length of page in number of bytes
+*.    TIME    I*2         Value of hour.  Used to handle midnight crossover.
+*.    VLNGTH  I*4         Length of stored vector
+*.    VOPT    I*4         (CONSTANT)Option for down grid vectors
+*.    ZERO    I*2         PARAMETER VALUE '0'
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3147C2
+*.    A3147C3
+*.    A3147C4
+*.    A3147C6
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK14.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+C
+C   LOCAL COMMON
+C$INSERT$INCLUDE A309.INC/G, **A3PM00
+$INCLUDE A3146.INC/G,**A3146P1 (NLIST)
+$INCLUDE A3147.INC/G,**A3147P2 (NLIST)
+$INCLUDE        **A3147P4  (NLIST)
+$INCLUDE        **A3147P9 (NLIST)
+$INCLUDE        **A3147C2  (NLIST)
+$INCLUDE        **A3147C3 (NLIST)
+$INCLUDE         **A3147C4
+$INCLUDE         **A3147C6
+C
+C   LOCAL DEFINITIONS:
+      INTEGER*2  USPBUF(*)
+      INTEGER*2  PLNGTHX,TIME
+      INTEGER*2 ZERO
+      PARAMETER (ZERO = 0)
+      INTEGER HOURS
+C
+      INTEGER*4  BLNGTH,PLNGTH
+      INTEGER*4  VOPT,VLNGTH
+      INTEGER*4  BL,IDNX
+
+      INTEGER*4  I,NPX,IK,IKK,ISTART
+C
+      CHARACTER*80  TXCHR(NCOLS)
+C
+      PARAMETER (VOPT=5)
+C
+      EQUIVALENCE  (TBUF(1,1),TXCHR)
+C
+C*************** E X E C U T A B L E ******************************
+X     WRITE(14,*)'ENTERING A3147K'
+C
+C   INITIALIZE FOR USP
+C
+      NDX = NDX + GPOFF + GLOFF
+X     WRITE(14,*)'7K: NDX = ',NDX
+      IK = 1
+      BLNGTH = 0
+      PLNGTH = 0
+C
+C  Initialize Temporary Hour Array
+C
+      DO 10 I=1,30
+         TEMP_HRS(I) = INIT_VAL
+10    CONTINUE
+C
+C  Put the available hours in the TEMP_HRS array.
+C  If the hour is an initial value, then need to
+C  put a valid hour
+C
+         TIME = START_TIME  + 1
+C
+C  Need to handle cross over to midnight
+C
+         IF (TIME .EQ. HRS_24)THEN
+             TIME = ZERO
+         ENDIF
+X        WRITE(14,*)'7K: TIME = ',TIME
+         DO 20 I = BEG_INDX, END_INDX ,-1
+            TEMP_HRS(I) = AVAIL_HRS(I)
+            IF(AVAIL_HRS(I) .EQ. INIT_VAL)THEN
+              TEMP_HRS(I) = TIME
+              TIME = TIME + 1
+C
+C  Need to handle cross over to midnight
+C
+                 IF (TIME .EQ. HRS_24)THEN
+                     TIME = ZERO
+                 ENDIF
+            ENDIF
+20       CONTINUE
+C
+C   DETERMINE NUMBER OF PAGES OF USP
+C
+      HOURS = TIMESPAN
+      ISTART = BEG_INDX
+X     WRITE(14,*)'7K: HOURS = ',HOURS,' ISTART = ',ISTART
+      IF (HOURS .GT. 0) THEN
+         NP = HOURS / GUPLIM
+         NPX = GUPLIM*NP
+         IF (NPX .LT. HOURS) THEN
+            NP = NP + 1
+         ENDIF
+X        WRITE(14,*)'7K: NUM OF PAGES =', NP
+C
+C   BUILD PAGES FOR USP
+         DO 150  I = 1, NP
+            N2 = HOURS - IK + 1
+            IF (N2 .GT. 0) THEN
+               IF (N2 .GT. GUPLIM) THEN
+                  N2 = GUPLIM
+               ENDIF
+X              WRITE(14,*)'N2 = ',N2
+C
+C   BUILD PACKETS
+C
+               IKK = IK
+               IK = IK + N2
+               PGNO = I
+               IPIX = 0
+               JPIX = 1
+               K1 = ISTART
+               K2 = ISTART-N2 + 1
+C
+C   WRITE LINES BY CALLING A3147N
+C
+               CALL A3147N__PACKET_WRITE(BL)
+X              WRITE(14,*)'7K:NO OF CHARS PER LINE = ',BL
+C
+C   MOVE DATA TO OUTPUT BUFFER BY CALLING A3147O
+C
+               CALL A3147O__PACKET_MOVE(USPBUF, BLNGTH,BL)
+X              WRITE(14,*)'7K: LENGTH OF PACKET = ',BLNGTH
+C
+C   MOVE GRID VECTORS INTO OUTPUT BUFFER
+C
+               IDNX = NDX
+               CALL A3CM29__GRID_VECTORS(VOPT,USPBUF,IDNX,VLNGTH)
+               NDX = NDX + VLNGTH
+               BLNGTH = BLNGTH + VLNGTH
+               PLNGTH = PLNGTH + BLNGTH
+               GPHLNG = GPHLNG + PLNGTH + 2
+C
+C   STORE PAGE LENGTH, PAGE NO FOR PAGE
+C
+               PLNGTHX = PLNGTH * 2
+               USPBUF(PNDX) = PGNO
+               PNDX = PNDX + 1
+               ISTART = ISTART - N2
+C
+C   STORE LENGTHS
+C
+               USPBUF(PNDX) = PLNGTHX
+               PLNGTH = 0
+               PNDX = NDX
+               NDX = NDX + GLOFF
+            ENDIF
+  150 CONTINUE
+C
+C   END OF USP
+C
+      ENDIF
+C
+      IF (N2 .GT. 0)  THEN
+         NDX = NDX - GLOFF
+      ENDIF
+X     WRITE(14,*)'7K: NDX = ',NDX
+C
+X     WRITE(14,*)'EXITING A3147K'
+      RETURN
+      END

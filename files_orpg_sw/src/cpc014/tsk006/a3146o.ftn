@@ -1,0 +1,277 @@
+C 
+C RCS info 
+C $Author: nolitam $ 
+C $Locker:  $ 
+C $Date: 2002/11/27 15:16:59 $ 
+C $Id: a3146o.ftn,v 1.3 2002/11/27 15:16:59 nolitam Exp $ 
+C $Revision: 1.3 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A3146O__MISSING_TIMES(BUF_INDX,PBUFF)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3146O__MISSING_TIMES
+*.
+*.  MODULE VERSION: 0010
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       08 22 90      0000      Paul Jendrowski      SPR# 90899
+*.       11 04 90      0001      PAUL JENDROWSKI      SPR# 91255
+*.       12 03 91      0002      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0003      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0004      Toolset              SPR 91895
+*.       03/25/93      0005      Toolset              SPR NA93-06801
+*.       01/28/94      0006      Toolset              SPR NA94-01101
+*.       03/03/94      0007      Toolset              SPR NA94-05501
+*.       04/11/96      0008      Toolset              CCR NA95-11802
+*.       12/23/96      0009      Toolset              CCR NA95-11807
+*.       03/16/99      0010      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A3146O__MISSING_TIMES(BUF_INDX,PBUFF)
+*.
+*.  MODULE FUNCTION:
+*.
+*.      This module formats any missing periods in the hour in the
+*.   product buffer in ASCII format.  If there are no missing periods,
+*.   a no missing periods message is formatted.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT          TYPE        DESCRIPTION
+*.    -   -----          ----        -----------
+*.    C   BASE_DATE      I*4         Minimum date of rate scans and hourly
+*.                                   period.
+*.    C   BHT            I*4         Normalized begin hour time.
+*.    C   EHT            I*4         Normalized end hour time.
+*.    C   NEWEST_RS_INDX I*4         Index in database of newest rate scan.
+*.    C   OLDEST_RS_INDX I*4         Index in database of oldest rate scan.
+*.    C   SUP_DB         I*4         Supplemental database array.
+*.    C   USE_RS         L*4         Flag array indicating which rate scans
+*.                                   are used in the hourly period.
+*.    C   AS_BMPD        I*4         (CONSTANT)Offset in Sup_DB for the begin
+*.                                   missing period date.
+*.    C   AS_BMPT        I*4         (CONSTANT)Offset in SUP_DB for the begin
+*.                                   missing period time.
+*.    C   AS_EMPD        I*4         (CONSTANT)Offset in SUP_DB for the end
+*.                                   missing period date.
+*.    C   AS_EMPT        I*4         (CONSTANT)Offset in SUP_DB for the end
+*.                                   missing period time.
+*.    C   MAX_RATESCANS  I*4         (CONSTANT)Maximum number of rate scans in
+*.                                   database.
+*.    C   NI2_LN         I*4         (CONSTANT)Number of halfwords for
+*.                                   NCHAR_LN.
+*.    P   BUF_INDX       I*4         Pointer into buffer where it was last
+*.                                   written to
+*.
+*.    *   OUTPUT   TYPE        DESCRIPTION
+*.    -   ------   ----        -----------
+*.    P   BUF_INDX I*4         Pointer into buffer where it was last written
+*.                             to
+*.    P   PBUFF    I*2         PRODUCT OUTPUT BUFFER
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE: NONE
+*.
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME            TYPE        DESCRIPTION
+*.    ----            ----        -----------
+*.    BMD             I*4         BEGIN MISSING PERIOD DATE
+*.    BMT             I*4         BEGIN MISSING PERIOD TIME
+*.    EMD             I*4         END MISSING PERIOD DATE
+*.    EMT             I*4         END MISSING PERIOD TIME
+*.    I               I*4         Do loop index.
+*.    INC             I*4         PARAMETER FOR 1
+*.    MTIME_CHR       CHAR*80     CHARACTER ARRAY FOR MISSING PERIODS
+*.    MTIME_I2S       I*2         ARRAY EQUIVALENCED TO MTIME_CHR USED
+*.    NCHAR_LN        I*4         Parameter for number of characters in a line
+*.                                in block 3.
+*.    NO_MISSING_FLAG I*4         FLAG TO INDICATE NO MISSING PERIODS
+*.    NO_MISS_CHR     CHAR*80     NO MISSING PERIODS MESSAGE
+*.    NO_MISS_I2S     I*2         ARRAY EQUIVALENCED TO NO_MISS_CHR
+*.    NULL            I*4         PARAMETER FOR ZERO
+*.    SCAN            I*4         RATE SCAN INDEX INTO SUP_DB
+*.    SEC_IN_DAY      I*4         NUMBER OF SECONDS IN A DAY
+*.    TB_BMPD         I*4         BEGIN TAB FOR BEGIN MISSING DATE
+*.    TB_BMPT         I*4         BEGIN TAB FOR BEGIN MISSING TIME
+*.    TB_EMPD         I*4         BEGIN TAB FOR END MISSING DATE
+*.    TB_EMPT         I*4         BEGIN TAB FOR END MISSING TIME
+*.    TE_BMPD         I*4         END TAB FOR BEGIN MISSING DATE
+*.    TE_BMPT         I*4         END TAB FOR BEGIN MISSING TIME
+*.    TE_EMPD         I*4         END TAB FOR END MISSING DATE
+*.    TE_EMPT         I*4         END TAB FOR END MISSING TIME
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3146CD
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS: None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK14.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+      IMPLICIT NONE
+C
+$INCLUDE A313HBUF.INC/G,**A313HYPP (NEND NLIST)
+$INCLUDE A3146.INC, **A3146PD (NEND NLIST)
+$INCLUDE            **A3146CD (NEND NLIST)
+$INCLUDE            **A3146PU (NEND NLIST)
+C
+      INTEGER BUF_INDX
+      INTEGER*2 PBUFF(*)
+      INTEGER SCAN, NO_MISSING_FLAG
+      INTEGER BMT, BMD, EMT, EMD
+      INTEGER SEC_IN_DAY, NULL, INC
+      PARAMETER (SEC_IN_DAY=86400, NULL=0, INC=1)
+C
+      CHARACTER NO_MISS_CHR*(NCHAR_LN)
+      CHARACTER MTIME_CHR*(NCHAR_LN)
+      INTEGER*2 MTIME_I2S(NI2_LN), NO_MISS_I2S(NI2_LN)
+      EQUIVALENCE (MTIME_CHR,MTIME_I2S)
+      EQUIVALENCE (NO_MISS_CHR,NO_MISS_I2S)
+      DATA MTIME_CHR/
+     $'MISSING PERIOD:  BEGIN DATE=     , TIME=     ; END DATE=     , TI
+     $ME=     '/
+      DATA NO_MISS_CHR/
+     $'NO MISSING PERIODS IN CURRENT HOUR          '/
+C
+      INTEGER TB_BMPD,TE_BMPD, TB_BMPT,TE_BMPT
+      INTEGER TB_EMPD,TE_EMPD, TB_EMPT,TE_EMPT
+      PARAMETER (TB_BMPD=29, TE_BMPD=33, TB_BMPT=41, TE_BMPT=45)
+      PARAMETER (TB_EMPD=57, TE_EMPD=61, TB_EMPT=69, TE_EMPT=73)
+C
+C******************************************************************
+C
+X     TYPE *,' ENTER A3146O: BASE DATE = ',BASE_DATE,', BHT = ',BHT,
+     $                  ', EHT = ',EHT
+C
+C** INITIALIZE VALUES
+C
+      NO_MISSING_FLAG = INC
+C
+C** LOOP THROUGH ALL RATE SCANS IN THE DATABASE
+C
+      SCAN = OLDEST_RS_INDX - INC
+  10  CONTINUE
+        SCAN = SCAN + INC
+        IF (SCAN.GT.MAX_RATESCANS) SCAN = INC
+C
+C** USE ONLY SCANS IN THE HOUR
+C
+        IF (USE_RS(SCAN)) THEN
+C
+C** CHECK FOR A MISSING PERIOD
+C
+X         TYPE *,' CHECKING SCAN ',SCAN,' FOR MISSING PERIOD'
+C
+          IF (SUP_DB(AS_EMPD,SCAN).NE.NULL) THEN
+C
+C** COMPUTE NORMALIZED BEGIN AND END MISSING PERIOD TIMES
+C
+            BMT = ( SUP_DB(AS_BMPD,SCAN) - BASE_DATE)*SEC_IN_DAY +
+     $                SUP_DB(AS_BMPT,SCAN)
+            EMT = ( SUP_DB(AS_EMPD,SCAN) - BASE_DATE )*SEC_IN_DAY +
+     $                SUP_DB(AS_EMPT,SCAN)
+C
+X           TYPE *,'   MISSING PERIOD BEGIN AND END TIMES: ',BMT,EMT
+C
+C** CHECK IF MISSING PERIOD IS IN THE CURRENT HOURLY PERIOD
+C
+            IF ( (BMT.GE.BHT .AND. BMT.LT.EHT) .OR.
+     $             (EMT.GT.BHT .AND. EMT.LE.EHT) ) THEN
+C
+C** SET MISSING PERIOD TO ONLY THE TIME IN THE HOUR PERIOD
+C
+              NO_MISSING_FLAG = NULL
+              IF (BHT.GT.BMT) BMT = BHT
+              IF (EHT.LT.EMT) EMT = EHT
+              BMD = BASE_DATE
+              EMD = BASE_DATE
+C
+C** RECOMPUTE TIME TO SECONDS IN DAY
+C
+              IF (BMT.GE.SEC_IN_DAY) THEN
+                BMT = BMT - SEC_IN_DAY
+                BMD = BMD + INC
+C
+X               TYPE *,'   RESET BEGIN DATE AND TIME BECAUSE OF',
+     $                 ' CHANGE OF DAY'
+C
+              END IF
+              IF (EMT.GE.SEC_IN_DAY) THEN
+                EMT = EMT - SEC_IN_DAY
+                EMD = EMD + INC
+C
+X               TYPE *,'   RESET END DATE AND TIME BECAUSE OF',
+     $                 ' CHANGE OF DAY'
+C
+              END IF
+C
+X             TYPE *,'   MISSING PERIOD: ',BMD,BMT,EMD,EMT
+C
+C** FORMAT THE BEGIN AND END MISSING PERIOD DATE/TIMES
+C
+              WRITE(MTIME_CHR(TB_BMPD:TE_BMPD),13) BMD
+              WRITE(MTIME_CHR(TB_BMPT:TE_BMPT),13) BMT
+              WRITE(MTIME_CHR(TB_EMPD:TE_EMPD),13) EMD
+              WRITE(MTIME_CHR(TB_EMPT:TE_EMPT),13) EMT
+C
+X             TYPE *,MTIME_CHR
+C
+C** COPY MISSING PERIOD TO PRODUCT BUFFER
+C
+              DO 30 I=INC,NI2_LN
+                BUF_INDX = BUF_INDX + INC
+                PBUFF(BUF_INDX) = MTIME_I2S(I)
+  30          CONTINUE
+            END IF
+          END IF
+        END IF
+C
+C** SIMULATE DO UNTIL WITH A GO TO
+C
+      IF (SCAN.NE.NEWEST_RS_INDX) GO TO 10
+C
+C** FORMAT NO MISSING PERIOD TEXT IN BUFFER IF THERE WAS NO MISSING
+C
+      IF (NO_MISSING_FLAG.NE.NULL) THEN
+C
+X       TYPE *,' WRITING NO MISSING PERIODS THIS HOUR MESSAGE'
+C
+        DO 40 I=INC,NI2_LN
+          BUF_INDX = BUF_INDX + INC
+          PBUFF(BUF_INDX) = NO_MISS_I2S(I)
+  40    CONTINUE
+      END IF
+C
+X     TYPE *,' EXITING A3146O: BUFFER INDEX = ',BUF_INDX
+C
+  13  FORMAT(I5)
+      END

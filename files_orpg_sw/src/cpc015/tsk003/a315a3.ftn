@@ -1,0 +1,605 @@
+C
+C RCS info
+C $Author: ryans $
+C $Locker:  $
+C $Date: 2005/02/24 22:45:16 $
+C $Id: a315a3.ftn,v 1.5 2005/02/24 22:45:16 ryans Exp $
+C $Revision: 1.5 $
+C $State: Exp $
+C
+      SUBROUTINE A315A3__SEGMENT_BUF_CNTRL( PARAM )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A315A3__SEGMENT_BUF_CNTRL
+*.
+*.  MODULE VERSION: 0002
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       06 90 95      0000      DAVID ZITTEL         CCR NA94-26302
+*.       12/23/96      0001      Toolset              CCR NA95-11807
+*.       03/16/99      0002      Toolset              CCR NA98-23803
+*.       12/31/04      0003      Yukuan Song          CCR NA04-08301 
+*.
+*.  CALLING SEQUENCE: CALL A315A3__SEGMENT_BUF_CNTRL( PARAM )
+*.
+*.  MODULE FUNCTION:
+*.
+*.    This is the routine which is entered for the task in reponse to
+*.  a queued "wake-up" parameter, and which obtains and releases input
+*.  and output buffers (i.e.memory blocks within the master RPG shared
+*.  memory buffer) as needed by algorithms Storm Segments
+*.   enabling them to execute in real time in coordination
+*.  with the other tasks of the RPG (CPC-03).
+*.
+*.  MODULES CALLED: A31211__GET_INBUF, A31212__REL_INBUF, A31215__GET_OUTBUF, 
+*.                  A31216__REL_OUTBUF, A315D3__DEF_SEGMENTS, A315G3__INIT_SCAN, 
+*.                  A315I3__INIT_RAD, A315J3__DERIVE_ADAP, 
+*.                  A315T3__ABORT_PROCESSING, A315X3__INIT_ADAP, 
+*.                  A3CM39__EXTRACT_RADSTAT, A3CM53__WHAT_MOMENTS 
+*.                  scit_filter_read_refl() 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT                TYPE        DESCRIPTION
+*.    -   -----                ----        -----------
+*.    G   MEM                  I*4         Array in RPG shared memory set
+*.                                         aside for buffer sharing.
+*.    G   BASEDATA             I*4         (CONSTANT)DATA BUFFER COUNT OF
+*.                                         BUFFERS TYPE-BASE DATA
+*.    G   BEG_ELEV             I*4         (CONSTANT)Radial status flag:
+*.                                         Beginning of elevation scan.
+*.    G   BEG_VOL              I*4         (CONSTANT)Radial status
+*.                                         flag:Beginning of volume scan.
+*.    G   END_ELEV             I*4         (CONSTANT)Radial status flag: End
+*.                                         of elevation scan.
+*.    G   END_VOL              I*4         (CONSTANT)Radial status flag: End
+*.                                         of volume scan.
+*.    G   FORWARD              I*4         (CONSTANT)Parameter to indicate
+*.                                         that an output buffer is to be
+*.                                         forwarded to successor tasks
+*.    G   HEDO                 I*4         (CONSTANT)Offset in base radial
+*.                                         header input buffer for
+*.                                         preprocessed base radial headers
+*.                                         (in words).
+*.    G   NORMAL               I*4         (CONSTANT)Parameter which indicates
+*.                                         normal completion of requested
+*.                                         operation to acquire input or
+*.                                         output buffer
+*.    G   NO_MEM               I*4         (CONSTANT)Parameter which indicates
+*.                                         no memory available on attempt to
+*.                                         acquire output buffer
+*.    G   PROD_DISABLED_MOMENT I*4         (CONSTANT)Abort status for moment
+*.                                         disabled product.
+*.    G   PROD_MEM_SHED        I*4         (CONSTANT)(CONSTANT)Parameter which
+*.                                         indicates that product aborted due
+*.                                         to memory load shedding
+*.    G   PSEND_ELEV           I*4         (CONSTANT)Radial status flag:
+*.                                         Pseudo end of elevation scan.
+*.    G   PSEND_VOL            I*4         (CONSTANT)Radial status flag:
+*.                                         Pseudo end of volume scan.
+*.    G   REFO                 I*4         (CONSTANT)Offset to base radial
+*.                                         reflectivity data in input buffer
+*.                                         (relative O from 'MEM(PTR)').
+*.    G   TERMINATE            I*4         (CONSTANT)Mnemonic used as output
+*.                                         from A31211__GET_ INBUF and
+*.                                         A31215__GET_OUTBUF. Indicates
+*.                                         "terminate processing".
+*.    C   BUFF_FULL            L*4         A flag indicating the segment data
+*.                                         shared image is full.
+*.    C   DELTANG              R*4         Change in azimuth between radials.
+*.                                         This is from the radial header and
+*.                                         stored in local common.
+*.    C   GOOD_RAD             L*4         Flag passed from A3CM39 indicating
+*.                                         whether a radial is good.
+*.    C   RADELEV              R*4         The elevation angle of a radial.
+*.    C   RAD_STAT             I*4         A radial s status within the volume
+*.                                         scan (e.g. beginning of volume
+*.                                         scan).
+*.    C   REF_FLAG             L*4         Flag for reflectivity available
+*.    C   SEGHIFLG             L*4         Flag to indicate which half (hi =
+*.                                         6000 or low = 0) of the segment
+*.                                         data shared image is or was
+*.                                         updated.
+*.    C   VEL_FLAG             L*4         Flag indicating whether velocity
+*.                                         moment is available
+*.    C   WID_FLAG             L*4         Flag indicationg whether spectrum
+*.                                         width moment is available
+*.    C   AVAILABLE            L*4         (CONSTANT)Flag used to not
+*.                                         terminate segments task.  The
+*.                                         current volume processing is being
+*.                                         aborted because buffers other than
+*.                                         segments buffer are unavailable.
+*.    C   BAE                  I*4         (CONSTANT)Index to AVG_ELEV in
+*.                                         segments output buffer
+*.    C   BAP                  I*4         (CONSTANT)Index to SEGAZPTP in the
+*.                                         segments output buffer
+*.    C   BDA                  I*4         (CONSTANT)Index to AVG_DAVM in
+*.                                         segments output buffer
+*.    C   BES                  I*4         (CONSTANT)Index to elevation status
+*.                                         in segments output buffer
+*.    C   BET                  I*4         (CONSTANT)Index to elevation time
+*.                                         in segments output buffer
+*.    C   BHF                  I*4         (CONSTANT)Index to SEGHIFLG in
+*.                                         segments output buffer
+*.    C   BRC                  I*4         (CONSTANT)Index to radial count in
+*.                                         the segments output buffer
+*.    C   SEGATTR              I*4         (CONSTANT)Buffer ID for Storm Cell
+*.                                         segment attribute data.
+*.    C   UNAVAILABLE          L*4         (CONSTANT)Flag used to abort the
+*.                                         segments task if the segments
+*.                                         buffer is unavailable.
+*.
+*.    *   OUTPUT       TYPE        DESCRIPTION
+*.    -   ------       ----        -----------
+*.    G   MEM          I*4         Array in RPG shared memory set aside for
+*.                                 buffer sharing.
+*.    G   SEG_BUF_LOCK L*4         If the lock is set to true for a half, then
+*.                                 that half of the image is in use by a task.
+*.                                 When a task is done accessing a half of the
+*.                                 image, the lock for th
+*.    C   GOOD_RAD     L*4         Flag passed from A3CM39 indicating whether
+*.                                 a radial is good.
+*.    C   RAD_STAT     I*4         A radial s status within the volume scan
+*.                                 (e.g. beginning of volume scan).
+*.    C   REF_FLAG     L*4         Flag for reflectivity available
+*.    C   SEGHIFLG     L*4         Flag to indicate which half (hi = 6000 or
+*.                                 low = 0) of the segment data shared image
+*.                                 is or was updated.
+*.    C   VEL_FLAG     L*4         Flag indicating whether velocity moment is
+*.                                 available
+*.    C   WID_FLAG     L*4         Flag indicationg whether spectrum width
+*.                                 moment is available
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    G   MEM               I*4         Array in RPG shared memory set aside
+*.                                      for buffer sharing.
+*.    C   GOOD_RAD          L*4         Flag passed from A3CM39 indicating
+*.                                      whether a radial is good.
+*.    C   RAD_STAT          I*4         A radial s status within the volume
+*.                                      scan (e.g. beginning of volume scan).
+*.    C   REF_FLAG          L*4         Flag for reflectivity available
+*.    C   VEL_FLAG          L*4         Flag indicating whether velocity
+*.                                      moment is available
+*.    C   WID_FLAG          L*4         Flag indicationg whether spectrum
+*.                                      width moment is available
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME            TYPE        DESCRIPTION
+*.    ----            ----        -----------
+*.    AVG_DAZM        R*4         Average delta azimuth
+*.    AVG_ELEV        R*4         Average elevation angle
+*.    BFP             I*4         Index to SEGBFPTR in segments output buffer
+*.    BNP             I*4         Index to SEGNXPTR in the segments output
+*.                                buffer
+*.    DAZMAVG         I*4         I*4 equivalence to AVG_DAZM
+*.    DUMMY_FLAG      L*4         Dummy logical flag
+*.    ELEVAVG         I*4         Integer equivalence to real AVG_ELEV
+*.    EL_LAST         I*4         Elevation status parameter for determining
+*.                                that the highest elevation scan has been
+*.                                processed.
+*.    EL_MID          I*4         Status indicating that the elevation is in
+*.                                the middle of a volume scan
+*.    IDATID          I*4         Data type received from buffer request
+*.    IPR             I*4         Pointer to input buffer start in MEM
+*.    ISTAT           I*4         Return status from getting input buffer
+*.    KEY             I*4         A flag that toggles alternatively between
+*.                                LOW and HIGH which points to SEG_BUF_UNLOCK
+*.    N               I*4         Do loop index
+*.    NULL            I*4         Parameter value of zero.
+*.    ONE             I*4         Parameter value of one.
+*.    OPR             I*4         Pointer to the output buffer in MEM
+*.    OSTAT           I*4         Return status from call to A31215 to get
+*.                                output buffer
+*.    PROCESS_RADIAL  L*4         Flag indicating whether to process radial
+*.    RADCOUNT        I*4         Radial count
+*.    REALZERO        R*4         Parameter for real zero
+*.    SEG_BUF_UNAVAIL L*4         Flag indicating the segments buffer is
+*.                                unavailable
+*.    SIZ_SEG         I*4         Size of Segments buffer
+*.    SUM_DAZM        R*4         Summation of delta azimuths
+*.    SUM_ELEV        R*4         Sum of elevations of all radials in an
+*.                                elevation scan. Used to calculate Average
+*.                                Elevation.
+*.    ZERO            I*4         PARAMETER VALUE '0'
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A315LOCK
+*.    A3CD00
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A315C3
+*.    A315CC
+*.    A315CG
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:
+*.
+*.     If return status (i.e."ISTAT") from call to "GET_INBUF" is not
+*.   normal, the input data stream has been prematurely terminated:
+*.   Processing is aborted; the output buffer is released for destruc-
+*.   tion; and control is returned to the calling routine (Trap-Wait
+*.   state).
+*.
+*.     If return status (i.e."OSTAT") from call to "GET_OUTBUF" is not
+*.   normal, the output data is not required by the system at this
+*.   time, or insufficient memory is available: Processing is aborted;
+*.   and control is returned to the calling routine (Trap-Wait state)
+*.
+*.     The subroutine is entered, and processing for the task init-
+*.   iated, in response to a queued parameter trap received from
+*.   RPG Buffer Control.
+*.
+*.     When not processing, the task is in Trap-Wait state.
+*.
+*.     If a call is made to GET_INBUF when the input buffer is not
+*.   yet available, the task is suspended until that data becomes
+*.   available.
+*.
+*.     Radial-status flags, which control the sequence of processing,
+*.   are assumed to be in correct, logical order.
+*.
+*.     No processing is performed upon any radial flagged "bad",--
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     Compiled using COMP15.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     Linked using LINK15.CSSSS
+*.
+*.  MISC:  None
+*.
+C********************************************************************
+C
+C                STORM SEGMENTS: BUFFER CONTROL ROUTINE
+C
+C********************************************************************
+C
+      IMPLICIT NONE
+
+C**Attach Shared RPG Adaptation Data definition file:
+$INCLUDE A309ADPT.INC/G,**A3CD70_STORM_CELL_SEG (NLIST)
+C
+C**Attach master parameter file of named RPG data files.
+$INCLUDE A309.INC/G,**A3PM00 (NLIST)
+C
+C**Attach parameter file of radial status flags.
+$INCLUDE **A3PM02 (NLIST)
+C
+C**Include no memory abort parameters
+$INCLUDE **A3PM07 (NLIST)
+C
+C**Connect with master shared memory buffer for RPG.
+$INCLUDE **A3CD00 (NLIST)
+C
+C** Attach Input Parameter-definition file from "Unpack_radial_data"
+$INCLUDE A304.INC/G,**A304P4 (NLIST)
+C
+C**Attach output parameter-definition file (of "STORM_COMPONENTS")
+$INCLUDE A315BUF.INC/G,**A315P3S (NLIST)
+C
+C**Attach segment buffer lock defintions.
+$INCLUDE A315BUF.INC/G, **A315LOCK (NLIST NEND)
+C
+$INCLUDE A315.INC/G,**A315C3S (NLIST)
+C
+C**Attach LOGICAL AND LOCAL FLAGS
+$INCLUDE A315.INC/G,**A315CCS (NLIST)
+C
+C**Attach Segments local common
+$INCLUDE **A315CGS (NLIST)
+C
+C************************ DATA DECLARATIONS *************************
+C
+C** Communication with Buffer Management:
+C
+      INTEGER  PARAM, IDATID, ISTAT, OSTAT, IPR, OPR
+
+C** Filter-related parameters or variables
+      INTEGER OPR2
+      INTEGER MAXBINS, MAXRADS, HEAD_SIZE
+      PARAMETER (MAXBINS = 460, MAXRADS = 400)
+      PARAMETER (HEAD_SIZE = 13)
+      INTEGER  OSTAT2
+      INTEGER  outlb_status
+      INTEGER*4 ORPG_MEM_ADDR
+      EXTERNAL ORPG_MEM_ADDR
+      INTEGER*2 zrefl(MAXBINS, MAXRADS)
+      INTEGER*2 zrefl_un(MAXBINS, MAXRADS)
+      REAL header(MAXRADS,HEAD_SIZE), header_1rad(HEAD_SIZE)
+      INTEGER read_status 
+      INTEGER num_rad, radnum_read
+C
+C** LOGICAL & LOCAL FLAGS:
+C
+      INTEGER KEY, N
+      INTEGER DAZMAVG, ELEVAVG
+      INTEGER NULL, ZERO, ONE, RADCOUNT, EL_LAST, EL_MID
+      REAL    REALZERO, SUM_ELEV, SUM_DAZM, AVG_ELEV, AVG_DAZM
+      LOGICAL PROCESS_RADIAL, SEG_BUF_UNAVAIL, DUMMY_FLAG
+C
+C********************** DATA INITIALIZATIONS ************************
+C
+      PARAMETER (REALZERO = 0.0, ZERO = 0, ONE = 1, NULL = 0)
+      PARAMETER (EL_MID = 0, EL_LAST = 1 )
+C
+C** EQUIVALENCED PARAMETERS
+C
+      EQUIVALENCE (AVG_DAZM, DAZMAVG), (AVG_ELEV, ELEVAVG)
+C
+C****************** BEGIN MAIN PROCESSING SECTION *******************
+C
+C** Initialize logical & other flags.
+C
+      SUM_DAZM = REALZERO
+      SUM_ELEV = REALZERO
+      RADCOUNT = REALZERO
+      PROCESS_RADIAL = .TRUE.
+      SEG_BUF_UNAVAIL = .FALSE.
+
+C**   Filter-related initialization 
+      outlb_status =0
+
+C** if filter s required to run,
+C** and the filtered reflectivity product to be created,
+C** then get an output linear buffer (on an elevation basis).
+C
+      if (FILTERON.EQ.1) then
+       CALL A31210__CHECK_DATA(FILTERED_REFL_ELEV,OSTAT)
+       if(OSTAT .EQ. NORMAL) then
+        CALL A31215__GET_OUTBUF( FILTERED_REFL_ELEV,
+     >                           SIZ_FILT_REFL,OPR2,OSTAT2 )
+        IF ( OSTAT2 .NE. NORMAL) THEN
+         outlb_status = 0
+         CALL A31169__ABORT_DATATYPE_BECAUSE(
+     >                        FILTERED_REFL_ELEV, OSTAT2)
+        ELSE
+         outlb_status =1
+        ENDIF
+       else
+        outlb_status = 0
+       endif
+      endif 
+
+C
+C** Acquire SEGMENTS output buffer (on an elevation basis).
+C
+      CALL A31215__GET_OUTBUF( SEGATTR,SIZ_SEG,OPR,OSTAT )
+      IF ( OSTAT .EQ. NORMAL )  THEN
+C
+C** If output buffer successfully acquired, initialize single-element
+C** variables in the buffer to zero.  These are:
+C** OFFSET 0 (BHF):  SEGHIFLG
+C**        1 (BFP):  SEGBFPTR
+C**        2 (BNP):  SEGNXPTR
+C**        3 (BAP):  SEGAZPTR
+C**        4 (BAE):  AVG_ELEV
+C**        5 (BDA):  AVG_DAVM
+C**        6 (BRC):  RADCOUNT
+C**        7 (BET):  ELV_TIME
+C**        8 (BES):  ELEVSTAT
+C
+        DO 150  N = BHF, BES
+          MEM( OPR + N ) = 0
+ 150    CONTINUE
+C
+C** Acquire input buffer of radial data.  Do not start processing
+C** data until beginning of volume or beginning of elevation scan
+C** encountered.
+C
+ 200    CONTINUE
+C
+C*** Get the elevation_based reflectivity LB
+        CALL A31211__GET_INBUF( REFLDATA_ELEV,IPR,IDATID,ISTAT )
+        IF ( ISTAT .EQ. NORMAL )  THEN
+
+C*** Read the number of radials in this elevation
+      num_rad = ORPG_MEM_ADDR(MEM(IPR))
+
+C*** Call scit_filter_read_refl() to read and process data
+      call scit_filter_read_refl(MEM(IPR), MEM(OPR2), zrefl, zrefl_un,
+     >header, read_status, outlb_status, 
+     >FILTERON, FRACTREQ, FILKERSZ)
+
+C     write(0,*) '----------------------beginning-------------'
+C     write(0,*) (zrefl(N,1),N=1,230)
+C     write(0,*) '----------------------end-------------------'
+C*** Release the input buffer
+      call A31212__REL_INBUF( IPR )
+c*** Check if the reflectivity available
+c*** also make sure the reflectivity radials are NOT(!) mapped to the
+c*** Doppler radials on this cut
+
+      if(read_status .NE. 1) then
+
+       if (outlb_status .EQ. 1) then
+         CALL A31216__REL_OUTBUF( OPR2, DESTROY )
+       endif
+
+       call A31216__REL_OUTBUF( OPR, DESTROY )
+       GO TO 300
+
+      endif
+
+C*** Now the reflectivity data have been well filtered
+C*** If required, forward the elevation_based filtered reflectivity
+      IF (outlb_status .EQ. 1) THEN
+       CALL A31216__REL_OUTBUF( OPR2,FORWARD )
+      ENDIF
+
+C*** Process each radial data in the elevation
+      do 333 radnum_read =1, num_rad
+	RAD_STAT = header(radnum_read,1)
+          IF( RAD_STAT .EQ. BEG_VOL ) THEN
+C
+C** Do beginning of volume initialization.
+C
+              CALL A315X3__INIT_ADAP
+              CALL A315J3__DERIVE_ADAP
+              CALL A315G3__INIT_SCAN(MEM(OPR+BHF),MEM(OPR+BFP),
+     >                               MEM(OPR+BNP),MEM(OPR+BAP),
+     >                               SEG_BUF_UNAVAIL, KEY )
+          ELSE IF(RAD_STAT .EQ. BEG_ELEV ) THEN
+C
+C** Beginning of elevation.
+C
+            CALL A315G3__INIT_SCAN(MEM(OPR+BHF),MEM(OPR+BFP),
+     >                             MEM(OPR+BNP),MEM(OPR+BAP),
+     >                             SEG_BUF_UNAVAIL, KEY )
+          ENDIF
+C
+C** Check the SEG_BUF_UNAVAIL flag.  This flag is set when SEGMENTS
+C** wishes to write segment data to SEGMAIN array but COMPONENTS is
+C** not done processing the data that was previously placed in the
+C** array.  This probably should never happen, but just in case...
+C
+          IF ( SEG_BUF_UNAVAIL ) THEN
+             CALL A315T3__ABORT_PROCESSING( IPR, NORMAL, OPR, NORMAL,
+     >                                   PROD_MEM_SHED, UNAVAILABLE )
+             GO TO 300
+          END IF
+C
+C** Get radial header information
+C
+          do 10 N = 1, HEAD_SIZE
+           header_1rad(N) = header(radnum_read,N)
+  10      continue
+          CALL A315I3__INIT_RAD( header_1rad,
+     >                   MEM(OPR+BET) )
+
+C
+C** Compute sums for average elevation and average delta azimuth
+C
+            SUM_DAZM = SUM_DAZM + DELTANG
+            SUM_ELEV = SUM_ELEV + RADELEV
+            RADCOUNT = RADCOUNT + ONE
+C
+C** If the allotted space for segments is full, no need to process
+C** any more radial data. IF the filter is on, use the filtered 
+C** reflectivity
+
+            IF ( .NOT. BUFF_FULL ) THEN
+             IF (FILTERON.EQ.1) THEN
+               CALL A315D3__DEF_SEGMENTS(zrefl(1,radnum_read),
+     > zrefl_un(1,radnum_read))
+              ELSE
+               CALL A315D3__DEF_SEGMENTS(zrefl_un(1,radnum_read),
+     > zrefl_un(1,radnum_read))
+              ENDIF
+            END IF
+C
+C** Check for pseudo-end of elevation or volume scan
+C
+	  IF (header(radnum_read,1) .EQ.PSEND_ELEV .OR.
+     > header(radnum_read,1) .EQ.PSEND_VOL) THEN
+C
+C** No need to process any more data.
+C
+           goto 334
+          END IF
+
+C
+C** If not at the end of elevation or volume, continue processing
+C** radials.
+C
+ 333  	continue
+ 334	continue
+C
+          IF(RADCOUNT .GT. ZERO) THEN
+C
+C** COMPUTE (average DELTA AZIMUTH):
+C
+            AVG_DAZM = SUM_DAZM/FLOAT(RADCOUNT)
+C
+C** Compute average elevation angle.
+C
+            AVG_ELEV = SUM_ELEV/FLOAT(RADCOUNT)
+C
+C** WRITE (average DELTA AZIMUTH):
+C
+            MEM(OPR+BDA) = DAZMAVG
+C
+C** WRITE (ELEVATION):
+C
+            MEM(OPR+BAE) = ELEVAVG
+C
+C** Store the number of radials in the elevation scan.
+C
+            MEM(OPR+BRC) = RADCOUNT
+C
+C** Set the elevation status to either middle elevation, or last
+C** elevation if this is the top scan of the VCP.
+C
+            IF(header(num_rad,1) .EQ.PSEND_ELEV.OR.
+     >          header(num_rad,1).EQ.END_ELEV) THEN
+              MEM(BES+OPR) = EL_MID
+            ELSE
+              MEM(BES+OPR) = EL_LAST
+            ENDIF
+
+C
+C** Unlock the segment buffer lock for the buffer just written.
+C
+            SEG_BUF_LOCK( KEY ) = .FALSE.
+          ELSE
+C
+C** No good radials were processed
+C
+            CALL A315T3__ABORT_PROCESSING( NULL, TERMINATE, OPR,
+     >                                     NORMAL, NULL, AVAILABLE )
+            GO TO 300
+          ENDIF
+        ELSE
+C
+C** Else If input buffer status indicates data stream Terminated,
+C** abort processing & set output buffer-action flag to "Destroy".
+C
+          CALL A315T3__ABORT_PROCESSING( NULL, TERMINATE, OPR,
+     >                                   NORMAL, NULL, AVAILABLE )
+          GO TO 300
+C
+        END IF
+C
+C** Release output buffer, with appropriate action to be taken.
+C
+        CALL A31216__REL_OUTBUF( OPR,FORWARD )
+      ELSE
+C
+C** Else If output buffer status indicates data-type Not Required or
+C** No Memory available, abort processing & return to Trap Wait.
+C
+
+	IF ( outlb_status .EQ. 1) THEN
+         CALL A31216__REL_OUTBUF( OPR2,DESTROY )
+        ENDIF
+
+        IF (OSTAT .EQ. NO_MEM) THEN
+          CALL A315T3__ABORT_PROCESSING( NULL, TERMINATE, NULL,
+     >                         TERMINATE, PROD_MEM_SHED, AVAILABLE )
+        ELSE
+          CALL A315T3__ABORT_PROCESSING( NULL, TERMINATE, NULL,
+     >                                   TERMINATE, NULL, AVAILABLE )
+        END IF
+      END IF
+C
+C************** END OF PROCESSING FOR SUBROUTINE ********************
+C
+ 300  CONTINUE
+      RETURN
+      END

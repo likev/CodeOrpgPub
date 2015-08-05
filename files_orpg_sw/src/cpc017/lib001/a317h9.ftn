@@ -1,0 +1,222 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/17 15:47:47 $
+C $Id: a317h9.ftn,v 1.2 2002/12/17 15:47:47 christie Exp $
+C $Revision: 1.2 $
+C $State: Exp $
+C
+      SUBROUTINE A317H9__SORT_BY_HEIGHT(  )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A317H9__SORT_BY_HEIGHT
+*.
+*.  MODULE VERSION: 0001
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       07/18/97      0000      DAVE ZITTEL          CCR NA95-21503
+*.       03/16/99      0001      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A317H9__SORT_BY_HEIGHT( )
+*.
+*.  MODULE FUNCTION:
+*.
+*.  Compare the heights of the 2D features comprising a potential 3D
+*.  feature and rearranging the entries in the correlation table from
+*.  lowest to highest.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT    TYPE        DESCRIPTION
+*.    -   -----    ----        -----------
+*.    G   ADPMFPD  I*4         TDA MINIMUM # 2D FEATURES/3D FEATURE THRESHOLD
+*.    C   CORTABL  I*4         Correlation table of indexes into array VOLCOMP
+*.                             showing showing vertical association of
+*.                             two-dimensional features
+*.    C   NBR_COMP I*4         Array of number of components for each
+*.                             potential three-dimensional feature.
+*.    C   NBR_P3DF I*4         Counter for number of potential
+*.                             three-dimensional features.
+*.    C   VOLCOMP  R*4         ARRAY CONTAINING ATTRIBUTES OF THE 2D FEATURES
+*.                             FOR THE VOLUME SCAN
+*.    C   P3D_EL   I*4         (CONSTANT)Position in the CORTABL array of the
+*.                             elevation index attribute for linking to
+*.                             VOLCOMP array.
+*.    C   P3D_ID   I*4         (CONSTANT)Position in the CORTABL array of the
+*.                             feature number attribute for linking to VOLCOMP
+*.                             array.
+*.    C   VCM_ZCN  I*4         (CONSTANT)INDEX INTO VOLCOMP TO THE HEIGHT (IN
+*.                             KM) TO THE MOMENTUM WEIGHTED CENTER OF A 2D
+*.                             FEATURE
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    G   ADPMFPD I*4         TDA MINIMUM # 2D FEATURES/3D FEATURE THRESHOLD
+*.    C   CORTABL I*4         Correlation table of indexes into array VOLCOMP
+*.                            showing showing vertical association of
+*.                            two-dimensional features
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME    TYPE        DESCRIPTION
+*.    ----    ----        -----------
+*.    ELINDX  I*4         Elevation cut index from array CORTABL used to point
+*.                        to 2D features at the lower of two elevation in
+*.                        array VOLCOMP
+*.    ELINDX1 I*4         Elevation cut index from array CORTABL used to point
+*.                        to 2D features at higher of two elevation cuts in
+*.                        array VOLCOMP
+*.    HGT1    R*4         Height of a 2D feature at a lower elevation cut
+*.    HGT2    R*4         Height of a 2D feature at a higher elevation cut
+*.    I       I*4         Do loop index for all potential 3D features
+*.    IFEAT1  I*4         Feature number index frm array CORTABL used to point
+*.                        to 2D features at lower of two elevation cuts in
+*.                        array VOLCOMP
+*.    IFEAT2  I*4         Feature number index frm array CORTABL used to point
+*.                        to 2D features at higher of two elevation cuts in
+*.                        array VOLCOMP
+*.    J       I*4         Index for outer loop for sorting 2D features by
+*.                        height for each potential 3D feature identified
+*.    K       I*4         Index for inner loop for sorting 2D features by
+*.                        height for each potential 3D feature identified
+*.    NCOMP   I*4         Number of componets for the potential 3D feature
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A317CTAD
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A317C3DA
+*.    A317TC2
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     Compiled using COMP17.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     Linked using LINK17.CSS
+*.
+*.  MISC:  None
+*.
+C********************************************************************
+C
+C             TDA 3D PROCESSING: SORT 2D FEATURES BY HEIGHT
+C
+C********************************************************************
+C
+C
+      IMPLICIT NONE
+C
+$INCLUDE A317BUF.INC/G, **A317PTAD (NLIST)
+$INCLUDE A317BUF.INC/G, **A317CTAD (NLIST)
+$INCLUDE A317.INC/G, **A317TP2 (NLIST)
+$INCLUDE A317.INC/G, **A317TC2 (NLIST)
+$INCLUDE A317.INC/G, **A317C3DA (NLIST)
+C
+C*********************** DATA DECLARATIONS **************************
+C
+      INTEGER I, J, K, NCOMP, ELINDX, ELINDX1, IFEAT1, IFEAT2
+      REAL HGT1, HGT2
+C
+C****************** BEGIN MAIN PROCESSING SECTION *******************
+C
+C
+C***  Begin do loop for all potential 3D features
+C
+      DO 10 I = 1, NBR_P3DF
+C
+C***  Get the number of components for this potential 3D feature.
+C
+        NCOMP = NBR_COMP( I )
+C
+C***  Don't bother to sort the heights if there aren't enough
+C***  2D features to comprise a 3D feature since it will fail a
+C***  that test later.
+C
+        IF( NCOMP .GE. ADPMFPD ) THEN
+C
+C***  If we have the required number of 2D features then set up the
+C***  outer loop for sorting by height.
+C
+          DO 20 J = 1, NCOMP - 1
+C
+C***  Get the elevation index and feature Id for the outer loop's
+C***  feature.
+C
+              ELINDX = CORTABL( P3D_EL, I, J )
+              IFEAT1 = CORTABL( P3D_ID, I, J )
+C
+C***  Plug these values into the 2D feature array to get the height.
+C
+              HGT1 = VOLCOMP( VCM_ZCN, IFEAT1, ELINDX)
+C
+C***  Set up the inner loop to start with one component higher than
+C***  than the outer loop.
+C
+            DO 30 K = J + 1, NCOMP
+C
+C***  Get the elevation index and feature Id for the inner loop's
+C***  feature.
+C
+              ELINDX1 = CORTABL(P3D_EL, I, K)
+              IFEAT2 = CORTABL( P3D_ID, I, K)
+C
+C***  Plug these values into the 2D feature array to get the height.
+C
+              HGT2 = VOLCOMP( VCM_ZCN, IFEAT2, ELINDX1)
+C
+C***  Compare the heights of each feature.
+C
+              IF( HGT2 .LT. HGT1) THEN
+C
+C***  If the height of the second 2D feature is lower than the height
+C***  of the feature at the lower elevation angle then swap indices
+C***  and Ids in the array CORTABL and capture the lower height for
+C***  further comparison.
+C
+                CORTABL( P3D_ID, I, J) = IFEAT2
+                CORTABL( P3D_EL, I, J) = ELINDX1
+                CORTABL( P3D_ID, I, K) = IFEAT1
+                CORTABL( P3D_EL, I, K) = ELINDX
+                HGT1 = HGT2
+              ENDIF
+C
+C***  Get the next feature in the inner loop.
+C
+ 30         CONTINUE
+C
+C***  Get the next feature in the outer loop.
+C
+ 20       CONTINUE
+C
+C***  End If block for minimum number of components for a 3D feature.
+C
+        ENDIF
+C
+C***  Get the next potential 3D feature.
+C
+ 10   CONTINUE
+      RETURN
+      END

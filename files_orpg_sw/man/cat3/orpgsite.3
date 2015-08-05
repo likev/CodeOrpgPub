@@ -1,0 +1,137 @@
+
+
+    ORPG site adaptation data access:
+
+	int ORPGSITE_get_int_prop(const char* prop_name);
+
+	float ORPGSITE_get_float_prop(const char* prop_name);
+
+	char*  ORPGSITE_get_string_prop(const char* prop_name, char* buf, int buf_len);
+	
+	BOOL ORPGSITE_log_last_error(int le_code, int flogs);
+
+	BOOL ORPGSITE_last_error_text(char* error_buf, int error_buf_len, int flags);
+
+	BOOL ORPGSITE_error_occurred();
+
+	void ORPGSITE_clear_error();
+
+	void ORPGSITE_prefer_ascii();
+
+     The ORPGSITE module allows the user to access ORPG site information
+     properties.  Floating point, integer, and string property values can
+     be accessed.  Macro defines are provided for each of the available
+     properties.  Refer to orpgsite.h for these macros.
+
+     ORPGSITE_get_int_prop retrieves an integer value for the specified
+     property name.  Rda latitude and longitude are in degrees * 1000.
+     ORPGSITE constants should be used for the prop_name.  Use
+     ORPGSITE_error_occurred() to test to see if an error has occurred.
+
+     ORPGSITE_get_float_prop retrieves a float value for the specified
+     property name.  RDA latitude and longitude are in degrees.  ORPGSITE
+     constants should be used for the prop_name.  Use
+     ORPGSITE_error_occurred() to test for error conditions.
+
+     ORPGSITE_get_string_prop retieves a string value for the specified
+     property name.  RDA latitude and longitude are in in degrees * 1000.
+     ORPGSITE constants should be used for prop_name.  Use
+     ORPGSITE_error_occured to test for error conditions.
+
+     ORPGSITE_log_last_error logs the last error that occurred from an
+     ORPGSITE function call.  le_code is a standard LE log message error
+     code (see LE documentation).  flags can be set 0 if details should not
+     be logged and the message should not be cleared after logging.  The
+     ORPGSITE_REPORT_DETAILS flag may be or'd into flags to cause exception
+     details to be reported.  The ORPGSITE_CLEAR_ERROR flag may be or'd
+     into flags to cause the error message to be cleared after logging.
+     Returns TRUE on success and false on failure.  The return value for
+     this function does not need to be tested.
+
+     ORPGSITE_last_error_text copies error_buf_len bytes of error text from
+     the last ORPGSITE error into error_buf.  flags is the same as flags
+     for ORPG_log_last_error.  Returns TRUE on success and FALSE on error.
+     ORPGSITE_error_occurred can be used to text for the existence of error
+     information.
+
+     ORPGSITE_error_occurred returns TRUE if an ORPGSITE error has occurred
+     and it has not been cleared.
+
+     ORPGSITE_clear_error clears any ORPGSITE error information.
+
+     ORPGSITE_prefer_ascii forces the AscII site configuration data to 
+	be accessed instead of the binary configuration data.   By default
+	ORPGSITE will access binary site data if it is available.  This
+	function will cause ORPGSITE to use AscII data even if binary
+	data does exist.  This function should be called before
+	any other ORPGSITE functions and it can not cause any errors.
+     
+     These routines are implemented in C++.  They require a C++ linker.
+     (ie.  g++).  
+     
+     LIBRARIES
+         libobjcore, liborpg++
+
+
+    Examples:
+
+      Access the various ORPG site property values using different functions.
+
+    #include <stdlib.h>    	   
+    #include "orpgsite.h"	  /*  ORPGSITE api  */
+    
+    int main()
+    {
+        orpgsite_redundant_type_t redundant_type;
+        
+     	fprintf(stderr, "Report Site Values using various functions");
+     	
+     	fprintf(stderr, "rda latitude = %d\n", ORPGSITE_get_int_prop(ORPGSITE_RDA_LATITUDE));
+      	fprintf(stderr, "rda longitude = %s\n", ORPGSITE_get_string_prop(ORPGSITE_RDA_LONGITUDE));
+      	fprintf(stderr, "rda elevation = %f\n", ORPGSITE_get_float_prop(ORPGSITE_RDA_ELEVATION));
+      	fprintf(stderr, "rpg id = %d\n", ORPGSITE_get_int_prop(ORPGSITE_RPG_ID));
+      	fprintf(stderr, "wx_mode = %d\n", ORPGSITE_get_int_prop(ORPGSITE_WX_MODE));
+      	fprintf(stderr, "has_mlos = %s\n", ORPGSITE_get_string_prop(ORPGSITE_HAS_MLOS));
+      	fprintf(stderr, "has_rms = %s\n", ORPGSITE_get_string_prop(ORPGSITE_HAS_RMS)):
+	fprintf(stderr, "redundant_type = %s\n", ORPGSITE_get_string_prop(ORPGSITE_REDUNDANT_TYPE));
+      	fprintf(stderr, "channel no = %d\n", ORPGSITE_get_int_prop(ORPGSITE_CHANNEL_NO));
+      	if (ORPGSITE_error_occurred())
+      	{
+      	    ORPGSITE_log_last_error(GL_ERROR, ORPGSITE_REPORT_DETAILS|ORPGSITE_CLEAR_ERROR);
+      	}
+      	
+      	/*  Test for existence of MLOS */
+      	if (ORPGSITE_get_int_prop(ORPGSITE_HAS_MLOS))
+      	   fprintf(stderr, "has_mlos = Yes\n");
+        else
+           fprintf(stderr, "has_mlos = No\n");
+           
+        /*  Test for existence of RMS */
+	if (ORPGSITE_get_int_prop(ORPGSITE_HAS_RMS))
+	   fprintf(stderr, "has rms = TRUE\n");
+	else
+	   fprintf(stderr, "has rms = FALSE\n");
+	
+	/*  Do some stuff base on redundancy type */
+	redundant_type = ORPGSITE_get_int_prop(ORPGSITE_REDUNDANT_TYPE);
+	switch (redunant_type)
+	{
+		ORPGSITE_NO_REDUNDANCY:    /*  do no redundancy stuff */
+		ORPGSITE_FAA_REDUNDANCY:  /*   do FAA redundancy stuff */
+		ORPGSITE_NWS_REDUNDANCY:   /*   do RMS redundancy stuff */
+	}
+		
+      	if (ORPGSITE_error_occurred())
+      	{
+      	    ORPGSITE_log_last_error(GL_ERROR, ORPGSITE_REPORT_DETAILS|ORPGSITE_CLEAR_ERROR);
+      	}
+
+
+INPUTS
+     ORPGDAT_ADAPT
+     $(CFG_DIR)/misc_adapt
+
+SEE ALSO
+    orpgadpt.3, prop.3, objcore.3
+
+

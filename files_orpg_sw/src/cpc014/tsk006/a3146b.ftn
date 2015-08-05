@@ -1,0 +1,414 @@
+C
+C RCS info
+C $Author: cheryls $
+C $Locker:  $
+C $Date: 2002/10/24 15:59:24 $
+C $Id: a3146b.ftn,v 1.3 2002/10/24 15:59:24 cheryls Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A3146B__PROD81_1HR_DIG_ARRAY(ADJHRLY,HYDRADAP,
+     +           HYDRSUPL,VSNUM,LFMGRID_40,DENOM_GRD,P81STAT)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3146B__PROD81_1HR_DIG_ARRAY
+*.
+*.  MODULE VERSION: 0016
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       09 13 89      0000      BRADLEY SUTKER       SPR# 90348
+*.       03 27 90      0001      DAVE HOZLOCK         SPR# 90697
+*.       07 13 90      0002      EDWARD WENDOWSKI     SPR# 90775
+*.       08 27 90      0002      PAUL JENDROWSKI      SPR# 90899
+*.       02 14 91      0003      PAUL JENDROWSKI      SPR# 91255
+*.       12 03 91      0004      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0005      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0006      Toolset              SPR 91895
+*.       10/20/92      0007      BRADLEY SUTKER       CCR NA92-28001
+*.       03/25/93      0008      Toolset              SPR NA93-06801
+*.       01/28/94      0009      Toolset              SPR NA94-01101
+*.       03/03/94      0010      Toolset              SPR NA94-05501
+*.       07/06/94      0011      C. STEPHENSON        CCR NW-94-101-02
+*.       01/24/95      0011      C. STEPHENSON        CCR NA95-02401
+*.       04/11/96      0012      Toolset              CCR NA95-11802
+*.       12/23/96      0013      Toolset              CCR NA95-11807
+*.       08/05/97      0014      ELLIOTT P. FRIEND    CCR NA96-18402
+*.       03/16/99      0015      Toolset              CCR NA98-23803
+*.       10/23/02      0016      Dennis A. Miller     CCR NA02-27502
+*.
+*.  CALLING SEQUENCE: CALL A3146B__PROD81_1HR_DIG_ARRAY(ADJHRLY,
+*.                                HYDRADAP, HYDRSUPL, VSNUM,
+*.                                LFMGRID_40,DENOM_GRD,P81STAT)
+*.
+*.  MODULE FUNCTION: PRODUCT GENERATION CONTROL FOR 1-HOURLY
+*.                    ACCUMULATION DIGITAL (NON-DISPLAYABLE) PRODUCT.
+*.
+*.  MODULES CALLED: A31215__GET_OUTBUF, A31216__REL_OUTBUF, 
+*.                  A31466__PRODUCT_HEADER, A31467__LFM_CART, 
+*.                  A3146K__PROD81_LAYER1_RLE, A3146M__DETERMINE_SCANS, 
+*.                  A3146U__PROD81_LAYER3_ASCII 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT        TYPE        DESCRIPTION
+*.    -   -----        ----        -----------
+*.    G   MEM          I*4         Array in RPG shared memory set aside for
+*.                                 buffer sharing.
+*.    G   BEYOND_RANGE I*4         (CONSTANT)Flag value for points beyond 230
+*.                                 km. in the 1/4 LFM Rate scan grid.
+*.    G   FLAG_SET     I*4         (CONSTANT)Parameter for a set flag.
+*.    G   FLG_BADSCN   I*4         (CONSTANT)Indicator in hydromet scan that
+*.                                 data is bad.
+*.    G   FLG_NOHRLY   I*4         (CONSTANT)Index to flag indicating hourly
+*.                                 scan data is not there.
+*.    G   FLG_ZERHLY   I*4         (CONSTANT)Index to flag indicating hourly
+*.                                 scan data is zero-filled.
+*.    G   FORWARD      I*4         (CONSTANT)Parameter to indicate that an
+*.                                 output buffer is to be forwarded to
+*.                                 successor tasks
+*.    G   HYZ_LFM40    I*4         (CONSTANT)Sizing parameter. Number of boxes
+*.                                 along 1/40 LFM grid side.
+*.    G   MAX_ADJBINS  I*4         (CONSTANT)Maximum number of range bins
+*.                                 (index into output buffer of adjusted
+*.                                 values).
+*.    G   MAX_AZMTHS   I*4         (CONSTANT)Maximum number of azimuths in a
+*.                                 scan (index into output buffer of adjusted
+*.                                 values).
+*.    G   NORMAL       I*4         (CONSTANT)Parameter which indicates normal
+*.                                 completion of requested operation to
+*.                                 acquire input or output buffer
+*.    C   FIL_STAT     I*4         Status of disk file.
+*.    C   MMTLOG       I*4         Lookup table to convert MMs to dBA and then
+*.                                 scale for DPA product to data levels
+*.    C   CODE_DIG     I*4         (CONSTANT)Digital precipitation array
+*.                                 product code.
+*.    C   GOOD         I*4         (CONSTANT)Status flag value.
+*.    C   HY1HRDIG     I*4         (CONSTANT)Constant indicating digital
+*.                                 precipitation array product buffer data
+*.                                 type.
+*.    C   IBEG         I*4         (CONSTANT)Parameter used as loop control
+*.                                 variable (initial value).
+*.    P   ADJHRLY      I*2         Buffer of hourly accumulation data
+*.    P   DENOM_GRD    I*2         1/40 LFM grid denominator array
+*.    P   HYDRADAP     R*4         Array of RPG adaptation parameters.
+*.    P   HYDRSUPL     I*4         Supplemental data array.
+*.    P   LFMGRID_40   I*4         1/40 LFM grid array
+*.    P   P81STAT      I*4         Status returned from request for output
+*.                                 buffer space
+*.    P   VSNUM        I*4         VOLUME SCAN NUMBER (1-80)
+*.
+*.    *   OUTPUT     TYPE        DESCRIPTION
+*.    -   ------     ----        -----------
+*.    G   MEM        I*4         Array in RPG shared memory set aside for
+*.                               buffer sharing.
+*.    P   DENOM_GRD  I*2         1/40 LFM grid denominator array
+*.    P   LFMGRID_40 I*4         1/40 LFM grid array
+*.    P   P81STAT    I*4         Status returned from request for output
+*.                               buffer space
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    G   MEM               I*4         Array in RPG shared memory set aside
+*.                                      for buffer sharing.
+*.    P   ADJHRLY           I*2         Buffer of hourly accumulation data
+*.    P   DENOM_GRD         I*2         1/40 LFM grid denominator array
+*.    P   HYDRADAP          R*4         Array of RPG adaptation parameters.
+*.    P   HYDRSUPL          I*4         Supplemental data array.
+*.    P   LFMGRID_40        I*4         1/40 LFM grid array
+*.    P   P81STAT           I*4         Status returned from request for
+*.                                      output buffer space
+*.    P   VSNUM             I*4         VOLUME SCAN NUMBER (1-80)
+*.
+*.  DATABASE/FILE REFERENCE: NONE
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME                 TYPE        DESCRIPTION
+*.    ----                 ----        -----------
+*.    BAD_FILE             I*4         Error code indicating disk file, no
+*.                                     supplimental data available.
+*.    BAD_SCAN             I*4         Error code for bad scan
+*.    BEYOND_RNG_DL        I*4         Largest allowable value in LFMGRID_40
+*.                                     array
+*.    BUFSIZE              I*4         DPA I*4 PRODUCT BUFFER SIZE
+*.    DB_SCALE             R*4         Decibel conversion factor
+*.    ERRCODE              I*4         PRODUCT GENERATION ERROR CODE
+*.    LYR3EN               I*4         Layer 3 ending index
+*.    LYR3ST               I*4         Layer 3 starting index
+*.    MAXIND               I*4         Max I*2 outbuf index for 1st DPA layer
+*.    MAX_ALPHA_I2         I*4         Max I*2 size of DPA last alpha layer
+*.    MAX_DATA_LEVEL       I*4         (CONSTANT)Maximum data level for DPA
+*.                                     product
+*.    MAX_LFMVAL           I*4         Maximu 1/40 LFM grid value
+*.    MAX_MM_VAL           I*4         (CONSTANT)Maximum LFMGRID_40 value in
+*.                                     tenths of millemeters.
+*.    NI2                  I*4         Ratio of I*4 word to I*2 word
+*.    NI2_ADAP_SUBLYR_WRDS I*4
+*.    NO_HOURLY            I*4         (Constant) value used to set 'product
+*.                                     generation error code' (ERRCODE) to 'no
+*.                                     hourly scan error code'.
+*.    N_I2_WORDS           I*4         NO. 1/4 LFM RLE WORDS
+*.    P81PTR               I*4         Pointer in MEM to start of output
+*.                                     buffer
+*.    RASTA_BEGIN_40       I*4         Starting index in input buffer to
+*.                                     run_length_encode data.
+*.    SCALE_MAX            R*4         Scale factor for 10ths of DBA
+*.    STAT40               I*4         Status for RLE 1/40 grid
+*.    X                    I*4         Do-loop index for grid columns
+*.    Y                    I*4         Do-loop index for grid rows
+*.    ZERO_HOURLY          I*4         Zero hourly scan error code.
+*.    ZERO_VALUE           I*4         Parameter for zero value
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD00
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3146C3
+*.    A314C2
+*.
+*.  ERROR CONDITIONS: NONE.
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     THIS MODULE IS COMPILED USING COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     THIS MODULE IS LINKED USING LINK14.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+
+C
+C...'X' IN COLUMN-1 INDICATES CONDITIONALLY COMPILED DEBUG CODE...
+C
+      IMPLICIT NONE
+C
+$INCLUDE A309.INC/G,**A3PM00 (NEND NLIST)
+$INCLUDE            **A3PM01 (NEND NLIST)
+$INCLUDE            **A3CD00 (NEND NLIST)
+C
+$INCLUDE A313HBUF.INC/G,**A313HYPP (NEND NLIST)
+$INCLUDE                **A313HYDD (NEND NLIST)
+$INCLUDE A3146.INC/G,   **A3146P1  (NEND NLIST)
+$INCLUDE                **A3146C3  (NEND NLIST)
+$INCLUDE                **A3146LFP (NEND NLIST)
+$INCLUDE                **A3146PD  (NEND NLIST)
+$INCLUDE                **A314C2   (NEND NLIST)                         9410102
+$INCLUDE A3148.INC,     **A3148PV  (NEND NLIST)
+C
+      INTEGER    VSNUM, P81PTR,P81STAT,LYR3ST,
+     +           STAT40,
+     +           ZERO_VALUE, NI2, X, Y
+      PARAMETER (NI2=2, ZERO_VALUE=0)
+C
+      INTEGER*2  ADJHRLY(MAX_ADJBINS,MAX_AZMTHS),
+     +           DENOM_GRD (HYZ_LFM40,HYZ_LFM40)
+      INTEGER*4  LFMGRID_40(HYZ_LFM40,HYZ_LFM40),LYR3EN
+      INTEGER*4  MAX_LFMVAL
+      INTEGER*4 MAX_DATA_LEVEL, MAX_MM_VAL, BEYOND_RNG_DL               9410102
+      PARAMETER (MAX_DATA_LEVEL = 254, MAX_MM_VAL = 3651)               9410102
+      PARAMETER (BEYOND_RNG_DL = 255)
+C
+      INTEGER*4 RASTA_BEGIN_40, TENS_OF_METERS
+      PARAMETER (RASTA_BEGIN_40=74, TENS_OF_METERS=100)
+C
+      INTEGER*4 MAXIND, MAX_ALPHA_I2
+      PARAMETER (MAXIND = (HYZ_LFM40+1)*HYZ_LFM40 + RASTA_BEGIN_40 - 1)
+      PARAMETER (MAX_ALPHA_I2 = 6000)
+C
+      INTEGER ERRCODE, BUFSIZE, N_I2_WORDS
+C
+      REAL DB_SCALE                                                     9410102
+      REAL SCALE_MAX
+      PARAMETER (DB_SCALE = 0.1)                                        9410102
+      PARAMETER (SCALE_MAX=100.0)
+CX     INTEGER I                                                         9410102
+C
+C
+C---------------------------
+X     WRITE(14,*) 'A3146B: STARTING A3146B'
+X     WRITE(14,*) 'A3146B: ******************** BEGIN BUILDING 1-HOUR ',
+     $                'DIGITAL PRODUCT'
+C
+C** INITIALIZE NUMBER 1/4 LFM RATE SCAN RLE WORDS
+C
+      N_I2_WORDS = ZERO_VALUE
+C
+C** DETERMINE IF THERE IS A VALID HOURLY ACCUMULATION
+C** FIRST CHECK INPUT FLAGS FOR NO DATA
+C
+      IF (HYDRSUPL(FLG_BADSCN).EQ.FLAG_SET) THEN
+        ERRCODE=BAD_SCAN
+      ELSE IF (HYDRSUPL(FLG_NOHRLY).EQ.FLAG_SET) THEN
+        ERRCODE=NO_HOURLY
+      ELSE IF (HYDRSUPL(FLG_ZERHLY).EQ.FLAG_SET) THEN
+        ERRCODE=ZERO_HOURLY
+      ELSE IF (FIL_STAT.NE.GOOD) THEN
+C
+C** DISK FILE PROBLEM, NO SUPPLEMENTAL DATA AVAILABLE
+C
+        ERRCODE=BAD_FILE
+      ELSE
+C
+C** NO ERRORS; DETERMINE WHICH SCANS IN THE DATABASE WERE USED IN THE
+C** HOURLY ACCUMULATION
+C
+        ERRCODE=GOOD
+C
+X       WRITE(14,*) 'A3146B: CALLING A3146M'
+C
+        CALL A3146M__DETERMINE_SCANS(HYDRSUPL,N_I2_WORDS)
+      END IF
+      BUFSIZE = (MAXIND + N_I2_WORDS + MAX_ALPHA_I2 + 1)/NI2
+C
+X     WRITE(14,*) 'A3146B: N_I2_WORDS = ',N_I2_WORDS,', BUFFER SIZE = ',
+     $     BUFSIZE,', ERROR CODE = ',ERRCODE
+C
+C  REQUEST PRODUCT BUFFER SPACE FOR 1-HOUR ACCUMULATION MAP
+C  IF BUFFER IS RECEIVED NORMALLY, PROCEED...
+C
+      CALL A31215__GET_OUTBUF(HY1HRDIG,BUFSIZE,P81PTR,P81STAT)
+C
+X     WRITE(14,*) 'A3146B: BACK FROM A31215, P81STAT = ',P81STAT
+C
+      IF (P81STAT .EQ. NORMAL) THEN
+C
+X       WRITE(14,*) 'A3146B: P81STAT IS NORMAL; CALL A31467 FOR 1/4 LFM'
+C
+C  TRANSFER THE DATA TO A 1/40 LFM GRID (FROM A POLAR GRID)
+C  PASS FLAG INDICATING IF THE HOURLY-DATA BUFFER IS ALL ZEROS...
+C  AND THEN CONVERT CARTESIAN GRID DATA FROM TENTHS OF MILLEMETERS
+C  TO dBA.
+C
+        CALL A31467__LFM_CART ( ADJHRLY,LFMGRID_40,DENOM_GRD,
+     +                                        HYDRSUPL, MAX_LFMVAL)
+C
+X       WRITE(14,*) ' BACK FROM A31467, MAX LFM VALUE = ',MAX_LFMVAL
+C
+        IF (MAX_LFMVAL.GT.ZERO_VALUE) THEN
+          MAX_LFMVAL = SCALE_MAX*(LOG10(MAX_LFMVAL*DB_SCALE))
+C
+X         WRITE(14,*) 'A3146B: MAX_LFMVAL(DBA)',MAX_LFMVAL
+C
+C CONVERT MM DATA TO DBA IN 0.125 INCREMENTS (RANGING FROM 0-255)       9410102
+C STARTING AT -6 dBA.                                                   9410102
+C
+CX         CLOSE(6)                                                      9410102
+CX         OPEN(UNIT=6,FILE='SYS1:A3146B.PRT/803',STATUS ='RENEW',       9410102
+CX    &     TYPE= 'INDEX',IOSTAT=I)                                      9410102
+CX         WRITE(14,*)'6B: OPEN TEST FILE, STATUS =',I                   9410102
+CX         WRITE(6,101)                                                  9410102
+CX101      FORMAT(1X,'LFM_GRID40 BEFORE CONVERSION AND SCALING')         9410102
+CX         DO 2 X=IBEG,HYZ_LFM40                                         9410102
+CX            WRITE(6,103)X                                              9410102
+CX103         FORMAT(1X,'ROW ',I3)                                       9410102
+CX            WRITE(6,102)(LFMGRID_40(X,Y),Y=1,131)                      9410102
+CX2        CONTINUE                                                      9410102
+CX102      FORMAT(5(22(1X,I5)/),21(1X,I5))                               9410102
+
+          DO 10 Y=IBEG,HYZ_LFM40
+            DO 5 X=IBEG,HYZ_LFM40
+C
+C DO THE CONVERSION
+C
+C                                                                       9410102
+C CHECK IF THE LFMGRID_40 VALUE HAS BEEN SET TO BEYOND THE RANGE OF     9410102
+C 230 KMS.  IF IT HAS, SET THE DATA LEVEL TO 255.                       9410102
+C                                                                       9410102
+                 IF(LFMGRID_40(X,Y) .EQ. BEYOND_RANGE) THEN             9410102
+                    LFMGRID_40(X,Y) = BEYOND_RNG_DL                     9410102
+C If the LFM_GRID_40 value in tenths of mm is greater that the          9410102
+C maximum allowable value, set the data level for the LFMGRID_40        9410102
+C to the maximum (254).                                                 9410102
+C                                                                       9410102
+                  ELSEIF (LFMGRID_40(X,Y) .GT.MAX_MM_VAL) THEN          9410102
+                     LFMGRID_40(X,Y) = MAX_DATA_LEVEL                   9410102
+                  ELSEIF(LFMGRID_40(X,Y).GT.ZERO_VALUE) THEN            9410102
+C                                                                       9410102
+C Else use the LFMGRID_40 value as an index into MMTLOG to              9410102
+C get the data level for this grid.                                     9410102
+C                                                                       9410102
+                    LFMGRID_40(X,Y)= MMTLOG(LFMGRID_40(X,Y))            9410102
+C
+X                 IF (X.EQ.65.AND.Y.EQ.65)
+     $              WRITE(14,*) ' LFMGRID(65,65) =',LFMGRID_40(X,Y)
+                  ENDIF                                                 9410102
+  5         CONTINUE
+C
+  10      CONTINUE
+C                                                                       9410102
+CX         WRITE(6,104)                                                  9410102
+CX104      FORMAT(1X,'LFM_GRID40 AFTER CONVERSION AND SCALING')          9410102
+CX         DO 7 X=IBEG,HYZ_LFM40                                         9410102
+CX            WRITE(6,103)X                                              9410102
+CX            WRITE(6,102)(LFMGRID_40(X,Y),Y=1,131)                      9410102
+CX7        CONTINUE                                                      9410102
+CX         CLOSE(6)                                                      9410102
+C                                                                       9410102
+C IF NO PRECIP, SET THE BEYOND_RANGE VALUES TO 255                      9502401
+C                                                                       9502401
+      ELSE                                                              9502401
+          DO 20 Y=IBEG,HYZ_LFM40
+            DO 25 X=IBEG,HYZ_LFM40                                      9502401
+                 IF(LFMGRID_40(X,Y) .EQ. BEYOND_RANGE) THEN             9502401
+                    LFMGRID_40(X,Y) = BEYOND_RNG_DL                     9502401
+                 ENDIF                                                  9502401
+25          CONTINUE                                                    9502401
+20        CONTINUE                                                      9502401
+        END IF
+C
+C  INSERT THE RUN-LENGTH-ENCODED LFM GRIDS (1/40 AND THEN 1/4)
+C  INTO THE PRODUCT BUFFER.
+C
+X       WRITE(14,*) 'A3146B: READY FOR A3146K'
+C
+        CALL A3146K__PROD81_LAYER1_RLE(STAT40, LFMGRID_40,
+     +         MEM(P81PTR),RASTA_BEGIN_40,LYR3ST,MAXIND,ERRCODE,VSNUM)
+C
+X       WRITE(14,*) 'A3146B: BACK FROM A3146K'
+C
+C  Format the ADAPTATION and SUPPLEMENTAL DATA into the PRODUCT BUFFER BLOCK-3
+C
+X       WRITE(14,*) 'A3146B: READY FOR A3146U... LYR3ST=',LYR3ST
+C
+        CALL A3146U__PROD81_LAYER3_ASCII(MEM(P81PTR),VSNUM,
+     +                   HYDRADAP,HYDRSUPL,LYR3ST,LYR3EN,ERRCODE)
+C
+X       WRITE(14,*) 'A3146B: BACK FROM A3146U...',
+     +                     ' READY FOR A31466... LYR3EN=',LYR3EN
+C
+C  APPLY THE PRODUCT HEADER
+C
+        CALL A31466__PRODUCT_HEADER(MEM(P81PTR),VSNUM,CODE_DIG,
+     +                               MAX_LFMVAL, HYDRSUPL,LYR3EN)
+C
+X       WRITE(14,*) 'A3146B: BACK FROM A31466, READY TO FRWRD P81BUF'
+C
+C  RELEASE THE PRODUCT BUFFER AND FORWARD IT TO STORAGE
+C
+        CALL A31216__REL_OUTBUF(P81PTR,FORWARD)
+C
+X       WRITE(14,*) 'A3146B: FORWARDED PROD81 PRODUCT BUFFER'
+C
+      ENDIF
+C
+X     WRITE(14,*) 'A3146B: FINISHED BUILDING 1-HOUR DIGITAL PRODUCT'
+X     WRITE(14,*) 'A3146B: EXITING A3146B'
+C
+      RETURN
+      END

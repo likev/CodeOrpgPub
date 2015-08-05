@@ -1,0 +1,181 @@
+C
+C RCS info
+C $Author: cmn $
+C $Locker:  $
+C $Date: 2004/04/21 13:41:03 $
+C $Id: a3164b.ftn,v 1.4 2004/04/21 13:41:03 cmn Exp $
+C $Revision: 1.4 $
+C $State: Exp $
+C
+      SUBROUTINE A3164B__HAIL_TAB_HEAD(BUFOUT)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3164B__HAIL_TAB_HEAD
+*.
+*.  MODULE VERSION: 0014
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       10 18 85      0000      JSGROMMONS
+*.       05 01 86      0001      JSGROMMONS           SPR#  60124
+*.       05 01 86      0001      JSGROMMONS           SPR#  60157
+*.       06 03 86      0002      JSGROMMONS           SPR#  60313
+*.       10 02 86      0003      J GROMMONS           SPR # 60346
+*.       11 06 90      0004      David M. Lynch       SPR # 91257
+*.       12 03 91      0005      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0006      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0007      Toolset              SPR 91895
+*.       03/25/93      0008      Toolset              SPR NA93-06801
+*.       01/28/94      0009      Toolset              SPR NA94-01101
+*.       03/03/94      0010      Toolset              SPR NA94-05501
+*.       04/01/95      0011      Toolset              CCR NA95-11802
+*.       05/29/95      0012      STEVE SMITH          CCR NA94-26302
+*.       12/23/96      0013      Toolset              CCR NA95-11807
+*.       03/16/99      0014      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:
+*.     CALL A3164B__HAIL_TAB_HEAD(BUFOUT)
+*.
+*.  MODULE FUNCTION:
+*.     BUILD THE PRODUCT HEADER AND DESCRIPTION FOR THE TABULAR
+*.     BLOCK
+*.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT      TYPE        DESCRIPTION
+*.    -   -----      ----        -----------
+*.    G   OGLSWOFF   I*4         (CONSTANT)Product header offset: graphic
+*.                               attributes (LSW).
+*.    G   OGMSWOFF   I*4         (CONSTANT)Product header offset: graphic
+*.                               attributes (MSW).
+*.    G   OPRLSWOFF  I*4         (CONSTANT)Product header offset descriptions:
+*.                               Offset to product length (LSW)
+*.    G   OPRMSWOFF  I*4         (CONSTANT)Product header offset descriptions:
+*.                               Offset to product length (MSW)
+*.    G   OTADLSWOFF I*4         (CONSTANT)Product header offset: offset to
+*.                               tabular/adaptation data (LSW)
+*.    G   OTADMSWOFF I*4         (CONSTANT)Product header offset: offset to
+*.                               tabular/adaptation (MSW)
+*.    G   PHEADLNG   I*4         (CONSTANT)Number of half words in product
+*.                               header (its length).
+*.    G   PRDCODOFF  I*4         (CONSTANT)Product header offset descriptions:
+*.                               Product code.
+*.    C   NDX        I*4         Working subscript for moving data.
+*.    C   DIVIDER    I*2         (CONSTANT)Tabular block divider for output
+*.                               buffer.
+*.    C   TBLKID     I*2         (CONSTANT)Tabular block ID.
+*.    C   TPOFF      I*4         (CONSTANT)Offset to beginning of first
+*.                               tabular page.
+*.    C   TPROFF     I*4         (CONSTANT)Offset to beginning of tabular
+*.                               product block.
+*.    P   BUFOUT     I*2         OUTPUT BUFFER
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    C   NDX     I*4         Working subscript for moving data.
+*.    P   BUFOUT  I*2         OUTPUT BUFFER
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME          TYPE        DESCRIPTION
+*.    ----          ----        -----------
+*.    I             I*4         SUBSCRIPT
+*.    TABIX         I*4         Tabular header index, used as an index into
+*.                              BUFOUT (the output buffer).
+*.    TRK_TAB_MSGID I*4         CONSTANT 102 FOR TABULAR
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3164B
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP16.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK16.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+      IMPLICIT NONE
+C* include product offsets:
+$INCLUDE A309.INC/G,**A3PM01 (NEND NLIST)
+C
+C   LOCAL COMMON
+$INCLUDE A315BUF.INC/G, **A315P9H (NLIST)
+$INCLUDE A316.INC/G,**A3164P4 (NLIST)
+C
+C   LOCAL DEFINITIONS
+      INTEGER*2 BUFOUT(*)
+      INTEGER*4  TABIX,TRK_TAB_MSGID ,I
+      PARAMETER(TRK_TAB_MSGID=102)
+      INTEGER*4  OPTRIDX
+C
+C....................................................................
+C
+C** DUPLICATE THE PRODUCT HEADER AS THE
+C** "TABULAR HEADER" AND CHANGE SOME OF
+C** THE FIELDS
+C
+C** SET INDEX
+C
+      TABIX = NDX + TPROFF
+C
+C** INSERT DIVIDER, BLOCK ID FOR TABLULAR DATA
+C
+      BUFOUT(NDX) = DIVIDER
+      BUFOUT(NDX+1) = TBLKID
+C
+C**  STORE PRODUCT BLOCK DATA IN TABULAR BLOCK
+C
+      DO 100 I=1,PHEADLNG
+         BUFOUT(I+TABIX-1) = BUFOUT (I)
+100   CONTINUE
+C
+C** CHANGE THE MSGID FOR THIS PRODUCT
+C
+       BUFOUT(TABIX)= TRK_TAB_MSGID
+       BUFOUT(TABIX+PRDCODOFF-1)= TRK_TAB_MSGID
+C
+C** CLEAR THE OFFSETS TO SYMBOLOGY AND GRAPHIC ATTR. BLOCKS
+C
+       call RPG_set_product_int(BUFOUT(TABIX+OPRMSWOFF-1), PHEADLNG)
+       call RPG_set_product_int(BUFOUT(TABIX+OGMSWOFF-1), 0)
+C
+C** STORE THE OFFSET TO THE TABULAR BLOCK
+C
+       call RPG_set_product_int(BUFOUT(TABIX+OTADMSWOFF-1), 0)
+C
+C**  DETERMINE TABULAR BLOCK LENGTH
+C
+       NDX = NDX + TPOFF
+C
+C**  RETURN TO CALLER
+C
+       RETURN
+       END

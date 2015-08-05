@@ -1,0 +1,62 @@
+#!/bin/sh
+#
+
+# ensure that we point to GNU Make ...
+#makecmd="make"
+### changed for CODE ### correct path to Gnu make
+### changed for LINUX
+if [ "$ARCH" = "slrs_spk" ]
+then
+     makecmd="/usr/local/bin/make"
+elif [ "$ARCH" = "lnux_x86" ]
+then
+     makecmd="make"
+fi
+
+RPG_LEVEL=$1
+export RPG_LEVEL
+
+if [ "$RPG_LEVEL" = "" ]
+then
+   echo "IMPROPER RPG_LEVEL: $RPG_LEVEL"
+   echo $usage
+   exit 1
+fi
+
+workdir=$RPG_LEVEL
+if test -d $workdir
+then
+   echo "Making RPG at the $RPG_LEVEL level ..."
+else
+   echo "No such directory: $workdir ... RPG_LEVEL: $RPG_LEVEL"
+   exit
+fi
+
+echo RPG_LEVEL $RPG_LEVEL
+
+# Move to the working directory and start doing the build ...
+cd $workdir
+pwd
+
+# Set permissions of shared libraries ... must be able to overwrite ...
+# filename extensions ".sl" or ".so"
+### changed for Linux CODE
+if [ ! -d ./lib/$ARCH ]
+then
+   mkdir -p ./lib/$ARCH
+fi
+
+chmod 0777 ./lib/$ARCH/*.s?
+
+# We must build the Fortran Preprocessor (FTNPP) before attempting
+# to compile the Fortran software ...
+cd $workdir/src/cpc102/tsk007
+$makecmd install
+cd ../../..
+
+# make libraries in cpc100 as a test build
+cd $workdir/src/cpc100
+$makecmd clean
+cd $workdir/src/cpc100
+$makecmd libinstall
+cd ../..

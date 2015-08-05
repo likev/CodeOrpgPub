@@ -1,0 +1,187 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/16 19:40:16 $
+C $Id: a31539.ftn,v 1.3 2002/12/16 19:40:16 christie Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A31539__COMPU_SHI(MAX_REF,C_TOP,C_BOT,PRV_HT,
+     $           NXT_HT,CSHI,PRV_TPHAF,PRV_MRF)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A31539__COMPU_SHI
+*.
+*.  MODULE VERSION: 0002
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       06/20/95      0000      MARK FRESCH          CCR NA94-26301
+*.       12/23/96      0001      Toolset              CCR NA95-11807
+*.       03/16/99      0002      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: A31539__COMPU_SHI( MAX_REF, C_TOP, C_BOT,
+*.                                       PRV_HT, NXT_HT, CSHI,
+*.                                       PRV_TPHAF )
+*.
+*.  MODULE FUNCTION:
+*.
+*.  This module calculates the partial SHI for a component.  It also
+*.  computes the inputs to the SHI computation which include the
+*.  HEIGHT DIFFERENCE(POSH), REFLECTIVITY WEIGHTING FUNCTION,
+*.  MEDIAN HEIGHT, VERTICAL TEMPERATURE WEIGHTING FUNCTION, and
+*.  HAIL KINETIC ENERGY (or HKE).
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT         TYPE        DESCRIPTION
+*.    -   -----         ----        -----------
+*.    C   HKE_CF23      R*4         The HKE Coefficient #3 to the HKE
+*.                                  Coefficient #2 power.
+*.    C   HKE_COF1      R*4         The HKE Coefficient #1 in local common
+*.                                  adaptation data.
+*.    C   HT0_ARL       R*4         The height (ARL) of the 0 degrees C
+*.                                  isotherm in local commom adaptation data.
+*.    C   HT20_ARL      R*4         The height, in km ARL, of the -20 degrees
+*.                                  C level, derived from adaptation data.
+*.    C   HT20_HT0      R*4         The difference between the heights of the
+*.                                  -20 and 0 degrees C isotherms in local
+*.                                  commom adaptation data.
+*.    C   LL_HKE_REF    I*4         The Threshold HKE Reflectivity Weighting
+*.                                  Lower Limit in local adaptation data.
+*.    C   UL_HKE_REF    I*4         The Threshold HKE Reflectivity Weighting
+*.                                  Upper Limit in local adaptation data.
+*.    C   UL_LL_HKE_REF R*4         The difference between the UL_HKE_REF and
+*.                                  LL_HKE_REF.
+*.    P   C_BOT         R*4         The height of the interpolated (between
+*.                                  the current and previous elevation scans)
+*.                                  bottom of the component being processed.
+*.    P   C_TOP         R*4         The height of the interpolated (between
+*.                                  the current and next elevation scans) top
+*.                                  of the component being processed.
+*.    P   MAX_REF       R*4         The maximum (average) reflectivity of the
+*.                                  current component.
+*.    P   NXT_HT        R*4         The height of the next component (higher
+*.                                  in height) in a cell.
+*.    P   PRV_HT        R*4         The height of the previous component
+*.                                  (lower in height) in a cell.
+*.    P   PRV_MRF       R*4         The maximum reflectivity of the previous
+*.                                  component (lower in height) in a cell.
+*.    P   PRV_TPHAF     L*4         A flag used in the computation of the
+*.                                  median height which indicates that either
+*.                                  the component is at the top of the cell,
+*.                                  or other conditions.
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    P   CSHI    R*4         The SHI for a component (or partial SHI).
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME    TYPE        DESCRIPTION
+*.    ----    ----        -----------
+*.    DH_POSH R*4         The height difference between the component top and
+*.                        bottom or component top and freezing level which is
+*.                        used in the CSHI computation.
+*.    HKE     R*4         The Hailfall Kinetic Energy of a component.
+*.    MED_HT  R*4         The median height - average between the next and
+*.                        previous component's heights or the average between
+*.                        the component top and freezing level.
+*.    REF_WF  R*4         The reflectivity weighting function - percentage of
+*.                        the max. reflectivity between the upper and lower
+*.                        HKE reflectivity thresholds.
+*.    VTWF    R*4         Vertical Temperature Weighting Function - percentage
+*.                        of the median height between the heights of the 0
+*.                        and -20 degree C isotherms.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A315CHH
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.     THIS MODULE IS COMPILED USING THE COMP15.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.     THIS MODULE IS LINKED USING THE LINK15.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+      IMPLICIT NONE
+C
+$INCLUDE A315BUF.INC/G, **A315CHH (NLIST NEND)
+C
+C** VARIABLE AND PARAMETER DECLARATIONS
+C
+      REAL CSHI, MAX_REF, C_TOP, C_BOT, PRV_HT, NXT_HT
+      REAL DH_POSH, REF_WF, MED_HT, VTWF, HKE, PRV_MRF
+      LOGICAL PRV_TPHAF
+C
+C** EXECUTABLE CODE
+C
+C** COMPUTE HEIGHT DIFFERENCE(POSH)
+C
+      IF (HT0_ARL .GT. C_BOT) THEN
+         DH_POSH = C_TOP - HT0_ARL
+      ELSE
+         DH_POSH = C_TOP - C_BOT
+      END IF
+C
+C** COMPUTE REFLECTIVITY WEIGHTING FUNCTION
+C
+      IF (MAX_REF .LT. UL_HKE_REF) THEN
+         REF_WF = (MAX_REF - LL_HKE_REF)/(UL_LL_HKE_REF)
+      ELSE
+         REF_WF = 1
+      END IF
+C
+C** COMPUTE MEDIAN HEIGHT
+C
+      MED_HT = (C_TOP + C_BOT)/2
+      IF (HT0_ARL .GT. C_BOT) THEN
+         MED_HT = (C_TOP + HT0_ARL)/2
+      ELSE IF (.NOT. PRV_TPHAF .AND. PRV_MRF .GT. LL_HKE_REF) THEN
+         MED_HT = (PRV_HT + NXT_HT)/2
+      END IF
+C
+C** COMPUTE VERTICAL TEMPERATURE WEIGHTING FUNCTION
+C
+      IF (MED_HT .LT. HT20_ARL) THEN
+         VTWF = (MED_HT - HT0_ARL)/(HT20_HT0)
+      ELSE
+         VTWF = 1
+      END IF
+C
+C** COMPUTE HAILFALL KINETIC ENERGY
+C
+      HKE = HKE_COF1 * REF_WF * (HKE_CF23**(MAX_REF))
+C
+C** COMPUTE THE COMPONENTS SEVERE HAIL INDEX
+C
+      CSHI = HKE  * DH_POSH * VTWF
+C
+      RETURN
+      END

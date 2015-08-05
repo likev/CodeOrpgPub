@@ -1,0 +1,290 @@
+Version 1.12 supplied with CODE B7v2
+
+1. Modified all algorithms to use the higher range product ID and
+product codes.
+
+2. Improved the demonstration of DEA adaptation data to clarify data
+access functions that are or are not used as callbacks.  Changes
+apply to tsk001 and tsk004.
+
+
+------------------------------------------
+
+Version 1.13 supplied with CODE B8v1
+
+1. Fixed bug in sample 1 recently induced when fixing the packing of
+two-byte bins in base data radials into single byte bins for sample 1 
+product on the Linux platform.  This broke the packing on the Solaris
+platform resulting in completely blank products (all data values were
+below threshold or '0').
+
+
+------------------------------------------
+
+Version 1.14 supplied with CODE B8v2
+
+1. General update to reflect changes in infrastructure including the
+changes to the base data radial.
+
+2. Modified all algorithms to use new abort functions and reason 
+codes.
+
+3. Modified all algorithms to use RPGC_log_msg instead of standard print 
+functions on all operational code (not debug code).
+
+4. Modified sample algorithm 1 to use RPGP_set_packet_16_radial to
+permit processing an array of bytes and avoid having to byte-swap on a 
+Linux platform.
+
+5. Modified sample algorithm 4 to actually pass data in the 
+intermediate product and to produce a graphic product with a text
+packet rather than a stand-alone tabular alphanumeric product
+(SATAP).  Added debug functions to sample algorithm 4.  Because a 
+standard graphic product is produced rather than a SATAP:
+    a. The current versions of CVG (8.0 and earlier) must be
+       reconfigured to display sample 4 final products.
+    b. The byte-swapping module in the ORPG library no
+       longer needs to be modified on the Linux platform to
+       configure sample 4 products.
+
+6. Added external symbology header print function and a product output
+to file function to sample algorithms 1 and 3.  
+
+
+------------------------------------------
+
+Version 1.15 supplied with CODE B9r1.3
+
+This release of the CODE sample algorithms must run on ORPG Build 9
+or later.
+
+1. Modified the configuration snippet files for Build 9 changes.  The 
+task id number is no longer used.  The files have been renamed and the 
+task attribute entries and operational task entries are in separate 
+files. [Required Change]
+
+2. Modified tsk006 (sample 4 task 2) to use the argument WAIT_ANY_INPUT
+rather than WAIT_ANY with RPGC_wait_for_any_data(). [Required Change]
+
+3. Modified all sample algorithms to use the RPGC_reg_io() function to
+register inputs and outputs based on the contents of the task_attr_table.
+
+4. Modified all sample algorithms to use the new 'by_name' versions of
+the get_inbuf and get_outbuf functions. The original forms of these
+functions are being deprecated. 
+
+5. Modified tsk001 to demonstrate using different task names and 
+executable names.
+
+6. Modified algorithms to use the offset to moment data in the base data
+header in order to access the desired moment.  hdr->ref_offset, 
+hdr->vel_offset, and hdr->spw_offset. [At first did not use 
+RPGC_get_surv_data because the early Build 9 version did not read the 
+first radial after initiating data input.]
+
+7. Tested several new helper functions in tsk001.
+
+8. Modified tsk006 to use the abort_dataname_because and 
+check_data_by_name functions.
+
+9. Modified tsk005 for new version of realloc_outbuf.
+
+10. Modified tsk002 (sample 2) to use the new RPGC_run_length_encode() 
+function.
+
+
+------------------------------------------
+
+Version 1.16 supplied with the second Build 9 CODE.
+
+1. Demonstrated / tested combining a radial and elevation input in 
+sample 4 task 1 (tsk005).
+
+2. Demonstrated optional input in sample 4 task 1 (tsk005) using the 
+product_attr_table method (not yet used in operational algorithm).
+Used the sample 3 intermediate product as the optional input. Modified
+sample 3 task 1 (tsk003) to abort designated elevations to test the
+optional input.  Discovered that even when reading the optional input
+last, some delay (block time) is still required. [Also the new method
+only protects against failure of the producer of the optional input
+for the current volume, if the task using the optional input produces
+an intermediate product rather than a final product.]
+
+3. Added warnings that the 400 radial limit used in algorithms reading
+radial base data must be changed to 800 if registered for SR_ data 
+types.  Removed a non-standard test for radial limit from sample 3 task 1 
+(tsk005).  Added comment that buffer size must accommodate at least 720
+radials and up to 1840 data bins for super resolution data types. Added
+note that MAX_BASEDATA_REF_SIZE must be used during super res elevations.
+
+4. Fixed bug in sample 3 task 2 (tsk005) which caused the task to crash 
+when exiting inner loop with failure (including failure to read inbuf).
+
+5. Tested the RPGC_get_radar_data and RPGCS_radar_data_conversion 
+functions in sample 4 task 1 (tsk005).  RPGC_get_radar_data only worked
+in sample 4 task 1.  Neither should be used until Build 10.
+
+
+------------------------------------------
+
+Version 1.17 supplied with first Build 10 CODE
+
+1. In sample algorithm 1 replaced REFL_RAWDATA with 
+RECOMBINED_REFL_RAWDATA.
+
+2. Removed the "-v" argument from the task_attr_table 'args' attribute 
+for all tasks.
+
+3. Added external symbology header print function and a product output
+to file function to sample algorithm 2.
+
+4. Clarified source code in sample algorithm 2 for use of the new 
+run-length encoding function
+
+5. For clarity, separated the layer 1 header information out of the 
+symbology header structure.  This helps demonstrate how to handle 
+additional layer headers and the problems that can occur when using
+C structures with the integer types not aligned with the 4-byte 
+address positions.  Accomplished for all sample algorithms, tsk001,
+tsk002, tsk004, and tsk006.
+
+6. Fixed a minor bug using the new run-length encoding function in
+sample algorithm 2.  
+
+7. Added defined offsets to replace explicit numbers when calculating
+offset to and size of portions of the final product structure.
+
+------------------------------------------
+
+Sample Alg 1.18 supplied with the final Build 10 CODE
+
+1. Modified file names to make all names unique.
+
+2. Modified the comments to remove all C++ style comments (using '//')
+which will be required in build 11.
+
+3. Eliminated the use of #define values for input and output product
+IDs.  This completes the transition to using RPGC_reg_io() and the 
+by_name data access functions begun in version 1.15.
+
+3. Modified sample algorithms 2 and 3 to use a variable rather than a
+defined constant to represent the product range (number of bins).  
+Changed both from 230 km to 460 km.  These algorithms continue to read 
+the original data resolution (non super res).
+
+4. Corrected error in reflectivity products in sample algorithms 1 
+and 3.  The contents of dependent parameter 4 was changed from maximum 
+reflectivity data level to maximum value in dBZ to agree with the ICD.
+
+5. Modified sample algorithm 1 to use super resolution data from 
+SR_REFLDATA and REFL_RAWDATA. A variable rather than a defined constant
+is used to represent the product range (number of bins).  Changed range
+from 230 km to 460 km.  
+
+NOTE: For the range to display with CVG 8.5, the resolution configured 
+for products 1990 and 1995 must be changed from 0.54 nm to 0.13 nm.
+
+6. Configured final products using packet 16 for compression (sample 1
+and sample 3).
+
+7. Modified sample algorithms 1 and 3 to use the output of the packet 16
+helper function to calculate the packet, layer, block, and product size.
+
+8. Modified sample algorithms 1, 2, and 3 to uses new helper function
+RPGC_set_dep_params and RPGC_set_product_float.
+
+9. Used the new default abort reason code PGM_PROD_NOT_GENERATED where
+appropriate.
+
+
+------------------------------------------
+
+Sample Alg 1.19 supplied with the initial Build 11 CODE
+
+1. Eliminated compile warnings with Red Hat 5 and build 11.
+
+2. Modified Sample 1 to accommodate change made to the function 
+RPGC_is_buffer_from_last_elev.
+
+3. Added ROC RCS header templates to all source files.
+
+
+------------------------------------------
+
+Sample Alg 1.20 supplied with the second Build 11 CODE
+
+1. Modified sample algorithm 4 task 1 to provide a correct example of
+an algorithm having more than out output with a WAIT_ALL loop having a
+driving input.  The algorithm may produce only one or all of the 
+products depending upon the requests for the outputs. Previously this 
+task had an undocumented assumption that both output intermediate 
+products were always requested (scheduled).  Task modified to use 
+RPGC_check_data_by_name() before acquiring the output buffer and 
+creating the product.  Used RPGC_abort_dataname_because() instead of
+RPGC_abort() where appropriate.  
+
+2. Modified sample algorithm 3 task 1 to use the new and approved
+function RPGC_is_buffer_from_last_elev to determine the last elevation
+being processed rather than use a Legacy method of reading a flag in 
+the intermediate product.  Also eliminated and artificial limitation 
+of only considering the first 5 elevations of intermediate products 
+from task 1.
+
+2. Modified sample algorithm 3 task 2 to write the new Scale Offset
+decoding parameters to the threshold level fields in the product.
+
+3. Modified sample algorithm 3 tasks 1 and 2 to use a new structure 
+for the intermediate product and task 2 makes a distinction between
+the intermediate product read and the internal data array.
+
+4. Modified sample algorithm 3 task 1 to fix a problem where elevations
+after the first had some blank radials.
+
+5. Eliminated overlapping radials in sample 2 and 3 by processing
+basedata to pseudo end of elev / volume and then reading to the
+actual end of elev / volume.  Sample 1 was not modified but a note was 
+added referencing the alternative processing.  Currently sample 1 uses 
+super res data which is not available before the radials became aligned.
+
+6. For all tasks reading radial base data, added a test to ensure that 
+the algorithm did not attempt to read or copy more bins than are 
+actually in each base data radial.
+
+7. Eliminated locally defined structures for packets af1f and 16.
+
+8. Corrected the value for scale factor in the packet 16 header in 
+sample 1 and in sample 3 task 2.
+
+9. Changed intermediate product IDs.  
+
+
+------------------------------------------
+
+Sample Alg 1.21 supplied with the final Build 11 CODE
+
+1. For Sample 1 and Sample 3, added additional print diagnostics 
+for the generic moment structure header.
+
+2. For Sample 2, provided a capability to change the input data 
+from REFLDATA to DUALPOL_REFLDATA.
+
+
+------------------------------------------
+
+Sample Alg 1.22a supplied with Build 12 CODE
+
+1. The product_generation_tables.sample_alg file now modifies
+the product_generation_tables supplied with the Build 12 ORPG.
+
+
+------------------------------------------
+------------------------------------------
+
+Version 1.XX [Future Release]
+
+
+New sample algorithm 5 in tsk007.  This will be an event
+driven algorithm demonstrating the generic model structure and non-
+product data stores.
+
+

@@ -1,0 +1,249 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/17 18:26:29 $
+C $Id: a31874.ftn,v 1.3 2002/12/17 18:26:29 christie Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A31874__VAD2_AXIS_LBL(BPTR,VADBUF)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A31874__VAD2_AXIS_LBL
+*.
+*.  MODULE VERSION: 0010
+*.
+*.  MODULE LANGUAGE:  FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       09 08 88      0000      VALERIE HOLDEN       SPR # 80273
+*.       11 07 90      0001      CAHRLIE BAUMHER      SPR # 91259
+*.       12 03 91      0002      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0003      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0004      Toolset              SPR 91895
+*.       03/25/93      0005      Toolset              SPR NA93-06801
+*.       01/28/94      0006      Toolset              SPR NA94-01101
+*.       03/03/94      0007      Toolset              SPR NA94-05501
+*.       04/11/96      0008      Toolset              CCR NA95-11802
+*.       12/23/96      0009      Toolset              CCR NA95-11807
+*.       03/16/99      0010      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A31874__VAD2_AXIS_LBL(BPTR,VADBUF)
+*.
+*.  MODULE FUNCTION:
+*.          LABELS THE VAD PRODUCT AZIMUTH ANGLES AND VELOCITY SPEEDS
+*.
+*.  MODULES CALLED: A31876__COCHR_PKT, A3187C__VERT_AXIS_FIT 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT  TYPE        DESCRIPTION
+*.    -   -----  ----        -----------
+*.    C   LABELS I*2         (CONSTANT)Color value to use for message.
+*.    P   BPTR   I*4         The length of the vad product buffer (running
+*.                           total),half_words. This is also used as the pntr
+*.                           to a half-word in the product buffer
+*.    P   VADBUF I*2         The vad product buffer.
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    C   PPKT    R*4         Number of pixels per knot.
+*.    P   BPTR    I*4         The length of the vad product buffer (running
+*.                            total),half_words. This is also used as the pntr
+*.                            to a half-word in the product buffer
+*.    P   VADBUF  I*2         The vad product buffer.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    P   BPTR              I*4         The length of the vad product buffer
+*.                                      (running total),half_words. This is
+*.                                      also used as the pntr to a half-word
+*.                                      in the product buffer
+*.    P   VADBUF            I*2         The vad product buffer.
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME         TYPE        DESCRIPTION
+*.    ----         ----        -----------
+*.    ANGLE_INC    I*4         ANGLE LABELS IN 45 DEGREE INCREMENTS
+*.    AXIS         CHAR*10     ARRAY FOR AXIS LABELS 'VELOCITY',
+*.                             '(KNOTS)','AZIMUTH','(DEGREES)'
+*.    AZIM_INC     I*4         PIXEL INCREMENT FOR AZIMUTH AXIS
+*.    AZIM_LAB     I*4         IDENTIFIES AZIMUTH LABEL FOR LOOP
+*.    BOT_AXIS     R*4         Bottom axis used to calculate Y-starting pixel
+*.                             location.
+*.    BYOCHPKT     I*4         VALUE FOR NUMBER OF CHARACTERS
+*.    C            I*4         COLOR NUMBER FOR PACKETS
+*.    COLOFF       I*4         CHARACTER PACKET COLOR OFFSET
+*.    HCHSZ        R*4         Horizontal character size (pixels).
+*.    I            I*4         INDEX CONTROL VARIABLE
+*.    IDOFF        I*4         CHARACTER PACKET ID OFFSET
+*.    ILABEL       I*2         EQUIVALENCED TO LABEL, USED TO LABEL THE
+*.                             AZIMUTH AND VELOCITY AXIS
+*.    INC10        I*4         INCREMENTAL VALUE FOR 10
+*.    INCREM       I*4         INCREMENTAL VALUE FOR VERTICAL AXIS
+*.    J            I*4         Do loop index.
+*.    LABEL        CHAR*10     CHARACTER STRING 'AZIMUTH' OR "VELOCITY".
+*.    LAZIM        I*4         VALUE FOR AZIMUTH LABEL
+*.    LEFT_AXIS    I*4         LEFT AXIS PIXEL LOCATION
+*.    LENOFF       I*4         CHARACTER PACKET LENGTH OFFSET
+*.    LVEL         I*4         VALUE FOR VELOCITY LABEL
+*.    MAX_SCALE    I*4         MAXIMUM SCALE FOR VERTICAL AXIS
+*.    MAX_TEMP     I*4         Contains the negative of the maximum scale for
+*.                             vertical axis.
+*.    MXHFLBL      I*4         MAX SIZE OF HALF LABEL = 4
+*.    NCHR         I*4         Number of characters in LABEL
+*.    NCHR_LABEL   I*4         Number of characters in a label.  Used to
+*.                             initialize NCHR.
+*.    NUM2         I*4         PROGRAM PARAMETER FOR 2
+*.    NUM_AZIM     I*4         (Constant) number of azimuths, used as upper
+*.                             index in do loop.
+*.    NUM_LABELS   I*4         NUMBER OF LABELS FOR GRID
+*.    NUM_VELLAB   I*4         NUMBER OF VELOCITY LABELS FOR GRID
+*.    ONE          I*4         PROGRAM PARAMETER FOR 1
+*.    PACKET_ID    I*4         CHARACTER PACKET ID = 8
+*.    RTPX         R*4         (Constant) Right Screen Edge Pixel Value.
+*.    TWO_CHAR     I*4         PROGRAM PARAMETER FOR 2 CHARACTERS
+*.    VEL_GRID_PTS R*4         (Constant) Velocity grid points used to
+*.                             calculate pixel per knot.
+*.    VEL_INC      R*4         VELOCITY LABEL INCREMENTAL PLACEMENT
+*.    VEL_START    R*4         VELOCITY START LOCATION
+*.    VERT_LABEL   I*4         VALUE FOR VERTICAL LABEL
+*.    VERT_LINE    I*4         VALUE FOR VERTICAL LINE
+*.    X            R*4         A pixel column number.
+*.    XPOFF        I*4         CHARACTER PACKET X OFFSET
+*.    XSTART       R*4         X STARTING PIXEL LOCATION
+*.    XSVEL        R*4         X PIXEL LOCATION FOR VERT SPEED CHARS
+*.    XVEL         R*4         X PIXEL LOCATION FOR ALTITUDE
+*.    Y            R*4         A pixel row number.
+*.    YAZIM        R*4         Y PIXEL LOCATION FOR TIME
+*.    YPOFF        I*4         CHARACTER PACKET Y OFFSET
+*.    YSTART       R*4         Y STARTING PIXEL LOCATION
+*.    YVEL         R*4         Y PIXEL LOCATION FOR ALTITUDE
+*.    Y_ANGLE      R*4         Y PIXEL LOCATION FOR ANGLE LABELS
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A318C7
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  NONE
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP18.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK18.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+C*
+$INCLUDE A309ADPT.INC/G,**A3CD70C7 (NEND NLIST)
+$INCLUDE A318.INC,**A318C7 (NLIST)
+C*
+      REAL          X,Y,YAZIM,XVEL,YVEL,XSTART,YSTART,VEL_GRID_PTS
+      REAL          BOT_AXIS,RTPX,XSVEL,Y_ANGLE,VEL_INC,VEL_START
+      INTEGER*4     C,I,NCHR,J,MXHFLBL,MAX_SCALE,VERT_LABEL,NCHR_LABEL
+      INTEGER*4     IDOFF,LENOFF,COLOFF,XPOFF,YPOFF,AZIM_INC,BPTR
+      INTEGER*4     BYOCHPKT,PACKET_ID,INC10
+      INTEGER*4     LAZIM/0/,LEFT_AXIS,NUM_AZIM,ANGLE_INC,TWO_CHAR
+      INTEGER*4     VERT_LINE,INCREM,LVEL,MAX_TEMP
+      INTEGER*4     NUM_LABELS,AZIM_LAB,ONE,NUM2,NUM_VELLAB
+      PARAMETER     (MXHFLBL=4,VEL_START=45.,NUM_LABELS=4,AZIM_LAB=3)
+      PARAMETER     (ONE=1,NUM2=2,NUM_VELLAB=9,XSVEL=40.)
+      PARAMETER     (NCHR_LABEL=10,INC10=10,VEL_GRID_PTS = 180.0)
+      INTEGER*2     ILABEL(MXHFLBL),VADBUF(*)
+      CHARACTER*10  LABEL,AXIS(4)
+      PARAMETER     (LEFT_AXIS=71.,NUM_AZIM=8,ANGLE_INC=45)
+      PARAMETER     (IDOFF=1,LENOFF=2,COLOFF=3,XPOFF=4,AZIM_INC=55)
+      PARAMETER     (YPOFF=5,BYOCHPKT=6,PACKET_ID=8,BOT_AXIS=52.)
+      PARAMETER     (YAZIM=490.0,XVEL=4.0,YVEL=10.0,RTPX=511.)
+      PARAMETER     (Y_ANGLE=475.0,TWO_CHAR=4,VEL_INC=45.0)
+      DATA          AXIS/'VELOCITY  ','(KNOTS)   ','AZIMUTH   ',
+     $                   '(DEGREES) '/
+      EQUIVALENCE   (LABEL,ILABEL)
+C*
+C*    LABEL THE AXIS (AZIMUTH DEGREES AND VELOCITY KNOTS) WHITE
+      C=LABELS
+      X = XVEL
+      Y = YVEL
+C*
+C*    LABEL 'VELOCITY (KNOTS)' THEN 'AZIMUTH (DEGREES)'
+      DO 5 I=ONE,NUM_LABELS
+         IF (I.EQ.AZIM_LAB) Y = YAZIM
+         NCHR = NCHR_LABEL
+         LABEL = AXIS(I)
+C*
+C*    STORE DATA INTO OUTPUT BUFFER
+            VADBUF(BPTR+IDOFF)=PACKET_ID
+            VADBUF(BPTR+LENOFF)=BYOCHPKT+NCHR
+            VADBUF(BPTR+COLOFF)=C
+            VADBUF(BPTR+XPOFF)=X
+            VADBUF(BPTR+YPOFF)=Y
+            DO 6 J=ONE,NCHR/NUM2
+              VADBUF(BPTR+YPOFF+J)=ILABEL(J)
+ 6          CONTINUE
+            BPTR=BPTR+YPOFF+NCHR/NUM2
+            Y = Y + INC10
+ 5    CONTINUE
+C*
+C*    SET Y POSITION TO PLACE ANGLE VALUES (PIXELS)
+      Y=Y_ANGLE
+C*
+C*    SET TLG TO TRUE, TO DISPLAY THE AZIMUTH ANGLES
+C*
+C*    DISPLAY AZIMUTH ANGLES IN 45 DEGREE INCREMENTS ALONG AZIMUTH
+C*       AXIS, CALL A31876__COCHR_PKT TO STORE CHARACTER PACKETS
+C*       INTO THE VAD PRODUCT
+      LAZIM = 0
+      XSTART = (LEFT_AXIS + AZIM_INC) - (TWO_CHAR * HCHSZ)
+      DO 10 I = ONE,NUM_AZIM
+         LAZIM = LAZIM + ANGLE_INC
+         X = XSTART
+         CALL A31876__COCHR_PKT(X,Y,C,LAZIM,BPTR,VADBUF)
+         XSTART = XSTART + AZIM_INC
+ 10   CONTINUE
+C*
+C*    CALL A3187C TO CALCULATE THE BEST FITTING VERTICAL AXIS FOR
+C*       THE DATA TO BE DISPLAYED
+      CALL A3187C__VERT_AXIS_FIT(MAX_SCALE,VERT_LABEL,VERT_LINE)
+C*
+C*    DISPLAY VELOCITY SPEEDS ALONG VELOCITY AXIS, CALL A31876__
+C*       COCHR_PKT TO STORE CHARACTER PACKETS INTO THE VAD PRODUCT
+      X = XSVEL
+      YSTART = RTPX - (BOT_AXIS + VEL_START)
+      LVEL = 0
+      INCREM = 0
+      MAX_TEMP = -(MAX_SCALE)
+      DO 11 I = ONE,NUM_VELLAB
+         LVEL = MAX_TEMP + INCREM
+         Y = YSTART
+X     TYPE *,'74: LABEL=',LVEL,' PIXEL POSITION=',Y
+         CALL A31876__COCHR_PKT(X,Y,C,LVEL,BPTR,VADBUF)
+         INCREM = INCREM + VERT_LABEL
+         YSTART = YSTART - VEL_INC
+ 11   CONTINUE
+C
+C* CALCULATE THE VALUE OF EACH PIXEL PER KNOT.
+C
+      PPKT = VEL_GRID_PTS / FLOAT(MAX_SCALE)
+X     TYPE *,'74: EXIT HERE... PPKT=',PPKT,' MAX_SCALE=',MAX_SCALE
+      RETURN
+      END

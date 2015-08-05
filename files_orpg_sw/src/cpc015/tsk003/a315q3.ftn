@@ -1,0 +1,227 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/16 19:40:59 $
+C $Id: a315q3.ftn,v 1.3 2002/12/16 19:40:59 christie Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A315Q3__STRM_LIQW
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A315Q3__STRM_LIQW
+*.
+*.  MODULE VERSION: 0015
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       08 16 85      0000      DENNIS MILLER        BUILD 2
+*.       05 07 86      0001      DENNIS MILLER        SPR # 304
+*.       07 10 86      0002      DENNIS MILLER        SPR # 60313
+*.       07 10 86      0002      DENNIS MILLER        SPR # 60367
+*.       02 26 87      0003      DENNIS MILLER        SPR # 70106
+*.       05 08 90      0004      STACY RONALD         SPR # 90697
+*.       02 22 91      0005      DENNIS MILLER        SPR # 91256
+*.       01 25 91      0005      DENNIS MILLER        SPR # 91629
+*.       02 15 91      0005      JOHN DEPHILIP        SPR # 91762
+*.       12 03 91      0006      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0007      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0008      Toolset              SPR 91895
+*.       03/25/93      0009      Toolset              SPR NA93-06801
+*.       01/28/94      0010      Toolset              SPR NA94-01101
+*.       03/03/94      0011      Toolset              SPR NA94-05501
+*.       04/01/95      0012      Toolset              CCR NA95-11802
+*.       06/26/95      0013      DAVID ZITTEL         CCR NA94-26302
+*.       12/23/96      0014      Toolset              CCR NA95-11807
+*.       03/16/99      0015      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A315Q3__STRM_LIQW
+*.
+*.  MODULE FUNCTION:
+*.
+*.    This routine creates a table of Liquid Water Concentration per
+*.  sample volume (kgE6/km**3) from Reflectivity (dBZ) for the range
+*.  of dBZ values commonly associated with liquid water. Reflectivity
+*.  values below that range (i.e. dust) have their liquid water
+*.  equivalences set to zero, while reflectivity measurements above
+*.  that range (i.e. hail) have their liquid water concentrations set
+*.  equal to that at the upper dBZ threshold.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT       TYPE        DESCRIPTION
+*.    -   -----       ----        -----------
+*.    C   ADPMCOEF    R*4         The Mass Coefficient Factor stored in
+*.                                segments local common for comparison to
+*.                                adaptation data each volume scan.
+*.    C   ADPMULTF    R*4         The Mass Multiplicative Factor stored in
+*.                                segments local (mm**6/mm**3)*(hr/mm)**MCF
+*.    C   ADPMWGTF    R*4         The Mass Weighted Factor stored in segments
+*.                                local common for comparison to adaptation
+*.                                data each volume scan. hr*kg/km**3/mm
+*.    C   DROPRFBIAS  I*4         The derived dropout reflectivity threshold
+*.                                in biased units.
+*.    C   REF_MIN_NDX I*4         Upper limit of reflectivity index for
+*.                                processing segments and components.
+*.    C   STMLWTBL    R*4         A table of liquid water equivalent values
+*.                                for all (bias) reflectivity values to
+*.                                determine mass.
+*.    C   ADDFACT     R*4         (CONSTANT)A parameter used in the conversion
+*.                                of reflectivity from biased to dBZ units or
+*.                                vice versa.
+*.    C   MULTFACT    R*4         (CONSTANT)A multiplication parameter used in
+*.                                the conversion of reflectivity from biased
+*.                                to dBZ units.
+*.    C   OFFACT      R*4         (CONSTANT)An offset parameter used in the
+*.                                conversion of reflectivity from biased to
+*.                                dBZ units.
+*.
+*.    *   OUTPUT   TYPE        DESCRIPTION
+*.    -   ------   ----        -----------
+*.    C   STMLWTBL R*4         A table of liquid water equivalent values for
+*.                             all (bias) reflectivity values to determine
+*.                             mass.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME      TYPE        DESCRIPTION
+*.    ----      ----        -----------
+*.    CONST1    R*4         Constant used to derive Liquid Water
+*.                          Concentration.
+*.    CONST2    R*4         Constant used to derive Liquid Water
+*.                          Concentration.
+*.    CONV      R*4         COnversion factor for reflectivity to liquid water
+*.    DBZ       R*4         Reflectivity value in dBZ equivalent
+*.    MCFINV    R*4         The inverse of the  Mass Coefficient Factor
+*.    MLTINV    R*4         The inverse of the Mass Multiplicative Factor
+*.    MWFCONV   R*4         The scaled Mass Weighted Factor used for coverting
+*.                          reflectivity to liquid water.
+*.    NLIQ      I*4         Dimension of Liquid Water Table (STMLWTBL)
+*.    ONE       I*4         Parameter value of one.
+*.    REALZERO  R*4         Parameter value of real zero.
+*.    RINDX     I*4         Do loop varaible for reflectivity values
+*.    STMDBZHI  R*4         The high dBZ reflectivity value
+*.    STMHIBIAS I*4         Converted high reflectivity to Liquid Water
+*.                          equivalent
+*.    STMLOBIAS I*4         The converted low reflectivity value of Liquid
+*.                          Water
+*.    ZERO      I*4         PARAMETER VALUE '0'
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A315CD
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     Compiled using COMP15.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     Linked using LINK15.CSS
+*.
+*.  MISC:  None
+*.
+C********************************************************************
+C
+C         STORM SEGMENTS: CALCULATE LIQUID WATER FROM DBZ  ROUTINE
+C
+C********************************************************************
+C
+      IMPLICIT NONE
+C
+C**Attach local STORMS Adaptation Data parameter file:
+$INCLUDE A315BUF.INC/G,**A315PSAD (NLIST)
+C
+C**Attach internal common block (CD)
+$INCLUDE A315.INC/G,**A315CDS (NLIST)
+C
+C********************** DATA DECLARATIONS ***************************
+C
+      INTEGER STMLOBIAS, STMHIBIAS, RINDX
+      INTEGER ONE, ZERO
+      REAL   CONV, STMDBZHI, REALZERO
+      REAL    MLTINV, MCFINV, CONST1, CONST2, MWFCONV, DBZ
+C
+C******************** DATA INITIALIZATIONS **************************
+C
+      PARAMETER ( ONE = 1, ZERO = 0 )
+C
+C** Parameters for converting Reflectivity to Liquid Water:
+C
+      PARAMETER ( REALZERO = 0.0 , CONV = 1.0E-6 )
+      PARAMETER ( STMDBZHI = 80.0 )
+C
+C******************* BEGIN MAIN PROCESSING SECTION ******************
+C
+C** Convert high and low dBZ values for which Liquid Water will be
+C** determined to equivalent biased-integer units.
+C
+      STMLOBIAS = DROPRFBIAS( REF_MIN_NDX )
+      STMHIBIAS = MULTFACT * ( STMDBZHI + ADDFACT ) + OFFACT
+C
+C** Compute functions derived from liquid-water conversion factors.
+C
+      MWFCONV = ADPMWGTF * CONV
+      MLTINV  = 1./ADPMULTF
+      MCFINV  = 1./ADPMCOEF
+C
+C** Compute exponential functions.
+C
+      CONST1 = MWFCONV * MLTINV**MCFINV
+      CONST2 = 10.**(.1*MCFINV)
+C
+C** Set Liquid Water concentrations for Reflectivity values below
+C** the range of interest (dBZ) to zero.
+C
+      DO 100 RINDX = ZERO, STMLOBIAS - ONE
+         STMLWTBL( RINDX ) = REALZERO
+  100 CONTINUE
+C
+C** For Reflectivity values within the range of interest, convert
+C** Indexed value to dBZ equivalent and then use formula to derive
+C** Liquid Water Concentration.
+C
+      DO 200 RINDX = STMLOBIAS, STMHIBIAS
+         DBZ = ( FLOAT(RINDX) - OFFACT ) / MULTFACT - ADDFACT
+C
+         STMLWTBL( RINDX ) = CONST1 * CONST2**DBZ
+  200 CONTINUE
+C
+C** Set Liquid Water concentrations for Reflectivity values above the
+C** range of interest equal to the concentration at the upper range.
+C
+      DO 300 RINDX = STMHIBIAS + ONE, NLIQ - ONE
+         STMLWTBL( RINDX ) = STMLWTBL( STMHIBIAS )
+  300 CONTINUE
+C
+C** Set Liquid Water concentrations for Reflectivity bins flagged as
+C** "Missing" to zero.
+C
+      STMLWTBL( NLIQ ) = REALZERO
+C
+C************** END OF PROCESSING FOR SUBROUTINE ********************
+C
+      RETURN
+      END

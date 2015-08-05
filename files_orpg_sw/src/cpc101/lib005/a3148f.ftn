@@ -1,0 +1,324 @@
+C 
+C RCS info 
+C $Author: steves $ 
+C $Locker:  $ 
+C $Date: 2004/01/21 23:02:06 $ 
+C $Id: a3148f.ftn,v 1.4 2004/01/21 23:02:06 steves Exp $ 
+C $Revision: 1.4 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A3148F__CLUT_BLOOM_DILATION_PHASE( REF_DATA,
+     1                             IS_CLUTTER, DOPPLER_VALID,
+     2                                POLGRID_CR, POLGRID_PR )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3148F__CLUT_BLOOM_DILATION_PHASE
+*.
+*.  MODULE VERSION: 0001
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       02/24/97      0000      Steve Smith
+*.       03/16/99      0001      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A3148F__CLUT_BLOOM_DILATION_PHASE( REF_DATA,
+*.                                           IS_CLUTTER, DOPPLER_VALID,
+*.                                              POLGRID_CR, POLGRID_PR )
+*.  MODULE FUNCTION:
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT            TYPE        DESCRIPTION
+*.    -   -----            ----        -----------
+*.    C   ADDBZDIFF_L      I*4         Local copy of ADDBZDIFF (DBZ difference
+*.                                     used in the clutter bloom/dilation
+*.                                     phase)
+*.    C   ADIFEXTND_L      L*4         Local copy of ADIFEXTND (Flag
+*.                                     indicating whether clutter
+*.                                     bloom/dilation phase is to be
+*.                                     performed)
+*.    C   ADRNGGATE_L      I*4         Local copy of ADRNGGATE (CBD Maximum
+*.                                     Number Of Range Bins)
+*.    C   DELTABIN         I*4         Scaling parameter used for radial to
+*.                                     polar grid mapping.
+*.    C   FST_CLUT_BIN     I*4         First clutter bin in a radial
+*.    C   LAST_RAD         I*4         Index into polar grid of the last
+*.                                     radial of the elevation sweep
+*.    C   PREV_RAD         I*4         Index into polar grid of the previous
+*.                                     radial processed.
+*.    C   REGION_END_BIN   I*4         Bin number for the end of the current
+*.                                     processing region.
+*.    C   REGION_START_BIN I*4         Bin number for the start of the current
+*.                                     processing region.
+*.    C   START_RBIN       I*4         Start bin number of the layer composite
+*.                                     reflectivity polar grid - AP removed
+*.                                     for current region.
+*.    C   CLUTTER_FLAG     I*4         (CONSTANT)Value assigned to
+*.                                     reflectivity if it is classified as
+*.                                     clutter
+*.    C   MISSING_FLAG     I*4         (CONSTANT)Value used to indicate bin
+*.                                     value in layer composite reflectivity
+*.                                     -AP removed polar grid is missing.
+*.    P   DOPPLER_VALID    I*4         An array indicating whether the data is
+*.                                     weather or clutter based on the
+*.                                     velocity data
+*.    P   IS_CLUTTER       I*4         An array indicating whether a bin of
+*.                                     reflectivity is clutter or weather.
+*.    P   POLGRID_CR       I*2         Current radial in polar grid that is
+*.                                     reflectivity is being checked.
+*.    P   POLGRID_PR       I*2         Previous radial in polar grid from
+*.                                     which reflectivity is being checked
+*.    P   REF_DATA         I*2         Base reflectivity radial
+*.
+*.    *   OUTPUT     TYPE        DESCRIPTION
+*.    -   ------     ----        -----------
+*.    P   IS_CLUTTER I*4         An array indicating whether a bin of
+*.                               reflectivity is clutter or weather.
+*.    P   POLGRID_CR I*2         Current radial in polar grid that is
+*.                               reflectivity is being checked.
+*.    P   POLGRID_PR I*2         Previous radial in polar grid from which
+*.                               reflectivity is being checked
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE: NONE
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME      TYPE        DESCRIPTION
+*.    ----      ----        -----------
+*.    I         I*4         Do loop index
+*.    IB        I*2         Index into POLGRID_CR - equivalenced to IBIN (the
+*.                          region start bin)
+*.    IBIN      I*4         Start polar grid bin in this region (equivalenced
+*.                          to array IB)
+*.    INIT_REF  I*2         Initial reflectivity data value
+*.    J         I*4         Do loop initial value - first clutter bin
+*.    K         I*4         Bin Index into arrays
+*.    NO        I*4         Parameter to represent false condition
+*.    START_BIN I*4         Starting bin for clutter bloom/dilation phase
+*.    YES       I*4         Flag value for true (i.e. clutter exists).
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3148C1
+*.    A3148C3
+*.
+*.  ERROR CONDITIONS: NONE.
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP07.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK07.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+      IMPLICIT NONE
+C
+$INCLUDE A309.INC/G,   **A3PM02   (NLIST)
+$INCLUDE A304.INC/G,   **A304P4   (NLIST)
+$INCLUDE A314BUF.INC/G,**A3148P2  (NLIST)
+$INCLUDE A314BUF.INC/G,**A3148C1  (NLIST)
+$INCLUDE               **A3148C3  (NLIST)
+C
+C***  PASSED ARGUMENTS
+C
+      INTEGER*2 REF_DATA(*)
+      INTEGER*2 POLGRID_CR(*), POLGRID_PR(*)
+      INTEGER*4 IS_CLUTTER(*), DOPPLER_VALID(*)
+C
+C*** LOCAL DECLARATIONS:
+C
+      INTEGER*4 I, J, K
+      INTEGER*4 START_BIN
+      INTEGER*2 INIT_REF
+C
+      INTEGER*4 NO, YES
+      PARAMETER( NO = 0, YES = 1 )
+
+      INTEGER*4 IBIN, IB
+C
+C********************************************************************
+C** EXECUTABLE CODE
+C
+C**   PERFORM CLUTTER BLOOM/DILATION PHASE, IF NECESSARY.
+C
+      IF( .NOT. ADIFEXTND_L ) GO TO 100
+C.....................................................................
+C
+C**   THE ALGORITHM FOR CLUTTER BLOOM/DILATION PHASE EDITTING IS AS
+C**   FOLLOWS.
+C
+C**      Beginning at each range gate within the region REJECT_IF
+C**      identified as containing ground clutter and proceeding
+C**      radially outward towards greater distances, continue
+C**      declaring each range gate as having clutter until at least
+C**      one of the following conditions are true:
+C
+C**      1)  a range gate is encountered with velocity and spectrum
+C**          declared weather according to the rules for the ACCEPT_IF
+C**          region, or
+C**      2)  the reflectivity differs by more than a threshold value
+C**          from the initial gate, or
+C**      3)  the range gate in question is more than a threshold
+C**          number of range gates from the initial gate.
+C
+C.....................................................................
+C
+C
+C**   INITIALIZE VARIABLES USED IN THE CLUTTER BLOOM/DILATION PHASE
+C
+      J = FST_CLUT_BIN
+      START_BIN = REGION_END_BIN
+      INIT_REF = REF_DATA( START_BIN )
+      K = START_BIN + 1
+
+ 20   CONTINUE
+C
+C**   FIND A BIN WHICH HAS ALREADY BEEN DECLARED CLUTTER.
+C
+      DO 10 I = J, REGION_END_BIN, 1
+
+         IF( IS_CLUTTER( I ) .EQ. YES ) THEN
+C
+C**         BIN HAS BEEN DECLARED CLUTTER.  SAVE START BIN LOCATION,
+C**         REFLECTIVITY AT START BIN LOCATION, AND CALCULATE NEXT
+C**         BIN LOCATION.
+C
+            START_BIN = I
+            INIT_REF = REF_DATA( START_BIN )
+            K = MIN0(START_BIN + 1, REGION_END_BIN)
+            GO TO 30
+
+         END IF
+
+ 10   CONTINUE
+C
+C**   GO TO POLAR GRID MAPPING IF ALL BINS HAVE BEEN EXAMINED.
+C
+      GO TO 100
+C
+C**   EXTEND CLUTTER IF THE FOLLOWING CRITERIA MEET.
+C
+ 30   IF( ( IS_CLUTTER( K ) .EQ. NO ) .AND.
+     1    ( DOPPLER_VALID( K ) .EQ. NO ) .AND.
+     2    ( (K - START_BIN) .LE. ADRNGGATE_L ) .AND.
+#IFDEF LINUX
+     3    (IABS(INT(INIT_REF - REF_DATA( K ))) .LE. ADDBZDIFF_L ) ) THEN
+#ELSE
+     3    ( IABS(INIT_REF - REF_DATA( K )) .LE. ADDBZDIFF_L ) ) THEN
+#ENDIF
+
+         IS_CLUTTER( K ) = YES
+C
+C**      CONTINUE TO NEXT BIN IN RADIAL IF NOT AT END OF DATA.
+C
+         K = K + 1
+         IF( K .LE. REGION_END_BIN ) GO TO 30
+
+      ELSE
+C
+C**      SOME OR ALL OF THE CRITERIA FOR EXTENDING CLUTTER NOT
+C**      MET.  INCREMENT BIN POSITION AND BRANCH IF NOT AT END OF
+C**      DATA.
+C
+         J = K + 1
+         IF( J .LT. REGION_END_BIN ) GO TO 20
+
+      END IF
+C
+C**   INITIALIZE THIS REGIONS START POLAR GRID BIN
+C
+ 100  IBIN = START_RBIN
+C
+C**   DO FOR ALL REFLECTIVITY BINS IN THE REJECT_IF REGION ..
+C
+      DO 50 I = REGION_START_BIN, REGION_END_BIN
+ 
+         call RPG_set_mssw_to_uint( IBIN, IB )
+
+         IF( IS_CLUTTER( I ) .EQ. NO ) THEN
+C
+C**         MAP THE REFLECTIVITY TO THE POLAR GRID.
+C
+            IF( POLGRID_CR( IB ) .LT. REF_DATA( I ) )
+     1          POLGRID_CR( IB ) = REF_DATA( I )
+
+         ELSE
+C
+C**         IF GRID VALUE IS MISSING, REPLACE WITH CLUTTER FLAG.
+C
+            IF( POLGRID_CR( IB ) .EQ. MISSING_FLAG )
+     1          POLGRID_CR( IB ) = CLUTTER_FLAG
+
+         END IF
+C
+C**      INCREMENT BIN COORDINATE
+C
+         IBIN = IBIN + DELTABIN
+
+ 50   CONTINUE
+C
+C**   CHECK IF PREVIOUS AZIMUTH SLOT WAS MISSED BECAUSE RADIALS ARE
+C**   MORE THAN 1 DEGREE APART
+C
+      IF ( PREV_RAD .NE. LAST_RAD ) THEN
+C
+C**      REPEAT LOOP 40 PROCESSING USING PREVIOUS AZIMUTH INDEX
+C
+         IBIN = START_RBIN
+C
+C**      DO FOR ALL REFLECTIVITY BINS IN REJECT_IF REGION ..
+C
+         DO 60 I = REGION_START_BIN, REGION_END_BIN
+
+            call RPG_set_mssw_to_uint( IBIN, IB )
+
+            IF( IS_CLUTTER( I ) .EQ. NO ) THEN
+C
+C**            MAP THE REFLECTIVITY TO THE POLAR GRID.
+C
+               IF( POLGRID_PR( IB ) .LT. REF_DATA( I ) )
+     1             POLGRID_PR( IB ) = REF_DATA( I )
+
+            ELSE
+C
+C**            IF GRID VALUE IS MISSING, REPLACE WITH CLUTTER FLAG.
+C
+               IF( POLGRID_CR( IB ) .EQ. MISSING_FLAG )
+     1             POLGRID_CR( IB ) = CLUTTER_FLAG
+
+            END IF
+C
+C**         INCREMENT BIN COORDINATE
+C
+            IBIN = IBIN + DELTABIN
+
+ 60      CONTINUE
+
+      END IF
+C
+C**   RETURN TO BUFFER CONTROL ROUTINE
+C
+      RETURN
+      END

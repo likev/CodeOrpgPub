@@ -1,0 +1,126 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/05 15:55:41 $
+C $Id: a30829.ftn,v 1.3 2002/12/05 15:55:41 christie Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A30829__CNVTIME(SECONDS,HMTIME)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A30829__CNVTIME
+*.
+*.  MODULE VERSION: 0012
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       08 26 85      0000      Mike Istok           Part 2, RPG Build 1
+*.       04 28 86      0001      MIKE ISTOK           SPR# 60124
+*.       07 22 88      0002      VALERIE HOLDEN       SPR# 80002
+*.       01 29 91      0003      VALERIE HOLDEN       SPR# 91249
+*.       12/10/91      0004      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/20/92      0005      Toolset              SPR 91895
+*.       03/25/93      0006      Toolset              SPR NA93-06801
+*.       01/28/94      0007      Toolset              SPR NA94-01101
+*.       03/03/94      0008      Toolset              SPR NA94-05501
+*.       06/15/94      0009      Steve Smith          CCR NW 94-007-01
+*.       04/11/96      0010      Toolset              CCR NA95-11802
+*.       12/23/96      0011      Toolset              CCR NA95-11807
+*.       03/16/99      0012      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A30829__CNVTIME(SECONDS,HMTIME)
+*.
+*.  MODULE FUNCTION:
+*.
+*.      This module CoNVerts TIME expressed in milliseconds
+*.      past 0000 GMT to time in hours and minutes past 00 GMT
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT   TYPE        DESCRIPTION
+*.    -   -----   ----        -----------
+*.    P   SECONDS I*4         Time, seconds GMT.
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    P   HMTIME  I*4         Time in hours and minutes, GMT.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME      TYPE        DESCRIPTION
+*.    ----      ----        -----------
+*.    HALFMIN   I*4         Program parameter for 30 seconds
+*.    HR        I*4         Number of hours. RNG:[0,24)
+*.    HRPDAY    I*4         Program parameter for 24 hours per day
+*.    HRTHRT100 I*4         Indicates 'hours-to-hours' times 100.
+*.    INC1      I*4         INCREMENTAL VALUE OF 1
+*.    MIN       I*4         Minutes of a partial hour.
+*.    SEC       I*4         The number of seconds in a partial min
+*.    SECPHR    I*4         Seconds per hour (=3600)
+*.    SECPMIN   I*4         Seconds per minute (=60)
+*.    ZERO      I*4         PROGRAM PARAMETER FOR 0
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: None.
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     THIS MODULE IS COMPILED USING COMP08.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     THIS MODULE IS LINKED USING LINK08.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+C*
+      INTEGER*4 HMTIME,HR,MIN,SEC,SECONDS,INC1,ZERO
+      INTEGER*4 SECPHR,SECPMIN,HALFMIN,HRPDAY,HRTHRT100
+      PARAMETER (SECPHR=3600,SECPMIN=60,HALFMIN=30,INC1=1)
+      PARAMETER (HRPDAY=24,HRTHRT100=100,ZERO=0)
+C...
+C* compute the number of hours
+      HR=SECONDS/SECPHR
+C* compute the remaining number of minutes
+      MIN=(SECONDS-HR*SECPHR)/SECPMIN
+C* compute the remaining number of seconds
+      SEC=SECONDS-HR*SECPHR-MIN*SECPMIN
+C* round off to the nearest minute
+      IF (SEC.GE.HALFMIN)MIN=MIN+INC1
+C* is the rounding caused minutes to exceed 60, subtract 60 from
+C* the minutes and add 1 to the hours
+      IF (MIN.GE.SECPMIN) THEN
+         MIN=MIN-SECPMIN
+         HR=HR+INC1
+      END IF
+C* if adding 1 to the hours caused it to become 24, set it back to 00
+      IF (HR.EQ.HRPDAY) HR=ZERO
+C* compute the time in hours and minutes
+      HMTIME=HR*HRTHRT100+MIN
+      RETURN
+      END

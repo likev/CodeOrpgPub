@@ -1,0 +1,403 @@
+C
+C RCS info
+C $Author: ccalvert $
+C $Locker:  $
+C $Date: 2003/07/01 19:05:25 $
+C $Id: a3146e.ftn,v 1.6 2003/07/01 19:05:25 ccalvert Exp $
+C $Revision: 1.6 $
+C $State: Exp $
+C
+      SUBROUTINE A3146E__STORM_TOTAL (ADJSCAN, HYDRSUPL, STRMTOT ) 
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3146E__STORM_TOTAL
+*.
+*.  MODULE VERSION: 0017
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       06 13 89      0000      P.A.JENDROWSKI       SPR# 90348
+*.       03 27 90      0001      DAVE HOZLOCK         SPR# 90697
+*.       08 17 90      0002      PAUL JENDROWSKI      SPR# 90899
+*.       11 04 90      0003      PAUL JENDROWSKI      SPR# 91255
+*.       12 03 91      0004      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0005      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0006      Toolset              SPR 91895
+*.       03/25/93      0007      Toolset              SPR NA93-06801
+*.       01/28/94      0008      Toolset              SPR NA94-01101
+*.       03/03/94      0009      Toolset              SPR NA94-05501
+*.       08/04/94      0010      C. Stephenson        CCR NW-94-084-02
+*.       04/01/95      0011      Toolset              CCR NA95-11802
+*.       05/31/95      0012      ROBERT RIERSON       CCR NA94-35301 (SPR NA94-08102)
+*.       09/19/95      0012      TIM O'BANNON         CCR N94-33207
+*.       12/23/96      0013      Toolset              CCR NA95-11807
+*.       03/16/99      0014      Toolset              CCR NA98-23803
+*.       01/31/02      0015      Dennis A. Miller     CCR NA01-27501
+*.       07/31/02      0016      C. Pham, D. Miller   CCR NA02-20602 
+*.       06/30/03      0017      C. Pham, D. Miller   CCR NA02-06508
+*.
+*.  CALLING SEQUENCE: CALL A3146E__STORM_TOTAL(ADJSCAN, HYDRSUPL, STRMTOT) 
+*.
+*.  MODULE FUNCTION:
+*.
+*.     This routine adds the precipitation data for the latest
+*.     volume scan to the total storm precipitation accumulation
+*.     being maintained for the current storm.
+*.
+*.  MODULES CALLED: A31468__PDB_IO, A3146Q__GET_SUM
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT           TYPE        DESCRIPTION
+*.    -   -----           ----        -----------
+*.    G   AVG_SCNDAT      I*4         (CONSTANT)(CONSTANT)Average Scan Date
+*.                                    index into Hydromet Supplemental Data
+*.                                    array
+*.    G   AVG_SCNTIM      I*4         (CONSTANT)(CONSTANT)Average Scan Time
+*.                                    index into Hydromet Supplemental Data
+*.                                    array
+*.    G   CUR_BIAS        I*4         (CONSTANT)Bias between rain gage and
+*.                                    radar estimates positional parameter.
+*.    G   CUR_GRPSIZ      I*4         (CONSTANT)Gage-Radar Pair (i.e., Bias
+*.                                    sample size) positional parameter.
+*.    G   CUR_MSPAN       I*4         (CONSTANT)Memory Span (hours) associated
+*.                                    with Bias positional parameter.
+*.    G   FLAG_SET        I*4         (CONSTANT)Parameter for a set flag.
+*.    G   FLG_ZERSCN      I*4         (CONSTANT)Indicator in hydromet scan
+*.                                    that there was a zero scan.
+*.    G   HYZ_SUPL        I*4         (CONSTANT)(CONSTANT)Size of Supplemental
+*.                                    Data array in Hybrid Scan output buffer.
+*.                                    SSIZ_PRE + SSIZ_RATE + SSIZ_ACUM +
+*.                                    SSIZ_ADJU (= (13+14+16+5) = 48)
+*.    G   MAX_ADJBINS     I*4         (CONSTANT)Maximum number of range bins
+*.                                    (index into output buffer of adjusted
+*.                                    values).
+*.    G   MAX_AZMTHS      I*4         (CONSTANT)Maximum number of azimuths in
+*.                                    a scan (index into output buffer of
+*.                                    adjusted values).
+*.    G   SCAN_SB_STAT    I*4         (CONSTANT)Position within Supplemental
+*.                                    Data (Rate) array of Spot Blanking flag
+*.    G   TIM_SCNDIF      I*4         (CONSTANT)Position of scan-to-scan time
+*.                                    difference between last good scan and
+*.                                    current scan.
+*.    C   BIAS_TOGGLE     L*4         Local adaptaion copy of BIAS_FLAG
+*.    C   NUM_ST_SCANS    I*4         Number of scans in storm total.
+*.    C   STMTOT_BDAT     I*4         Storm total period begin date.
+*.    C   STMTOT_BTIM     I*4         Storm total period begin time.
+*.    C   STMTOT_FLG_FRST L*4         Flag indicating storm total sum is to be
+*.                                    reinitialized.
+*.    C   ST_SUM_BIAS     R*4         Sum of the biases in each scan in the
+*.                                    storm total.
+*.    C   ST_SUM_GRPSIZ   R*4         Sum of the gage-radar pair (sample) sizes
+*.                                    in each scan in the storm total.
+*.    C   ST_SUM_MSPAN    R*4         Sum of the memory spans (hours) in each
+*.                                    scan in the storm total.
+*.    C   GOOD            I*4         (CONSTANT)Status flag value.
+*.    C   IBEG            I*4         (CONSTANT)Constant used as loop control
+*.                                    variable (initial value).
+*.    C   INCRMENT        I*4         (CONSTANT)Variable used to increment by
+*.                                    1.
+*.    C   READKODE        I*4         (CONSTANT)I/O code indicating input
+*.                                    should be read.
+*.    C   STM_REC         I*4         (CONSTANT)(Constant) Index of 5th
+*.                                    record.
+*.    C   WRITKODE        I*4         (CONSTANT)I/O code indicating write to
+*.                                    disk I/O operation should be performed.
+*.    P   ADJSCAN         I*2         POLAR grid of precipitation values for
+*.                                    latest volume scan
+*.    P   HYDRSUPL        I*4         Array of supplemental data
+*.    P   STRMTOT         I*4         Polar grid for storm total accum.
+*.
+*.    *   OUTPUT          TYPE        DESCRIPTION
+*.    -   ------          ----        -----------
+*.    C   NUM_ST_SCANS    I*4         Number of scans in storm total.
+*.    C   STMTOT_BDAT     I*4         Storm total period begin date.
+*.    C   STMTOT_BTIM     I*4         Storm total period begin time.
+*.    C   STMTOT_EDAT     I*4         Storm total period end date.
+*.    C   STMTOT_ETIM     I*4         Storm total period end time.
+*.    C   STMTOT_FLG_FRST L*4         Flag indicating storm total sum is to be
+*.                                    reinitialized.
+*.    C   STMTOT_SB       I*4         Storm Total Accumulation Product spot
+*.                                    blaning status
+*.    C   ST_SUM_BIAS     R*4         Sum of the biases in each scan in the
+*.                                    storm total.
+*.    C   ST_SUM_GRPSIZ   R*4         Sum of the gage-radar pair (sample) sizes
+*.                                    in each scan in the storm total.
+*.    C   ST_SUM_MSPAN    R*4         Sum of the memory spans (hours) in each
+*.                                    scan in the storm total.
+*.    P   STRMTOT         I*4         Polar grid for storm total accum.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    P   ADJSCAN           I*2         POLAR grid of precipitation values for
+*.                                      latest volume scan
+*.    P   STRMTOT           I*4         Polar grid for storm total accum.
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME        TYPE        DESCRIPTION
+*.    ----        ----        -----------
+*.    IBIAS       I*4         Integer value of the gage-radar BIAS
+*.    IEQV        I*4         USED TO DECODE REAL VALUE FROM
+*.    INDICES     I*4         Number of radials times azimuth divided by 2
+*.    IOSTAT      I*4         Status from database update
+*.    J           I*4         Do loop index
+*.    NOBIAS      R*4         Constant defined as unity to be applied when the
+*.                            user selects no bias should be applied.
+*.    NULL        I*4         Parameter for zero
+*.    RBIAS       R*4         Gage-radar BIAS
+*.    REQV        R*4         USED TO DECODE REAL VALUE FROM
+*.    RND_SEC     I*4         Parameter used to round seconds to min
+*.    SEC_IN_DAY  I*4         Number of seconds in a day
+*.    SEC_IN_HOUR I*4         Number of seconds in an hour
+*.    SEC_IN_MIN  I*4         Number of seconds in a minute
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3146C2
+*.    A314C3
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK14.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+ 
+ 
+C
+C** 'X' IN COLUMN-1 INDICATES CONDITIONALLY COMPILED DEBUG CODE...
+C
+      IMPLICIT NONE
+C
+$INCLUDE A3146.INC/G ,**A3146P1  (NEND NLIST)
+$INCLUDE              **A3146C2  (NEND NLIST)
+$INCLUDE              **A314C3   (NEND NLIST)                           9408402
+$INCLUDE A313HBUF.INC/G,**A313HYPP (NEND NLIST)
+$INCLUDE A313H.INC/G,**A3136CA                                          9408402
+C
+C
+      INTEGER*4 INDICES
+      PARAMETER (INDICES = MAX_ADJBINS * MAX_AZMTHS/2)
+      INTEGER*2 ADJSCAN (MAX_ADJBINS,MAX_AZMTHS)
+      INTEGER*4 STRMTOT (INDICES)
+      INTEGER HYDRSUPL (HYZ_SUPL)
+      INTEGER NULL, IOSTAT, I, J, RND_SEC, SEC_IN_MIN
+      PARAMETER(NULL=0, RND_SEC=30, SEC_IN_MIN=60)
+      INTEGER SEC_IN_HOUR, SEC_IN_DAY
+      PARAMETER(SEC_IN_HOUR = 3600, SEC_IN_DAY = 86400)
+C
+C** USE EQUIVALENCE TO RETRIEVE REAL VALUES FROM HYDRSUPL ARRAY
+C
+      REAL NOBIAS
+      PARAMETER (NOBIAS = 1.0)
+      INTEGER IEQV, IBIAS                                               9408402
+      REAL    REQV, RBIAS                                               9408402
+      EQUIVALENCE (IEQV,REQV)
+      EQUIVALENCE (IBIAS,RBIAS)
+C
+C  ***************** E X E C U T B L E ******************************
+C
+X     TYPE *,'A3146E: ENTERING A3146E, STMTOT_FLG_FRST = ',
+X    $                                 STMTOT_FLG_FRST
+C
+C** SET STORM-TOTAL ENDING TIMES (IN MINUTES)
+C
+      STMTOT_EDAT = HYDRSUPL(AVG_SCNDAT)
+      STMTOT_ETIM = (HYDRSUPL(AVG_SCNTIM) + RND_SEC)/SEC_IN_MIN
+C
+X     TYPE *,'A3146E: STORM TOTAL END DATE, TIME = ',STMTOT_EDAT,
+X    $        STMTOT_ETIM
+C
+C** CHECK IF WE NEED TO SET BEGINNING TIME OF STORM-TOTAL PERIOD
+C** NOTE THAT IF IT HAS NOT RAINED IN THE LAST HOUR (I.E. PCP_CATCUR),
+C** STORM PERIOD HAS SAME BEGIN AND END TIME
+C
+      IF (HYDRSUPL(FLG_RESTP).EQ.FLAG_SET .OR. STMTOT_FLG_FRST) THEN
+         STMTOT_BDAT = HYDRSUPL(AVG_SCNDAT)
+         STMTOT_BTIM = HYDRSUPL(AVG_SCNTIM)
+C
+C** INITIALIZE SPOT BLANK STATUS FOR STORM TOTAL PERIOD
+C
+         STMTOT_SB = NULL
+X        WRITE(14,*) '146E:  REINITIALIZING SB STATE- NEW PRODUCT'
+C
+C** SET BEGINNING TIME TO BEGINNING OF PERIOD
+C
+X        TYPE *,'A3146E: SCAN TIME DIFFERENCE = ',HYDRSUPL(TIM_SCNDIF)
+C
+         IF (STMTOT_FLG_FRST .AND. 
+     $         HYDRSUPL(TIM_SCNDIF).LE.SEC_IN_HOUR) THEN
+           STMTOT_BTIM = STMTOT_BTIM - HYDRSUPL(TIM_SCNDIF)
+C
+X          TYPE *,'A3146E: ADJUSTED BEGINNING TIME BACK =',STMTOT_BTIM
+C
+           IF (STMTOT_BTIM.LT.NULL) THEN
+             STMTOT_BTIM = STMTOT_BTIM + SEC_IN_DAY
+             STMTOT_BDAT = STMTOT_BDAT - INCRMENT
+C
+X            TYPE *,'A3146E: ADJUSTED BEGINNING DATE BACK'
+C
+           END IF
+         END IF
+C
+C** CONVERT TIME FROM SECONDS TO MINUTES
+C
+         STMTOT_BTIM = (STMTOT_BTIM + RND_SEC)/SEC_IN_MIN
+C
+X     TYPE *,'A3146E: STORM TOTAL BEGIN DATE, TIME = ',STMTOT_BDAT,
+X    $        STMTOT_BTIM
+C
+C** THERE WAS NO OR ZERO ACCUMULATION PREVIOUSLY SO SET STORM TOTAL
+C** TO ALL ZERO
+C
+X        TYPE *,'A3146E: SETTING STORM TOTAL GRID TO ZERO'
+C
+         DO 50 J=IBEG,INDICES                                           9408402
+            STRMTOT(J) = NULL                                           9408402
+   50     CONTINUE
+C
+C** SET I/O STATUS AS GOOD FOR SUBSEQUENT TESTS
+C
+         IOSTAT = GOOD
+C
+C** RESET SUMS FOR BIAS AND RELATED FIELDS
+C
+         ST_SUM_BIAS   = NULL
+         ST_SUM_GRPSIZ = NULL
+         ST_SUM_MSPAN  = NULL
+         NUM_ST_SCANS  = NULL
+C
+X        TYPE *,'A3146E: INITIALIZED SUMS OF BIAS AND RELATED FIELDS',
+X    $         ' TO ZERO'
+C
+      ELSE
+C
+C** READ PREVIOUS STORM TOTAL OFF OF DISK
+C
+X        TYPE *,'A3146E:  CALL A31468 TO READ REC#5 FROM DISK'
+C
+         CALL A31468__PDB_IO(READKODE, STM_REC, STRMTOT, IOSTAT)
+
+         IF( IOSTAT.EQ.GOOD .AND. ST_SUM_GRPSIZ.EQ.NULL .AND.
+     $                                ST_SUM_MSPAN.EQ.NULL) THEN
+            ST_SUM_BIAS = NULL
+            NUM_ST_SCANS= NULL
+
+X           WRITE(6,*) 'A3146E: RESET THE INITIALIZED SUMS OF BIAS TO ZERO'
+         END IF
+
+C
+X        TYPE *,'A3146E: BACK FROM A31468... STATUS=',IOSTAT
+C
+      END IF
+C
+X     TYPE *,'A3146E: STORM TIMES: ',STMTOT_BDAT,STMTOT_BTIM,
+X    $                               STMTOT_EDAT,STMTOT_ETIM
+C
+C** UPDATE SPOT BLANK STATUS
+C
+      IF (HYDRSUPL(SCAN_SB_STAT).EQ.FLAG_SET) THEN
+        STMTOT_SB = FLAG_SET
+X       WRITE (14,10) HYDRSUPL(SCAN_SB_STAT),STMTOT_SB
+X10     FORMAT(1X,'146E:HYDRSUPL(SCAN_SB_STAT):',I3,
+X    $         'STMTOT_SB: ',I2)
+      END IF
+C
+C
+C** IF THERE WAS NO I/O ERROR AND THE ACCUMULATION SCAN IS NON-ZERO,
+C** THEN SUM THE CURRENT ACCUMULATION SCAN TO THE STORM-TOTAL GRID
+C
+      IF (IOSTAT.EQ.GOOD) THEN
+C
+C** GET SUMS OF STORM TOTAL BIASES AND RELATED FIELDS
+C
+        NUM_ST_SCANS = NUM_ST_SCANS + INCRMENT
+
+X        WRITE(6,*)'A3146E: BIAS_TOGGLE: ',BIAS_TOGGLE
+X        IBIAS = HYDRSUPL(CUR_BIAS)
+X        WRITE(6,66) RBIAS, ST_SUM_BIAS, RESET_BIAS
+X66      FORMAT(1X,'A3146E: CUR_BIAS =',F8.3,'  ST_SUM_BIAS =',F8.3,
+X    &   '  RESET_BIAS =',F8.3)
+C
+C** Sum Bias
+C
+        IF(BIAS_TOGGLE) THEN                                            9408402
+           IBIAS = HYDRSUPL(CUR_BIAS)                                   9408402
+           ST_SUM_BIAS = ST_SUM_BIAS + RBIAS                            9408402
+        ELSE                                                            9408402
+           RBIAS = NOBIAS
+           ST_SUM_BIAS = ST_SUM_BIAS + RBIAS                            9408402
+        ENDIF                                                           9408402
+X       WRITE( 6,88)RBIAS                                               9408402
+X88     FORMAT(1X,'A3146E: BIAS USED = ',F6.4)                          9408402
+C
+C** Sum Gage-Radar Pair Size
+C
+        IEQV = HYDRSUPL(CUR_GRPSIZ)
+        ST_SUM_GRPSIZ = ST_SUM_GRPSIZ + REQV
+X       WRITE( 6,93)REQV
+X93     FORMAT(1X,'A3146E: GRPSIZ USED = ',F7.2)
+C
+C** Sum Memory Spans
+C
+        IEQV = HYDRSUPL(CUR_MSPAN)
+        ST_SUM_MSPAN = ST_SUM_MSPAN + REQV
+X       WRITE( 6,98)REQV
+X98     FORMAT(1X,'A3146E: MSPAN USED = ',F8.2)
+C
+X       TYPE *,'A3146E: STORM TOTAL SUMS',
+X    $               ' (SCANS, BIAS, G-R PAIR SIZE, MEM SPAN) = ',
+X    $        NUM_ST_SCANS, ST_SUM_BIAS, ST_SUM_GRPSIZ, ST_SUM_MSPAN
+C
+C** CHECK IF THERE IS DATA
+C
+        IF (HYDRSUPL(FLG_ZERSCN).NE.FLAG_SET) THEN
+C
+X         TYPE *,'A3146E: CALL A3146Q TO SUM ADJSCAN & STRMTOT'
+C
+          CALL A3146Q__GET_SUM(ADJSCAN, STRMTOT,RBIAS)                  9408402
+C
+X         TYPE *,'A3146E: BACK FROM A3146Q'
+C
+        END IF
+C
+C** The summation grid is now in STRMTOT
+C** Write it back to the disk file to protect from RPG crashes
+C
+X       TYPE *,'A3146E: CALL A31468 TO WRITE SUM BACK TO STM_REC',
+X    $                     ' ON DISK'
+C
+        CALL A31468__PDB_IO(WRITKODE, STM_REC, STRMTOT, IOSTAT)
+      ENDIF
+C
+C** IF THE FLAG FOR FIRST STORM TOTAL IS SET, CLEAR IT
+C
+      IF (STMTOT_FLG_FRST) STMTOT_FLG_FRST = .FALSE.
+C
+X     TYPE *,'A3146E: EXITING A3146E, STMTOT_FLG_FRST = ',
+X    $                                STMTOT_FLG_FRST
+C
+      RETURN
+      END

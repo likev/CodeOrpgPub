@@ -1,0 +1,375 @@
+C
+C RCS info
+C $Author: ccalvert $
+C $Locker:  $
+C $Date: 2003/07/01 19:05:21 $
+C $Id: a31463.ftn,v 1.4 2003/07/01 19:05:21 ccalvert Exp $
+C $Revision: 1.4 $
+C $State: Exp $
+C
+      SUBROUTINE A31463__SCAN_TO_SCAN (HYDRMESG,ADJSCAN,HYDRADAP,
+     $                                 HYDRSUPL,VSNUM)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A31463__SCAN_TO_SCAN
+*.
+*.  MODULE VERSION: 0015
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       06 13 89      0000      P.A.JENDROWSKI       SPR# 90348
+*.       03 21 90      0001      DAVE HOZLOCK         SPR# 90697
+*.       11 04 90      0002      PAUL JENDROWSKI      SPR# 91255
+*.       12 03 91      0003      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0004      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0005      Toolset              SPR 91895
+*.       03/25/93      0006      Toolset              SPR NA93-06801
+*.       01/28/94      0007      Toolset              SPR NA94-01101
+*.       03/03/94      0008      Toolset              SPR NA94-05501
+*.       08/04/94      0009      Mike Istok           CCR NW-94-060-18
+*.       04/01/95      0010      TOOLSET              CCR NA95-11802
+*.       05/10/95      0011      TIM O'BANNON         CCR NA94-33207
+*.       12/23/96      0012      Toolset              CCR NA95-11807
+*.       03/16/99      0013      Toolset              CCR NA98-23803
+*.       07/31/02      0014      Jihong Liu           CCR NA02-15801 
+*.       06/30/03      0015      Dennis Miller        CCR NA02-06508
+*.
+*.  CALLING SEQUENCE: CALL A31463__SCAN_TO_SCAN (HYDRMESG,ADJSCAN,
+*.                    HYDRADAP, HYDRSUPL, VSNUM)
+*.
+*.  MODULE FUNCTION:
+*.
+*.     This routine produces the Storm Total Accumulation product
+*.     (product 80), which is updated on a scan-to-scan basis.
+*.
+*.  MODULES CALLED: A31169__ABORT_DATATYPE_BECAUSE, A31215__GET_OUTBUF, 
+*.                  A31216__REL_OUTBUF, A31466__PRODUCT_HEADER, 
+*.                  A3146E__STORM_TOTAL, A3146S__FORMAT_BLOCK3, 
+*.                  A3148L__PPS_RUN_LENGTH_ENCODE, A3148P__BIAS_ARRAY 
+*.                  A31491__DIGSTM_PRODUCT_CONTROL
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT         TYPE        DESCRIPTION
+*.    -   -----         ----        -----------
+*.    G   MEM           I*4         Array in RPG shared memory set aside for
+*.                                  buffer sharing.
+*.    G   DESTROY       I*4         (CONSTANT)Mnemonic used as input to
+*.                                  A31216__REL_OUTBUF. Indicates "do not pass
+*.                                  data to other tasks".
+*.    G   FLG_BADSCN    I*4         (CONSTANT)Indicator in hydromet scan that
+*.                                  data is bad.
+*.    G   FORWARD       I*4         (CONSTANT)Parameter to indicate that an
+*.                                  output buffer is to be forwarded to
+*.                                  successor tasks
+*.    G   NORMAL        I*4         (CONSTANT)Parameter which indicates normal
+*.                                  completion of requested operation to
+*.                                  acquire input or output buffer
+*.    G   NO_MEM        I*4         (CONSTANT)Parameter which indicates no
+*.                                  memory available on attempt to acquire
+*.                                  output buffer
+*.    G   PROD_MEM_SHED I*4         (CONSTANT)(CONSTANT)Parameter which
+*.                                  indicates that product aborted due to
+*.                                  memory load shedding
+*.    G   SCRATCH       I*4         (CONSTANT)DATA BUFFER TYPE FOR TASK
+*.                                  SCRATCH DATA BUFFERS
+*.    C   FIL_STAT      I*4         Status of disk file.
+*.    C   CODE_STT      I*4         (CONSTANT)Storm total accumulation product
+*.                                  code.
+*.    C   GOOD          I*4         (CONSTANT)Status flag value.
+*.    C   IBEG          I*4         (CONSTANT)Parameter used as loop control
+*.                                  variable (initial value).
+*.    C   INCRMENT      I*4         (CONSTANT)Parameter used to increment by
+*.                                  one.
+*.    C   IPROD_I4SIZE  I*4         (CONSTANT)Product buffer size requested
+*.                                  (in words) from call to A31215 to get
+*.                                  product buffer.
+*.    C   KPOLAR_WORDS  I*4         (CONSTANT)Scratch buffer size for polar
+*.                                  grid.
+*.    C   STMTOTNC      I*4         (CONSTANT)Storm total (Non clear air)
+*.                                  color table index.
+*.    P   ADJSCAN       I*2         Polar grid of precipitation value for
+*.                                  latest volume scan.
+*.    P   HYDRADAP      R*4         Array of RPG adaptation parameters.
+*.    P   HYDRMESG      I*4         Array for the precip. status message.
+*.    P   HYDRSUPL      I*4         Supplemental data array.
+*.    P   VSNUM         I*4         Volume scan number
+*.
+*.    *   OUTPUT          TYPE        DESCRIPTION
+*.    -   ------          ----        -----------
+*.    G   MEM             I*4         Array in RPG shared memory set aside for
+*.                                    buffer sharing.
+*.    C   STMTOT_FLG_FRST L*4         Flag indicating storm total sum is to be
+*.                                    reinitialized.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    G   MEM               I*4         Array in RPG shared memory set aside
+*.                                      for buffer sharing.
+*.    P   ADJSCAN           I*2         Polar grid of precipitation value for
+*.                                      latest volume scan.
+*.    P   HYDRADAP          R*4         Array of RPG adaptation parameters.
+*.    P   HYDRMESG          I*4         Array for the precip. status message.
+*.    P   HYDRSUPL          I*4         Supplemental data array.
+*.    P   VSNUM             I*4         Volume scan number
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME           TYPE        DESCRIPTION
+*.    ----           ----        -----------
+*.    B3ENIDX        I*4         Product block 3 ending index
+*.    B3STIDX        I*4         Product block 3 starting index
+*.    BAD_FILE       I*4         Error code for bad file status
+*.    BAD_SCAN       I*4         Error code for scan flagged as bad
+*.    HYSTMTOT       I*4         Data Buffer Type: Storm Total Precipitation
+*.                               product buffer
+*.    I              I*4         Do loop index for MEM
+*.    I2_GRID_PTR    I*4         Pointer to start of buffer for I*2 cartesian
+*.                               grid
+*.    I2_GRID_STATUS I*4         Status of buffer reception for I*2 cartesian
+*.                               grid
+*.    MAXVAL         I*4         Max value found in cartesian grid
+*.    NULL           I*4         Parameterized value =0
+*.    OPSTAT1        I*4         Buffer status returned from call to
+*.                               GET_OUTBUF
+*.    P80PTR         I*4         BUFFER POINTER FOR PRODUCT 80
+*.    P80STAT        I*4         Buffer status returned from call to A31215
+*.    PCP_CATLST     I*4         (Constant) Positional parameter for the
+*.                               previous precipitation category.
+*.    REASONKODE     I*4         Reason code why product is NULL
+*.    SCALE_80       R*4         Scaling parameter for converting hundreths of
+*.                               inches to tenths of inches for quantizing the
+*.                               STP product
+*.    STMTOT_PTR     I*4         Pointer into shared memory of the Storm Total
+*.                               scan on disk
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD00
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3146C2
+*.    A3146C3
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK14.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+
+C
+C RCS info
+C $Author: ccalvert $
+C $Locker:  $
+C $Date: 2002/07/31 13:57:50
+C $Id: a31463.ftn,v 1.4 2003/07/01 19:05:21 ccalvert Exp $
+C $Revision: 1.4 $
+C $State: Exp $
+C
+        IMPLICIT NONE
+C
+C** 'X' IN COLUMN-1 INDICATES CONDITIONALLY COMPILED DEBUG CODE...
+C
+      IMPLICIT NONE
+C
+$INCLUDE A309.INC/G,**A3PM00 (NEND NLIST)
+$INCLUDE            **A3PM01 (NEND NLIST)
+$INCLUDE            **A3PM04 (NEND NLIST)
+$INCLUDE            **A3PM07 (NEND NLIST)
+$INCLUDE            **A3CD00 (NEND NLIST)
+$INCLUDE A3146.INC/G,**A3146P1 (NEND NLIST)
+$INCLUDE             **A3146P2 (NEND NLIST)
+$INCLUDE             **A3146C2 (NEND NLIST)
+$INCLUDE             **A3146C3 (NEND NLIST)
+$INCLUDE A313HBUF.INC/G,**A313HYPP (NEND NLIST)
+$INCLUDE                **A313HYDD (NEND NLIST)
+$INCLUDE                **A313HYD6 (NEND NLIST)
+C
+C
+      INTEGER VSNUM, MAXVAL, B3ENIDX, I
+C
+      INTEGER I2_GRID_PTR, I2_GRID_STATUS,
+     +        STMTOT_PTR, OPSTAT1, P80PTR, P80STAT
+      INTEGER NULL, B3STIDX, REASONKODE
+      INTEGER NO_CART_BUFS, BAD_FILE, NO_STM_BUF, BAD_FILE_IO,BAD_SCAN
+C
+      PARAMETER ( NULL=0 )
+      PARAMETER ( NO_CART_BUFS=1, BAD_FILE=2, NO_STM_BUF=3,
+     $                            BAD_FILE_IO=4, BAD_SCAN=7)
+      DATA STMTOT_PTR/NULL/
+C
+C--------------------------
+C
+C** PART 1: BUILD STORM TOTAL POLAR GRID
+C
+X     TYPE *,'A31463: ENTERING A31463'
+C
+      REASONKODE = NULL
+      P80STAT = IBEG
+      MAXVAL = NULL
+C
+C** IF THIS IS THE FIRST SCAN WITH PRECIP, SET FLAG TO INITIALIZE
+C** STORM TOTAL GRID
+C
+      IF (HYDRSUPL(FLG_PCPBEG).EQ.FLAG_SET) STMTOT_FLG_FRST = .TRUE. 
+C
+C** CHECK IF CURRENT ACCUMULATION SCAN IS GOOD
+C
+      IF (HYDRSUPL(FLG_BADSCN).EQ.NULL) THEN
+C
+C** GET A SCRATCH BUFFER FOR THE STORM TOTAL SCAN THAT'S ON DISK
+C
+         CALL A31215__GET_OUTBUF(SCRATCH,KPOLAR_WORDS,STMTOT_PTR,
+     $                             OPSTAT1)
+C
+C** CHECK IF THE BUFFER WAS ACQUIRED
+C
+         IF (OPSTAT1 .EQ. NORMAL) THEN
+C
+C** GET STORM TOTAL SCAN AND ADD ADJSCAN TO IT
+C
+            IF (FIL_STAT.EQ.GOOD) CALL A3146E__STORM_TOTAL(ADJSCAN,
+     $                                   HYDRSUPL, MEM(STMTOT_PTR))
+C
+         ENDIF
+         IF (FIL_STAT.NE.GOOD) REASONKODE = BAD_FILE
+      ELSE
+C
+C** SET REASON TO INDICATE BAD SCAN
+C
+         REASONKODE = BAD_SCAN
+         OPSTAT1 = BAD_SCAN
+      ENDIF
+
+C** GET DIGITAL STORM TOTAL PRODUCT CONTROL ROUTINE
+
+      CALL A31491__DIGSTM_PRODUCT_CONTROL(HYDRMESG, HYDRADAP,
+     $      HYDRSUPL, REASONKODE, OPSTAT1,VSNUM, MEM(STMTOT_PTR))
+
+C
+C** PART 2: BUILD PRODUCT BUFFER ************************************
+C
+C** GET OUTPUT BUFFER FOR STORM TOTAL PRODUCT
+C
+X     TYPE *,'A31463: ******************** BEGIN TO BUILD STORM ',
+X    $                'PRODUCT'
+X     TYPE *,'A31463: READY FOR A31215-HYSTMTOT... P80SIZ=',
+X    $                     IPROD_I4SIZE
+C
+      CALL A31215__GET_OUTBUF(HYSTMTOT,IPROD_I4SIZE,P80PTR,P80STAT)
+      IF (P80STAT.EQ.NORMAL .AND. OPSTAT1.NE.NO_MEM) THEN
+C
+X        TYPE *,'A31463: PROD80 OUTBUF STATUS IS NORMAL'
+C** Get scratch buffer for biased output array.
+C
+         CALL A31215__GET_OUTBUF (SCRATCH, KPOLAR_WORDS,
+     $                               I2_GRID_PTR, I2_GRID_STATUS)
+C
+         IF ((I2_GRID_STATUS .EQ. NORMAL)) THEN
+C
+C** DO IF A STORM TOTAL GRID WAS OBTAINED
+C
+           IF (REASONKODE.EQ.NULL) THEN
+C
+C  BIAS THE PRODUCT ARRAY VALUES FOR USE WITH THE COLOR TABLES          9433207
+C
+             CALL A3148P__BIAS_ARRAY(SCALE_80,MAXVAL,                   9433207
+     $                MEM(STMTOT_PTR), MEM(I2_GRID_PTR))                9433207
+C
+C  CONVERT MAXVAL FROM 100THS TO 10THS OF AN INCH                       9433207
+C
+              MAXVAL = NINT (MAXVAL * SCALE_80)                         9433207
+X             TYPE *,'A31463:BACK FROM A3148P-MAXVAL =',MAXVAL          9433207
+C
+           ELSE
+C
+C** NO DATA, SET CART. GRID TO ZERO
+C
+X             TYPE *,'A31463: ERROR CONDITION= ',REASONKODE
+X             TYPE *,'A31463: SET GRID TO ZERO'
+C
+              DO 100 I=NULL,KPOLAR_WORDS-INCRMENT
+                 MEM(I2_GRID_PTR + I) = NULL
+ 100         CONTINUE
+           ENDIF
+C
+C  RUN-LENGTH-ENCODE THE POLAR STORM TOTAL PRODUCT                      9433207
+C
+           CALL A3148L__PPS_RUN_LENGTH_ENCODE (MEM(I2_GRID_PTR),        9433207
+     $                      MEM(P80PTR), B3STIDX, STMTOTNC)             9433207
+C
+C** RELEASE THE SCRATCH BUFFER
+C
+           CALL A31216__REL_OUTBUF (I2_GRID_PTR, DESTROY)
+C
+C** CALL A3146S Format the Supplemental data here.
+C
+           CALL A3146S__FORMAT_BLOCK3(MEM(P80PTR), VSNUM, CODE_STT,
+     $                 HYDRADAP,HYDRSUPL,REASONKODE,B3STIDX,B3ENIDX)
+C
+C** Format the product header.
+C
+           CALL A31466__PRODUCT_HEADER (MEM(P80PTR), VSNUM,
+     $                           CODE_STT,MAXVAL,HYDRSUPL,B3ENIDX)
+C
+C** Release the product output buffer.
+C
+           CALL A31216__REL_OUTBUF(P80PTR, FORWARD)
+         ELSE
+C
+C** Cannot get scratch buffers for cartesian processing
+C** Release appropriate buffer and set reason code
+C
+           CALL A31216__REL_OUTBUF (P80PTR, DESTROY)
+           CALL A31169__ABORT_DATATYPE_BECAUSE(HYSTMTOT,PROD_MEM_SHED)
+C
+         ENDIF
+      ELSE
+C
+C** Cannot get buffer for Storm Total (product-80)
+C
+        IF (P80STAT.EQ.NO_MEM .OR. (P80STAT.EQ.NORMAL .AND.
+     $                              OPSTAT1.EQ.NO_MEM)) THEN
+C
+X         TYPE *,'A31463: P80STAT=',P80STAT,'   OPSTAT1=',OPSTAT1
+X         TYPE *,'A31463:  NO_MEM: CALL A31169 ABORT DATATYPE'
+C
+          CALL A31169__ABORT_DATATYPE_BECAUSE(HYSTMTOT,PROD_MEM_SHED)
+          IF (P80STAT.EQ.NORMAL) CALL A31216__REL_OUTBUF(P80PTR,
+     $                                                DESTROY)
+        ENDIF
+      ENDIF
+C
+C** DONE WITH STORM TOTAL GRID, RELEASE AND DESTROY IT
+C
+      IF (OPSTAT1.EQ.NORMAL)
+     $                  CALL A31216__REL_OUTBUF(STMTOT_PTR,DESTROY)
+C
+C** That's all....
+C
+X     TYPE *,'A31463: ******************** FINISHED BUILDING STORM ',
+X    $                'PRODUCT'
+X     TYPE *,'A31463: EXITING A31463 '
+C
+      RETURN
+      END

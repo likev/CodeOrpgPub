@@ -1,0 +1,186 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/17 18:26:31 $
+C $Id: a31876.ftn,v 1.3 2002/12/17 18:26:31 christie Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A31876__COCHR_PKT(X,Y,C,VALUE,BPTR,VADBUF)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A31876__COCHR_PKT
+*.
+*.  MODULE VERSION: 0011
+*.
+*.  MODULE LANGUAGE:  FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       09 08 88      0000      VALERIE HOLDEN       SPR # 80273
+*.       01 10 90      0001      STACY RONALD         SPR # 90303
+*.       09 13 90      0002      BAYARD JOHNSTON      SPR # 90303
+*.       11 07 90      0003      CHARLIE BAUMHER      SPR # 91259
+*.       12/10/91      0004      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0005      Toolset              SPR 91895
+*.       03/25/93      0006      Toolset              SPR NA93-06801
+*.       01/28/94      0007      Toolset              SPR NA94-01101
+*.       03/03/94      0008      Toolset              SPR NA94-05501
+*.       04/11/96      0009      Toolset              CCR NA95-11802
+*.       12/23/96      0010      Toolset              CCR NA95-11807
+*.       03/16/99      0011      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A31876__COCHR_PKT(X,Y,C,VALUE,BPTR,VADBUF)
+*.                                           BPTR,VADBUF)
+*.
+*.  MODULE FUNCTION:
+*.
+*.        APPENDS COLORED CHARACTER PACKETS TO THE PRODUCT BUFFER
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT  TYPE        DESCRIPTION
+*.    -   -----  ----        -----------
+*.    P   BPTR   I*4         LENGTH OF VAD PRODUCT BUFFER (RUNNING TOTAL),
+*.                           HALF_WORDS. ALSO USED AS THE POINTER TO A
+*.                           HALF_WORD IN THE PRODUCT BUFFER.
+*.    P   C      I*4         Color number.
+*.    P   VALUE  I*4         VALUE OF AZIMUTH OR VELOCITY TO PLOT AS A AXIS
+*.                           LABEL
+*.    P   X      R*4         X PIXEL
+*.    P   Y      R*4         Y PIXEL
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    P   BPTR    I*4         LENGTH OF VAD PRODUCT BUFFER (RUNNING TOTAL),
+*.                            HALF_WORDS. ALSO USED AS THE POINTER TO A
+*.                            HALF_WORD IN THE PRODUCT BUFFER.
+*.    P   VADBUF  I*2         VAD PRODUCT BUFFER
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME        TYPE        DESCRIPTION
+*.    ----        ----        -----------
+*.    BLANK       CHAR*1      ONE BLANK CHARACTER
+*.    BPHALF      I*4         Number of bytes per half-word.
+*.    CHAROFF     I*4         CHARACTER STRING OFFSET
+*.    CHR         CHAR*12     CHARACTER STRING CONTAINING ASCII EQUIVALENT OF
+*.                            THE AZIMUTH OR VELOCITY TO BE PLOTTED AS AN AXIS
+*.                            LABEL.
+*.    COLOFF      I*4         CHARACTER COLOR OFFSET
+*.    CX          CHAR*2      CHARACTER STRING TO PUT AZIMUTH OR
+*.                            VELOCITY(ASCII) CHARACTERS INTO PCKT
+*.    HALF_PACKET I*4         HALF WORDS IN CHARACTER PACKET
+*.    I           I*4         INDEX LOOP CONTROL
+*.    ICHR        I*2         PUTS CHARACTER DATA OR AZIMUTH OF VELOCITY IN
+*.                            PACKETS
+*.    IDOFF       I*4         CHARACTER PACKET ID OFFSET
+*.    INC1        I*4         Incremental value for 1.
+*.    INC2        I*4         Incremental value of 2.
+*.    LENOFF      I*4         CHARACTER BLOCK LENGTH OFFSET
+*.    MAX_LABEL   I*4         MAXIMUM NUMBER OF CHARACTERS IN AZIMUTH OR
+*.                            VELOCITY LABEL
+*.    NCHR        I*4         NUMBER OF CHARACTERS IN AZIMUTH OR VELOCITY AXIS
+*.                            LABEL
+*.    ONE         I*4         PROGRAM PARAMETER FOR 1
+*.    PACKET_ID   I*4         CHARACTER PACKET ID
+*.    REM_SIZE    I*4         REMAINDER SIZE OF TEXT PACKET
+*.    SUBST       CHAR*1      TEMP. STORAGE, USED TO AVOID
+*.    XOFF        I*4         CHARACTER X POSITION OFFSET
+*.    YOFF        I*4         CHARACTER Y POSITION OFFSET
+*.    ZERO        I*4         PROGRAM PARAMETER FOR 0
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  NONE
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP18.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK18.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+C*
+      REAL X,Y
+      INTEGER*2 VADBUF(*),ICHR
+      INTEGER*4 C,BPTR,I,VALUE,NCHR,IDOFF,LENOFF,COLOFF,PACKET_ID
+      INTEGER*4 XOFF,YOFF,CHAROFF,MAX_LABEL,HALF_PACKET,REM_SIZE
+      INTEGER*4 ZERO,INC1,ONE,INC2,BPHALF
+      PARAMETER (ZERO=0,INC1=1,ONE=1,INC2=2,BPHALF=2)
+      CHARACTER*1 BLANK
+      CHARACTER*1 SUBST
+      CHARACTER*2 CX
+      CHARACTER*12 CHR
+      EQUIVALENCE (CX,ICHR)
+C...
+      PARAMETER (BLANK=' ')
+      PARAMETER (IDOFF=1,LENOFF=2,COLOFF=3,XOFF=4,YOFF=5,CHAROFF=6)
+      PARAMETER (MAX_LABEL=4,HALF_PACKET=5,REM_SIZE=6,PACKET_ID=8)
+C...
+C*    CONVERT INTEGER VALUE TO A ASCII CHARACTER
+C$DELETE
+      CHR=ITOC(VALUE,NCHR)
+C$ENDDELETE
+C$INSERT      CALL ITOC_OS32(VALUE,NCHR,CHR)
+C*
+C*    IF LESS THAN 4 CHARACTERS, SHIFT CHARACTERS AND FILL WITH
+C*    LEADING BLANKS BEFORE THE LABEL
+      IF (NCHR.LT.MAX_LABEL) THEN
+        DO 10 I=ZERO,MAX_LABEL-INC1
+          IF (NCHR-I.GE.ONE) THEN
+             SUBST = CHR(NCHR-I:NCHR-I)
+             CHR(MAX_LABEL-I:MAX_LABEL-I)=SUBST
+          ELSE
+             CHR(MAX_LABEL-I:MAX_LABEL-I)=BLANK
+          END IF
+ 10     CONTINUE
+C*
+C*    SET NUMBER OF CHARACTERS TO 4
+        NCHR=MAX_LABEL
+      END IF
+C*
+C*    STORE PACKET ID AND LENGTH OF REMAINDER OF TEXT PACKET
+      VADBUF(BPTR+IDOFF)=PACKET_ID
+      VADBUF(BPTR+LENOFF)=REM_SIZE+NCHR
+C*
+C*    STORE COLOR OF TEXT, X POSITION AND Y POSITION
+      VADBUF(BPTR+COLOFF)=C
+      VADBUF(BPTR+XOFF)=NINT(X)
+      VADBUF(BPTR+YOFF)=NINT(Y)
+C*
+C*    STORE CHARACTERS IN PRODUCT BUFFER
+      DO 12 I=ONE,NCHR,INC2
+        CX=CHR(I:I+INC1)
+        VADBUF(BPTR+CHAROFF+I/BPHALF)=ICHR
+ 12   CONTINUE
+C*
+C*    INCREMENT LENGTH OF PRODUCT BUFFER BY 5 PLUS HALF OF THE
+C*    NUMBER OF CHARACTERS WRITTEN (BYTES)
+      BPTR=BPTR+HALF_PACKET+NCHR/BPHALF
+      RETURN
+      END

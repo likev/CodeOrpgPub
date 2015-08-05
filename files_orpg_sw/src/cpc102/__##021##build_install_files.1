@@ -1,0 +1,88 @@
+build_install_files(1) 		  ORPG SPS Manpage	build_install_files(1)
+
+NAME
+build_install_files
+
+SYNOPSIS
+build_install_files [options] -t thread_name -v thread_version
+
+DESCRIPTION
+This script builds the tape archive ("tar") ORPG software installation file
+either in the current working directory or in the directory specified by the
+"-d workdir" option.
+
+For a given thread and version, this script first constructs a Project Thread
+Version File using the appropriate SCCS "s." file retrieved from the Razor
+archive.  The script exits with an error message and a return value of 1 if it
+is unable to retrieve the SCCS file.  The build configuration file is
+placed in the file ./cfg subdirectory.  The name of the file
+reflects the specified thread name and version (e.g., bld_mb1_swit_v1.16 for
+version 1.16 of the mb_swit thread).
+
+The script ensures that the shared libraries have access modes of octal
+555 (read and execute for owner, group, and the world).  The script is
+currently aware of the "hpux_rsk", "lnux_x86", "slrs_spk", and "slrs_x86"
+architectures.  These shared libraries are located in ./lib/hpux_rsk,
+./lib/lnux_x86, ./lib/slrs_spk, and ./lib/slrs_x86.
+
+Several checksum files are created by the script.  The created filenames
+and the corresponding input files are listed below:
+
+./cfg/data_cksum		./data/*
+./cfg/bin_hpux_rsk_cksum	./bin/hpux_rsk/*
+./cfg/bin_lnux_x86_cksum	./bin/lnux_x86/*
+./cfg/bin_slrs_spk_cksum	./bin/slrs_spk/*
+./cfg/bin_slrs_x86_cksum	./bin/slrs_x86/*
+./cfg/lib_hpux_rsk_cksum	./lib/hpux_rsk/*.sl
+./cfg/lib_lnux_x86_cksum	./lib/lnux_x86/*.so
+./cfg/lib_slrs_spk_cksum	./lib/slrs_spk/*.so
+./cfg/lib_slrs_x86_cksum	./lib/slrs_x86/*.so
+
+Note that the checksums of the static libraries are not calculated, as these
+libraries are not placed in the installation file.  These checksum files are
+provided for field software quality assurance.
+
+Although not part of the ORPG software configuration management filesystem, 
+empty ./logs and ./tmp subdirectories are created by the script to ensure that
+these subdirectories care created upon installation of the ORPG software in
+the field.
+
+Finally, the script generates the installation file by archiving the following
+files into a tape archive file named "orpg_[threadname]_v{threadversion].tar"
+(e.g., orpg_mb1_swit_v1.16.tar):
+
+./.bashrc		Bash non-login environment file
+./.bash_profile		Bash login environment file
+./.cshrc		C Shell run commands file
+./.dtprofile		CDE DeskTop profile file
+./.dt			CDE DeskTop files
+./.rssd.conf		RSSD configuration file
+./bin			ORPG script and binary executable files
+./bitmaps		Bitmap images
+./cfg			ORPG configuration files
+./data			ORPG static data files
+./install_rpg		ORPG development system installation script
+./lib/lnux_x86/*.so	ORPG Linux x86 shared library files
+./lib/slrs_spk/*.so	ORPG Solaris Sparc shared library files
+./logs			ORPG log files (empty)
+./man			ORPG POSIX manpage files
+./orda			ORDA files
+./tmp			ORPG temporary files (empty)
+
+OPTIONS
+build_install_files accepts the following options:
+
+-d workdir 	use the specified working directory [default: current
+			working directory]
+-h		print usage message
+
+EXAMPLES
+The following illustrates building the installation file for version 1.16 of
+the "mb1_swit" thread using the files in /swit:
+
+% build_install_files -d /swit -t mb1_swit -v 1.16
+
+SEE ALSO
+cksum(1), make_rpg(1), tar(1)
+
+				$Revision: 1.6 $

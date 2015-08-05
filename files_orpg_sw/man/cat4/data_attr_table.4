@@ -1,0 +1,161 @@
+data_tables(4) 	             ORPG SUM Manpage   		   data_tables(4)
+
+NAME
+data_tables - ORPG data store definitions
+
+DESCRIPTION
+   A cs(3) format file that defines public ORPG data stores.  The file contains a
+   single Datastore_attr_tbl entry followed by a { } pair.  A list of Datastore
+   entries contained within the {} pair defines the public ORPG data stores.
+   Within a {} for each Datastore entry is a list of attributes for that
+   data store.  The attributes for each data store entry are:
+
+   			Data Store Attributes
+
+   Parameter		Description 			Possible Values
+   ============================================================================
+   data_id		Unique identifier associated    4 byte integer
+			with this data store.
+			(required)
+   path			Path of the linear buffer or	Up to 1023 characters
+			(required)
+   persistent	        Indicates that a file is        No additional values	
+			persistent.	
+			If present, the mrpg -r option	
+			on startup will not remove the
+			data file.  If not present the
+			file will be removed by the
+			mrpg -r option.  
+   compression		Specifies automatic data	0 denotes no compression, 
+			compression on ORPGDA_write	1 denotes bzip2.
+			and decompression on 
+			ORPGDA_read.
+   write_permission     Control write access to LBs.	See format below.
+   LB_attr		Linear buffer attributes.	List of attributes
+			This parameter or the		contained within a
+			File_attr parameter is          {} pair.  See LB
+			required.			Attributes below.
+							LBs will be created
+							/re-created by mrpg(1)
+							when necessary.
+   File_attr		File attributes.		List of attributes
+							for a file contained
+							within a {} pair. mrpg(1)
+							does not create file
+							data stores.
+
+
+   			Linear Buffer Attributes
+		(Contained within {} for an LB_attr entry}
+
+   Parameter		Description 			Possible Values
+   ============================================================================
+   remark		Remarks about this LB.          string <= 63 characters
+			Optional.  Default is the
+			product description for
+			product LBs (LBs defined
+			in product_tables.4).  For
+			Non-product LBs, the default
+			is "".
+   mode			UNIX permissions	        4 byte integer
+			value.  Optional.
+			Default 0664 octal.
+   msg_size		Average message size.		4 byte integer
+			Default is the max
+			product size for product LBs
+			(LBs defined in product_
+			tables.4).  For Non-product
+			LBs, the default is 0.
+			See lb(3) for more info on
+			average message sizes for
+			linear buffers.
+   maxn_msgs		Maximum number of messages.	4 byte integer.
+   types		LB type flags.	Each flag is    LB_REPLACE,
+			separated by spaces.  Refer	LB_SINGLE_WRITER
+			to lb(3) for more information   LB_NO_EXPIRE
+			on the meaning of each flag.	LB_UNPROTECTED
+							LB_MUST_READ
+							LB_FILE
+							LB_NORMAL
+							LB_DIRECT
+							LB_UN_TAG
+							LB_MSG_POOL
+   tag_size             Number of tag bits 		32-bits.
+   nra_size		Size of the active notification	 integer
+			request area for LB notification.
+			See lb(3) for details about
+			nra_size.
+
+   			     File  Attributes
+		(Contained within {} for a File_attr entry}
+
+   Parameter		Description 			Possible Values
+   ============================================================================
+   repository           Path of the file		Up to 1023 characters.
+
+For write permission, the format is as follows: The write permission must be a
+CS section enclosed by "{" and "}". Each line in the section specifies a msg_id
+followed by a list of task names of tasks allowed write permission. The msg_id
+field can be any valid message ID or * to denote all messages other than those
+that have explicitly specified permission. "*" in the task name list indicates
+all tasks. "CPCxxx", where "xxx" must be an integer, in the task name list
+indicates all tasks in the specified cpc. If no write permission is specified
+for a data store, write permission for this data store is not checked (every
+task can write any message). If, however, write permission is specified for any
+of the messages in a data store, all other messages that do not have specified
+write permission in the data store are read-only. ORPGDA_write with LB_ANY is
+permitted to a data store only when all messages IDs are writable by this task
+(or no write permission specification at all).
+
+The following are examples:
+
+    write_permission {
+	2	basrflct basvelct
+	*	*
+    }
+
+This indicates that only tasks "basrflct" and "basvelct" can write message 2
+while any process can write any message ID other than 2. ORPGDA_write with 
+LB_ANY is permitted by the two list tasks but not permitted by other tasks.
+
+    write_permission {
+	2	basrflct 
+    }
+
+This indicates that only task "basrflct" can write message 2 while all other message IDs are read-only. ORPGDA_write with LB_ANY is not permitted by any task.
+
+    write_permission {
+	2	basrflct *
+    }
+
+This indicates that any task can write message 2 while all other message ID are
+read-only. ORPGDA_write with LB_ANY is not permitted.
+
+    write_permission {
+	*	*
+    }
+
+This indicates that any task can write message with any message ID. 
+ORPGDA_write with LB_ANY is permitted.
+
+
+EXAMPLES
+      The ORPG distribution contains an example data_tables configuration file.
+
+SEE ALSO
+      mrpg(1), cs(3)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

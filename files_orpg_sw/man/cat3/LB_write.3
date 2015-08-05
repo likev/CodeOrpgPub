@@ -1,0 +1,58 @@
+LB_write(3) 		   ORPG SDD Manpage   		LB_write(3)
+
+NAME
+LB_write - write a message to a Linear Buffer (LB) file
+
+SYNOPSIS
+#include <lb.h>
+int LB_write (int lbd, char *message, int length, LB_id_t id) 
+
+DESCRIPTION
+This function writes a message of "length" bytes in "message" into 
+LB "lbd" and assigns it with a message id of "id". A legal message 
+id value can be any 4-byte unsigned integer no larger than 
+LB_MAX_ID.
+
+The argument "id" may take a value of LB_ANY, in which case the LB 
+will use (previous_id + 1) % (LB_MAX_ID + 1) as id for the new 
+message, where previous_id is the id of the previous message. If 
+the LB is newly created, 1 is used.
+
+If LB_SINGLE_WRITER is set and there is another writer opening the 
+LB, LB_write will fail.
+
+For LB_REPLACE type LB, one should always use different id for 
+new massages (not replacement messages). This will prevent from 
+confusions in later LB_read, LB_list and LB_stat calls.
+
+On success this function returns the length of the message in number 
+of bytes. It returns LB_FULL (0) if the LB is of LB_MUST_READ, 
+LB_NOEXPIRE or LB_REPLACE type and there is no free space for the 
+new message due to messages that can not be expired. In other cases, 
+it returns a negative value indicating one of the following error 
+conditions:
+
+	LB_BAD_ARGUMENT:	One of the arguments does not make 
+				sense.
+	LB_BAD_ID:		Illegal id is used.
+	LB_BAD_DESCRIPTOR:	Unopened or closed LB descriptor is 
+				used.
+	LB_BAD_ACCESS:		The LB is opened as LB_READ.
+	LB_MSG_TOO_LARGE:	The message is too large.
+	LB_INTERNAL_ERROR:	An internal inconsistency is found. 
+				The LB is damaged due to unknown reason.
+	LB_LENGTH_ERROR:	"length" is different from the length of 
+				the message with the same id in the LB 
+				in a replacement LB_write.
+	LB_PARITY_ERROR:	The user's LB data structure (not the 
+				LB) is corrupted by 
+				the caller due to a memory leak.
+	LB_SHMDT_FAILED:	Failed in shmdt system call.
+	LB_LOCK_FAILED:		Failed in a lock system call.
+	LB_MMAP_FAILED:		Failed in mmap system call.
+	LB_MPROTECT_FAILED:	Failed in mprotect system call.
+
+SEE ALSO
+LB_clear(3), LB_close(3), LB_direct(3), LB_list(3), LB_mark(3), LB_open(3),
+LB_previous_msgid(3), LB_read(3), LB_remove(3), LB_seek(3), LB_size(3),
+LB_stat(3), lb(3), lb_create(1), lb_info(1), lb_rm(1)

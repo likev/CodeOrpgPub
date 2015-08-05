@@ -1,0 +1,1708 @@
+<html>
+
+<head>
+<title></title>
+<meta name="GENERATOR" content="Microsoft FrontPage 3.0">
+</head>
+
+<body>
+
+<h1>Algorithm Development and Integration</h1>
+
+<p><strong>THIS FILE IS TEMPORARY.&nbsp; IT SHOULD BE REPLACED WITH CODE DOCUMENTATION</strong></p>
+
+<p><strong>FILES WHEN THEY ARE AVAILABLE.</strong></p>
+
+<blockquote>
+  <h2>Algorithm Development</h2>
+</blockquote>
+
+<blockquote>
+  <h3><a name="Add_New_Algorithm_Intro">Part A. Introduction to Adding a New Algorithm </a></h3>
+  <p>This is a brief tutorial covering configuration procedures for adding executable tasks
+  (specifically, new algorithms), ORPG data stores (i.e. linear buffer files), and new
+  products to the ORPG. This is not a complete explanation of the configuration process but
+  a guide to ensure that development algorithms will run in the ORPG environment. Section I
+  of this document contains guidance concerning the organization of source code for new
+  algorithms. </p>
+  <table cellSpacing="3" cellPadding="5" width="90%" align="center" bgColor="maroon">
+<TBODY>
+    <tr>
+      <td bgColor="white"><b><font color="#990000">Special Note</font></b>: With the first
+      version of the operational ORPG being deployed (Open Build 1), new algorithm products
+      cannot be completely configured without modifying ORPG source code. The procedures in this
+      document configure the ORPG to generate the products produced by the new algorithm. In
+      order to distribute the new products or generate the new products based upon one-time
+      requests, several tables in two source code files must be modified. </td>
+    </tr>
+</TBODY>
+  </table>
+  <p>Before proceeding, please note the following: <ol>
+    <li>Several configuration files have to be modified in order to add an algorithm to the
+      ORPG. When using the <em>WSR-88D Algorithm API</em> (either FORTRAN or ANSI-C), <b>an
+      algorithm will not run if certain information is not entered correctly</b>. </li>
+    <li>When editing configuration files, care must be taken to preserve the pairing of opening
+      and closing braces in the tables. <b>Syntax errors in the configuration tables will
+      prevent the ORPG from launching</b>. </li>
+    <li>After changing configuration files, certain data files in the ORPG data directory (<tt><b>$ORPGDIR</b></tt>)
+      must be replenished in order for the changes to be recognized. This can be accomplished by
+      using the <b>-c</b> option when starting the ORPG which deletes the contents of the
+      product database, message logs, adaptation data, etc. Note: the <tt><b>-c</b></tt> option
+      is not available on ORPG beta 1.105 distributed with CODE 1.1. </li>
+  </ol>
+  <h3>Summary of Steps Required to Configure the ORPG for a new Algorithm </h3>
+  <ul>
+    <li><b>Determine the intermediate product data to be used as input.</b> </li>
+    <li><b>Determine the attributes needed to describe the algorithm task and product(s).</b> </li>
+    <li><b>Configure the task by modifying the <tt><b>task_table</b></tt> configuration file.</b>
+    </li>
+    <li><b>Configure the new product by modifying the <tt><b>product_tables</b></tt>
+      configuration file.</b> </li>
+    <li><b>Using the Algorithm API, implement the algorithm.</b> </li>
+  </ul>
+  <hr>
+  <p><br>
+  <a name="Name_and_Configuration"></a> </p>
+  <h3>Part B. Configuration and Naming Issues </h3>
+  <p>The current procedures for adding algorithms to the ORPG involve modification of up to
+  3 configuration files (and perhaps one include file). Some of this information is
+  redundant and must be consistent in all of the files. The critical information, which must
+  be consistent and not conflict with other tasks / data stores, is listed in the following
+  table. </p>
+  <div align="center"><center><table cellSpacing="2" cellPadding="2" width="90%" border="2">
+<TBODY>
+    <tr align="middle">
+      <td>ITEM </td>
+      <td>VALUE </td>
+      <td>DESCRIPTION </td>
+    </tr>
+    <tr>
+      <td><tt>&lt;Task_Name&gt;</tt> </td>
+      <td>A valid filename (lower case by custom) of the executable file, for example <tt><b>dig_refl</b></tt>
+      <b><font size="-1">Note&nbsp;1</font></b> </td>
+      <td>Filename of the executable. This name also corresponds to the name of the source code
+      file containing the main part of the program, for example <tt><b>dig_refl.c</b></tt>. </td>
+    </tr>
+    <tr>
+      <td><tt>&lt;Task_Number&gt;</tt> </td>
+      <td>A valid 3, 4 or 5 digit number, for example <tt><b>1503</b></tt> </td>
+      <td>Also referred to as &quot;task id&quot;. Corresponds to the directory containing the
+      source code , for example <tt><b>704</b></tt> represents the task in <tt><b>$HOME/src/cpc007/tsk004</b></tt>.
+      </td>
+    </tr>
+    <tr>
+      <td><tt>&lt;Prod_Buffer_Name&gt;</tt> </td>
+      <td>An alphanumeric (upper case by custom), for example <tt><b>FAA_DIGVEL</b></tt> <b><font
+      size="-1">Note&nbsp;1</font></b> </td>
+      <td>The name used by the ORPG to reference a particular product buffer (also referred to
+      as &quot;Product ID&quot; or &quot;Buffer ID&quot;) </td>
+    </tr>
+    <tr>
+      <td><tt>&lt;Buffer_Number&gt;</tt> </td>
+      <td>An integer ranging from <tt><b>0</b></tt> to <tt><b>299</b></tt> &nbsp;&nbsp;<b><font
+      size="-1">Note&nbsp;2</font></b> </td>
+      <td>The linear buffer number corresponding to the <tt>&lt;Prod_Buffer_Name&gt;</tt> </td>
+    </tr>
+    <tr>
+      <td><tt>&lt;Product_Code&gt;</tt> </td>
+      <td>an integer ranging from <tt><b>0</b></tt> to <tt><b>299</b></tt> &nbsp;&nbsp;<b><font
+      size="-1">Note&nbsp;3</font></b> </td>
+      <td>The code used by the legacy system to request products (also referred to as
+      &quot;pcode&quot; or &quot;message code&quot;) <b><font size="-1">Note&nbsp;4</font></b> </td>
+    </tr>
+    <tr>
+      <td><tt>&lt;LB_filename&gt;</tt> </td>
+      <td>A valid filename for a linear buffer in the form of <tt><b>*.lb</b></tt> </td>
+      <td>The linear buffer filename corresponding to the <tt>&lt;Buffer_Number&gt;</tt> </td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+</TBODY>
+  </table>
+  </center></div><div align="center"><center><table cellSpacing="2" cellPadding="2"
+  width="90%">
+<TBODY>
+    <tr vAlign="top">
+      <td>&nbsp; </td>
+      <td>Note&nbsp;1:<br>
+      </td>
+      <td>The maximum length for a Product Name is 15 characters. The maximum length for a Task
+      Name is not precisely known. However, operational ORPG tasks (including algorithms) may
+      not be correctly monitored by the ORPG infrastructure if their names are excessively long.
+      Recommended maximum length for Task Names is 11 characters. </td>
+    </tr>
+    <tr vAlign="top">
+      <td>&nbsp; </td>
+      <td>Note&nbsp;2:<br>
+      </td>
+      <td>Legacy products are assigned buffer numbers between 0 and 130 (<tt><b>PI_MAX_BUFFERNUM</b></tt>).
+      Buffer numbers from 131 to 199 are reserved for new products. </td>
+    </tr>
+    <tr vAlign="top">
+      <td>&nbsp; </td>
+      <td>Note&nbsp;3:<br>
+      </td>
+      <td>Legacy products are assigned product codes between 0 and 100 (<tt><b>PI_MAX_PCODE</b></tt>).
+      There is currently no ORPG dependency on the value of <tt><b>PI_MAX_PCODE</b></tt>.
+      However, there may be dependencies hard-coded in that have not been discovered.<br>
+      </td>
+    </tr>
+    <tr vAlign="top">
+      <td>&nbsp; </td>
+      <td>Note&nbsp;4:<br>
+      </td>
+      <td>Only final products (i.e., products distributed to users) are assigned a unique
+      positive <tt>&lt;Product_Code&gt;</tt>. &nbsp; All internal products have a <tt>&lt;Product_Code&gt;</tt>
+      of 0.<br>
+      </td>
+    </tr>
+</TBODY>
+  </table>
+  </center></div><p>A <tt>&lt;Prod_Buffer_Name&gt;</tt> / <tt>&lt;Buffer_Number&gt;</tt>
+  pair is used to represent each data input to the algorithm task and each data output of
+  the task. <em>Intermediate products</em> have a <tt>&lt;Product_Code&gt;</tt> of <tt><b>0</b></tt>
+  while <em>final products</em> (those distributed outside the ORPG) have a unique positive
+  integer value assigned. </p>
+  <p>There are two types of base data input buffers that can be used. <ul>
+    <li>The <tt>&lt;Prod_Buffer_Name&gt;</tt> <tt><b>REFLDATA</b></tt> with a <tt>&lt;Buffer_Number&gt;</tt>
+      of <tt><b>79</b></tt> provides reflectivity data only. </li>
+    <li>The <tt>&lt;Prod_Buffer_Name&gt;</tt> <tt><b>COMBBASE</b></tt> with a <tt>&lt;Buffer_Number&gt;</tt>
+      of <tt><b>96</b></tt> provides Doppler data (velocity and spectrum width). <font size="-1">Reflectivity
+      data is also provided. However, reflectivity data obtained from the split cut portion of
+      the volume scan does not have the original azimuth angle information. The azimuth angle
+      has been altered to match the closest Doppler angle.</font> </li>
+  </ul>
+  <hr>
+  <h3>Part C. Adding Tasks, Data Stores (linear buffers) and Products </h3>
+  <p>In addition to writing an application that correctly uses the appropriate interface to
+  the ORPG services (using the API), the ORPG must be configured for the executable task,
+  the persistent data store (linear buffer) for the output product, and the output product
+  itself. Currently, this is accomplished by editing two configuration files. <b>IMPORTANT:
+  Use caution when editing these tables to retain the matching of open and close braces.</b>
+  Syntax errors in the configuration tables will result in incorrectly configured algorithms
+  and can also prevent the ORPG from launching. </p>
+  <p>The example provided here is a simple task that inputs base data and outputs a final
+  product. Algorithms made up of multiple tasks connected through intermediate products
+  require corresponding configuration file entries for each task and product in the chain. <ol>
+    <li><b>Preparation</b><br>
+      <p>The necessary parameters should be determined in advance. The parameters used in this
+      example are: </p>
+      <div align="center"><center><table cellSpacing="2" cellPadding="2" width="80%" border="2">
+<TBODY>
+        <tr align="middle">
+          <td colSpan="2">ITEM </td>
+          <td>VALUE </td>
+        </tr>
+        <tr>
+          <td align="middle" rowSpan="2"><b>task parameters</b><br>
+          for the task to be added </td>
+          <td><tt>&lt;Task_Name&gt;</tt> </td>
+          <td><tt><b>itwsdbv</b></tt> </td>
+        </tr>
+        <tr>
+          <td><tt>&lt;Task_Number&gt;</tt> </td>
+          <td><tt><b>706</b></tt> </td>
+        </tr>
+        <tr>
+          <td align="middle" rowSpan="2"><b>input data parameters</b><br>
+          of an existing product </td>
+          <td><tt>&lt;Prod_Buffer_Name&gt;</tt> </td>
+          <td><tt><b>COMBBASE</b></tt> </td>
+        </tr>
+        <tr>
+          <td><tt>&lt;Buffer_Number&gt;</tt> </td>
+          <td><tt><b>96</b></tt> </td>
+        </tr>
+        <tr>
+          <td align="middle" rowSpan="4"><b>output data parameters</b><br>
+          for the product being added </td>
+          <td><tt>&lt;Prod_Buffer_Name&gt;</tt> </td>
+          <td><tt><b>ITWSDBV</b></tt> </td>
+        </tr>
+        <tr>
+          <td><tt>&lt;Buffer_Number&gt;</tt> </td>
+          <td><tt><b>87</b></tt> </td>
+        </tr>
+        <tr>
+          <td><tt>&lt;Product_Code&gt;</tt> (final product) </td>
+          <td><tt><b>93</b></tt> </td>
+        </tr>
+        <tr>
+          <td><tt>&lt;LB_filename&gt;</tt> </td>
+          <td><tt><b>itwsdbv.lb</b></tt> </td>
+        </tr>
+</TBODY>
+      </table>
+      </center></div><p><br>
+      <ul>
+        <li>In this example, the values of <tt>&lt;Task_Name&gt;</tt>, <tt>&lt;Prod_Buffer_Name&gt;</tt>,
+          and <tt>&lt;LB_filename&gt;</tt> are identical (if case is not considered). This is not a
+          requirement. However, the task parameters and the output data parameters must not conflict
+          with other ORPG algorithms. </li>
+        <li>Maximum length for <tt>&lt;Prod_Buffer_Name&gt;</tt> is 15 characters. Recommended
+          length for <tt>&lt;Task_Name&gt;</tt> is 11 characters maximum. </li>
+        <li>Safe linear buffer numbers <em>for new products</em> are any unused number from 131-299.
+          <table width="85%" bgColor="maroon">
+<TBODY>
+            <tr>
+              <td><table cellSpacing="5" cellPadding="5" width="100%" bgColor="white">
+<TBODY>
+                <tr vAlign="top">
+                  <td><b><font color="#990000">Note</font></b>: </td>
+                  <td>Currently, the ORPG infrastructure does not correctly handle buffer numbers greater
+                  than <tt><b>PI_MAX_BUFFERNUM</b></tt> (which is currently set to 130). Until an
+                  outstanding issue is resolved, new products cannot be distributed, cannot be generated via
+                  one time requests, but can be generated via the routine generation list. The alternative
+                  of using a buffer number less than or equal to <tt><b>PI_MAX_BUFFERNUM</b></tt> is
+                  possible but not recommended. This approach would require modifying ORPG infrastructure
+                  source code. </td>
+                </tr>
+</TBODY>
+              </table>
+              </td>
+            </tr>
+</TBODY>
+          </table>
+        </li>
+        <li>Safe product codes <em>for new final products</em> are any unused code from 110 to 131
+          and from 212 to 299. See Table II in the current Associated PUP ICD and the <tt><b>product_tables</b></tt>
+          configuration file to determine appropriate unused product codes. Intermediate products
+          (not distributed outside the ORPG) are assigned a product code of 0. <table width="85%"
+          bgColor="maroon">
+<TBODY>
+            <tr>
+              <td><table cellSpacing="5" cellPadding="5" bgColor="white">
+<TBODY>
+                <tr vAlign="top">
+                  <td><b><font color="#990000">Note</font></b>: </td>
+                  <td>There is currently no ORPG dependency on the value of <tt><b>PI_MAX_PCODE</b></tt>
+                  (which is currently 100). However, there may be dependencies hard-coded in that have not
+                  been discovered. </td>
+                </tr>
+</TBODY>
+              </table>
+              </td>
+            </tr>
+</TBODY>
+          </table>
+        </li>
+      </ul>
+      <p><br>
+      </p>
+    </li>
+    <li><a name="Add_New_Task"><b>The <tt><b>$HOME/cfg/task_table</b></tt> file</b></a><br>
+      <p><b>- Task Attribute Table -</b> </p>
+      <p>The first part of this file contains the task attribute table. There must be an entry
+      in this table for every ORPG task. The following paragraphs provide a brief discussion of
+      these parameters with respect to this configuration example. <a
+      href="http://129.15.68.149/~eforren/code/devel_guide1.3/devel_env/task_table_istr">A basic
+      description of these attributes</a> is provided at the beginning of the <tt><b>task_table</b></tt>
+      configuration file. A more complete reference for task attributes remains to be developed.
+      </p>
+      <p>The following figure is copied from the <tt><b>task_table</b></tt> configuration file.
+      The attribute <tt><b>id</b></tt> is the <tt>&lt;Task_Number&gt;</tt>, <tt><b>name</b></tt>
+      refers to <tt>&lt;Task_Name&gt;</tt>, while <tt><b>out:</b></tt> and <tt><b>output_data</b></tt>
+      correspond to <tt>&lt;Prod_Buffer_Name&gt;</tt> and the <tt>&lt;Buffer_Number&gt;</tt> of
+      the product.&nbsp; Attributes <tt><b>in:</b></tt> and <tt><b>input_data</b></tt>
+      correspond to <tt>&lt;Prod_Buffer_Name&gt;</tt> and the <tt>&lt;Buffer_Number&gt;</tt> of
+      the input data. The <tt><b>desc</b></tt> attribute is a brief description of what the task
+      does. The <tt><b>args</b></tt> attribute lists the command line arguments used when the
+      ORPG task is launched following an ordinal instance number. An entry of <tt><b>0</b></tt>
+      for the instance number represents the first (and in this example, the only) instance of a
+      task. </p>
+      <div align="center"><center><table cellSpacing="2" cellPadding="5" width="90%"
+      bgColor="white" border="2">
+<TBODY>
+        <tr>
+          <td><pre>    Task {  
+        id              06
+        name            itwsdbv
+#       in:             COMBBASE
+#       out:            ITWSDBV
+        input_data      96
+        output_data     87
+        desc            &quot;Create ITWS Digital Base Velocity&quot;
+        args
+                        0 &quot;-v&quot;
+    }
+
+</pre>
+          </td>
+        </tr>
+</TBODY>
+      </table>
+      </center></div><p><b>- Operational Process List -</b> </p>
+      <p>The only other portion of this file that concerns an algorithm developer is the section
+      titled <tt><b>Operational_processes</b></tt>. Here the <tt><b>&lt;Task_Name&gt;</b></tt>
+      must be included in the list in order for the task to launch when the ORPG is started. </p>
+      <div align="center"><center><table cellSpacing="2" cellPadding="5" width="90%"
+      bgColor="white" border="2">
+<TBODY>
+        <tr>
+          <td><pre>Operational_processes {
+    
+   cm_ping
+   cm_uconx
+   cm_atlas
+   cm_simpact
+   cm_tcp
+
+   ps_onetime 
+   .
+   .
+   .
+   itwsdbv
+   .
+   .
+}
+</pre>
+          </td>
+        </tr>
+</TBODY>
+      </table>
+      </center></div><p>If the algorithm task is not launched when the ORPG is started it can be
+      launched from the command line with a simple command such as: <tt><b>itwsdbv -v</b></tt>.
+      It should be noted however that because of the integrated nature of the ORPG services, an
+      algorithm task must be 'installed' into the appropriate directory to be launched.
+      Executing the compiled binary in the source code directory tree will not work. </p>
+      <p><font size="-1">Solaris Note: Before executing a newly installed command that will be
+      executed based upon the contents of the <b>path</b> environmental variable, enter <b>rehash</b>
+      at the command line to recompute the hash table.</font> <br>
+      </p>
+    </li>
+    <li><a name="Add_New_Products"><b>The <tt><b>$HOME/cfg/product_tables</b></tt> file</b></a><br>
+      <p><b>- Product Attribute Table -</b> </p>
+      <p>The product attribute table contains parameters associated with both final products and
+      intermediate products. There must be an entry in this table for every ORPG product. The
+      following paragraphs provide a brief discussion of some of these parameters with respect
+      to this configuration example. <a
+      href="http://129.15.68.149/~eforren/code/devel_guide1.3/devel_env/product_tables_istr">A
+      basic description of these attributes</a> is provided at the beginning of the <tt><b>product_tables</b></tt>
+      configuration file. A more complete reference for product attributes remains to be
+      developed. </p>
+      <p>The following figure is copied from the <tt><b>product_tables</b></tt> configuration
+      file. A <tt><b>prod_code</b></tt> of <tt><b>0</b></tt> is used for intermediate products.
+      The <tt><b>prod_id</b></tt> attribute indicates the <tt>&lt;Buffer_Number&gt;</tt> and the
+      internal name, <tt>&lt;Prod_Buffer_Name&gt;</tt>, of the product. The <tt><b>gen_task</b></tt>
+      entry includes the <tt>&lt;Task_Number&gt;</tt> and the <tt>&lt;Task_Name&gt;</tt>
+      corresponding to the task generating the product.&nbsp;The <tt><b>path</b></tt> attribute
+      specifies the existing subdirectory under the ORPG data directory (<tt><b>$ORPGDIR</b></tt>)
+      in which the linear buffer is created and the name of that file (<tt>&lt;LB_filename&gt;</tt>).
+      </p>
+      <p>The product attribute table entry also includes a reference to other products used as
+      inputs to the algorithm. The <tt><b>n_dep_prods</b></tt> attribute indicates the number of
+      inputs, in this case <b>1</b>. The <tt>&lt;Prod_Buffer_Name&gt;</tt> and <tt>&lt;Buffer_Number&gt;</tt>
+      for the data input(s) are listed after the <tt><b>dependent_products</b></tt> and <tt><b>dep_prods_list</b></tt>
+      attributes, respectively. </p>
+      <div align="center"><center><table cellSpacing="2" cellPadding="5" width="90%"
+      bgColor="white" border="2">
+<TBODY>
+        <tr>
+          <td><pre>Product {  
+    prod_id         87  ITWSDBV
+    prod_code       93
+    gen_task        706 itwsdbv
+    wx_modes        7
+    disabled        0
+    n_priority      4
+    priority_list   37 37 37 37
+    n_maps          0
+    map_list    
+    n_dep_prods     1
+#   dependent_products:     COMBBASE
+    dep_prods_list  96
+    desc       &quot;DBV ITWS Digital Velocity Product: 256 level/0.54 nm&quot;
+    type            1
+    alert           0
+    warehoused      0
+    elev_index      2
+    path            base/itwsdbv.lb
+    lb_n_msgs       10
+# NOTE: Final products are links to product data base
+    max_size        96
+    params
+                 2 -20 3599 0 10 &quot;Elevation&quot; &quot;Degrees&quot;
+    }
+</pre>
+          </td>
+        </tr>
+</TBODY>
+      </table>
+      </center></div><p>The <tt><b>type</b></tt> attribute refers to the frequency that the
+      product is generated. Base data are <tt><b>type 5</b></tt> for &quot;Radial&quot;. Most
+      meteorological products are either <tt><b>type 0</b></tt> for &quot;Volume&quot; or <tt><b>type
+      1</b></tt> for &quot;Elevation&quot;. Products that are not produced on a regular schedule
+      are <tt><b>type 3</b></tt> for &quot;On Demand&quot;. There are no &quot;Time&quot;
+      products or &quot;External&quot; products in the legacy system. </p>
+      <p>The <tt><b>desc</b></tt> attribute is a brief description of the product. There are two
+      forms of this attribute. If the first character after the opening quote is not white
+      space, the initial characters (all upper case) up to the first white space represent a
+      product mnemonic, which is used by <tt><b>hci</b></tt> display screens. The remainder of
+      the text string is the product description. If the first character after the opening quote
+      is white space, the string represents the product description without a product mnemonic.
+      Intermediate products do not have a mnemonic while final graphic products do have a
+      mnemonic. </p>
+      <p>The <tt><b>params</b></tt> attribute provides a description of the product dependent
+      parameters used in the product request message. All parameters used in the request message
+      for a product (including all elevation based products) must be defined here, otherwise the
+      product will not be distributed. Product dependent parameters 1 - 6 correspond to <tt><b>params</b></tt>
+      0 - 5 in the product attribute table. Comprehensive guidance concerning product dependent
+      parameters will be included in a subsequent release of CODE. The one required parameter
+      for elevation based products is unique and discussed here. </p>
+      <p>In this example, <tt><b>params 2 -20 3599 0 10 &quot;Elevation&quot;
+      &quot;Degrees&quot;</b></tt>, is interpreted as follows. The product dependent parameter 3
+      (<tt><b>params 2</b></tt>) represents elevation in degrees. The elevation is scaled in
+      units*10 and can range from -2.0 units (<tt><b>-20</b></tt>) to plus 359.9 units (<tt><b>3599</b></tt>).
+      The default value is 0 units. In the case of elevation angles for elevation products,
+      interpretation is not quite that simple. Negative numbers actually represent slices so a -
+      0.4 represents the first 4 elevations in a volume. Small positive numbers represent
+      positive elevation angles (34 represents + 3.4 degrees) and a very large positive number
+      represents negative elevations (3595 represents - 0.5 degrees). Note: It is not clear
+      where the transition between representing positive angles and negative angles occurs.
+      Currently the radar does not scan at negative elevation angles. </p>
+      <table width="90%">
+<TBODY>
+        <tr>
+          <td colSpan="2" height="5"></td>
+        </tr>
+        <tr vAlign="top">
+          <td><font size="-1">Note:&nbsp;<br>
+          </font></td>
+          <td><font size="-1">For new products with a buffer number greater than <b>PI_MAX_BUFFERNUM</b>,
+          the 6 parameters in the request message map directly to the first 6 product dependent
+          parameters in the product itself. For legacy products (buffer numbers less than or equal
+          to <b>PI_MAX_BUFFERNUM</b>), there is a hard coded mapping between these 6 request
+          parameters and the 10 product dependent parameters in the final product.</font> </td>
+        </tr>
+</TBODY>
+      </table>
+      <p><br>
+      </p>
+      <p><b>- Default Product generation List -</b> </p>
+      <p>Fully integrated algorithms do not produce products unless their output product is
+      requested. One way of insuring this is to add an entry for the final product to the
+      default product generation table at the end of the <tt><b>product_tables</b></tt> file. <a
+      href="http://129.15.68.149/~eforren/code/devel_guide1.3/devel_env/default_gen">A basic
+      description of the default generation table</a> is provided at the beginning of this table
+      in the <tt><b>product_tables</b></tt> configuration file. </p>
+      <p>The entry in the table below for our example is <tt><b>product id 87</b></tt> and
+      includes the value -4 for the <tt><b>p3</b></tt> product dependent parameter. For
+      elevation based products this means the 4 lowest elevation cuts are always generated. Note
+      that the encoding for slices differs from the product attribute table discussed earlier.
+      To make things more confusing, the encoding for elevations angles (not shown in this
+      example) is the same as the product attribute table. </p>
+      <table width="90%">
+<TBODY>
+        <tr>
+          <td colSpan="2" height="5"></td>
+        </tr>
+        <tr vAlign="top">
+          <td><font size="-1">Note:&nbsp;<br>
+          </font></td>
+          <td><font size="-1">Product dependent parameter <b>p3</b> in the default generation table
+          corresponds to <b>params 2</b> in the product attribute table.</font> </td>
+        </tr>
+</TBODY>
+      </table>
+      <p><br>
+      <br>
+      </p>
+      <div align="center"><center><table cellSpacing="2" cellPadding="5" width="90%"
+      bgColor="white" border="2">
+<TBODY>
+        <tr>
+          <td><pre><font size="-1">Default_prod_gen {
+ # prod_id wx_modes gen_pr arch_pr stor_pr 
+                                      stor_retention  p1    p2    p3    p4    p5    p6
+      2       6       1     -1       1      180       UNU   UNU   -4    UNU   UNU   UNU
+      4       6       1     -1       1      180       UNU   UNU   -1    UNU   UNU   UNU
+      7       4       1      0       1      180       UNU   UNU   -1    UNU   UNU   UNU
+      8       6       1     -1       1      180       UNU   UNU   -1    UNU   UNU   UNU
+      9       4       1      0       1      180       UNU   UNU   -3    UNU   UNU   UNU
+     10       6       1     -1       1      180       UNU   UNU   -4    UNU   UNU   UNU
+     11       6       1     -1       1      180       UNU   UNU   -1    UNU   UNU   UNU
+     13       4       1      0       1      180       UNU   UNU   -3    UNU   UNU   UNU
+     15       6       1     -1       1      180       UNU   UNU   -4    UNU   UNU   UNU
+     .
+     87       6       1      1       1       30       UNU   UNU   -4    UNU   UNU   UNU
+     .
+     }</font>
+</pre>
+          </td>
+        </tr>
+</TBODY>
+      </table>
+      </center></div><p><br>
+      </p>
+    </li>
+    <li><b>The include files - <tt><b>a309.inc</b></tt> and <tt><b>a309.h</b></tt></b><br>
+      <p>The include files, <tt><b>a309.inc</b></tt> and <tt><b>a309.h</b></tt>, do not have to
+      be modified in order for the new algorithm task to run in the ORPG environment (potential
+      other effects upon the functioning of the ORPG have not been investigated). If not
+      modified, the corresponding product buffers must be referenced by their number rather than
+      their name when using the API calls. &nbsp;In order to use buffer names with the API calls
+      (that is, use a globally defined constant rather than a literal number for the input
+      parameter), the following changes must be made before the algorithm source code is
+      compiled. <ul>
+        <li>For algorithms written in FORTRAN, using our configuration example, a parameter <tt><b>ITWSDBV</b></tt>
+          with value <tt><b>87</b></tt> would be defined in <tt><b>$HOME/include/a309.inc</b></tt> <div
+          align="center"><center><table cellSpacing="2" cellPadding="5" width="80%" bgColor="white"
+          border="2">
+<TBODY>
+            <tr>
+              <td><pre>C  Buffer data types
+      INTEGER ALRTMSG
+      INTEGER BREF19
+      INTEGER BREF16
+      .
+      .
+      .
+      INTEGER ITWSDVB
+.
+.
+.
+      PARAMETER (ALRTMSG=1)
+      PARAMETER (BREF19=2)
+      PARAMETER (BREF16=3)
+      .
+      .
+      .
+      PARAMETER (ITWSDBV=87)
+      .
+</pre>
+              </td>
+            </tr>
+</TBODY>
+          </table>
+          </center></div><p><br>
+          </p>
+        </li>
+        <li>For algorithms written in ANSI-C, using our configuration example, a constant <tt><b>ITWSDBV</b></tt>
+          with the value <tt><b>87</b></tt> would be defined in <tt><b>$HOME/include/a309.h</b></tt>
+          <div align="center"><center><table cellSpacing="2" cellPadding="5" width="80%"
+          bgColor="white" border="2">
+<TBODY>
+            <tr>
+              <td><pre>/* RPG Buffer types */
+
+#define ALRTMSG 1 
+#define BREF19 2 
+#define BREF16 3 
+.
+.
+.
+#define ITWSDBV 87
+.
+</pre>
+              </td>
+            </tr>
+</TBODY>
+          </table>
+          </center></div><p><br>
+          </p>
+        </li>
+      </ul>
+    </li>
+    <li><b>Make backup copies of all modified configuration files</b>.<br>
+      <b><font color="#990000">Note</font></b>:These files are overwritten every time the ORPG
+      is compiled.<br>
+      <br>
+    </li>
+    <li><b>Erase appropriate files in the ORPG data directory.</b><br>
+      For configuration changes to be recognized, certain data files in <tt><b>$ORPGDIR</b></tt>
+      must be rebuilt during the next ORPG launch. This can be accomplished by using the <b>-c</b>
+      option when starting the ORPG which deletes the contents of the product database, message
+      logs, adaptation data, etc. Note: the <tt><b>-c</b></tt> option is not available on ORPG
+      beta 1.105 distributed with CODE 1.1.<br>
+      <br>
+    </li>
+  </ol>
+  <hr>
+  <h3><a name="Add_Data_File_Info">Part D. Non-Product Persistent Data Storage </a></h3>
+  <p>There are situations where an algorithm can use a persistent data store (on disk) that
+  does not need to be configured as an intermediate product. In deciding when to use an
+  intermediate product and when to use a non product data store keep the following in mind.
+  &nbsp; <ul>
+    <li>In an algorithm where the processing is divided among two or more tasks, the tasks must
+      be connected by at least one intermediate product data store. </li>
+    <li>If an item of data is part of the &quot;flow&quot;, that is it changes every elevation
+      or every volume, consider configuring as an intermediate product. </li>
+    <li>If an item of data is not necessarily private to the immediate algorithm (that is if the
+      data is useful to other algorithms), is should be configured as an intermediate product. </li>
+    <li>On the other hand if the data changes at irregular intervals or is useful only to the
+      individual algorithm, consider configuration as a private data store. </li>
+    <li>Finally, if the data does not change during operation of the algorithm but may be
+      changed by an operator configuring the algorithm, the data should be configured as
+      adaptation data. </li>
+  </ul>
+  <p>Currently, the ORPG supports the creation of product data stores and adaptation data
+  but does not support non-product persistent data storage whether in the form of an ORPG
+  linear buffer data store of a basic file. </p>
+  <h4>Basic File </h4>
+  <p>Programmers can use the standard C library file routines for basic file storage. There
+  is no API support for basic file storage. </p>
+  <h4>Linear Buffer </h4>
+  <p>The ORPG does have a service library that includes linear buffer file management
+  services in <tt><b>liborpg</b></tt>. A subset of these services (names begin with the
+  prefix <tt><b>ORPGDA_</b></tt>) could be used by algorithms but should be encapsulated
+  into additional Algorithm API functions. See CODE Guide Volume 3, Document 1 The WSR-88D
+  Algorithm API. </p>
+  <p>The ORPG provides a standard mechanism for configuring linear buffer data stores that
+  are not products, the <a href="data_tables.4.html"><tt><b>data_tables</b></tt></a>
+  configuration file. However, at the time of this writing, it appears that this configuration
+  file may be reserved for ORPG global data stores (not including algorithm data stores).
+  If this is the case, the API would need to be extended to provide support for the creation
+  of this data store.  </p>
+</blockquote>
+
+<blockquote>
+  <h2>Section III&nbsp;&nbsp; Algorithm Adaptation Data - Configuration &amp; Use </h2>
+  <blockquote>
+    <h3>Part A. Introduction </h3>
+    <p>The WSR-88D uses adaptation data to configure many aspects of the radar system. A
+    portion of this configuration data is used to alter or customize the contents of WSR-88D
+    products. This section contains an overview of algorithm specific adaptation data and
+    procedures for proper configuration. Site specific adaptation data, covered in Section IV
+    of CODE Guide Vol 2 - Document 2, contains only a few items of information that should be
+    changed to correspond to the site that produced the base data being used as input to the
+    algorithms. </p>
+    <h3>Summary of Steps Required to Add Adaptation Data </h3>
+    <ul>
+      <li><b>Determine the adaptation data appropriate for the new algorithm.</b> </li>
+      <li><b>Define an adaptation data structure and unique class name in a header file.</b><br>
+        See guidance for ANSI-C algorithms in Part C. </li>
+      <li><b>Install the adaptation data with the <tt><b>install_adapt_type</b></tt> utility.</b><br>
+        See instructions for ANSI-C algorithms in Part D. </li>
+      <li><b>Using the ANSI-C algorithm API, register for and read the adaptation data in the
+        algorithm.</b><br>
+        See CODE Guide Vol 3, Document 1 - <i>The WSR-88D Algorithm API</i> </li>
+      <li><b>Special considerations and limitations for FORTRAN algorithms</b><br>
+        See Part D. </li>
+    </ul>
+    <hr>
+    <h3><a name="Adapt_Config_Files">Adaptation Data Configuration Files</a> </h3>
+    <p>Most of the adaptation data in the ORPG are defined in three ASCII configuration files.
+    The information in these text based files is converted to a binary format and placed in a
+    particular ORPG linear buffer storage file. This transformation can be accomplished using
+    special utilities and can also occur as a part of the ORPG start sequence. A general
+    description of the three adaptation data configuration files is provided below. </p>
+    <table cellPadding="5" width="95%" align="center" border="2">
+<TBODY>
+      <tr>
+        <td>Users of an operational ORPG do not have write access to these configuration files.
+        The adaptation data are modified (edited) via the user interface called the <tt><b>hci</b></tt>.
+        Operationally, there are at least 4 levels of edit authority for this data ranging from
+        read-only (no modification permitted) to allowing any user to modify the data. Most of the
+        algorithm specific adaptation data in an operational WSR-88D cannot be changed on site. </td>
+      </tr>
+</TBODY>
+    </table>
+    <h4>The &nbsp;<a href="misc_adapt.4.html"><tt><b>misc_adapt</b></tt></a> &nbsp;
+    Configuration File </h4>
+    <p>Most of the data in this configuration file is not of interest to the algorithm
+    developer. However, some of the &quot;Site Information&quot; adaptation data may be
+    modified to correlate with the site that produced the data currently being used by the
+    development environment to run / test algorithms. This would be critical if the algorithm
+    used the radar antenna location and / or elevation to produce the product. See Section IV
+    of CODE Guide Vol 2 - Document 2 for instructions. </p>
+    <h4>The &nbsp;<a href="algorithms.4.html"><tt><b>algorithms</b></tt></a> &nbsp;
+    Configuration File </h4>
+    <p>The <tt><b>algorithms</b></tt> configuration file contains algorithm-specific
+    adaptation data. <b>Generally, all adaptation data for new algorithms should be installed
+    in this file.</b> For the existing (legacy) algorithms, this data contained run-time
+    adjustable parameters for the meteorological algorithms. Operationally, changing this
+    information may require changes to approved algorithm description documents.&nbsp; </p>
+    <h4>The &nbsp;<a href="prod_params.4.html"><tt><b>prod_params</b></tt></a> &nbsp;
+    Configuration File </h4>
+    <p>The <tt><b>prod_params</b></tt> configuration file contains parameters that affect
+    certain aspects of the formatting of the WSR-88D final products. The general distinction
+    made in the legacy system was: data in the <tt><b>algorithms</b></tt> file concerned
+    parameters affecting the science algorithms while data in the <tt><b>prod_params</b></tt>
+    file affected either the formatting of the final product of the display of the data on the
+    WSR-88D PUP. Operationally, changing much of this information would require changes to
+    product description documentation. </p>
+    <h4>Example of an Adaptation Data Configuration File Entry </h4>
+    <p>This sample entry (which represents a data object) is taken from the <tt><b>algorithms</b></tt>
+    configuration file. This represents adaptation data for the Vertically Integrated Liquid /
+    Echo Tops algorithm which produces intermediate data for several products. In Part C. of
+    this document we show the include file that defines the structure of this object. </p>
+    <table cellPadding="10" align="center" border="1">
+<TBODY>
+      <tr>
+        <td bgColor="white"><pre>&quot;<b>Vil/Echo Tops</b>&quot;        <b>VilEchoTops</b>
+{
+        beam_width                       1.0
+        min_refl                         18.3
+        max_vil                          80
+}
+</pre>
+        </td>
+      </tr>
+</TBODY>
+    </table>
+    <p>This block of adaptation data has three fields: <tt><b>beam_width</b></tt>, <tt><b>min_refl</b></tt>,
+    and <tt><b>max_vil</b></tt> whose initial values are 1.0, 18.3 and 80. When adaptation
+    data is installed this information is stored in a linear buffer in binary format and
+    accessed via the algorithm API. </p>
+    <p><tt><b>VilEchoTops</b></tt> is the name of the class (or type) of adaptation data. The
+    string &quot;<tt><b>Vil/Echo Tops</b></tt>&quot; is the name of an object of the class <tt><b>VilEchoTops</b></tt>.
+    Typically, there is only one object of each class of adaptation data, though one notable
+    exception will be discussed later. The ANSI-C algorithm API provides access to this data
+    via the object name, &quot;<tt><b>Vil/Echo Tops</b></tt>&quot;. Note: when installing new
+    adaptation data with the <tt><b>install_adapt_type</b></tt> utility, the class name is
+    indicated in the very first field (see example later in this document). </p>
+    <p>Normally, adaptation data configuration files are not manually edited in order to
+    change the structure of adaptation data entries or to define new adaptation data classes.
+    The <tt><b>install_adapt_type</b></tt> utility creates the entry from a structure defined
+    in an include file. A possible exception is for those classes of adaptation data that have
+    more than one object. Multiple objects of a class can be installed with the <tt><b>install_adapt_type</b></tt>
+    utility, but if any changes are needed to the default data values, they would have to me
+    made by hand. This is the case with the class <tt><b>VelocityDealiasing</b></tt> in the <tt><b>algorithms</b></tt>
+    configuration file and the <tt><b>ORPGDataLevel</b></tt> class in the <tt><b>prod_params</b></tt>
+    configuration file. </p>
+    <hr>
+    <h3><a name="Add_Adapt">Part C. Defining Algorithm Adaptation Data Structures (ANSI-C
+    Algorithms) </a></h3>
+    <p>An adaptation data structure is defined via an include file which defines the
+    appropriate ANSI-C structure and relates this structure to a uniquely named class with a
+    macro. Following is an example of an include file and instructions for properly defining
+    adaptation data. Currently, each block (or class) of data defined by this structure can be
+    no larger than 1000 bytes. </p>
+    <h3><a name="Example_Adapt">An Example Adaptation Data Structure Include File</a> </h3>
+    <p>The code below was taken from <tt><b>vil_echo_tops.h</b></tt>, the adaptation data
+    include file that corresponds to the example configuration file entry in Part B of this
+    document (for the Vertically Integrated Liquid / Echo Tops algorithm). </p>
+    <p>One purpose of this file is to define an ANSI-C structure to provide access to the
+    adaptation data. The structure is named <tt><b>vil_exho_tops_t</b></tt>. </p>
+    <table cellPadding="10" align="center" border="1">
+<TBODY>
+      <tr>
+        <td bgColor="white"><pre>#ifndef VIL_ECHO_TOPS_H
+#define VIL_ECHO_TOPS_H
+
+<b>#include &lt;orpgctype.h&gt;
+#include &lt;ocadapt.h&gt;</b>
+
+
+/* VIL/Echo Tops Data */
+
+typedef struct {
+
+   freal   beam_width; <b>/*#</b> <b>@name</b> &quot;Beam Width  [BW]&quot; 
+                           <b>@desc</b> Angular width of the radar beam between the 
+                                 half-power points.
+                           <b>@units</b> &quot;degrees&quot; <b>@min</b> 0.5 <b>@max</b> 2.0 <b>@default</b> 0.5  
+                           <b>@precision</b> 2 <b>@legacy_name</b> EBMWT
+                 <b>*/</b>
+   freal   min_refl;  <b>/*#</b> <b>@name</b> &quot;Min Ref Threshold  [MRT]&quot; 
+                          <b>@desc</b> Minimum reflectivity used in computing 
+                                vertically integrated liquid value.
+                            <b>@units</b> dBZ <b>@min</b> -33 <b>@max</b> 95 <b>@default</b> 0  
+                            <b>@precision</b> 2 <b>@legacy_name</b> ENREF
+                 <b>*/</b>
+   fint    max_vil;  <b>/*#</b> <b>@name</b> &quot;Max VIL Threshold  [MVT]&quot;
+                         <b>@desc</b> Maximum allowable VIL product value.  All 
+                               computed VIL values above this threshold will 
+                               be set to this threshold for product display.
+                         <b>@units</b> &quot;kg/m**2&quot; <b>@min</b> 1 <b>@max</b> 200 <b>@default</b> 1
+                 <b>*/</b>
+} vil_echo_tops_t;
+
+<b>DECLARE_CPP_WRAPPER(VilEchoTops, vil_echo_tops_t)</b>
+
+#endif
+</pre>
+        </td>
+      </tr>
+</TBODY>
+    </table>
+    <table align="center">
+<TBODY>
+      <tr vAlign="top">
+        <td>Note:<br>
+        </td>
+        <td>the types <tt><b>freal</b></tt> and <tt><b>fint</b></tt> are just <tt><b>float</b></tt>
+        and <tt><b>int</b></tt> respectively. These types are defined in <tt><b>orpgctype.h</b></tt>
+        and are used in C data structures that map to FORTRAN data structures (i.e. C struct
+        --&gt; FORTRAN COMMON blocks). </td>
+      </tr>
+</TBODY>
+    </table>
+    <p>Following the structure definition, a special macro is required to associate this
+    structure with a class of adaptation data (part of the ORPG infrastructure is written in
+    C++). The first parameter for the <tt><b>DECLARE_CPP_WRAPPER</b></tt> macro defines a
+    unique class name for this adaptation data: <tt><b>VilEchoTops</b></tt>. The second
+    parameter is the C structure just defined. </p>
+    <p>The special comments following each field definition beginning with <tt><b>/*#</b></tt>
+    and ending with <tt><b>*/</b></tt> contain optional meta-information. This information is
+    used when the ORPG user interface, the <tt><b>hci</b></tt>, displays the adaptation data
+    edit screen and can make changing the data from the <tt><b>hci</b></tt> easier.
+    Meta-information can be used to determine the default value of the data item when
+    installing the data with the <tt><b>install_adapt_type</b></tt> utility. </p>
+    <h4>Supported Data Types </h4>
+    <p>The individual fields of the adaptation data structure can be of most any base type and
+    fixed arrays of those types. The basic data types supported are: </p>
+    <table width="100%" align="center" bgColor="white">
+<TBODY>
+      <tr>
+        <td><table align="center" bgColor="white">
+<TBODY>
+          <tr>
+            <td align="middle" colSpan="2">BASE TYPES &nbsp; </td>
+            <td>&nbsp; </td>
+            <td align="middle" colSpan="2">ARRAY TYPES &nbsp; </td>
+          </tr>
+          <tr>
+            <td align="middle">&nbsp;&nbsp;<b>Type</b> </td>
+            <td align="middle"><b>Description</b>&nbsp;&nbsp; </td>
+            <td>&nbsp; </td>
+            <td align="middle">&nbsp;&nbsp;<b>Type</b> </td>
+            <td align="middle"><b>Description</b>&nbsp;&nbsp; </td>
+          </tr>
+          <tr>
+            <td align="right"><tt><b>char</b></tt> </td>
+            <td>signed 1 byte integer </td>
+            <td>&nbsp; </td>
+            <td align="right"><tt><b>char[]</b></tt> </td>
+            <td>fixed length string </td>
+          </tr>
+          <tr>
+            <td align="right"><tt><b>unsigned char</b></tt> </td>
+            <td>unsigned 1 byte integer </td>
+            <td>&nbsp; </td>
+            <td align="right"><tt><b>unsigned char[]</b></tt> </td>
+            <td>unsigned 1 byte integer array </td>
+          </tr>
+          <tr>
+            <td align="right"><tt><b>short</b></tt> </td>
+            <td>signed 2 byte integer </td>
+            <td>&nbsp; </td>
+            <td align="right"><tt><b>short[]</b></tt> </td>
+            <td>signed 2 byte integer array </td>
+          </tr>
+          <tr>
+            <td align="right"><tt><b>unsigned short</b></tt> </td>
+            <td>unsigned 2 byte integer </td>
+            <td>&nbsp; </td>
+            <td align="right"><tt><b>unsigned short[]</b></tt> </td>
+            <td>unsigned 2 byte integer array </td>
+          </tr>
+          <tr>
+            <td align="right"><tt><b>int</b></tt> </td>
+            <td>signed 4 byte integer * </td>
+            <td>&nbsp; </td>
+            <td align="right"><tt><b>int[]</b></tt> </td>
+            <td>signed 4 byte integer array * </td>
+          </tr>
+          <tr>
+            <td align="right"><tt><b>unsigned int</b></tt> </td>
+            <td>unsigned 4 byte integer * </td>
+            <td>&nbsp; </td>
+            <td align="right"><tt><b>unsigned int[]</b></tt> </td>
+            <td>unsigned 4 byte integer array * </td>
+          </tr>
+          <tr>
+            <td align="right"><tt><b>long</b></tt> </td>
+            <td>signed 4 byte integer ** </td>
+            <td>&nbsp; </td>
+            <td align="right"><tt><b>long[]</b></tt> </td>
+            <td>signed 4 byte integer array ** </td>
+          </tr>
+          <tr>
+            <td align="right"><tt><b>unsigned long</b></tt> </td>
+            <td>unsigned 4 byte integer ** </td>
+            <td>&nbsp; </td>
+            <td align="right"><tt><b>unsigned long[]</b></tt> </td>
+            <td>unsigned 4 byte integer array ** </td>
+          </tr>
+          <tr>
+            <td align="right"><tt><b>float</b></tt> </td>
+            <td>floating point type </td>
+            <td>&nbsp; </td>
+            <td align="right"><tt><b>float[]</b></tt> </td>
+            <td>floating point array </td>
+          </tr>
+</TBODY>
+        </table>
+        </td>
+      </tr>
+</TBODY>
+    </table>
+    <table align="center">
+<TBODY>
+      <tr>
+        <td>&nbsp;* </td>
+        <td>An <tt><b>int</b></tt> is 4 bytes on Solaris&nbsp; </td>
+      </tr>
+      <tr>
+        <td>** </td>
+        <td>A <tt><b>long</b></tt> is 4 bytes on Solaris with the 32-bit kernel (which is used for
+        the ORPG) </td>
+      </tr>
+      <tr>
+        <td colSpan="2">Avoiding types <tt><b>int</b></tt> and <tt><b>int[]</b></tt> should be
+        considered to improve portability. </td>
+      </tr>
+</TBODY>
+    </table>
+    <p>In addition to the types in the table, it is possible to define enumerated type fields.
+    See the &quot;Test Adaptation&quot; example in Part D of this document. </p>
+    <h4>'Meta-Information' for Adaptation Data </h4>
+    <p>Below is a summary of the more common / useful Meta-Information Fields. A more complete
+    list will be included with the formal WSR-88D documentation. </p>
+    <table cellPadding="5" width="95%" align="center" bgColor="white">
+<TBODY>
+      <tr vAlign="bottom">
+        <td><b>Meta Field Name</b> </td>
+        <td><b>Meta Field Type</b> </td>
+        <td><b>Description</b> </td>
+      </tr>
+      <tr vAlign="top">
+        <td><tt><b>@name</b></tt> </td>
+        <td>string </td>
+        <td>Display name for the field. Multiple word names should be enclosed in quotes. If not
+        specified, the field name will be used for the display name. </td>
+      </tr>
+      <tr vAlign="top">
+        <td><tt><b>@desc</b></tt> </td>
+        <td>string </td>
+        <td>Description of the field. The description can be a sentence that wraps if it contains
+        only alphabetic characters and spaces. If other characters are used, then this field must
+        be enclosed in quotes. Quoted strings must not wrap lines (the end quote must be on the
+        same line. Future releases of the ORPG will use this information for on line help screens.
+        <tt><b>@desc</b></tt> has a special use with enumerated types, see the &quot;Test
+        Adaptation&quot; example in Part D. </td>
+      </tr>
+      <tr vAlign="top">
+        <td><tt><b>@units</b></tt> </td>
+        <td>string </td>
+        <td>Unit of measurement. Currently only a fixed list of unit strings is supported: <tt>&quot;degrees&quot;,
+        &quot;radians&quot; &quot;dBZ&quot;, &quot;kft&quot;, &quot;km&quot;, &quot;km**2&quot;,
+        &quot;km**2/hr&quot;, &quot;kg/m**2&quot;, &quot;%&quot;, &quot;m/s&quot;,
+        &quot;hrs&quot;, &quot;mins&quot;, &quot;1/hr&quot;, &quot;1/sec&quot;, &quot;dBR&quot;,
+        &quot;dBR * 10&quot;, &quot;mm/hr&quot;, &quot;1/hr&quot;, &quot;mm&quot;, &quot;ft&quot;,
+        &quot;inches&quot;, &quot;deg * 10&quot;, &quot;deg&nbsp;*&nbsp;100&quot;,
+        &quot;deg&nbsp;*&nbsp;1000&quot;, &quot;joules/m/s&quot;, &quot;joules/m**2/s&quot;,
+        &quot;joules/meter**2/sec&quot;, &quot;10**5 Joules/meter/sec&quot;, &quot;m**2/sec&quot;,
+        &quot;k**2/hr&quot;, &quot;hr/kg/km**4&quot;, &quot;knots&quot;, &quot;E10-3/sec&quot;,
+        &quot;secs&quot;, &quot;milliseconds&quot;, &quot;bins&quot;, &quot;km/8&quot;,
+        &quot;km/2&quot;, &quot;km/hr&quot;, &quot;ratio&quot;, &quot;volumes&quot;,
+        &quot;azimuths&quot;, &quot;coefficient&quot;, &quot;storm&nbsp;cells&quot;,
+        &quot;storm&nbsp;components&quot;, &quot;storm&nbsp;segments&quot;,
+        &quot;elevation&nbsp;no&quot;, &quot;year&quot;, &quot;month&quot;, &quot;day&quot;,
+        &quot;exponent&quot;, &quot;difference&quot;, &quot;mean&nbsp;square&nbsp;error&quot;,
+        &quot;(mm**6/m**3)*(hr/mm)**n)&quot;, &quot;factor&quot;, &quot;km&nbsp;*&nbsp;2&quot;</tt>.
+        </td>
+      </tr>
+      <tr vAlign="top">
+        <td><tt><b>@min</b></tt> </td>
+        <td>type&nbsp;dependent </td>
+        <td>The minimum value for a field. If the field is an array, <tt><b>@min</b></tt> can
+        contain a single value for all fields in the array, or a list of comma separated values
+        for each element of the array. </td>
+      </tr>
+      <tr vAlign="top">
+        <td><tt><b>@max</b></tt> </td>
+        <td>type&nbsp;dependent </td>
+        <td>The maximum value for a field. If the field is an array, <tt><b>@max</b></tt> can
+        contain a single value for all fields in the array, or a list of comma separated values
+        for each element of the array. </td>
+      </tr>
+      <tr vAlign="top">
+        <td><tt><b>@default</b></tt> </td>
+        <td>type&nbsp;dependent </td>
+        <td>the default value for a field. If the field is an array, <tt><b>@default</b></tt> can
+        contain a single value for all fields in the array, or a list of comma separated values
+        for each element of the array. If not specified, the <tt><b>@min</b></tt> value is used if
+        specified. </td>
+      </tr>
+      <tr vAlign="top">
+        <td><tt><b>@precision</b></tt> </td>
+        <td>integer </td>
+        <td>If not specified, 3 digits of precision will be supplied. You may wish to specify
+        precision for an integer because it is converted to floating point values externally. For
+        arrays of integers or floats, this value can be a single precision for all elements of the
+        array or a different precision for each element of the array. </td>
+      </tr>
+      <tr vAlign="top">
+        <td><tt><b>@legacy_name</b></tt> </td>
+        <td>&nbsp; </td>
+        <td>Name of the legacy field that corresponds to this field. Not used for new adaptation
+        data. </td>
+      </tr>
+      <tr vAlign="top">
+        <td><tt><b>@possible_values</b></tt> </td>
+        <td>type&nbsp;dependent </td>
+        <td>A list of possible values for this field. For integer and floating point fields, this
+        field can be a comma separated list of numbers. The list can span lines. </td>
+      </tr>
+      <tr vAlign="top">
+        <td><tt><b>@enum_values</b></tt> </td>
+        <td>list&nbsp;of&nbsp;string </td>
+        <td>A list of enumerated values for an integer field. Each enumerated value should be
+        enclosed in quotes and separated by commas. The list of values can span lines but an
+        individual enumerated value (within quotes) must be contained on a single line. There are
+        two forms of value definition. The first form is <tt>&quot;&lt;text_value&gt;[=&lt;numeric_value&gt;]&quot;</tt>
+        where <tt>&lt;text_value&gt;</tt> is a single or multiple word text value and <tt>&lt;numeric_value&gt;</tt>
+        is an optional number. An example is: <tt><b>&quot;Apples=1&quot;</b></tt>. If the numeric
+        value is omitted, integer values will be set to the previous enumerated value + 1. The
+        other form is <tt>&quot;Range:x-y&quot;</tt> where <tt>x</tt> is the minimum value
+        (inclusive) and <tt>y</tt> is the maximum value (inclusive). There can only be one range
+        enumerated value in the list. The <tt><b>@min</b></tt> and <tt><b>@max</b></tt> meta field
+        should not be used with <tt><b>@enum_values</b></tt>.<br>
+        <br>
+        For new ANSI-C algorithms, it is more straight forward to define an enumerated type rather
+        than using this meta field (see &quot;Test Adaptation&quot; example in Part D of this
+        document). </td>
+      </tr>
+</TBODY>
+    </table>
+    <p>It is highly recommended that all adaptation data fields include at least the minimum
+    value allowed and the maximum value allowed. If the default value is not specified, the
+    minimum is used as the default. For data fields that are not continuous (that is, data
+    that has only certain discreet legal values), either the possible values should be
+    described (<tt><b>@possible_values</b></tt>) along with a default value or an enumerated
+    type should be defined. </p>
+    <p><br>
+    </p>
+    <hr>
+    <h3>Part D. Generating &amp; Using Adaptation Data (ANSI-C Algorithms) </h3>
+    <p>After defining the adaptation data in a C header file, the adaptation data must be
+    installed into the system. This will create an object entry in the specified configuration
+    file. </p>
+    <h3>The &nbsp;<a href="install_adapt_type.1.html"><tt><b>install_adapt_type</b></tt></a>
+    &nbsp; Utility </h3>
+    <p>The ORPG must be running in order to use this utility. You should be logged into the
+    ORPG account. In addition, all three adaptation data configuration files ( <tt><b>algorithms</b></tt>,
+    <tt><b>misc_adapt</b></tt>, and <tt><b>prod_params</b></tt> ) must have their write
+    permissions set. The correct form of the command is: </p>
+    <table cellPadding="2" align="center" bgColor="white">
+<TBODY>
+      <tr>
+        <td><tt><b>install_adapt_type [options] &quot;&lt;object_name&gt;&quot;
+        &lt;header_file_name&gt;</b></tt> </td>
+      </tr>
+</TBODY>
+    </table>
+    <p>The <tt><b>&lt;header_file_name&gt;</b></tt> can be a complete path or can be a
+    filename using the path specified by the <tt><b>-I</b></tt> option. The more useful
+    options are: </p>
+    <table cellPadding="5" width="95%" align="center" bgColor="white">
+<TBODY>
+      <tr vAlign="top">
+        <td width="140"><tt><b>-c&nbsp;config_name</b></tt> </td>
+        <td>the name of the configuration file to update [default <tt><b>algorithms</b></tt>] </td>
+      </tr>
+      <tr vAlign="top">
+        <td><tt><b>-I&nbsp;include_path</b></tt> </td>
+        <td>the path to search for include files [default <tt><b>$CFG_DIR/include</b></tt>] Note
+        that this default location is not the location of the ORPG include files. Copies of many
+        of the adaptation header files have been placed in this directory. If created here, this
+        header file must copied to the ORPG include directory at the top level, that is <tt><b>$HOME/include</b></tt>
+        to be included by the algorithm source code. </td>
+      </tr>
+      <tr vAlign="top">
+        <td><tt><b>-o&nbsp;output_path</b></tt> </td>
+        <td>the path to the algorithm configuration file being modified [default <tt><b>$CFG_DIR</b></tt>]
+        </td>
+      </tr>
+</TBODY>
+    </table>
+    <h3>Example: Installing the &quot;Test Adaptation&quot; Object </h3>
+    <p>This is the contents of the <tt><b>test_adapt.h</b></tt> include file. It includes an
+    example of defining an enumerated type as one of the fields in the C structure.&nbsp; </p>
+    <table cellPadding="10" align="center" bgColor="white" border="1">
+<TBODY>
+      <tr>
+        <td><pre>#ifndef TEST_ADAPT_H
+#define TEST_ADAPT_H
+
+<b>#include &lt;ocadapt.h&gt;</b>
+
+#define STR_SIZE 10
+
+typedef enum
+{                
+    APPLES,         /*# <b>@desc</b> &quot;Apples&quot;           */
+    ORANGES,        /*# <b>@desc</b> &quot;Oranges&quot;          */
+    PAIRS,          /*# <b>@desc</b> &quot;Pairs&quot;            */
+    OTHER_FRUIT     /*# <b>@desc</b> &quot;Other Fruit&quot;      */
+} fruits_t;
+
+typedef struct test_adapt
+{
+    int int_field_1;          <b>/*#</b> <b>@name</b> &quot;Int Field 1&quot; 
+                                  <b>@desc</b> &quot;First Integer field of this Record&quot;  
+                                  <b>@min</b> 22  <b>@max</b> 33  <b>*/</b>
+    short short_field_1;      <b>/*#</b> <b>@name</b> &quot;Short Field 1&quot; 
+                                  <b>@desc</b> &quot;First Short Field of this Record&quot; 
+                                  <b>@min</b> 22  <b>@max</b> 33  <b>*/</b>
+    float float_field_1;      <b>/*#</b> <b>@name</b> &quot;Float Field 1&quot; 
+                                  <b>@desc</b> &quot;First Float Field of this Record&quot; 
+                                  <b>@min</b> 22.77  <b>@max</b> 33.44      <b>*/</b>
+    int array_field[5];
+    float float_array_field[5];
+    short short_array_field[5];
+        
+    char string_field[STR_SIZE]; <b>/*#</b> <b>@name</b> &quot;String Field 1&quot; 
+                                     <b>@desc</b> &quot;First Float Field of this Record&quot; 
+                                     <b>@default</b> &quot; &quot;  <b>*/</b>
+    fruits_t fruit;    <b>/*#</b> <b>@name</b> &quot;Fruit&quot; 
+                           <b>@desc</b> &quot;Types of fruit that help predict tornadoes&quot; 
+                       <b>*/</b>
+} test_adapt_t;
+
+DECLARE_CPP_WRAPPER(TestAdapt, test_adapt_t)
+
+#endif
+</pre>
+        </td>
+      </tr>
+</TBODY>
+    </table>
+    <p>Normally meta-information fields are applied the individual fields of the adaptation
+    data structure. <tt><b>@desc</b></tt> normally defines a description for future use in
+    help screens and <tt><b>@name</b></tt> defines a display name for the <tt><b>hci</b></tt>
+    adaptation data screen. Note the use of the meta field <tt><b>@desc</b></tt> in the
+    definition of the enumerated type <tt><b>fruits_t</b></tt>. Here the individual fields
+    represent allowable values in the adaptation data field named <tt><b>fruit</b></tt>. Using
+    <tt><b>@desc</b></tt> in this manner defines an alternate display name for the allowable
+    values of the enumerated type. If using the <tt><b>hci</b></tt> to change the value of the
+    field named <tt><b>fruit</b></tt>, the choices would include <tt><b>Other&nbsp;Fruit</b></tt>
+    rather than <tt><b>OTHER_FRUIT</b></tt>. </p>
+    <p>The command used to install this data is </p>
+    <table cellPadding="2" align="center" bgColor="white">
+<TBODY>
+      <tr>
+        <td><tt><b>install_adapt_type &quot;Test Adaptation&quot; $HOME/include/test_adapt.h</b></tt>
+        </td>
+      </tr>
+</TBODY>
+    </table>
+    <p>where &quot;Test Adaptation&quot; is the object name and the location of the header
+    file is in the ORPG source code include directory. Below is the result of installing the
+    &quot;<tt><b>Test Adaptation</b></tt>&quot; object in the <tt><b>algorithms</b></tt>
+    configuration file. Note that the class name <tt><b>TestAdapt</b></tt> has been inserted
+    as the first field of the object. </p>
+    <table cellPadding="10" align="center" bgColor="white" border="1">
+<TBODY>
+      <tr>
+        <td><pre>&quot;<b>Test Adaptation</b>&quot;       ORPGAdaptObject
+{
+               class_name          <b>TestAdapt</b>
+                 int_field_1       22
+               short_field_1       22
+               float_field_1       22.770
+              array_field[0]       0
+              array_field[1]       0
+              array_field[2]       0
+              array_field[3]       0
+              array_field[4]       0
+        float_array_field[0]       0.000
+        float_array_field[1]       0.000
+        float_array_field[2]       0.000
+        float_array_field[3]       0.000
+        float_array_field[4]       0.000
+        short_array_field[0]       0
+        short_array_field[1]       0
+        short_array_field[2]       0
+        short_array_field[3]       0
+        short_array_field[4]       0
+                string_field       &quot;&quot;
+                       fruit       Apples
+}
+</pre>
+        </td>
+      </tr>
+</TBODY>
+    </table>
+    <p>&nbsp; </p>
+    <h3>Using Adaptation Data in Algorithms </h3>
+    <p>In order to use adaptation data in algorithms, the corresponding header file (i.e. <tt><b>test_adapt.h</b></tt>)
+    must be included in the algorithm. The ANSI-C API uses the function <tt><b>RPGC_reg_adapt_object</b></tt>
+    to register for and provide access to adaptation data. See CODE Guide Vol 3, Document 1, <i>The
+    WSR-88D Algorithm API</i> for details. </p>
+    <h3><a name="Data_Levels">Data Levels</a></h3>
+    <p><font SIZE="2">The ORPGDataLevel instance type contained in the prod_params ORPG
+    configuration file contains a list of threshold values and a set of properties that
+    control generation of a color table from those threshold values.&nbsp; New data level
+    instances can be defined by adding a new entry with a unique name.&nbsp; An algorithm can
+    then access the color table information associated with the thresholds by registering for
+    the name using the RPGC_reg_adpt_object function.&nbsp; The orpg_data_level_t structure
+    defined in orpgdatalevel.h contains all of the information for an ORPG data level entry.
+    &nbsp; The code field contains color index values for data ranged from 0-255.&nbsp; The
+    format for an ORPGDataLevel instance in the prod_params file is</font></p>
+    <blockquote>
+      <p><font SIZE="2">&quot;Instance Name&quot;&nbsp; ORPGDataLevel</font></p>
+      <p><font SIZE="2">{</font></p>
+      <blockquote>
+        <p><font SIZE="2">ORPG Data Level Properties ...</font></p>
+      </blockquote>
+      <p><font SIZE="2">}</font></p>
+    </blockquote>
+    <p><font SIZE="2">All of the properties are required.</font></p>
+    <table BORDER="1" CELLSPACING="1" CELLPADDING="7" WIDTH="673">
+      <tr>
+        <td WIDTH="9%" VALIGN="TOP">&nbsp;</td>
+        <td WIDTH="22%" VALIGN="TOP"><font SIZE="2">Short Name</font></td>
+        <td WIDTH="20%" VALIGN="TOP"><font SIZE="2">Long Name</font></td>
+        <td WIDTH="28%" VALIGN="TOP"><font SIZE="2">Description</font></td>
+        <td WIDTH="20%" VALIGN="TOP"><font SIZE="2">Possible Values</font></td>
+      </tr>
+      <tr>
+        <td WIDTH="9%" VALIGN="TOP">&nbsp;</td>
+        <td WIDTH="22%" VALIGN="TOP"><font SIZE="2">wx_mode</font></td>
+        <td WIDTH="20%" VALIGN="TOP"><font SIZE="2">Weather Mode</font></td>
+        <td WIDTH="28%" VALIGN="TOP"><font SIZE="2">Weather mode for this threshold table</font></td>
+        <td WIDTH="20%" VALIGN="TOP"><font SIZE="2">All,</font><p><font SIZE="2">&quot;Clear
+        Air&quot;</font></p>
+        <p><font SIZE="2">Precipitation</font></td>
+      </tr>
+      <tr>
+        <td WIDTH="9%" VALIGN="TOP">&nbsp;</td>
+        <td WIDTH="22%" VALIGN="TOP"><font SIZE="2">threshold_units</font></td>
+        <td WIDTH="20%" VALIGN="TOP"><font SIZE="2">Threshold Units</font></td>
+        <td WIDTH="28%" VALIGN="TOP"><font SIZE="2">Units of the threshold values for these data
+        levels</font></td>
+        <td WIDTH="20%" VALIGN="TOP"><font SIZE="2">No Units<p>degrees</p>
+        <p>radians</p>
+        <p>dBZ</p>
+        <p>kft</p>
+        <p>km</p>
+        <p>km**2</p>
+        <p>km**2/hr</p>
+        <p>kg/m**2</p>
+        <p>1/100</p>
+        <p>m/s</p>
+        <p>hrs</p>
+        <p>mins</p>
+        <p>1/hr</p>
+        <p>1/sec</p>
+        <p>dBR</p>
+        <p>&quot;dBR * 10&quot;</p>
+        <p>mm/hr</p>
+        <p>1/hr</p>
+        <p>mm</p>
+        <p>ft</p>
+        <p>inches</p>
+        <p>&quot;deg * 10&quot;</p>
+        <p>&quot;deg * 100&quot;</p>
+        <p>&quot;deg * 1000&quot;</p>
+        <p>joules/m/s</p>
+        <p>joules/m**2/s</p>
+        <p>&quot;100 * joules/meter**2/sec&quot;</p>
+        <p>&quot;10**5 Joules/meter/sec&quot;</p>
+        <p>&quot;m**2/sec&quot;</p>
+        <p>&quot;km**2/hr&quot;</p>
+        <p>&quot;hr/kg/km**4&quot;</p>
+        <p>knots</p>
+        <p>E10-3/sec</p>
+        <p>secs</p>
+        <p>milliseconds</p>
+        <p>bins</p>
+        <p>km*8</p>
+        <p>km/2</font></td>
+      </tr>
+      <tr>
+        <td WIDTH="9%" VALIGN="TOP">&nbsp;</td>
+        <td WIDTH="22%" VALIGN="TOP"><font SIZE="2">data_resolution</font></td>
+        <td WIDTH="20%" VALIGN="TOP"><font SIZE="2">Data Resolution</font></td>
+        <td WIDTH="28%" VALIGN="TOP"><font SIZE="2">Resolution of the data used to calculate color
+        values from threshold values. Common valuesl values are 0.5 and 1.0. </font></td>
+        <td WIDTH="20%" VALIGN="TOP"><font SIZE="2">0.005 &lt;= x &lt;= 2.0</font></td>
+      </tr>
+      <tr>
+        <td WIDTH="9%" VALIGN="TOP">&nbsp;</td>
+        <td WIDTH="22%" VALIGN="TOP"><font SIZE="2">threshold_resolution</font></td>
+        <td WIDTH="20%" VALIGN="TOP"><font SIZE="2">Threshold Resolution</font></td>
+        <td WIDTH="28%" VALIGN="TOP"><font SIZE="2">Round thresholds to the nearest
+        threshold_resolution</font></td>
+        <td WIDTH="20%" VALIGN="TOP"><font SIZE="2">0.0 &lt;= x &lt;= 1.0</font></td>
+      </tr>
+      <tr>
+        <td WIDTH="9%" VALIGN="TOP">&nbsp;</td>
+        <td WIDTH="22%" VALIGN="TOP"><font SIZE="2">round_exact_negative_thresholds_up</font></td>
+        <td WIDTH="20%" VALIGN="TOP"><font SIZE="2">Round Exact Negative Threshold Up</font></td>
+        <td WIDTH="28%" VALIGN="TOP"><font SIZE="2">This flag is necessary because legacy color
+        table calculations for veloicity data were different than other color table calculations.
+        During color table calcuations, if a threshold value is an exact hit (on a .5 boundary for
+        ½ degree velocity tresholds), it will be rounded up when negative. So, for example, -18.5
+        would be rounded to &#150;18.0. 18.5 would be left alone.</font></td>
+        <td WIDTH="20%" VALIGN="TOP"><font SIZE="2">Yes<p>No</font></td>
+      </tr>
+      <tr>
+        <td WIDTH="9%" VALIGN="TOP">&nbsp;</td>
+        <td WIDTH="22%" VALIGN="TOP"><font SIZE="2">attach_plus_to_positive_thresholds</font></td>
+        <td WIDTH="20%" VALIGN="TOP"><font SIZE="2">Attach Plus Sign to Positive Thresholds</font></td>
+        <td WIDTH="28%" VALIGN="TOP"><font SIZE="2">Determines whether positive threshold values
+        will have the + sign bit set or not</font></td>
+        <td WIDTH="20%" VALIGN="TOP"><font SIZE="2">Yes<p>No</font></td>
+      </tr>
+      <tr>
+        <td WIDTH="9%" VALIGN="TOP">&nbsp;</td>
+        <td WIDTH="22%" VALIGN="TOP"><font SIZE="2">starting_color</font></td>
+        <td WIDTH="20%" VALIGN="TOP"><font SIZE="2">Starting Color</font></td>
+        <td WIDTH="28%" VALIGN="TOP"><font SIZE="2">Starting color index for a color table</font></td>
+        <td WIDTH="20%" VALIGN="TOP"><font SIZE="2">0 &lt;= x &lt;= 16</font></td>
+      </tr>
+      <tr>
+        <td WIDTH="9%" VALIGN="TOP">&nbsp;</td>
+        <td WIDTH="22%" VALIGN="TOP"><font SIZE="2">no_of_colors</font></td>
+        <td WIDTH="20%" VALIGN="TOP"><font SIZE="2">No Of Colors</font></td>
+        <td WIDTH="28%" VALIGN="TOP"><font SIZE="2">Number of colors to spread across the color
+        table for these thresholds</font></td>
+        <td WIDTH="20%" VALIGN="TOP"><font SIZE="2">Any, 4, 7, 8, 16</font></td>
+      </tr>
+      <tr>
+        <td WIDTH="9%" VALIGN="TOP">&nbsp;</td>
+        <td WIDTH="22%" VALIGN="TOP"><font SIZE="2">special_beg_color_index</font></td>
+        <td WIDTH="20%" VALIGN="TOP"><font SIZE="2">Special Beg Color Index</font></td>
+        <td WIDTH="28%" VALIGN="TOP"><font SIZE="2">If the first threshold value is a special
+        value (TH, BLANK, RF, or ND) and this value is not equal to &quot;None&quot;, then this
+        value will assigned in the color table for special values at the beginning of the
+        Thresholds array.</font></td>
+        <td WIDTH="20%" VALIGN="TOP"><font SIZE="2">None, 0 &lt;= x &lt;= 255</font></td>
+      </tr>
+      <tr>
+        <td WIDTH="9%" VALIGN="TOP">&nbsp;</td>
+        <td WIDTH="22%" VALIGN="TOP"><font SIZE="2">special_end_color_index</font></td>
+        <td WIDTH="20%" VALIGN="TOP"><font SIZE="2">Special End Color Index</font></td>
+        <td WIDTH="28%" VALIGN="TOP"><font SIZE="2">If the last threshold value is a special value
+        (TH, BLANK, RF, or ND) and this value is not equal to &quot;None&quot;, then this value
+        will assigned in the color table for special values at the end of the Thresholds array.</font></td>
+        <td WIDTH="20%" VALIGN="TOP"><font SIZE="2">None, 0 &lt;= x &lt;= 255</font></td>
+      </tr>
+      <tr>
+        <td WIDTH="9%" VALIGN="TOP">&nbsp;</td>
+        <td WIDTH="22%" VALIGN="TOP"><font SIZE="2">data_units</font></td>
+        <td WIDTH="20%" VALIGN="TOP"><font SIZE="2">Data Units</font></td>
+        <td WIDTH="28%" VALIGN="TOP"><font SIZE="2">Units for the incoming data that these
+        thresholds will be applied to generate an appropriate color table.</font></td>
+        <td WIDTH="20%" VALIGN="TOP"><font SIZE="2">No Units<p>degrees</p>
+        <p>radians</p>
+        <p>dBZ</p>
+        <p>kft</p>
+        <p>km</p>
+        <p>km**2d</p>
+        <p>km**2/hr</p>
+        <p>kg/m**2</p>
+        <p>1/100</p>
+        <p>m/s</p>
+        <p>hrs</p>
+        <p>mins</p>
+        <p>1/hr</p>
+        <p>1/sec</p>
+        <p>dBR</p>
+        <p>&quot;dBR * 10&quot;</p>
+        <p>mm/hr</p>
+        <p>1/hr</p>
+        <p>mm</p>
+        <p>ft</p>
+        <p>inches</p>
+        <p>&quot;deg * 10&quot;</p>
+        <p>&quot;deg * 100&quot;</p>
+        <p>&quot;deg * 1000&quot;</p>
+        <p>joules/m/s</p>
+        <p>joules/m**2/s</p>
+        <p>&quot;100 * joules/meter**2/sec&quot;</p>
+        <p>&quot;10**5 Joules/meter/sec&quot;</p>
+        <p>&quot;m**2/sec&quot;</p>
+        <p>&quot;km**2/hr&quot;</p>
+        <p>&quot;hr/kg/km**4&quot;</p>
+        <p>knots</p>
+        <p>E10-3/sec</p>
+        <p>secs</p>
+        <p>milliseconds</p>
+        <p>bins</p>
+        <p>km*8</p>
+        <p>km/2</font></td>
+      </tr>
+      <tr>
+        <td WIDTH="9%" VALIGN="TOP">&nbsp;</td>
+        <td WIDTH="22%" VALIGN="TOP"><font SIZE="2">symmetric</font></td>
+        <td WIDTH="20%" VALIGN="TOP"><font SIZE="2">Symmetric</font></td>
+        <td WIDTH="28%" VALIGN="TOP"><font SIZE="2">Whether the values within the
+        &quot;Thresholds&quot; field are symmetric or not.</font></td>
+        <td WIDTH="20%" VALIGN="TOP"><font SIZE="2">Not Symmetric<p>Symmetric</font></td>
+      </tr>
+      <tr>
+        <td WIDTH="9%" VALIGN="TOP">&nbsp;</td>
+        <td WIDTH="22%" VALIGN="TOP"><font SIZE="2">min</font></td>
+        <td WIDTH="20%" VALIGN="TOP"><font SIZE="2">Min Threshold</font></td>
+        <td WIDTH="28%" VALIGN="TOP"><font SIZE="2">Minimum Threshold Value contained within the
+        &quot;Thresholds&quot; array</font></td>
+        <td WIDTH="20%" VALIGN="TOP"><font SIZE="2">float value</font></td>
+      </tr>
+      <tr>
+        <td WIDTH="9%" VALIGN="TOP">&nbsp;</td>
+        <td WIDTH="22%" VALIGN="TOP"><font SIZE="2">max</font></td>
+        <td WIDTH="20%" VALIGN="TOP"><font SIZE="2">Max Threshold</font></td>
+        <td WIDTH="28%" VALIGN="TOP"><font SIZE="2">Maximum Threshold Value contained within the
+        &quot;Thresholds&quot; array</font></td>
+        <td WIDTH="20%" VALIGN="TOP"><font SIZE="2">float value</font></td>
+      </tr>
+      <tr>
+        <td WIDTH="9%" VALIGN="TOP">&nbsp;</td>
+        <td WIDTH="22%" VALIGN="TOP"><font SIZE="2">increase_type</font></td>
+        <td WIDTH="20%" VALIGN="TOP"><font SIZE="2">Increase Type</font></td>
+        <td WIDTH="28%" VALIGN="TOP"><font SIZE="2">Whether these threshold values are increasing,
+        decreasing, or neither.</font></td>
+        <td WIDTH="20%" VALIGN="TOP"><font SIZE="2">Non-Increasing<p>Increasing</p>
+        <p>Decreasing</font></td>
+      </tr>
+      <tr>
+        <td WIDTH="9%" VALIGN="TOP">&nbsp;</td>
+        <td WIDTH="22%" VALIGN="TOP"><font SIZE="2">code</font></td>
+        <td WIDTH="20%" VALIGN="TOP"><font SIZE="2">Thresholds</font></td>
+        <td WIDTH="28%" VALIGN="TOP"><font SIZE="2">A list of up to 16 threshold values. If the
+        Symmetric field is set to Symmetric, then approx. ½ of the threshold values are required
+        (4, 5, 8, or 9). The other necessary threshold values will be calculated or mirrored based
+        the entered values. The 5<sup>th</sup> or 9<sup>th</sup> values are used if a special
+        value such as TH, RF, BLANK, or ND is required at the beginning or end of the threshold
+        array. If the special value is placed at the end of the array, the 5<sup>th</sup> or 9<sup>th</sup>
+        value in a symmetric array will be placed after the mirrored values. If the special value
+        is placed at the beginning of the array, the 5<sup>th</sup> or 9<sup>th</sup> values are
+        used as the symmetric center value. The 5<sup>th</sup> and 9<sup>th</sup> values are not
+        needed if special values are not required at the beginning or end of the symmetric
+        threshold array. (See examples).</font></td>
+        <td WIDTH="20%" VALIGN="TOP"><font SIZE="2">TH, BLANK, ND, RF, or numeric values between
+        min and max<p>All values can be preceded by a &gt; or &lt;.</p>
+        <p>Special values TH, BLANK, ND, and RF can only exist at the beginning or end of a
+        threshold array. They can occupy more than one element at the beginning or end of the
+        threshold array.</font></td>
+      </tr>
+      <tr>
+        <td WIDTH="9%" VALIGN="TOP">&nbsp;</td>
+        <td WIDTH="22%" VALIGN="TOP">&nbsp;</td>
+        <td WIDTH="20%" VALIGN="TOP">&nbsp;</td>
+        <td WIDTH="28%" VALIGN="TOP">&nbsp;</td>
+        <td WIDTH="20%" VALIGN="TOP">&nbsp;</td>
+      </tr>
+    </table>
+    <p><font SIZE="2">&nbsp;</p>
+    </font><hr>
+    <h3>Part E. Adaptation Data for FORTRAN Algorithms </h3>
+    <table cellPadding="5" width="90%" align="center" bgColor="#800000">
+<TBODY>
+      <tr>
+        <td bgColor="#ffffff">The ORPG has very limited support for modifying adaptation data for
+        FORTRAN algorithms. The mechanism used to handle the adaptation data for the ported legacy
+        FORTRAN algorithms differs from the mechanism used to support new algorithms written in C.
+        The procedures described earlier are not applicable to FORTRAN algorithms. </td>
+      </tr>
+</TBODY>
+    </table>
+    <p>The original FORTRAN algorithms used FORTRAN 77 features to implement adaptation data.
+    These algorithms accessed adaptation data through large include files and shared data
+    through COMMON blocks. These algorithms were ported largely unmodified into the ORPG which
+    has an infrastructure implemented in ANSI-C. The ORPG ANSI-C infrastructure supports this
+    legacy adaptation data through configuration files and C structures so the data can viewed
+    and modified from the user interface at the control position. However, the mechanism that
+    incorporated this existing data differs from the infrastructure supporting adaptation data
+    for new algorithms written in C.&nbsp; </p>
+    <h3>Adaptation Data Blocks and Objects </h3>
+    <p>The existing legacy FORTRAN algorithms view of adaptation data was in nine rather large
+    blocks of information. Some examples: <ul>
+      <li>The site related data was contained in a block called <tt><b>SITEADP</b></tt>. </li>
+      <li>Velocity dealiasing parameters were in the <tt><b>RADAZVD</b></tt> block. </li>
+      <li>The color lookup tables (actually the lookup tables that algorithms used to reduce the
+        256-level base data reflectivity, velocity, and spectrum width to 16 or 8-level products)
+        were in a block called <tt><b>COLRTBL</b></tt>. </li>
+    </ul>
+    <p>In the ORPG, this data has been reorganized into approximately 30 different classes of
+    adaptation data. For example, legacy block <tt><b>CP13ALG</b></tt> contains the adaptation
+    parameters used by all of the precipitation related algorithms. In the ORPG, this has been
+    broken down into classes corresponding to precipitation products such as <tt><b>PrecipDetection</b></tt>,
+    <tt><b>HydroAccumulation</b></tt>, and <tt><b>VilEchoTops</b></tt>. The structure of each
+    of these classes is defined by an ANSI-C structure which can be referenced by programs
+    written in C. This <a
+    href="algorithm_adapt_table.pdf">legacy
+    adaptation data table</a> contains the relationships between the FORTRAN blocks and the C
+    structures. In addition, the table indicates the C header file to be included in order to
+    use the C structure and also which ASCII configuration file contains the initial data
+    values.&nbsp; </p>
+    <h3>Existing (Legacy) FORTRAN Algorithms </h3>
+    <h4>Defining new types of Adaptation Data </h4>
+    <p>There is no support for adding new types of adaptation data for the legacy FORTRAN
+    algorithms. Referring the the previous discussion for adaptation data for new C
+    algorithms: This means that a new 'class' of data cannot be added. </p>
+    <h4>Adding Additional Data Fields to Existing Adaptation Data </h4>
+    <p>It is possible to add additional data fields. Individual fields would be added to the
+    end of an existing class. In addition, this new information would need to be added to the
+    end of the corresponding larger legacy 'block' of data in the FORTRAN include files.
+    Adding data to the end of the structures / blocks would not break other algorithms. A
+    summary of steps required is: </p>
+    <p>Add new fields to the end of the C structures in the header files. <ul>
+      <li>Add new fields to the appropriate places in the COMMON blocks (end). </li>
+      <li>Recompile all FORTRAN algorithms that access the block. </li>
+      <li>Use <tt><b>RPG_reg_adpt()</b></tt> to register the block name in the algorithm. </li>
+      <li>Reinstall the modified block with the <tt><b>install_adapt_type</b></tt> utility. </li>
+    </ul>
+    <h3>New FORTRAN Algorithms </h3>
+    <p>It is envisioned that new algorithms will be written in ANSI-C. The FORTRAN API
+    provides no support for using the new adaptation data infrastructure -&nbsp;- there is no <tt><b>RPG_reg_adapt_object()</b></tt>
+    function (the C version of this function is not compatible with FORTRAN). New FORTRAN
+    algorithms would have to use existing adaptation data already defined for another
+    algorithm. </p>
+    <hr>
+  </blockquote>
+</blockquote>
+
+<blockquote>
+  <h2>Algorithm Integration</h2>
+  <blockquote>
+    <h3><a name="Update_adapt_info">Update ORPG adaptation include files and generate meta
+    information</a></h3>
+    <blockquote>
+      <p>1.&nbsp;&nbsp; Update include files and generate meta information.<ol>
+        <li type="A">For new include file(s):<p>Use the <a href="install_adapt_type.1.html">install_adapt_type</a>
+          utility to generate a meta information file(s) and default entry(s) for the algorithms
+          configuration file.&nbsp; </p>
+        </li>
+        <li>For existing include files with new fields:<p>Copy the new fields from the developer's
+          include file(s) into the ORPG version of the include files.</p>
+          <p>Add the new fields to the appropriate FORTRAN common block include files.</p>
+          <p>Run the <a href="install_adapt_type.1.html">install_adapt_type</a> utility against the
+          updated ORPG include file to generate meta information and a default entry for the
+          algorithms configuration file.</p>
+          <p>Check in the updated C and FORTRAN include files and their associated meta information
+          file(s).&nbsp; The C include file(s) can either be a global or local include file(s).
+          &nbsp; The meta information file(s) can either be checked into cpc104 with other
+          configuration files or it can be kept local within its own cpc.&nbsp; In either case, it
+          should be installed in the $CFG_DIR directory with other configuration files for the
+          build.</p>
+        </li>
+      </ol>
+      <p>2.&nbsp; Check in the update files.</p>
+    </blockquote>
+    <blockquote>
+      <ol>
+        <li type="A">Check in the adaptation include file(s) and its associated meta information
+          file(s).&nbsp; The include file(s) can either be a global or local include file(s). &nbsp;
+          The meta information file(s) can either be checked into cpc104 with other configuration
+          files or it can be kept local within its own cpc.&nbsp; In either case, it should be
+          installed in the $CFG_DIR directory with other configuration files for the build.</li>
+        <li>Copy the newly generated algorithms entry(s) generated in step A into the generic ORPG
+          algorithms file for testing and into the algorithms.override file for merging. </li>
+      </ol>
+    </blockquote>
+    <h3><a name="Incorporate_Algorithm">Incorporate the Algorithm Into the Build</a></h3>
+    <ol>
+      <li>Create a new cpc in razor.&nbsp; </li>
+      <li>Check in source code, include files, make files, man pages, and a doc page.</li>
+      <li>Should build in /xpit the following day.</li>
+    </ol>
+    <h3><a name="Create_Upgrade_Adapt_Floppy">Create Upgrade Adapt Floppy for Build N-1</a></h3>
+    <blockquote>
+      <p>The upgrade adaptatation floppy will contain AscII versions of the current binary
+      settings from a site.&nbsp; The AscII format is identical to the input factory default
+      AscII files.</p>
+    </blockquote>
+    <blockquote>
+      <h4><a name="AscII_Meta_Dump">Meta-dump to AscII</a></h4>
+      <p>The nmstor_info tool is a generic tool for dumping AscII versions of adaptation data
+      from a named object store.&nbsp; adapt_info will be a tool that is very similar to
+      nmstor_info.&nbsp; In addition to nmstor_info functionality, it will allow the user to
+      only dump the adaptation data associated with a particular configuration file.&nbsp; Like
+      nmstor_info, adapt_info will use meta information to dump AscII adaptation data.</p>
+      <h4><a name="AscII_Custom_Dump">Custom dump to AscII</a></h4>
+      <p>Custom tools to dump all non-meta driven adaptation data will need to be written to
+      support adaptation merge functionality.&nbsp;&nbsp; This includes alert, load shed, and
+      product distribution adaptation information.&nbsp; </p>
+    </blockquote>
+    <h3><a name="Adapt_Merge">Adaptation Merge Utility for Build N</a></h3>
+    <blockquote>
+      <h4><a name="CS_Merge">CS merge</a></h4>
+      <p>Non-meta-data driven adaptation data requires custom merge program(s) to be written for
+      each type of adaptation data.&nbsp;&nbsp; The inputs for these program(s) will be the
+      AscII versions of the site's adaptation data from the previous build and an override
+      version of the same file(s).&nbsp; The override version of the file(s) generally allow all
+      fields to be optional and should provide a removal feature.&nbsp; Adds, deletion, and
+      modification semantics will be customized for each adaptation data type (alerts, load
+      shed, user profiles, comms, ...).&nbsp; Since this functionality is only used between
+      builds and it must deal with new field additions and removals, only the necessary custom
+      merge pieces should be written for each build.</p>
+      <h4><a name="Update_custom_init_programs">Update custom init programs</a></h4>
+      <p>ORPG custom initialization program(s) need to be updated when adaptation fields are
+      added or deleted.&nbsp; The corresponding binary data structures must also be updated.
+      &nbsp; The update of the initialization program(s) is the responsibility of the developer
+      implementing the enhancement.&nbsp; See <a href="#Custom_Adapt_Init_Tasks">custom
+      initialization programs</a> for a list of custom initialization programs.</p>
+      <h4><a name="Adapt_Version_No">Adaptation Data Version Number</a></h4>
+      <p>The adaptation version number is a 5 digit sequential number and it will be increased
+      if any new fields are added or removed for a release.&nbsp; ORPG <a
+      href="save_adapt.1.html">save_adapt</a> and <a href="restore_adapt.1.html">restore_adapt</a>
+      program(s) already check for the correct version number.</p>
+      <h2><a name="Adapt_Recommendations">Open Build 1.1 and 2.0 Adaptation Recommendations</a></h2>
+    </blockquote>
+    <blockquote>
+      <ul>
+        <li>ROC has decided not to implement merge capability for the 1.1 release.</li>
+        <li>If merge capability is needed for the 1.x to 2.0 upgrade, then</li>
+      </ul>
+    </blockquote>
+    <blockquote>
+      <blockquote>
+        <ol>
+          <li>A utility to create an &quot;upgrade&quot; adaptation diskette from the latest version
+            of 1.x adaptation data will be delivered with the 1.x upgrade.&nbsp; The utility will
+            simply convert the last saved binary adaptation data to the equivilant AscII data and save
+            the adaptation data to diskette.&nbsp; This utility will be shipped with version 1.x
+            software for use in the 1.x to 2.0 upgrade.</li>
+          <li>2.0 will be shipped with a merge utility that will produce a 2.0 adaptation floppy from
+            a 1.x adaptation upgrade floppy.&nbsp; The utility will contain a newly developed merge
+            utility called <a href="#CS_Merge">cs_merge</a> and parts of the existing <a
+            href="build_adapt_master.1.html">build_adapt_master</a> and <a
+            href="build_adapt_floppy.1.html">build_adapt_floppy</a>&nbsp; programs.&nbsp; The merge
+            programs will be executed at install time and they will read data from the 1.0 adaptation
+            floppy and merge adaptation data forward.&nbsp;&nbsp; The <a href="#CS_Merge">cs_merge</a>
+            program accepts AscII versions of the latest adaptation data from the site and a set of
+            adaptation additions, modifications, and removals specified by ROC in a <a
+            href="merge_file.html">merge configuration file</a>.&nbsp; The result of the merge
+            programs will be a new set of AscII factory default files for the new build.&nbsp; Parts
+            of the &nbsp; existing <a href="build_adapt_master.1.html">build_adapt_master</a> and <a
+            href="build_adapt_floppy.1.html">build_adapt_floppy</a> processes will be used to produce
+            the actual floppy for the new build from the new set of factory default files.&nbsp; The
+            new adaptation floppy will have the new build version number.&nbsp; Only adaptation
+            floppies with the correct version numbers are accepted by <a href="save_adapt.1.html">save_adapt</a>
+            and <a href="restore_adapt.1.html">restore_adapt</a>.</li>
+        </ol>
+      </blockquote>
+    </blockquote>
+  </blockquote>
+  <h2>Algorithm Development and Integration Glossary</h2>
+  <blockquote>
+    <h3><a name="Algorithm_Source_Files">Algorithm Source Files</a></h3>
+    <blockquote>
+      <p>Makefile(s), man page, doc file, source code, data files</p>
+    </blockquote>
+    <h3><a name="Custom_Adapt_Init_Tasks">Adaptation Data Elements</a></h3>
+    <blockquote>
+      <p>See the <a href="adaptation_glossary.html">Adaptation Data Glossary</a>.</p>
+    </blockquote>
+    <h3><a name="Product_Formats">Product Formats</a></h3>
+    <blockquote>
+      <p><a href="icd_prod_format.html">RPG-PUP ICD format</a> for intermediate and external
+      products or custom format(s) for intermediate products.</p>
+    </blockquote>
+    <h3><a name="ORPG_Data_Ingest">ORPG Data Ingest</a></h3>
+    <blockquote>
+      <p><a href="read_nexrd_tape.1.html">read_nexrd_tape</a>, <a href="orpg_tape.1.html">orpg_tape</a>,<a
+      href="brecv.1.html"> brecv</a>,<a href="read_ridds.1.html"> read_ridds</a></p>
+    </blockquote>
+  </blockquote>
+  <blockquote>
+    <p>&nbsp;</p>
+  </blockquote>
+  <blockquote>
+    <blockquote>
+      <p>&nbsp;</p>
+    </blockquote>
+  </blockquote>
+  <p>&nbsp;</p>
+</blockquote>
+</body>
+</html>

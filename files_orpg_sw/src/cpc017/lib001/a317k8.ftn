@@ -1,0 +1,283 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/17 16:06:31 $
+C $Id: a317k8.ftn,v 1.2 2002/12/17 16:06:31 christie Exp $
+C $Revision: 1.2 $
+C $State: Exp $
+C
+      SUBROUTINE A317K8__SAVE_2DF( P2D_FEAT )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A317K8__SAVE_2DF
+*.
+*.  MODULE VERSION: 0001
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       05/29/97      0000      MARK FRESCH          CCR NA95-21503
+*.       03/16/99      0001      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: A317K8__SAVE_2DF( P2D_FEAT )
+*.
+*.  MODULE FUNCTION:
+*.
+*.  Tests current 2D Feature for overlap against previously saved 2D
+*.  Features & saves those which don't overlap.  Overlapping features
+*.  have some of their attributes retained by the saved features.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT       TYPE        DESCRIPTION
+*.    -   -----       ----        -----------
+*.    C   LEV         I*4         THE ELEVATION SCAN NUMBER WITHIN A VOLUME
+*.                                SCAN
+*.    C   TOT_2DF     I*4         TOTAL NUMBER OF 2D FEATURES IN THE VOLUME
+*.                                SCAN
+*.    C   VOLCOMP     R*4         ARRAY CONTAINING ATTRIBUTES OF THE 2D
+*.                                FEATURES FOR THE VOLUME SCAN
+*.    C   VOL_2DF_CNT I*4         NUMBER OF 2D FEATURES IDENTIFIED ON EACH
+*.                                ELEVATION SCAN
+*.    C   NUM_P2D_ATR I*4         (CONSTANT)NUMBER OF POTENTIAL 2D FEATURE
+*.                                ATTRIBUTES IN P2DFEAT AND OTHER ARRAYS
+*.    C   NVOMAX      I*4         (CONSTANT)MAXIMUM # OF 2D FEATURES ON ANY
+*.                                ELEVATION SCAN
+*.    C   P2D_AZM     I*4         (CONSTANT)INDEX INTO P2DFEAT TO THE AZIMUTH
+*.                                (IN DEGREES) TO THE MOMENTUM WEIGHTED CENTER
+*.                                OF A POTENTIAL 2D FEATURE
+*.    C   P2D_BAZ     I*4         (CONSTANT)INDEX INTO P2DFEAT TO THE
+*.                                BEGINNING AZIMUTH OF A POTENTIAL 2D FEATURE
+*.                                IN DEGREES
+*.    C   P2D_BRG     I*4         (CONSTANT)INDEX INTO P2DFEAT TO THE
+*.                                BEGINNING RANGE OF A POTENTIAL 2D FEATURE
+*.                                INITIALLY IN BINS CONVERTED TO KM IN A317U8
+*.    C   P2D_EAZ     I*4         (CONSTANT)INDEX INTO P2DFEAT TO THE ENDING
+*.                                AZIMUTH OF A POTENTIAL 2D FEATURE IN DEGREES
+*.    C   P2D_ERG     I*4         (CONSTANT)INDEX INTO P2DFEAT TO THE ENDING
+*.                                RANGE OF A POTENTIAL 2D FEATURE INITIALLY IN
+*.                                BINS CONVERTED TO KM IN A317U8
+*.    C   P2D_HGT     I*4         (CONSTANT)INDEX INTO P2DFEAT TO THE HEIGHT
+*.                                (IN KM ARL) TO THE MOMENTUM WEIGHTED CENTER
+*.                                OF A POTENTIAL 2D FEATURE
+*.    C   P2D_MDV     I*4         (CONSTANT)INDEX INTO P2DFEAT TO THE MAXIMUM
+*.                                DELTA VELOCITY (IN M/S) OF A POTENTIAL 2D
+*.                                FEATURE
+*.    C   P2D_RNG     I*4         (CONSTANT)INDEX INTO P2DFEAT TO THE RANGE
+*.                                (IN KM) TO THE MOMENTUM WEIGHTED CENTER OF A
+*.                                POTENTIAL 2D FEATURE
+*.    C   P2D_SHR     I*4         (CONSTANT)INDEX INTO P2DFEAT TO THE MAXIMUM
+*.                                SHEAR (IN 1/S) OF A POTENTIAL 2D FEATURE
+*.    C   P2D_XCN     I*4         (CONSTANT)INDEX INTO P2DFEAT TO THE
+*.                                X-COORDINATE (IN KM) OF A POTENTIAL 2D
+*.                                FEATURE IN KM
+*.    C   P2D_YCN     I*4         (CONSTANT)INDEX INTO P2DFEAT TO THE
+*.                                Y-COORDINATE (IN KM) OF A POTENTIAL 2D
+*.                                FEATURE IN KM
+*.    C   VCM_CAZ     I*4         (CONSTANT)INDEX INTO VOLCOMP TO THE AZIMUTH
+*.                                (IN DEGREES) TO THE MOMENTUM WEIGHTED CENTER
+*.                                OF A 2D FEATURE
+*.    C   VCM_CRG     I*4         (CONSTANT)INDEX INTO VOLCOMP TO THE RANGE
+*.                                (IN KM) TO THE MOMENTUM WEIGHTED CENTER OF A
+*.                                2D FEATURE
+*.    C   VCM_DVE     I*4         (CONSTANT)INDEX INTO VOLCOMP TO THE MAX.
+*.                                DELTA VELOCITY (IN M/S) OF A 2D FEATURE
+*.    C   VCM_SHR     I*4         (CONSTANT)INDEX INTO VOLCOMP TO THE MAXIMUM
+*.                                SHEAR (IN 1/S*10**-3) OF A 2D FEATURE
+*.    C   VCM_XCN     I*4         (CONSTANT)INDEX INTO VOLCOMP TO THE
+*.                                X-COORDINATE (IN KM) TO THE MOMENTUM
+*.                                WEIGHTED CENTER OF A 2D FEATURE
+*.    C   VCM_YCN     I*4         (CONSTANT)INDEX INTO VOLCOMP TO THE
+*.                                Y-COORDINATE (IN KM) TO THE MOMENTUM
+*.                                WEIGHTED CENTER OF A 2D FEATURE
+*.    C   VCM_ZCN     I*4         (CONSTANT)INDEX INTO VOLCOMP TO THE HEIGHT
+*.                                (IN KM) TO THE MOMENTUM WEIGHTED CENTER OF A
+*.                                2D FEATURE
+*.    P   P2D_FEAT    R*4         An array of attributes for a potential 2D
+*.                                feature
+*.
+*.    *   OUTPUT      TYPE        DESCRIPTION
+*.    -   ------      ----        -----------
+*.    C   TOT_2DF     I*4         TOTAL NUMBER OF 2D FEATURES IN THE VOLUME
+*.                                SCAN
+*.    C   VOLCOMP     R*4         ARRAY CONTAINING ATTRIBUTES OF THE 2D
+*.                                FEATURES FOR THE VOLUME SCAN
+*.    C   VOL_2DF_CNT I*4         NUMBER OF 2D FEATURES IDENTIFIED ON EACH
+*.                                ELEVATION SCAN
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME      TYPE        DESCRIPTION
+*.    ----      ----        -----------
+*.    FEAT      I*4         Do loop index for number of potential 2D features
+*.                          at one elevation
+*.    OVERLAP   I*4         Number of potential 2D features that this
+*.                          potential 2D feature Overlaps
+*.    OVER_FEAT I*4         Index to potential 2D feature that overlaps
+*.                          another potential 2D feature on the same elevation
+*.    VCM_BAZ   I*4         INDEX INTO VOLCOMP TO THE BEGINNING AZIMUTH (IN
+*.                          DEGREES) TO THE MOMENTUM WEIGHTED CENTER OF A 2D
+*.                          FEATURE
+*.    VCM_BRG   I*4         INDEX INTO VOLCOMP TO THE BEGINNING RANGE (IN KM)
+*.                          TO THE MOMENTUM WEIGHTED CENTER OF A 2D FEATURE
+*.    VCM_EAZ   I*4         INDEX INTO VOLCOMP TO THE ENDING AZIMUTH (IN
+*.                          DEGREES) TO THE MOMENTUM WEIGHTED CENTER OF A 2D
+*.                          FEATURE
+*.    VCM_ERG   I*4         INDEX INTO VOLCOMP TO THE ENDING RANGE (IN KM) TO
+*.                          THE MOMENTUM WEIGHTED CENTER OF A 2D FEATURE
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A317TC2
+*.    A317TDNE
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.     Compiled using COMP17.CSS
+*.
+*.  COMPILATION INSTRUCTIONS: NONE.
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     Linked using LINK17.CSS
+*.
+*.  MISC:  None
+*.
+C********************************************************************
+C
+C             TDA 2D FUNCTIONALITY:  SAVE 2D FEATURES
+C
+C********************************************************************
+C
+      IMPLICIT NONE
+C
+C*********************** DATA DECLARATIONS **************************
+C
+$INCLUDE A309.INC/G, **A3PM50 (NLIST)
+C
+$INCLUDE A317.INC/G, **A317TDNE (NLIST)
+$INCLUDE             **A317P2DP  (NLIST)
+$INCLUDE             **A317TP2  (NLIST)
+$INCLUDE             **A317TC2  (NLIST)
+C** Passed variables:
+C
+      REAL     P2D_FEAT(NUM_P2D_ATR)
+C
+C** Internal variables:
+C
+      INTEGER FEAT, OVERLAP, OVER_FEAT
+C
+C******************* BEGIN MAIN PROCESSING SECTION ******************
+C
+      OVERLAP = 0
+      OVER_FEAT = 0
+C
+C** Compare this Potential 2D Feature with all previously stored 2D
+C** Feature at this elevation angle (scan).
+C
+      DO 1000 FEAT = 1, VOL_2DF_CNT( LEV )
+C
+        IF ((P2D_FEAT(P2D_BAZ) .LE. VOLCOMP(VCM_BAZ,FEAT, LEV)) .AND.
+     >     (P2D_FEAT(P2D_EAZ) .GE. VOLCOMP(VCM_EAZ, FEAT, LEV)) .AND.
+     >     (P2D_FEAT(P2D_BRG) .LE. VOLCOMP(VCM_BRG, FEAT, LEV)) .AND.
+     >     (P2D_FEAT(P2D_ERG) .GE. VOLCOMP(VCM_ERG, FEAT, LEV))) THEN
+C
+          OVERLAP = OVERLAP + 1
+          OVER_FEAT = FEAT
+        END IF
+ 1000 CONTINUE
+C
+C** If this Potential 2D Feature overlaps only one previously saved
+C** 2D Feature, then set the 2D Feature sizing attributes to that of
+C** the Potential 2D Feature.
+C
+      IF (OVERLAP .EQ. 1) THEN
+C
+C** The number of 2D Features has already been tested in A317P8
+C** against the threshold maximum number allowed per volume scan.
+C
+C** Center range, azimuth, and height:
+C
+         VOLCOMP( VCM_CRG, OVER_FEAT, LEV ) = P2D_FEAT( P2D_RNG )
+         VOLCOMP( VCM_CAZ, OVER_FEAT, LEV ) = P2D_FEAT( P2D_AZM )
+         VOLCOMP( VCM_ZCN, OVER_FEAT, LEV ) = P2D_FEAT( P2D_HGT )
+C
+C** X & Y coordinates:
+C
+         VOLCOMP( VCM_XCN, OVER_FEAT, LEV ) = P2D_FEAT( P2D_XCN )
+         VOLCOMP( VCM_YCN, OVER_FEAT, LEV ) = P2D_FEAT( P2D_YCN )
+C
+C** Beginning and ending azimuth angles:
+C
+         VOLCOMP( VCM_BAZ, OVER_FEAT, LEV ) = P2D_FEAT( P2D_BAZ )
+         VOLCOMP( VCM_EAZ, OVER_FEAT, LEV ) = P2D_FEAT( P2D_EAZ )
+C
+C** Beginning and ending range:
+C
+         VOLCOMP( VCM_BRG, OVER_FEAT, LEV ) = P2D_FEAT( P2D_BRG )
+         VOLCOMP( VCM_ERG, OVER_FEAT, LEV ) = P2D_FEAT( P2D_ERG )
+C
+C** If no previously saved 2D Features overlap this Pot. 2D Feature,
+C** save it as a new 2D Featureput buffer, in appropriate slot.
+C
+      ELSE IF ((OVERLAP.EQ.0).AND.(VOL_2DF_CNT(LEV).LT.NVOMAX)) THEN
+C
+C** Increment the # of 2D Features at this volume & elevation scan
+C
+         VOL_2DF_CNT( LEV ) = VOL_2DF_CNT( LEV ) + 1
+         TOT_2DF = TOT_2DF + 1
+C
+C** Center range, azimuth, and height:
+C
+         VOLCOMP(VCM_CRG,VOL_2DF_CNT(LEV),LEV) = P2D_FEAT( P2D_RNG )
+         VOLCOMP(VCM_CAZ,VOL_2DF_CNT(LEV),LEV) = P2D_FEAT( P2D_AZM )
+         VOLCOMP(VCM_ZCN,VOL_2DF_CNT(LEV),LEV) = P2D_FEAT( P2D_HGT )
+C
+C** X & Y coordinates:
+C
+         VOLCOMP(VCM_XCN,VOL_2DF_CNT(LEV),LEV) = P2D_FEAT( P2D_XCN )
+         VOLCOMP(VCM_YCN,VOL_2DF_CNT(LEV),LEV) = P2D_FEAT( P2D_YCN )
+C
+C** Beginning and ending azimuth angles:
+C
+         VOLCOMP(VCM_BAZ,VOL_2DF_CNT(LEV),LEV) = P2D_FEAT( P2D_BAZ )
+         VOLCOMP( VCM_EAZ,VOL_2DF_CNT(LEV), LEV )=P2D_FEAT( P2D_EAZ )
+C
+C** Beginning and ending range:
+C
+         VOLCOMP(VCM_BRG,VOL_2DF_CNT(LEV),LEV) = P2D_FEAT( P2D_BRG )
+         VOLCOMP(VCM_ERG,VOL_2DF_CNT(LEV),LEV) = P2D_FEAT( P2D_ERG )
+C
+C** Maximum Delta Velocity and Maximum Shear
+C
+         VOLCOMP(VCM_DVE,VOL_2DF_CNT(LEV),LEV) = P2D_FEAT( P2D_MDV )
+         VOLCOMP(VCM_SHR,VOL_2DF_CNT(LEV),LEV) = P2D_FEAT( P2D_SHR )
+C
+C** If this Pot. 2D Feature overlaps more than one 2D Feature, then
+C** the Potential 2D Feature doesn't get saved.
+C
+      END IF
+C
+C**************** END OF PROCESSING FOR SUBROUTINE ******************
+C
+      RETURN
+      END

@@ -1,0 +1,262 @@
+C
+C RCS info
+C $Author: steves $
+C $Locker:  $
+C $Date: 2012/09/05 16:20:20 $
+C $Id: a315i7.ftn,v 1.6 2012/09/05 16:20:20 steves Exp $
+C $Revision: 1.6 $
+C $State: Exp $
+C
+      SUBROUTINE A315I7__FILL_A3CD09( VOLTIME, NSTORMS, STORMAIN
+     $                  ,AVGSPEED, AVGDIREC, STORMIDTYP, STORMOTION )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A315I7__FILL_A3CD09
+*.
+*.  MODULE VERSION: 0002
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       07/27/95      0000      STEVE SMITH          CCR NA94-26302
+*.       12/23/96      0001      Toolset              CCR NA95-11807
+*.       03/16/99      0002      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A315N8__FILL_STRUC_BUF( VOLTIME,NSTORMS,
+*.                 STORMAIN,AVGSPEED,AVGDIREC,STORMIDTYP,STORMOTION )
+*.
+*.  MODULE FUNCTION:
+*.
+*.  This routine fills a shared buffer with special information about
+*.  storm motion that is needed by various products.
+*.
+*.  MODULES CALLED: LOKOFF, WAIT 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT      TYPE        DESCRIPTION
+*.    -   -----      ----        -----------
+*.    G   LOKID      L*4         Test & set bit for locking/unlocking shared
+*.                               common block (for allowing writes).
+*.    G   NSTF_IDT   I*4         (CONSTANT)The number of attributes for each
+*.                               storm cell in the array STORMIDTYP which
+*.                               contains Storm ID, storm type, and number of
+*.                               volumes tracked.
+*.    G   NSTF_MAX   I*4         (CONSTANT)The maximum number of storm cells
+*.                               the array STORMIDTYP may hold.  The array
+*.                               provides the storm cell Id attribute.
+*.    G   NSTF_MOT   I*4         (CONSTANT)The number of storm motion
+*.                               attributes for each storm cell in the array
+*.                               STORMOTION. (First dimension)
+*.    G   NSTM_CHR   I*4         (CONSTANT)Maximum number of storm
+*.                               characteristics  (dimension of STORMAIN)
+*.    G   NSTM_MAX   I*4         (CONSTANT)Maximum number of storms (Dimension
+*.                               for STORMAIN)
+*.    G   STF_DIR    I*4         (CONSTANT)Offset to the cell direction (deg)
+*.                               in the STORMOTION part of the
+*.                               tracking/forecast output buffer.
+*.    G   STF_ID     I*4         (CONSTANT)Offset to the cell ID index in the
+*.                               STORMIDTYP part of the tracking/forecast
+*.                               output buffer.
+*.    G   STF_SPD    I*4         (CONSTANT)Offset to the cell speed (m/s) in
+*.                               the STORMOTION part of the tracking/forecast
+*.                               output buffer.
+*.    G   STF_X0     I*4         (CONSTANT)Offset to the x-coord. of the
+*.                               centroid (km) in the STORMOTION part of the
+*.                               tracking/forecast output buffer.
+*.    G   STF_Y0     I*4         (CONSTANT)Offset to the y-coord. of the
+*.                               centroid (km) in the STORMOTION part of the
+*.                               tracking/forecast output buffer.
+*.    G   STR_DIR    I*4         (CONSTANT)Positional Storm Parameter Index
+*.                               for the Vector Motion of the Storm System.
+*.    G   STR_SPD    I*4         (CONSTANT)Positional Storm Parameter Index
+*.                               for the Relative Speed of Storm System.
+*.    G   STR_XPO    I*4         (CONSTANT)Positional Storm Parameter Index
+*.                               for X Position of Storm System.
+*.    G   STR_XSP    I*4         (CONSTANT)Positional Storm Parameter Index
+*.                               for X Component of Speed of Storm System.
+*.    G   STR_YPO    I*4         (CONSTANT)Positional Storm Parameter Index
+*.                               for Y Position of Storm System.
+*.    G   STR_YSP    I*4         (CONSTANT)Positional Storm Parameter Index
+*.                               for Y Component of Speed of Storm System.
+*.    C   STF_XSP    I*4         (CONSTANT)Offset to the cell x-speed (m/s) in
+*.                               the STORMOTION part of the tracking/forecast
+*.                               output buffer.
+*.    C   STF_YSP    I*4         (CONSTANT)Offset to the cell x-speed (m/s) in
+*.                               the STORMOTION part of the tracking/forecast
+*.                               output buffer.
+*.    P   AVGDIREC   R*4         Average Direc. of all "Continuing" storms,
+*.                               this volume scan (degrees from)
+*.    P   AVGSPEED   R*4         :Average Speed of all "Continuing" storms
+*.    P   NSTORMS    I*4         Number of storms detected for this volume
+*.                               scan
+*.    P   STORMIDTYP I*4         2-D array of supplementary storm desciption
+*.                               information per volume scan , output by
+*.                               "FORECAST" algorithm.
+*.    P   STORMOTION R*4         2-D array of Storm-Motion attributes per
+*.                               volume scan, output by  "FORECAST" algorithm
+*.    P   VOLTIME    R*4         Volume Scan Time in seconds
+*.
+*.    *   OUTPUT   TYPE        DESCRIPTION
+*.    -   ------   ----        -----------
+*.    G   AVGSTDIR R*4         Average direction of all storms for which
+*.                             forcasts were made in this volume scan.
+*.    G   AVGSTSPD R*4         Average speed of all storms for which forecasts
+*.                             were made in this volume scan.
+*.    G   LOKID    L*4         Test & set bit for locking/unlocking shared
+*.                             common block (for allowing writes).
+*.    G   NUMSTRM  I*4         Number of storms.
+*.    G   STRMID   I*4         Array containing ID-labels of all storms alive
+*.                             in current volume scan.
+*.    G   STRMOVE  R*4         Array containing X & Y positions and vector
+*.                             motion of each storm.
+*.    G   TIMETAG  R*4         Time of beginning of volume scan in
+*.                             Milliseconds past Midnight.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    G   LOKID             L*4         Test & set bit for locking/unlocking
+*.                                      shared common block (for allowing
+*.                                      writes).
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME     TYPE        DESCRIPTION
+*.    ----     ----        -----------
+*.    DELAY    I*4         Number of milleseconds to WAIT before checking to
+*.                         see if Shared Buffer is available
+*.    MILLISEC I*4         One millisecond delay in checking if shared buffer
+*.                         is available.
+*.    N        I*4         Do loop index
+*.    WAITSTAT I*4         Status of call to RTL WAIT
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD09
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     Compiled using COMP15.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     Linked using LINK15.CSS
+*.
+*.  MISC:  None
+*.
+C********************************************************************
+C
+C             TRACKING AND FORECAST: FILL A3CD09 ROUTINE
+C
+C********************************************************************
+C
+      IMPLICIT NONE
+C
+C**Attach input parameter-definition file-1 (from "STORM_CENTROIDS")
+$INCLUDE A315BUF.INC/G,**A315P5C (NLIST)
+C
+C**Attach input parameter-definition file-2 (from "TRACK/FORECAST")
+$INCLUDE A315BUF.INC/G, **A315P7F (NLIST)
+C
+C**Attach local common block (SHARED IMAGE):
+$INCLUDE A309.INC/G,**A3CD09 (NLIST)
+C
+C$INSERT$INCLUDE itc.inc,**A3CD09
+C$INSERTC
+C********************** DATA DECLARATIONS ***************************
+C
+C** For input buffer-1 (Centroids):
+C
+      INTEGER  NSTORMS
+      REAL     VOLTIME, STORMAIN( NSTM_CHR, NSTM_MAX )
+C
+C** For input buffer-2 (Track/Forecast):
+C
+      INTEGER  STORMIDTYP( NSTF_IDT, NSTF_MAX )
+      REAL     STORMOTION( NSTF_MOT, NSTF_MAX ), AVGSPEED, AVGDIREC
+C
+C** Local (for Lock On/Lock Off):
+C
+      INTEGER  DELAY, MILLISEC, WAITSTAT, N
+      PARAMETER( DELAY=25, MILLISEC=1 )
+      LOGICAL  LOKON
+C$INSERT      integer itc_status
+C
+C********************* DATA INITIALIZATIONS *************************
+C
+C****************** BEGIN MAIN PROCESSING SECTION *******************
+C
+C** DO UNTIL Shared-Image buffer is free to be written to:
+C
+ 340  CONTINUE
+      IF ( LOKON( LOKID ) )  THEN
+         CALL WAIT( DELAY,MILLISEC,WAITSTAT )
+         GO TO 340
+      END IF
+C
+C** Buffer free: Copy volume-scan information input from "Centroids"
+C** to it (i.e. total # storms detected; time tag for scan (secs)):
+C
+      NUMSTRM = NSTORMS
+      TIMETAG = VOLTIME
+C
+C** Copy average speed (m/s) & direction (deg from) of all storm
+C** cells:
+C
+      AVGSTSPD = AVGSPEED
+      AVGSTDIR = AVGDIREC
+C
+C** Copy storm cell information Buffer (Note:  storm cells ordered
+C** in descending order of cell-based VIL):
+C
+      DO 400  N = 1, NSTORMS
+C
+C** Storm IDs:
+C
+         STRMID( N ) = STORMIDTYP( STF_ID, N )
+C
+C** Storm Locations (km) & Speeds (m/s) in cartesian coordinates:
+C
+         STRMOVE( STR_XPO, N ) = STORMOTION( STF_X0, N )
+         STRMOVE( STR_YPO, N ) = STORMOTION( STF_Y0, N )
+         STRMOVE( STR_XSP, N ) = STORMOTION( STF_XSP,N )
+         STRMOVE( STR_YSP, N ) = STORMOTION( STF_YSP,N )
+         STRMOVE( STR_SPD, N ) = STORMOTION( STF_SPD,N )
+         STRMOVE( STR_DIR, N ) = STORMOTION( STF_DIR,N )
+
+         STRMOVE( STR_AZM, N ) = STORMAIN( STM_AZM,N )
+         STRMOVE( STR_RAN, N ) = STORMAIN( STM_RAN,N )
+         STRMOVE( STR_MRF, N ) = STORMAIN( STM_MRF,N )
+         STRMOVE( STR_RFH, N ) = STORMAIN( STM_RFH,N )
+         STRMOVE( STR_VIL, N ) = STORMAIN( STM_VIL,N )
+         STRMOVE( STR_TOP, N ) = STORMAIN( STM_TOP,N )
+C
+ 400  CONTINUE
+C
+C** Remove data base lock.
+C
+      CALL LOKOFF( LOKID )
+C$INSERTC
+C$INSERTC** Write A3CD09 common data to linear buffer
+C$INSERTC
+C$INSERT      call RPG_itc_write( A3CD09_ID, itc_status )
+C
+C************** END OF PROCESSING FOR SUBROUTINE ********************
+C
+      RETURN
+      END

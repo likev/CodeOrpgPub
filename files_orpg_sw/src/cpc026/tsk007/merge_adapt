@@ -1,0 +1,438 @@
+#!/bin/sh
+#
+# File: merge_adapt
+# Purpose: Merge adaptation data from the previous build to
+#          the current build
+#
+# RCS info
+# $Author: ccalvert $
+# $Locker:  $
+# $Date: 2009/09/25 17:02:37 $
+# $Id: merge_adapt,v 1.38 2009/09/25 17:02:37 ccalvert Exp $
+# $Revision: 1.38 $
+# $State: Exp $
+#
+
+SITE=""
+NODE=""
+PREV_DEVICE="cd"
+NEW_DEVICE="cd"
+MERGED_DEVICE="cd"
+INTERACT_MODE="YES"
+MLOG=" le_pipe -t "`basename $0`" -n 100 -g "`id -g`" -w "`id -u`
+LOG_FILE_NAME=${HOME}/data/logs/`basename $0`.log
+
+##################################################
+# ERROR_EXIT: Exit with error message/code.
+##################################################
+
+Error_exit () {
+    echo $1 | ${MLOG}
+    echo $1 1>&2
+    if [ $INTERACT_MODE = "YES" ]
+    then
+       echo press Return to terminate.
+       read dummy
+    fi
+    medcp -ue cd > /dev/null 2>&1
+    exit 1
+}
+
+##################################################
+# PRINT_USAGE: Display script usage.
+##################################################
+
+print_usage ()
+{
+  echo
+  echo
+  echo "Usage: `basename $0` [options] OR `basename $0` ICAO rpg1|rpg2"
+  echo "    Merge adaptation data from the previous build to the current."
+  echo "      Options:"
+  echo "        -h Print usage information"
+  echo "        -s site name (ICAO) - (Default: local site)"
+  echo "        -c channel name (rpg1 or rpg2) - (Default: local channel)"
+  echo "        -p device_previous_data (cd, cdrom or diskette) - (Default: cd)"
+  echo "        -n device_new_data (cd, cdrom or diskette) - (Default: cd)"
+  echo "        -m device_merged_data (cd or diskette) - (Default: cd)"
+  echo "        -N Non-interactive (invoked from some other program)"
+  echo
+  echo
+}
+
+# Start of main code
+
+echo "Log started" | ${MLOG}
+
+cnt=0;
+while getopts hc:s:p:n:m:N input
+do
+    case $input in
+	c) NODE="$OPTARG"; cnt=`expr $cnt + 2`;;
+        h) print_usage; exit 0 ;;
+	s) SITE="$OPTARG"; cnt=`expr $cnt + 2`;;
+	p) PREV_DEVICE="$OPTARG"; cnt=`expr $cnt + 2`;;
+	n) NEW_DEVICE="$OPTARG"; cnt=`expr $cnt + 2`;;
+	m) MERGED_DEVICE="$OPTARG"; cnt=`expr $cnt + 2`;;
+        N) INTERACT_MODE="NO"; cnt=`expr $cnt + 1`;;
+	\?) print_usage; exit 1 ;;
+    esac
+done
+
+if [ $# -gt 0 -a $cnt -eq 0 ] 
+then
+    if [ $# -eq 2 ]
+    then
+	SITE=`echo $1 | tr "[a-z]" "[A-Z]"`
+	NODE=$2
+    else
+	print_usage
+        exit 1
+    fi
+else
+    if [ $# -gt 0 -a $# -ne $cnt ]
+    then
+	print_usage
+        exit 1
+    fi
+fi
+
+if [ -z "$SITE" ] 
+then
+    SITE=`find_adapt -S`
+fi
+if [ -z "$NODE" ] 
+then
+    NODE=`find_adapt -C`
+    if [ "$NODE" != "rpg1" -a "$NODE" != "rpg2" ]
+    then
+	NODE="rpg1"
+    fi
+fi
+
+if [ "$NODE" != "rpg1" -a "$NODE" != "rpg2" ]
+then
+    Error_exit "Error : Unexpected RPG channel $NODE"
+    exit 1
+fi
+
+for name in $PREV_DEVICE $NEW_DEVICE $MERGED_DEVICE
+do 
+    if [ "$name" != "cd" -a "$name" != "cdrom" -a "$name" != "diskette" ]
+    then
+        Error_exit "Error : Unexpected device name $name"
+        exit 1
+    fi
+done
+
+###SET ENVIRONMENT VARIABLES
+
+PREV_DEV_NAME="$PREV_DEVICE"
+NEW_DEV_NAME="$NEW_DEVICE"
+MERGED_DEV_NAME="$MERGED_DEVICE"
+if [ "$PREV_DEVICE" == "cd" ]
+then
+    PREV_DEV_NAME="CD";
+fi
+if [ "$NEW_DEVICE" == "cd" ]
+then
+    NEW_DEV_NAME="CD";
+fi
+if [ "$MERGED_DEVICE" == "cd" ]
+then
+    MERGED_DEV_NAME="CD";
+fi
+
+#VERSION INFO
+NEWBNUM=`find_adapt -M`
+if [ $NEWBNUM -le 0 ] 
+then
+    Error_exit "Error : RPG adapt version number $NEWBNUM - Cannot merge"
+    exit 1
+fi
+OLDBNUM=`expr $NEWBNUM - 1`
+OLDBNAME="Build "$OLDBNUM
+NEWBNAME="Build "$NEWBNUM
+
+#DISK NAMES
+DATA1="RPG ${OLDBNAME} - Backup Adaptation Data - Site"
+DATA2="RPG DEFAULT ADAPTATION DATA - Build: ${NEWBNUM}.0"
+DATA3="RPG ${NEWBNAME} - Merged Adaptation Data - Site"
+DATA4="RPG ${NEWBNAME} - Merged Adaptation Data - ROC"
+
+#DIRECTORIES
+OLDDIR=`find_adapt -w`/${OLDBNUM}
+NEWDIR=`find_adapt -w`/${NEWBNUM}
+
+#PROGRAMS
+UNZIP=uncompress
+ZIP=compress
+
+###DISPLAY TITLE INFORMATION
+#DISPLAY PREP MESSAGE
+echo
+echo Please make sure you have the following items ready before you continue:
+echo
+echo " 1.  ${DATA1} $PREV_DEV_NAME."
+echo " 2.  ${DATA2} $NEW_DEV_NAME."
+echo " 3.  Blank $MERGED_DEV_NAME labeled:"
+echo "       \"${DATA3}\"."
+echo " 4.  Blank $NEW_DEV_NAME labeled:"
+echo "       \"${DATA4}\"."
+echo
+echo "To continue, press Return."
+read dummy
+
+###MAKE/CLEAR TEMP DIRECTORIES
+
+#CHECK IF BUILD-OLD TEMP DIRECTORY EXISTS
+if [ -d ${OLDDIR} ]
+then
+    #IF DIRECTORY EXISTS, EMPTY ITS CONTENTS
+    echo Removing an old ${OLDBNAME} data directory | ${MLOG}
+    rm -rf ${OLDDIR}
+fi
+echo Creating new ${OLDBNAME} data directory | ${MLOG}
+mkdir -p ${OLDDIR}
+
+##CHECK IF BUILD-NEW TEMP DIRECTORY EXISTS
+if [ -d ${NEWDIR} ]
+then
+    #IF DIRECTORY EXISTS, EMPTY ITS CONTENTS
+    echo Removing an old ${NEWBNAME} data directory | ${MLOG}
+    rm -rf ${NEWDIR}
+fi
+echo Creating new ${NEWBNAME} data directory | ${MLOG}
+mkdir -p ${NEWDIR}
+
+
+###READ OLD ADAPTATION DATA
+
+#Open CD tray
+medcp -ue cd > /dev/null 2>&1
+
+#PROMPT USER TO ENTER BUILD-OLD MEDIA AND PRESS Y
+echo
+echo
+echo Insert the ${DATA1} $PREV_DEV_NAME,
+echo then press Return.
+read dummy
+
+#COPY FILE FROM MEDIA TO LOCAL STORAGE
+if [ $INTERACT_MODE = "YES" ]
+then
+  echo Copying saved ${DATA1} archive $PREV_DEV_NAME...
+fi
+echo Copying ${OLDBNAME} data from $PREV_DEV_NAME | ${MLOG}
+media_dir=`medcp -mp $PREV_DEVICE 2>&1`
+if [ $? -ne 0 ]
+then
+    Error_exit "Error mounting $PREV_DEV_NAME (check medcp log)."
+fi
+OLDADAPT=`find_adapt -D ${media_dir} -v $OLDBNUM -c $NODE -s $SITE -b`
+STATUS=$?
+if [ $STATUS -ne 0 ] || [ -z "$OLDADAPT" ]
+then
+    Error_exit "Error : ${DATA1} file not found on $PREV_DEV_NAME."
+fi
+log_msg=`medcp -ce $PREV_DEVICE ${OLDADAPT} ${OLDDIR}`
+if [ $? -ne 0 -a $? -ne 115 ]
+then
+    # Exit code 115 is due to eject -t. It doesn't work on RPGA, so ignore.
+    echo "$log_msg" | ${MLOG}
+    Error_exit "Error copying ${OLDADAPT} from $PREV_DEV_NAME (check medcp log)."
+fi
+mv ${OLDDIR}/${OLDADAPT} ${OLDDIR}/build${OLDBNUM}.tar.Z | ${MLOG}
+
+echo
+echo Remove the ${DATA1} $PREV_DEV_NAME,
+echo then press Return.
+read dummy
+
+
+###COPY DEFAULT BUILD-NEW MEDIA
+
+#PROMPT USER TO ENTER DEFAULT BUILD-NEW MEDIA AND PRESS Y
+echo
+echo Insert the ${DATA2} $NEW_DEV_NAME,
+echo then press Return.
+read dummy
+
+#COPY FILE FROM MEDIA TO LOCAL STORAGE
+if [ $INTERACT_MODE = "YES" ]
+then
+  echo Copying ${DATA2} archive from $NEW_DEV_NAME...
+fi
+echo Copying ${NEWBNAME} data from $NEW_DEV_NAME | ${MLOG}
+media_dir=`medcp -mp $NEW_DEVICE 2>&1`
+if [ $? -ne 0 ]
+then
+    Error_exit "Error mounting $NEW_DEV_NAME (check medcp log)."
+fi
+DEFADAPT=`find_adapt -D ${media_dir} -v $NEWBNUM -c $NODE -s $SITE -b`
+STATUS=$?
+if [ $STATUS -ne 0 ] || [ -z "$DEFADAPT" ]
+then
+  if [ $INTERACT_MODE = "YES" ]
+  then
+    echo ${DATA2} file not found on $NEW_DEV_NAME.
+    echo
+    echo You cannot continue without the ${DATA2} $NEW_DEV_NAME.
+    echo
+    echo If the ${DATA2} $NEW_DEV_NAME is not available, contact
+    echo the ROC.
+    echo
+  fi
+  Error_exit "Error : ${DATA2} file not found on $NEW_DEV_NAME."
+fi
+
+SITE_FILE_DIR=`find_adapt -I -v $NEWBNUM -c $NODE -s $SITE`
+log_msg=`medcp -ce $NEW_DEVICE ${DEFADAPT} $SITE_FILE_DIR ${NEWDIR}`
+if [ $? -ne 0 -a $? -ne 115 ]
+then
+    # Exit code 115 is due to eject -t. It doesn't work on RPGA, so ignore.
+    echo "$log_msg" | ${MLOG}
+    Error_exit "Error copying ${DEFADAPT} from $NEW_DEV_NAME (check medcp log)."
+fi
+mv ${NEWDIR}/${DEFADAPT} ${NEWDIR}/build${NEWBNUM}.tar.Z
+
+echo 
+echo Remove the ${DATA2} $NEW_DEV_NAME,
+echo then press Return.
+read dummy
+
+
+# UNZIP BOTH ARCHIVES & REMOVE TAR FILES
+
+echo Extracting files from ${OLDBNAME} | ${MLOG}
+OWD=$PWD
+cd ${OLDDIR}
+${UNZIP} build${OLDBNUM}.tar.Z
+tar xvf build${OLDBNUM}.tar | ${MLOG}
+if [ $? -ne 0 ]
+then
+    Error_exit "Error extracting ${OLDBNAME} data archive."
+fi
+rm build${OLDBNUM}.tar
+cd ${OWD}
+echo Extracting files from ${NEWBNAME} | ${MLOG}
+OWD=$PWD
+cd ${NEWDIR}
+${UNZIP} build${NEWBNUM}.tar.Z
+tar xvf build${NEWBNUM}.tar | ${MLOG}
+if [ $? -ne 0 ]
+then
+    Error_exit "Error extracting ${NEWBNAME} data archive."
+fi
+rm build${NEWBNUM}.tar
+cd ${OWD}
+
+###PERFORM DATA MERGE
+
+#EXECUTE MERGE PROGRAM
+echo Entering merge_adapt_data program | ${MLOG}
+merge_adapt_data -v -s ${OLDDIR} -d ${NEWDIR} | ${MLOG}
+
+#CHECK ERROR FLAG FOR NEW MERGE
+if [ $? -eq 1 ]
+then
+  if [ $INTERACT_MODE = "YES" ]
+  then
+    echo An error occured while merging adaptation data. Please make sure
+    echo you have the correct data files and try again. If problem persists,
+    echo call the ROC for support.
+  fi
+  Error_exit "Error in merge.  Merge halted."
+fi
+
+#SEND MESSAGE TO LOG FILE FOR NEW MERGE
+echo New merge complete with no errors | ${MLOG}
+
+
+# TAR & ZIP THE BUILD-NEW DIRECTORY
+
+echo Creating new adaptation data archive | ${MLOG}
+NEWADAPT=`find_adapt -c $NODE -f`
+OWD=$PWD
+cd ${NEWDIR}
+tar cvf ${NEWADAPT} *.adapt## | ${MLOG}
+${ZIP} ${NEWADAPT}
+rm -f *.adapt##
+cd ${OWD}
+  if [ $INTERACT_MODE = "YES" ]
+  then
+    echo Data merge complete.
+  fi
+
+###CREATE BUILD-NEW MEDIA
+
+#Open CD tray
+medcp -ue cd > /dev/null 2>&1
+
+#PROMPT USER FOR BLANK BUILD-NEW INSTALLTION MEDIA AND PRESS Y
+echo
+echo
+echo Insert blank $MERGED_DEV_NAME labeled \"${DATA3}\",
+echo then press Return.
+read dummy
+
+#COPY FILE FROM LOCAL STORAGE TO MEDIA
+if [ $INTERACT_MODE = "YES" ]
+then
+  echo Copying merged archive to ${DATA3} $MERGED_DEV_NAME...
+fi
+echo Copying new ${NEWBNAME} data to Installation $MERGED_DEV_NAME | ${MLOG}
+log_msg=`medcp -ce ${NEWDIR} $MERGED_DEVICE`
+if [ $? -ne 0 -a $? -ne 115 ]
+then
+    # Exit code 115 is due to eject -t. It doesn't work on RPGA, so ignore.
+    echo "$log_msg" | ${MLOG}
+    Error_exit "Error copying ${NEWDIR} to $MERGED_DEV_NAME (check medcp log)."
+fi
+echo
+echo This $MERGED_DEV_NAME will be used during installation of the latest RPG software.
+echo Remove the $MERGED_DEV_NAME, then press Return.
+read dummy
+
+#CREATE BUILD-NEW ROC MEDIA
+
+#PROMPT USER FOR BLANK BUILD-NEW ROC MEDIA AND PRESS Y
+echo
+echo Insert blank $NEW_DEV_NAME labeled \"${DATA4}\",
+echo then press Return.
+read dummy
+
+#SAVE ADAPT DATA FOR RETURNING TO ROC
+if [ $INTERACT_MODE = "YES" ]
+then
+  echo Copying merged archive to ${DATA4} $NEW_DEV_NAME...
+fi
+echo Copying new ${NEWBNAME} data to ROC $NEW_DEV_NAME | ${MLOG}
+log_msg=`medcp -ce ${NEWDIR} $LOG_FILE_NAME $NEW_DEVICE`
+if [ $? -ne 0 -a $? -ne 115 ]
+then
+    # Exit code 115 is due to eject -t. It doesn't work on RPGA, so ignore.
+    echo "$log_msg" | ${MLOG}
+    Error_exit "Error copying ${NEWDIR} to $NEW_DEV_NAME (check medcp log)."
+fi
+
+echo
+echo This $NEW_DEV_NAME is to be delivered to the ROC.
+echo Remove the $NEW_DEV_NAME, then press Return.
+read dummy
+echo
+
+###REMOVE TEMP FILES AND DIRECTORIES
+
+echo Removing temp files and directories | ${MLOG}
+cd "${HOME}"
+rm -rf ${OLDDIR}
+rm -rf ${NEWDIR}
+
+###END SCRIPT
+if [ $INTERACT_MODE = "YES" ]
+then
+   echo press Return to terminate.
+   read dummy
+fi
+exit 0

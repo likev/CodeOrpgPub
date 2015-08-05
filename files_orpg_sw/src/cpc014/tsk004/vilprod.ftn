@@ -1,0 +1,55 @@
+C
+C RCS info
+C $Author: steves $
+C $Locker:  $
+C $Date: 2011/02/25 15:23:16 $
+C $Id: vilprod.ftn,v 1.10 2011/02/25 15:23:16 steves Exp $
+C $Revision: 1.10 $
+C $State: Exp $
+C
+	PROGRAM VILPROD__VILPROD_MAIN
+C***********************************************************************
+C
+C	This file defines the "main" Vertically Integrated Liquid
+C	Product routine.
+C
+C***********************************************************************
+C
+
+
+
+	IMPLICIT NONE
+
+$INCLUDE rpg_port.inc,**rpg_port	
+				
+$INCLUDE a309.inc,**A3PM00		
+$INCLUDE a309adpt.inc/g, **A3CD70C5 (nlist)
+$INCLUDE a309adpt.inc/g, **A3CD70C8 (nlist)
+$INCLUDE a309adpt.inc/g, **A3CD70CA (nlist)
+	integer param
+
+	;**specify inputs
+	call RPG_in_data(VILTABL, VOLUME_DATA)
+
+	;**specify outputs
+	call RPG_out_data(VILPROD, VOLUME_DATA, 57)
+
+	;** register adaptation blocks and the scan summary array
+	;** These calls will cause automatic adaptation and scan summary update
+	call RPG_reg_adpt (RDACNT_ID, RDACNT_FIRST, BEGIN_VOLUME)
+	call RPG_reg_adpt (COLRTBL_ID, COLRTBL_FIRST, BEGIN_VOLUME)
+	call RPG_reg_scan_summary ()
+
+	;** register for site info adaptation data
+        call RPG_reg_site_info( SIRDALAT )
+
+        ;** tell system this task is volume-based.
+	call RPG_task_init(VOLUME_BASED)
+
+        ;** waiting for activation
+10	call RPG_wait_act(WAIT_DRIVING_INPUT)
+	call A314N1__VIL_CTL(param)
+	goto 10
+
+	stop
+	end

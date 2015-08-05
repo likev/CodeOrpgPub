@@ -1,0 +1,239 @@
+C
+C RCS info
+C $Author: ryans $
+C $Locker:  $
+C $Date: 2007/05/09 16:39:39 $
+C $Id: a3082h.ftn,v 1.5 2007/05/09 16:39:39 ryans Exp $
+C $Revision: 1.5 $
+C $State: Exp $
+C
+      SUBROUTINE A3082H__TVS(CAT_NUM_STORMS,CAT_FEAT,COMB_ATT,
+     $   NUM_FPOSITS,FORCST_POSITS,CAT_NUM_RCM,
+     $   CAT_TVST,IROW,ICOL,NBYTES,RCMBUF)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3082H__TVS
+*.
+*.  MODULE VERSION: 0011
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       02 18 88      0000      VALERIE HOLDEN       SPR # 80002
+*.       02 06 89      0001      VALERIE HOLDEN       SPR # 90027
+*.       01 29 91      0002      VALERIE HOLDEN       SPR # 91249
+*.       12 03 91      0003      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0004      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/20/92      0005      Toolset              SPR 91895
+*.       03/25/93      0006      Toolset              SPR NA93-06801
+*.       01/28/94      0007      Toolset              SPR NA94-01101
+*.       03/03/94      0008      Toolset              SPR NA94-05501
+*.       04/11/96      0009      Toolset              CCR NA95-11802
+*.       12/23/96      0010      Toolset              CCR NA95-11807
+*.       03/16/99      0011      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A3082H__TVS (CAT_NUM_STORMS,CAT_FEAT,
+*.                    COMB_ATT,NUM_FPOSITS,FORCST_POSITS,CAT_NUM_RCM,
+*.                    CAT_TVST,IROW,ICOL,NBYTES,
+*.                    RCMBUF)
+*.
+*.  MODULE FUNCTION: ENCODES TORNADIC VORTEX SIGNATURES FOR PART C
+*.
+*.  MODULES CALLED: A30828__GRID_LETTERS, A3082G__GET_IJ, A3082K__STORE_LINE, 
+*.                  A3082Q__PROCESS_LINE 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT       TYPE        DESCRIPTION
+*.    -   -----       ----        -----------
+*.    C   CAT_TVSAZ   I*4         (CONSTANT)Offset to table of TVs values
+*.                                (CAT_TVST) for TVs azimuth.
+*.    C   CAT_TVSEL   I*4         (CONSTANT)Offset to table of TVs values
+*.                                (CAT_TVST) for TVs elevation angle.
+*.    C   CAT_TVSRN   I*4         (CONSTANT)Offset into table of TVS values
+*.                                (CAT_TVST) for range.
+*.    C   MAX_STORM   I*4         (CONSTANT)Maximum number of storms.
+*.    C   NACOLS      I*4         (CONSTANT)Number of columns available for
+*.                                Radar Coded Message product.
+*.    C   RCM_TVS     I*4         (CONSTANT)Offset for total number of TVs.
+*.    P   CAT_NUM_RCM I*4         TABLE OF TOTAL'S FOR MESO, TVS, 2D
+*.    P   CAT_TVST    R*4         Table of TVS values.
+*.    P   ICOL        I*4         COLUMN NUMBER
+*.    P   IROW        I*4         ROW NUMBER
+*.    P   NBYTES      I*4         NUMBER OF BYTES
+*.    P   RCMBUF      I*2         RADAR-CODED-MESSAGE BUFFER
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    P   ICOL    I*4         COLUMN NUMBER
+*.    P   IROW    I*4         ROW NUMBER
+*.    P   NBYTES  I*4         NUMBER OF BYTES
+*.    P   RCMBUF  I*2         RADAR-CODED-MESSAGE BUFFER
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    P   ICOL              I*4         COLUMN NUMBER
+*.    P   IROW              I*4         ROW NUMBER
+*.    P   NBYTES            I*4         NUMBER OF BYTES
+*.    P   RCMBUF            I*2         RADAR-CODED-MESSAGE BUFFER
+*.
+*.  DATABASE/FILE REFERENCE: NONE
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME        TYPE        DESCRIPTION
+*.    ----        ----        -----------
+*.    AZIM        R*4         AZIMUTH OF STORM
+*.    BLANK       CHAR*1      ONE BLANK CHARACTER
+*.    COLON       CHAR*1      COLON CHARACTER
+*.    COMMA       CHAR*1      COMMA CHARACTER
+*.    ELEV        R*4         ELEVATION ANGLE OF STORM
+*.    FLAG        I*4         FLAG FOR END OF LINE
+*.    GRID        CHAR*3      LFM GRID LOCATION
+*.    I           I*4         Index control variable.
+*.    IC          I*4         START POSITION FOR WRITING COMMA
+*.    INC1        I*4         INCREMENTAL VALUE OF 1
+*.    INC7        I*4         VARIABLE TO INCREMENT BY 7
+*.    INC9        I*4         VARIABLE TO INCREMENT BY 9
+*.    INCREM      I*4         INCREMENTAL VALUE FOR COMMA PLACEMENT
+*.    IS          I*4         START POSITION FOR WRITING STORM DATA
+*.    ISM         I*4         END POSITION FOR WRITING STORM DATA
+*.    IVAL        I*4         I GRID COORDINATE
+*.    JVAL        I*4         J GRID COORDINATE
+*.    K           I*4         Loop control index variable.
+*.    L1_END      I*4         MAX NUMBER OF TVS ON LINE 1
+*.    L2_END      I*4         MAX NUMBER OF TVS ON LINE 2
+*.    L3_END      I*4         MAX NUMBER OF TVS ON LINE 3
+*.    LEND        I*4         END OF LINE INDICATOR
+*.    NUM_TVS     CHAR*5      Header for Total Number of TVS
+*.    ONE         I*4         Program parameter value for one used as lower
+*.                            index in do loop.
+*.    RANGE       R*4         RANGE OF STORM
+*.    RANGE_MAX   R*4         MAXIMUM RANGE VALUE = 230.0 KM
+*.    RCM_LINE    CHAR*70     RADAR CODED MESSAGE LINE
+*.    RZERO       R*4         Parameter value for real zero.
+*.    SET10       I*4         VARIABLE TO INITIALIZE TO 10
+*.    SET18       I*4         VARIABLE TO INITIALIZE TO 18
+*.    TOT_NUM_TVS I*4         TOTAL NUMBER OF TVS TO PROCESS
+*.    TVS         CHAR*3      TVS HEADER
+*.    TVS_ID      I*4         TVS ID NUMBER
+*.    TVS_TOTAL   I*4         TOTAL # TVS'S WITHIN 230 KM RANGE
+*.    ZERO        I*4         Program parameter for 0.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS: NONE
+*.
+*.  DEVIATION FROM STANDARDS: NONE
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     THIS MODULE IS COMPILED USING COMP08.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     THIS MODULE IS LINKED USING LINK08.CSS
+*.
+*.  MISC: NONE
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+C*
+$INCLUDE A308BUF.INC/G,**A308P3 (NEND NLIST)
+$INCLUDE               **A308D3 (NEND NLIST)
+$INCLUDE A308.INC,**A308P2      (NEND NLIST)
+C*
+      INTEGER*2    RCMBUF(*)
+      INTEGER*4    IROW,ICOL,NBYTES,I,K,LEND,IS,IC,ISM
+      INTEGER*4    TOT_NUM_TVS,IVAL,JVAL,INCREM,ZERO,INC1
+      INTEGER*4    FLAG,INC9,INC7,SET10,SET18,TVS_ID,TVS_TOTAL
+      INTEGER*4    L1_END,L2_END,L3_END,L4_END,ONE
+      REAL         AZIM(MAX_STORM),RANGE(MAX_STORM),ELEV(MAX_STORM)
+      REAL         RANGE_MAX,RZERO
+      PARAMETER    (FLAG=100,INC9=9,INC7=7,SET10=10,SET18=18)
+      PARAMETER    (RANGE_MAX=230.0,INCREM=9,ZERO=0,INC1=1,ONE=1)
+      PARAMETER    (L1_END=6,L2_END=13,L3_END=20,RZERO=0.0)
+      CHARACTER*1  COLON,COMMA,BLANK
+      CHARACTER*3  GRID,TVS
+      CHARACTER*5  NUM_TVS
+      CHARACTER*70 RCM_LINE
+
+      DATA         COLON/':'/,COMMA/','/,BLANK/' '/
+      DATA         NUM_TVS/'/NTVS'/,TVS/'TVS'/
+C*
+C*    CLEAR RCM_LINE TO BLANKS
+      DO 10 I = ONE,NACOLS
+ 10      RCM_LINE(I:I) = BLANK
+      TOT_NUM_TVS = CAT_NUM_RCM(RCM_TVS)
+C*
+C*    COLLECT DATA FOR TVS WITHIN 230 KM RANGE
+      I = ZERO
+      DO 51 K = ONE,TOT_NUM_TVS
+         IF ((CAT_TVST(CAT_TVSRN,K).GT.RANGE_MAX).OR.
+     $       (CAT_TVST(CAT_TVSRN,K).LT.RZERO)) THEN
+         ELSE
+            I = I + INC1
+C*
+C*    SAVE AZIMUTH, RANGE AND ELEVATION ANGLE
+            AZIM(I)  = CAT_TVST(CAT_TVSAZ,K)
+            RANGE(I) = CAT_TVST(CAT_TVSRN,K)
+            ELEV(I)  = CAT_TVST(CAT_TVSEL,K)
+X           TYPE *,' ',AZIM(I),RANGE(I),ELEV(I)
+         ENDIF
+ 51   CONTINUE
+      TVS_TOTAL = I
+X     TYPE *,'TVS_TOTAL=',TVS_TOTAL
+C*
+C*    WRITE TOTAL NUMBER OF TORNADIC VORTEX SIGNATURES
+      WRITE(RCM_LINE,100) NUM_TVS,TVS_TOTAL,COLON
+ 100  FORMAT(A5,I2.2,A1)
+      IF (TVS_TOTAL.EQ.ZERO) CALL A3082K__STORE_LINE(IROW,ICOL,
+     $   NBYTES,RCM_LINE,RCMBUF)
+C*
+C*    INITIALIZE INDEX PARAMETERS FOR BUFFER WRITE
+      IS = SET10
+      IC = SET18
+      LEND = ZERO
+C*
+C*    COLLECT DATA FOR EACH TVS
+      DO 200 K = ONE,TVS_TOTAL
+         TVS_ID = K
+C*
+C*    GET LFM GRID LOCATION
+         CALL A3082G__GET_IJ(AZIM(K),RANGE(K),ELEV(K),IVAL,JVAL)
+         CALL A30828__GRID_LETTERS(IVAL,JVAL,GRID)
+         ISM = IS + INC7
+C*
+C*    WRITE TVS IDENTIFIER NUMBER AND LFM LOCATION
+         WRITE(RCM_LINE(IS:ISM),105) TVS,TVS_ID,GRID
+ 105     FORMAT(A3,I2.2,A3)
+C*
+C*    CHECK IF MORE TVS DATA FOLLOWS: ADD COMMA SEPARATOR
+         IF (TVS_TOTAL.GT.K) WRITE(RCM_LINE(IC:IC),106) COMMA
+ 106     FORMAT(A1)
+         IS = IS + INC9
+         IC = IC + INC9
+C*
+C*    CHECK FOR END OF LINE CONDITION
+         IF ((K.EQ.L1_END).OR.(K.EQ.L2_END).OR.(K.EQ.L3_END))
+     $     LEND = FLAG
+C*
+C*    CHECK IF NO MORE TVS DATA OR END OF LINE CONDITION EXISTS
+         IF ((TVS_TOTAL.EQ.K).OR.(LEND.EQ.FLAG)) THEN
+            CALL A3082Q__PROCESS_LINE(IROW,ICOL,NBYTES,IS,IC,
+     $         INCREM,LEND,RCM_LINE,RCMBUF)
+         ENDIF
+ 200  CONTINUE
+X     TYPE *,'A3082H END'
+      RETURN
+      END

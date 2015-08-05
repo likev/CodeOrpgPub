@@ -1,0 +1,242 @@
+
+
+NAME
+    Data element attribute file format
+
+SYNOPSIS
+
+DESCRIPTION
+
+    A data element is a data object that has a defined physical meaning and can
+    be described by a set of attributes. A data element can be one of the
+    primitive types such as integer, floating point number or character string.
+    A data element can have a value or an array of values. A data element can
+    have a subset of defined attributes such as name, type, value, unit and so
+    on.
+
+    A data element attribute file is an ASCII file that contains attribute
+    values of a set of data elements. Each line in the file specifies one or
+    more attributes for one data element. Leading and trailing "space" and
+    "tab" in each line are discarded. If the first non-spacing character is
+    "#", the line is treated as a comment line. A comment line is not a line of
+    specification and is, thus, ignored.
+
+    The first token in a line is the data element identifier if it is not one
+    of the attribute names followed by "=". The data element identifier can
+    contain multiple fields separated by ".". Examples are
+    "site_data.radar_name", "alg.AP_removal.elevation_accept" and
+    "RDA_basedata_header.time". The above first is the radar name as a part of
+    the radar site data. The second is the algorithm adaptation data called
+    "elevation_accept" for the task "AP_removal" which is one of the
+    algorithm/product tasks. The third example is the field "time" of C
+    structure "RDA_basedata_header". All data elements are organized into a
+    tree structure in terms of the dot-separated fields of their identifiers.
+    The attributes of a data element can be specified in different lines or
+    different files.
+
+    Following the data element identifier is a number of sections terminated by
+    ";". Each section specifies an applicable attribute for the data element.
+    ";" after the last section is optional. Each section must be in the form of
+    "attribute name = attribute description" where "attribute name" must be one
+    of the following: "name", "type", "unit", "range", "value", "default",
+    "accuracy", "description", "conversion", "exception", "permission", "enum",
+    "misc" and "baseline". The attribute name is case-insensitive. For example,
+    "name", "Name" and "NAME" are all valid and identical. "attribute
+    description" is a character string that describes the specification of the
+    attribute as explained in the following.
+
+	"name": The name of the data element. An example is 
+	"name = Radar location - latitude".
+
+	"type": One of the following type names: "int", "short", "byte"
+	(4-byte, 2-byte and 1-byte integer respectively), "bit" (1-bit data),
+	"float", "double" (4-byte and 8-byte IEEE floating point numbers
+	respectively), "string" (ASCII character string), "uint", "ushort" and
+	"ubyte" (unsigned versions of int, short and byte). An example is "type
+	= int". If type is not specified, "int" is assumed. The type name is
+	case-insensitive.
+
+	"unit": The physical unit of the data value. Standard unit names are to
+	be defined. Examples are "unit = meter" and "unit = percent".
+
+	"range": The set of all valid values for the data element. The range 
+	can be specified with one of the following three formats:
+
+	    a. Single interval specification defined by "[min, max]" where
+	    "min" and "max" are respectively the minimum and maximum values.
+	    "[" and "]" can be replaced by "(" and ")" respectively if the
+	    boundary is not inclusive. Unlimited boundary is specified by "-".
+	    Examples are "range = [1, 2]", "range = (1, 2]", "range = [1., -)",
+	    "range = [A, Z]" (character string type), and "range = (-, -)".
+
+	    b. A list of valid values: { v1, v2, ...}. Examples are "range =
+	    {1, 2, 3}" and "range = {reflectivity, velocity, spectrum width}.
+
+	    c. A named method that checks the range. The method name is
+	    enclosed by "<" and ">".  The function must be defined with a 
+            single argument of type void* corresponding to the value to be range
+            checked.
+
+	"value": A value or a list of values separated by ",". Examples are
+	"value = 1", "value = 1.0, 2., 3.0" and "value = Yes, No". The value of
+	a data element can be stored outside the data element file. Large data
+	arrays or data in binary form are likely to be stored externally. Array
+	values can also be specified through a linked object. For example,
+	[@rate.1] indicates that the array values are defined in column 1 of
+	table "@rate". The name of any linked object must start with "@".
+
+	"accuracy": The accuracy of the data. [max_error] is used for the
+	absolute maximum error and (max_error) for the relative maximum error.
+
+	"description": A text description of the data.
+
+	"conversion": The way to convert data values from the specified value 
+	to the physical value as in specified "unit". The conversion can be 
+	specified with one of the following formats:
+
+	    a. Format [scale, offset] is used for scale-offset type of
+	    conversion: value = data * scale + offset. An example is
+	    "conversion = [2., 64.]".
+
+	    b. Format {valueMap, data1, value1, data2, value2, ...} for data
+	    mapping conversions. Where "valueMap" is a reserved key word.
+	    "data1", "data2" ... are the data and "value1", "value2" ... are
+	    the values to convert to. An example is "conversion = {valueMap, 1,
+	    -5., 2, 0., 3, 50., 4, 100.}".
+
+	    c. Format <method> is used for named conversion method.  The method
+            is enclosed by "<" and ">".  The function must be defined with two
+            arguments of type void*.  The first argument points to the value to be
+            converted and the second argument points to the location for storing
+            the converted value.
+
+	    Elements of binary data array are assumed to be stored one after
+	    another in the local byte order for types other than "bit" and
+	    "string". For type "bit", we assume that the elements are stored in
+	    a byte array each of which holds 8 elements. The first bit element
+	    is stored in the left-most bit in the bytes. For type "string",
+	    elements are null-terminated strings and stored one after another
+	    with the null terminator.
+
+	"exception": A list of the exceptional data values and their meanings.
+	An example is "exception = 0, below threshold, 1, missing data".
+	Standard vocabulary for describing exceptional values needs to be
+	established in the future.
+
+	"permission": A list of permission group names. Format [name1, name2;
+	...] is used for write permission and format (name1, name2, ...) is
+	used for read permission. The write permission implies the read
+	permission. The users in any of the listed groups are permitted to
+	access. An example is "permission = [roc, agency, urc]".
+
+	"enum": A list of integers as an alternate representation of a set
+	character string values. The enum specification must match the type and
+	range specifications. The type must be "string". The range must be a
+	set of values and the number of the valid values must be the same as
+	the number of integers in enum specification. The items in the enum
+	specification must be integers. An example is "enum = 0, 1", "type =
+	string" and "range = {No, Yes}. In this case, the enum values of "No"
+	and "yes" are respectively 0 and 1.
+
+	"misc": An attribute providing additional info for various purposes.
+	The "misc" attribute may have multiple sections each of which is a
+	string separated by spaces and identified by a key word. The sections
+	may be read from the DEA files or may be generated internally by the
+	DEAU library. Unlike other DE attributes, multiple specifications of
+	"misc" can be put in the DEA files for the same DE. Each of them is
+	appended to the existing "misc" attribute. The DEAU library generates
+	an internal "misc" section which is the DEA file name and line number.
+	The following strings are used for merging control. If "MERGE@-merge-@"
+	presents in the "misc" attribute, the data element's value is forced to
+	merge forward. "MERGE@-Not_merge" is used for not to merge forward
+	regardless of the permission.
+
+	"baseline": A backup for the "value" field. It shares the same format 
+	as "value".
+
+	"default": The default value for the data element. If a default value
+	is site dependent, a list of site names terminated with ":" proceeds
+	the values (":" is treated as a formatting character in default
+	specification). A site name is a single token string. The site names in
+	the list are separated by space. The site name can also be a linked
+	object defined somewhere else. The reserved site name of "Other_sites"
+	can be used for all other sites that are not specified. "Other_sites"
+	must be used after any other site names. Examples are
+
+	    default = KTLX KCRI: .9, Other_sites: 1.2;
+	    default = south_region: 1, 2, Other_sites: 3, 4;
+	    default = FAA_sites: @some_table.2, Other_sites: @another_table.3;
+
+    When characters ";", "=", ":" and "," are used for formatting purpose,
+    characters "space", "tab" and "line return" surrounding them are
+    insignificant. That is, for example, "name = short", "name=short" and "name
+    =short" are all identical. Non-formatting use of ";", ":", "@" and "," are
+    allowed if no ambiguity is introduced. In case of ambiguity, "\" can be
+    used in front of these characters to indicate that they are not interpreted
+    as formatting characters. "\" is reserved for the above purpose. "\\" is
+    treated as non-formating "\". The part of "Attribute description" is
+    case-sensitive except otherwise specified.
+
+    A line started with a attribute specification section is considered as a 
+    continuation of the previous line. A line terminated with "," (spaces can 
+    exist after it) causes the next line to be its continuation. For examples,
+
+	site_data.radar_name	value = KTLX;
+				type = string;
+
+    is equivalent to 
+
+	site_data.radar_name	value = KTLX; type = string;
+
+    And, 
+
+	STP_data_levels.code	value = 0.0, 0.3, 0.6, 1.0, 
+					1.5, 2.0, 2.5, 3.0;
+
+    is equivalent to
+
+	STP_data_levels.code	value = 0.0, 0.3, 0.6, 1.0, 1.5, 2.0, 2.5, 3.0;
+
+    "\" immediately proceeding the "line return" character is treated as the
+    to-be-continued symbol. The leading "space" and "tab" characters in the
+    next line are discarded before the line joins to the previous line. For 
+    example
+
+	site_data.radar_name	description = This is a long \
+				text;
+
+    is equivalent to 
+
+	site_data.radar_name	description = This is a long text".
+
+    The following single-line short format for "value" specification only is 
+    allowed (spaces can exist around ":"). For example,
+
+	site_data.radar_name: KTLX
+
+    is identical to 
+
+	site_data.radar_name	value = KTLX
+
+EXAMPLES
+    Sample lines of the data element file for RPG site adaptatation data:
+
+    site_info.site_name	name = Radar Name;
+			type = string;
+			description = 4 digit radar acronym (ie. KREX);
+
+    site_info.latitude	
+			name = RDA Latitude;      type = int;
+			range = [-90000, 90000];  unit = .001 degrees;
+			description = Latitude of the radar;
+
+    The first line can be replaced by the following lines:
+
+    site_info.site_name		name = Radar Name;
+    site_info.site_name		type = string;
+    site_info.site_name		description = 4 digit radar acronym (ie. KREX);
+
+SEE ALSO
+    deau.3
+
+NOTES

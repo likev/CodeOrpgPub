@@ -1,0 +1,168 @@
+
+orpgred(3)		ORPG SDD Manpage		orpgred(3)
+
+NAME
+orpgred - ORPGRED Library Functions.
+
+SYNOPSIS
+    #include <orpg.h>
+    #include <orpgred.h>
+
+    Orpgred_io_status_t ORPGRED_read_status  (Orpgred_chan_t id)
+    Orpgred_io_status_t ORPGRED_write_status (Orpgred_chan_t id)
+    Orpgred_io_status_t ORPGRED_io_status    (Orpgred_chan_t id)
+    char                *ORPGRED_status_msg  (Orpgred_chan_t id)
+
+    time_t ORPGRED_adapt_dat_time        (Orpgred_chan_t id)
+    int    ORPGRED_channel_num           (Orpgred_chan_t id)
+    int    ORPGRED_channel_state         (Orpgred_chan_t id)
+    int    ORPGRED_comms_relay_state     (Orpgred_chan_t id)
+    int    ORPGRED_control_state         (Orpgred_chan_t id)
+    char  *ORPGRED_get_hostname          (Orpgred_chan_t id)
+    int    ORPGRED_rda_op_state          (Orpgred_chan_t id)
+    int    ORPGRED_rda_status            (Orpgred_chan_t id)
+    int    ORPGRED_rpg_mode              (Orpgred_chan_t id)
+    int    ORPGRED_rpg_rpg_link_state    (void)
+    int    ORPGRED_rpg_state             (Orpgred_chan_t id)
+    int    ORPGRED_update_adapt_dat_time (time_t update_time)
+    int    ORPGRED_wb_link_state         (Orpgred_chan_t id)
+
+    LB_id_t ORPGRED_get_msg  (Redundant_cmd_t *cmd)
+    int     ORPGRED_send_msg (Redundant_cmd_t cmd)
+    LB_id_t ORPGRED_seek     (LB_id_t msg_id)
+    
+DESCRIPTION
+
+    The ORPGRED family of functions provide an API to reading and
+    writing redundant status/control and command information.
+    
+    ORPGRED_read_status() and ORPGRED_write_status() are used to
+    read/write channel status data from/to the channel identified
+    by "id".  "id" should be one of the macros ORPGRED_MY_CHANNEL
+    or ORPGRED_OTHER_CHANNEL.  Most applications should only read
+    the status as the redundant manager is the primary writer.  Also,
+    the read function updates an internal buffer.  Specific status
+    information from this buffer can be obtained using the convenience
+    functions specific to the status element desired.  The library
+    uses LB_NOTIFY to register for any updates to the status messages
+    so normally an application should not need to read the status
+    message explicitly (it is read whenever one of the convenience
+    functions is used).
+
+    ORPGRED_io_status() returns the status of the last status message
+    I/O operation for the channel indicated by "id". The valid return
+    values are ORPGRED_IO_NORMAL, ORPGRED_IO_ERROR, 
+    ORPGRED_IO_INVALID_MSG_ID.
+
+    ORPGRED_status_msg() is used to directly access the buffer used
+    to store the status message (type indicated by "id").  A pointer
+    to the message is returned.  The application should type cast to
+    the appropriate message structure.  On failure, a NULL pointer is
+    returned. A failure is usually an indication that the LB or 
+    requested message has not been created yet.
+
+
+    The following routines are convenience functions used to read or 
+    write specific data elements in the channel status messages. All 
+    of the functions return a -1 on error. If an error is returned, 
+    routine ORPGRED_io_status() can be called to obtain more information 
+    about the error condition.
+
+    ORPGRED_adapt_dat_time() returns the time stamp of the last time the
+    Adaptation Data was updated for the channel indicated by "id".
+    
+    ORPGRED_channel_num() returns the RPG channel number for the channel
+    indicated by "id".
+
+    ORPGRED_channel_state() returns the RPG channel state for the 
+    channel indicated by "id". The state can be either ORPGRED_CHANNEL_ACTIVE
+    or ORPGRED_CHANNEL_INACTIVE.
+
+    ORPGRED_comms_relay_state() returns the state of the narrowband comms
+    relay for the channel indicated by "id". The state can be 
+    ORPGRED_COMMS_RELAY_UNKNOWN, ORPGRED_COMMS_RELAY_ASSIGNED, or
+    ORPGRED_COMMS_RELAY_UNASSIGNED.
+    
+    ORPGRED_control_state() returns the RDA channel control state for the
+    channel indicated by "id". The state can be either RDA_IS_CONTROLLING
+    or RDA_IS_NON_CONTROLLING.
+
+    ORPGRED_get_hostname() returns the name of the host computer for the
+    channel indicated by "id". NULL is returned if the LB has not been 
+    updated with the hostname or if an error occurs.
+    
+    ORPGRED_rda_op_state() returns the RDA operability state for the
+    specified channel (id).  The valid operability states can be one
+    of the following: OS_ONLINE, OS_MAINTENANCE_REQ, OS_MAINTENANCE_MAN,
+    OS_COMMANDED_SHUTDOWN, OS_INOPERABLE.
+
+    ORPGRED_rda_status() returns the status of the RDA for the channel 
+    indicated by "id". The status (RDA-RPG ICD defined) can be one of the 
+    following: RS_STARTUP, RS_STANDBY, RS_RESTART, RS_OPERATE, RS_PLAYBACK, 
+    or RS_OFFOPER.
+
+    ORPGRED_rpg_mode() returns the mode of the RPG for the channel 
+    indicated by "id". The valid modes can be MRPG_TM_NONE, MRPG_TM_RPG, or 
+    MRPG_TM_RDA. The RPG is in "operate" if the mode is MRPG_TM_NONE; 
+    otherwise, the RPG mode is in test.
+    
+    ORPGRED_rpg_state() returns the RPG state for the channel indicated 
+    by "id". Examples of the various states are standby, operate, etc. For
+    a complete list of valid states, see description for Mrpg_state_t.state
+    in file mrpg.h.
+    
+    ORPGRED_rpg_rpg_link_state() returns the state of the link between the 
+    two RPGs.  The state can be either ORPGRED_CHANNEL_LINK_UP or 
+    ORPGRED_CHANNEL_LINK_DOWN.
+
+    ORPGRED_update_adapt_dat_time() updates the Adaptation Data time stamp
+    in the status message for the local channel. This time specifies when
+    the last Adaptation Data update occurred. The valid return values are 0
+    for a successful update, or -1 if an error occurred.
+    
+    ORPGRED_wb_link_state() returns the state of the wideband link
+    between the RDA and RPG for the specified channel (id).  The
+    state can be either ORPGRED_CHANNEL_LINK_UP or ORPGRED_CHANNEL_LINK_DOWN.
+
+
+    The next set of routines is used to send and retrieve command information
+    sent to the redundant manager by other processes.
+ 
+    ORPGRED_get_msg() returns a redundant command from the redundant command 
+    data store along with a data id (cmd.lb_id), message_id (msg_id), and 
+    optional parameters (cmd.parameterX).  Normally this information is only 
+    useful to the redundant manager.
+    
+    ORPGRED_send_msg() is used to direct the redundant manager to
+    perform a command by writing a command (cmd.cmd), data id (cmd.lb_id),
+    message id (cmd.msg_id), and optional parameters (cmd.parameterX)
+    to the redundant command data store.
+    The valid commands are as follows:
+    		ORPGRED_UPDATE_ALL_MESSAGES
+    		ORPGRED_DOWNLOAD_BYPASS_MAP
+    		ORPGRED_DOWNLOAD_CLUTTER_ZONES
+                ORPGRED_VCP_RDA_CONTROL
+
+    The ORPGRED_UPDATE_ALL_MESSAGES command is used to direct the redundant 
+    manager to write all the Adaptation Data messages to the other channel.
+
+    The ORPGRED_DOWNLOAD_BYPASS_MAP and ORPGRED_DOWNLOAD_CLUTTER_ZONES 
+    commands are used to direct the redundant manager on this channel that 
+    a download Bypass Map/Clutter Zones to the RDA was performed and
+    the download needs to be performed on the other channel.
+
+    The ORPGRED_VCP_RDA_CONTROL is used to direct the redundant manager that
+    the VCP just selected/downloaded to the RDA on this channel needs to be 
+    selected/downloaded on the other channel.
+
+
+    
+EXAMPLES
+
+   
+SEE ALSO
+
+orpg(3)
+
+
+				$Revision: 1.8 $

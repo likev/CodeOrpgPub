@@ -1,0 +1,310 @@
+C
+C RCS info
+C $Author: steves $
+C $Locker:  $
+C $Date: 2004/01/12 17:03:59 $
+C $Id: a318qg.ftn,v 1.5 2004/01/12 17:03:59 steves Exp $
+C $Revision: 1.5 $
+C $State: Exp $
+C
+      SUBROUTINE A318QG__NO_TVS(BUF)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A318QG__NO_TVS
+*.
+*.  MODULE VERSION: 0015
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       10 18 85      0000      JSGROMMONS
+*.       05 01 86      0001      JSGROMMONS           SPR# 60119
+*.       06 03 86      0002      JSGROMMONS           SPR# 60124
+*.       05 23 88      0003      STEVE D SMITH        SPR# 80087
+*.       12 12 88      0004      STEVE ANDERSON       SPR # 80528
+*.       09 21 90      0005      MARK FRESCH          SPR # 90767
+*.       11 05 90      0006      MEI   OU             SPR # 91259
+*.       12 03 91      0007      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0008      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0009      Toolset              SPR 91895
+*.       03/25/93      0010      Toolset              SPR NA93-06801
+*.       01/28/94      0011      Toolset              SPR NA94-01101
+*.       03/03/94      0012      Toolset              SPR NA94-05501
+*.       04/11/96      0013      Toolset              CCR NA95-11802
+*.       12/23/96      0014      Toolset              CCR NA95-11807
+*.       04/03/96      0015      DAVE ZITTEL          CCR NA95-21503
+*.       03/16/99      0015      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:
+*.     CALL A318QG__NO_TVS(BUF)
+*.
+*.  MODULE FUNCTION:
+*.     BUILD THE NO TVS/ETVS MESSAGE PACKET FOR THE GRAPHIC BLOCK
+*.
+*.  MODULES CALLED: A318QM__PACKET_MOVE 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT      TYPE        DESCRIPTION
+*.    -   -----      ----        -----------
+*.    G   NBLKSOFF   I*4         (CONSTANT)Product header offset: Number of
+*.                               blocks in product.
+*.    G   OGLSWOFF   I*4         (CONSTANT)Product header offset: graphic
+*.                               attributes (LSW).
+*.    G   OGMSWOFF   I*4         (CONSTANT)Product header offset: graphic
+*.                               attributes (MSW).
+*.    G   OPRLSWOFF  I*4         (CONSTANT)Product header offset descriptions:
+*.                               Offset to product length (LSW)
+*.    G   OPRMSWOFF  I*4         (CONSTANT)Product header offset descriptions:
+*.                               Offset to product length (MSW)
+*.    G   OTADLSWOFF I*4         (CONSTANT)Product header offset: offset to
+*.                               tabular/adaptation data (LSW)
+*.    G   OTADMSWOFF I*4         (CONSTANT)Product header offset: offset to
+*.                               tabular/adaptation (MSW)
+*.    C   GPHLNG     I*4         Length of graphic block in I*2 words.
+*.    C   NDX        I*4         Working subscript for moving data into the
+*.                               output buffer.
+*.    C   PGNO       I*2         Page number of tabular block.
+*.    C   PLNGTH     I*2         Page length (in halfwords).
+*.    C   PNDX       I*4         Index in output buffer for page number, page
+*.                               length.
+*.    C   TVSIDX     I*4         TVS product output buffer index for pointing
+*.                               to next location in array BUF.
+*.    P   BUF        I*2         OUTPUT BUFFER
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    G   TBUF    I*2         Array of text data.
+*.    G   TXCHR   CHAR*80     Array of 80 character lines.
+*.    C   GPHLNG  I*4         Length of graphic block in I*2 words.
+*.    C   IPIX    I*2         I pixel location for graphic packet.
+*.    C   JPIX    I*2         J pixel location for graphic packet.
+*.    C   K1      I*4         Lower limit for graphic attribute fields to be
+*.                            written.
+*.    C   K2      I*4         Upper limit for graphic attribute fields to be
+*.                            written.
+*.    C   N1      I*4         Lower limit of fields to be moved into line
+*.                            array.
+*.    C   N2      I*4         Upper limit of fields to be moved into line
+*.                            array.
+*.    C   NDX     I*4         Working subscript for moving data into the
+*.                            output buffer.
+*.    C   PGNO    I*2         Page number of tabular block.
+*.    C   PLNGTH  I*2         Page length (in halfwords).
+*.    C   PNDX    I*4         Index in output buffer for page number, page
+*.                            length.
+*.    C   TVSIDX  I*4         TVS product output buffer index for pointing to
+*.                            next location in array BUF.
+*.    P   BUF     I*2         OUTPUT BUFFER
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    P   BUF               I*2         OUTPUT BUFFER
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME         TYPE        DESCRIPTION
+*.    ----         ----        -----------
+*.    BCHAR        I*4         CONSTANT 80 FOR NO CHAR PER LINE
+*.    BL           I*4         NO OF I*2 WORDS OF PER LINE
+*.    BLNGTH       I*2         LENGTH OF PACKET BLOCK IN HALF WORDS.
+*.    BYTES_PER_I2 I*4         Number of bytes per I*2 word
+*.    DIVIDER      I*2         DIVIDER IN PRODUCT OUTPUT BUFFER
+*.    GPHLNGX      I*4         LENGTH OF GRAPHIC BLOCK IN BYTES
+*.    GPHOFF       I*4         CONSTANT 5 FOR OFFSET FOR PAGENO
+*.    IT           I*4         LINE NUMBER
+*.    NBLKS        I*2         NUMBER OF BLOCKS IN NO TVS PRODUCT
+*.    NCOLS        I*4         Dimension of TBUF.
+*.    NDXOFF       I*4         CONSTANT 7 FOR OFFSET FOR PACKET HEADER
+*.    NOLNS        I*4         NUMBER OF LINES IN THE BUFFER (= 5)
+*.    NPGS         I*2         NO OF PAGES WRITTEN IN BUF
+*.    NROWS        I*4         First dimension of TBUF.
+*.    ODX          I*4         VALUE OF IDX FOR STORING
+*.    OPCODE       I*2         CONSTANT 8 FOR TEXT PACKET
+*.    PLNGTHX      I*2         LENGTH OF PAGE IN NUMBER OF BYTES.
+*.    PNDXOF       I*4         (Constant) Used for offset for text packet.
+*.    PRDBLK       I*2         Block ID for Graphics Attribute (= 2)
+*.    SVNDX        I*4         SAVED VALUE OF IDX
+*.    TXCLR        I*2         VALUE FOR TEXT STRING (COLOR)
+*.    UPLIM        I*4         CONSTANT 6 FOR MAX NO OF FIELDS
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    BLKA
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    BLKB
+*.    TVSINDEX
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:
+*.
+*.      WAIVER 4210 - 093 FOR MORE THAN TWO CONTINUATION LINES IN
+*.          THE CALL A318Q6
+*.      WAIVER 4210 - 092 FOR IMBEDDED CONSTANTS ZERO AND ONE
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     THIS MODULE IS COMPILED USING THE COMP18.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     THIS MODULE IS LINKED USING THE LINK18.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+C
+C   MEMORY
+$INCLUDE A309.INC/G,**A3PM00 (NEND NLIST)
+$INCLUDE A309.INC/G,**A3CD00 (NEND NLIST)
+$INCLUDE A309.INC/G,**A3PM01 (NEND NLIST)
+$INCLUDE A318.INC/G,**A318TVS1 (NEND NLIST)
+C
+C            LOCAL DEFINITIONS:
+      INTEGER*4  NROWS,NCOLS
+      PARAMETER  (NROWS=40,NCOLS=6)
+C
+      INTEGER*2  BUF(*)
+      INTEGER*2  TBUF(NROWS,NCOLS)
+      INTEGER*2  PGNO,PLNGTH,IPIX,JPIX
+      INTEGER*2  DIVIDER,PRDBLK,NPGS,PLNGTHX,NBLKS
+      INTEGER*2  BLNGTH,TXCLR,OPCODE
+C
+      INTEGER*4  GPHLNGX,IT,BCHAR,NOLNS
+      INTEGER*4  NDX,PNDX,GPHLNG,WIND,N1,N2,K1,K2,KI
+      INTEGER*4  SVNDX,ODX,BL,PNDXOF,UPLIM,GPHOFF,NDXOFF
+      INTEGER*4  BYTES_PER_I2
+C
+      CHARACTER*80  TXCHR(NCOLS)
+C
+      PARAMETER (BYTES_PER_I2=2)
+      PARAMETER (DIVIDER=-1,PRDBLK=2,PNDXOF=5,GPHOFF=5,OPCODE=8,
+     X           TXCLR=0,BCHAR=80,UPLIM=5,NDXOFF=7,NBLKS=4)
+C
+      EQUIVALENCE  (TBUF(1,1),TXCHR)
+C
+      COMMON/BLKA/TBUF
+      COMMON/BLKB/NDX,PNDX,GPHLNG,WIND,N1,N2,K1,K2,KI,
+     X            IPIX,JPIX,PLNGTH,PGNO
+C
+*****************************************************************
+C
+C   INITIALIZE INDICES AND LENGTHS
+C
+      NDX = TVSIDX
+      SVNDX = NDX
+      PNDX = NDX + PNDXOF
+      PLNGTH = 0
+      GPHLNG = 0
+C
+C   SET POINTERS, PAGE NO
+C
+      K1 = 0
+      K2 = 0
+      N1 = 1
+      N2 = 0
+      PGNO = 1
+C
+C   SET NO LINES ALLOWED
+C
+      NOLNS = UPLIM
+C
+C   SET I PIXEL, J PIXEL
+C
+      IPIX = 0
+      JPIX = 1
+C
+C   INITIALIZE POINTER FOR PACKER
+C
+      NDX = NDX + NDXOFF
+C
+C   BUILD PACKET FOR NO TVS
+C
+      DO 100 IT=1,NOLNS
+         WRITE(TXCHR(IT),900)
+  900    FORMAT(80(' '))
+  100 CONTINUE
+C
+      IT = 1
+C
+C   LINE 1
+C
+      WRITE(TXCHR(IT),901)
+  901 FORMAT(10X,' NO TVS/ETVS ')
+C
+      BL = BCHAR / BYTES_PER_I2
+C
+      CALL A318QM__PACKET_MOVE(BUF,OPCODE,BLNGTH,TXCLR,BL)
+C
+C   DETERMINE LENGTHS
+C
+      PLNGTH = PLNGTH + BLNGTH
+      GPHLNG = GPHLNG + PLNGTH + BYTES_PER_I2
+C
+C   DETERMINE TOTAL NO OF PAGES
+C
+      NPGS = PGNO
+      GPHLNG = GPHLNG + GPHOFF
+      GPHLNGX = GPHLNG * BYTES_PER_I2
+C
+C   SET PAGE LENGTH, PAGE NO
+C
+      PLNGTHX = PLNGTH * BYTES_PER_I2
+      BUF(PNDX) = PGNO
+      PNDX = PNDX + 1
+      BUF(PNDX) = PLNGTHX
+C
+C   SET OUTPUT BUFFER TOTALS
+C
+      TVSIDX = NDX
+      ODX = SVNDX
+      BUF(ODX) = DIVIDER
+      ODX = ODX + 1
+C
+C   SET BLOCK ID
+C
+      BUF(ODX) = PRDBLK
+      ODX = ODX + 1
+C
+C   SET LENGTHS
+C
+      call RPG_set_product_int( BUF(ODX), GPHLNGX )
+      ODX = ODX + 2
+      BUF(ODX) = NPGS
+C
+C*******OFFSETS*****************************************************
+C
+C     OFFSET TO ATTRIBUTES = 0,60  (PHEADLNG)
+C     OTHER OFFSETS = 0,0
+C     NO BLOCKS = 3
+C
+C*******************************************************************
+C
+C   SET LENGTHS
+C
+      GPHLNGX = SVNDX - 1
+      call RPG_set_product_int( BUF(OGMSWOFF), GPHLNGX )
+C
+C   SET OFFSETS
+C
+      call RPG_set_product_int( BUF(OTADMSWOFF), 0 )
+      call RPG_set_product_int( BUF(OPRMSWOFF), 0 )
+C
+C   SET NO OF BLOCKS
+C
+      BUF(NBLKSOFF) = NBLKS
+C
+      RETURN
+      END

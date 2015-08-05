@@ -1,0 +1,163 @@
+C 
+C RCS info 
+C $Author: nolitam $ 
+C $Locker:  $ 
+C $Date: 2002/12/11 20:00:48 $ 
+C $Id: a3cm38.ftn,v 1.3 2002/12/11 20:00:48 nolitam Exp $ 
+C $Revision: 1.3 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A3CM38__JULIAN2DATE(JULIAN, DATE)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3CM38__JULIAN2DATE
+*.
+*.  MODULE VERSION: 0007
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       30 MAY 85     0000      K. CARPENTER         PART 2 DEVELOPMENT
+*.       10 02 86      0001      J GROMMONS           SPR # 60346
+*.       11 08 90      0002      J WHEELER            SPR # 91250
+*.       12/10/91      0003      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0004      Toolset              SPR 91895
+*.       03/25/93      0005      Toolset              SPR NA93-06801
+*.       03/03/94      0006      Toolset              SPR NA94-05501
+*.       12/23/96      0007      Toolset              CCR NA95-11807
+*.
+*.  CALLING SEQUENCE: CALL A3CM38__JULIAN2DATE(JULIAN, DATE)
+*.
+*.  MODULE FUNCTION:
+*.
+*.       Formats a call to T41193__CALDATE which converts julian date
+*.       to month, day, and year.  A3CM38__JULIAN2DATE is necessary
+*.       to convert the output from T41193__CALDATE to a julian date
+*.       based on 1970.
+*.
+*.  MODULES CALLED: T41193__CALDAE 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT  TYPE        DESCRIPTION
+*.    -   -----  ----        -----------
+*.    P   JULIAN I*2         Julian date to convert
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    P   DATE    I*2         Array of 3 elements, DATE(1) = day
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None.
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME     TYPE        DESCRIPTION
+*.    ----     ----        -----------
+*.    BASEYR   I*4         Base year 1970 in julian
+*.    DATELEN  I*2         Dimension of DATE array.
+*.    DAY      I*4         Converted day
+*.    DEC1     I*2         20th century
+*.    DEC2     I*2         21st century
+*.    ERROR    I*2         Error condition
+*.    FIRSTYR  I*2         First allowable year
+*.    IDAY     I*2         Index into date array for day
+*.    IMONTH   I*2         Index into date array for month
+*.    IYEAR    I*2         Index into date array for year
+*.    JUL4     I*4         Julian date plus base year.
+*.    LASTDEC1 I*2         Last year in 20th century
+*.    LASTDEC2 I*2         Last year in 21st century
+*.    MONTH    I*4         Converted month
+*.    YEAR     I*4         Converted year
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: None.
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None.
+*.
+*.  DEVIATION FROM STANDARDS:  None.
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.        THIS MODULE IS COMPILED USING THE COMP09.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.        THIS MODULE IS LINKED USING THE LINK09.CSS
+*.
+*.  MISC:  None.
+*.
+*.*******************************************************************
+*
+      IMPLICIT NONE
+
+      INTEGER*2 DATELEN
+      PARAMETER ( DATELEN = 3 )
+
+      INTEGER*2 JULIAN, DATE(DATELEN)
+
+      INTEGER*4 MONTH, DAY, YEAR, JUL4
+
+      INTEGER*4 BASEYR
+      PARAMETER ( BASEYR = 2440587 )
+
+      INTEGER*2 IMONTH, IDAY, IYEAR
+      PARAMETER ( IMONTH = 2, IDAY = 1, IYEAR = 3 )
+
+      INTEGER*2 ERROR, DEC1, DEC2
+      PARAMETER ( ERROR = -1, DEC1 = 1900, DEC2 = 2000 )
+
+      INTEGER*2 FIRSTYR, LASTDEC1, LASTDEC2
+      PARAMETER ( FIRSTYR = 1970, LASTDEC1 = 1999, LASTDEC2 = 2999 )
+
+*********************************************************************
+
+*     Convert julian date to base year of T41193__CALDATE
+*
+      JUL4 = BASEYR + JULIAN
+
+*     Call T41193__Caldate to convert to date
+*
+      CALL T41193__CALDATE(JUL4, YEAR, MONTH, DAY)
+
+*     If date is in 20th century add 1900
+*
+      IF (YEAR .GE. FIRSTYR .AND. YEAR .LE. LASTDEC1) THEN
+
+            YEAR = YEAR - DEC1
+
+      ELSE
+
+*           If date is in 21st century add 2000
+*
+            IF (YEAR .GE. DEC2 .AND. YEAR .LE. LASTDEC2) THEN
+
+                  YEAR = YEAR - DEC2
+
+*           Else date is in error.
+*
+            ELSE
+
+                  YEAR = ERROR
+
+            END IF
+
+      END IF
+
+*     Place individual date elements into date array.
+*
+      DATE(IDAY) = DAY
+      DATE(IMONTH) = MONTH
+      DATE(IYEAR) = YEAR
+
+      RETURN
+      END

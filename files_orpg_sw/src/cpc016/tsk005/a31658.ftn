@@ -1,0 +1,365 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/16 20:36:41 $
+C $Id: a31658.ftn,v 1.7 2002/12/16 20:36:41 christie Exp $
+C $Revision: 1.7 $
+C $State: Exp $
+C
+      SUBROUTINE A31658__TREND_DATA_PACKET(NUMSTORM, STORMID,
+     >                                     STORMAIN, OUTBUF, PTR)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A31658__TREND_DATA_PACKET
+*.
+*.  MODULE VERSION: 0002
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       06/09/95      0000      STEVE SMITH          CCR NA94-26302
+*.       12/23/96      0001      Toolset              CCR NA95-11807
+*.       03/16/99      0002      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A31658__TREND_DATA_PACKET(NTOTPRED,
+*.                                 STORMAIN, STORMID, OUTBUF, PTR)
+*.
+*.  MODULE FUNCTION:
+*.
+*.
+*.  MODULES CALLED: ILBYTE 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT            TYPE        DESCRIPTION
+*.    -   -----            ----        -----------
+*.    G   CELL_TREND_INDEX I*2         Array containing indexes for trend data
+*.                                     in the array CELL_TREND_DATA for each
+*.                                     storm cell. Each position in
+*.                                     CELL_TREND_INDEX corresponds to a Storm
+*.                                     ID.
+*.    G   VOLUME_TIMES     I*2         One-dimensional array of volume
+*.                                     counters, pointers, and times, in
+*.                                     minutes, for trended storm cell
+*.                                     attributes. VOLUME_SIZE = 12
+*.    G   CBASEOFF         I*4         (CONSTANT)Offset pointer for the
+*.                                     location of the storm base in the array
+*.                                     CELL_TREND_DATA.
+*.    G   CHGTOFF          I*4         (CONSTANT)Offset pointer into the
+*.                                     CELL_TREND_DATA array for the storm
+*.                                     cell centroid height.
+*.    G   CTOPOFF          I*4         (CONSTANT)Offset pointer into the
+*.                                     CELL_TREND_DATA array for the storm
+*.                                     cell top (height of highest component s
+*.                                     centroid).
+*.    G   MAXZHOFF         I*4         (CONSTANT)Offset pointer into the
+*.                                     CELL_TREND_DATA array for the height of
+*.                                     the storm cell component with maximum
+*.                                     reflectivity.
+*.    G   MAXZOFF          I*4         (CONSTANT)Offset pointer into the
+*.                                     CELL_TREND_DATA array for the storm
+*.                                     cell maximum reflectivity. MAXZOFF =
+*.                                     VILOFF + NSTF_NTV = 50 + 10 = 60
+*.    G   NSTM_CHR         I*4         (CONSTANT)Maximum number of storm
+*.                                     characteristics  (dimension of
+*.                                     STORMAIN)
+*.    G   NSTM_MAX         I*4         (CONSTANT)Maximum number of storms
+*.                                     (Dimension for STORMAIN)
+*.    G   NVOLOFF          I*4         (CONSTANT)ffset pointer into the
+*.                                     CELL_TREND_DATA array for the number of
+*.                                     volumes a storm cells been tracked
+*.                                     packed as left byte
+*.    G   NVOL_CVOL        I*4         (CONSTANT)Offset pointer into the
+*.                                     VOLUME_TIMES array for the packed byte
+*.                                     variables VOLUME_COUNTER and TIMEPTR.
+*.    G   POHOFF           I*4         (CONSTANT)Offset to the POH for a
+*.                                     particular cell at a particular volume
+*.                                     scan in the cell trend array.
+*.    G   POSHOFF          I*4         (CONSTANT)Offset to the POSH for a
+*.                                     particular cell at a particular volume
+*.                                     scan in the cell trend array.
+*.    G   STM_XCN          I*4         (CONSTANT)Index to storm cell
+*.                                     x-position in an array of centroid
+*.                                     data.
+*.    G   STM_YCN          I*4         (CONSTANT)Index to storm cell
+*.                                     y-position in an array of centroid
+*.                                     data.
+*.    G   TIMEOFF          I*4         (CONSTANT)Offset pointer for the latest
+*.                                     time in the VOLUME_TIMES array.
+*.    G   VILOFF           I*4         (CONSTANT)Offset pointer into the
+*.                                     CELL_TREND_DATA array for the storm
+*.                                     cell-based vertically integrated liquid
+*.                                     water. VILOFF = POSHOFF + NSTF_NTV = 40
+*.                                     + 10 = 50
+*.    P   NUMSTORM         I*4         Number of storms
+*.    P   PTR              I*4         Pointer to current location in output
+*.                                     buffer
+*.    P   STORMAIN         R*4         2-d array of Storm Cell attributes
+*.    P   STORMID          I*4         Array of Storm Cell IDs
+*.
+*.    *   OUTPUT       TYPE        DESCRIPTION
+*.    -   ------       ----        -----------
+*.    G   VOLUME_TIMES I*2         One-dimensional array of volume counters,
+*.                                 pointers, and times, in minutes, for
+*.                                 trended storm cell attributes. VOLUME_SIZE
+*.                                 = 12
+*.    P   OUTBUF       I*2         Output buffer for Trend data
+*.    P   PTR          I*4         Pointer to current location in output
+*.                                 buffer
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    G   CELL_TREND_INDEX  I*2         Array containing indexes for trend
+*.                                      data in the array CELL_TREND_DATA for
+*.                                      each storm cell. Each position in
+*.                                      CELL_TREND_INDEX corresponds to a
+*.                                      Storm ID.
+*.    G   VOLUME_TIMES      I*2         One-dimensional array of volume
+*.                                      counters, pointers, and times, in
+*.                                      minutes, for trended storm cell
+*.                                      attributes. VOLUME_SIZE = 12
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME                TYPE        DESCRIPTION
+*.    ----                ----        -----------
+*.    BLOCK_LENGTH        I*4         Length of cell trend data block in bytes
+*.    CELL_BASE_CODE      I*4         Trend code in trend data for Cell based
+*.                                    VIL
+*.    CELL_ID_CHAR        CHAR*2      Character representation of the Cell ID
+*.    CELL_ID_INT         I*2         The integer representation of the Cell
+*.                                    ID (Equivalenced to CELL_ID_CHAR)
+*.    CELL_TOP_CODE       I*4         Trend code in trend data for Cell Top
+*.    CELL_TREND_DATA     I*2         Array of 8 storm cell attributes for up
+*.                                    to 13 volumes and up to 100 storm cells.
+*.                                    (NSTF_HKT+(NSTF_NTV*NSTF_NTF))*NSTF_MAX=(
+*.                                    1+(10*8))*100=8100
+*.    CENTROID_HGT_CODE   I*4         Parameter for the Centroid Height in the
+*.                                    cell trends data
+*.    CHARIDTABLE         CHAR*2      Character table of storm IDs.
+*.    I                   I*4         Loop index variable.
+*.    ID                  I*4         Storm Cell ID
+*.    INDEX               I*4         Trend Data Index
+*.    I_POSITION          I*2         Storm Cell's I position
+*.    J                   I*4         Do loop counter
+*.    J_POSITION          I*2         Storm Cell's J position
+*.    K                   I*4         Do loop index
+*.    LOW                 I*4         Parameter used to extract the least
+*.                                    significant byte into an integer
+*.    MAXZ_CODE           I*4         Parameter for Maximum Reflectivity code
+*.                                    in trend data
+*.    MAXZ_HGT_CODE       I*4         Parameter for Maximum Reflectivity
+*.                                    Height code in trend data
+*.    NSTF_NTF            I*4         Number of storm cell attributes for cell
+*.                                    trends data
+*.    NUMVOLS             I*4         Number of volume scans in list of cells
+*.    OFFSET              I*4         Offset into trend data for a particular
+*.                                    trend code
+*.    POH_CODE            I*4         Probability Hail Code used in Trend data
+*.    POSH_CODE           I*4         Probabilty of Severe Hail code used in
+*.                                    Trend data
+*.    SAVE_PTR            I*4         Saved buffer pointer used for block
+*.                                    length calculation
+*.    TREND_CODES         I*2         The different trend codes for a cell
+*.    TREND_CODE_OFFSETS  I*2         An array of offsets for the trend codes
+*.    TREND_PACKET_CODE   I*4         Packet code for cell trend data
+*.    VIL_CODE            I*4         Parameter for VIL in the TREND_CODES
+*.    VOLTIME_PACKET_CODE I*4         Packet code for the volume scan times in
+*.                                    the cell trend data
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A315TRND
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS:  NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP16.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK16.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+      IMPLICIT NONE
+C
+$INCLUDE A315BUF.INC/G, **A315P5C (NLIST NEND)
+$INCLUDE                **A315P7F (NLIST NEND)
+$INCLUDE                **A315P8T (NLIST NEND)
+$INCLUDE                **A315D8 (NLIST NEND)
+$INCLUDE A315BUF.INC/G, **A315PTRD (NLIST NEND)
+$INCLUDE                **A315CTRD (NLIST NEND)
+$INCLUDE A309.INC/G, **A3CD08 (NLIST NEND)
+#IFDEF LINUX
+C NOTHING
+#ELSE
+$INCLUDE A309.INC/G,**A3CD08D (NEND NLIST)
+#ENDIF
+C
+C**  PASSED DATA
+C
+      INTEGER*2 OUTBUF(*)
+      REAL STORMAIN(NSTM_CHR, NSTM_MAX)
+C
+      INTEGER*4 PTR
+C
+C**  LOCAL DATA
+C
+      INTEGER*4 TREND_PACKET_CODE, VOLTIME_PACKET_CODE, LOW
+      PARAMETER (TREND_PACKET_CODE = 21, VOLTIME_PACKET_CODE = 22)
+      PARAMETER (LOW = 0)
+      INTEGER*4 BLOCK_LENGTH, ID, NUMVOLS, INDEX, OFFSET, SAVE_PTR
+      INTEGER*4 I, J, K
+C
+      INTEGER*2 CELL_ID_INT, I_POSITION, J_POSITION
+      CHARACTER*2 CELL_ID_CHAR
+      EQUIVALENCE (CELL_ID_CHAR, CELL_ID_INT)
+C
+      INTEGER*2 TREND_CODES(NSTF_NTF)
+      DATA TREND_CODES/CELL_TOP_CODE, CELL_BASE_CODE, MAXZ_HGT_CODE,
+     >                 POH_CODE, POSH_CODE, VIL_CODE, MAXZ_CODE,
+     >                 CENTROID_HGT_CODE/
+C
+      INTEGER*2 TREND_CODE_OFFSETS(NSTF_NTF)
+      DATA TREND_CODE_OFFSETS/CTOPOFF, CBASEOFF, MAXZHOFF, POHOFF,
+     >                        POSHOFF, VILOFF, MAXZOFF, CHGTOFF/
+C
+C**  EXECUTABLE CODE
+C...................................................................
+C
+C**  BUILD VOLUME SCAN TIMES DATA PACKET.
+C
+C**  STORE VOLUME SCAN TIME LIST PACKET CODE.
+C
+      OUTBUF( PTR ) = VOLTIME_PACKET_CODE
+C
+C**  GET THE NUMBER OF VOLUME SCANS IN THIS LIST.
+C
+      CALL ILBYTE(NUMVOLS,VOLUME_TIMES( NVOL_CVOL ),LOW)
+C
+C**  STORE LENGTH OF THIS DATA PACKET BASED ON THE NUMBER OF VOLUME
+C**  SCANS (IN BYTES).
+C
+      PTR = PTR + 1
+      OUTBUF( PTR ) = NUMVOLS*2 + 2
+C
+C**  STORE THE NUMBER OF VOLUMES AND LATEST VOLUME POINTER IN
+C**  OUTPUT BUFFER.
+C
+      PTR = PTR + 1
+      OUTBUF( PTR ) = VOLUME_TIMES( NVOL_CVOL )
+C
+C**  STORE THE VOLUME SCAN TIMES.
+C
+      DO 10 I = 1,NUMVOLS
+         PTR = PTR + 1
+         OUTBUF( PTR ) = VOLUME_TIMES( TIMEOFF+I )
+ 10   CONTINUE
+C
+C**  DO FOR ALL DETECTED STORM CELLS.
+C
+      DO 20 I = 1, NUMSTORM
+C
+C**  SAVE CURRENT BUFFER POINTER FOR LATER LENGTH CALCULATIONS.
+C
+         SAVE_PTR = PTR + 2
+C
+C**  GET STORM CELL ID.
+C
+         ID = STORMID( I )
+C
+C**  CONVERT ID TO TREND DATA INDEX.
+C
+         INDEX = CELL_TREND_INDEX( ID )
+C
+C**  BUILD CELL TREND DATA PACKET.
+C
+C**  STORE CELL TREND DATA PACKET CODE.
+C
+         PTR = PTR + 1
+         OUTBUF( PTR ) = TREND_PACKET_CODE
+C
+C**  SET THE CELL ID.
+C
+         PTR = PTR + 2
+         CELL_ID_CHAR = CHARIDTABLE(ID)
+#IFDEF LINUX
+$INCLUDE A309.INC/G,**A3CD08D (NEND NLIST)
+#ENDIF
+         OUTBUF( PTR ) = CELL_ID_INT
+C
+C**  CALCULATE STORM CELL I AND J POSITION (IN 1/8 KMS) FROM STORM
+C**  CELL CENTROID X AND Y.
+C
+         I_POSITION = NINT(STORMAIN(STM_XCN,I)*8)
+         J_POSITION = NINT(STORMAIN(STM_YCN,I)*8)
+C
+C**  STORE STORM CELL I AND J POSITION IN DATA PACKET.
+C
+         PTR = PTR + 1
+         OUTBUF( PTR ) = I_POSITION
+         PTR = PTR + 1
+         OUTBUF( PTR ) = J_POSITION
+C
+C**  EXTRACT THE NUMBER OF VOLUMES OF TREND DATA FOR THIS CELL.
+C
+         CALL ILBYTE(NUMVOLS,CELL_TREND_DATA( INDEX+NVOLOFF ),LOW)
+C
+C**  DO FOR EACH TREND CODE.
+C
+         DO 21 J = 1, NSTF_NTF
+C
+C**  STORE TREND CODE IN TREND DATA PACKET.
+C
+            PTR = PTR + 1
+            OUTBUF( PTR ) = TREND_CODES( J )
+C
+C**  STORE NUMBER OF VOLUMES AND LASTEST VOLUME POINTER IN TREND DATA
+C**  PACKET.
+C
+            PTR = PTR + 1
+            OUTBUF( PTR ) = CELL_TREND_DATA( INDEX+NVOLOFF )
+C
+C**  GET OFFSET INTO TREND DATA FOR THIS TREND CODE.
+C
+            OFFSET = TREND_CODE_OFFSETS( J )
+C
+C**  DO FOR EACH VOLUME SCAN.
+C
+            DO 22 K = 1, NUMVOLS
+               PTR = PTR + 1
+               OUTBUF( PTR ) = CELL_TREND_DATA( INDEX+OFFSET+K )
+ 22         CONTINUE
+ 21      CONTINUE
+C
+C**  CALCULATE THE LENGTH OF THIS CELL'S TREND DATA PACKET (BYTES).
+C
+         BLOCK_LENGTH = (PTR - SAVE_PTR)*2
+C
+C**  STORE DATA PACKET LENGTH IN OUTPUT BUFFER.
+C
+         OUTBUF( SAVE_PTR ) = BLOCK_LENGTH
+ 20   CONTINUE
+C
+C**  RETURN TO CALLER
+C
+      RETURN
+      END

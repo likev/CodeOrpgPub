@@ -1,0 +1,151 @@
+#!/bin/sh
+#    File: build_install_adaptation
+#
+# Purpose: build the adaptation installation "tar" file
+#
+#          We currently support the following Operating System/Architecture
+#          combinations:
+#
+#          lnux_x86 - Linux X86
+#
+#   Notes:
+#       This script contains one or more script functions.  These functions
+#       are defined in alphabetical order at the top of this file (must
+#       precede the main body of the script).
+#
+# Changes:
+#    12Feb04 Chris Calvert - Initial.
+#
+
+
+# RCS info
+# $Author: steves $
+# $Locker:  $
+# $Date: 2014/03/07 19:36:14 $
+# $Id: build_install_adaptation,v 1.8 2014/03/07 19:36:14 steves Exp $
+# $Revision: 1.8 $
+# $State: Exp $
+
+
+
+#---------------SCRIPT FUNCTION Buildfile_timestamp------------------------
+
+# Purpose: Echo the timestamp for the "buildfile" name.  The timestamp is in
+#          the form of "DDMMMYY" (e.g., 03NOV98)
+#
+#   Notes: We use the RCS "rlog" function to retrieve the modification
+#          timestamp of the RCS file that corresponds to this project
+#          thread (a.k.a. "thread of threads").
+
+Buildfile_timestamp()
+{
+timestamp1=`rlog -r$version $sdotfile | grep date: | sed 's/\//_/g' | awk ' /date/ {print $2}'`
+    echo $timestamp1 | awk '
+   BEGIN {
+        listmonths="JAN,FEB,MAR,APR,MAY,JUN,JUL,AUG,SEP,OCT,NOV,DEC"
+        ignore=split(listmonths, month, ",")
+    }
+    {
+        ignore=split($0, array, "_")
+        # Note that, to avoid problems caused by leading zeroes in
+        # (associative) array subscripts, we "coerce" the type of
+        # array[2] by adding zero to it
+        array[2] += 0
+        printf("%s%s%s", array[3], month[array[2]], array[1])
+    }'
+
+}
+
+
+
+#---------------SCRIPT BODY -----------------------------------------------
+
+rcsid="$Id: build_install_adaptation,v 1.8 2014/03/07 19:36:14 steves Exp $"
+echo " "
+echo $rcsid
+echo " "
+
+usage="Usage: `basename $0` [options] -t thread_name -v thread_version \n
+       Options: \n
+               -h print usage message \n\n
+               -d workdir (build files using specified directory; default: current working directory)\n\n
+               -t thread  (name of thread;) \n\n
+               -v version (name of version;) \n\n
+       For example: \n
+       \n
+       `basename $0` -t mb1_swit -v 1.7\n\n"
+
+workdir=`pwd`
+thread=
+version=
+
+while getopts d:ht:v: input
+do
+   case $input in
+      h) echo $usage
+	exit 0 ;;
+      d) workdir="$OPTARG";;
+      t) thread="$OPTARG";;
+      v) version="$OPTARG";;
+      \?) echo $usage
+          exit 1 ;;
+   esac
+done
+
+if [ -z "$thread" ]
+then
+   echo $usage
+   exit 1
+fi
+
+if [ -z "$version" ]
+then
+   echo $usage
+   exit 1
+fi
+
+# This is where the compressed installation file will be stored ...
+
+repository=/builds/archive
+
+# Identify the RCS file (we need this in order to create the
+# Build File timestamp) ...
+
+sdotdir="$RAZOR_UNIVERSE_DIR/DOMAIN_01/++PROJECT++/Archive"
+sdotfile=$sdotdir"/RZ_VCS/"$thread\,v
+#-------------------- Retrieve Project Thread Version File ----------------
+
+if [ ! -r $sdotfile ]
+then
+   echo "Cannot find RCS file for $thread!"
+   echo "sdotfile: $sdotfile"
+   echo $usage
+   exit 1
+fi
+
+#-------------------- Name the Build and Installation Files ---------------
+
+timestamp=`Buildfile_timestamp $sdotfile`
+
+buildfile="adaptation_"$thread"_v"$version"_"$timestamp
+tarfile="orpg_"$buildfile".tar"
+
+cd $workdir
+
+#-------------------- Create Adaptation Tar File --------------------------
+
+# remove any old installation files ...
+rm -f orpg_adaptation_*
+
+echo "Building installation file: $tarfile at $workdir ..."
+rm -f $tarfile
+
+tar cf $tarfile -C src/cpc104/lib003 comms_link.conf user_profiles alert_table.dea load_shed_table hci_passwords site_info.dea
+
+echo "Compressing $tarfile ..."
+
+bzip2 $tarfile
+
+echo "Copying $tarfile.bz2 into $repository ..."
+
+cp $tarfile.bz2 $repository

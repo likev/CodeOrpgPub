@@ -1,0 +1,132 @@
+mnttsk_itcs(1)			RPG		mnttsk_itcs(1)
+
+NAME
+   mnttsk_itcs - Initialization Task For Legacy Intertask Common (ITC)
+
+SYNOPSIS
+   mnttsk_itcs [-t action] [-h]
+
+DESCRIPTION
+
+This process performs intertask common (ITC) initialization in support of the 
+legacy algorithms.  The ITC numbering convention is:
+
+    (ITC_MIN + n)*ITC_IDRANGE + m
+
+where ITC_MIN and ITC_IDRANGE are defined in rpg_port.h and have values 
+1000 and 100, respectively.  (ITC_MIN + n)*ITC_IDRANGE refers to the ITC
+ID (i.e., LB ID) and m is the message ID within the ITC.   
+
+Header file itc.h and include file itc.inc define each ITC.  Each ITC corresponds
+to a legacy common block.  Refer to the include file itc.inc for the ITC to 
+common block mapping.  Refer to itc.h or the legacy include file for ITC
+format.
+
+The startup mode can take on one of the following values:  "startup",
+"restart" or "clear".  For each mode, the following actions are performed: 
+
+   startup:
+
+      Initialize ITC's 100100, 100200, 100400, 100500, 100600, and 100600.
+
+   restart:
+
+      There are no initialization duties defined for this mode.
+
+   clear:
+  
+      Initialize ITC 100200.
+      
+
+ITC 100100 consists of 9 messages (1-9).  
+
+   Message   Legacy Common Block   Legacy Include Block         
+   -------   -------------------   --------------------
+      1            SGMTS09         a309.inc, **A3CD09DZ 
+      2            A315CSAD        a315buf.inc, **A315CSAD
+      3            A315LOCK        a315buf.inc, **A315LOCK
+      4            A315CTRD        a315buf.inc, **A315TRND
+      5            A3CD09          a309.inc, **a3CD09
+      6            PVECS09         a309.inc, **A3CD09BL
+      7            A317CTAD        a317buf.inc, **A317CTAD 
+      8            A317LOCK        a317buf.inc, **A317CLOK
+      9            A3CD11          a309.inc, **A3CD11
+
+Initialization involves assigning values to individual common block 
+elements then the ITC message is written to the ITC LB.  The values
+assigned to common block elements are identical to those defined in 
+the legacy block data for the common block.  In most cases, all common
+block elements are assigned the value 0.  The exceptions are message 1
+and 5.  Refer to block data file a3cd09.ftn for initialization values 
+for these messages.  
+
+ITC 100200 consists of 2 messages (1 and 4).
+
+   Message   Legacy Common Block   Legacy Include Block         
+   -------   -------------------   --------------------
+      1           A3CD07           a309.inc, **A3CD07
+      4           A3CD07           a309.inc, **A3CD07
+
+Include file itc.inc defines which common block elements of A3CD07
+are included in each of the ITC messages.  If the startup mode is 
+"startup", each ITC message is checked for existence.  No initialization 
+is performed if message exists since this data is considered state
+information.  Otherwise, elements are initialized accordingly.  If startup
+mode is "clear", each ITC message is initialized regardless of message 
+existence.
+
+ITC 100400 consists of 2 messages (1 and 2).
+
+   Message   Legacy Common Block   Legacy Include Block         
+   -------   -------------------   --------------------
+      1           A3CD97           a309.inc, **A3CD97
+
+Include file itc.inc defines which common block elements of A3CD97
+are included in ITC message 1.  If the startup mode is "startup",
+the ITC message elements are initialized according to legacy block 
+data file a3CD97.ftn.
+
+There is no initialization defined for ITC message 2.
+
+ITC 100500 consists of 5 messages (1-5).
+
+   Message   Legacy Common Block   Legacy Include Block         
+   -------   -------------------   --------------------
+      1           A314C1           a3146.inc, **A314C1
+      2           A3147C8          a3147.inc, **A3147C8
+      3           A3147C9          a3147.inc, **A3147C9
+      4           A3136C2          a313h.inc, **A3136C2
+      5           A3136C3          a313h.inc, **A3136C3
+
+If the startup mode is "startup", the ITC message 5 elements are 
+initialized to 0 prior to writing the message. There is no 
+initialization defined for ITC messages 1-4.
+
+ITC 100600 consists of 2 messages (1 and 2).
+
+   Message   Legacy Common Block   Legacy Include Block         
+   -------   -------------------   --------------------
+      1           A3052T           a305.inc, **A3052T
+      2           A3052U           a305.inc, **A3052U
+
+If the startup mode is "startup", common block elements are initialized 
+to 0 prior to writing each ITC message.
+
+ITC 100700 consists of 2 messages (1 and 3).
+
+Both message formats are defined in itc.inc or itc.h.  For startup mode 
+"startup", the message elements are initialized, then written to ITC LB.
+
+Options
+	-t mode		startup mode.  Determines which initialization actions to
+                        be performed.  Supported startup modes are "startup",
+                        "restart" and "clear".  By default, the mode is "restart".  
+
+	-h		Provides command line help.
+
+
+SEE ALSO
+	ITC_100100(4), ITC_100200(4), ITC_100400(4), ITC_100500(4), ITC_100600(4), and
+        ITC_100700(4) 
+	
+				$Revision: 1.4 $

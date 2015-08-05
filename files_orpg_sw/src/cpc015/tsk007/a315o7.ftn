@@ -1,0 +1,239 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/16 19:40:56 $
+C $Id: a315o7.ftn,v 1.3 2002/12/16 19:40:56 christie Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A315O7__INIT_VARS( NTOTPRED, NCONPRED, STORMOTION )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A315O7__INIT_VARS
+*.
+*.  MODULE VERSION: 0013
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       08 16 85      0000      DENNIS MILLER        BUILD 2
+*.       05 07 86      0001      DENNIS MILLER        SPR # 304
+*.       11 15 86      0002      M STEWART            SPR # 60346
+*.       11 15 86      0002      M STEWART            SPR # 60650
+*.       02 22 91      0003      DENNIS MILLER        SPR # 91256
+*.       02 15 91      0003      JOHN DEPHILIP        SPR # 91762
+*.       12 03 91      0004      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0005      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0006      Toolset              SPR 91895
+*.       03/25/93      0007      Toolset              SPR NA93-06801
+*.       01/28/94      0008      Toolset              SPR NA94-01101
+*.       03/03/94      0009      Toolset              SPR NA94-05501
+*.       04/01/95      0010      Toolset              CCR NA95-11802
+*.       05/30/95      0011      STEVE SMITH          CCR NA94-26302
+*.       12/23/96      0012      Toolset              CCR NA95-11807
+*.       03/16/99      0013      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A315O7__INIT_VARS( NTOTPRED,NCONPRED,
+*.                                                       STORMOTION )
+*.
+*.  MODULE FUNCTION:
+*.
+*.  This routine initializes counters & tables for the STORM POSITION
+*.  FORECAST algorithm.  Specifically, it initializes counters of the
+*.  total no. of storms analysed by the algorithm and the subtotal
+*.  for which forecasts are made. It also establishes a table of
+*.  Storm Time Histories which takes into account the possibility of
+*.  a change of date during the analysis period.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT    TYPE        DESCRIPTION
+*.    -   -----    ----        -----------
+*.    G   ADPNPVOL I*4         Adaptation data number of volume scans without
+*.                             storms threshold stored in Storm Data
+*.    G   NSTF_MAX I*4         (CONSTANT)The maximum number of storm cells the
+*.                             array STORMIDTYP may hold.  The array provides
+*.                             the storm cell Id attribute.
+*.    G   NSTF_MOT I*4         (CONSTANT)The number of storm motion attributes
+*.                             for each storm cell in the array STORMOTION.
+*.                             (First dimension)
+*.    G   STF_X0   I*4         (CONSTANT)Offset to the x-coord. of the
+*.                             centroid (km) in the STORMOTION part of the
+*.                             tracking/forecast output buffer.
+*.    G   STF_Y0   I*4         (CONSTANT)Offset to the y-coord. of the
+*.                             centroid (km) in the STORMOTION part of the
+*.                             tracking/forecast output buffer.
+*.    C   IXCUR    I*4         Index to the current volume scan in the
+*.                             correlation table
+*.    C   IXNEX    I*4         Index to the next volume scan in the
+*.                             correlation table
+*.    C   IXPRE    I*4         Index to the previous volume scan in the
+*.                             correlation table
+*.    C   NSTMHIST I*4         Array of the # of cells/volume scan in
+*.                             correlation table.
+*.    C   POSITABL R*4         Table of cell-X and Y centroid positions thru
+*.                             the time spanned in the Correlation History
+*.                             table.
+*.    C   TIMEHIS2 R*4         Table of the times of past and present volume
+*.                             scans corrected for possible change of day.
+*.    C   TIMEHIST R*4         Table of the times of past and present volume
+*.                             scans, NOT corrected for change of day.
+*.    C   X_POS    I*4         (CONSTANT)Index to the x-coordinate of a storm
+*.                             cell, the first attribute, in the POSITABLE
+*.                             array.
+*.    C   Y_POS    I*4         (CONSTANT)Index to the y-coordinate of a storm
+*.                             cell, the second attribute, in the POSITABLE
+*.                             array.
+*.
+*.    *   OUTPUT     TYPE        DESCRIPTION
+*.    -   ------     ----        -----------
+*.    G   ADPNPVOL   I*4         Adaptation data number of volume scans
+*.                               without storms threshold stored in Storm Data
+*.    C   IXCUR      I*4         Index to the current volume scan in the
+*.                               correlation table
+*.    C   TIMEHIS2   R*4         Table of the times of past and present volume
+*.                               scans corrected for possible change of day.
+*.    C   TIMEINT    R*4         Time interval between present and preceding
+*.                               volume scans.
+*.    P   NCONPRED   I*4         No. of "Continuing" storms in current volume
+*.                               scan
+*.    P   NTOTPRED   I*4         Total no. storms in current volume
+*.    P   STORMOTION R*4         2-D array of Storm-Motion attributes per
+*.                               volume scan, output by "FORECAST" algorithm.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME     TYPE        DESCRIPTION
+*.    ----     ----        -----------
+*.    IC       I*4         Do-loop index for storms of current volume scan.
+*.    IXVOL    I*4         Index for volume scan # within Correlation -
+*.                         History tables.
+*.    NSECPDAY R*4         No. of seconds per day (i.e. 86400.)
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A315CSAD
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A315C6T
+*.    A315CFF
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     Compiled using COMP15.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     Linked using LINK15.CSS
+*.
+*.  MISC:  None
+*.
+C********************************************************************
+C
+C       STORM POSITION FORECAST : INITIALIZE_VARIABLES  SUBROUTINE
+C
+C********************************************************************
+C
+      IMPLICIT NONE
+C
+C**Attach output parameter-definition file (of "POSITION_FORECAST")
+$INCLUDE A315BUF.INC/G,**A315P7F (NLIST)
+C
+C**Attach local STORMS Adaptation Data parameter file:
+$INCLUDE **A315PSAD (NLIST)
+C
+C**Attach local STORMS Adaptation Data definitions:
+$INCLUDE **A315CSAD (NLIST)
+C
+C**Attach internal common block (of "STORM_TRACK" output variables).
+$INCLUDE A315.INC/G,**A315C6T (NLIST)
+C
+C**Attach internal common block (of "FORECAST" local variables).
+$INCLUDE **A315CFF (NLIST)
+C
+C*********************** DATA DECLARATIONS **************************
+C
+C** From output buffer:
+C
+      INTEGER  NTOTPRED, NCONPRED
+      REAL     STORMOTION( NSTF_MOT, NSTF_MAX )
+C
+C** Local:
+C
+      INTEGER  IC, IXVOL
+      REAL     NSECPDAY
+C
+C********************* DATA INITIALIZATIONS *************************
+C
+      PARAMETER (NSECPDAY = 86400.0)
+C
+C****************** BEGIN MAIN PROCESSING SECTION *******************
+C
+C** Set counter of total no. storm cells to value in current column
+C** of History table & initialize counter for no. "Continuing" storm
+C** cells to zero.
+C
+      NTOTPRED = NSTMHIST( IXCUR )
+      NCONPRED = 0
+C
+C** Create 2nd Time-History table to handle cases in which day
+C** changes during period spanned by Correlation & Position-History
+C** tables.
+C
+      IF ( TIMEHIST(IXCUR) .LT. TIMEHIST(IXNEX) )  THEN
+C
+C**  If current time less than earliest in table (which now is in
+C**  column "IXNEX"), date has changed.
+C
+         DO 550  IXVOL = 1, ADPNPVOL
+            IF ( TIMEHIST(IXVOL).LT.TIMEHIST(IXNEX) )  THEN
+               TIMEHIS2( IXVOL ) = TIMEHIST( IXVOL ) + NSECPDAY
+            ELSE
+               TIMEHIS2( IXVOL ) = TIMEHIST( IXVOL )
+            END IF
+ 550     CONTINUE
+      ELSE
+C
+C**  Otherwise, date has not changed; 2nd Time-table same as 1st.
+C
+         DO 560  IXVOL = 1, ADPNPVOL
+            TIMEHIS2( IXVOL ) = TIMEHIST( IXVOL )
+ 560     CONTINUE
+      END IF
+C
+C**  Compute Time Interval between Current & Previous volume scans
+C**  (seconds).
+C
+      TIMEINT = TIMEHIS2( IXCUR ) - TIMEHIS2( IXPRE )
+C
+C**  Store current X/Y locations of each storm cell in output buffer.
+C
+      DO 570  IC = 1, NSTMHIST( IXCUR )
+         STORMOTION( STF_X0,IC ) = POSITABL( X_POS,IC,IXCUR )
+         STORMOTION( STF_Y0,IC ) = POSITABL( Y_POS,IC,IXCUR )
+C
+ 570  CONTINUE
+C
+C************** END OF PROCESSING FOR SUBROUTINE ********************
+C
+      RETURN
+      END

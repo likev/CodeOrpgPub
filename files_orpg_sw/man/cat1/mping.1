@@ -1,0 +1,71 @@
+
+NAME
+    mping - Detects network connectivity to multipe IP addresses.
+
+SYNOPSIS
+    mping [-pvh]
+
+DESCRIPTION
+
+    "mping" monitors the connectivity status to a number of IP addresses by
+    periodically sending IP control packets (ICMP) to them. It performs the
+    basic function of "ping" except that it monitors multiple IP addresses.
+
+    The IP addresses to be monitored are input from the STDIN and the
+    connectivity status is output to STDOUT. IP addresses to be monitored can
+    be added or deleted by sending them to the STDIN port of mping. The format
+    is "++host_name" or "--host_name" where "++" and "--" indicate respectively
+    adding and deleting a host (or IP address) to the monitoring list.
+    "host_name" is the name of the host to be monitored. "host_name" can be an
+    IP address such as "128.34.45.6". Multiple host name specifications,
+    separated by the space character, can be put in the same input. For
+    example, "++my_home --your_host ++128.34.45.6" is acceptable. One can send
+    input to "mping" any time while it is running.
+
+    "mping" periodically outputs the connectivity status via STDOUT. The format
+    is "host_name--qtime host_name--qtime ..." where "host_name" is the host
+    name to be monitored and "qtime" is the "quiet time" for the host. Each
+    output message, terminated by a line-return character, contains a complete
+    list of all host names that are currently under monitoring. "quiet time" is
+    the time lapse, in seconds, in which "mping" has not received any response
+    from the monitored host. "quiet time" can be "-1" which indicates that
+    mping has not yet to be able to determine the "quiet time". The accuracy of
+    "quiet time" equals the period that a ICMP is sent to the host. All hosts
+    share the same probing period which can be set through the "-p" option.
+
+    Because only the "root" user can send/receive the ICMP in UNIX, the
+    executable file of "mping" has to be owned by the "root" and has the "s"
+    permission bit set so others can set uid to "root" when invoking it. To set
+    the "s" permission bit, use "chmod u+s mping".
+
+    "mping" is designed primarily for being used by other application as a
+    co-process. To run a co-process from an application, one can use the
+    MISC_cp_* API in the misc module of libinfr. See "man misc" for more
+    details.
+
+
+OPTIONS
+    -p	test_period
+	Specifies the time period, in seconds, a testing packet (ICMP) is sent 
+	to each host to be monitored. The default is 5 seconds.
+
+    -v	Turns on verbose mode.
+
+    -h	Prints usage information.
+
+
+EXAMPLES
+    Example: echo "++osfrpg5 ++lnxrpg3" | mping -p 4
+	Monitoring hosts "osfrpg5" and "lnxrpg3" by sending ICMP to them every
+	4 seconds..
+   
+EXIT STATUS
+    0:		Terminated normally. 
+
+    non-zero:	Terminated because an error was detected.
+
+SEE ALSO
+    misc(1)
+
+
+

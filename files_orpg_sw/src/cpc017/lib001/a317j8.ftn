@@ -1,0 +1,176 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/17 15:48:05 $
+C $Id: a317j8.ftn,v 1.2 2002/12/17 15:48:05 christie Exp $
+C $Revision: 1.2 $
+C $State: Exp $
+C
+      SUBROUTINE A317J8__CLOSE_P2D( P2D_FEAT,LAB )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A317J8__CLOSE_P2D
+*.
+*.  MODULE VERSION: 0001
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       05/29/97      0000      MARK FRESCH          CCR NA95-21503
+*.       03/16/99      0001      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A317J8__CLOSE_P2D( P2D_FEAT )
+*.
+*.  MODULE FUNCTION:
+*.
+*.  This routine analyzes a completed pot. 2D feature to determine
+*.  whether it should be saved for further processing; sorts its
+*.  pattern vectors by increasing range; and then computes its
+*.  attributes.
+*.
+*.  MODULES CALLED: ABL 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT        TYPE        DESCRIPTION
+*.    -   -----        ----        -----------
+*.    G   ADPMPVF      I*4         TDA MINIUM # VECTORS/2D FEATURE THRESHOLD
+*.    G   ONE_RADIAN   R*4         (CONSTANT)PARAMETER VALUE FOR ONE RADIAN
+*.    C   IDSTACK      I*4         CIRCULAR LIST OF POTENTIAL 2D FEATURE ID'S
+*.    C   NEW_P2DF_CNT I*4         # OF POTENTIAL 2D FEATURES IDENTIFIED FOR
+*.                                 THE DIFFERENTIAL VELOCITY THRESHOLD ON THE
+*.                                 ELEVATION SCAN
+*.    C   NUM_P2D_ATR  I*4         (CONSTANT)NUMBER OF POTENTIAL 2D FEATURE
+*.                                 ATTRIBUTES IN P2DFEAT AND OTHER ARRAYS
+*.    C   P2D_NPV      I*4         (CONSTANT)INDEX INTO P2DFEAT TO THE # OF
+*.                                 PATTERN VECTORS IN A POTENTIAL 2D FEATURE
+*.    P   LAB          I*4         Potential 2D feature label
+*.    P   P2D_FEAT     R*4         An array of attributes for a potential 2D
+*.                                 feature
+*.
+*.    *   OUTPUT       TYPE        DESCRIPTION
+*.    -   ------       ----        -----------
+*.    G   ADPMPVF      I*4         TDA MINIUM # VECTORS/2D FEATURE THRESHOLD
+*.    C   IDSTACK      I*4         CIRCULAR LIST OF POTENTIAL 2D FEATURE ID'S
+*.    C   LAB_TABL     I*4         ARRAY OF ACTIVE POTENTIAL 2D FEATURE ID'S
+*.                                 FOR THE DIFFERENTIAL VELOCITY THRESHOLD
+*.    C   NEW_P2DF_CNT I*4         # OF POTENTIAL 2D FEATURES IDENTIFIED FOR
+*.                                 THE DIFFERENTIAL VELOCITY THRESHOLD ON THE
+*.                                 ELEVATION SCAN
+*.    C   P2DF_PTR     I*4         POINTER TO THE FIRST PATTERN VECTOR OF A
+*.                                 P2DF IN THE LINKED LIST
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    C   IDSTACK           I*4         CIRCULAR LIST OF POTENTIAL 2D FEATURE
+*.                                      ID'S
+*.    P   LAB               I*4         Potential 2D feature label
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME  TYPE        DESCRIPTION
+*.    ----  ----        -----------
+*.    ISTAT I*4         Status of return from call to circular
+*.                      stack-manipulation routie
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A317CTAD
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A315P2DC
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:
+*.
+*.     When potential 2D features are deleted, their pattern vectors
+*.     pointers in the linked list array, P2DF_PV_INDX, don't have to
+*.     be reinitialized.  It is assumed that their positions in the
+*.     array won't be used again until the next differential velocity
+*.     threshold is processed, at which time the array will be
+*.     reinitialized.
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     Compiled using COMP17.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     Linked using LINK17.CSS
+*.
+*.  MISC:  None
+*.
+C********************************************************************
+C
+C               TDA 2D PROCESSING: CLOSE_P2D  SUBROUTINE
+C
+C********************************************************************
+C
+      IMPLICIT NONE
+C
+$INCLUDE A309.INC/G, **A3PM50 (NLIST NEND)
+C
+C**Attach local potential 2D feature parameter and common blocks
+$INCLUDE A317BUF.INC/G, **A317P3T (NLIST)
+$INCLUDE                **A317PTAD (NLIST)
+$INCLUDE                **A317CTAD (NLIST)
+C
+$INCLUDE A317.INC/G, **A317TCP (NLIST)
+$INCLUDE             **A317TCA (NLIST)
+$INCLUDE             **A317P2DP (NLIST)
+$INCLUDE             **A317P2DC (NLIST)
+C
+C*********************** DATA DECLARATIONS **************************
+C
+      INTEGER  ISTAT,LAB
+      REAL     P2D_FEAT( NUM_P2D_ATR )
+      REAL     FULLCIRC, ONE_DEGREE
+      PARAMETER (FULLCIRC = 360.0, ONE_DEGREE = 1.0/ONE_RADIAN)
+C
+C********************** DATA INITIALIZATIONS ************************
+C
+C****************** BEGIN MAIN PROCESSING SECTION *******************
+C
+C** Test pot. 2D feature against minimum pattern vector threshold.
+C** In the AEL this check doesn't come until later, but if the
+C** pot. 2D feature doesn't have enough pattern vectors now, it
+C** will never have enough.  So, why continue processing the feature?
+C
+      IF ( P2D_FEAT( P2D_NPV ) .LT. ADPMPVF ) THEN
+C
+C** Omit pot. 2D feature from further consideration by returning the
+C** label to the ID stack and reinitializing the pointer to the
+C** beginning of the linked list (of PVs for pot. 2D features).
+C
+         CALL ABL( LAB, IDSTACK( 1 ), ISTAT )
+         P2DF_PTR (LAB) = 0
+C
+C** Rather than reinitializing the link list of pattern vectors in
+C** P2DF_PV_INDX, we'll assume that those positions won't be used
+C** again until the next VD_TH (at which time they'll be reinit'ed).
+C
+      ELSE
+C
+C** Increment the number of Potential 2D Features at this
+C** VD Threshold and elevation scan and keep track of the
+C** pointer to the label.
+C
+         NEW_P2DF_CNT = NEW_P2DF_CNT + 1
+         LAB_TABL(NEW_P2DF_CNT) = LAB
+      END IF
+C
+C**************** END OF PROCESSING FOR SUBROUTINE ******************
+C
+      RETURN
+      END

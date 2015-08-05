@@ -1,0 +1,139 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/17 15:32:40 $
+C $Id: a317f8.ftn,v 1.2 2002/12/17 15:32:40 christie Exp $
+C $Revision: 1.2 $
+C $State: Exp $
+C
+      SUBROUTINE A317F8__INIT_STACK( )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A317F8__INIT_STACK
+*.
+*.  MODULE VERSION: 0001
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       05/29/97      0000      MARK FRESCH          CCR NA95-21503
+*.       03/16/99      0001      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A317F8__INIT_STACK
+*.
+*.  MODULE FUNCTION:
+*.
+*.  Defines and initializes a circular stack of pot. 2D feature
+*.  ID labels.
+*.
+*.  MODULES CALLED: ABL, DEFLST 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT   TYPE        DESCRIPTION
+*.    -   -----   ----        -----------
+*.    G   ADPMN2D I*4         TDA MAXIMUM # 2D FEATURES THRESHOLD
+*.    C   IDSTACK I*4         CIRCULAR LIST OF POTENTIAL 2D FEATURE ID'S
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    G   ADPMN2D I*4         TDA MAXIMUM # 2D FEATURES THRESHOLD
+*.    C   IDSTACK I*4         CIRCULAR LIST OF POTENTIAL 2D FEATURE ID'S
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    G   ADPMN2D           I*4         TDA MAXIMUM # 2D FEATURES THRESHOLD
+*.    C   IDSTACK           I*4         CIRCULAR LIST OF POTENTIAL 2D FEATURE
+*.                                      ID'S
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME  TYPE        DESCRIPTION
+*.    ----  ----        -----------
+*.    I     I*4         Do loop index
+*.    ISTAT I*4         Status of return from call to circular
+*.                      stack-manipulation routine
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A317CTAD
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A315P2DC
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:
+*.
+*.     If return status from a call to run-time library routine "ABL"
+*.   (Add to Bottom of List) indicates operation not successful, the
+*.   ID-STACK is full: no more elements can be added.
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     Compiled using COMP17.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     Linked using LINK17.CSS
+*.
+*.  MISC:  None
+*.
+C********************************************************************
+C
+C             TDA 2D PROCESSING: INIT STACK SUBROUTINE
+C
+C********************************************************************
+C
+C
+      IMPLICIT NONE
+C
+$INCLUDE A309.INC/G, **A3PM50 (NLIST)
+C
+**Attach TDA Adaptation Data
+$INCLUDE A317BUF.INC/G, **A317P3T (NLIST)
+$INCLUDE                **A317PTAD (NLIST)
+$INCLUDE                **A317CTAD (NLIST)
+C
+C**Attach internal common block (CPCC)
+$INCLUDE A317.INC/G, **A317TCP (NLIST)
+$INCLUDE             **A317P2DP (NLIST)
+$INCLUDE             **A317P2DC (NLIST)
+C
+C*********************** DATA DECLARATIONS **************************
+C
+      INTEGER  ISTAT, I
+C
+C****************** BEGIN MAIN PROCESSING SECTION *******************
+C
+C** Define circular list of Potential 2D Feature-ID Labels:
+C
+      CALL DEFLST( IDSTACK, ADPMN2D )
+C
+C** Initialize the circular list with desired Labels:
+C
+      DO 100  I = 1, ADPMN2D
+         CALL ABL( I, IDSTACK( 1 ), ISTAT )
+ 100  CONTINUE
+C
+C** The ID stack is initialized each elevation scan to
+C** hold the THRESHOLD Max. # of 2D Features.  Therefore, when
+C** the status of a RTL call is checked, the # of Potential 2D
+C** Features on this elevation scan is being checked against the
+C** THRESHOLD Max. # of 2D Features.
+C
+C
+C**************** END OF PROCESSING FOR SUBROUTINE ******************
+C
+      RETURN
+      END

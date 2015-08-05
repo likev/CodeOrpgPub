@@ -1,0 +1,316 @@
+C 
+C RCS info 
+C $Author: ccalvert $ 
+C $Locker:  $ 
+C $Date: 2003/12/09 21:00:36 $ 
+C $Id: a3147a.ftn,v 1.8 2003/12/09 21:00:36 ccalvert Exp $ 
+C $Revision: 1.8 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A3147A__BUFFER_CONTROL(PARAM)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3147A__BUFFER_CONTROL
+*.
+*.  MODULE VERSION: 0003
+*.
+*.  MODULE LANGUAGE:  FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       10/19/95      0000      Cheryl Stephenson    CCR NA94-08462
+*.       12/23/96      0001      Toolset              CCR NA95-11807
+*.       07/20/98      0002      CHERYL STEPHENSON    CCR NA98-20102
+*.       03/16/99      0003      Toolset              CCR NA98-23803
+*.       12/09/03      0004      CHRIS CALVERT        CCR NA03-30002
+*.
+*.  CALLING SEQUENCE: CALL A3147A__BUFFER_CONTROL(PARAM)
+*.
+*.  MODULE FUNCTION:
+*.
+*.     This is the USP Buffer Control module.  It acquires the input
+*.     buffer, if the User Selectabale database has been update since the
+*.     last time, then it calls A3147F, to perfrom the Bias Adjustment on
+*.     the new hourly scan.  It obtains customizing information for the USP
+*.     product.  Then it calls A3147C to generate the necessary USP products.
+*.     If there is a problem acquiring the input buffer, it performs
+*.     the necessary cleanup.
+*.
+*.  MODULES CALLED: A31145__ABORT_ME, A31211__GET_INBUF, A31212__REL_INBUF, 
+*.                  A31218__BUF_VOL, A3147C__BUILD_PRODUCT, A3147F__HOURLY_UPD, 
+*.                  A3147R__BUILD_THRESH, A3CM24__GET_CUST_INFO 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT          TYPE        DESCRIPTION
+*.    -   -----          ----        -----------
+*.    G   BIAS_FLAG      L*4         Flag indicating wheter the Gage
+*.                                   Adjustment Bias should be applied to the
+*.                                   Precipitation Product.
+*.    G   LAST_DATE_HRDB I*2         The date of the latest hour that was
+*.                                   added to the USP 30 HR Precipitation
+*.                                   database.
+*.    G   LAST_TIME_HRDB I*2         The time of the latest hour that was
+*.                                   added to the USP 30 HR Precipitation
+*.                                   database.
+*.    G   MEM            I*4         Array in RPG shared memory set aside for
+*.                                   buffer sharing.
+*.    G   OHP_EDIT_FLAG  L*4         Flag indicating whether the OHP/THP data
+*.                                   levels have been edited.
+*.    G   STP_EDIT_FLAG  L*4         STP Data Level edit flag
+*.    G   AVG_SCNDAT     I*4         (CONSTANT)Average Scan Date index into
+*.                                   Hydromet Supplemental Data array
+*.    G   AVG_SCNTIM     I*4         (CONSTANT)Average Scan Time index into
+*.                                   Hydromet Supplemental Data array
+*.    G   NORMAL         I*4         (CONSTANT)Parameter which indicates
+*.                                   normal completion of requested operation
+*.                                   to acquire input or output buffer
+*.    C   CA             I*2         Array of customized USP requests
+*.    C   LOC_HRDB_TIME  I*2         A local copy of the last time the User
+*.                                   Selectable Database was updated
+*.    C   NREQ           I*4         Number of customized USP products
+*.                                   requested
+*.    C   GOOD           I*4         (CONSTANT)Status flag value.
+*.    C   HYUSPBUF       I*4         (CONSTANT)Data type: USP input buffer -
+*.                                   to awaken task
+*.
+*.    *   OUTPUT        TYPE        DESCRIPTION
+*.    -   ------        ----        -----------
+*.    G   OHP_EDIT_FLAG L*4         Flag indicating whether the OHP/THP data
+*.                                  levels have been edited.
+*.    G   STP_EDIT_FLAG L*4         STP Data Level edit flag
+*.    C   BIAS_TOGGLE   L*4         Flag indicating whether to apply the Bias
+*.                                  to the USP product
+*.    C   CA            I*2         Array of customized USP requests
+*.    C   LOC_HRDB_TIME I*2         A local copy of the last time the User
+*.                                  Selectable Database was updated
+*.    C   NREQ          I*4         Number of customized USP products
+*.                                  requested
+*.    C   SCN_DATE      I*4         Hybrid Scan Date
+*.    C   SCN_TIME      I*4         Hybrid Scan Time
+*.    C   VOLN          I*4         Volume Scan Number
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    G   OHP_EDIT_FLAG     L*4         Flag indicating whether the OHP/THP
+*.                                      data levels have been edited.
+*.    C   CA                I*2         Array of customized USP requests
+*.    C   NREQ              I*4         Number of customized USP products
+*.                                      requested
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME          TYPE        DESCRIPTION
+*.    ----          ----        -----------
+*.    BDAT          I*4         Flag from A31211 telling datatype of input
+*.                              buffer
+*.    CUSTSTAT      I*4         Status for call to A3CM24  determine number of
+*.                              customized requests
+*.    INIT_FLAG     L*4         (CONSTANT)Flag indicating this is not the
+*.                              initial call to update the User Selectable
+*.                              Data Base
+*.    IPTR          I*4         Input buffer pointer
+*.    LOC_DATE_HRDB I*2         Local copy of Hybrid Scan date
+*.    OPSTAT        I*4         Status returned from Calling A31211 to get an
+*.                              input buffer
+*.    UPDSTAT       I*4         Status of the hourly update of the User
+*.                              Selectable Data Base
+*.    USP_EL_IDX    I*4         (CONSTANT)INDEX INTO CUSTOMIZING ARRAY FOR A
+*.                              DUMMY ELEMENT
+*.    USP_NTR       I*4         USP NTR CODE
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD00
+*.    A3CD07
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3147C1
+*.    A3147C2
+*.    A3147C7
+*.    HYDROMET_ADJ
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  NONE
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK14.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+C
+C* GLOBAL DECLARATIONS:
+C
+$INCLUDE A309ADPT.INC/G,**A3CD70PA (NLIST)
+$INCLUDE                **A3CD70P6 (NLIST)
+$INCLUDE                **A3CD70P8 (NLIST)
+$INCLUDE A309ADPT.INC/G,**A3CD70_HYDROMET_ADJ (NLIST)
+$INCLUDE                **A3CD70C7 (NLIST)
+$INCLUDE A309.INC/G,**A3PM00 (NLIST)
+$INCLUDE **A3PM01 (NLIST)
+$INCLUDE **A3PM04 (NLIST)
+$INCLUDE **A3PM06 (NLIST)
+$INCLUDE **A3CD00 (NLIST)
+$INCLUDE **A3CD05 (NLIST)
+$INCLUDE **A3CD07 (NLIST)
+$INCLUDE A313HBUF.INC/G,**A313HYPP  (NLIST)
+$INCLUDE A3146.INC/G,**A3146P1    (NLIST)
+$INCLUDE A3147.INC/G,**A3147P1    (NLIST)
+$INCLUDE             **A3147P9    (NLIST)
+$INCLUDE             **A3147C1    (NLIST)
+$INCLUDE             **A3147C2    (NLIST)
+$INCLUDE             **A3147C7    (NLIST)
+$INCLUDE             **A3147C8    (NLIST)
+$INCLUDE             **A3147C9    (NLIST)
+C
+C* LOCAL DECLARATIONS:
+C
+      INTEGER*4 PARAM,OPSTAT,BDAT,A31218__BUF_VOL,REQ
+      INTEGER*4 CDATE,CTIME,WMODE,BUFSTAT,CUSTSTAT
+      INTEGER*4 IPTR,OPTR,UPDSTAT
+C$DELETE
+      INTEGER*2 J, I
+C$ENDDELETE      
+      INTEGER*2 LOC_DATE_HRDB
+      LOGICAL INIT_FLAG
+      PARAMETER (INIT_FLAG = .FALSE.)
+C$INSERT      integer*4 orpg_mem_addr
+C$INSERT      LOGICAL STARTUP /.TRUE./      
+C-------------------------- EXECUTABLE ---------------------
+X     WRITE(14,*)'7A: ENTERED HERE ....'
+C$INSERTC
+C$INSERTC  First time through, do initialization.
+C
+C$INSERT      CALL PRCPUSPT_INIT( STARTUP )
+C
+C  Check if the hourly update of the User Selectable Database
+C  has occurred.  If it has, then need time to do Bias
+C  Adjustment of the latest hourly array.
+C
+X     WRITE(14,*)'LOC_TIME = ',LOC_HRDB_TIME,' LAST_TIME =',
+     $   LAST_TIME_HRDB,' LOC DATE = ',LOC_DATE_HRDB,
+     $   ' DATE HRDB = ',LAST_DATE_HRDB
+      IF(LOC_DATE_HRDB .NE. LAST_DATE_HRDB)THEN
+X        WRITE(14,*)'7A: UPDATE HOURLY INFO- DATE CHANGED'
+         CALL A3147F__HOURLY_UPD(INIT_FLAG,UPDSTAT)
+C
+C  Save local copy of last time data base update
+C  if the return status is good.
+C
+           IF(UPDSTAT .EQ. GOOD)THEN
+             LOC_HRDB_TIME = LAST_TIME_HRDB
+             LOC_DATE_HRDB = LAST_DATE_HRDB
+           ENDIF
+      ELSE
+         IF(LOC_HRDB_TIME .NE. LAST_TIME_HRDB)THEN
+X          WRITE(14,*)'7A: UPDATE HOURLY INFO- TIME CHANGED'
+           CALL A3147F__HOURLY_UPD(INIT_FLAG,UPDSTAT)
+C
+C  Save local copy of last time data base update
+C  if the return status is good.
+C
+           IF(UPDSTAT .EQ. GOOD)THEN
+             LOC_HRDB_TIME = LAST_TIME_HRDB
+             LOC_DATE_HRDB = LAST_DATE_HRDB
+           ENDIF
+         ENDIF
+      ENDIF
+C
+C  If OHP/THP threshold has been edited, need to call
+C  A3147R to calculate a new threshold.  If STP threshold
+C  has been edited, reset it.
+C
+      IF(OHP_EDIT_FLAG)THEN
+        CALL A3147R__BUILD_THRESH(OHP_EDIT_FLAG)
+      ELSEIF(STP_EDIT_FLAG)THEN
+        STP_EDIT_FLAG = .FALSE.
+      ENDIF
+C
+C  Request HYUSPBUF Buffer from Buffer Management.
+C  This buffer is the driving force for this tasks execution.
+C
+      CALL A31211__GET_INBUF(HYUSPBUF,IPTR,BDAT,OPSTAT)
+C
+C  Check calling status for 0=normal or any other case being not
+C  available.
+C
+      IF (OPSTAT.EQ.NORMAL) THEN
+C
+C   Recevied buffer.  Extract the Volume Scan Number from the buffer
+C   based upon that number
+C
+         VOLN = A31218__BUF_VOL(IPTR)
+C
+C  Get the average hybrid scan time and date from the buffer.
+C
+C$DELETE
+         SCN_TIME = MEM(IPTR+AVG_SCNTIM-1)
+C$ENDDELETE
+C$INSERT         SCN_TIME = orpg_mem_addr(MEM(IPTR+AVG_SCNTIM-1))
+C$DELETE
+         SCN_DATE = MEM(IPTR+AVG_SCNDAT-1)
+C$ENDDELETE
+C$INSERT         SCN_DATE = orpg_mem_addr(MEM(IPTR+AVG_SCNDAT-1))
+X       WRITE(14,*)'7A:SCAN_TIME ',SCN_TIME,' SCAN DATE = ',
+X    &     SCN_DATE
+C
+C   Call A3CM24 To receive the control information required to run.
+C   The info needed is, number of products to make and an associated
+C   Time Span and End Hour to format the product.
+C
+         CALL A3CM24__GET_CUST_INFO(USP_EL_IDX, USP_NTR, CA,
+     +                              NREQ, CUSTSTAT)
+X        WRITE(14,*)'7A:GOT CUSTOMIZING INFO'
+C   Check for any requests to honor, and a good calling status.
+C
+         IF (CUSTSTAT .EQ. 0 .AND. NREQ .GT. 0) THEN
+C
+C   Good status.
+C
+C   Set BIAS_TOGGLE for the USP products being generated
+C
+         BIAS_TOGGLE = BIAS_FLAG
+
+C
+C   Call A3147C to build products.
+C
+C$DELETE
+               CALL A3147C__BUILD_PRODUCTS
+C$ENDDELETE
+C$INSERT               CALL A3147C__BUILD_PRODUCT
+         ENDIF
+C
+C  For any case where during a run the HYUSPBUF buffer was recieved,
+C  RETURN IT TO THE SYSTEM FOR NEXT USEAGE.
+C
+         CALL A31212__REL_INBUF( IPTR )
+      ELSE
+C
+C  Task was unable to aquire the input buffer, this may indicate a
+C  system problem or is the result of a "TASK CLEANUP" or other
+C  LOAD SHEDDING has required this task not to run after it has
+C  been queued the "GO" parameter.:
+C
+         CALL A31145__ABORT_ME
+      ENDIF
+C
+C* EXIT THE ROUTINE
+C
+      RETURN
+      END

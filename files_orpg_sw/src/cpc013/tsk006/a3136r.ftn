@@ -1,0 +1,211 @@
+C 
+C RCS info 
+C $Author: nolitam $ 
+C $Locker:  $ 
+C $Date: 2002/11/27 15:58:33 $ 
+C $Id: a3136r.ftn,v 1.8 2002/11/27 15:58:33 nolitam Exp $ 
+C $Revision: 1.8 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A3136R__READ_ACUMSCAN( FLG_IOERR, RDATE, BEGRTIM,
+     $                                      INBUF)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3136R__READ_ACUMSCAN
+*.
+*.  MODULE VERSION: 0012
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       10 27 88      0000      Paul Jendrowski      SPR #80383
+*.       05 17 90      0000      JOHN DEPHILIP        SPR #90697
+*.       02 22 91      0001      PAUL JENDROWSKI      SPR #91254
+*.       01 08 91      0001      PAUL JENDROWSKI      SPR #90888
+*.       12 03 91      0002      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0003      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0004      Toolset              SPR 91895
+*.       05 22 92      0005      J. WHEELER           SPR# 92149
+*.       03/25/93      0006      Toolset              SPR NA93-06801
+*.       01/28/94      0007      Toolset              SPR NA94-01101
+*.       03/03/94      0008      Toolset              SPR NA94-05501
+*.       04/11/96      0009      Toolset              CCR NA95-11802
+*.       12/23/96      0010      Toolset              CCR NA95-11807
+*.       03/16/99      0011      Toolset              CCR NA98-23803
+*.       01/31/02      0012      Dennis A. Miller     CCR NA01-27501
+*.
+*.  CALLING SEQUENCE: CALL A3136R__READ_ACUMSCAN( FLG_IOERR, RDATE,
+*.                                             BEGRTIM, INBUF )
+*.
+*.  MODULE FUNCTION:
+*.
+*.      This module reads the Gage Accumulation Scan off of disk via
+*.   direct access read.  The file has three records: the first starts
+*.   at sector 0 and contains bias values and times; the 2nd starts at
+*.   sector 1 and contains the beginning date and time of the scan;
+*.   the 3rd record starts at sector 2 and contains the scan data.
+*.   The first record is not read in by this module.
+*.
+*.  MODULES CALLED: A3CM08__CHANGE_NOTICE, A3CM94__DEVICE_DISK_INDEX
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT        TYPE        DESCRIPTION
+*.    -   -----        ----        -----------
+*.    G   DISK_BY_READ I*4         Disk performance monitoring information -
+*.                                 Number of bytes read from disk.
+*.    G   GAS_DEV      CHAR*5      ASCII device name for GAS.FN.
+*.    G   CNDISKFILE   I*4         (CONSTANT)FILE/DISK ACCESS CHANGE
+*.                                 NOTIFICATION CONSTANT-DISTRIBUTION TASK
+*.    G   FLAG_CLEAR   I*4         (CONSTANT)Parameter for a cleared flag
+*.    G   HYALARM_FLG  I*4         (CONSTANT)HYDROMET ALARM FLAG VALUE -
+*.                                 CONSTANT
+*.    C   DTBYTES      I*4         (CONSTANT)Number of bytes read from disk
+*.                                 in transfer of the date and time.
+*.    C   GASCNLU      I*4         (CONSTANT)Gage accumulation scan disk file
+*.                                 logical unit.
+*.    C   IINIT        I*4         (CONSTANT)Parameter zero for
+*.                                 initialization.
+*.    C   SCNBYTES     I*4         (CONSTANT)Number of bytes read from disk
+*.                                 in transfer of the gage accumulation scan.
+*.    C   SEC1         I*4         (CONSTANT)Second disk sector of gage
+*.                                 accumulation scan disk file.
+*.    C   SEC2         I*4         (CONSTANT)Third disk sector of gage
+*.                                 accumulation scan disk file.
+*.    P   FLG_IOERR    I*4         Disk I/O error code
+*.    P   INBUF        I*4         Array used to receive the scan data
+*.    P   RDATE        I*4         Julian date of the Gage Accum. Scan
+*.
+*.    *   OUTPUT       TYPE        DESCRIPTION
+*.    -   ------       ----        -----------
+*.    G   DISK_BY_READ I*4         Disk performance monitoring information -
+*.                                 Number of bytes read from disk.
+*.    P   BEGRTIM      I*4         Begin time (sec) of the Gage Accum.
+*.    P   FLG_IOERR    I*4         Disk I/O error code
+*.    P   RDATE        I*4         Julian date of the Gage Accum. Scan
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    G   GAS_DEV           CHAR*5      ASCII device name for GAS.FN.
+*.    P   FLG_IOERR         I*4         Disk I/O error code
+*.    P   INBUF             I*4         Array used to receive the scan data
+*.
+*.  DATABASE/FILE REFERENCE:  HYGAGSCN.DAT; RETRIEVE
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME        TYPE        DESCRIPTION
+*.    ----        ----        -----------
+*.    BUFSIZ      I*4         Dimension of INBUF
+*.    DATE        I*4         Positional param. for DATE_TIME
+*.    DATE_TIME   I*4         Array used for reading the date and time from
+*.                            the 1st sector of the HYACCUMS.DAT file
+*.    DTSIZ       I*4         Dimension of DATE_TIME array
+*.    IDX_GAS_DEV I*4         INDEX TO STATUS OF RAIN GUAGE DISK
+*.    INITIALIZED L*4         FLAG PERMITS INITIALIZATION OF DISK INDEX TO BE
+*.                            DONE ONLY ONCE
+*.    TIME        I*4         Positional param. for DATE_TIME
+*.    YES         L*4         Logical parameter indicating "true".
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD07
+*.    ENVIRON
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS: None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP13.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK13.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+      IMPLICIT NONE
+C
+$INCLUDE A309ADPT.INC/G,**A3CD70P6 (NEND NLIST)
+$INCLUDE                **A3CD70CA (NEND NLIST)
+$INCLUDE                **A3CD70C8 (NLIST)
+$INCLUDE                **A3CD70C4 (NLIST)
+$INCLUDE A309.INC/G,**A3CD07 (NLIST)
+$INCLUDE A313HBUF.INC/G,**A313HYPP (NLIST)
+$INCLUDE A313H.INC, **A3136P (NLIST)
+$INCLUDE **A3136P1 (NLIST)
+C
+C     ORPG Issue 9
+      INTEGER ORPGNDX
+C
+      INTEGER DATE, TIME, BEGRTIM, RDATE, DTSIZ
+      PARAMETER ( DATE=1, TIME=2, DTSIZ=2)
+      INTEGER DATE_TIME(DTSIZ)
+      INTEGER FLG_IOERR
+      INTEGER BUFSIZ
+      PARAMETER ( BUFSIZ=SCNBYTES/4 )
+      INTEGER INBUF(BUFSIZ)
+X     INTEGER I
+      INTEGER IDX_GAS_DEV
+      DATA IDX_GAS_DEV /1/
+C
+      LOGICAL YES
+      PARAMETER (YES=.TRUE.)
+X     LOGICAL ONE_DEBUG_PRINT
+C
+C
+C******************* E X E C U T A B L E *******************
+C
+C INCREMENT PERFORMANCE MONITOR VARIABLE BY NUMBER OF BYTES READ
+C
+C** Read the date and time from the 1st sector
+C
+C     ORPG Issue 9
+      READ(UNIT=GASCNLU, IOSTAT=FLG_IOERR, REC=ORPG_SEC1_REC)
+     $    (DATE_TIME(ORPGNDX), ORPGNDX=1,DTSIZ)
+
+      IF (FLG_IOERR.EQ.FLAG_CLEAR) THEN
+C
+C** Copy date and time from array to variables
+C
+        RDATE=DATE_TIME(DATE)
+        BEGRTIM=DATE_TIME(TIME)
+C
+C** Check for a vallid date
+C
+        IF (RDATE.GT.IINIT) THEN
+C
+C INCREMENT PERFORMANCE MONITOR VARIABLE BY NUMBER OF BYTES READ
+C
+C** Read the Gage Accum. scan beginning at sector 2
+C
+C         ORPG Issue 9
+          READ(UNIT=GASCNLU, IOSTAT=FLG_IOERR, REC=ORPG_SEC2_REC)
+     $        (INBUF(ORPGNDX), ORPGNDX=1,BUFSIZ)
+C
+        END IF
+      END IF
+C
+C** Send message to the status monitor if there is a read error
+C
+      IF (FLG_IOERR.NE.FLAG_CLEAR) THEN
+        CALL A3CM08__CHANGE_NOTICE(CNDISKFILE,HYALARM_FLG,FLG_IOERR,
+     $                             GASCNLU, IINIT, IINIT)
+C
+      END IF
+C
+      RETURN
+      END

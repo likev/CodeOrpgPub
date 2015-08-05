@@ -1,0 +1,356 @@
+#!/usr/bin/expect --
+
+# 
+# RCS info
+# $Author: jing $
+# $Locker:  $
+# $Date: 2012/09/26 13:58:16 $
+# $Id: config_device.exp,v 1.41 2012/09/26 13:58:16 jing Exp $
+# $Revision: 1.41 $
+# $State: Exp $
+#
+
+source [file join [file dir [info script]] config_cisco.exp]
+source [file join [file dir [info script]] config_others.exp]
+source [file join [file dir [info script]] config_procedures.exp]
+
+# parse command line options. This does not accept combined no-value options.
+proc Get_options {} {
+    global env argv0 argc argv Verbose L_file Device_name Force_update
+    global Test_only Enable_modem_control_signal New_log Use_ssh 
+    global Non_interactive Use_serial_port Manual_mode Get_passwords
+    global Cr_password Cr_enpassword New_pswd New_enpswd Force_ios_update
+    global Change_passwd Verify_change_passwd
+
+    set New_log 0
+    set Verbose 0
+    set fname ""
+    set Force_update 0
+    set Force_ios_update 0
+    set Test_only 0
+    set Change_passwd 0
+    set Verify_change_passwd 0
+    set Get_passwords 0
+    set Enable_modem_control_signal 0
+    set Non_interactive 0
+    set Use_ssh 0
+    set Manual_mode 0
+    set Use_serial_port 0
+    set Cr_password ""
+    set Cr_enpassword ""
+    set New_pswd ""
+    set New_enpswd ""
+    set n_cnt 0
+    set s_cnt 0
+    for {set ind 0} {$ind < $argc} {} {
+	set opt [lindex $argv $ind]
+	if { [string index $opt 0] != "-" } {
+	    break
+	}
+	if { $opt == "-l" } {
+	    Get_option_value ind fname
+	} elseif { $opt == "-P" } {
+	    if { $n_cnt == 0 } {
+		Get_option_value ind Cr_password
+		set Cr_enpassword $Cr_password
+		incr n_cnt 1
+	    } elseif { $n_cnt == 1 } {
+		Get_option_value ind Cr_enpassword
+		incr n_cnt 1
+	    } else {
+		Get_option_value ind
+	    }
+	} elseif { $opt == "-S" } {
+	    if { $s_cnt == 0 } {
+		Get_option_value ind New_pswd
+		set New_enpswd $New_pswd
+		incr s_cnt 1
+	    } elseif { $s_cnt == 1 } {
+		Get_option_value ind New_enpswd
+		incr s_cnt 1
+	    } else {
+		Get_option_value ind
+	    }
+	} elseif { $opt == "-v" } {
+	    set Verbose 1
+	    Get_option_value ind
+	} elseif { $opt == "-n" } {
+	    set New_log 1
+	    Get_option_value ind
+	} elseif { $opt == "-f" } {
+	    set Force_update 1
+	    Get_option_value ind
+	} elseif { $opt == "-F" } {
+send_error -- "-F option not supported for the moment\n"
+exit 1
+	    set Force_ios_update 1
+	    Get_option_value ind
+	} elseif { $opt == "-t" } {
+	    set Test_only 1
+	    Get_option_value ind
+	} elseif { $opt == "-c" } {
+	    set Change_passwd 1
+	    Get_option_value ind
+	} elseif { $opt == "-C" } {
+	    set Change_passwd 1
+	    set Verify_change_passwd 1
+	    Get_option_value ind
+	} elseif { $opt == "-w" } {
+	    set Get_passwords 1
+	    Get_option_value ind
+	} elseif { $opt == "-s" } {
+	    set Use_ssh 1
+	    Get_option_value ind
+	} elseif { $opt == "-p" } {
+	    set Use_serial_port 1
+	    Get_option_value ind
+	} elseif { $opt == "-e" } {
+	    set Enable_modem_control_signal 1
+	    Get_option_value ind
+	} elseif { $opt == "-N" } {
+	    set Non_interactive 1
+	    Get_option_value ind
+	} elseif { $opt == "-m" } {
+	    set Manual_mode 1
+	    Get_option_value ind
+	} elseif { $opt == "-h" } {
+	    Print_usage $argv0
+	    exit 0
+	} else {
+	    send_error "Unexpected option $opt\n"
+	    exit 1
+	}
+    }
+    if { $ind >= $argc } {
+	send_error "Device name not specified\n"
+	exit 1
+    }
+    set Device_name [lindex $argv $ind]
+    if { $Device_name == "lan_switch" } {
+	set Device_name lan
+    }
+    if { $Device_name == "rpg_router" } {
+	set Device_name rtr
+    }
+    if { $Device_name == "hub_router" } {
+	set Device_name hub
+    }
+    if { $fname == "" } {
+	set fname [file tail "$argv0"]
+    }
+    if { $Get_passwords } {
+	set fname "$fname.pwd.log"
+    } else {
+	set fname "$fname.$Device_name.log"
+    }
+    if { [string index $fname 0] != "/" && [string index $fname 0] != "." && \
+					[info exists env(LE_DIR_EVENT)] } {
+	set L_file [file join [lindex [split $env(LE_DIR_EVENT) ":"] 0] $fname]
+    } else {
+	set L_file $fname
+    }
+    if { $Change_passwd && ( $New_pswd == "" || $New_enpswd == "" ) } {
+	send_error "You must use -S to specify the new passwords\n"
+	exit 1
+    }
+}
+
+# Prints usage info
+proc Print_usage {argv0} {
+
+    set prog_name [exec basename $argv0]
+    puts stdout ""
+    puts stdout "Usage: $prog_name \[options\] dev_name"
+    puts stdout "    Configues RPG device \"dev_name\" (lan|rtr|hub"
+    puts stdout "    |ups|msp|pti-a|pti-b|pti-c|dio|console|all)."
+    puts stdout "    Options"
+    puts stdout "        -l log_file: Specify the log file name. The default is"
+    puts stdout "           \$LE_DIR_EVENT/$prog_name. Suffix .dev_name.log is"
+    puts stdout "           added."
+    puts stdout "        -n: Start new log file."
+    puts stdout "        -f: Load config even if not different (CISCO devices only)."
+    puts stdout "        -F: Load IOS even if not different (CISCO devices only)."
+    puts stdout "        -t: Test if loading is needed (CISCO devices only)."
+    puts stdout "        -c: Change passwords (CISCO devices only)."
+    puts stdout "        -C: -c plus verification (CISCO devices only)."
+    puts stdout "        -w: Get and print passwords (CISCO devices only)."
+    puts stdout "        -P password: Specify the password (CISCO devices only)."
+    puts stdout "        -S password: Specify the password to set (CISCO devices only)."
+    puts stdout "           The second -S or -P is for enable password."
+    puts stdout "        -s: Use ssh instead of serial to the console server."
+    puts stdout "        -p: Use serial port instead of the console server."
+    puts stdout "        -e: Enable modem control signals (Serial only)."
+    puts stdout "        -v: Turn on the verbose mode."
+    puts stdout "        -N: Turn on non-interactive mode."
+    puts stdout "        -m: Run in manual mode."
+    puts stdout "        -h: Print the usage info and terminate."
+    puts stdout ""
+}
+
+# The main procedure starts here
+
+Get_options
+
+if { $Device_name == "all" } {
+    trap {
+	if { [catch {wait -i -1} output] } {
+	    send_error "catch exit status failed\n"
+	    exit 1
+	}
+	exit [lindex $output 3]
+    } SIGCHLD
+    log_user 0
+    spawn config_all
+    log_user 1
+    set timeout 3600
+    expect
+    exit 1
+}
+
+if { $Device_name == "lan" || $Device_name == "ups" || \
+     $Device_name == "pti-a" || $Device_name == "pti-b" || \
+     $Device_name == "pti-c" || $Device_name == "msp" || \
+     $Device_name == "console" || $Device_name == "dio" } {
+    set Dev_ctl(cfg_file_name) "lan-cfg"
+} elseif { $Device_name == "rtr" || $Device_name == "local" } {
+    set Dev_ctl(cfg_file_name) "rpgrtr-cfg"
+} elseif { $Device_name == "hub" } {
+    set Dev_ctl(cfg_file_name) "hub-cfg"
+} else {
+    puts stderr "Unexpected device name: $Device_name"
+    exit 1
+}
+
+set dev_full_name(lan) "LAN Switch"
+set dev_full_name(rtr) "RPG Router"
+set dev_full_name(hub) "Frame Relay Router"
+set dev_full_name(ups) "UPS"
+set dev_full_name(msp) "Power Administrator"
+set dev_full_name(pti-a) "PTI-A"
+set dev_full_name(pti-b) "PTI-B"
+set dev_full_name(pti-c) "PTI-C"
+set dev_full_name(console) "Console Server"
+set dev_full_name(dio) "DIO Module"
+if { [ info exists dev_full_name($Device_name) ] } {
+    set Dev_ctl(full_name) "$dev_full_name($Device_name)"
+} else {
+    set Dev_ctl(full_name) "$Device_name"
+}
+
+if { $New_log } {
+    set ret [catch { log_file -noappend -a $L_file } result]
+} else {
+    set ret [catch { log_file -a $L_file } result]
+}
+if { $ret } {
+    puts stderr "Could not open log file $L_file ($result)"
+    exit 1
+}
+if { !$New_log } {
+    send_log "\n[exec date]: *********************************\n\n"
+}
+
+if { !$Verbose } {
+    log_user 0
+}
+
+set Serial_port_dev /dev/ttyS0
+set Serial_port_baud_rate 9600
+set Retry_cnt 1
+
+Get_install_info
+
+if { $Cfg_file_name == "" } {
+    if { $Device_name == "hub" } {
+	send_error "[exec date]: No HUB router to install for this site\n"
+	exit 0
+    } else {
+	send_error "[exec date]: Cannot find device config file $Dev_ctl(cfg_file_name) in /tftpboot\n"
+	exit 1
+    }
+}
+
+send_log "Ios_file_name <$Ios_file_name>  Cfg_file_name <$Cfg_file_name>  Cfg_version <$Cfg_version>\n"
+send_log "Subnet_id <$Subnet_id>  Channel_num <$Channel_num> Faa_radar <$Faa_radar> Site_name <$Site_name>\n"
+
+if { [catch { exec find_adapt -V MSCF_IP_O3 } mscf_ipo3 ] || 
+     [catch { exec find_adapt -V MSCF_IP_O4 } mscf_ipo4 ] } {
+    send_error "[exec date]: MSCF_IP_O3 or MSCF_IP_O4 not found\n"
+    exit 1
+}
+
+Config_non_cisco_devices
+
+if { $Verify_change_passwd &&
+     ( $New_pswd == "cisco" || $New_enpswd == "cisco" || 
+					$New_pswd == $New_enpswd ) } {
+    send_error "[exec date]: Verification of the passwords to set failed\n"
+    exit 1
+}
+
+if { $Device_name == "hub" && $Channel_num == "2" } {
+    Send_user "[exec date]: No HUB router to install\n"
+    exit 0
+}
+
+if { $Subnet_id == "" || $Site_name == "" } {
+    send_error "[exec date]: RPG subnet ID or site name not found\n"
+    exit 1
+}
+
+if { ![catch { exec find_adapt -V HLMSCF@/tftpboot/$Dev_ctl(cfg_file_name) } ] } {
+    if { $Device_name == "hub" } {
+	set Use_serial_port 1
+    }
+    set Mscf_hub_site 1
+} else {
+    set Mscf_hub_site 0
+}
+
+set Lan_prompt {\n((lan|Switch|[0-9a-z]+-rtr)([1-2]?))[(]?([^\n ]*)[)]?(>|#)}
+set Rtr_prompt {\n((rpgrtr|Router|rtr|[0-9a-z]+-rtr)([1-2]?))[(]?([^\n ]*)[)]?(>|#)}
+set Hub_prompt {\n((FRhub|Router)([a-zA-Z]?))[(]?([^\n ]*)[)]?(>|#)}
+
+set Lan_port "10"
+set Rtr_port "9"
+set Hub_port "11"
+
+if { $Device_name == "lan" } {
+    set Dev_ctl(dev_prompt) $Lan_prompt
+    set Dev_ctl(dev_port) $Lan_port
+    if { $Channel_num == 2 } {
+	set Dev_ctl(dev_ip) "172.25.$Subnet_id.76"
+    } else {
+	set Dev_ctl(dev_ip) "172.25.$Subnet_id.6"
+    }
+} elseif { $Device_name == "rtr" || $Device_name == "local" } {
+    set Dev_ctl(dev_prompt) $Rtr_prompt
+    set Dev_ctl(dev_port) $Rtr_port
+    if { $Channel_num == 2 } {
+	set Dev_ctl(dev_ip) "172.25.$Subnet_id.77"
+    } else {
+	set Dev_ctl(dev_ip) "172.25.$Subnet_id.7"
+    }
+} elseif { $Device_name == "hub" } {
+    set Dev_ctl(dev_prompt) $Hub_prompt
+    set Dev_ctl(dev_port) $Hub_port
+    set Dev_ctl(dev_ip) "172.25.$mscf_ipo3.100"
+}
+
+if { $Channel_num == 2 } {
+    set Rpg_ip "172.25.$Subnet_id.71"
+} else {
+    set Rpg_ip "172.25.$Subnet_id.1"
+}
+
+send_log "Rpg_ip <$Rpg_ip>    dev_ip <$Dev_ctl(dev_ip)>"
+
+if { $Get_passwords } {
+    Get_cisco_passwords
+} else {
+    Load_and_config_cisco
+}
+
+exit 0
+
+

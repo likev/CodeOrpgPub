@@ -1,0 +1,237 @@
+C
+C RCS info
+C $Author: garyg $
+C $Locker:  $
+C $Date: 2003/01/10 14:16:05 $
+C $Id: a3078g.ftn,v 1.5 2003/01/10 14:16:05 garyg Exp $
+C $Revision: 1.5 $
+C $State: Exp $
+C
+      SUBROUTINE A3078G__MOMENT_PROC( RADINPTR, REF_FLAG, VEL_FLAG,
+     $                                WID_FLAG, ABORT )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3078G__MOMENT_PROC
+*.
+*.  MODULE VERSION: 0011
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       03 03 89      0000      CHARLIE BAUMHER      SPR # 80271
+*.       05 08 90      0001      PAUL JENDROWSKI      SPR # 90739
+*.       11 03 90      0002      MARK FRESCH          SPR # 91248
+*.       12 03 91      0003      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0004      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/20/92      0005      Toolset              SPR 91895
+*.       03/25/93      0006      Toolset              SPR NA93-06801
+*.       01/28/94      0007      Toolset              SPR NA94-01101
+*.       03/03/94      0008      Toolset              SPR NA94-05501
+*.       04/11/96      0009      Toolset              CCR NA95-11802
+*.       12/23/96      0010      Toolset              CCR NA95-11807
+*.       03/16/99      0011      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:
+*.  CALL A3078G__MOMENT_PROC(RADINPTR,REF_FLAG,VEL_FLAG,WID_FLAG,ABORT)
+*.
+*.  MODULE FUNCTION:
+*.
+*.  THIS ROUTINE WILL DETERMINE WHICH MOMENTS ARE ENABLED, AND
+*.  ABORT THOSE PRODUCTS WHICH AREN'T ENABLED.
+*.
+*.
+*.  MODULES CALLED: A31168__ABORT_ME_BECAUSE, A31169__ABORT_DATATYPE_BECAUSE, 
+*.                  A3CM53__WHAT_MOMENTS 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT                TYPE        DESCRIPTION
+*.    -   -----                ----        -----------
+*.    G   MEM                  I*4         Array in RPG shared memory set
+*.                                         aside for buffer sharing.
+*.    G   PROD_DISABLED_MOMENT I*4         (CONSTANT)Abort status for moment
+*.                                         disabled product.
+*.    C   VCS52                I*4         (CONSTANT)Data Buffer Type:
+*.                                         Vertical Cross Section Product.
+*.                                         Reflectivity BFR data type D.L.16.
+*.    C   VCS53                I*4         (CONSTANT)Data Buffer Type:
+*.                                         Vertical Cross Section Product.
+*.                                         Velocity BFR data type D.L.16.
+*.    C   VCS54                I*4         (CONSTANT)Data Buffer Type:
+*.                                         Vertical Cross Section Product.
+*.                                         Spectrum Width BFR data type D.L.8.
+*.    C   VCSR8                I*4         (CONSTANT)Reflectivity BFR data
+*.                                         type D.L.8.
+*.    C   VCSV8                I*4         (CONSTANT)Velocity BFR data type
+*.                                         D.L.8.
+*.    P   RADINPTR             I*4         PTR TO INPUT BUFFER
+*.    P   REF_FLAG             L*4         REFLECTIVITY AVAILABLE FLAG
+*.    P   VEL_FLAG             L*4         VELOCITY AVAILABLE FLAG
+*.    P   WID_FLAG             L*4         WIDTH AVAILABLE FLAG
+*.
+*.    *   OUTPUT   TYPE        DESCRIPTION
+*.    -   ------   ----        -----------
+*.    P   ABORT    L*4         FLAG INDICATING PROCESSING WAS ABORTED BECAUSE
+*.                             ALL MOMENTS ARE DISABLED
+*.    P   REF_FLAG L*4         REFLECTIVITY AVAILABLE FLAG
+*.    P   VEL_FLAG L*4         VELOCITY AVAILABLE FLAG
+*.    P   WID_FLAG L*4         WIDTH AVAILABLE FLAG
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    G   MEM               I*4         Array in RPG shared memory set aside
+*.                                      for buffer sharing.
+*.    P   REF_FLAG          L*4         REFLECTIVITY AVAILABLE FLAG
+*.    P   VEL_FLAG          L*4         VELOCITY AVAILABLE FLAG
+*.    P   WID_FLAG          L*4         WIDTH AVAILABLE FLAG
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME            TYPE        DESCRIPTION
+*.    ----            ----        -----------
+*.    DISABLED_MOMENT L*4         FLAG THAT INDICATES AT LEAST ONE MOMENT IS
+*.                                DISABLED
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD00
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  NONE
+*.
+*.  DEVIATION FROM STANDARDS:  NONE
+*.
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP07.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK07.CSS
+*.
+*.  MISC:  NONE
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+C
+C     MODULE   A3078G__MOMENT_PROC( RADINPTR, REF_FLAG, VEL_FLAG,
+C    $                                WID_FLAG, ABORT )
+C*
+C*  INCLUDE COMMON PARAMETER FILES
+C*
+$INCLUDE A309.INC/G,**A3PM00 (NEND NLIST)
+$INCLUDE            **A3PM07 (NEND NLIST)
+$INCLUDE            **A3CD00 (NEND NLIST)
+$INCLUDE A307.INC,**A30788   (     NLIST)
+C*
+C*********************************************************************
+C* LOCAL DECLARATIONS
+C*
+      INTEGER*4    RADINPTR
+C
+      LOGICAL      REF_FLAG, VEL_FLAG, WID_FLAG
+      LOGICAL      ABORT, DISABLED_MOMENT
+C*
+C*
+C*********************************************************************
+C*  ABORT FLAG INITIALIZATION
+C*
+X     TYPE  *,'8G: ENTERING MOMENT_PROCESSING ROUTINE '
+C
+      ABORT = .FALSE.
+C
+C*********************************************************************
+C    CHECK WHICH MOMENTS ARE ENABLED
+C
+      CALL A3CM53__WHAT_MOMENTS (MEM(RADINPTR), REF_FLAG, VEL_FLAG,
+     $        WID_FLAG )
+C
+X     TYPE *,'8G: REF/VEL/WID FLAGS = ',REF_FLAG,VEL_FLAG,WID_FLAG
+C
+      IF ( REF_FLAG .AND. VEL_FLAG .AND. WID_FLAG ) THEN
+         DISABLED_MOMENT = .FALSE.
+      ELSE
+         DISABLED_MOMENT = .TRUE.
+      END IF
+C
+X     TYPE *,'8G: DISABLED MOMENT = ',DISABLED_MOMENT
+C
+      IF ( DISABLED_MOMENT ) THEN
+        IF ( .NOT. REF_FLAG .AND. .NOT. VEL_FLAG .AND.
+     $         .NOT. WID_FLAG ) THEN
+C
+C*********************************************************************
+C    IF ALL MOMENTS DISABLED, NO PRODUCTS CAN BE GENERATED.
+C    ABORT ALL PROCESSING.
+C
+          CALL A31168__ABORT_ME_BECAUSE(PROD_DISABLED_MOMENT)
+C
+X         TYPE *,'8G: ALL MOMENTS ARE DISABLED, PROCESSING ABORTED',
+     $           ' VIA A31168'
+C
+          ABORT = .TRUE.
+        ELSE
+C
+C*********************************************************************
+C    ABORT DATATYPES, IF THEY ARE DISABLED
+C
+X         TYPE *,'8G: CHECK IF INDIVIDUAL MOMENTS ARE DISABLED '
+C
+          IF ( .NOT. REF_FLAG ) THEN
+            CALL A31169__ABORT_DATATYPE_BECAUSE(VCS52,
+     $                             PROD_DISABLED_MOMENT )
+C
+X           TYPE *,'8G: REFLECTIVITY D.L. 16 IS DISABLED '
+C
+            CALL A31169__ABORT_DATATYPE_BECAUSE(VCSR8,
+     $                             PROD_DISABLED_MOMENT )
+C
+X           TYPE *,'8G: REFLECTIVITY D.L. 8 IS DISABLED '
+C
+          ENDIF
+C
+C*  ABORT VELOCITY DATATYPES
+C
+          IF ( .NOT. VEL_FLAG ) THEN
+            CALL A31169__ABORT_DATATYPE_BECAUSE(VCS53,
+     $                             PROD_DISABLED_MOMENT )
+C
+X           TYPE *,'8G: VELOCITY D.L. 16 IS DISABLED '
+C
+            CALL A31169__ABORT_DATATYPE_BECAUSE(VCSV8,
+     $                             PROD_DISABLED_MOMENT )
+C
+X           TYPE *,'8G: VELOCITY D.L. 8 IS DISABLED '
+C
+          ENDIF
+C
+C* ABORT SPECTRUM WIDTH DATATYPE
+C
+C   Commented out reference to obsolete product VCS54. Code
+C   has been retained in case SCS Cross Section (Spectrum Width) is
+C   resurrected at a later date.
+C         IF ( .NOT. WID_FLAG ) THEN
+C           CALL A31169__ABORT_DATATYPE_BECAUSE(VCS54,
+C    $                            PROD_DISABLED_MOMENT )
+C
+CX           TYPE *,'8G: SPECTRUM WIDTH D.L. 8 IS DISABLED '
+C
+C          ENDIF
+        ENDIF
+      END IF
+C
+X     TYPE *,'8G: END 8G__MOMENT_PROC,DSBLD_MOMENT = ',DISABLED_MOMENT
+C
+      RETURN
+      END

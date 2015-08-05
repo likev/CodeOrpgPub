@@ -1,0 +1,305 @@
+hci_nb(1)                   ORPG SUM Man page                     hci_nb(1)
+
+NAME
+
+hci_nb
+
+SYNOPSIS
+
+hci_nb [options]
+
+DESCRIPTION
+
+The "hci_nb" command invokes the Product Distribution Comms Status task for the
+RPG.  It is a GUI based task which runs in an X Windows/Motif environment.  It
+is part of the Human-Computer Interface (HCI) family of tasks, typically
+launched from the RPG Control/Status task (refer to man page hci(1)).  However,
+it can be run as a stand-alone application from the command line.
+
+OPTIONS
+
+hci_nb recognizes the following options:
+
+	-h	      print usage message and exit
+	
+	-l	      low bandwidth mode; compress data passed to/from
+		      ORPG data stores.
+
+	-iconic	      start in an iconic state
+	
+	-m <name>     RPG computer name
+	
+	-name <title> Window title
+	
+	-s <rate>     Set the simulated baud rate
+
+OVERVIEW
+
+The Product Distribution Comms Status task provides a graphical user interface
+to control RPG narrowband communications and display RPG narrowband
+communications status.  
+
+When invoked, the task displays the Product Distribution Comms Status window.
+This window consists of 6 main regions: control, line status, line control,
+line management, line/user info, dial-in user management, and general line
+parameter management.
+
+Control
+-------
+
+As typical with other HCI applications, a set of standard control buttons are
+displayed along the top of the window for closing the application, saving and
+undoing edits, restoring from and updating the baseline (backup) data, and
+locking/unlocking the window for editing.
+
+Selecting the "Close" button closes the Product Distribution Comms Status
+window (and associated child windows) and exits the task.  If any unsaved
+edits are detected, the user is first prompted about saving the edits before
+closing.
+
+The "Save" button is selectable only when the window is unlocked for editing
+and edits are detected.  When selected, a confirmation popup window is 
+displayed first so the user can decide whether to continue with the save or
+abort.  If the user continues with the save, edits are written to the line user
+info LB and/or the user profile LB, depending on which data fields were edited.
+
+The "Undo" button is selectable only when the window is unlocked for editing
+and edits are detected.  When selected, all unsaved edits are discarded and
+the window is restored to its pre-edit state.
+
+The "Restore" button is selectable only when the window is unlocked for editing
+and no edits are detected.  When selected, user profile and line info data are
+copied from the baseline (backup) copies to the edit copies.
+
+The "Update" button is selectable only when the window is unlocked for editing
+and no edits are detected.  When selected, user profile and line info data are
+copied from the edit copies to the baseline (backup) copies.
+
+Since line and user profile adaptation data are required to be password
+protected, a lock icon is displayed in the upper right corner of the window.
+Selecting it allows the user to define a password level and enter a password.
+When the user selects a password level in the password popup window, items
+which are selectable/editable in the Product Distribution Comms Status window
+are displayed with a gray foreground color.  The fuzzy appearance indicates
+that these items are not selectable until a valid password has been entered.
+When a valid password has been entered, the items are selectable/editable and
+their foreground color and sharpness is restored.
+
+Product Distribution Lines
+--------------------------
+
+The "Product Distribution Lines" container displays the status of all
+configured narrowband lines.  Each line is represented by a row in the list.
+A vertical scrollbar is added if the number of lines exceeds the container
+height.  A row entry consists of the following components: line number, line
+type, line state, line protocol, user ID, user name, line/user class, line
+status, utilization rate, and effective rate.
+
+The line number corresponds to the physical line number assigned to the line.
+This number is defined in the "comms_link.conf" and "user_profiles"
+configuration files.
+
+The line type can be either "DEDIC" for dedicated lines or "DIALIN" for dial-in
+lines.
+
+The line state can be either "yes" (enabled) or "no" disabled.  If a line is
+disabled, users cannot use that line to connect to the RPG.
+
+The line protocol defines the protocol defined for that line.  It can be one
+of the following:  "X25" or "TCP".
+
+The user ID defines the numeric identifier for the user currently connected to
+the line.  If no user is connected, this field is blank.
+
+The user name defines the name associated with the user ID of the user connected
+to the line.  If no user is connected, the line name is displayed if one is
+defined.  Otherwise, it is blank.
+
+The line/user class defines the class associated with a line or user connected
+to the line.  Each line has a default class associated with it.  Class
+definitions are defined in the "user_profiles" configuration file.
+
+The line status defines the current connection state.  It can be one of the
+following:  "CONNECT" (connected), "DISCON" (disconnected), "FAILED", "NOISY",
+"CON PEND" (connection/disconnection pending), and "UNKNOWN".
+
+The utilization rate provides an estimate of how much of the line bandwidth is
+needed to transfer requested products during the current volume scan.  For
+example, suppose that we are running VCP 11.  It takes 5 minutes to complete
+a volume scan.  If a user is connected to a narrowband line and requests a
+set of products, the products are buffered until they can be sent to the user.
+Based on the defined baud rate for the line, an estimate can be made on how
+much data can be sent to the user during the 5 minutes.  The utilization rate
+defines the percentage of data in the queue relative to the amount of data
+which can be sent during the 5 minutes.  If this value continually exceeds
+100%, then products will need to be load shed on that line.
+
+The effective rate provides the ratio of the actual data rate to the defined
+baud rate; expressed as a percentage.  For example, suppose the line baud rate
+is configured at 14400.  If the real transfer rate when products are sent to
+the user is 28800 bps, then the rate will be displayed as 200%.  In this case,
+the user should change the baud rate configuration since this will have an
+effect on the utilization rate and product load shedding.
+
+Beneath the line status list are a set of radio buttons which are used to
+sort the line order in the list.  By default, the "Line" radio button is set
+so that the list is sorted by increasing line number.  If the "Type" radio
+button is set, the list is sorted by type with "DEDIC" first followed by
+"DIALIN".  If the "Status" radio button is set, the list is sorted by line
+status.
+
+Line Control
+------------
+
+The "Line Control" container contains buttons to control each line.  The user
+must first select one or more lines in the Product Distribution Lines list.
+One line can be selected by moving the cursor over it and pressing the left
+mouse button (the background color for the entire row should change to black).
+Contiguous lines can be selected by first selecting one line, pressing the
+shift key and then selecting the last line in group (the background color for
+all rows in the group should change to black).  Multiple non-contiguous lines
+can be selected by selecting a line while holding down the control key.
+
+If the "Reset" button is selected, all selected lines are disconnected.  A
+confirmation popup window is first presented for verification.
+
+If the "Disconnect" button is selected, all selected lines are disabled.  No
+connection can be made when a line is disabled.  The "Enabled" column in the
+Product Distribution Lines list should change to "no" when the lines are
+disabled.
+
+If the "Connect" button is selected, all selected lines are enabled. A
+connection can be made when a line is enabled.  The "Enabled" column in the
+Product Distribution Lines list should change to "yes" when the lines are
+enabled.
+
+The "Deselect" button deselects all lines that are selected in the Product
+Distribution Lines list.
+
+General Parameters
+------------------
+
+The "General Parameters" container contains edit boxes for narrowband
+adaptable parameters which affect all lines.  The following parameters can
+be modified: connection retries, timeout interval, load shed warning threshold,
+and load shed alarm threshold.
+
+The "Retries" edit box controls the maximum number of retries the system will
+perform trying to establish a connection to a line.  The individual line
+retries value can be less than this but anything greater will be ignored.
+
+The "Timeout" edit box controls the maximum message transmission time allowed
+(in seconds).  An individual line timeout can be defined but it must be less
+than this, otherwise it will be ignored.
+
+The "Alarm" edit box controls the narrowband utilization rate which will cause
+a narrowband load shed alarm to be generated and narrowband load shedding to
+occur.  This field can also be set in the Load shed Categories window (refer
+to the man page hci_load(1)).
+
+The "Warning" edit box controls the narrowband utilization rate which will
+cause a narrowband load shed warning to be generated.  This field can also be
+set in the Load Shed Categories window (refer to the man page hci_load(1)).
+
+Line Management
+---------------
+
+The "Line Management" container contains information for selected narrowband
+lines.  A narrowband line is selected by double clicking a line in the
+Product Distribution Lines list.  The information for the line number, comm
+manager,  and pserver are not editable.  If a valid password was entered, the
+line "Type" can be selected between "Dedicated" and "Dial-in".  If the line
+type is "Dial-in", the "Port Pswd", "Time Limit", "Baud Rate", and "Comms
+Option" items are editable.  If the line type is "Dedicated", the "Port Pswd"
+and "Time Limit" items are not editable.
+
+The "Port Pswd" edit box defines the port password for the dial-in line.  It
+must be 4 characters or less.
+
+The "Time Limit" field defines the maximum time allowed for a dial-in user to
+connect to the line.  If the value is 0, then the global timeout limit is
+used.  The maximum allowed value is 1440 minutes.
+
+The "Baud Rate" edit box defines the baud rate used by the RPG to determine
+product load shedding for the line.
+
+The "Comms Option" menu defines the packet size used in sending/receiving
+messages for the line.  The selection can be "Yes" (satellite) or "No:.
+
+
+Line/User Info
+--------------
+
+The "Line/User Info" container contains information about the selected
+narrowband line.  If a user is connected to the selected line, the users ID
+and name are displayed along with the line class and distribution method.  If
+the window is unlocked for editing, the line class and distribution method
+items are editable.
+
+Dial-in Users
+-------------
+
+The "Dial-in Users" container contains information about all dial-in users
+defined at the RPG.  If a valid password is entered, selections are provided
+to add new dial-in users, modify existing dial-in user properties, and to
+delete existing dial-in users.
+
+The dial-in users table contains a row entry for each defined dial-in user.
+A row entry consists of a user ID and name label, a password edit box, a
+maximum connect time override toggle, a class menu, and a distribution method
+menu.  To keep the length of the list more manageable, left and right arrow
+buttons are provided for the user to page through the list of dial-in users.
+The list is displayed in increasing user ID.  Each page contains up to 20
+dial-in user entries.
+
+The "User ID/Name" item is not editable.  It consists of a user ID and its
+associated name (enclosed in braces).
+
+The "Pswd" item contains the password.  If the window is locked, the password
+is displayed as "****".  To actually view the password one must unlock the
+window first.  When the window is unlocked, the password item can be modified.
+
+The "Ovr" checkbox item defines the state of the time limit override flag.
+It can be changed only when the window is unlocked.
+
+The "Class" item shows the class assigned to the user.  If the window is
+unlocked, selecting the class item presents a list of valid classes which can
+be assigned to a dial-in user.
+
+The "Method" item shows the method associated with the selected class.  If the
+class has no methods, then the label "N/A" is displayed.  If the window is
+unlocked and the selected class has defined distribution methods, selecting
+the methods item presents a list of valid distribution methods which can be
+assigned to a dial-in user.
+
+Beneath the dial-in table are buttons to add and delete dial-in users.
+
+Selecting the "Add Dial-in User" button activates a popup form from which the
+user can define properties for a new dial-in user.  The user ID field must
+be defined.  If the assigned user ID already exist, a warning popup window
+is displayed informing the user to select a different number.  In addition to
+the user ID field, the password field must also be defined.  The class defaults
+to "2" and the override flag is off.  The user name field is optional.  To
+add the new user data to the local dial-in list select the "Apply" button.
+
+To delete a dial-in user from the list one must first select the password box
+corresponding to the user to be deleted.  Next, selecting the "Delete Dial-in
+User" button invokes a confirmation popup window giving the user one last
+chance to cancel the deletion.  If the dial-in user is deleted, the
+"User ID/Name" item for the selected user will contain the string "Record
+Deleted".
+
+Any changes to the dial-in user list will not be applicable until the edits
+are saved.  Once the "Save" button is selected, the dial-in list is refreshed
+and any records marked for deletion will be removed.
+
+NOTES
+
+In FAA redundant configurations, the label "(FAA:x)" is appended to the window
+title ("x" is the RDA channel number).
+
+SEE ALSO
+
+orpg(3) hci(1) comms_link.conf(4) user_profiles(4)
+
+				$Revision: 1.5 $

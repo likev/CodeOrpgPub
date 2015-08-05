@@ -1,0 +1,104 @@
+
+NAME
+    lelb_mon - Prints and monitors one or more Log Error files
+
+SYNOPSIS
+    lelb_mon [options] [proc1 proc2 ... procN]
+
+DESCRIPTION
+    lelb_mon is a tool for printing the LE (log/error) messages reported by
+    application processes. The LE messages are stores in LB files. Refer to
+    le(3) for further details.
+
+    The default behavior is to first print any existing messages and then
+    dynamically monitor the LE files. When an new LE messages are reported,
+    they are printed. Use Control-C to terminate lelb_mon. The processes to be
+    monitored are specified on the command line.
+
+    This tool assumes that LE files are named using the default ".log"
+    filename extension (See le(3)). That is, the process named "imaproc" has a
+    corresponding LE LB file named "imaproc.log". Processes for which multiple
+    instances may exist, may be listed with the instance numeral appended to
+    the process name, with the process name proper and the instance numeral
+    separated by a ".". For example, instance 1 of the process "multiproc" has
+    a corresponding LE LB file named "multiproc.1.log".
+
+    lelb_mon prints LE messages on the standard port. Each LE message is as a 
+    line of ASCII text in the following format:
+
+    Time Label Process_name Message (n_reps: #) -Source_file_name:Line_number
+
+    "Time" is the message posting time. It is in the format of "hh:mm:ss". The
+    message date is printed in a separate line. If a message has the same date
+    as the previously printed message, its date line is omitted. "label" is the
+    message's type info. It is a word consisted of characters "E", "S" and "G",
+    standing for error, status and global messages respectively. "Label" can
+    also be a number, in which case it is the message's verbose level.
+
+    "Process_name" is the name of the process that reports the message. If the
+    reporting task has multiple run-time instances, the instance number is 
+    printed as "Process_name.instance_number".
+
+    The "Message" field is the LE message as reported by the process. If any LE
+    messages were dropped due to repetition (Refer to le(3)), "(n_reps: #)"
+    appears after the "Message" field. Where "#" is the number of repetitions.
+
+    "Source_file_name" and "Line_number" tells from where in the C source code
+    the message was reported. These fields are available only for critical
+    messages (See le(3)).
+
+    lelb_mon relies on the GL_ERROR, GL_STATUS and GL_GLOBAL definition for
+    printing the "Label" field. These macros, however, are currently defined
+    in ORPG level. Other than this, lelb_mon is ORPG independent. These macros
+    should probably be moved to the LE level in the future.
+
+OPTIONS
+    -n	le_file_name
+	Specifies directly an LE file name for input.
+
+    -v	pid,vl
+	Changes a process's verbose level while the process is running. The
+	process is specified by its process ID, "pid", and the new verbose 
+	level is "vl", which must be in the range of [0, 3].
+
+    -d	le_dir
+	Specifies the directory in which the LE LB files are to be found. The
+	default is to use the value of the LE_DIR_EVENT environment variable,
+	if it is defined. Otherwise, the default is to use the current working
+	directory.
+
+    -p	poll_msec
+	Specifes an alternative polling rate. The default rate is every 1000
+	milliseconds. This option only makes sense when using the tool to
+	dynamically monitor one or more LE LB files.
+
+    -s	length
+	Specifies the static mode - prints at most "length" existing LE
+	messages and terminates. A "length" of 0 indicates that all available
+	messages are to be displayed. If more than one process name is
+	specified, only the first process name will be considered. The default
+	behavior is to monitor LE LB files dynamically.
+
+    -h	prints usage message and exits.
+
+
+EXAMPLES
+    lelb_mon mrpg
+	Prints all existing LE messages from task "mrpg" and then keeps 
+	monitoring any new LE messages. Any new LE messages are printed as they
+	are reported. The monitoring is performed by polling the LE file every
+	second.
+
+    lelb_mon -n /export/home/orpg/data/logs/mrpg.log
+	Monitors the LE file "/export/home/orpg/data/logs/mrpg.log".
+
+    lelb_mon -v 13421,3
+	Changes the verbose level of the process of pid 13421 to 3.
+
+    lelb_mon -p 200 mrpg pbd
+	Monitors both tasks of "mrpg" and "pbd". The polling time is set to 200
+	milli-seconds (.2 seconds).
+
+SEE ALSO
+    le(3)
+

@@ -1,0 +1,484 @@
+C 
+C RCS info 
+C $Author: steves $ 
+C $Locker:  $ 
+C $Date: 2004/01/21 17:51:38 $ 
+C $Id: a3147d.ftn,v 1.6 2004/01/21 17:51:38 steves Exp $ 
+C $Revision: 1.6 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A3147D__USP_NULL( USPBUF,ONE_CA)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3147D__USP_NULL
+*.
+*.  MODULE VERSION: 0002
+*.
+*.  MODULE LANGUAGE:  FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.        10/19/95      0000     Cheryl Stephenson    CCR NA94-08462
+*.       12/23/96      0001      Toolset              CCR NA95-11807
+*.       03/16/99      0002      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A3147D__USP_NULL(USPBUF,ONE_CA)
+*.
+*.  MODULE FUNCTION:
+*.  This module builds a Null USP product if it could not be generated
+*.  because there was an error reading data from the data base,
+*.  insufficient hourly accumulations or an illegal reguest.
+*.  The product will provide a reason.  If the reason is insufficient
+*.  hourly accumulations or an illegal request, the Start date and
+*.  available hours in the database will be provided.
+*.
+*.  MODULES CALLED: A3147E__PROD_HDR_PT1, A3147G__GEN_CHR_PKCTS, 
+*.                  A3147S__PROD_HDR_PT2, A3CM25__GET_DATE_TIME, 
+*.                  A3CM38__JULIAN2DATE 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT           TYPE        DESCRIPTION
+*.    -   -----           ----        -----------
+*.    G   BLKOVRHD        I*4         (CONSTANT)SIZE OF OVERHEAD PORTION OF
+*.                                    PRODUCT SYMBOLOGY BLOCK, IN BYTES
+*.    G   BLOCKIDOFF      I*4         (CONSTANT)Product block ID offset.
+*.    G   DIV2OFF         I*4         (CONSTANT)Product block offset: Second
+*.                                    divider.
+*.    G   LRLSWOFF        I*4         (CONSTANT)Product block offset: Length
+*.                                    of product block portion of product
+*.                                    (LSW).
+*.    G   LRMSWOFF        I*4         (CONSTANT)Product block offset: Length
+*.                                    of product block portion of product
+*.                                    (MSW).
+*.    G   LYRDIVOFF       I*4         (CONSTANT)PRODUCT BLOCK OFFSET: LAYER
+*.                                    DIVIDER
+*.    G   LYRLLSWOFF      I*4         (CONSTANT)Product block offset:  Layer
+*.                                    length (LSW).
+*.    G   LYRLMSWOFF      I*4         (CONSTANT)Product block offset: Layer
+*.                                    length (MSW).
+*.    G   NLYROFF         I*4         (CONSTANT)Product block offsets: Number
+*.                                    of layers.
+*.    G   OPRLSWOFF       I*4         (CONSTANT)Product header offset
+*.                                    descriptions: Offset to product length
+*.                                    (LSW)
+*.    G   OPRMSWOFF       I*4         (CONSTANT)Product header offset
+*.                                    descriptions: Offset to product length
+*.                                    (MSW)
+*.    G   PHBYTES         I*4         (CONSTANT)Number of bytes in product
+*.                                    header.
+*.    G   PHEADLNG        I*4         (CONSTANT)Number of half words in
+*.                                    product header (its length).
+*.    C   AVAIL_FLAG      L*4         Flag indicating if the hour is available
+*.                                    in the User Selectable data base
+*.    C   AVAIL_HRS       I*2         An array of the available hours in the
+*.                                    User Selectable Data Base
+*.    C   HOURS_AVAIL     I*2         The number of hours available in the
+*.                                    User Selectable Data Base
+*.    C   NUM_HOURS       I*2         Number of hours included in a particular
+*.                                    USP product
+*.    C   START_DATE_NULL I*2         Modified Julian date indicating the
+*.                                    start date of the data available in the
+*.                                    User Selectable Database for the Null
+*.                                    USP product
+*.    C   BAD_FILE        I*4         (CONSTANT)Error code for when unable to
+*.                                    read or write to the User Selectable
+*.                                    data base
+*.    C   DIVIDER         I*2         (CONSTANT)Value used to delineate blocks
+*.                                    in product output buffer (-1)
+*.    C   END_INIT        I*4         (CONSTANT)Error code to indicate that do
+*.                                    not have any hours in the User
+*.                                    Selectable Data base to satisfy this
+*.                                    product request
+*.    C   FRSTI2WD        I*4         (CONSTANT)Index for 1st I*2 words of a
+*.                                    pair which is equivalenced to one I*4
+*.                                    word
+*.    C   ILL_REQ         I*4         (CONSTANT))Error code indicating that
+*.                                    with the request end hour and duration,
+*.                                    the request exeeds the number of
+*.                                    available hours (30)
+*.    C   MAX_USDB_HRS    I*4         (CONSTANT)Maximum number of hours in the
+*.                                    User Selectable Data Base
+*.    C   MIN_HRS         I*4         (CONSTANT)Error code indicating there
+*.                                    are not the two thirds of the hours
+*.                                    required to produce the request USP
+*.                                    product
+*.    C   NULL_POS        I*4         (CONSTANT)Index into Customizing array
+*.                                    to indicate that this particular USP is
+*.                                    a Null product
+*.    C   SCNDI2WD        I*4         (CONSTANT)Index for 2nd word of a pair
+*.                                    of I*2 words equivalenced to one I*4
+*.                                    word.
+*.    C   TIME_SPAN       I*4         (CONSTANT)INDEX INTO CUSTOMIZING ARRAY
+*.                                    FOR TIME SPAN OF THE USP PRODUCT
+*.    P   ONE_CA          I*2         A customized request array
+*.    P   USPBUF          I*2         USP product buffer
+*.
+*.    *   OUTPUT    TYPE        DESCRIPTION
+*.    -   ------    ----        -----------
+*.    C   NULL_PROD L*4         Flag indicating whether the product contains
+*.                              data or will a ASCII message explaining why
+*.                              there is no data
+*.    P   USPBUF    I*2         USP product buffer
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    C   START_DATE_NULL   I*2         Modified Julian date indicating the
+*.                                      start date of the data available in
+*.                                      the User Selectable Database for the
+*.                                      Null USP product
+*.    P   ONE_CA            I*2         A customized request array
+*.    P   USPBUF            I*2         USP product buffer
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME             TYPE        DESCRIPTION
+*.    ----             ----        -----------
+*.    BLANK_LINE       CHAR*36     (CONSTANT)character string of 36 blanks.
+*.                                 Used for initializing parts of lines.
+*.    BPHW             R*4         Bytes per halfword
+*.    BPTR             I*4         Output Buffer pointer
+*.    CDATE            I*4         Current Julian Date
+*.    CHARDATE         CHAR*8      Character string of the date
+*.    CHARHRS          CHAR*36     Character string indicating hours available
+*.                                 in the User Selectable Data Base
+*.    CHARNUM          CHAR*20     Character string of the number of hours
+*.                                 availabe for this USP product
+*.    CHARZ            CHAR*1      (CONSTANT)character Z
+*.    COLUMN           R*4         Column number to place message in graphic
+*.                                 screen
+*.    COMMA            CHAR*1      A comma character
+*.    CTIME            I*4         Current Time in seconds
+*.    DATE             I*2         Coverted Julian date into an array
+*.    DAY              I*4         (CONSTANT)Index into DATE for day
+*.    I                I*2         LOOP COUNTER
+*.    I4TEMP           I*4         Temporary storage used for equivalencing
+*.                                 I*4 to I*2
+*.    LENPSD           I*4         Length of product symbology data
+*.    LST              I*2         Index to end of a column for a line in the
+*.                                 message
+*.    MESSAGE          CHAR*60     (CONSTANT)Line in message indicating the
+*.                                 USP is a Null product
+*.    MESSAGE_BAD_FILE CHAR*60     (CONSTANT)Line in message indicating USP is
+*.                                 Null product becasue data could not be read
+*.                                 from the disk
+*.    MESSAGE_LEN      I*2         Length of actual message
+*.    MESS_BD_PT2      CHAR*60     (CONSTANT)Second line in message indicating
+*.                                 USP is Null product because can not read
+*.                                 data from the disk
+*.    MESS_DATE        CHAR*60     Line in message giving the starting date of
+*.                                 the hourly accumulations in the data base
+*.    MESS_HRS         CHAR*60     Lines in message giving the times of the
+*.                                 hourly accumulations in the data base
+*.    MESS_ILL_REQ     CHAR*60     (CONSTANT)Line in message indicating USP is
+*.                                 Null product because the request is illegal
+*.    MESS_ILL_REQ2    CHAR*60     Second line in message indicating USP is
+*.                                 Null product because the request is illegal
+*.    MESS_MIN_HRS     CHAR*60     (CONSTANT)Line in message indicating USP is
+*.                                 Null product because of insuffient number
+*.                                 of hourly accumulations
+*.    MESS_MIN_HRS2    CHAR*60     Second line in message indicating USP is
+*.                                 Null product because of insuffient number
+*.                                 of hourly accumulations
+*.    MESS_NOHRS       CHAR*20     Character string indicating no hours
+*.                                 available for the product
+*.    MONTH            I*4         (CONSTANT)Index into DATE for month
+*.    NULL             I*4         Parameter value of zero.
+*.    NUMLYRS          I*4         (CONSTANT)Number of layers of USP product
+*.                                 (1)
+*.    OFFPSD           I*4         Offset to product symbology data
+*.    ONE              I*4         Parameter value of one.
+*.    PHRASE           CHAR*60     Character array used to pass message to a
+*.                                 formatting routine
+*.    PHRASEI2         I*2         ARRAY EQUIVALENCED TO PHRASE USED TO BUILD
+*.                                 CHARACTER PACKETS
+*.    PHRASE_LEN       I*2         Length of PHRASE in bytes
+*.    REASON           I*4         Reason code why the USP is a Null product
+*.    ROW              R*4         Row number to place message in graphic
+*.                                 screen
+*.    SBLKID           I*2         (CONSTANT)Symbology Block ID (1)
+*.    SLASH            CHAR*1      (CONSTANT)"/"
+*.    ST               I*2         Index to starting column for a line in the
+*.                                 message
+*.    YEAR             I*4         (CONSTANT)Index into DATE for year
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3147C2
+*.    A3147C4
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  NONE
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK14.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+C
+C* GLOBAL DECLARATIONS:
+C
+$INCLUDE A309ADPT.INC/G,**A3CD70C7 (NLIST)
+C$INSERT$INCLUDE A309.INC/G,**A3PM00 (NLIST)
+$INCLUDE A309.INC/G,**A3PM01 (NLIST)
+$INCLUDE A3146.INC/G,**A3146P1 (NLIST)
+$INCLUDE A3147.INC/G,**A3147P1 (NLIST)
+$INCLUDE A3147.INC/G,**A3147P2 (NLIST)
+$INCLUDE A3147.INC/G,**A3147P3 (NLIST)
+$INCLUDE             **A3147P9 (NLIST)
+$INCLUDE A3147.INC/G,**A3147C1  (NLIST)
+$INCLUDE             **A3147C2  (NLIST)
+$INCLUDE             **A3147C3  (NLIST)
+$INCLUDE             **A3147C4  (NLIST)
+C
+C* LOCAL DECLARATIONS:
+C
+      REAL ROW, COLUMN, BPHW
+      INTEGER BPTR, LENPSD, OFFPSD, CDATE, CTIME
+      INTEGER REASON, I4TEMP, IDX, ONE
+      INTEGER DAY, MONTH,YEAR, NULL
+      PARAMETER (DAY = 1)
+      PARAMETER (MONTH = 2)
+      PARAMETER (YEAR = 3)
+      PARAMETER (NULL = 0)
+      PARAMETER (ONE = 1)
+      INTEGER*2 PHRASEI2(30), PHRASE_LEN, MESSAGE_LEN, ONE_CA(10)
+      INTEGER*2 ST, LST, I, DATE(3), J
+      INTEGER*2 INIT_DATE
+      PARAMETER (INIT_DATE = -2)
+      CHARACTER*1 SLASH, COMMA, CHARZ
+      PARAMETER (SLASH ='/', COMMA =',', CHARZ='Z')
+      CHARACTER*8 CHARDATE
+      CHARACTER*20 CHARNUM,MESS_NOHRS
+      CHARACTER*36 CHARHRS
+      CHARACTER*60 PHRASE, USP_MESSAGE
+      CHARACTER*60 MESSAGE_BAD_FILE, MESS_MIN_HRS, MESS_MIN_HRS2
+      CHARACTER*60 MESS_DATE, MESS_HRS, MESS_ILL_REQ, MESS_BD_PT2
+      CHARACTER*60 MESS_ILL_REQ2, HOURS
+      CHARACTER*36 BLANK_LINE
+      PARAMETER (BLANK_LINE =
+     &   '                                    ')
+      PARAMETER (USP_MESSAGE= 'USP UNAVAILABLE BECAUSE:')
+      PARAMETER (MESSAGE_BAD_FILE='UNABLE TO READ DATA FROM DISK')
+      PARAMETER (MESS_BD_PT2 ='CHECK RPG SYSTEM STATUS LOG')
+      PARAMETER (MESS_MIN_HRS =
+     $  'INSUFFICIENT NUMBER OF HOURLY         ')
+      DATA MESS_MIN_HRS2/'ACCUMULATIONS:       '/
+      PARAMETER (MESS_ILL_REQ =
+     $'ILLEGAL REQUEST: REQUESTED TIMESPAN ')
+      PARAMETER(MESS_ILL_REQ2 =
+     $'EXCEEDS AVAILABLE DATA.            ')
+      PARAMETER (MESS_NOHRS ='NO HOURS AVAILABLE  ')
+      DATA MESS_DATE / 'STARTING DATE :                 '/
+      DATA CHARNUM /'                    '/
+      PARAMETER (MESS_HRS ='AVAILABLE HOURS:               ')
+      EQUIVALENCE (PHRASE, PHRASEI2(1))
+      PARAMETER (MESSAGE_LEN = 40)
+      PARAMETER (BPHW = 2)
+      INTEGER*2 USPBUF(*)
+      INTEGER*4 TOTAL_BYTES
+      LOGICAL RDFLAG
+C------------------------- EXECUTABLE ---------------------------
+      REASON = ONE_CA(NULL_POS)
+C
+C  Setup the null USP Product, first line
+C  the same for all null products.
+C
+      PHRASE = USP_MESSAGE
+      ROW=7
+      COLUMN=2
+      PHRASE_LEN = MESSAGE_LEN
+C
+C  Set up the output buffer pointer to the beginning of the product
+C  symbology data.
+C
+      BPTR = (PHBYTES + BLKOVRHD) / BPHW
+      OFFPSD = BPTR
+C
+C  Build the message onto the output buffer.
+C
+      CALL A3147G__GEN_CHR_PKCTS(ROW,COLUMN,PHRASEI2,
+     +PHRASE_LEN, BPTR, USPBUF)
+C
+C  Check if null product because could not read data from
+C  USERSEL.DAT.
+C
+      IF(REASON .EQ. BAD_FILE)THEN
+C
+C Write second line, explanation
+C
+         PHRASE = MESSAGE_BAD_FILE
+         COLUMN=COLUMN+10
+         CALL A3147G__GEN_CHR_PKCTS(ROW,COLUMN,PHRASEI2,
+     +      PHRASE_LEN, BPTR, USPBUF)
+         PHRASE = MESS_BD_PT2
+         COLUMN=COLUMN+10
+         CALL A3147G__GEN_CHR_PKCTS(ROW,COLUMN,PHRASEI2,
+     +      PHRASE_LEN, BPTR, USPBUF)
+C
+C Otherwise is there not enough hours or illegal times in the
+C product request?
+C
+       ELSEIF(REASON .EQ. MIN_HRS .OR. REASON .EQ. ILL_REQ.OR.
+     &   REASON .EQ. END_INIT)THEN
+         COLUMN=COLUMN+10
+C
+C  If criteria for not minimum hours
+C
+         IF(REASON .EQ. MIN_HRS)THEN
+C
+C Package phrase for minimum hours
+C
+           PHRASE=MESS_MIN_HRS
+           CALL A3147G__GEN_CHR_PKCTS(ROW,COLUMN,PHRASEI2,
+     +      PHRASE_LEN, BPTR, USPBUF)
+           COLUMN=COLUMN+10
+           IF(HOURS_AVAIL .EQ. NULL)THEN
+              MESS_MIN_HRS2(17:37)= MESS_NOHRS
+              PHRASE = MESS_MIN_HRS2
+              CALL A3147G__GEN_CHR_PKCTS(ROW,COLUMN,PHRASEI2,
+     +          PHRASE_LEN, BPTR, USPBUF)
+              GO TO 55
+           ELSE
+              WRITE(CHARNUM,15)NUM_HOURS,ONE_CA(TIME_SPAN)
+15            FORMAT(I2,' OF ',I2,' HOURS')
+              MESS_MIN_HRS2(17:37) = CHARNUM
+              PHRASE = MESS_MIN_HRS2
+              CALL A3147G__GEN_CHR_PKCTS(ROW,COLUMN,PHRASEI2,
+     +         PHRASE_LEN, BPTR, USPBUF)
+           ENDIF
+         ELSEIF(REASON .EQ. ILL_REQ)THEN
+C
+C If not a valid request
+C
+            PHRASE = MESS_ILL_REQ
+            CALL A3147G__GEN_CHR_PKCTS(ROW,COLUMN,PHRASEI2,
+     +      PHRASE_LEN, BPTR, USPBUF)
+            COLUMN = COLUMN + 10
+            PHRASE = MESS_ILL_REQ2
+            CALL A3147G__GEN_CHR_PKCTS(ROW,COLUMN,PHRASEI2,
+     +      PHRASE_LEN, BPTR, USPBUF)
+         ELSEIF(REASON .EQ. END_INIT)THEN
+              MESS_MIN_HRS2(17:37)= MESS_NOHRS
+              PHRASE = MESS_MIN_HRS2
+              CALL A3147G__GEN_CHR_PKCTS(ROW,COLUMN,PHRASEI2,
+     +         PHRASE_LEN, BPTR, USPBUF)
+         ENDIF
+         COLUMN=COLUMN+10
+         IF (START_DATE_NULL .GT. NULL)THEN
+C
+C  Call A3CM38 to covert start date from Julian
+C
+           CALL A3CM38__JULIAN2DATE(START_DATE_NULL,DATE)
+C
+C Increment line and format date
+C
+           COLUMN=COLUMN+10
+           WRITE(CHARDATE,10)DATE(MONTH),SLASH,DATE(DAY),SLASH,
+     $       DATE(YEAR)
+10         FORMAT(I2.2,A1,I2.2,A1,I2.2)
+           MESS_DATE(20:28)=CHARDATE
+           PHRASE = MESS_DATE
+C
+C Package date
+C
+           CALL A3147G__GEN_CHR_PKCTS(ROW,COLUMN,PHRASEI2,
+     +      PHRASE_LEN, BPTR, USPBUF)
+C
+C Write Available Hours header
+C
+           COLUMN=COLUMN+10
+           PHRASE = MESS_HRS
+           CALL A3147G__GEN_CHR_PKCTS(ROW,COLUMN,PHRASEI2,
+     +      PHRASE_LEN, BPTR, USPBUF)
+           COLUMN=COLUMN+10
+           CHARHRS = BLANK_LINE
+           ST = 4
+           LST = 8
+           DO 40 I=MAX_USDB_HRS,ONE,-1
+               IF(AVAIL_FLAG(I))THEN
+                 IF(LST .LE. 35 .AND. I. GT. ONE)THEN
+                    WRITE(CHARHRS(ST:LST),45)AVAIL_HRS(I),CHARZ,COMMA
+45                  FORMAT(I2.2,A1,A1)
+                    ST = ST+4
+                    LST= LST+4
+                  ELSE
+                    WRITE(CHARHRS(ST:LST),42)AVAIL_HRS(I),CHARZ
+42                  FORMAT(I2.2,A1)
+                    PHRASE = CHARHRS
+                    CALL A3147G__GEN_CHR_PKCTS(ROW,COLUMN,PHRASEI2,
+     +              PHRASE_LEN, BPTR, USPBUF)
+                    ST = 4
+                    LST = 8
+                    CHARHRS = BLANK_LINE
+                    COLUMN = COLUMN +10
+                ENDIF
+              ELSEIF(I .EQ. ONE)THEN
+                    PHRASE = CHARHRS
+                    CALL A3147G__GEN_CHR_PKCTS(ROW,COLUMN,PHRASEI2,
+     +              PHRASE_LEN, BPTR, USPBUF)
+              ENDIF
+40       CONTINUE
+        ENDIF
+      ENDIF
+55    CONTINUE
+C
+C  CALCULATE THE LENGTH OF THE PRODUCT SYMBOLOGY DATA.
+C
+      LENPSD = (BPTR - OFFPSD) * BPHW
+C
+C  EXTRACT THE GENERATION DATE AND TIME FROM THE SYSTEM CLOCK
+C
+      CALL A3CM25__GET_DATE_TIME(CDATE, CTIME)
+C
+C  INITIALIZE PRODUCT HEADER TO ZERO
+C
+C
+C  STORE OFFSET TO THE PRODUCT BLOCK
+C
+      call RPG_set_product_int( USPBUF(OPRMSWOFF), PHEADLNG )
+C
+C  Store information into the product symbology block
+C
+      USPBUF(DIV2OFF) = DIVIDER
+      USPBUF(BLOCKIDOFF) = SBLKID
+      USPBUF(NLYROFF) = NUMLYRS
+      USPBUF(LYRDIVOFF) = DIVIDER
+C
+C  Store product symbology data layer length in bytes
+C
+      call RPG_set_product_int( USPBUF(LYRLMSWOFF), LENPSD )
+C
+C  Store length of the product block in bytes
+C
+      I4TEMP = LENPSD + BLKOVRHD
+      call RPG_set_product_int( USPBUF(LRMSWOFF), I4TEMP )
+      NULL_PROD = .TRUE.
+C
+C Finish building a product header onto the product buffer.
+C
+      CALL A3147E__PROD_HDR_PT1(USPBUF,BPTR,ONE_CA)
+      CALL A3147S__PROD_HDR_PT2(USPBUF,CDATE,CTIME,ONE_CA)
+C
+C  Exit the Null Product.
+C
+      RETURN
+      END

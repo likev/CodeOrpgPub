@@ -1,0 +1,251 @@
+C 
+C RCS info 
+C $Author: nolitam $ 
+C $Locker:  $ 
+C $Date: 2002/11/27 15:17:08 $ 
+C $Id: a31471.ftn,v 1.6 2002/11/27 15:17:08 nolitam Exp $ 
+C $Revision: 1.6 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A31471__DEFINE_USDB
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A31471__DEFINE_USDB
+*.
+*.  MODULE VERSION: 0002
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   -----------------    --------------------
+*.       12/08/95      0000      ELLIOTT P. FRIEND    CCR NA94-08462
+*.       12/23/96      0001      Toolset              CCR NA95-11807
+*.       03/16/99      0002      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A31471__DEFINE_USDB
+*.
+*.  MODULE FUNCTION:
+*.
+*.     This routine attempts to open the User Selectable data base disk
+*.     file. If successful, the data base in memory is initialized by
+*.     reading in the header record data from disk; otherwise, the disk
+*.     file is created and initialized.
+*.
+*.  MODULES CALLED: A31472__INIT_USDB, A31478__USDB_IO, A3CM04__FULL_NAME, 
+*.                  A3CM08__CHANGE_NOTICE 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT          TYPE        DESCRIPTION
+*.    -   -----          ----        -----------
+*.    G   USERSEL_DEV    CHAR*5      User Selectable Database device name
+*.    G   USERSEL_FN     CHAR*12     User select products internal data base
+*.                                   file
+*.    G   CNDISKFILE     I*4         (CONSTANT)FILE/DISK ACCESS CHANGE
+*.                                   NOTIFICATION CONSTANT-DISTRIBUTION TASK
+*.    G   HYALARM_FLG    I*4         (CONSTANT)HYDROMET ALARM FLAG VALUE -
+*.                                   CONSTANT
+*.    G   NORMAL         I*4         (CONSTANT)Parameter which indicates
+*.                                   normal completion of requested operation
+*.                                   to acquire input or output buffer
+*.    C   USDB_FIL_STAT  I*4         Status of read or write operation on the
+*.                                   USDB file
+*.    C   USDB_LAST_DATE I*2         Last date the USDB was updated
+*.    C   USDB_LAST_TIME I*2         Last time the USDB was updated
+*.    C   USDB_START_DIR I*4         Starting address of USDB directory common
+*.                                   block
+*.    C   IINIT          I*4         (CONSTANT)Parameter indicating initial
+*.                                   value.
+*.    C   INCRMENT       I*4         (CONSTANT)Parameter used to increment by
+*.                                   one.
+*.    C   NUM_HDR_BYTES  I*4         (CONSTANT)Number of bytes for the USDB
+*.                                   header record
+*.    C   READKODE       I*4         (CONSTANT)I/O code indicating input
+*.                                   should be read.
+*.    C   USDB_DISK_LU   I*4         (CONSTANT)User Selectable Data Base disk
+*.                                   logical unit
+*.    C   USDB_HDR_RECNO I*4         (CONSTANT)User Selectable Data Base
+*.                                   header record number
+*.
+*.    *   OUTPUT          TYPE        DESCRIPTION
+*.    -   ------          ----        -----------
+*.    G   LAST_DATE_HRDB  I*2         The date of the latest hour that was
+*.                                    added to the USP 30 HR Precipitation
+*.                                    database.
+*.    G   LAST_TIME_HRDB  I*2         The time of the latest hour that was
+*.                                    added to the USP 30 HR Precipitation
+*.                                    database.
+*.    C   USDB_FIL_STAT   I*4         Status of read or write operation on the
+*.                                    USDB file
+*.    C   USDB_LAST_OPER  I*4         Last I/O operation of USDB file
+*.    C   USDB_LAST_RECNO I*4         Record number of last I/O operation of
+*.                                    USDB file
+*.    C   USDB_START_DIR  I*4         Starting address of USDB directory
+*.                                    common block
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    G   USERSEL_DEV       CHAR*5      User Selectable Database device name
+*.    G   USERSEL_FN        CHAR*12     User select products internal data
+*.                                      base file
+*.    C   USDB_START_DIR    I*4         Starting address of USDB directory
+*.                                      common block
+*.
+*.  DATABASE/FILE REFERENCE: NONE
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME         TYPE        DESCRIPTION
+*.    ----         ----        -----------
+*.    FILENAME     CHAR*24     Filename for USDB
+*.    IOSTATUS     I*4         I/O status returned from A31478 on directory
+*.                             record read
+*.    OPEN_STATUS  I*4         Status of opening the USDB file
+*.    USDB_EXISTS  L*4         Flag indicating whether the USDB file exist
+*.    USDB_SIZE    I*4         Size of the USDB in sectors
+*.                             (USDB_HDR_SCTR+NUM_HDR_SCTRS+61*NUM_POLAR_SCTRS)
+*.    USERSEL_ACCT CHAR*5      Program account for User Selectable Data Base
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD07
+*.    ENVIRON
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3147C8
+*.    A3147C9
+*.
+*.  ERROR CONDITIONS:
+*.
+*.     Subroutine A3CM08__CHANGE_NOTICE is called if the attempt to
+*.     open the User Selectable data base file is unsuccessful.
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK14.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+C
+C** 'X' IN COLUMN-1 INDICATES CONDITIONALLY COMPILED DEBUG CODE...
+C
+      IMPLICIT NONE
+C
+$INCLUDE A309ADPT.INC/G,**A3CD70P6 (NEND NLIST)
+$INCLUDE                **A3CD70CA (NEND NLIST)
+$INCLUDE                **A3CD70C8 (NLIST)
+$INCLUDE                **A3CD70C4 (NLIST)
+$INCLUDE A309.INC/G,**A3PM00 (NEND NLIST)
+$INCLUDE            **A3CD07 (NEND NLIST)
+$INCLUDE A313HBUF.INC/G,**A313HYPP (NEND NLIST)
+$INCLUDE A3146.INC/G,**A3146P1 (NEND NLIST)
+$INCLUDE             **A3146C2 (NEND NLIST)
+$INCLUDE A3147.INC/G,**A3147P9 (NEND NLIST)
+$INCLUDE             **A3147C8 (NEND NLIST)
+$INCLUDE             **A3147C9 (NEND NLIST)
+C
+      LOGICAL USDB_EXISTS
+C
+      INTEGER OPEN_STATUS
+      INTEGER IOSTATUS
+C
+      CHARACTER*24 FILENAME
+      CHARACTER*5 USERSEL_ACCT
+      PARAMETER (USERSEL_ACCT='0')
+C
+C*******************************************************************
+C
+C** DETERMINE IF THE USER SELECTABLE DATA BASE (USDB) EXISTS ON
+C** DISK, AND TRY TO OPEN THE FILE. THE FILE IS CREATED IF IT DOES
+C** NOT EXIST, AND IS INITIALIZED.
+C
+C
+C** GET THE FULL NAME OF THE FILE FROM ADAPTATION DATA VIA
+C** THE COMMON ROUTINE...USERSEL_FN...IS THE NAME THAT IS
+C** PRESET IN THE ADAPTATION DATA.
+C
+C$DELETE
+      CALL A3CM04__FULL_NAME(USERSEL_DEV, USERSEL_FN, USERSEL_ACCT,
+     $                           FILENAME)
+C$ENDDELETE
+C$INSERT      CALL A3CM04__FULL_NAME(USERSEL_FN, USERSEL_ACCT,
+     $                           FILENAME)
+C
+X     WRITE(6,*)'A31471: BACK FROM A3CM04 FILENAME=',FILENAME
+C
+C$INSERTC
+C$INSERTC      ORPG Issue 12
+C$INSERTC      ORPG guarantees the existence of initialized HYUSRSEL
+C$INSERTC      faux-buffer ...
+C$DELETE
+      INQUIRE (FILE = FILENAME, EXIST = USDB_EXISTS)
+      OPEN (UNIT = USDB_DISK_LU, FILE = FILENAME, TYPE='CONTIG',
+     $             SIZE=USDB_SIZE, IOSTAT = OPEN_STATUS)
+C
+C** IF DISK NOT ACCESSIBLE THEN SET UP THE STATUS VARIABLE IN
+C** THE COMMON BLOCK TO INDICATE THE FILE IS NOT AVAILABLE.
+C
+      IF (OPEN_STATUS .NE. NORMAL) THEN
+C
+X        WRITE(6,*)'A31471: UNABLE TO OPEN FILE'
+C
+         CALL A3CM08__CHANGE_NOTICE(CNDISKFILE, HYALARM_FLG,
+     $         OPEN_STATUS, USDB_DISK_LU, IINIT, IINIT)
+
+         USDB_FIL_STAT   = OPEN_STATUS
+         USDB_LAST_OPER  = -INCRMENT
+         USDB_LAST_RECNO = IINIT
+C
+      ELSEIF (USDB_EXISTS) THEN
+C$ENDDELETE
+C
+X        WRITE(6,*)'A31471: FILE EXISTS; READ DIR RECORD FROM DISK'
+C
+C** READ THE DIRECTORY RECORD
+C
+         CALL A31478__USDB_IO(READKODE, USDB_HDR_RECNO, NUM_HDR_BYTES,
+     $                                                 USDB_START_DIR)
+         IOSTATUS = USDB_FIL_STAT
+C
+X        WRITE(6,*)'A31471: BACK FROM A31478 - READ DIR RECORD',
+X    &   ' IOSTATUS = ',USDB_FIL_STAT
+C
+C** UPDATE LAST_DATE_HRDB and LAST_TIME_HRDB STORED IN GLOBAL IMAGE (A3CD07)
+C
+           LAST_DATE_HRDB = USDB_LAST_DATE
+           LAST_TIME_HRDB = USDB_LAST_TIME
+C
+C$INSERTC
+C$INSERTC      ORPG Issue 12
+C$INSERTC
+C$DELETE
+      ELSE
+C
+C** INITIALIZE THE FILE
+C
+X        WRITE(6,*)'A31471: FILE NOT EXIST, CALL A31472__INIT_USDB'
+C
+         CALL A31472__INIT_USDB
+C
+      ENDIF
+C$ENDDELETE
+C
+C** INITIALIZATION IS NOW COMPLETE.
+C
+X     WRITE(6,*)'A31471: INITIALIZATION IS NOW COMPLETE,EXIT'
+      RETURN
+      END

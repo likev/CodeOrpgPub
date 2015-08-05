@@ -1,0 +1,67 @@
+
+
+pbd processes digital radar data and converts data to RPG internal 
+format for use by meteorological algorithms.  It performs data
+sequencing error checks and performs corrective actions when errors
+occur.  It also maintains and publishes the scan summary and volume
+status data.  Finally, it posts the scan information events which
+occur at start/end of elevation/volume.    
+
+Refer to pbd(1) for further details.
+
+pbd consists of the following sources:
+
+pbd.c: Main processing module for processing base data.  Services
+       CPC4MSG and ORPGDAT_RDA_COMMAND messages.
+
+pbd_process_data.c: Performs split cut processing, performs some
+                    data sequencing error checks, and moves moment
+                    data from digital radar data message to RPG
+                    internal format message.
+
+pbd_process_header.c: Builds the RPG internal format radial header
+                      from the digital radar data message.  Performs
+                      some data sequencing error checks.
+
+pbd_set_scan_summary.c:  Maintains and publishes the scan summary data.
+
+pbd_set_vcpid_wmode.c:  Maintains and publishes the volume status data.
+
++++ PROC
+DATA IN
+	ORPGDAT_CM_RESPONSE.4
+	ORPGDAT_RDA_COMMAND.4
+	CPC4MSG.4
+	ORPGDAT_GSM_DATA.4
+	ORPGDAT_ADAPTATION.4
+	ITC_CD07_VCPINFO.4
+
+DATA OUT
+        RAWDATA.4
+	ORPGDAT_GSM_DATA.4
+	ORPGDAT_RDA_COMMAND.4
+	ITC_CD07_VCPINFO.4
+	ORPGDAT_ACCDATA.4
+
+EVENTS IN
+	ORPGEVT_PROD_GEN_CONTROL
+
+EVENTS OUT
+	ORPGEVT_RDA_CONTROL_COMMAND
+        ORPGEVT_START_OF_VOLUME
+	ORPGEVT_END_OF_VOLUME
+	ORPGEVT_SCAN_INFO
+
+APIs USED
+	ORPGDA.3
+        ORPGLOAD.3
+        ORPGTASK.3
+        ORPGMISC.3
+        EN.3
+
+DOC ATCH
+	pbd.doc
+
+MAN ATCH pbd.1
+---
+

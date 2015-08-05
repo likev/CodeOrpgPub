@@ -1,0 +1,271 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/17 18:34:23 $
+C $Id: a318q6.ftn,v 1.4 2002/12/17 18:34:23 christie Exp $
+C $Revision: 1.4 $
+C $State: Exp $
+C
+      SUBROUTINE A318Q6__TVS_ADAPT(TVSADPT,BUF)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A318Q6__TVS_ADAPT
+*.
+*.  MODULE VERSION: 0012
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       03 15 85      0000      D.A.HUMPHREYS        PART 2, RPG BUILD 1
+*.       05 01 86      0001      D.A.HUMPHREYS        SPR# 60119
+*.       09 05 86      0002      MJSTALEY             SPR# 60382
+*.       01 31 91      0003      MEI   OU             SPR# 91259
+*.       12/10/91      0004      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0005      Toolset              SPR 91895
+*.       03/25/93      0006      Toolset              SPR NA93-06801
+*.       01/28/94      0007      Toolset              SPR NA94-01101
+*.       03/03/94      0008      Toolset              SPR NA94-05501
+*.       04/11/96      0009      Toolset              CCR NA95-11802
+*.       12/23/96      0010      Toolset              CCR NA95-11807
+*.       04/07/97      0011      DAVE ZITTEL          CCR NA95-21503
+*.       03/16/99      0012      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A318Q6__TVS_ADAPT(SRCHPCT,TVSSTHR,BUF)
+*.
+*.  MODULE FUNCTION: STORE TEMPORARY CHARACTER BUFFER INTO PRODUCT
+*.                   BUFFER.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT    TYPE        DESCRIPTION
+*.    -   -----    ----        -----------
+*.    G   TADADAP  R*4         Array holding adaptable parameter values.
+*.    G   TDAADAP  I*4         Array holding the TDA adaptable parameters from
+*.                             TDA1D.
+*.    G   NTDA_AD  I*4         (CONSTANT)NUMBER OF ADAPTABLE PARAMETERS IN THE
+*.                             TDA AND IN THE TDAADAP (AND TADADAP) ARRAY
+*.    G   TDA_CR1  I*4         (CONSTANT)Index of TDA adapt data for THCR1.
+*.    G   TDA_CR2  I*4         (CONSTANT)Index of TDA adaptation data for
+*.                             THCR2
+*.    G   TDA_CRR  I*4         (CONSTANT)Index into TDA adaptation data for
+*.                             THCRR
+*.    G   TDA_DV1  I*4         (CONSTANT)Index into TDA adaptation data for
+*.                             TH2DDV1
+*.    G   TDA_DV2  I*4         (CONSTANT)Index into TDA adaptation data for
+*.                             TH2DDV2
+*.    G   TDA_DV3  I*4         (CONSTANT)Index into TDA adaptation data for
+*.                             TH2DDV3
+*.    G   TDA_DV4  I*4         (CONSTANT)Index into TDA adaptation data for
+*.                             TH2DDV4
+*.    G   TDA_DV5  I*4         (CONSTANT)Index into TDA adaptation data for
+*.                             TH2DDV5
+*.    G   TDA_DV6  I*4         (CONSTANT)Index into TDA adaptation data for
+*.                             TH2DDV6
+*.    G   TDA_MADH I*4         (CONSTANT)Index into TDA adaptation data for
+*.                             MINADVHT
+*.    G   TDA_MDV  I*4         (CONSTANT)Index into TDA adaptation data for
+*.                             MINPVDV
+*.    G   TDA_MFAR I*4         (CONSTANT)Index into TDA adaptation data for
+*.                             MAX2DAR
+*.    G   TDA_MFPD I*4         (CONSTANT)Index into TDA adaptation data for
+*.                             MIN2DP3D
+*.    G   TDA_MLDV I*4         (CONSTANT)Index into TDA adaptation data for
+*.                             MINLLDV
+*.    G   TDA_MN2D I*4         (CONSTANT)Index into TDA adaptation data for
+*.                             MAXNUM2D
+*.    G   TDA_MN3D I*4         (CONSTANT)Index into TDA adaptation data for
+*.                             MAXNUM3D
+*.    G   TDA_MNET I*4         (CONSTANT)Index into TDA adaptation data for
+*.                             MAXNUMET
+*.    G   TDA_MNPV I*4         (CONSTANT)Index into TDA adaptation data for
+*.                             MAXNUMPV
+*.    G   TDA_MNT  I*4         (CONSTANT)Index into TDA adaptation data for
+*.                             MAXNUMTV
+*.    G   TDA_MPVF I*4         (CONSTANT)Index into TDA adaptation data for
+*.                             MIN1DP2D
+*.    G   TDA_MPVH I*4         (CONSTANT)Index into TDA adaptation data for
+*.                             MAXPVHT
+*.    G   TDA_MPVR I*4         (CONSTANT)Index into TDA adaptation data for
+*.                             MAXPVRNG
+*.    G   TDA_MRV  I*4         (CONSTANT)Index into TDA adaptation data for
+*.                             MINREFL
+*.    G   TDA_MTBE I*4         (CONSTANT)Index into TDA adaptation data for
+*.                             MINTVSBE
+*.    G   TDA_MTBH I*4         (CONSTANT)Index into TDA adaptation data for
+*.                             MINTVSBH
+*.    G   TDA_MTDV I*4         (CONSTANT)Index into TDA adaptation data for
+*.                             MINMTDV
+*.    G   TDA_MTED I*4         (CONSTANT)Index into TDA adaptation data for
+*.                             MINTVSD
+*.    G   TDA_MVAD I*4         (CONSTANT)Index into TDA adaptation data for
+*.                             MAXPVAD
+*.    G   TDA_MVRD I*4         (CONSTANT)Index into TDA adaptation data for
+*.                             MAXPVRD
+*.    G   TDA_SAD  I*4         (CONSTANT)Index into TDA adaptation data for
+*.                             MAXTSTMD
+*.    C   TVSIDX   I*4         TVS product output buffer index for pointing to
+*.                             next location in array BUF.
+*.    P   TVSADPT  I*4         Array of Tornado Detection Algorithm adaptable
+*.                             parameters.
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    G   TADADAP R*4         Array holding adaptable parameter values.
+*.    G   TDAADAP I*4         Array holding the TDA adaptable parameters from
+*.                            TDA1D.
+*.    C   TVSIDX  I*4         TVS product output buffer index for pointing to
+*.                            next location in array BUF.
+*.    P   BUF     I*2         Dummy output buffer for storing I*2 data into
+*.                            I*4 memory.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME    TYPE        DESCRIPTION
+*.    ----    ----        -----------
+*.    CHARNUM I*2         CHARACTER NUMBER
+*.    I       I*4         Do loop index.
+*.    J       I*4         Do loop index for the number of columns
+*.    NCOLS   I*4         Dimension of TB and TBUF.
+*.    NROWS   I*4         First dimension of TBUF.
+*.    TB      CHAR*80     TEMPORARY BUFFER
+*.    TBUF    I*2         SECOND TEMP. BUFFER; EQUIV. TO 'TB'
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A317CTAD
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    TVSINDEX
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  NONE
+*.
+*.  DEVIATION FROM STANDARDS:  NONE
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     THIS MODULE IS COMPILED USING THE COMP18.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     THIS MODULE IS LINKED USING THE LINK18.CSS
+*.
+*.  MISC:  NONE
+*.
+*.*******************************************************************
+$EJECT
+      IMPLICIT NONE
+C
+C   INCLUDE ADAPTATION DATA
+C
+$INCLUDE A317BUF.INC/G,**A317PTAD (NLIST)
+$INCLUDE                 **A317CTAD (NLIST)
+$INCLUDE A318.INC/G,**A318TVS1 (NEND NLIST)
+C
+C  LOCAL COMMON DEFINITIONS
+C  TVS DEFINITIONS
+C
+      REAL TVSADAP(NTDA_AD)
+      INTEGER*4 TVSADPT(NTDA_AD)
+C
+C  LOCAL DEFINITIONS
+C
+      INTEGER*4  NROWS,NCOLS
+      PARAMETER  (NROWS=40,NCOLS=17)
+C
+      CHARACTER*80  TB(NCOLS)
+      INTEGER*2 BUF(*),TBUF(NROWS,NCOLS),CHARNUM
+      INTEGER*4 I,J
+      EQUIVALENCE(TBUF(1,1),TB(1))
+      PARAMETER (CHARNUM=80)
+C
+C    MAKE A COPY OF THE ADAPTABLE PARAMETERS
+C
+       DO 200 I = 1,NTDA_AD
+         TDAADAP(I) = TVSADPT(I)
+ 200    CONTINUE
+C
+C  WRITE TVS ADAPTATION PAGE
+C
+      WRITE(TB(1),1)
+      WRITE(TB(2),2)
+      WRITE(TB(3),3)TDAADAP(TDA_MRV),TADADAP(TDA_CR1)
+      WRITE(TB(4),4)TDAADAP(TDA_MDV),TADADAP(TDA_CR2)
+      WRITE(TB(5),5)TDAADAP(TDA_MPVR),TDAADAP(TDA_CRR)
+      WRITE(TB(6),6)TADADAP(TDA_MPVH),TDAADAP(TDA_MN2D)
+      WRITE(TB(7),7)TDAADAP(TDA_MNPV),TDAADAP(TDA_MFPD)
+      WRITE(TB(8),8)TDAADAP(TDA_DV1),TADADAP(TDA_MTED)
+      WRITE(TB(9),9)TDAADAP(TDA_DV2),TDAADAP(TDA_MLDV)
+      WRITE(TB(10),10)TDAADAP(TDA_DV3),TDAADAP(TDA_MTDV)
+      WRITE(TB(11),11)TDAADAP(TDA_DV4),TDAADAP(TDA_MN3D)
+      WRITE(TB(12),12)TDAADAP(TDA_DV5),TDAADAP(TDA_MNT)
+      WRITE(TB(13),13)TDAADAP(TDA_DV6),TDAADAP(TDA_MNET)
+      WRITE(TB(14),14)TDAADAP(TDA_MPVF),TADADAP(TDA_MTBH)
+      WRITE(TB(15),15)TADADAP(TDA_MVRD),TADADAP(TDA_MTBE)
+      WRITE(TB(16),16)TADADAP(TDA_MVAD),TADADAP(TDA_MADH)
+      WRITE(TB(17),17)TADADAP(TDA_MFAR),TADADAP(TDA_SAD)
+C
+C  STORE LINES 1-17 OF ADAPTATION PAGE
+C
+      BUF(TVSIDX)=CHARNUM
+      DO 20  J=1,NCOLS
+         DO 100  I=1,NROWS
+            TVSIDX=TVSIDX+1
+C
+C  STORE ADAPTATION DATA
+C
+            BUF(TVSIDX)=TBUF(I,J)
+ 100     CONTINUE
+         TVSIDX=TVSIDX+1
+         BUF(TVSIDX)=CHARNUM
+   20 CONTINUE
+C
+    1 FORMAT(17X,'TORNADO VORTEX SIGNATURE ADAPTATION PARAMETERS',17X)
+    2 FORMAT(80X)
+    3 FORMAT(I5,'(dBZ).Min Reflectivity',10X,F8.1,
+     >          '(km)..Circulation Radius #1')
+    4 FORMAT(I5,'(m/s).Vector Velocity Difference',F8.1,
+     >          '(km)..Circulation Radius #2')
+    5 FORMAT(I5,'(km)..Max Pattern Vector Range',2X,I8,
+     >          '(km)..Circulation Radius Range')
+    6 FORMAT(F5.1,'(km)..Max Pattern Vector Height',1x,I8,
+     >            '......Max # of 2D Features')
+    7 FORMAT(I5,'......Max # of Pattern Vectors',2X,I8,
+     >          '......Min # of 2D Feat/3D Feature')
+    8 FORMAT(I5,'(m/s).Differential Velocity #1',2X,F8.1,
+     >          '(km)..Min 3D Feature Depth')
+    9 FORMAT(I5,'(m/s).Differential Velocity #2',2X,I8,
+     >          '(m/s).Min 3D Feat Low-Lvl Delta Vel')
+   10 FORMAT(I5,'(m/s).Differential Velocity #3',2X,I8,
+     >          '(m/s).Min TVS Delta Velocity')
+   11 FORMAT(I5,'(m/s).Differential Velocity #4',2X,I8,
+     >          '......Max # of 3D Features')
+   12 FORMAT(I5,'(m/s).Differential Velocity #5',2X,I8,
+     >          '......Max # of TVSs')
+   13 FORMAT(I5,'(m/s).Differential Velocity #6',2X,I8,
+     >          '......Max # of Elevated TVSs')
+   14 FORMAT(I5,'......Min # of Vectors/2D Feature',F7.1,
+     >          '(km)..Min TVS Base Height')
+   15 FORMAT(F5.1,'(km)..2D Vector Radial Distance',1X,F8.1,
+     >            '(deg).Min TVS Elevation')
+   16 FORMAT(F5.1,'(deg).2D Vector Azimuthal Dist',2X,F8.1,
+     >            '(km)..Min Avg Delta Velocity Hgt')
+   17 FORMAT(F5.1,'(km/km).2D Feature Aspect Ratio',1X,F8.1,
+     >            '(km)..Max Storm Association Dist')
+C
+      RETURN
+      END

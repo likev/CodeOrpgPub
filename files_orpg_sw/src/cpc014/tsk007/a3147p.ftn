@@ -1,0 +1,248 @@
+C 
+C RCS info 
+C $Author: aamirn $ 
+C $Locker:  $ 
+C $Date: 2008/01/04 21:23:56 $ 
+C $Id: a3147p.ftn,v 1.4 2008/01/04 21:23:56 aamirn Exp $ 
+C $Revision: 1.4 $ 
+C $State: Exp $ 
+C 
+        SUBROUTINE A3147P__ADJ_ACCUM(RECORD,STATUS)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3147P__ADJ_ACCUM
+*.
+*.  MODULE VERSION: 0002
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       10/19/95        0000      CHERYL STEPHENSON    CCR NA94-08462
+*.       12/23/96      0001      Toolset              CCR NA95-11807
+*.       03/16/99      0002      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A3147P__ADJ_ACCUM(RECNUM,STATUS)
+*.
+*.  MODULE FUNCTION: This module reads the hourly accumulation
+*.  from the User Selectable Data Base.  If the BIAS is equal to 1.0,
+*.  it just writes is back to the adjusted hourly accumulation slot in the
+*.  data base.  If the BIAS is other than 1.0, it calls A3147M to apply the
+*.  BIAS.  Then it writes it to the data base.
+*.
+*.
+*.  MODULES CALLED: A31145__ABORT_ME, A31215__GET_OUTBUF, A31216__REL_OUTBUF, 
+*.                  A31478__USDB_IO, A3147M__BIAS 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT           TYPE        DESCRIPTION
+*.    -   -----           ----        -----------
+*.    G   MEM             I*4         Array in RPG shared memory set aside for
+*.                                    buffer sharing.
+*.    G   DESTROY         I*4         (CONSTANT)Mnemonic used as input to
+*.                                    A31216__REL_OUTBUF. Indicates "do not
+*.                                    pass data to other tasks".
+*.    G   MAX_ADJBINS     I*4         (CONSTANT)Maximum number of range bins
+*.                                    (index into output buffer of adjusted
+*.                                    values).
+*.    G   MAX_AZMTHS      I*4         (CONSTANT)Maximum number of azimuths in
+*.                                    a scan (index into output buffer of
+*.                                    adjusted values).
+*.    G   NORMAL          I*4         (CONSTANT)Parameter which indicates
+*.                                    normal completion of requested operation
+*.                                    to acquire input or output buffer
+*.    G   SCRATCH         I*4         (CONSTANT)DATA BUFFER TYPE FOR TASK
+*.                                    SCRATCH DATA BUFFERS
+*.    C   USDB_ADJU_RECNO I*2         An array of the record numbers for the
+*.                                    adjusted hourly accumulations
+*.    C   USDB_CUR_BIAS   R*4         An array of the the calculated BIAS for
+*.                                    the hourly accumulation
+*.    C   USDB_FIL_STAT   I*4         Status of read or write operation on the
+*.                                    USDB file
+*.    C   USDB_HRLY_RECNO I*2         An array of the record numbers for the
+*.                                    unadjusted hourly accumulations
+*.    C   GOOD            I*4         (CONSTANT)Status flag value.
+*.    C   KPOLAR_WORDS    I*4         (CONSTANT)Scratch buffer size for polar
+*.                                    grid.
+*.    C   NUM_POLAR_BYTES I*4         (CONSTANT)Number of polar bytes to read
+*.                                    or write  (KBINS*KRADS*2=82,800)
+*.    C   READKODE        I*4         (CONSTANT)I/O code indicating input
+*.                                    should be read.
+*.    C   WRITKODE        I*4         (CONSTANT)I/O code indicating write to
+*.                                    disk I/O operation should be performed.
+*.    P   RECORD          I*2         Index into the USP data base to the hour
+*.                                    accumulation attributes
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    G   MEM     I*4         Array in RPG shared memory set aside for buffer
+*.                            sharing.
+*.    P   STATUS  I*4         Status of the operation to apply the BIAS to the
+*.                            unadjusted hourly accumulation
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    G   MEM               I*4         Array in RPG shared memory set aside
+*.                                      for buffer sharing.
+*.    C   USDB_CUR_BIAS     R*4         An array of the the calculated BIAS
+*.                                      for the hourly accumulation
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME       TYPE        DESCRIPTION
+*.    ----       ----        -----------
+*.    BIAS_NOADJ R*4         Parameter for the Default BIAS value
+*.    RECNUM     I*4         The record number in the USP data base where the
+*.                           hourly accumulation resides
+*.    UNADJ_PTR  I*4         Pointer into MEM for the buffer with the
+*.                           unadjusted hourly accumulation
+*.    UNADJ_STAT I*4         Status from A31215 for getting the scratch buffer
+*.                           which will hold the unadjusted hourly
+*.                           accumulation
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD00
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3147C8
+*.    A3147C9
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK14.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+$INCLUDE A309ADPT.INC/G,**A3CD70PA (NLIST)
+$INCLUDE **A3CD70P6 (NLIST)
+$INCLUDE **A3CD70P8 (NLIST)
+$INCLUDE **A3CD70C7 (NLIST)
+$INCLUDE **A3CD70C5 (NLIST)
+$INCLUDE A309.INC/G,**A3PM00 (NLIST)
+$INCLUDE            **A3PM01 (NLIST)
+$INCLUDE            **A3PM04 (NLIST)
+$INCLUDE            **A3PM06 (NLIST)
+$INCLUDE            **A3CD00 (NLIST)
+$INCLUDE            **A3CD05 (NLIST)
+$INCLUDE            **A3CD07 (NLIST)
+$INCLUDE A313HBUF.INC/G,**A313HYPP (NLIST)
+$INCLUDE                **A313HYP6  (NLIST)
+$INCLUDE A3146.INC/G,**A3146P1  (NLIST)
+$INCLUDE A3147.INC/G,**A3147P9  (NLIST)
+$INCLUDE             **A3147C8  (NLIST)
+$INCLUDE             **A3147C9  (NLIST)
+      INTEGER   UNADJ_PTR, UNADJ_STAT, INDX
+      INTEGER   I, STATUS
+      INTEGER   ONE
+      PARAMETER (ONE = 1)
+      INTEGER*2 UNADJ(MAX_ADJBINS*MAX_AZMTHS)
+      INTEGER*2 RECORD
+      INTEGER RECNUM
+      REAL BIAS_NOADJ, ROUND, RNULL
+      PARAMETER (BIAS_NOADJ = 1.0, ROUND = 0.5)
+      PARAMETER (RNULL = 0.0)
+
+C*************** E X E C U T A B L E ******************************
+C
+X     WRITE(14,*)'ENTERING A3147P - DO ADJUSTMENT, RECORD = ',
+X    $  RECORD
+C
+C  Get input buffer for unadjusted hourly scan
+C
+      CALL A31215__GET_OUTBUF(SCRATCH, KPOLAR_WORDS, UNADJ_PTR,
+     $                UNADJ_STAT)
+
+      IF (UNADJ_STAT .EQ. NORMAL) THEN
+C
+C  Read unadjusted hourly scan from User Selectable Database
+C
+             RECNUM = USDB_HRLY_RECNO(RECORD)
+X            WRITE(14,*)'7P:READ UNADJUSTED HRLY SCAN FROM RECORD ',
+     $          RECNUM
+C
+C  Call A31478 to perform read on unadjusted hourly
+C
+C$DELETE
+             CALL A31478__PDB_IO(READKODE,RECNUM,NUM_POLAR_BYTES,
+C$ENDDELETE
+C$INSERT             CALL A31478__USDB_IO(READKODE,RECNUM,NUM_POLAR_BYTES,
+     $               MEM(UNADJ_PTR))
+C
+C  If the status of the read is good
+C
+            IF (USDB_FIL_STAT.EQ.GOOD) THEN
+CX             WRITE(6,*)'7P: UNADJUSTED HOURLY SCAN'
+CX             CALL PLOTSCAN(360,115,MEM(UNADJ_PTR),0)
+C
+C  Check if there BIAS for this hour is not the same
+C  as no BIAS
+C
+X              WRITE(14,*)'HOURLY BIAS IS ',USDB_CUR_BIAS(RECORD)
+               IF (USDB_CUR_BIAS(RECORD) .NE. BIAS_NOADJ)THEN
+C
+C Call A3147M to compute the adjusted accumulation
+C
+                   CALL A3147M__BIAS(USDB_CUR_BIAS(RECORD),
+     &               MEM(UNADJ_PTR))
+               ENDIF
+C
+C Get Record number where will write adjuested hourly
+C
+               RECNUM = USDB_ADJU_RECNO(RECORD)
+X              WRITE(14,*)'7P:WRITE ADJUSTED HRLY SCAN TO RECORD ',
+X    $               RECNUM
+C
+C  Write the array to the adjusted hourly slot
+C
+C$DELETE
+               CALL  A31478__PDB_IO(WRITKODE, RECNUM, NUM_POLAR_BYTES,
+C$ENDDELETE
+C$INSERT               CALL  A31478__USDB_IO(WRITKODE, RECNUM, NUM_POLAR_BYTES,
+     $               MEM(UNADJ_PTR))
+CX             WRITE(6,*)'7P: ADJUSTED HOURLY WITH BIAS APPLIED - ',
+CX   &           USDB_CUR_BIAS(RECORD)
+CX             CALL PLOTSCAN (360,115,MEM(UNADJ_PTR),0)
+            ELSE
+X              WRITE(14,*)'7P:COULD NOT READ UNADJUSTED RECORD'
+               STATUS = USDB_FIL_STAT
+            ENDIF
+C
+C  Release the scratch buffer and destroy it
+C
+         CALL A31216__REL_OUTBUF(UNADJ_PTR,DESTROY)
+
+      ELSE
+X        WRITE(14,*)'7P:PROBLEN GETTING SCRATCH BUFFER'
+C
+C  This indicates a system problem has occured. Call A31145__ABORT_ME to end
+C  this run and to clean up the Buffer Management routing path and Distribution
+C  control path.
+C
+         CALL A31145__ABORT_ME
+      ENDIF
+C
+C* EXIT THE ROUTINE
+C
+X     WRITE(14,*)'EXIT A3147P'
+      RETURN
+      END

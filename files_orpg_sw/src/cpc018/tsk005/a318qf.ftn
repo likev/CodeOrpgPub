@@ -1,0 +1,232 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/17 18:34:30 $
+C $Id: a318qf.ftn,v 1.5 2002/12/17 18:34:30 christie Exp $
+C $Revision: 1.5 $
+C $State: Exp $
+C
+      SUBROUTINE A318QF__TVS_PROCESSING(TPTR,TOPTR)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A318QF__TVS_PROCESSING
+*.
+*.  MODULE VERSION: 0016
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       10 18 85      0000      JSGROMMONS
+*.       05 01 86      0001      JSGROMMONS           SPR #   304
+*.       05 01 86      0001      JSGROMMONS           SPR # 60124
+*.       05 03 86      0002      JSGROMMONS           SPR # 60124
+*.       08 15 86      0003      JO STALEY            SPR # 60335
+*.       04 16 90      0004      JOHN DEPHILIP        SPR # 90697
+*.       06 08 90      0005      PAUL U. PISANI       SPR # 90775 [QAR 1201]
+*.       08 13 90      0005      PENNY J YELSHIN      SPR # 90919
+*.       09 21 90      0005      MARK FRESCH          SPR # 90767
+*.       11 05 90      0006      MEI   OU             SPR # 91259
+*.       12 03 91      0007      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0008      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0009      Toolset              SPR 91895
+*.       03/25/93      0010      Toolset              SPR NA93-06801
+*.       01/28/94      0011      Toolset              SPR NA94-01101
+*.       03/03/94      0012      Toolset              SPR NA94-05501
+*.       04/01/94      0013      Steve Smith          CCR 93146-002A00
+*.       04/11/96      0014      Toolset              CCR NA95-11802
+*.       12/23/96      0015      Toolset              CCR NA95-11807
+*.       04/30/97      0016      DAVE ZITTEL          CCR NA95-21503
+*.       03/16/99      0016      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:
+*.     CALL A318QF__TVS_PROCESSING(TOPTR)
+*.
+*.  MODULE FUNCTION:
+*.     PROCESS TVS
+*.
+*.  MODULES CALLED: A318Q2__TVS_HEADER, A318Q3__TVS_SYM, A318Q4__TVS_GRAPHIC, 
+*.                  A318Q5__TVS_ADTAB, A318QA__TVS_END, A318QB__NOTVS_ADTAB, 
+*.                  A318QG__NO_TVS 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT    TYPE        DESCRIPTION
+*.    -   -----    ----        -----------
+*.    G   MEM      I*4         Array in RPG shared memory set aside for buffer
+*.                             sharing.
+*.    G   PHEADLNG I*4         (CONSTANT)Number of half words in product
+*.                             header (its length).
+*.    G   TAD      I*4         (CONSTANT)POINTER INTO THE TVSATTR BUFFER TO
+*.                             TDAADAP (THE TVS ADAPTATION DATA ARRAY)
+*.    G   TAM      I*4         (CONSTANT)POINTER INTO THE TVSATTR BUFFER TO
+*.                             TVS_MAIN (THE TVS FEATURE ATTRIBUTE ARRAY)
+*.    G   TNE      I*4         (CONSTANT)POINTER INTO THE TVSATTR BUFFER TO
+*.                             THE # OF ETVSes IDENTIFIED IN THE CURRENT
+*.                             VOLUME SCAN (A NEGATIVE # INDICATES MORE THAN
+*.                             THE MAX. ALLOWED WERE FOUND)
+*.    G   TNT      I*4         (CONSTANT)POINTER INTO THE TVSATTR BUFFER TO
+*.                             THE # OF TVSes IDENTIFIED IN THE CURRENT VOLUME
+*.                             SCAN (A NEGATIVE # INDICATES MORE THAN THE MAX.
+*.                             ALLOWED WERE FOUND)
+*.    C   FEATCNT  I*4         Number of TVSs + ETVSs detected by the Tornado
+*.                             Detection Algorithm.
+*.    C   NDX      I*4         Working subscript for moving data into the
+*.                             output buffer.
+*.    P   TOPTR    I*4         SUBSCRIPT INTO TVS OUTPUT BUFFER
+*.    P   TPTR     I*4         Buffer pointer to the beginning of the TDA
+*.                             algorithm output buffer in global memory.
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    G   MEM     I*4         Array in RPG shared memory set aside for buffer
+*.                            sharing.
+*.    C   NDX     I*4         Working subscript for moving data into the
+*.                            output buffer.
+*.    C   TVSIDX  I*4         TVS product output buffer index for pointing to
+*.                            next location in array BUF.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    G   MEM               I*4         Array in RPG shared memory set aside
+*.                                      for buffer sharing.
+*.    P   TPTR              I*4         Buffer pointer to the beginning of the
+*.                                      TDA algorithm output buffer in global
+*.                                      memory.
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME    TYPE        DESCRIPTION
+*.    ----    ----        -----------
+*.    NUMETVS I*4         Contains local copy of the number of ETVSs obtained
+*.                        from the TDA algorithm buffer in global memory.
+*.    NUMTVS  I*4         Contains a local copy of the number of TVSs obtained
+*.                        from the TDA algorithm buffer in global memory.
+*.    ZERO    I*4         Program parameter for 0.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD00
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    BLKB
+*.    TVSINDEX
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:
+*.
+*.    WAIVER 4210 - 092 - IMBEDDED CONSTANTS ONE AND ZERO
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     THIS MODULE IS COMPILED USING THE COMP18.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     THIS MODULE IS LINKED USING THE LINK18.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+      IMPLICIT NONE
+C
+C   INCLUDE FILES:
+C
+C   MEMORY
+C
+$INCLUDE A309.INC/G,**A3PM00 (NEND NLIST)
+C
+C   DEFINITIONS FOR CPC-12
+C
+$INCLUDE A309.INC/G,**A3CD00 (NEND NLIST)
+C
+C   PARAMETERS AND OFFSETS FOR TORNADO DETECTION ALGORITHM
+C
+$INCLUDE A317BUF.INC/G,**A317TP9 (NEND NLIST)
+C
+C   PARAMETERS AND OFFSETS FOR PRODUCT HEADER BLOCK
+C
+C   INDEX FOR PRODUCT BUFFER AND FLAGS
+C
+$INCLUDE A318.INC/G,**A318TVS1(NEND NLIST)
+C
+$INCLUDE A309.INC/G,**A3PM01 (NEND NLIST)
+C
+C   LOCAL DECLARATIONS:
+C
+      INTEGER*4  TPTR,TOPTR,NUMTVS,NUMETVS
+C
+C   LOCAL COMMON:
+C
+      INTEGER*2  PGNO,PLNGTH,IPIX,JPIX
+      INTEGER*4  NDX,PNDX,GPHLNG,WIND,N1,N2,K1,K2,KI
+      COMMON/BLKB/NDX,PNDX,GPHLNG,WIND,N1,N2,K1,K2,KI,
+     X           IPIX,JPIX,PLNGTH,PGNO
+C
+C
+      INTEGER*4 ZERO
+      PARAMETER (ZERO = 0)
+C
+****************************************************************
+C
+C   INITIALIZE
+C
+      NDX = ZERO
+      TVSIDX = ZERO
+      NUMTVS = MEM(TPTR + TNT)
+      NUMETVS = MEM(TPTR + TNE)
+C
+C   BUILD TVS PRODUCT
+C
+      CALL A318Q2__TVS_HEADER(NUMTVS,NUMETVS,MEM(TOPTR),TPTR)
+      TVSIDX = PHEADLNG + 1
+C
+C   CHECK FOR TVS/ETVS
+C
+      IF(FEATCNT .EQ. ZERO ) THEN
+C
+C   CALL A318QG TO BUILD THE NO TVS PRODUCT BUFFER
+C
+          CALL A318QG__NO_TVS(MEM(TOPTR))
+C
+C   CALL A318QB TO ADD THE TABULAR ALPHANUMERIC BLOCK
+C   TO THE NO TVS PRODUCT BUFFER
+C
+          CALL A318QB__NOTVS_ADTAB(MEM(TPTR+TAD),MEM(TOPTR))
+      ELSE
+C
+C   TVS/ETVS PRESENT
+C
+C
+C   CALL A318Q3 TO BUILD THE TVS PRODUCT SYMBOLOGY BLOCK
+C
+          CALL A318Q3__TVS_SYM(MEM(TOPTR))
+C
+C   CALL A318Q4 TO BUILD THE TVS GRAPHIC ALPHANUMERIC BLOCK
+C
+          CALL A318Q4__TVS_GRAPHIC(MEM(TPTR+TAM),MEM(TOPTR))
+          TVSIDX = NDX
+C
+C   CALL A318Q5 TO BUILD THE TVS TABULAR ALPHANUMERIC BLOCK
+C
+          CALL A318Q5__TVS_ADTAB(MEM(TPTR+TAM),MEM(TPTR+TAD),
+     >         MEM(TOPTR))
+C
+C   END OF TVS
+C
+      ENDIF
+      CALL A318QA__TVS_END(MEM(TOPTR))
+C
+      RETURN
+      END

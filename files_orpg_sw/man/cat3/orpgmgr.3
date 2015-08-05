@@ -1,0 +1,135 @@
+
+NAME
+    ORPGMGR_send_command, ORPGMGR_state_file_name, ORPGMGR_is_mrpg_up,
+    ORPGMGR_get_RPG_states, ORPGMGR_wait_for_op_state,
+    ORPGMGR_get_rpgcmd_in_progress, ORPGMGR_get_task_status,
+    ORPGMGR_read_task_status
+
+SYNOPSIS
+    #include <orpg.h>
+    
+    int ORPGMGR_send_command (int cmd);
+    int ORPGMGR_state_file_name (char *name, int size);
+    int ORPGMGR_is_mrpg_up ();
+    int ORPGMGR_get_RPG_states (Mrpg_state_t *rpg_state);
+    int ORPGMGR_wait_for_op_state (time_t wait_time);
+    int ORPGMGR_get_rpgcmd_in_progress (int *cmd);
+    int ORPGMGR_get_task_status (char *task_name, int instance, int *state);
+    int ORPGMGR_read_task_status (Mrpg_process_table_t *entry_p);
+    void ORPGMGR_report_ready_for_operation ();
+    int ORPGMGR_setup_sys_cfg (int channel, int dont_update, void (*cb)());
+    int ORPGMGR_get_mrpg_host_name (char *mrpg_hname, int buf_size);
+    int ORPGMGR_discover_host_ip (char *node, int chan, char *ipb, int ipb_s);
+
+DESCRIPTION
+    ORPGMGR is the module of RPG manager interface routines.
+
+    ORPGMGR_send_command sends command "cmd" to the RPG manager (mrpg). See
+    mrpg.h for available mrpg commands. ORPGMGR_send_command returns 0 on
+    success or -1 if mrpg is not running or writing the mrpg command LB failed.
+
+    ORPGMGR_state_file_name returns the RPG state file name in buffer "name" of
+    size "size". It returns 0 on success or -1 on failure.
+
+    ORPGMGR_is_mrpg_up returns 1 if the mrpg command queue is active (e.g. the
+    command LB is there and mrpg is running and ready for accepting commands),
+    0 if it is not or -1 on failure. ORPGMGR_is_mrpg_up should probably be
+    renamed as ORPGMGR_is_mrpg_command_queue_ready.
+
+    ORPGMGR_get_RPG_states returns the current RPG state structure in 
+    "rpg_state". It returns 0 on success or -1 on failure.
+
+    ORPGMGR_wait_for_op_state blocks the calling process until RPG enters in
+    "operating" state. It wait at most "wait_time" seconds. It returns 0 on
+    success or -1 on failure.
+
+    ORPGMGR_get_rpgcmd_in_progress returns, in "cmd", the mrpg command that 
+    led to the current RPG state. See mrpg.h for mrpg commands. The function 
+    returns 0 on success or -1 on failure.
+
+    ORPGMGR_get_task_status returns, in "state", the current process status of
+    RPG task "task_name", instance "instance". See mrpg.h for process status. The
+    function returns 0 on success or -1 on failure.
+
+    ORPGMGR_read_task_status retrieves the current info of an RPG operational
+    process. Structure Mrpg_process_table_t is defined in mrpg.h. One fills in
+    the task_id field in "entry_p" before calling this function. For multiple
+    instance tasks the "instance" field must also be filled. The process info
+    (pid and process status) is returned in "entry_p". The function returns 0
+    on success or -1 on failure.
+
+    ORPGMGR_report_ready_for_operation reports to mrpg that this process has 
+    completed the intialization and is ready to operate. If a task is required
+    to send such report, the task must call this function in the proper place
+    in the code (Refer to mrpg man-page). A task should call this function 
+    only once.
+
+    ORPGMGR_setup_sys_cfg sets up the system configuration file and the access
+    environment for "channel". It allows an application to access RPG data
+    stores and events from any host that is in the rssd configuration file. A
+    host is called an active node of the RPG for a channel, if it is one of the
+    configured nodes in the RPG resource configuration. An application runing
+    on an active node uses the default system configuration file (named
+    sys_cfg) created by mrpg. On a host that is not an active node,
+    ORPGMGR_setup_sys_cfg copies over the system configuration file to the
+    local host. Copied-over system configuration files are named as sys_cfg.1
+    or sys_cfg.2 depending on the channel. The system configuration file is
+    always copied from the mrpg host in the RPG. The contents of the
+    copied-over system configuration files are not changed. If the current
+    version of the RPG system configuration file is already on the local (not
+    active) host, it is not copied. In order to discover the mrpg host,
+    ORPGMGR_setup_sys_cfg first queries the mrpg to get the system
+    configuration info through event ORPGEVT_SYSTEM_CONFIG_INFO. If mrpg is not
+    up, it goes through all hosts in the rssd configuration to search for the
+    latest system configuration for the specified channel. It gets the list of
+    remote hosts through rssd event EN_QUERY_HOSTS.
+
+    In some cases, we know that the local system configuration file exists and
+    up-to-date. We can skip the searching and copying by calling
+    ORPGMGR_setup_sys_cfg with "dont_update" != 0 (true). If "dont_update" is
+    false (zero), "channel" must be either 1 or 2 because we do not know if the
+    RPG is single channel or channel 1 in the redundant RPG. If, however,
+    "dont_update" is true, "channel" must be 0, 1, or 2. 0 must be used if the
+    local host is an active RPG node. The return value of ORPGMGR_setup_sys_cfg
+    called with false dont_update can be used as the parameter "channel" with
+    true dont_update.
+
+    This function sets up: a. The CS default system configuration file
+    name. b. The EN group number. c. The ORPGDA for inactive host. The
+    EN group number is set to override any setup by RMTPORT. This
+    function closes the RPC connections. Thus this function should only
+    be called in the very beginning of the application. If "cb" is not
+    NULL, event ORPGEVT_DATA_STORE_CREATED is registered so the
+    application can restart upon the event. "cb" must be a valid AN
+    callback function (see man en).
+
+    ORPGMGR_setup_sys_cfg returns 0, if the local host is an active RPG node, 
+    or the channel number (1 or 2) if not active. It returns a negative error 
+    code on failure.
+
+    Note that the channel number is considered as 1 in a non-redundant RPG. The
+    copied-over sys cfg on a non-active host is sys_cfg.1.
+
+    ORPGMGR_get_mrpg_host_name returns the name of the mrpg host with 
+    "mrpg_hname" of size "buf_size". It returns 0, if the local host is not an
+    active RPG node, 1, if it is, or a negative error code. mrpg_hname is set 
+    to the empty string on failure.
+
+    ORPGMGR_discover_host_ip returns 1 if a host is found to match node name
+    "node" (e.g. "rpg", "rpg2", "rpg1", "mscf", "bdds") and channel "chan"
+    (e.g. 0, 1 and 2). The ip address of the host is returned in buffer "ipb"
+    of size "ipb_s". The local host's IP is returned as an empty string. It
+    returns 0, if the host is not found, or a negative error code. This
+    function gets the list of remote hosts from "rssd" and then calls
+    ORPGMISC_get_site_name on each of the remote hosts. ORPGMISC_get_site_name
+    determins the node info based on the DEA data base, site_info.dea and
+    /etc/rpgsiteinfo.txt. 
+
+
+SEE ALSO
+    mrpg(1)
+
+NOTES
+
+
+

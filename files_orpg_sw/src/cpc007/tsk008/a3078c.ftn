@@ -1,0 +1,161 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/03 20:06:01 $
+C $Id: a3078c.ftn,v 1.3 2002/12/03 20:06:01 christie Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A3078C__CHAR_PKT(LENGTH,X,Y,I2_CHAR,BPTR,PRODBUF)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3078C__CHAR_PKT
+*.
+*.  MODULE VERSION: 0010
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       08 09 88      0000      VALERIE HOLDEN       SPR # 80271
+*.       05 08 90      0001      CHI CHAN             SPR # 90697
+*.       11 03 90      0002      MARK FRESCH          SPR # 91248
+*.       12/10/91      0003      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/20/92      0004      Toolset              SPR 91895
+*.       03/25/93      0005      Toolset              SPR NA93-06801
+*.       01/28/94      0006      Toolset              SPR NA94-01101
+*.       03/03/94      0007      Toolset              SPR NA94-05501
+*.       04/11/96      0008      Toolset              CCR NA95-11802
+*.       12/23/96      0009      Toolset              CCR NA95-11807
+*.       03/16/99      0010      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A3078C__CHAR_PKT(LENGTH,X,Y,I2_CHAR,BPTR,
+*.                                          PRODBUF)
+*.
+*.  MODULE FUNCTION:
+*.
+*.        APPENDS CHARACTER PACKETS TO THE PRODUCT BUFFER
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT   TYPE        DESCRIPTION
+*.    -   -----   ----        -----------
+*.    P   BPTR    I*4         LENGTH OF OUTPUT PRODUCT BUFFER (RUNNING TOTAL),
+*.                            HALF_WORDS. ALSO USED AS THE POINTER TO A
+*.                            HALF_WORD IN THE PRODUCT BUFFER.
+*.    P   I2_CHAR I*2         ARRAY OF INTEGER REPRESENTATION OF CHARACTER
+*.                            DATA
+*.    P   LENGTH  I*4         NUMBER OF I*2 WORDS INPUT
+*.    P   X       I*4         X PIXEL
+*.    P   Y       I*4         Y PIXEL
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    P   BPTR    I*4         LENGTH OF OUTPUT PRODUCT BUFFER (RUNNING TOTAL),
+*.                            HALF_WORDS. ALSO USED AS THE POINTER TO A
+*.                            HALF_WORD IN THE PRODUCT BUFFER.
+*.    P   PRODBUF I*2         VERT. CROSS SECTION PRODUCT BUFFER
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME        TYPE        DESCRIPTION
+*.    ----        ----        -----------
+*.    CHAROFF     I*4         CHARACTER STRING OFFSET
+*.    HALF_PACKET I*4         HALF WORDS IN CHARACTER PACKET HEADER
+*.    I           I*4         INDEX LOOP CONTROL
+*.    I2_BYTES    I*4         NUMBER OF BYTES IN I*2 WORD
+*.    IDOFF       I*4         CHARACTER PACKET ID OFFSET
+*.    LENOFF      I*4         CHARACTER BLOCK LENGTH OFFSET
+*.    ONE         I*4         PARAMETER FOR STARTING A DO LOOP
+*.    PACKET_ID   I*4         CHARACTER PACKET ID
+*.    REM_SIZE    I*4         REMAINDER SIZE OF TEXT PACKET
+*.    XOFF        I*4         CHARACTER X POSITION OFFSET
+*.    YOFF        I*4         CHARACTER Y POSITION OFFSET
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP07.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK07.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+C*
+      INTEGER*4    X,Y, LENGTH
+      INTEGER*2    PRODBUF(*),I2_CHAR(LENGTH)
+      INTEGER*4    BPTR,I,IDOFF,LENOFF,PACKET_ID
+      INTEGER*4    XOFF,YOFF,HALF_PACKET,REM_SIZE
+      INTEGER*4    CHAROFF
+      INTEGER*4    ONE, I2_BYTES
+C
+C
+      PARAMETER    ( ONE  = 1 )
+      PARAMETER    ( I2_BYTES  = 2 )
+      PARAMETER    ( IDOFF = 1, LENOFF = 2, XOFF = 3, YOFF = 4 )
+      PARAMETER    ( CHAROFF = 4 )
+      PARAMETER    ( HALF_PACKET = 4, REM_SIZE = 2 )
+      PARAMETER    ( PACKET_ID = 1 )
+C*
+C*********************************************************************
+C*********************************************************************
+C*
+X     WRITE(5,1) LENGTH,BPTR,I2_CHAR
+X 1   FORMAT(' 8C: LENGTH=',I4,'  BPTR=',I8,'  DATA=',(8Z6))
+C*
+C*    STORE PACKET ID AND LENGTH OF REMAINDER OF TEXT PACKET
+C*
+      PRODBUF(BPTR + IDOFF) = PACKET_ID
+      PRODBUF(BPTR + LENOFF )=(REM_SIZE + LENGTH)*I2_BYTES
+C*
+C*********************************************************************
+C*
+C*    STORE X POSITION AND Y POSITION
+C*
+      PRODBUF(BPTR + XOFF) = X
+      PRODBUF(BPTR + YOFF) = Y
+C*
+C*********************************************************************
+C*
+C*    STORE CHARACTERS IN PRODUCT BUFFER
+C*
+      DO 12   I = ONE, LENGTH
+        PRODBUF(BPTR + CHAROFF + I  ) = I2_CHAR(I)
+ 12   CONTINUE
+C*
+C*********************************************************************
+C*
+C*    INCREMENT LENGTH OF PRODUCT BUFFER BY 4 PLUS THE NUMBER OF
+C*    CHARACTER FILLED I*2 WORDS WRITTEN
+C*
+      BPTR = BPTR + HALF_PACKET + LENGTH
+C
+X     TYPE *,' 8C: EXITING, BPTR =',BPTR
+      RETURN
+      END

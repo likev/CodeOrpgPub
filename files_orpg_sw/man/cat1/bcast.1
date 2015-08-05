@@ -1,0 +1,393 @@
+
+
+NAME
+    bcast, brecv - a reliable multicast tool.
+
+SYNOPSIS
+    bcast [-imlpsbwtncdv] input_LB_name
+    brecv [-pmsnvtd] -b Bcast_host output_LB_name
+
+DESCRIPTION
+    bcast/brecv is a convenient tool developed for reliably multicasting (or
+    broadcasting) messages (or data records) to multiple hosts. The message
+    size can be variable and does not have an upper limit. The bandwidth needed
+    only slightly increases as the number of hosts increases (Extra bandwidth
+    is needed for acknowledgment and resending lost packets).
+
+    By reliable multicasting, we mean that, any message sent by the multicast
+    tool will be received, in the right sequence, by every receiver running 
+    on remote hosts. In case of congestion, the message passing rate is 
+    automatically reduced, which eases the congestion condition.
+
+    The technique relies on storing a certain amount of the latest message
+    segments in the multicaster and re-transmitting lost message segments to
+    the receivers upon requests from them. The receivers send acknowledgments
+    to the multicaster when messages are successfully received. Message
+    segments received by all receivers are discarded from the multicaster's
+    buffer and new message segments are then sent. If a necessary
+    acknowledgment is not received from a receiver and the sender's buffer is
+    full, the multicaster will stop sending new packets. With buffers set up on
+    both multicaster and receiver sides, message reception acknowledgment does
+    not need to be sent for every packet reception.
+
+    The tool consists of two basic executable programs, the multicaster, bcast,
+    and the receiver, brecv. bcast, running in the background, reads incoming
+    user messages from a Linear Buffer (a message passing tool) on the local
+    host. It then divides the messages into segments and multicasts the message
+    segments via UDP packets using a socket port. Each message segment has a
+    header containing a unique sequence number and other control fields in
+    addition to the message segment. A receiving task runs on each host
+    receiving the UDP packets. The received packets are assembled according to
+    the header information to regenerate the original user messages. The
+    regenerated messages are then written to a Linear Buffer for local tasks to
+    retrieve. The LB on each receiving host is thus an exact replication of the
+    one on the bcast host.
+
+    When a certain number of message packets are received by a receiver, it 
+    sends an acknowledgment to the multicaster. If a message segment is 
+    detected to be lost by a receiver, the receiver sends a retransmission 
+    request to the multicaster. Upon receiving a retransmission request, bcast 
+    resends the lost message segment. A TCP connection (socket) is set up 
+    between the multicaster and each receiver for passing acknowledgments, 
+    retransmission requests and retransmitted packets. Because TCP is a 
+    reliable protocol, no further error control or retransmission is needed 
+    for these.
+
+    In a typical application, one runs bcast on a host. The user application, 
+    that generates the messages, writes the messages into the bcast's Linear 
+    Buffer. Each receiving host has a brecv running in background. The 
+    applications that need the messages read the messages from their local 
+    brecv's output Linear Buffers, as if they are reading directly from the 
+    Linear Buffer on the bcast's host. Multiple applications on a receiving
+    site can read the same LB simultaneously.
+
+    The buffer sizes on both bcast and brecv sides should be set according to 
+    the expected message size and rate. They are set through a command line 
+    option of bcast. The UDP port number used is also a command line option. 
+    The same port number is used for both TCP and UDP ports. No other 
+    configuration file is needed for setting up the bcast environment. bcast 
+    and brecv can, by option, output packet statistics. The Linear Buffer 
+    library functions are provided for user applications to access messages 
+    in a Linear Buffer.
+
+    BCAST uses the following exception handling scheme:
+
+    When bcast starts, it will first try to connect to all running brecvs 
+    before multicasting any user messages.
+
+    If brecv is started while bcast is not running, brecv will retry until 
+    bcast starts and a connection is made to bcast. This can be optionally
+    disabled.
+
+    We assume that bcast always sustains longer than all brecvs in a normal 
+    usage. Thus brecv will simply exit if the TCP connection to bcast is 
+    broken.
+
+    If one starts brecv while bcast is already running, brecv will start 
+    reception from the next new message and ignore all messages sent before 
+    it starts. To make sure all receivers get the same message, one can first 
+    start bcast and all brecvs and then start the message source for bcast.
+
+    If there is no brecv connected, bcast will continue to processing input 
+    user messages except that the message packets are discarded (not actually 
+    multicasted) and no acknowledgement is expected.
+
+    The tool relies on multicasted packets to activate brecvs. If a brecv 
+    can not receive any multicast packet, it will never receive any user 
+    message and the bcast will be hold from sending further message by this 
+    brecv.
+
+    To eliminate an undetectable broken brecv, which can hold the multicaster, 
+    we send a control message to bcast to terminate its service to the brecv 
+    on a specified host. In our implementation this function is implemented 
+    in brecv. i.e. brecv, by option, can be used as a tool for this purpose.
+
+    An unresponsive brecv will be automatically disconnected upon timed-out.
+
+    If there are too many brecvs connected to bcast, bcast will reject the 
+    new brecv. Current default limit is 64. An option can be added to allow
+    a user specified limit.
+
+    brecv discards a new message if it fails to write in its output LB.
+
+    The bcast's input LB provides a message buffer for bcast. If, however, the
+    bcast can not keep up with the message incoming rate and the buffer is
+    full, messages in the buffer can be lost (indicated in the message
+    statistics). One can set an appropriate LB type flag to block message
+    writing in the message generating application.
+
+    A magic number is used to identify TCP messages from bcast. This prevents
+    brecv from accidentally connecting to a program other than bcast. Each
+    instance of bcast has also its own ID number, deduced from the time it
+    is started, in its UDP packets. This will help identify the situation 
+    when there are more than one bcast running in the network with the same 
+    port number.
+
+    bcast sequentially multicasts messages in its input Linear Buffer (LB) of
+    "input_LB_name". brecv receives the messages multicasted from the bcast
+    running on host "Bcast_host" and puts them in its output LB
+    "output_LB_name". Where "Bcast_host" can be either a host name or an
+    internet address such as 129.64.35.3.
+
+OPTIONS
+    bcast options:
+
+    -m	multicast_address
+	Specifies a multicast address. The default is using broadcast.
+	Suggested address range is 225.0.0.0 - 239.255.255.255
+
+    -l	local_address
+	Specifies a local interface address for multicast. The default is OS
+	selected. This is useful if you have multiple network interfaces. e.g.
+	-l 129.15.68.155
+
+    -i	interface_name
+	Specifies an alternative network interface name. The default is "lan0".
+	This is for broadcasting only.
+
+    -p	port_number
+	Specifies an alternative port number. The default is 433333.
+
+    -s	max_packet_size
+	Specifies the maximum UDP multicast packet size (in number of bytes).
+	This value is system dependent. The default value used is 1400.
+
+    -b	packet_buffer_size
+	Specifies an alternative packet buffer size (in number of packets). The
+	default size is 64 packets.
+
+    -w	wait_time
+	Specifies a waiting (idle) time (in milliseconds) after sending each
+	message. By specifying an appropriate waiting time, one can have
+	additional flow control. The default value is 0 (no waiting).
+
+    -n	no_response_time
+	Specifies a maximum no-response time (seconds). i.e. The time allowed
+	for keeping a unresponding client; The default is 60.
+
+    -c	number_of_bytes
+	Specifies the number of bytes discard at beginning of each message. The
+	default is 0. This can be used for removing any unnecessary message
+	header.
+
+    -v	Turns on the verbose mode in which bcast prints out on the screen
+	additional messages regarding its running status. In particular the
+	following statistics is printed out every 10 (or a different value
+	specified by -t option) seconds:
+
+	    pckts sent ?, resent ?, repeat ?, msg lost ?, Client
+
+	where each ? represents a number. These numbers are accumulated numbers
+	of the packets multicasted, packets resent through the TCP connection,
+	packets repeatedly multicasted and messages lost (due to input LB
+	full). A list of the IP addresses of the current receivers (Clients) 
+        then follows the packet statistics. Only the last two sections of the 
+	IP address are printed.
+
+	In this mode, bcast also prints out those hosts that are not responding
+	for more than 10 seconds. Their IP addresses together with their
+	no-response times (in seconds) are printed.
+
+    -t	seconds
+	Specifies the time period of printing statistics. The default is 10
+	seconds. Refer to -v option.
+
+    -d	Turns on the debug mode, in which bcast simulates noisy connection.
+
+    -h	prints usage info.
+
+    brecv options:
+
+    -p	port_number
+	Specifies an alternative port number. The default is 433333.
+
+    -m	address
+	Specifies a multicast address. The default is using broadcast.
+
+    -s	host_name
+	Sends a message to the bcast to stop service to host "host".
+	The -s option specifies a host name (or an internet address) to which
+	the bcast service is to be terminated. This option turns brecv into
+	a tool that sends a control message to bcast. After sending the 
+	message to bcast, brecv will wait until a responding message is 
+	received from the bcast. It then terminates. This function is needed 
+	in case that a host is not able to communicate with bcast due to a 
+	partial network failure and the bcast must be released from being 
+	held by the brecv on that host. On success brecv terminates with the 
+	exit status variable set to 0. Otherwise the variable is set to 1 
+	which indicates that the mission of terminating the bcast service may 
+	be a failure.
+
+    -n	seconds
+	Specifies a connect retry time in seconds. The default is retrying
+	forever.
+
+    -v	Turns on the verbose mode in which brecv prints out on the screen
+	additional messages regarding its running status. In particular the
+	following statistics is print out every 10 (or a different value
+	specified by -t option) seconds:
+
+	    pckt recvd ?, retran_req ?, ACK sent ?, msg discarded ?
+
+	where each ? represents a number. These numbers are accumulated numbers
+	of the packets received from the multicasting, the retransmission
+	requests sent, the ACK packets sent and the messages discarded because
+	of the output LB full.
+
+    -t	seconds
+	Specifies the time period of printing statistics. The default is 10
+	seconds. Refer to -v option.
+
+    -d	Turns on the debug mode, in which brecv simulates noisy connection.
+
+    -h	print usage info.
+
+EXAMPLES
+
+    bcast -v -b 128 -m 225.0.0.8 RDA_DATA
+	multicasts data from LB "RDA_DATA" to address "225.0.0.8". The packet 
+	buffer size is set to be 128 packets. It runs in verbose mode. No 
+	waiting is needed after sending a message.
+
+    bcast -v -b 128 -m 225.0.0.8 -l 129.15.68.155 RDA_DATA
+	The same as the previous example except using local interface (LAN 
+	card) of address "129.15.68.155".
+
+    brecv -b osrpg004 -m 225.0.0.8 -v tmp.lb
+	receives multicasting on address "225.0.0.8" from host "osrpg004".
+
+    The following examples use network interface "lan0" for broadcasting. The 
+    port number used is the default value.
+
+    bcast -v -b 128 RDA_DATA
+	broadcasts data from LB "RDA_DATA". The packet buffer size is set to
+	be 128 packets. It runs in verbose mode. No waiting is needed after
+	sending a message.
+
+    brecv -b osrpg004 -v tmp.lb
+	receives messages from bcast running on "osrpg004". The messages 
+	received are put in the output LB "tmp.lb". It runs in verbose mode.
+
+    brecv -b osrpg004 -v -s osrpg005
+	sends a control message to bcast on "osrpg004" and tells bcast that
+	the service to the brecv on host "osrpg005" should be terminated.
+	After sending the message, brecv will terminate.
+
+EXIT STATUS
+    0:		Terminated normally. 
+
+    non-zero:	Terminated because an error was detected.
+
+SEE ALSO
+    LB(3)
+
+
+NOTES:
+    Design and implementation details.
+
+    Two socket channels are used to implement the reliable multicast tool.
+    A multicast (UDP) socket is used for primary packet multicasting and a 
+    TCP socket is built between bcast and each brecv for passing 
+    acknowledgement/request messages and retransmitting lost packets.
+
+    Both bcast and brecv employ a packet buffer to improve the performance
+    (by reducing the numbers of acknowledgment messages and retransmitted 
+    packets). bcast and brecv use the same packet buffer size. The buffer 
+    size is specified by the user via a command line option of bcast. bcast 
+    immediately sends the buffer size and other configuration constants 
+    to brecv after the TCP connection is set. All other data sent by bcast 
+    are user message segments (called packets in the following) thereafter.
+
+    bcast reads user messages from an input Linear Buffer (LB), breaks them 
+    into packets and sends packets via the UDP channel. It keeps a copy of 
+    every transmitted packet in its packet buffer for later retransmission 
+    until the buffer is full. A packet in the buffer is discarded and the 
+    space is freed when all brecvs acknowledge its reception. Upon receiving 
+    a retransmission request, bcast will resend the lost packets to the 
+    brecv through the TCP connection immediately. bcast must check 
+    acknowledgment messages frequently unless the last packet is 
+    acknowledged to be received by all brecvs.
+
+    bcast does not need to wait for acknowledgment of receiving retransmitted
+    packets after retransmitting them. This however may require brecv to have a
+    larger buffer to hold the extra outstanding packets. (bcast, after
+    retransmission, may start to send new packets before brecv receives the
+    retransmitted packets. These new packets may need to stay in the socket
+    buffer if there is no extra space in the receiver's packet buffer).
+
+    If bcast detects that its packet buffer is full or if there is no new 
+    message to sent, bcast repeats the last packet in certain frequency until 
+    the last packet is acknowledged to be received from all brecvs. This is 
+    necessary for activating those brecvs that do not acknowledge because of 
+    lost packets. bcast must also frequently update its client table by 
+    checking connection status of the current brecvs and processing connection 
+    requests from new brecvs. Only the trailer parts of the repeated messages
+    are actually sent.
+
+    brecv reads packets from the multicast port or the packet buffer, recovers 
+    the original messages and sends them to an output LB. brecv first checks
+    its packet buffer for the next required packet. If it is not there, it 
+    reads the next packet from the UDP socket. If the packet read is the 
+    next required one, it copies to a buffer that holds the latest message to 
+    be sent to the output LB. If it is a out-of-sequence packet and the 
+    sequence number is larger than the required sequence number, it is stored 
+    in the buffer.
+
+    brecv uses two constants, REQ_WINDOW (e.g. Pb_size / 3) and REQUEST_TRIG
+    (e.g. 2 * Pb_size / 3), to control sending acknowledgement where 0 <
+    REQ_WINDOW < REQUEST_TRIG < Pb_size and Pb_size is the packet buffer size
+    in number of packets. The message acknowledges both packets received
+    (positive ack) and those missing (negative ack, i.e. retransmission
+    request). If max_seq >= cr_seq + REQUEST_TRIG or a repeated packet is
+    received, an acknowledgement is sent with all missing packets of sequence
+    numbers between cr_seq and cr_seq + REQ_WINDOW in the request, where
+    max_seq and cr_seq are respectively the maximum sequence number ever
+    received and the sequence number of the packet currently in processing.
+
+    brecv waits for retransmitted packets until all of them are received after 
+    sending a request. While waiting for the retransmitted packets, brecv also 
+    try to read the multicasted packets to avoid socket buffer full and losing 
+    packets. The packets read from both the multicast and the TCP ports are 
+    stored in the buffer if it fits in the buffer. If the packet is 
+    out-of-buffer it is saved for later processing and no more packets are 
+    read from the UDP socket. Because all retransmitted packets are stored in 
+    buffer, the routine checking whether the requested packet is in the buffer 
+    must be in the loop of getting the next packet.
+
+    acknowledgment/request message format (4 bytes each field):
+
+    msg_size  max_seq_processed  lost_packet_list ...
+
+    msg_size is the size of this message in number of bytes including msg_size
+    field itself. max_seq_processed is the sequence number of the lately 
+    processed packet. max_seq_processed is followed by a list of lost packet 
+    sequence numbers. The packet sequence number starts from 1 (MIN_SEQ). In 
+    the above message, if the second field (max_seq_processed) is 0 
+    (CONTROL_MSG), it is a control message. Available control messages 
+    (currently only one) are:
+
+	Third field = 1 (TERMINATE_HOST): Stop serving the brecv on a host, 
+					  which address is in the forth field.
+
+    A trailer is used in every packet which includes: A 4-byte seq number 
+    (unsigned int), a three-byte id number and a one-byte flag indicating the 
+    packet type. The flag takes one of the following values:
+
+	0 - single packet message;
+	1 - the first packet in a multiple packet message; 
+	2 - intermediate packet in a message;
+	3 - the last packet in a message;
+
+    The id number is a special number used to identify a particular bcast
+    in the network. It is deduced from the bcast's starting time. The id 
+    number helps detecting a second bcast that runs in the same network while
+    using the same port number.
+
+    bcast and brecv must frequently check whether the other party is 
+    disconnected. Thus bcast must read the TCP connections even if there is
+    no messages expected to come and brecv must send acknowledgement messages
+    even if there is no need to do so (e.g no packet has ever received). The
+    acknowledgement messages thus may contain 0 sequence number, which is not
+    a valid acknowledge message. This must be correctly treated.
+
+

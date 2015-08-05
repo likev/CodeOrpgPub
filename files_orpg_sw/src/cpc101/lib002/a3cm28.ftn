@@ -1,0 +1,175 @@
+C 
+C RCS info 
+C $Author: nolitam $ 
+C $Locker:  $ 
+C $Date: 2002/12/11 20:00:39 $ 
+C $Id: a3cm28.ftn,v 1.4 2002/12/11 20:00:39 nolitam Exp $ 
+C $Revision: 1.4 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A3CM28__PADBACK(BYTEFLG,OUTBUF,BSTEP,PBUFFIND,
+     *                   IENDIX,NUMBINS,FINALIDX)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3CM28__PADBACK
+*.
+*.  MODULE VERSION: 0008
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       03 24 86      0000      DENNIS MILLER
+*.       10 02 86      0001      J GROMMONS           SPR # 60346
+*.       11 08 90      0002      J WHEELER            SPR # 91250
+*.       12/10/91      0003      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0004      Toolset              SPR 91895
+*.       03/25/93      0005      Toolset              SPR NA93-06801
+*.       03/03/94      0006      Toolset              SPR NA94-05501
+*.       12/23/96      0007      Toolset              CCR NA95-11807
+*.       03/16/99      0008      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:
+*.
+*.     CALL A3CM28__PADBACK(BYTEFLG,OUTBUF,BSTEP,PBUFFIND,
+*.                      IENDIX,NUMBINS,FINALIDX)
+*.
+*.  MODULE FUNCTION:
+*.
+*.     PACK RUNS OF ZERO LEVEL FOR BINS OF MISSING DATA
+*.
+*.  MODULES CALLED: ISBYTE 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT    TYPE        DESCRIPTION
+*.    -   -----    ----        -----------
+*.    P   BSTEP    I*4         NO OF WORDS PER ENTRY IN BUFFER
+*.    P   BYTEFLG  I*4         PADDING CHARACTER BYTE FLAG.
+*.    P   FINALIDX I*4         POINTER TO NEXT AVAILABLE WORD IN
+*.    P   IENDIX   I*4         POINTER TO END OF INPUT BUFFER
+*.    P   NUMBINS  I*4         NUMBER OF DATA BINS
+*.    P   OUTBUF   I*2         OUTPUT BUFFER
+*.    P   PBUFFIND I*4         POINTER TO BEGINNING OF OUTPUT BUFFER
+*.
+*.    *   OUTPUT   TYPE        DESCRIPTION
+*.    -   ------   ----        -----------
+*.    P   FINALIDX I*4         POINTER TO NEXT AVAILABLE WORD IN
+*.    P   OUTBUF   I*2         OUTPUT BUFFER
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    P   OUTBUF            I*2         OUTPUT BUFFER
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME       TYPE        DESCRIPTION
+*.    ----       ----        -----------
+*.    F0         I*4         Represents HEX F0.
+*.    F0F0       I*4         Padding value hex F0F0.
+*.    F0_RUNS    I*4         Number of odd runs padded.
+*.    HALFRUN    I*4         Dimension of an array of padding characters.
+*.    I          I*4         LOOP COUNTER
+*.    MAXODDS    I*4         ODD_RUN table dimension.
+*.    MAXRUN     I*4         MAX NUMBER OF RUNS
+*.    ODD_RUNS   I*4         NO OF ODD RUNS
+*.    PAD        I*4         PADDING CHARACTER
+*.    RGTBYTE    I*4         RIGHT BYTE VALUE
+*.    TODD_RUN   I*2         ODD RUN TABLE
+*.    TPAD       I*4         PADDING CHARACTER
+*.    TRALN_BINS I*4         NO OF TRAILING BINS
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.        THIS MODULE IS COMPILED USING THE COMP09.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.        THIS MODULE IS LINKED USING THE LINK09.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+      INTEGER BYTEFLG,PBUFFIND,FINALIDX,IENDIX
+      INTEGER NUMBINS,MAXODDS,HALFRUN,I,F0,F0F0
+      INTEGER MAXRUN,LEFTBYTE,RGTBYTE,BSTEP
+      PARAMETER(MAXODDS=29,HALFRUN=15,MAXRUN=15)
+      INTEGER*2 OUTBUF(*)
+      INTEGER TRALN_BINS,PAD,F0_RUNS,ODD_RUNS
+      PARAMETER(F0=X'F0',F0F0=X'F0F0')
+      PARAMETER(LEFTBYTE=0,RGTBYTE=1)
+      INTEGER*2 TODD_RUN(MAXODDS)
+      INTEGER TPAD(HALFRUN)
+      DATA TPAD  /X'10',X'20',X'30',X'40',X'50',X'60',
+     *            X'70',X'80',X'90',X'A0',X'B0',X'C0',
+     *            X'D0',X'E0',X'F0'/
+      DATA(TODD_RUN(I),I=1,16)    /X'1000',X'1010',X'2010',X'3010',
+     *                             X'4010',X'5010',X'6010',X'7010',
+     *                             X'8010',X'9010',X'A010',X'B010',
+     *                             X'C010',X'D010',X'E010',X'F010'/
+      DATA(TODD_RUN(I),I=17,29)   /X'F020',X'F030',X'F040',X'F050',
+     *                             X'F060',X'F070',X'F080',X'F090',
+     *                             X'F0A0',X'F0B0',X'F0C0',X'F0D0',
+     *                             X'F0E0'/
+C
+C********************* E X E C U T A B L E ******************
+C
+C
+C.....CALCULATE THE NUMBER OF MISSING DATA BINS ON END
+C
+      TRALN_BINS =(NUMBINS-IENDIX)/BSTEP
+C
+C.....DETERMINE IF WE NEED TO PAD ONE BYTE AFTER GOOD DATA
+C
+      FINALIDX=PBUFFIND
+      IF(BYTEFLG.EQ.RGTBYTE)THEN
+        PAD = 0
+        IF(TRALN_BINS.GT.0)THEN
+          IF(TRALN_BINS.GE.MAXRUN)THEN
+            PAD = F0
+            TRALN_BINS=TRALN_BINS-15
+          ELSE
+            PAD=TPAD(TRALN_BINS)
+            TRALN_BINS=0
+          ENDIF
+        ENDIF
+        CALL ISBYTE(PAD,OUTBUF(FINALIDX),RGTBYTE)
+        FINALIDX=FINALIDX+1
+      ENDIF
+C.....NOW STORE THE REMAINING BINS OF 0 DATA
+C
+      IF(TRALN_BINS.NE.0)THEN
+C.....CALCULATE RUNS OF 30 AND ODD BINS
+        F0_RUNS = TRALN_BINS/30
+        ODD_RUNS= MOD(TRALN_BINS,30)
+C......STORE ALL COMPLETE RUNS OF 30
+        DO 10 I=1,F0_RUNS
+          OUTBUF(FINALIDX+I-1) = F0F0
+10      CONTINUE
+C.......UPDATE BUFFER INDEXES
+        FINALIDX=FINALIDX+F0_RUNS
+C....TABLE LOOK-UP FOR ANY ODD_RUNS
+C
+        IF(ODD_RUNS .GT.0)THEN
+          OUTBUF(FINALIDX) = TODD_RUN(ODD_RUNS)
+C.....UPDATE INDEX
+          FINALIDX=FINALIDX+1
+        ENDIF
+      ENDIF
+      END

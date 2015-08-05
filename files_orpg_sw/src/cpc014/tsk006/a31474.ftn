@@ -1,0 +1,124 @@
+C 
+C RCS info 
+C $Author: nolitam $ 
+C $Locker:  $ 
+C $Date: 2002/11/27 15:17:11 $ 
+C $Id: a31474.ftn,v 1.3 2002/11/27 15:17:11 nolitam Exp $ 
+C $Revision: 1.3 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A31474__ROTATE_INDICES
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A31474__ROTATE_INDICES
+*.
+*.  MODULE VERSION: 0002
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   -----------------    --------------------
+*.       11/30/95      0000      ELLIOTT P. FRIEND    CCR NA94-08462
+*.       12/23/96      0001      Toolset              CCR NA95-11807
+*.       03/16/99      0002      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A31474__ROTATE_INDICES
+*.
+*.  MODULE FUNCTION:
+*.
+*.     This routine rotates the values in the Hourly Indices (HRS_OLD)
+*.     array that correlate the Hourly Scans with Record Slots of the
+*.     User Selectable database USERSEL.DAT.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT        TYPE        DESCRIPTION
+*.    -   -----        ----        -----------
+*.    C   USDB_HRS_OLD I*2         An array of indexs for the hourly
+*.                                 accumulation
+*.    C   USDB_NEWEST  I*4         (CONSTANT)Index of the newest of the 30
+*.                                 hourly scans in the User Selectable Data
+*.                                 Base
+*.    C   USDB_OLDEST  I*4         (CONSTANT)Index of the oldest of the 30
+*.                                 hourly scans in the User Selectable Data
+*.                                 Base
+*.
+*.    *   OUTPUT       TYPE        DESCRIPTION
+*.    -   ------       ----        -----------
+*.    C   USDB_HRS_OLD I*2         An array of indexs for the hourly
+*.                                 accumulation
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE: None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME  TYPE        DESCRIPTION
+*.    ----  ----        -----------
+*.    INDEX I*4         Do loop index
+*.    TEMP  I*4         Temporary storage for switching indices
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3147C9
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK14.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+C...'X' IN COLUMN-1 INDICATES CONDITIONALLY COMPILED DEBUG CODE...
+C
+      IMPLICIT NONE
+C
+C$INSERTC
+C$INSERTC ORPG Issue 12
+C$INSERT$INCLUDE A309.INC/G,**A3PM00
+C$INSERTC
+$INCLUDE A3146.INC/G,**A3146P1 (NEND NLIST)
+$INCLUDE A3147.INC/G,**A3147P9 (NEND NLIST)
+$INCLUDE             **A3147C9 (NEND NLIST)
+C
+      INTEGER TEMP, INDEX, IDX
+C
+C---------------------
+C
+X     TYPE *,'A31474: STARTING A31474, NEWEST =',
+     >                        USDB_HRS_OLD (USDB_NEWEST)
+C
+      TEMP = USDB_HRS_OLD (USDB_OLDEST)
+
+      DO INDEX = USDB_OLDEST, USDB_NEWEST+1, -1
+        USDB_HRS_OLD (INDEX) = USDB_HRS_OLD (INDEX-1)
+      END DO
+
+      USDB_HRS_OLD (USDB_NEWEST) = TEMP
+C
+X     TYPE *,'A31474: ENDING A31474, NEWEST =',
+     >                        USDB_HRS_OLD (USDB_NEWEST)
+C
+      RETURN
+      END

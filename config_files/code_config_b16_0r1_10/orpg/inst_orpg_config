@@ -1,0 +1,225 @@
+#!/usr/bin/ksh
+#################################################################
+# FILE: inst_orpg_config
+#
+# Script to replace selected ORPG configuration files 
+# for Open Build 11 to be used in the development environment
+# 
+#
+# New configuration files (in the first section of the script), 
+# must be in same directory as this script and named as 
+# the original file to be replaced with the ".new" extension
+#
+# The file[] array contains the names of the files being replaced
+# The path[] array contains the corresponding location in the 
+# orpg account home directory.  If the file to be replaced is in
+# the account home directory, enter "." for the path.
+#
+#################### New For B11 CODE
+#
+# Special handling is provided for the task_tables configuration
+# file.  The user is prompted for the type of CODE distribution
+# (Public or NWS). The appropriate file is then copied to a 
+# file named 'task_tables'.
+#
+####################
+#
+# There are five files, which are not named with a ".new" 
+# extension, which are installed after the configuration files:
+#
+# The default NWS terrain blockage file 
+# The site info adaptation data file and 
+# Three Archive II data files for site KMLB 
+#
+####################
+#
+# Must be logged into the account in which the ORPG is installed
+#
+#################################################################
+
+print "\nINSTALLING CUSTOMIZED ORPG CONFIGURATION FILES"
+print "INTO ACCOUNT HOME DIRECTORY $HOME \n"
+print "This script must be run AFTER extracting ORPG source code"
+print "and AFTER compiling the ORPG \n"
+print "DO YOU WISH TO PROCEED, 'y/n' "
+
+read ans
+
+if [[ "$ans" == "y" || "$ans" == "Y" ]]
+then
+
+   print "\nDETERMINING WHICH VERSION OF 'task_tables' TO INSTALL"
+   print "\nWhich type of CODE Distribution are You Installing?\n"
+   print "Enter 'P' for Public Edition or 'N' for NWS Edition: "
+   
+   read typ
+   
+   if [[ "$typ" == "p" || "$typ" == "P" ]] then
+      dist_type=task_tables.public_code
+   elif [[ "$typ" == "n" || "$typ" == "N" ]] then
+      dist_type=task_tables.nws_code
+   else
+      print "\nInvalid Distribution Type, Aborting Script\n"
+      exit
+   fi
+
+
+
+
+   # configured as a stand-alone workstation not connected to a radar
+   file[0]=comms_link.conf
+   path[0]=cfg
+
+   file[1]=.rssd.conf
+   path[1]=.
+
+   # utility script to erase data files   
+   file[2]=rm_orpg_data
+   path[2]=tools/bin
+
+   # installed so the hci shows the RPG version number
+   file[3]=version_rpg
+   path[3]=cfg
+
+   # contains several changes needed by CODE  
+   # this is the Public Edition of CODE 
+   file[4]=task_tables.public_code
+   path[4]=cfg
+
+   # contains several changes needed by CODE   
+   # includes NWS CODE tasks uncommented
+   file[5]=task_tables.nws_code
+   path[5]=cfg
+
+   # installed so the hci shows data coming from RDA when playing back
+   # B14: no longer needed. See email from Steve Smith (12/18/12)
+   #file[6]=task_attr_table
+   #path[6]=cfg
+   
+   #number of files
+   i=${#file[*]}
+   
+#############################################################################   
+   print "\n****Replacing `expr $i ` Configuration Files****\n"
+
+   #make sure the $HOME/cfg directory exists
+   if [[ ! -d $HOME/cfg ]] then 
+       mkdir $HOME/cfg  
+       print creating directory $HOME/cfg
+   fi
+
+   #make sure the $HOME/tools/bin directory exists
+   if [[ ! -d $HOME/tools ]] then 
+       mkdir $HOME/tools  
+       print creating directory $HOME/tools
+   fi
+   if [[ ! -d $HOME/tools/bin ]] then 
+       mkdir $HOME/tools/bin  
+       print creating directory $HOME/tools/bin
+   fi
+
+   n=0
+
+##### NOTE To avoid clutter we do not save old versions of the following files:
+#####      task_tables.public_code, task_tables.nws_code
+
+   while [[ n -lt i ]]
+     do  print REPLACING FILE `expr $n + 1`:  $HOME/${path[n]}/${file[n]}
+     
+         if [[ -f $HOME/${path[n]}/${file[n]} ]] then
+              chmod u+w $HOME/${path[n]}/${file[n]}
+              if [[ "${file[n]}" != "task_tables.public_code" &&
+                    "${file[n]}" != "task_tables.nws_code" ]] then
+                 mv $HOME/${path[n]}/${file[n]}  $HOME/${path[n]}/${file[n]}.OLD
+              fi
+         fi
+         cp ./${file[n]}.new  $HOME/${path[n]}/${file[n]}
+         if [[ "${file[n]}" != "task_tables.public_code" &&
+               "${file[n]}" != "task_tables.nws_code" ]] then
+            cp ./${file[n]}.new  $HOME/${path[n]}/${file[n]}.CODE
+         fi
+         n=`expr $n + 1`
+     done
+
+
+## INSTALLING CORRECT task_tables FILE
+
+   if [[ "$dist_type" == "task_tables.nws_code" ]] then
+       print "Installing NWS Edition task_tables file"
+   elif [[ "$dist_type" == "task_tables.public_code" ]] then
+       print "Installing NWS Edition task_tables file"
+   fi
+
+   if [[ -f $HOME/cfg/task_tables ]] then
+       chmod u+w $HOME/cfg/task_tables
+       mv $HOME/cfg/task_tables  $HOME/cfg/task_tables.OLD
+   fi
+   cp $HOME/cfg/$dist_type  $HOME/cfg/task_tables
+   cp $HOME/cfg/$dist_type  $HOME/cfg/task_tables.CODE
+
+## DONE WITH THE LIST OF FILES
+
+###############################################################################
+###############################################################################
+print "\n****Setting Site Adaptation Data to KMLB****\n"
+
+   #make sure the $HOME/cfg directory exists
+   if [[ ! -d $HOME/cfg ]] then 
+       mkdir $HOME/cfg  
+       print creating directory $HOME/cfg
+   fi
+
+   print REPLACING FILE `expr $n + 1`:  $HOME/cfg/site_info.dea
+   if [[ -f $HOME/cfg/site_info.dea ]] then
+       chmod u+w $HOME/cfg/site_info.dea
+       mv $HOME/cfg/site_info.dea  $HOME/cfg/site_info.dea.OLD
+   fi
+   cp ./site_info.dea  $HOME/cfg/site_info.dea
+   cp ./site_info.dea  $HOME/cfg/site_info.kmlb
+   n=`expr $n + 1`
+ 
+
+###############################################################################
+print "\n****Installing Default NWS Blockage File****\n"
+
+   #make sure the $HOME/cfg/bin directory exists
+   if [[ ! -d $HOME/cfg/bin ]] then 
+       mkdir $HOME/cfg/bin  
+       print creating directory $HOME/cfg/bin
+   fi
+   print REPLACING FILE `expr $n + 1`:  $HOME/cfg/NWSG_blockage.lb
+   if [[ -f $HOME/cfg/NWSG_blockage.lb ]] then
+	chmod u+w $HOME/cfg/NWSG_blockage.lb
+       	mv $HOME/cfg/NWSG_blockage.lb  $HOME/cfg/NWSG_blockage.lb.OLD
+   fi
+   if [[ -f $HOME/cfg/bin/blockage.lb ]] then
+	chmod u+w $HOME/cfg/bin/blockage.lb
+       	mv $HOME/cfg/bin/blockage.lb  $HOME/cfg/bin/blockage.lb.OLD
+   fi
+   cp ./NWSG_blockage.lb  $HOME/cfg/NWSG_blockage.lb
+   cp ./NWSG_blockage.lb  $HOME/cfg/blockage.lb
+   cp ./NWSG_blockage.lb  $HOME/cfg/bin/blockage.lb
+   n=`expr $n + 1`
+
+###############################################################################
+print "\n****Installing 3 sample Archive II Disk Files for KMLB****\n"
+
+   #make sure the $HOME/ar2data directory exists
+   if [[ ! -d $HOME/ar2data ]] then 
+       mkdir $HOME/ar2data  
+       print creating directory $HOME/ar2data
+   fi
+
+
+# filenames with all underscores
+   cp ./KMLB20121026*.gz  $HOME/ar2data/.
+
+   print "\nFILES INSTALLED \n"
+
+
+   
+else
+
+   print "\nSCRIPT ABORTED, NO FILES REPLACED \n"
+   
+fi

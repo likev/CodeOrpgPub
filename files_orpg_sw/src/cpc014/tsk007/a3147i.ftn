@@ -1,0 +1,328 @@
+C 
+C RCS info 
+C $Author: nolitam $ 
+C $Locker:  $ 
+C $Date: 2002/11/27 15:17:23 $ 
+C $Id: a3147i.ftn,v 1.4 2002/11/27 15:17:23 nolitam Exp $ 
+C $Revision: 1.4 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A3147I__CHECK_MINIMUM(REQ)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3147I__CHECK_MINIMUM
+*.
+*.  MODULE VERSION: 0002
+*.
+*.  MODULE LANGUAGE:  FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       12/23/96      0001      Toolset              CCR NA95-11807
+*.       03/16/99      0002      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A3147I__CHECK_MINIMUM
+*.
+*.  MODULE FUNCTION:  This module checks if there are 2/3 of the hourly
+*.  accumulations available to build the USP product.  If this is determined
+*.  by checking if the hour is available flag.  The hour available flag is set
+*.  true if the hour is flagged zero hourly or available.  It is set false
+*.  if the hourly scan is flagged no hourly.
+*.  If the 2/3 criteria is not met, a Null flag is set for later use in
+*.  generating a Null USP product.
+*.  This module also determines the beginning and ending index in the
+*.  User Selectable data base for the request
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT           TYPE        DESCRIPTION
+*.    -   -----           ----        -----------
+*.    C   AVAIL_FLAG      L*4         Flag indicating if the hour is available
+*.                                    in the User Selectable data base
+*.    C   AVAIL_HRS       I*2         An array of the available hours in the
+*.                                    User Selectable Data Base
+*.    C   BEG_INDX        I*2         Index into USDB_HRS_OLD for the
+*.                                    beginning hour of the USP product
+*.    C   CA              I*2         Array of customized USP requests
+*.    C   ENDHOUR         I*2         Ending hour of USP product
+*.    C   END_INDX        I*2         Index into USDB_HRS_OLD for the end hour
+*.                                    of USP product
+*.    C   START_DATE_NULL I*2         Modified Julian date indicating the
+*.                                    start date of the data available in the
+*.                                    User Selectable Database for the Null
+*.                                    USP product
+*.    C   TIMESPAN        I*2         Duration of USP product
+*.    C   BEG_POS         I*4         (CONSTANT)Index in the Customizing array
+*.                                    for the beginning index in the User
+*.                                    Selectable Database
+*.    C   END_HOUR        I*4         (CONSTANT)INDEX INTO CUSTOMIZING ARRAY
+*.                                    FOR END HOUR OF THE USP PRODUCT
+*.    C   END_INIT        I*4         (CONSTANT)Error code to indicate that do
+*.                                    not have any hours in the User
+*.                                    Selectable Data base to satisfy this
+*.                                    product request
+*.    C   END_POS         I*4         (CONSTANT)Index in the Customizing array
+*.                                    for the ending  hour index in the User
+*.                                    Selectable Database
+*.    C   GOOD            I*4         (CONSTANT)Status flag value.
+*.    C   HRS_24          I*2         (CONSTANT)Number of hours in a day
+*.    C   HRS_POS         I*4         (CONSTANT)Index into Customizing array
+*.                                    to for the number of hours available for
+*.                                    this particular USP product
+*.    C   ILL_REQ         I*4         (CONSTANT))Error code indicating that
+*.                                    with the request end hour and duration,
+*.                                    the request exeeds the number of
+*.                                    available hours (30)
+*.    C   INIT_VAL        I*2         (CONSTANT)Value indicating date/time are
+*.                                    initial value
+*.    C   MAX_USDB_HRS    I*4         (CONSTANT)Maximum number of hours in the
+*.                                    User Selectable Data Base
+*.    C   MIN_HRS         I*4         (CONSTANT)Error code indicating there
+*.                                    are not the two thirds of the hours
+*.                                    required to produce the request USP
+*.                                    product
+*.    C   NULL_POS        I*4         (CONSTANT)Index into Customizing array
+*.                                    to indicate that this particular USP is
+*.                                    a Null product
+*.    C   TIME_SPAN       I*4         (CONSTANT)INDEX INTO CUSTOMIZING ARRAY
+*.                                    FOR TIME SPAN OF THE USP PRODUCT
+*.    C   USDB_NEWEST     I*4         (CONSTANT)Index of the newest of the 30
+*.                                    hourly scans in the User Selectable Data
+*.                                    Base
+*.    P   REQ             I*4         Request number of USP product
+*.
+*.    *   OUTPUT   TYPE        DESCRIPTION
+*.    -   ------   ----        -----------
+*.    C   BEG_INDX I*2         Index into USDB_HRS_OLD for the beginning hour
+*.                             of the USP product
+*.    C   CA       I*2         Array of customized USP requests
+*.    C   ENDHOUR  I*2         Ending hour of USP product
+*.    C   END_INDX I*2         Index into USDB_HRS_OLD for the end hour of USP
+*.                             product
+*.    C   TIMESPAN I*2         Duration of USP product
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME        TYPE        DESCRIPTION
+*.    ----        ----        -----------
+*.    DIFF        I*2         Time diffenece between newest hour and request
+*.                            end hour of USP product
+*.    I           I*2         LOOP COUNTER
+*.    IDX         I*2         Index into USP data base
+*.    MIN_NUM_HRS I*2         Minimum number of hours required for the USP
+*.                            product
+*.    NEWEST_HR   I*2         The newest hour in the USP data base
+*.    NUMHOURS    I*2         Number of hours available for USP product
+*.    STATUS      I*4         Status of whether there is the minimum number of
+*.                            hours required for the product
+*.    ZERO        I*2         PARAMETER VALUE '0'
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3147C1
+*.    A3147C2
+*.    A3147C4
+*.    A3147C6
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  NONE
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK14.CSS
+*.
+*.  MISC:  None
+*.
+*.***********************************************************************
+      IMPLICIT NONE
+C$INSERT$INCLUDE A309.INC/G, **A3PM00
+$INCLUDE A3146.INC/G,**A3146P1  (NLIST)
+$INCLUDE A3147.INC/G,**A3147P1  (NLIST)
+$INCLUDE A3147.INC/G,**A3147P2  (NLIST)
+$INCLUDE             **A3147P3  (NLIST)
+$INCLUDE             **A3147P4  (NLIST)
+$INCLUDE A3147.INC/G,**A3147P9  (NLIST)
+$INCLUDE             **A3147C1  (NLIST)
+$INCLUDE             **A3147C2  (NLIST)
+$INCLUDE             **A3147C3  (NLIST)
+$INCLUDE             **A3147C4  (NLIST)
+$INCLUDE             **A3147C6  (NLIST)
+$INCLUDE             **A3147C9  (NLIST)
+C
+C*************** L O C A L    D A T A *****************************
+C
+      INTEGER*2  ZERO
+      INTEGER*2  NEWEST_HR
+      INTEGER*2  IDX, DIFF, HOUR
+      PARAMETER (ZERO = 0)
+      INTEGER*2 I,J, FIRST,LAST,REC
+      INTEGER*2 MIN_NUM_HRS, NUMHOURS
+      INTEGER*4 STATUS,REQ
+C
+C*************** E X E C U T A B L E ******************************
+C
+      ENDHOUR = CA(END_HOUR,REQ)
+      TIMESPAN = CA(TIME_SPAN,REQ)
+X     WRITE(14,*)'7I:CHECK FOR MIN HRS ',
+X    & 'END HOUR =',ENDHOUR,' TIMESPAN = ',TIMESPAN
+C
+C     Initialize status.
+C
+      STATUS = GOOD
+      END_INDX = ZERO
+      BEG_INDX = ZERO
+C
+C  If the first time is not an init value, then check for minimum
+C  number of hours availbale for this product
+C
+      IF (START_DATE_NULL .NE. INIT_VAL) THEN
+X        WRITE(14,*)'START DATE OF DATA IS ',START_DATE_NULL
+C
+C  Get the newest hour.
+C
+         IDX = USDB_NEWEST
+         NEWEST_HR = AVAIL_HRS(IDX)
+X        WRITE(14,*)' NEWEST HR =',NEWEST_HR
+C
+C  Check if the newest hour is the same as the end hour.
+C
+         IF (ENDHOUR .EQ. NEWEST_HR)THEN
+            END_INDX = IDX
+X           WRITE(14,*)'NEWEST HOUR IS SAME AS END HOUR'
+C
+C If end hour is less than the newest hour, calculating
+C the difference should give us the index to the END_HOUR
+C
+         ELSEIF(ENDHOUR .LT. NEWEST_HR)THEN
+            DIFF = NEWEST_HR - ENDHOUR
+            IDX = IDX + DIFF
+            END_INDX = IDX
+X           WRITE(14,*)'DIFF = ',DIFF,' END_INDX =',END_INDX,
+X    &       ' HRLY END TIME =',AVAIL_HRS(END_INDX)
+C
+C If the end hour is greater than the newest hour, 24 needs to be added
+C to the difference
+C
+         ELSE
+            DIFF = NEWEST_HR - ENDHOUR + HRS_24
+            IDX = IDX + DIFF
+            END_INDX = IDX
+X           WRITE(14,*)'DIFF = ',DIFF,' END INDX =',END_INDX,
+X    &       ' HRLY END TIME =',AVAIL_HRS(END_INDX)
+         ENDIF
+C
+C  Check to make sure the end time is not an initial value
+C
+         IF(AVAIL_HRS(END_INDX) .EQ. INIT_VAL)THEN
+X           WRITE(14,*)'7F: END TIME IS INITIAL VALUE'
+C
+C  Don't have any hours in the database for this product
+C  Set status to END_INIT
+C
+            STATUS = END_INIT
+            GO TO 999
+         ELSEIF(ENDHOUR .NE. AVAIL_HRS(END_INDX))THEN
+X           WRITE(14,*)'END TIMES DO NOT MATCH'
+            END_INDX = ZERO
+C
+C  Search to make sure of end hour index.
+C
+                DO 30 IDX= 1,MAX_USDB_HRS
+                   IF(ENDHOUR .EQ. AVAIL_HRS(IDX))THEN
+                     END_INDX = IDX
+X                    WRITE(14,*)'7I:LOOP 30:END INDEX IS ',END_INDX
+                     GO TO 31
+                   ENDIF
+30              CONTINUE
+31              CONTINUE
+         ENDIF
+C
+C  If END found, calculate Begin Index
+C
+         IF(END_INDX .GE. 1 .AND. TIMESPAN .GT. 1)THEN
+             BEG_INDX = END_INDX + TIMESPAN - 1
+X            WRITE(14,*)'BEG = ',BEG_INDX,' HOUR = ',
+X    &        AVAIL_HRS(BEG_INDX)
+C
+C If  BEG is greater then 30, then this is an illegal
+C request.
+C
+             IF (BEG_INDX .GT. MAX_USDB_HRS)THEN
+                STATUS = ILL_REQ
+X               WRITE(14,*)'7I: ILLEGAL REQUEST'
+                GO TO 999
+             ENDIF
+         ELSEIF(END_INDX .GE. 1 .AND. TIMESPAN .EQ. 1)THEN
+X            WRITE(14,*)'TIME SPAN ONLY 1 HOUR'
+             BEG_INDX = END_INDX
+         ELSE
+C
+C  Else problem with end hour
+            STATUS = ILL_REQ
+            GO TO 999
+         ENDIF
+C
+C  Check array of No Hourly flags to see if Hourly
+C  scan available
+C
+      NUMHOURS= ZERO
+      DO 50 I=END_INDX,BEG_INDX
+         IF (AVAIL_FLAG(I))THEN
+C
+C  Increment number of hours available for
+C  this product.
+C
+             NUMHOURS = NUMHOURS + 1
+         ENDIF
+50       CONTINUE
+C
+C CHECK IF WE HAVE A MINIMUM OF 2/3 OF THE HOURS
+C
+         IF(TIMESPAN .GE. 3)THEN
+             MIN_NUM_HRS = ((TIMESPAN*2.0+1.0)/3.0)
+         ELSE
+             MIN_NUM_HRS = TIMESPAN
+         ENDIF
+X        WRITE(14,*)'7I: MIN NUM OF HOURS = ',MIN_NUM_HRS,
+X    &      'NUM AVAILABLE = ',NUMHOURS
+         IF(NUMHOURS .LT. MIN_NUM_HRS)THEN
+             STATUS = MIN_HRS
+         ENDIF
+      ELSE
+C
+C  Else if the first time is an init value, then there are no accumluations
+C  in the database, return a status of not enough
+C  hourly accumulations
+C
+X        WRITE(14,*)'7I: DATABASE ONLY INITIALIZED'
+         NUMHOURS = ZERO
+         STATUS = MIN_HRS
+      ENDIF
+999   CONTINUE
+      CA(NULL_POS,REQ) = STATUS
+      CA(BEG_POS,REQ) = BEG_INDX
+      CA(END_POS,REQ) = END_INDX
+      CA(HRS_POS,REQ) = NUMHOURS
+X     WRITE(14,*)'LEAVING 7I: STATUS =',STATUS
+      RETURN
+      END

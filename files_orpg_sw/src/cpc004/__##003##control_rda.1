@@ -1,0 +1,119 @@
+control_rda(1) 		      RPG   		Control_rda(1)
+
+NAME
+control_rda - Manage and Control Wideband/RDA
+
+SYNOPSIS
+control_rda [options]
+
+DESCRIPTION
+
+   Manage and Control Wideband/RDA performs 3 major functions:
+
+     a. Manage and Control of Wideband Communications Line
+
+        control_rda is the RPG interface to the wideband communications 
+        manager.  All connection/disconnection commands are first handled 
+        by control_rda.  At RPG startup/restart/powerfail recovery, 
+        control_rda automatically attempts wideband connection. If the 
+        wideband fails to connect, control_rda will post connection requests,
+        at periodic intervals, indefinitely until either the wideband
+        connects or the RPG operator issues a disconnection request.  If 
+        after an adaptable number of connection retries the wideband line 
+        fails to connect, control_rda labels the wideband line status as 
+        failed.  
+
+        If the wideband line connects, control_rda immediately performs a 
+        loopback test to check line fidelity.  On a loopback test failure 
+        (either loopback timed-out or returned message corrupted), 
+        control_rda commands a disconnection of the wideband line, then 
+        repeats the connection attempt.  If the loopback test succeeds, 
+        control_rda returns the RDA to its previous state if the RDA is 
+        in remote control.
+
+        On unexpected wideband failures, control_rda will first attempt 
+        wideband line disconnection prior to reattempting wideband connection.  
+        This is done in order to "cleanup" the wideband line.
+
+        On wideband line disconnection, the disconnection attempts are 
+        repeated up to three times until the line disconnects.  If after
+        three disconnection attempts the wideband fails to disconnect, the 
+        wideband line is marked failed.  No additional disconnection attempts
+        are performed.
+
+        On RPG shutdown, control_rda commands the RDA to standby if RDA in
+        remote control prior to disconnecting the wideband line.  Otherwise,
+        the wideband line is just disconnected. 
+
+        There are two wideband communications alarms issues by control_rda:
+        RDA/RPG Link Broken and RDA/RPG Communications discontinuity.  The
+        first alarm is issue if the wideband fails to connect or the wideband
+        line experiences an unsolicited disconnection.  The alarm is cleared
+        when the wideband line reconnects.
+
+        The second alarm is issued if the wideband line is connected, the 
+        RDA is in operate state, data moments are enabled, but no radial 
+        messages have been received in 160 seconds (2 minutes, 40 seconds).  
+        This alarm is cleared whenever the next radial message is received.
+
+     b. Control RDA
+
+        All RDA control commands are processed through control_rda.  Control
+        commands are received via data store ID CPC4MSG messages or data
+        store ID ORPGDAT_RDA_COMMAND messages (CPC4MSG are used to support
+        legacy applications).  Messages are converted to RDA/RPG ICD format
+        prior to sending to wideband communications manager.  RDA control 
+        is only allowed if the RDA is not in local control.
+
+        There are several control commands which require special processing.
+        The COM4_WMVCPCHG (change weather mode) command first requires 
+        control_rda to download the default VCP for the weather mode, then 
+        control_rda sends an RDA control command to tell the RDA to use the 
+        downloaded VCP on next VCP restart, followed by a RDA control command
+        to restart the VCP.
+
+        The COM4_DLOADVCP (download VCP command) requires control_rda to 
+        download the specified VCP followed by a RDA control command to use
+        the downloaded VCP on next volume restart.
+
+        Finally, for the RDA control commands restart elevation and restart 
+        volume, the commands are not processed unless they come from the 
+        Process Base Data process (pbd).  Restart commands originating from
+        the RPG operator are ignored.
+
+     c. Process Wideband Data
+
+        All incoming RDA messages are processed by control_rda with the 
+        exception of the digital radar data message (see RDA/RPG ICD) which
+        is processed by the Process Base Data process.  For incoming RDA status
+        messages, new RDA alarms cause RDA alarm messages to be written to the
+        system status log.  For changes in status, only the changed status is
+        reported.  The status messages are written to data store ID 
+        ORPGDAT_RDA_STATUS.  RDA alarms are written to data store ID 
+        ORPGDAT_RDA_ALARMS.
+
+        For incoming RDA performance data, floating point numbers are converted
+        to IEEE 754 standard format.  The performance data is then written to 
+        data store ID ORPGDAT_PERF_MAIN.  
+
+        For incoming bypass map data, the data is reassembled from its message 
+        segments prior to writing to data store ID ORPGDAT_CLUTTER_MAP, message 
+        ID LBID_BYPASSMAP.  Message IDs LBID_A304C2 and LBID_CD07_BYPASSMAP in 
+        data store IDs DATAID_A304C2 and DATAID_CD07_BYPASSMAP, respectively, 
+        are also updated.  The former message contains flags, the latter contains
+        the map generation date/time.  Finally event ORPGEVT_BYPASS_MAP_RECEIVED
+        is posted.  
+
+        For incoming notchwidth map data, the data is reassembled from its message 
+        segments prior to writing to data store ID ORPGDAT_CLUTTER_MAP, message 
+        ID LBID_NOTCHMAP.  Message ID LBID_A304C2 in data store ID DATAID_A304C2 
+        is also updated.  This message contains flags.  Finally event 
+        ORPGEVT_NOTCH_MAP_RECEIVED is posted.  
+
+        For incoming RDA console message, the message is written to data store ID
+        ORPGDAT_RDA_CONSOLE_MSG.
+
+    Options:
+
+       -l log error file length (# messages, default 200)
+       -h help

@@ -1,0 +1,271 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/04 14:36:27 $
+C $Id: a3078k.ftn,v 1.3 2002/12/04 14:36:27 christie Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A3078K__INIT_HEMI(I,NORTH_SOUTH,XUP1,YUP1,XUP2,YUP2)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3078K__INIT_HEMI
+*.
+*.  MODULE VERSION: 0011
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       03 09 89      0000      CHARLIE BAUMHER      SPR # 80271
+*.       05 09 90      0001      PAUL PISANI          SPR # 90697
+*.       11 03 90      0002      MARK FRESCH          SPR # 91248
+*.       12 03 91      0003      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0004      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/20/92      0005      Toolset              SPR 91895
+*.       03/25/93      0006      Toolset              SPR NA93-06801
+*.       01/28/94      0007      Toolset              SPR NA94-01101
+*.       03/03/94      0008      Toolset              SPR NA94-05501
+*.       04/11/96      0009      Toolset              CCR NA95-11802
+*.       12/23/96      0010      Toolset              CCR NA95-11807
+*.       03/16/99      0011      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:
+*.
+*.  CALL A3078K__INIT_HEMI(I,NORTH_SOUTH,XUP1,YUP1,XUP2,YUP2)
+*.
+*.  MODULE FUNCTION:
+*.
+*.     THIS ROUTINE DEFINES WHICH HEMISPHERE THE P1P2 LINE IS IN,
+*.     ALONG WITH THE ANGLE THETA3.
+*.
+*.  MODULES CALLED: A3078L__ZERO_CROSS 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT       TYPE        DESCRIPTION
+*.    -   -----       ----        -----------
+*.    C   ORIG_PTS    R*4         Table of cross-setion end points for each
+*.                                request.
+*.    C   P1P2_LENG   R*4         Length of P1-P2 plane.
+*.    C   DEGTORAD    R*4         (CONSTANT)Constant, used in calculation to
+*.                                convert degrees to radians.
+*.    C   NORTH_HEMI  I*4         (CONSTANT)Flag for north hemispherical line.
+*.    C   ORIG_CROSS  I*4         (CONSTANT)Origin cross plane.
+*.    C   P1_AZZ      I*4         (CONSTANT)Constant used as an index into the
+*.                                buffer ORIG_PTS for P1's Azimuth.
+*.    C   P1_RAN      I*4         (CONSTANT)Constant used as an index into the
+*.                                buffer ORIG_PTS for P1's Range.
+*.    C   P2_AZZ      I*4         (CONSTANT)Constant used as an index into the
+*.                                buffer ORIG_PTS for P2's Azimuth.
+*.    C   P2_RAN      I*4         (CONSTANT)Constant used as an index into the
+*.                                buffer ORIG_PTS for P2's Range.
+*.    C   SOUTH_HEMI  I*4         (CONSTANT)Flag for South Hemispherical Line.
+*.    C   TWO         I*4         (CONSTANT)Constant value of an integer 2.
+*.    C   ZERO        I*4         (CONSTANT)Program parameter for 0.
+*.    P   I           I*4         Product requested index.
+*.    P   NORTH_SOUTH L*4         SET IF LN TRUE N/S LN
+*.    P   XUP1        R*4         P1 X-COORDINATE
+*.    P   XUP2        R*4         P2 X-CORDINATE
+*.    P   YUP1        R*4         P1 Y-CORDINATE
+*.    P   YUP2        R*4         P2 Y-CORDINATE
+*.
+*.    *   OUTPUT    TYPE        DESCRIPTION
+*.    -   ------    ----        -----------
+*.    C   HEMI      I*4         Hemispherical orientation of P1-P2 plane.
+*.    C   ORIG_PTS  R*4         Table of cross-setion end points for each
+*.                              request.
+*.    C   P1P2_LENG R*4         Length of P1-P2 plane.
+*.    C   THETA3    R*4         Azimuth angle between P1-P2 line and 0-P1 (the
+*.                              baseline).
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    P   I                 I*4         Product requested index.
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME        TYPE        DESCRIPTION
+*.    ----        ----        -----------
+*.    ARG         R*4         ARGUMENT OF INVERSE COSINE FUNCTION
+*.    AZ_ACCURCY  R*4         ACCURACCY OF AZIMUTH MEASUREMENT
+*.    DELTA_THETA R*4         ANGLE BETWEEN P1 & P2
+*.    MAX_AZ      R*4         NUMBER OF DEGREES IN CIRCLE
+*.    PI          R*4         VALUE OF 180.0 DEGREES
+*.    RADTODEG    R*4         CONVERTS RADIANS TO DEGREES
+*.    RINIT       R*4         PARAMETER FOR REAL ZERO
+*.    SLOPE       R*4         SLOPE OF P1P2 LINE
+*.    XINTER      R*4         P1P2 PLANE'S X-INTERCEPT
+*.    YINTER      R*4         P1P2 PLANE'S Y-INTERCEPT
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3078CA
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  NONE
+*.
+*.  DEVIATION FROM STANDARDS:  NONE
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP07.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK07.CSS
+*.
+*.  MISC:  NONE
+*.
+*.*******************************************************************
+C
+      IMPLICIT NONE
+C*
+C*********************************************************************
+C*
+C*  MODULE   A3078K__INIT_HEMI(I,NORTH_SOUTH,XUP1,YUP1,
+C*                                 XUP2,YUP2,DELTA_THETA )
+C*
+C*  INCLUDE COMMON PARAMETER FILES
+C*
+$INCLUDE A307.INC,**A30788  (     NLIST )
+$INCLUDE          **A3078CA (     NLIST )
+C*
+C*********************************************************************
+C* LOCAL DECLARATIONS
+C*
+C
+      INTEGER*4    I
+C
+      REAL*4       XUP1, YUP1, XUP2, YUP2
+      REAL*4       DELTA_THETA, ARG
+      REAL*4       SLOPE
+      REAL*4       XINTER, YINTER
+      REAL*4       RADTODEG
+      REAL*4       PI, MAX_AZ
+      REAL*4       RINIT, AZ_ACCURCY
+C
+      LOGICAL      NORTH_SOUTH
+C
+C
+      PARAMETER    ( AZ_ACCURCY = .1 )
+      PARAMETER    ( RADTODEG = 1./DEGTORAD )
+      PARAMETER    ( PI  =  180.0, MAX_AZ = 360.0 )
+      PARAMETER    ( RINIT = 0. )
+C
+C*********************************************************************
+C
+C*   INITIALIZE THE HEMISPHERE CASE
+C
+      HEMI(I) = NORTH_HEMI
+C
+X     TYPE *,'8K: ENTERED INIT_HEMI, NORTH_SOUTH = ',NORTH_SOUTH
+C*
+C*********************************************************************
+C*  CHECK IF ONE OF THE ENPOINTS IS THE RADAR LOCATION
+C*  IF SO, MAKE SURE AZIMUTHS ARE EQUAL.
+C*
+      IF ( ORIG_PTS(P1_RAN,I) .EQ. RINIT )
+     $     ORIG_PTS(P1_AZZ,I) = ORIG_PTS(P2_AZZ,I)
+C
+      IF ( ORIG_PTS(P2_RAN,I) .EQ. RINIT )
+     $     ORIG_PTS(P2_AZZ,I) = ORIG_PTS(P1_AZZ,I)
+C*
+C*********************************************************************
+C*  CALCULATE ANGLE DELTA_THETA
+C*
+      DELTA_THETA = ABS( ORIG_PTS(P2_AZZ,I) - ORIG_PTS(P1_AZZ,I) )
+      IF (DELTA_THETA.GT.PI) DELTA_THETA = MAX_AZ - DELTA_THETA
+C*
+C*********************************************************************
+C*  DETERMINE THE HEMISPHERE CASE FOR THIS CROSS-SECTION ORIENTATION
+C*
+C*  CHECK IF DELTA THETA = 180 ( ALLOW .1 DEGREE TOLERANCE TO ACCOUNT
+C*  FOR FLOATING POINT ROUND OFF ERRORS)
+C*
+      IF ( ABS(PI - DELTA_THETA) .LE. AZ_ACCURCY ) THEN
+C
+C*  CROSS SECTION THROUGH RADAR ORIGIN
+C
+        HEMI(I) = ORIG_CROSS
+        P1P2_LENG(I) = ORIG_PTS(P1_RAN,I) + ORIG_PTS(P2_RAN,I)
+        THETA3(I)    = PI
+C
+      ELSE IF (ORIG_PTS(P1_AZZ,I).EQ.ORIG_PTS(P2_AZZ,I)) THEN
+C
+C* CROSS-SECTION IS ALONG A RADIAL ( P1_AZ = P2_AZ )
+C
+        P1P2_LENG(I) = ABS(ORIG_PTS(P1_RAN,I) - ORIG_PTS(P2_RAN,I))
+        THETA3(I)    = RINIT
+      ELSE
+C*
+C*********************************************************************
+C*  DETERMINE THE CARTESIAN AXIS INTERCEPT:
+C*    FOR N/S LINES CALCULATE THE X-AXIS INTERCEPT
+C*    FOR E/W LINES CALCULATE THE Y-AXIS INTERCEPT
+C*
+        IF ( NORTH_SOUTH ) THEN
+          XINTER = MIN(XUP1,XUP2)
+          IF ( XINTER .LT. ZERO ) HEMI(I) = SOUTH_HEMI
+C
+X         TYPE *,'8K: N/S CASE: XINTER = ',XINTER
+C
+        ELSE
+C*
+C*********************************************************************
+C*  OTHER THAN DUE NORTH/SOUTH LINE, GET Y-INTERCEPT
+C*
+          SLOPE = ( YUP2 - YUP1 )  / ( XUP2 - XUP1 )
+          YINTER = YUP1 - ( SLOPE * XUP1 )
+          IF ( YINTER .LT. ZERO ) HEMI(I) = SOUTH_HEMI
+C
+X         TYPE *,'8K: E/W CASE: SLOPE,YINTER = ',SLOPE,YINTER
+C
+        ENDIF ; NORTH-SOUTH TEST
+C
+X       TYPE *,'8K: REQUEST # ',I,'  HEMI = ',HEMI(I),'  DELTA AZ =',
+     $                             DELTA_THETA
+C
+C*  CONVERT DELTA THETA TO RADIANS
+C
+        DELTA_THETA = DELTA_THETA*DEGTORAD
+C*
+C*********************************************************************
+C*  CALCULATE THE LENGTH (KM) OF LINE BETWEEN P1 AND P2 USING THE
+C*  LAW OF COSINES
+C
+        P1P2_LENG(I) = ORIG_PTS(P1_RAN,I)**TWO + ORIG_PTS(P2_RAN,I)**TWO
+     $    - TWO*ORIG_PTS(P1_RAN,I)*ORIG_PTS(P2_RAN,I)*COS(DELTA_THETA)
+        P1P2_LENG(I) = SQRT(P1P2_LENG(I))
+C*
+C*********************************************************************
+C     CALCULATE THETA3
+C
+C*********************************************************************
+C  USE LAW OF COSINES TO CALCULATE THE ANGLE (THETA3) BETWEEN THE
+C  LINE P1P2 AND THE RADIAL THROUGH P1
+C
+        ARG = P1P2_LENG(I)*P1P2_LENG(I) + ORIG_PTS(P1_RAN,I)*
+     $     ORIG_PTS(P1_RAN,I) - ORIG_PTS(P2_RAN,I)*ORIG_PTS(P2_RAN,I)
+        ARG = ARG/( TWO*P1P2_LENG(I)*ORIG_PTS(P1_RAN,I) )
+        THETA3(I) = RADTODEG*ACOS(ARG)
+C
+      ENDIF
+C
+C*  CHECK FOR LINE CROSSING 0 AZIMUTH
+C
+      CALL A3078L__ZERO_CROSS(I)
+C
+X     TYPE *,'8K: THETA3(I) = ',THETA3(I),'  P1P2 = ',P1P2_LENG(I)
+      RETURN
+      END

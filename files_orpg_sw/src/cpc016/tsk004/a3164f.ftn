@@ -1,0 +1,348 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/16 20:36:29 $
+C $Id: a3164f.ftn,v 1.4 2002/12/16 20:36:29 christie Exp $
+C $Revision: 1.4 $
+C $State: Exp $
+C
+      SUBROUTINE A3164F__HAIL_ADAP(INTADAP,REALADAP,BUF,BIDX,EIDX)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3164F__HAIL_ADAP
+*.
+*.  MODULE VERSION: 0015
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       10 18 85      0000      JSGROMMONS
+*.       05 01 86      0001      JSGROMMONS           SPR#  60157
+*.       06 03 86      0002      JSGROMMONS           SPR#  60313
+*.       10 02 86      0003      J GROMMONS           SPR # 60346
+*.       05 11 89      0004      B EIDSON             SPR # 90297
+*.       11 06 90      0005      David M. Lynch       SPR # 91257
+*.       12 03 91      0006      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0007      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0008      Toolset              SPR 91895
+*.       03/25/93      0009      Toolset              SPR NA93-06801
+*.       01/28/94      0010      Toolset              SPR NA94-01101
+*.       03/03/94      0011      Toolset              SPR NA94-05501
+*.       04/01/95      0012      Toolset              CCR NA95-11802
+*.       04/24/95      0013      STEVE SMITH          CCR NA94-26301
+*.       12/23/96      0014      Toolset              CCR NA95-11807
+*.       03/16/99      0015      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:
+*.     CALL A3164F__HAIL_ADAPT(INTADAP,REALADAP,BUF,BIDX,EIDX)
+*.
+*.  MODULE FUNCTION:
+*.     FORMAT AND STORE THE HAIL ADAPTATION PAGE FOR THE
+*.     TABULAR BLOCK
+*.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT    TYPE        DESCRIPTION
+*.    -   -----    ----        -----------
+*.    G   HA_H0    I*4         (CONSTANT)Index to the 0 degree C altitude in
+*.                             adaptation data
+*.    G   HA_H20   I*4         (CONSTANT)Index to the -20 degree C altitude in
+*.                             adaptation data.
+*.    G   HA_HSC   I*4         (CONSTANT)Index to the 0 degree C altitude in
+*.                             adaptation data.
+*.    G   HA_HSE   I*4         (CONSTANT)Index to the SHI Hail Size Exponent
+*.                             in adaptation data.
+*.    G   HA_KE1   I*4         (CONSTANT)Index to the HKE Coefficient #1 in
+*.                             adaptation data.
+*.    G   HA_KE2   I*4         (CONSTANT)Index to the HKE Coefficient #2 in
+*.                             adaptation data.
+*.    G   HA_KE3   I*4         (CONSTANT)Index to the HKE Coefficient #3 in
+*.                             adaptation data.
+*.    G   HA_MRP   I*4         (CONSTANT)Index to the Min. Reflectivity POH in
+*.                             adaptation data.
+*.    G   HA_PO0   I*4         (CONSTANT)Index to the POH Height Difference
+*.                             #10 in adaptation data.
+*.    G   HA_PO1   I*4         (CONSTANT)Index to the POH Height Difference #1
+*.                             in adaptation data.
+*.    G   HA_PO2   I*4         (CONSTANT)Index to the POH Height Difference #2
+*.                             in adaptation data.
+*.    G   HA_PO3   I*4         (CONSTANT)Index to the POH Height Difference #3
+*.                             in adaptation data.
+*.    G   HA_PO4   I*4         (CONSTANT)Index to the POH Height Difference #4
+*.                             in adaptation data.
+*.    G   HA_PO5   I*4         (CONSTANT)Index to the POH Height Difference #5
+*.                             in adaptation data.
+*.    G   HA_PO6   I*4         (CONSTANT)Index to the POH Height Difference #6
+*.                             in adaptation data.
+*.    G   HA_PO7   I*4         (CONSTANT)Index to the POH Height Difference #7
+*.                             in adaptation data.
+*.    G   HA_PO8   I*4         (CONSTANT)Index to the POH Height Difference #8
+*.                             in adaptation data.
+*.    G   HA_PO9   I*4         (CONSTANT)Index to the POH Height Difference #9
+*.                             in adaptation data.
+*.    G   HA_PSC   I*4         (CONSTANT)Index to the POSH Coefficient in
+*.                             adaptation data.
+*.    G   HA_PSO   I*4         (CONSTANT)Index to the POSH Offset in
+*.                             adaptation data.
+*.    G   HA_RHL   I*4         (CONSTANT)Index to the Threshold RCM Probable
+*.                             Hail in adaptation data.
+*.    G   HA_RWL   I*4         (CONSTANT)Index to the Threshold HKE
+*.                             Reflectivity Weighting Lower Limit in
+*.                             adaptation data.
+*.    G   HA_RWU   I*4         (CONSTANT)Index to the Threshold HKE
+*.                             Reflectivity Weighting Upper Limit in
+*.                             adaptation data.
+*.    G   HA_SHL   I*4         (CONSTANT)Index to the Threshold RCM Positive
+*.                             Hail in adaptation data.
+*.    G   HA_WTC   I*4         (CONSTANT)Index to the Warning Threshold
+*.                             Selection Coefficient in adaptation data.
+*.    G   HA_WTO   I*4         (CONSTANT)Index to the Warning Threshold
+*.                             Selection Offset in adaptation data.
+*.    G   HA_XRG   I*4         (CONSTANT)Index to the Max. Hail Processing
+*.                             Range in adaptation data.
+*.    C   IT       I*4         Pointer into operator messages for line number.
+*.    C   NP       I*4         Number of pages to be written.
+*.    C   TBUF     I*2         Character lines.
+*.    C   TXCHR    CHAR*80     Text character lines.
+*.    C   DIVIDER  I*2         (CONSTANT)Tabular block divider for output
+*.                             buffer.
+*.    C   NCOLS    I*4         (CONSTANT)Used as a dimension of a
+*.                             one-dimensional array.
+*.    C   NHAL_ADP I*4         (CONSTANT)A sizing parameter equal to the
+*.                             number of hail adaptable parameters stored in
+*.                             HAILADAP and HAIL_RADAP.
+*.    C   NOI2     I*2         (CONSTANT)Number of halfwords for 80 character
+*.                             line.
+*.    C   TNOLNS   I*4         (CONSTANT)Total number of lines written.
+*.    P   BIDX     I*4         POINTER TO BEG OF OUTPUT BUFFER
+*.    P   EIDX     I*4         POINTER TO END OF OUTPUT BUFFER
+*.    P   INTADAP  I*4         Integer array of Hail Adaptation data
+*.    P   REALADAP R*4         A real array of Hail Adaptation data
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    C   IT      I*4         Pointer into operator messages for line number.
+*.    C   NOLNS   I*4         Number of lines written.
+*.    C   NP      I*4         Number of pages to be written.
+*.    C   TBUF    I*2         Character lines.
+*.    C   TXCHR   CHAR*80     Text character lines.
+*.    P   BUF     I*2         OUTPUT BUFFER
+*.    P   EIDX    I*4         POINTER TO END OF OUTPUT BUFFER
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME     TYPE        DESCRIPTION
+*.    ----     ----        -----------
+*.    BL       I*4         NO OF CHARACTERS PER LINE
+*.    I        I*4         Do loop index.
+*.    J        I*4         Loop control.
+*.    NUM_CHAR I*4         (Constant) number of characters.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3164A
+*.    A3164B
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP16.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK16.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+      IMPLICIT NONE
+C
+$INCLUDE A315BUF.INC/G,**A315P9H (NEND NLIST)
+$INCLUDE A315BUF.INC/G,**A315PHAD (NEND NLIST)
+C
+C** LOCAL COMMON
+C
+$INCLUDE A316.INC/G,**A3164P4 (NLIST)
+C
+C** LOCAL DEFINITIONS
+C
+      INTEGER*2  BUF(*)
+C
+      INTEGER*4  J,NUM_CHAR,I,BL
+      INTEGER*4  BIDX,EIDX,INTADAP(NHAL_ADP)
+C
+      REAL REALADAP(NHAL_ADP)
+C
+      CHARACTER*80 TXCHR(NCOLS)
+C
+      PARAMETER(NUM_CHAR=80)
+C
+      EQUIVALENCE (TBUF(1,1),TXCHR)
+C
+C** FILL LINES WITH BLANKS
+C
+      DO 300 IT=1,TNOLNS
+         WRITE(TXCHR(IT),915)
+  300 CONTINUE
+C
+C** LINE 1 HEADER
+C
+      IT = 1
+      WRITE(TXCHR(IT),900)
+C
+C** INSERT A BLANK LINE, THEN WRITE LINE 3 OF DATA
+C
+      IT = IT + 2
+      WRITE(TXCHR(IT),901)  REALADAP(HA_H0), REALADAP(HA_PO1)
+C
+C** WRITE LINE 4 OF DATA
+C
+      IT = IT + 1
+      WRITE(TXCHR(IT),902)  REALADAP(HA_H20), REALADAP(HA_PO2)
+C
+C** WRITE LINE 5 OF DATA
+C
+      IT = IT + 1
+      WRITE(TXCHR(IT),903)  REALADAP(HA_KE1), REALADAP(HA_PO3)
+C
+C** WRITE LINE 6 OF DATA
+C
+      IT = IT + 1
+      WRITE(TXCHR(IT),904)  REALADAP(HA_KE2), REALADAP(HA_PO4)
+C
+C** WRITE LINE 7 OF DATA
+C
+      IT = IT + 1
+      WRITE(TXCHR(IT),905)  REALADAP(HA_KE3), REALADAP(HA_PO5)
+C
+C** WRITE LINE 8 OF DATA
+C
+      IT = IT + 1
+      WRITE(TXCHR(IT),906)  REALADAP(HA_PSC), REALADAP(HA_PO6)
+C
+C** WRITE LINE 9 OF DATA
+C
+      IT = IT + 1
+      WRITE(TXCHR(IT),907)  INTADAP(HA_PSO), REALADAP(HA_PO7)
+C
+C** WRITE LINE 10 OF DATA
+C
+      IT = IT + 1
+      WRITE(TXCHR(IT),908)  REALADAP(HA_HSC), REALADAP(HA_PO8)
+C
+C** WRITE LINE 11 OF DATA
+C
+      IT = IT + 1
+      WRITE(TXCHR(IT),909)  REALADAP(HA_HSE), REALADAP(HA_PO9)
+C
+C** WRITE LINE 12 OF DATA
+C
+      IT = IT + 1
+      WRITE(TXCHR(IT),910)  INTADAP(HA_RWL), REALADAP(HA_PO0)
+C
+C** WRITE LINE 13 OF DATA
+C
+      IT = IT + 1
+      WRITE(TXCHR(IT),911)  INTADAP(HA_RWU), INTADAP(HA_MRP)
+C
+C** WRITE LINE 14 OF DATA
+C
+      IT = IT + 1
+      WRITE(TXCHR(IT),912)  INTADAP(HA_RHL), INTADAP(HA_SHL)
+C
+C** WRITE LINE 15 OF DATA
+C
+      IT = IT + 1
+      WRITE(TXCHR(IT),913)  REALADAP(HA_WTC), REALADAP(HA_WTO)
+C
+C** WRITE LINE 16 OF DATA
+C
+      IT = IT + 1
+      WRITE(TXCHR(IT),914)  INTADAP(HA_XRG)
+C
+C** DETERMINE NO OF CHARACTERS WRITTEN
+C
+      BL = NOI2
+      NOLNS = TNOLNS
+C
+C** NOW STORE THE LINES OF ASCII TEXT INTO OUTPUT BUFFER
+C
+C** INITIALIZE INDEX
+C
+      EIDX=BIDX-1
+      DO 100 J=1,TNOLNS
+         EIDX=EIDX+1
+         BUF(EIDX)=NUM_CHAR
+         DO 200 I=1,BL
+            EIDX=EIDX+1
+            BUF(EIDX)=TBUF(I,J)
+  200    CONTINUE
+  100 CONTINUE
+C
+C** STORE THE END OF PAGE DIVIDER
+C
+      EIDX=EIDX+1
+      BUF(EIDX)=DIVIDER
+      NP = NP + 1
+C
+C** FORMAT STATEMENTS
+C
+  900 FORMAT(24X,'HAIL DETECTION ADAPTATION DATA')
+  901 FORMAT(3X,F4.1,' (KFT) HEIGHT (0 DEG CELSIUS)   ',
+     >       1X,'|',F6.3,'  (KM) POH HEIGHT DIFFERENCE #1')
+  902 FORMAT(3X,F4.1,' (KFT) HEIGHT (-20 DEG CELSIUS) ',
+     >       1X,'|',F6.3,'  (KM) POH HEIGHT DIFFERENCE #2')
+C$DELETE
+  903 FORMAT(E7,'       HKE COEFFICIENT #1       ',
+C$ENDDELETE
+C$INSERT  903 FORMAT(E7.1,'       HKE COEFFICIENT #1       ',
+     >       1X,'|',F6.3,'  (KM) POH HEIGHT DIFFERENCE #3')
+  904 FORMAT(3X,F4.3,'       HKE COEFFICIENT #2       ',
+     >       1X,'|',F6.3,'  (KM) POH HEIGHT DIFFERENCE #4')
+  905 FORMAT(2X,F5.1,'       HKE COEFFICIENT #3       ',
+     >       1X,'|',F6.3,'  (KM) POH HEIGHT DIFFERENCE #5')
+  906 FORMAT(3X,F4.1,'       POSH COEFFICIENT         ',
+     >       1X,'|',F6.3,'  (KM) POH HEIGHT DIFFERENCE #6')
+  907 FORMAT(4X,I3,'   (%) POSH OFFSET              ',
+     >       1X,'|',F6.3,'  (KM) POH HEIGHT DIFFERENCE #7')
+  908 FORMAT(3X,F4.2,'       SHI HAIL SIZE COEFFICIENT',
+     >       1X,'|',F6.3,'  (KM) POH HEIGHT DIFFERENCE #8')
+  909 FORMAT(4X,F3.1,'       SHI HAIL SIZE EXPONENT   ',
+     >       1X,'|',F6.3,'  (KM) POH HEIGHT DIFFERENCE #9')
+  910 FORMAT(4X,I3,' (DBZ) THR HKE REF WGT LOWER LIM',
+     >       1X,'|',F6.3,'  (KM) POH HEIGHT DIFFERENCE #10')
+  911 FORMAT(4X,I3,' (DBZ) THR HKE REF WGT UPPER LIM',
+     >       1X,'|',4X,I2,' (DBZ) THR MIN REFLECTIVITY POH ')
+  912 FORMAT(4X,I3,'   (%) THRESH(RCM PROBABLE HAIL)',
+     >       1X,'|',3X,I3,'   (%)  THRESH(RCM POSITIVE HAIL)')
+  913 FORMAT(F6.1,' (10E2 J/M**2/S) WTSM COEFFICIENT',1X,'|',1X,
+     >       F6.1,' (10E5 J/M/S) WTSM OFFSET')
+  914 FORMAT(4X,I3,' (KM)  MAX HAIL PROCESSING RANGE')
+  915 FORMAT(80(' '))
+C
+C** RETURN TO CALLER ROUTINE
+C
+      RETURN
+      END

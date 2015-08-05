@@ -1,0 +1,390 @@
+C 
+C RCS info 
+C $Author: ryans $ 
+C $Locker:  $ 
+C $Date: 2006/02/09 20:37:57 $ 
+C $Id: a31464.ftn,v 1.4 2006/02/09 20:37:57 ryans Exp $ 
+C $Revision: 1.4 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A31464__POLAR_TO_CARTESIAN (POLAR_GRID,
+     1                          CARTGRID,DENOM, MX_CARTVAL)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A31464__POLAR_TO_CARTESIAN
+*.
+*.  MODULE VERSION: 0011
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       09 15 88      0000      M.J.STALEY           SPR# 90348
+*.       02 14 91      0001      PAUL JENDROWSKI      SPR# 91255
+*.       12 03 91      0002      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0003      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0004      Toolset              SPR 91895
+*.       03/25/93      0005      Toolset              SPR NA93-06801
+*.       01/28/94      0006      Toolset              SPR NA94-01101
+*.       03/03/94      0007      Toolset              SPR NA94-05501
+*.       04/11/96      0008      Toolset              CCR NA95-11802
+*.       12/23/96      0009      Toolset              CCR NA95-11807
+*.       03/16/99      0010      Toolset              CCR NA98-23803
+*.       10/26/05      0011      Cham Pham            CCR NA05-21401
+*.
+*.  CALLING SEQUENCE: CALL A31464__POLAR_TO_CARTESIAN (POLAR_GRID,
+*.                                     CARTGRID,DENOM,MX_CARTVAL)
+*.
+*.  MODULE FUNCTION:
+*.
+*.     This routine takes the input polar grid of data and transforms
+*.     it into a corresponding Cartesian grid of data. The input
+*.     polar grid must be a grid of 360 radials and 115 2km bins; the
+*.     output grid is a 232 by 232 grid of 2km by 2km grid boxes.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT          TYPE        DESCRIPTION
+*.    -   -----          ----        -----------
+*.    C   INNER_COUNT    I*4         Number of actual hole coordinates in
+*.                                   inner_holes.
+*.    C   INNER_HOLES    I*4         Array of cartesian grip boxes into which
+*.                                   no polar coordinates were mapped. (Polar
+*.                                   coord. within 230 KM radius)
+*.    C   ZONE1_CARTGRID I*4         Cartesian coord. corresponding to polar
+*.                                   for 1 quadrant out to a bin range of 57
+*.                                   (114 km).
+*.    C   ZONE2_CARTGRID I*4         Cartesian coord. corresponding to polar
+*.                                   for 1 quadrant for a bin range of 58-115
+*.                                   (116-230 km). Three dimesions because
+*.                                   each polar yields 2 cart.
+*.    C   AZ_IN_KQUAD    I*4         (CONSTANT)Number of degrees in one
+*.                                   quarter of the polar grid.
+*.    C   IBEG           I*4         (CONSTANT)Parameter used as loop control
+*.                                   variable (initial value).
+*.    C   INCRMENT       I*4         (CONSTANT)Parameter used to increment by
+*.                                   one.
+*.    C   KBINS          I*4         (CONSTANT)Numbr of 2 Km. Bins in the
+*.                                   232Km polar grid.
+*.    C   KGRID_CENTER   I*4         (CONSTANT)Center point of 232 X 232
+*.                                   cartesian grid.
+*.    C   KGRID_SIZE     I*4         (CONSTANT)Number of boxes on each side of
+*.                                   cartesian grid, area of grid equivalent
+*.                                   to polar grid with 460 KM. diameter.
+*.    C   KNOSPLIT_RANGE I*4         (CONSTANT)Range of 2KM polar bins for
+*.                                   which azimuth need not be split to obtain
+*.                                   good mapping (few holes) from polar to
+*.                                   cartesian.
+*.    C   KSPLIT_RANGE   I*4         (CONSTANT)Bin number to start performing
+*.                                   beam splitting procedure for mapping
+*.                                   polar points
+*.    C   N_ZONES        I*4         (CONSTANT)Number of beam splitting zones.
+*.    P   CARTGRID       I*4         Cartesian grid format of polar data
+*.    P   DENOM          I*2         Array of # times a polar value is stored
+*.                                   in each Cartesian grid box
+*.    P   MX_CARTVAL     I*4         Maximum value found in the cartesian grid
+*.    P   POLAR_GRID     I*2         360x115 polar grid of real data
+*.
+*.    *   OUTPUT     TYPE        DESCRIPTION
+*.    -   ------     ----        -----------
+*.    P   CARTGRID   I*4         Cartesian grid format of polar data
+*.    P   DENOM      I*2         Array of # times a polar value is stored in
+*.                               each Cartesian grid box
+*.    P   MX_CARTVAL I*4         Maximum value found in the cartesian grid
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME            TYPE        DESCRIPTION
+*.    ----            ----        -----------
+*.    ANGLE           I*4         Index: degrees in polar quadrant(1-90)
+*.    AZIMUTH         I*4         Index: degrees in polar grid (1-360)
+*.    BIN_RANGE       I*4         Index: bins in 2KM polar grid (1-115)
+*.    CONVERT         R*4         Parameter used to force floating point
+*.                                arithmitic
+*.    COUNT           I*4         Count of boxes with valid values adjacent to
+*.                                a mapping 'hole'
+*.    GRIDXY          I*2         X & Y coordinate of Cart. box polar point
+*.                                maps into
+*.    GRID_COORD      I*4         Packed X,Y coordinate where polar index maps
+*.                                into
+*.    HOLEXY          I*2         X & Y coordinates of holes in cartesian grid
+*.                                in polar to cartesian mapping.
+*.    HOLE_COORD      I*4         Packed X,Y coordinate where Hole is
+*.    ITEM            I*4         Do-loop index for holes
+*.    KQUADS          I*4         Number of gradiants in 2 radians.
+*.    KRADS           I*4         Number of radials in the 232 km polar grid
+*.    K_C_PLUS1       I*4         One more than KGRID_CENTER
+*.    NEIGHBOR        I*4         Index (1-4) of box adjacent to 'hole'
+*.    NULL            I*4         Parameter for null value, =0
+*.    OFFSET          I*4         Offsets to add to cartesian X & Y to find
+*.                                coordinates of 'hole' neighbors
+*.    ORDER           I*4         Used for mapping table coords to full grid;
+*.                                determines which value to be used as X or Y
+*.                                coord depending on which quadrant the polar
+*.                                point comes from
+*.    QUAD            I*4         Index of polar grid quadrants (1-4)
+*.    ROTATE          I*4         Multiplyer values for mapping X & Y
+*.                                coordinates into appropriate quadrant
+*.    SECTOR          I*4         Starting degree of each polar quadrant
+*.    SUBTOTAL        I*4         Subtotal of hole neighbors values
+*.    X               I*4         Cartesian grid X coordinate
+*.    XDIR            I*4         Positional parameter for X-direction index
+*.                                into ROTATE and ORDER arrays
+*.    XNEIGHBOR       I*4         X index of grid box adjacent to a cartesian
+*.                                grid mapping 'hole'
+*.    XYDIR           I*4         Dimensional sizing parameter for ORDER and
+*.                                ROTATE arrays for number of directions (=2
+*.                                for X and Y dir.)
+*.    X_CENTER_OFFSET I*4         Array of X-center offset values indexed by
+*.                                quadrant
+*.    Y               I*4         Cartesian grid Y coordinate
+*.    YDIR            I*4         Positional parameter for Y-direction index
+*.                                into ROTATE and ORDER arrays
+*.    YNEIGHBOR       I*4         Y index of grid box adjacent to a cartesian
+*.                                grid mapping 'hole'
+*.    Y_CENTER_OFFSET I*4         Array of Y-center offset values indexed
+*.    ZONE            I*4         Loop index for zone number
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3146C1
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK14.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+C
+C...'X' IN COLUMN-1 INDICATES CONDITIONALLY COMPILED DEBUG CODE...
+C
+      IMPLICIT NONE
+C
+$INCLUDE A3146.INC,**A3146P1 (NEND NLIST)
+$INCLUDE           **A3146C1 (NEND NLIST)
+C
+      INTEGER*2 POLAR_GRID (KBINS,KRADS)
+      INTEGER*4 CARTGRID (KGRID_SIZE,KGRID_SIZE)
+      INTEGER*2 DENOM (KGRID_SIZE,KGRID_SIZE)
+      INTEGER   MX_CARTVAL
+C
+      INTEGER    SUBTOTAL, NULL, XYDIR, XDIR, YDIR
+      PARAMETER (NULL=0, XYDIR=2, XDIR=1, YDIR=2)
+C
+      REAL CONVERT
+      PARAMETER (CONVERT=0.0)
+C
+      INTEGER X, Y, ITEM, ZONE, COUNT
+      INTEGER QUAD, SECTOR, ANGLE, AZIMUTH, BIN_RANGE
+      INTEGER XNEIGHBOR, YNEIGHBOR, NEIGHBOR
+C
+      INTEGER*2   HOLEXY(XYDIR), GRIDXY(XYDIR)
+      INTEGER     HOLE_COORD, GRID_COORD
+      EQUIVALENCE (HOLE_COORD, HOLEXY), (GRID_COORD,GRIDXY)
+C
+      INTEGER ROTATE (KQUADS,XYDIR)
+      DATA    ROTATE /1,1,-1,-1,-1,1,1,-1/
+C
+C  DEFINE THE X AND Y CENTER OFFSETS.  NOTE THAT THE OFFSET IS 115
+C  WHEN ROTATION IS POSITIVE AND 116 WHEN NEGATIVE
+C
+      INTEGER X_CENTER_OFFSET(KQUADS), Y_CENTER_OFFSET(KQUADS)
+      INTEGER K_C_PLUS1
+      PARAMETER (K_C_PLUS1 = KGRID_CENTER + INCRMENT)
+      DATA    X_CENTER_OFFSET /KGRID_CENTER, KGRID_CENTER,
+     $                                 K_C_PLUS1, K_C_PLUS1/
+      DATA    Y_CENTER_OFFSET /K_C_PLUS1, KGRID_CENTER, KGRID_CENTER,
+     $                                                  K_C_PLUS1/
+C
+C  DEFINE OFFSETS FOR THE 4 CLOSEST NEIGHBOR POINTS FOR HOLE FILLING
+C
+      INTEGER OFFSET (KQUADS,XYDIR)
+      DATA    OFFSET /0,0,1,-1,1,-1,0,0/
+C
+C  DEFINE THE X AND Y ORDER IN THE GRIDXY AND HOLEXY ARRAYS
+C
+      INTEGER ORDER(KQUADS,XYDIR)
+      DATA    ORDER/1,2,1,2,2,1,2,1/
+C
+C
+C
+C------------------
+X      TYPE *,'A31464: ENTERING A31464'
+C
+C  INITIALIZE THE CARTESIAN OUTPUT GRID AND THE GRID WHICH
+C  MAINTAINS THE COUNT OF THE NUMBER OF TIMES A POLAR VALUE
+C  IS MAPPED INTO EACH INDIVIDUAL CARTESIAN BOX.
+C
+      DO 100 X = IBEG,KGRID_SIZE
+        DO 150 Y = IBEG,KGRID_SIZE
+          CARTGRID (X,Y) = NULL
+          DENOM (X,Y) = NULL
+ 150    CONTINUE
+ 100  CONTINUE
+      MX_CARTVAL=NULL
+C
+X     TYPE *,'A31464: DONE LOOP 100'
+X     TYPE *,'A31464: CARTGRID, DENOM & MX_CARTVAL SET TO ',NULL
+C
+C  THE POLAR-TO-CARTESIAN CONVERSION TABLE IS DESIGNED TO PROCESS
+C  ONE QUAD     OF THE POLAR GRID. AS SUCH, THE CONVERSION PROCESS
+C  IS PERFORMED FOUR TIMES, ONCE FOR EACH QUAD    ; EACH TIME, THE
+C  OUTPUT QUAD     IS ROTATED NINETY DEGREES BY APPLYING A MULTIPLIER
+C  TO THE X AND/OR Y COORDINATE.
+C
+      DO 200 QUAD = IBEG,KQUADS
+         SECTOR = (QUAD - INCRMENT) * AZ_IN_KQUAD
+C
+X        TYPE *,'A31464: LOOP 200; QUAD=',QUAD,'  SECTOR=',SECTOR
+C
+         DO 300 ANGLE = IBEG,AZ_IN_KQUAD
+            AZIMUTH = ANGLE + SECTOR
+C
+C  THE POLAR-TO-CARTESIAN CONVERSION TAKES A PORTION OF THE POLAR
+C  GRID ONE DEGREE IN AZIMUTH AND TWO KILOMETERS IN RANGE AND MAPS
+C  IT TO A TWO KILOMETER BY TWO KILOMETER CARTESIAN GRID BOX. FOR A
+C  BIN RANGE OF FROM ONE TO 57 (TWO TO 114 KILOMETERS), THE
+C  DISTANCE COVERED BY AN ARC OF ONE DEGREE IS LESS THAN TWO
+C  KILOMETERS, SO EACH POLAR GRID ELEMENT IS MAPPED TO ONE GRID BOX.
+C
+            DO 400 BIN_RANGE = IBEG, KNOSPLIT_RANGE
+               GRID_COORD = ZONE1_CARTGRID (BIN_RANGE, ANGLE)
+               X = GRIDXY(ORDER(QUAD,XDIR))*ROTATE(QUAD,XDIR) +
+     $                                     X_CENTER_OFFSET(QUAD)
+               Y = GRIDXY(ORDER(QUAD,YDIR))*ROTATE(QUAD,YDIR) +
+     $                                     Y_CENTER_OFFSET(QUAD)
+               CARTGRID(X,Y) = CARTGRID(X,Y)
+     $                            + POLAR_GRID (BIN_RANGE, AZIMUTH)
+               DENOM(X,Y) = DENOM(X,Y) + INCRMENT
+ 400        CONTINUE
+C
+C  FOR THE BIN RANGE OF 58-115 (116-230 KM), THE DISTANCE COVERED
+C  BY AN ARC OF ONE DEGREE IS FROM TWO TO FOUR KILOMETERS. AS A
+C  RESULT, MAPPING ONE POLAR GRID ELEMENT TO ONE CARTESIAN GRID
+C  BOX WOULD RESULT IN A LARGE NUMBER OF CARTESIAN BOXES WHICH
+C  DO NOT HAVE ANY POLAR VALUE MAPPED INTO THEM. IN ORDER TO AVOID
+C  HAVING THESE 'HOLES', A 'BEAM-SPLITTING' METHOD IS USED IN ORDER
+C  TO REDUCE THE GRANULARITY OF THE POLAR GRID ELEMENT. A SINGLE
+C  ONE DEGREE ARC IS DIVIDED INTO TWO ARCS BY ADDING OR SUBTRACTING
+C  1/4 DEGREE TO THE ORIGINAL ARC VALUE. THE DISTANCE COVERED
+C  BY ONE OF THESE DIVIDED ARCS IS AT MOST TWO KILOMETERS.
+C
+           DO 500 BIN_RANGE = KSPLIT_RANGE, KBINS
+             DO 550 ZONE = IBEG, N_ZONES
+               GRID_COORD = ZONE2_CARTGRID (BIN_RANGE, ANGLE, ZONE)
+               X = GRIDXY(ORDER(QUAD,XDIR)) * ROTATE(QUAD,XDIR) +
+     $                                          X_CENTER_OFFSET(QUAD)
+               Y = GRIDXY(ORDER(QUAD,YDIR)) * ROTATE(QUAD,YDIR) +
+     $                                          Y_CENTER_OFFSET(QUAD)
+               CARTGRID(X, Y) = CARTGRID(X, Y) +
+     $                              POLAR_GRID(BIN_RANGE, AZIMUTH)
+               DENOM(X,Y) = DENOM(X,Y) + INCRMENT
+ 550         CONTINUE
+ 500       CONTINUE
+ 300     CONTINUE
+C
+X        TYPE *,'A31464: DONE LOOP 300... QUAD #',QUAD
+C
+ 200  CONTINUE
+C
+X     TYPE *,'A31464: DONE LOOP 200'
+C
+C  SOME OF THE CARTESIAN GRID BOXES HAVE MORE THAN ONE POLAR
+C  GRID VALUE MAPPED INTO THEM. FOR SUCH GRID BOXES, DIVIDE THE
+C  VALUE CONTAINED IN THE BOX BY THE NUMBER OF TIMES A VALUE
+C  WAS ADDED TO THE BOX; THE REMAINING VALUE IS THE AVERAGE OF
+C  ALL THE POLAR VALUES MAPPED INTO THAT BOX.
+C
+      DO 600 X = IBEG,KGRID_SIZE
+        DO 650 Y = IBEG,KGRID_SIZE
+          IF (DENOM(X,Y) .GT. IBEG)
+C
+C** Note: Changed for LINUX - Used RPG_NINT library function instead
+C         of adding 0.5 for rounding to the nearest integer.
+
+     $      call RPG_NINT((CARTGRID(X,Y)+CONVERT)/DENOM(X,Y),
+     $                                         CARTGRID(X,Y))
+          IF (CARTGRID(X,Y).GT.MX_CARTVAL) MX_CARTVAL=CARTGRID(X,Y)
+ 650    CONTINUE
+ 600  CONTINUE
+C
+X     TYPE *,'A31464: DONE LOOP 600, MX_CARTVAL=',MX_CARTVAL
+C
+C  FILL IN THE HOLES THAT EXIST IN THE CARTESIAN GRID WHICH ARE
+C  WITHIN THE RADIUS OF THE CORRESPONDING POLAR COORDINATES. THESE
+C  HOLES WERE IDENTIFIED BY A3146A__INIT_POLAR_TO_CARTESIAN; THE
+C  HOLE COORDINATES ARE STORED IN TABLE INNER_HOLES. HOLES ARE
+C  FILLED BY TAKING THE AVERAGE VALUE OF THE NEIGHBORS OF THE HOLE,
+C  AND STORING THIS VALUE AT THE CARTESIAN HOLE COORDINATES.
+C
+      DO 700 ITEM = IBEG, INNER_COUNT
+         HOLE_COORD = INNER_HOLES(ITEM)
+C
+X        IF (ITEM.LE.50) WRITE(6,701) ITEM,HOLEXY
+X701     FORMAT(' PROCESSING HOLE NO. ',I3,' (X,Y)=',2I4)
+C
+C  DO FOR ALL 4 GRID QUADS
+C
+         DO 775 QUAD=IBEG,KQUADS
+           X = HOLEXY(ORDER(QUAD,XDIR))*ROTATE(QUAD,XDIR) +
+     $                                         X_CENTER_OFFSET(QUAD)
+           Y = HOLEXY(ORDER(QUAD,YDIR))*ROTATE(QUAD,YDIR) +
+     $                                         Y_CENTER_OFFSET(QUAD)
+X          BEGVAL = CARTGRID(X,Y)
+C
+C  GET THE 4 NEAREST NEIGHBORS TO THE HOLE LOCATION
+C
+           SUBTOTAL = NULL
+           COUNT = NULL
+           DO 750 NEIGHBOR = IBEG,KQUADS
+             XNEIGHBOR = X + OFFSET (NEIGHBOR, XDIR)
+             YNEIGHBOR = Y + OFFSET (NEIGHBOR, YDIR)
+C
+C  NOTE : X & Y COORDINATE VALUES ARE NOT CHECKED FOR BOUNDARY VALUE
+C         OVERFLOW, SINCE IT WAS DETERMINED BY INSPECTING THE OUTPUT
+C         FROM A3146A THAT NO INNER HOLES LIE ON THE GRID BOUNDARIES.
+C
+             IF (CARTGRID (XNEIGHBOR,YNEIGHBOR) .NE. NULL) THEN
+               SUBTOTAL = SUBTOTAL + CARTGRID(XNEIGHBOR,YNEIGHBOR)
+               COUNT = COUNT + INCRMENT
+             ENDIF
+ 750       CONTINUE
+           IF (COUNT.GT.NULL) CARTGRID (X, Y) = SUBTOTAL / COUNT
+C
+X     IF (ITEM.LE.50) WRITE(6,703) X,Y,CARTGRID(X,Y),SUBTOTAL,COUNT
+X703  FORMAT(5X,' (X,Y)=',2I4,' FINAL VALUE=',I8,' SUBTOTAL=',I8,
+     $                             '  COUNT=',I3)
+C
+ 775     CONTINUE
+ 700  CONTINUE
+C
+X     TYPE *,'A31464: DONE LOOP 700'
+X     TYPE *,'A31464: READY TO EXIT A31464... MX_CARTVAL=',MX_CARTVAL
+C
+      RETURN
+      END

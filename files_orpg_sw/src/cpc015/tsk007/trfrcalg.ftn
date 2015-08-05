@@ -1,0 +1,69 @@
+C
+C RCS info
+C $Author: steves $
+C $Locker:  $
+C $Date: 2011/02/25 15:24:34 $
+C $Id: trfrcalg.ftn,v 1.12 2011/02/25 15:24:34 steves Exp $
+C $Revision: 1.12 $
+C $State: Exp $
+C
+C***********************************************************************
+C
+C	Description: This module contains the main function for the 
+C	Storm Cell Tracking and Forecast algorithm of SCIT.
+C
+C***********************************************************************
+
+	IMPLICIT NONE
+
+$INCLUDE rpg_port.inc,**rpg_port	
+
+$INCLUDE A309.INC/G,**A3PM00	
+
+C**Attach internal common area (CT)
+$INCLUDE A315.INC/G,**A315CTT(NLIST)	;SPEEDINIT
+
+$INCLUDE itc.inc,**A315CSAD		;ITC A315CSAD
+$INCLUDE itc.inc,**A315TRND		;ITC A315TRND
+$INCLUDE itc.inc,**A3CD09		;ITC A3CD09
+
+	integer param;			;return value from A315A7 call
+
+        ;** initialize log error services.
+        call RPG_init_log_services()
+
+	;** specify inputs and outputs
+	call RPG_in_data (CENTATTR, VOLUME_DATA)
+	call RPG_out_data (TRFRCATR, VOLUME_DATA, INT_PROD)
+
+	;** register adapdation blocks
+
+	;register ITC inputs and ITC outputs
+	call RPG_itc_out (A315TRND_ID, A315TRND_FIRST, A315TRND_LAST (2),
+     1		          TRFRCATR)
+	call RPG_itc_out (A3CD09_ID, A3CD09_FIRST, A3CD09_LAST (2),
+     1		          ITC_ON_CALL)
+	call RPG_itc_in (A315CSAD_ID, A315CSAD_FIRST, A315CSAD_LAST (2),
+     1		         CENTATTR)
+	call RPG_itc_in (A315TRND_ID, A315TRND_FIRST, A315TRND_LAST (2),
+     1		         ITC_ON_CALL)
+
+	;** Initialization performed in a315m7.ftn
+	;** Initialize logical flag & variables used in Storm Correlation
+	;   Table.
+	STARTUP =.TRUE.
+	NPVOL = 2
+	COSPD = SPEEDINIT
+
+        ;** tell system this task volume-based.  Initailize the
+        ;** support environment
+	call RPG_task_init (VOLUME_BASED)
+
+	;** The main loop, which will never end
+10	call RPG_wait_act (WAIT_DRIVING_INPUT)
+	call A315A7__BUFFER_CONTROLLER(param)
+	goto 10
+
+	stop
+	end
+

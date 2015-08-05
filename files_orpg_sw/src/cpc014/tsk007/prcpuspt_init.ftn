@@ -1,0 +1,66 @@
+C
+C RCS info
+C $Author: steves $
+C $Locker:  $
+C $Date: 2011/02/25 15:28:34 $
+C $Id: prcpuspt_init.ftn,v 1.7 2011/02/25 15:28:34 steves Exp $
+C $Revision: 1.7 $
+C $State: Exp $
+C
+      SUBROUTINE PRCPUSPT_INIT( STARTUP )
+C***********************************************************************
+C
+C	Module:	prcpuspt_init.ftn
+C
+C	Description: This module performs some initialization at
+C                    prcpuspt task startup. 
+C
+C***********************************************************************
+
+	IMPLICIT NONE
+
+$INCLUDE A309ADPT.INC/G,**A3CD70P6 
+$INCLUDE                **A3CD70CA 
+$INCLUDE                **A3CD70C8 
+$INCLUDE                **A3CD70C4
+$INCLUDE A309.INC/G,  **A3PM00 
+$INCLUDE              **A3CD07
+$INCLUDE A3146.INC/G, **A3146P1 
+$INCLUDE A3147.INC/G, **A3147P9 
+$INCLUDE              **A3147C1 
+$INCLUDE              **A3147C9 
+$INCLUDE A313HBUF.INC/G,**A313HYPP 
+
+$INCLUDE ITC.INC/G, **A314C8
+$INCLUDE ITC.INC/G, **A314C9
+
+
+      logical STARTUP
+      integer STAT, STATUS
+
+      if( .not. STARTUP ) return
+
+      ;** Read in data from ITC A314C9 and A314C8
+      call RPG_ITC_READ( A314C9_ID, STATUS )
+      call RPG_ITC_READ( A314C8_ID, STATUS )
+
+      ;** Set the file status to normal.
+      USDB_FIL_STAT = 0
+
+      ;** Initialize information for the Null Products by
+      ;** calling A3147F since it is STARTUP.
+      call A3147F__HOURLY_UPD(STARTUP,STAT)
+
+      ;** Set local copy of last time User Selectable Database
+      ;** updated.
+      LOC_HRDB_TIME = USDB_LAST_TIME
+  
+      ;** Call A3147R to calculate threshold for switching color
+      ;** tables.
+      call A3147R__BUILD_THRESH(STARTUP)
+   
+      ;** Initialization is now complete.
+      STARTUP = .FALSE.
+
+      return
+      end

@@ -1,0 +1,514 @@
+C 
+C RCS info 
+C $Author: nolitam $ 
+C $Locker:  $ 
+C $Date: 2002/11/27 15:17:12 $ 
+C $Id: a31475.ftn,v 1.4 2002/11/27 15:17:12 nolitam Exp $ 
+C $Revision: 1.4 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A31475__UPDATE_USDB(VSNUM, SUPL, ADJHRLY)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A31475__UPDATE_USDB
+*.
+*.  MODULE VERSION: 0002
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   -----------------    --------------------
+*.       12/08/95      0000      ELLIOTT P. FRIEND    CCR NA94-08462
+*.       12/23/96      0001      Toolset              CCR NA95-11807
+*.       01/31/02      0002      Dennis A. Miller     CCR NA01-27501
+*.
+*.  CALLING SEQUENCE: CALL A31475__UPDATE_USDB (VSNUM, SUPL, ADJHRLY)
+*.
+*.  MODULE FUNCTION:
+*.
+*.     This routine updates the User Selectable database. It calls
+*.     A31473__CHECK_USDB to assure the proper association between
+*.     the hourly scans and the corresponding time-slot indices, to
+*.     handle possible circumstances such as a gap of missing hours
+*.     since the last time the USERSEL.DAT database was updated. It
+*.     fills the "current" time-slot of the Header Record with the
+*.     corresponding information from the Newest Hourly Scan. It then
+*.     stores the Header Record, and the latest buffer of precipitation
+*.     data, in polar coordinate form, at the appropriate time-slot, in
+*.     the User Selectable database, USERSEL.DAT.
+*.
+*.  MODULES CALLED: A31472__INIT_USDB, A31473__CHECK_USDB,
+*.                  A31474__ROTATE_INDICES, A31478__USDB_IO
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT              TYPE        DESCRIPTION
+*.    -   -----              ----        -----------
+*.    G   LAST_DATE_HRDB     I*2         The date of the latest hour that was
+*.                                       added to the USP 30 HR Precipitation
+*.                                       database.
+*.    G   LAST_TIME_HRDB     I*2         The time of the latest hour that was
+*.                                       added to the USP 30 HR Precipitation
+*.                                       database.
+*.    G   AVG_SCNDAT         I*4         (CONSTANT)(CONSTANT)Average Scan Date
+*.                                       index into Hydromet Supplemental Data
+*.                                       array
+*.    G   AVG_SCNTIM         I*4         (CONSTANT)(CONSTANT)Average Scan Time
+*.                                       index into Hydromet Supplemental Data
+*.                                       array
+*.    G   CUR_BIAS           I*4         (CONSTANT)Bias between rain gage and
+*.                                       radar estimates positional parameter.
+*.    G   CUR_GRPSIZ         I*4         (CONSTANT)Gage-Radar Pairs (effective
+*.                                       sample size) positional parameter.
+*.    G   CUR_MSPAN          I*4         (CONSTANT)Memory Span (over which Bias
+*.                                       determined) positional parameter.
+*.    G   END_BOTH           I*4         (CONSTANT)Indicator that hour was set
+*.                                       back to both clock hour and end gage
+*.                                       accumulation time.
+*.    G   END_CLOCK          I*4         (CONSTANT)Indicator that the hour was
+*.                                       set back to the clock hour
+*.    G   END_CURR           I*4         (CONSTANT)Used to initialize scan
+*.                                       type indcator for normal scan.
+*.    G   END_GAGE           I*4         (CONSTANT)Indicates hour was set back
+*.                                       to end gage accumulation time.
+*.    G   END_HRDATE         I*4         (CONSTANT)Positional parameter for
+*.                                       end date of the input hourly scan.
+*.    G   END_HRTIME         I*4         (CONSTANT)Positional parameter for
+*.                                       ending time of hourly scan.
+*.    G   FLAG_CLEAR         I*4         (CONSTANT)Parameter for a cleared
+*.                                       flag
+*.    G   FLAG_SET           I*4         (CONSTANT)Parameter for a set flag.
+*.    G   FLG_BADSCN         I*4         (CONSTANT)Indicator in hydromet scan
+*.                                       that data is bad.
+*.    G   FLG_NOHRLY         I*4         (CONSTANT)Index to flag indicating
+*.                                       hourly scan data is not there.
+*.    G   FLG_SPOT_BLANK     I*4         (CONSTANT)(Constant) Parameter for
+*.                                       position of Spot Blanking flag within
+*.                                       Supplemental Data array
+*.    G   FLG_ZERHLY         I*4         (CONSTANT)Index to flag indicating
+*.                                       hourly scan data is zero-filled.
+*.    G   HLY_SCNTYP         I*4         (CONSTANT)Offset into supplementary
+*.                                       data array within the output buffer
+*.                                       pointing to the hourly scan type.
+*.    G   HYZ_SUPL           I*4         (CONSTANT)(CONSTANT)Size of
+*.                                       Supplemental Data array in Hybrid
+*.                                       Scan output buffer.  SSIZ_PRE +
+*.                                       SSIZ_RATE + SSIZ_ACUM + SSIZ_ADJU (=
+*.                                       (13+14+16+5) = 48)
+*.    C   BIAS_TOGGLE        L*4         Local adaptaion copy of BIAS_FLAG
+*.    C   USDB_FIL_STAT      I*4         Status of read or write operation on
+*.                                       the USDB file
+*.    C   USDB_FLG_NO_HRLY   I*4         An array of the flags indicating if
+*.                                       the hourly accumulation has been
+*.                                       flagged as a bad hourly accumulation
+*.    C   USDB_FLG_ZERO_HRLY I*4         An array of the flags indicating if
+*.                                       the hourly accumulation has zero
+*.                                       accumulation
+*.    C   USDB_HRLY_EDATE    I*2         An array of the end date for the
+*.                                       hourly accumulation
+*.    C   USDB_HRLY_ETIME    I*2         An array of the end hour for the
+*.                                       hourly accumulation
+*.    C   USDB_HRLY_RECNO    I*2         An array of the record numbers for
+*.                                       the unadjusted hourly accumulations
+*.    C   USDB_HRS_OLD       I*2         An array of indexs for the hourly
+*.                                       accumulation
+*.    C   USDB_LAST_DATE     I*2         Last date the USDB was updated
+*.    C   USDB_LAST_TIME     I*2         Last time the USDB was updated
+*.    C   USDB_START_DIR     I*4         Starting address of USDB directory
+*.                                       common block
+*.    C   GOOD               I*4         (CONSTANT)Status flag value.
+*.    C   HRS_24             I*2         (CONSTANT)(CONSTANT)Number of hours
+*.                                       in a day
+*.    C   INIT_VAL           I*2         (CONSTANT)(CONSTANT)Value indicating
+*.                                       date/time are initial value
+*.    C   MAX_USDB_HRS       I*4         (CONSTANT)(CONSTANT)Maximum number of
+*.                                       hours in the User Selectable Data
+*.                                       Base
+*.    C   NUM_HDR_BYTES      I*4         (CONSTANT)(CONSTANT)Number of bytes
+*.                                       for the USDB header record
+*.    C   NUM_POLAR_BYTES    I*4         (CONSTANT)(CONSTANT)Number of polar
+*.                                       bytes to read or write
+*.                                       KBINS*KRADS*2=82,800
+*.    C   ONE_HR             I*2         (CONSTANT)(CONSTANT)Value of 1 hour
+*.    C   USDB_HDR_RECNO     I*4         (CONSTANT)(CONSTANT)User Selectable
+*.                                       Data Base header record number
+*.    C   USDB_NEWEST        I*4         (CONSTANT)(CONSTANT)Index of the
+*.                                       newest of the 30 hourly scans in the
+*.                                       User Selectable Data Base
+*.    C   WRITKODE           I*4         (CONSTANT)I/O code indicating write
+*.                                       to disk I/O operation should be
+*.                                       performed.
+*.    P   ADJHRLY            I*2         Adjusted hourly accumulation scan
+*.                                       data.
+*.    P   SUPL               I*4         Hydromet supplemental data array.
+*.
+*.    *   OUTPUT               TYPE        DESCRIPTION
+*.    -   ------               ----        -----------
+*.    G   LAST_DATE_HRDB       I*2         The date of the latest hour that
+*.                                         was added to the USP 30 HR
+*.                                         Precipitation database.
+*.    G   LAST_TIME_HRDB       I*2         The time of the latest hour that
+*.                                         was added to the USP 30 HR
+*.                                         Precipitation database.
+*.    C   USDB_CUR_BIAS        R*4         An array of the the calculated Bias
+*.                                         for the hourly accumulation
+*.    C   USDB_CUR_GRPSIZ      R*4         An array of the (effective) no.
+*.                                         G-R Pairs associated with the Bias
+*.                                         for the hourly accumulation
+*.    C   USDB_CUR_MSPAN       R*4         An array of the Memory Span
+*.                                         associated with the Bias for the
+*.                                         hourly accumulation
+*.    C   USDB_FLG_ADJUST      I*4         Not Used
+*.    C   USDB_FLG_NO_HRLY     I*4         An array of the flags indicating if
+*.                                         the hourly accumulation has been
+*.                                         flagged as a bad hourly
+*.                                         accumulation
+*.    C   USDB_FLG_ZERO_HRLY   I*4         An array of the flags indicating if
+*.                                         the hourly accumulation has zero
+*.                                         accumulation
+*.    C   USDB_HRLY_EDATE      I*2         An array of the end date for the
+*.                                         hourly accumulation
+*.    C   USDB_HRLY_ETIME      I*2         An array of the end hour for the
+*.                                         hourly accumulation
+*.    C   USDB_HRLY_SCAN_TYPE  I*4         An array of the scan type for the
+*.                                         hourly accumulations
+*.    C   USDB_LAST_DATA_RECNO I*2         Last record number updated in USDB
+*.    C   USDB_LAST_DATE       I*2         Last date the USDB was updated
+*.    C   USDB_LAST_TIME       I*2         Last time the USDB was updated
+*.    C   USDB_SB_STATUS_HRLY  I*4         An array of the flags indicating if
+*.                                         the hourly accumulation is spot
+*.                                         blanked
+*.    C   USDB_START_DIR       I*4         Starting address of USDB directory
+*.                                         common block
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    C   USDB_START_DIR    I*4         Starting address of USDB directory
+*.                                      common block
+*.    P   ADJHRLY           I*2         Adjusted hourly accumulation scan
+*.                                      data.
+*.
+*.  DATABASE/FILE REFERENCE: NONE
+*.
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME           TYPE        DESCRIPTION
+*.    ----           ----        -----------
+*.    DATE_DIF       I*4         Julian Date
+*.    FLAG_HRLY_SCAN L*4         Flag to indicate whether this hybrid scan is
+*.                               the the top of the hour scan
+*.    HSDATE         I*2         Current Hybrid scan date
+*.    HSTIME         I*2         Current Hybrid scan time
+*.    IBIAS          I*4         Equivalenced variable used to get real value
+*.                               of current Bias from Supplementary data
+*.    IGRPSIZ        I*4         Equivalenced variable used to get real value
+*.                               of current G-R Pair size from Suppl. data
+*.    IMSPAN         I*4         Equivalenced variable used to get real value
+*.                               of current Memory Span from Suppl. data
+*.    KUR_IDX        I*4         Current index
+*.    LSDATE         I*2         Last date the USDB was updated
+*.    LSTIME         I*2         Last time the USDB was updated
+*.    RECNO          I*4         Record number for I/O.
+*.    RBIAS          R*4         Equivalenced variable used to set the Bias
+*.                               for the current hour in the hourly database
+*.    RGRPSIZ        R*4         Equivalenced variable used to set the current
+*.                               G-R Pair size in the hourly database
+*.    RMSPAN         R*4         Equivalenced variable used to set the current
+*.                               Memory Span in the hourly database
+*.    SEC_IN_HOUR    I*4         (CONSTANT)Parameter value for seconds in an
+*.                               hour
+*.    TIME_DIF       I*4         Difference in time between the the USDB was
+*.                               last updated and the current date
+*.    ZERO           I*4
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD07
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3147C8
+*.    A3147C9
+*.    A314C3
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK14.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+C...'X' IN COLUMN-1 INDICATES CONDITIONALLY COMPILED DEBUG CODE...
+C
+      IMPLICIT NONE
+C
+$INCLUDE A309ADPT.INC/G,**A3CD70PA (NEND NLIST)
+$INCLUDE                **A3CD70P6 (NLIST)
+$INCLUDE                **A3CD70P8 (NLIST)
+$INCLUDE                **A3CD70C4 (NLIST)
+$INCLUDE A309.INC/G,**A3PM00 (NEND NLIST)
+$INCLUDE            **A3PM06 (NEND NLIST)
+$INCLUDE            **A3CD05 (NEND NLIST)
+$INCLUDE            **A3CD07 (NEND NLIST)
+$INCLUDE A3146.INC/G,**A3146P1 (NEND NLIST)
+$INCLUDE             **A3146C2 (NEND NLIST)
+$INCLUDE             **A314C3 (NEND NLIST)
+$INCLUDE A3147.INC/G,**A3147P4 (NEND NLIST)
+$INCLUDE A3147.INC/G,**A3147P9 (NEND NLIST)
+$INCLUDE             **A3147C8 (NEND NLIST)
+$INCLUDE             **A3147C9 (NEND NLIST)
+C
+$INCLUDE A313HBUF.INC/G,**A313HYPP (NEND NLIST)
+$INCLUDE                **A313HYD6 (NEND NLIST)
+C
+      LOGICAL FLAG_HRLY_SCAN
+      INTEGER VSNUM, SUPL(HYZ_SUPL)
+      INTEGER KUR_IDX, ICKSTAT, IOSTAT, RECNO
+      INTEGER SEC_IN_HOUR, SEC_IN_MIN, MIN_IN_DAY
+      PARAMETER (SEC_IN_HOUR=3600, SEC_IN_MIN=60, MIN_IN_DAY=1440)
+      INTEGER*4  ZERO
+      PARAMETER(ZERO = 0)
+      INTEGER*4 DATE_DIF, TIME_DIF
+      INTEGER*2 HSDATE, HSTIME, LSDATE, LSTIME
+      INTEGER IBIAS, IGRPSIZ, IMSPAN
+      REAL    RBIAS, RGRPSIZ, RMSPAN
+      EQUIVALENCE (IBIAS,RBIAS)
+      EQUIVALENCE (IGRPSIZ,RGRPSIZ)
+      EQUIVALENCE (IMSPAN, RMSPAN )
+C
+C---------------------EXECUTABLE --------------------
+C   INITIALIZATION
+C
+      HSTIME = INIT_VAL
+      HSDATE = INIT_VAL
+C
+X     WRITE(14,*) 'A31475: STARTING A31475'
+X     WRITE(14,*)'VSTIME = ',SUMMARY(SCAN_TIME,VSNUM),' HSTIME = ',
+X    &   SUPL(AVG_SCNTIM),' FLAG BAD SCAN = ',SUPL(FLG_BADSCN)
+C
+C** Calculate differences in DATE/TIME for CURRENT SCAN vs. DATABASE
+C
+C** First, get last DATE/TIME from USDB header record
+C
+      LSDATE = USDB_LAST_DATE
+      LSTIME = USDB_LAST_TIME
+X     WRITE(14,*)'LSDATE = ',LSDATE,' LSTIME = ',LSTIME
+C
+C  IF TIME OF DATABASE IS INITIALIZE, SET TIME DIFFERENCE
+C  TO ZERO
+C
+      IF (LSTIME .EQ. INIT_VAL.AND.LSDATE.EQ.INIT_VAL)THEN
+         TIME_DIF = ZERO
+      ELSE
+C
+C  Get current HYBRID scan time
+C
+         HSDATE = SUPL(AVG_SCNDAT)
+         HSTIME = (SUPL(AVG_SCNTIM) /SEC_IN_HOUR)
+X        WRITE (14,*)'HSDATE = ',HSDATE,' HSTIME = ',HSTIME
+C
+C  Determine the time difference
+C
+         DATE_DIF = HSDATE - LSDATE
+         TIME_DIF = HSTIME - LSTIME
+         TIME_DIF = DATE_DIF* HRS_24 + TIME_DIF
+      ENDIF
+X     WRITE(14,*)'75: TIME DIFF =',TIME_DIF,'HRS'
+C
+C  If there is no time difference or one hour
+C
+      IF(TIME_DIF .EQ. ZERO .OR. TIME_DIF .EQ. ONE_HR )THEN
+C
+C** Next, do we have a good scan that is also clock hour data?
+C
+          FLAG_HRLY_SCAN = .FALSE.
+X         WRITE(14,*)'SUPL(HLY_SCNTYP) = ',SUPL(HLY_SCNTYP)
+          IF (SUPL(HLY_SCNTYP).EQ.END_CLOCK .OR.
+     $                         SUPL(HLY_SCNTYP).EQ.END_BOTH ) THEN
+C
+C
+X        IF (SUPL(HLY_SCNTYP).EQ.END_CLOCK)
+X    $       WRITE(14,*) 'A31475: SUPL(HLY_SCNTYP) = END_CLOCK'
+X        IF(SUPL(HLY_SCNTYP).EQ.END_BOTH)
+X    $       WRITE(14,*) 'A31475: SUPL(HLY_SCNTYP) = END_BOTH'
+X        WRITE(14,*) 'A31475: SUPL(END_HRDATE)=',SUPL(END_HRDATE),
+X    &   ' SUPL(END_HRTIME)=',SUPL(END_HRTIME)
+C
+            FLAG_HRLY_SCAN = .TRUE.
+C
+C** ROTATE THE INDICES FOR THE HOURS THAT NEED TO BE SAVED
+C
+X           WRITE(14,*)'CALL 74 ROTATE'
+            CALL A31474__ROTATE_INDICES
+C
+C** UPDATE THE SUPPLEMENTARY DATA THAT IS KEPT WITH THE FILE
+C
+            KUR_IDX = USDB_HRS_OLD(USDB_NEWEST)
+            USDB_HRLY_EDATE(KUR_IDX) = SUPL(END_HRDATE)
+            USDB_HRLY_ETIME(KUR_IDX) = SUPL(END_HRTIME)/SEC_IN_HOUR
+X           WRITE(14,*)'NEW DATE = ',USDB_HRLY_EDATE(KUR_IDX),
+X    &      ' NEW TIME = ',USDB_HRLY_ETIME(KUR_IDX)
+            USDB_FLG_ZERO_HRLY (KUR_IDX) = SUPL(FLG_ZERHLY)
+            USDB_FLG_NO_HRLY(KUR_IDX) = SUPL(FLG_NOHRLY)
+            USDB_HRLY_SCAN_TYPE(KUR_IDX) = SUPL(HLY_SCNTYP)
+            USDB_SB_STATUS_HRLY(KUR_IDX) = SUPL(FLG_SPOT_BLANK)
+C
+C** SET THE BIAS-ESTIMATE, (EFFECTIVE) SAMPLE SIZE AND MEMORY SPAN
+C** USING EQUIVALENCE TO GET REAL VALUES
+C
+            IBIAS   = SUPL(CUR_BIAS)
+            IGRPSIZ = SUPL(CUR_GRPSIZ)
+            IMSPAN  = SUPL(CUR_MSPAN)
+C
+            USDB_CUR_BIAS  (KUR_IDX) = RBIAS
+            USDB_CUR_GRPSIZ(KUR_IDX) = RGRPSIZ
+            USDB_CUR_MSPAN (KUR_IDX) = RMSPAN
+C
+C** SET THE BIAS-APPLIED-FLAG
+C
+            IF (BIAS_TOGGLE) THEN
+              USDB_FLG_ADJUST(KUR_IDX) = FLAG_SET
+            ELSE
+              USDB_FLG_ADJUST(KUR_IDX) = FLAG_CLEAR
+            END IF
+C
+C  If the end time is equal to the current database hour, then there
+C  is a special case were it is based on the bias adjustment hourly.
+C  Needs special handling.  Do not want to use this hourly data so
+C  set NOHRLY flag.
+C
+            IF(USDB_HRLY_ETIME(KUR_IDX) .LT. HSTIME.AND.
+     &         SUPL(HLY_SCNTYP) .EQ. END_BOTH)THEN
+X              WRITE(14,*)'75: SPECIAL CASE: END TIME SAME AS DB TIME'
+               USDB_HRLY_ETIME(KUR_IDX) = HSTIME
+               USDB_HRLY_EDATE(KUR_IDX) = HSDATE
+               USDB_FLG_NO_HRLY (KUR_IDX) = FLAG_SET
+            ENDIF
+C
+C** WRITE NEWEST SCAN AND HDR_REC TO DISK TO SAVE IT DURING DOWN TIMES
+C
+            IF (USDB_FIL_STAT .EQ. GOOD ) THEN
+C
+C** WRITE NEWEST SCAN TO DISK IF IT IS NOT ALL ZERO AND IT EXISTS
+C
+              IF (USDB_FLG_NO_HRLY(KUR_IDX).NE.FLAG_SET .AND.
+     $               USDB_FLG_ZERO_HRLY (KUR_IDX).NE.FLAG_SET) THEN
+                RECNO = USDB_HRLY_RECNO(USDB_HRS_OLD(1))
+C
+C
+                CALL A31478__USDB_IO(WRITKODE, RECNO, NUM_POLAR_BYTES,
+     $                                                       ADJHRLY)
+C
+C
+C** SAVE USDB LAST DATA RECORD NUMBER
+C
+                USDB_LAST_DATA_RECNO = RECNO
+C             ELSE
+C
+C
+              END IF
+            ENDIF
+C
+C ELSE IF THE TIME DIFFERENCE IS ONE AND AND THE HOURLY SCAN
+C TYPE IS NOT AN END CLOCK OR END BOTH, THE SYSTEM HAS
+C BEEN DOWN JUST A HOUR, SO NEED TO ROTATE
+C THE INDICES JUST A HOUR BY CALLING A31473
+          ELSEIF((TIME_DIF .EQ. ONE_HR .AND. SUPL(HLY_SCNTYP).EQ.
+     &      END_CURR) .OR. (TIME_DIF .EQ. ONE_HR .AND.
+     &      SUPL(HLY_SCNTYP) .EQ. END_GAGE))THEN
+C
+C  IF THE SCAN IS NOT FLAGGED BAD
+C
+            IF(SUPL(FLG_BADSCN) .EQ. FLAG_CLEAR)THEN
+X             WRITE (14,*)'75: TIME DIFF IS ONE HOUR BUT SCAN TYPE',
+X    &      ' NOT END CLOCK'
+              CALL A31473__CHECK_USDB( TIME_DIF)
+              KUR_IDX = USDB_HRS_OLD(USDB_NEWEST)
+C
+C  ELSE DO NOT UPDATE. NEXT SCAN COULD BE FLAGGED AS TOP OF
+C  HOUR
+C
+            ELSE
+X             WRITE(14,*)' DO NOTHING, SCAN BAD'
+              GO TO 999
+            ENDIF
+C
+C  ELSE THE TIME DIFFERENCE IS LESS THAN AN HOUR
+C
+          ELSE
+X            WRITE(14,*)'75: NOT END HOUR YET'
+             GO TO 999
+          ENDIF
+C
+C  If the time difference is greater than 1 hour, Call A31473
+C  correct the database
+C
+      ELSEIF (TIME_DIF .GT. ONE_HR)THEN
+          CALL A31473__CHECK_USDB( TIME_DIF)
+C
+C  If the time difference was 30 hours or more,
+C  the directory was updated in A31472.
+C  Don't need to do it again
+C
+           IF(TIME_DIF .GE. MAX_USDB_HRS)THEN
+             GO TO 999
+           ENDIF
+           KUR_IDX = USDB_HRS_OLD(USDB_NEWEST)
+C
+C  IF THERE IS A NEGATIVE TIME DIFFERENCE
+C
+       ELSE
+C
+C  IF LARGE TIME DIFFERENCE, PROBABLY OSF TESTING
+C  SO INITIALIZE DATABASE
+C
+          IF (ABS(TIME_DIF) .GT. MAX_USDB_HRS)THEN
+             CALL A31472__INIT_USDB
+             GO TO 999
+          ELSE
+             WRITE(14,*)'TIME GOING BACKWARDS. USERSEL.DAT NOT UPDATED'
+             WRITE(14,*)'DB TIME = ',LSTIME,' HYBRID TIME = ',HSTIME
+             GO TO 999
+         ENDIF
+       ENDIF
+C
+C** UPDATE LAST_DATE_HRDB and LAST_TIME_HRDB STORED IN GLOBAL IMAGE (A3CD07)
+C
+           LAST_DATE_HRDB = USDB_HRLY_EDATE(KUR_IDX)
+           LAST_TIME_HRDB = USDB_HRLY_ETIME(KUR_IDX)
+C
+C** UPDATE CORRESPONDING ITEMS IN USDB HDR_REC
+C
+           USDB_LAST_DATE  = LAST_DATE_HRDB
+           USDB_LAST_TIME  = LAST_TIME_HRDB
+X          WRITE(14,*)'LAST DATE = ',USDB_LAST_DATE,' TIME = ',
+X    &     USDB_LAST_TIME
+C
+C** WRITE USDB HDR_REC TO DISK TO SAVE IT
+C
+C
+           CALL A31478__USDB_IO(WRITKODE, USDB_HDR_RECNO,
+     $       NUM_HDR_BYTES, USDB_START_DIR)
+C
+C
+C
+999   CONTINUE
+X     WRITE(14,*)'EXITING A31475... '
+C
+      RETURN
+      END

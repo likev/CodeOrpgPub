@@ -1,0 +1,259 @@
+C 
+C RCS info 
+C $Author: steves $ 
+C $Locker:  $ 
+C $Date: 2005/08/04 14:33:36 $ 
+C $Id: a313h1.ftn,v 1.4 2005/08/04 14:33:36 steves Exp $ 
+C $Revision: 1.4 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A313H1__MAXVIL_MAXET (PTLVIL,ETPAR,ETVAL,
+     $ VILPAR,VILVAL )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A313H1__MAXVIL_MAXET
+*.
+*.  MODULE VERSION: 0012
+*.
+*.  MODULE LANGUAGE:  FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       05 25 85      0000      Bradley Sutker       RPG Build #1
+*.       02 13 91      0001      BAYARD JOHNSTON      SPR # 91254
+*.       12 03 91      0002      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0003      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0004      Toolset              SPR 91895
+*.       05/19/92      0005      MARK FRESCH          SPR # 92468
+*.       03/25/93      0006      Toolset              SPR NA93-06801
+*.       01/28/94      0007      Toolset              SPR NA94-01101
+*.       03/03/94      0008      Toolset              SPR NA94-05501
+*.       06/07/94      0009      Steve Smith          CCR 93158-003A00
+*.       04/11/96      0010      Toolset              CCR NA95-11802
+*.       12/23/96      0011      Toolset              CCR NA95-11807
+*.       03/16/99      0012      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:
+*.
+*.    CALL A313H1__MAXVIL_MAXET (PTLVIL,ETPAR,ETVAL,
+*.           VILPAR,VILVAL )
+*.
+*.  MODULE FUNCTION:
+*.     This routine is called when the end of the volume scan
+*.     has been reached.  The primary purpose of this routine
+*.     is to compute the total VIL values for  each Cartesian
+*.     grid box, then determine the maximum VIL and Echo  Top
+*.     in the entire  grid box array along with their respec-
+*.     tive positions.   Also the  output supplimental varia-
+*.     bles arrays are set up for output.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT    TYPE        DESCRIPTION
+*.    -   -----    ----        -----------
+*.    G   NCOL     I*4         (CONSTANT)Number of analysis box columns.
+*.    G   NETCOL   I*4         (CONSTANT)Total columns in the ECHO TOPS
+*.                             product.
+*.    G   NETROW   I*4         (CONSTANT)Total rows in the ECHO TOPS product.
+*.    G   NROW     I*4         (CONSTANT)Number of analysis box rows.
+*.    G   NVILCOL  I*4         (CONSTANT)Number of columns in VIL grid.
+*.    G   NVILROW  I*4         (CONSTANT)Number of rows in VIL grid.
+*.    G   OMET     I*4         (CONSTANT)The pointer into the ECHO TOPS
+*.                             supplemental variable array to height.
+*.    G   OMETC    I*4         (CONSTANT)The pointer into the ECHO TOPS
+*.                             supplemental variable array to the maximum echo
+*.                             top column position.
+*.    G   OMETR    I*4         (CONSTANT)The pointer into the ECHO TOP
+*.                             supplemental variable array to the maximum ECHO
+*.                             TOP row position.
+*.    G   OMVI     I*4         (CONSTANT)Pointer into VIL supplemental array
+*.                             to maximum VIL value.
+*.    G   OMVIC    I*4         (CONSTANT)Pointer into VIL supplemental array
+*.                             to maximum VIL value's column.
+*.    G   OMVIR    I*4         (CONSTANT)Pointer into VIL supplemental array
+*.                             to maximum VIL value's row.
+*.    G   ONCO     I*4         (CONSTANT)The pointer to the number of columns
+*.                             in both VIL and ECHO TOPS supplemental variable
+*.                             arrays.
+*.    G   ONRO     I*4         (CONSTANT)The pointer to the number of rows in
+*.                             both the VIL and ECHO TOPS supplemental
+*.                             variable arrays.
+*.    C   MAXVILTH I*4         Maximum displayable VIL threshold value.
+*.    C   REFMIN   R*4         Minimum reflectivity required to determine VIL
+*.                             and ECHO TOPS.
+*.    C   MAXRNG   I*4         (CONSTANT)Maximum range of the vil/echo tops
+*.                             analysis box.
+*.    P   ETPAR    I*4         ARRAY OF ECHO TOPS AUXILIARY PARAMETERS
+*.    P   ETVAL    I*2         Array of Echo Tops Values in thousands of feet.
+*.    P   PTLVIL   R*4         The partial VIL array, in kg/m**3.
+*.    P   VILPAR   I*4         VIL supplemental variable output array.
+*.    P   VILVAL   I*2         The array of VIL values, in kg/m**2.
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    P   ETPAR   I*4         ARRAY OF ECHO TOPS AUXILIARY PARAMETERS
+*.    P   VILPAR  I*4         VIL supplemental variable output array.
+*.    P   VILVAL  I*2         The array of VIL values, in kg/m**2.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME     TYPE        DESCRIPTION
+*.    ----     ----        -----------
+*.    HUNDRETH R*4         A value that converts tens of meters to kilometers
+*.                         (0.01), in km/tens of meters.
+*.    ICOL     I*4         A column number index.
+*.    INDEX    I*4         Do-Loop index
+*.    JROW     I*4         A row number index.
+*.    OMSR     I*4         The pointer to the maximum analysis slant range in
+*.                         both VIL and ECHO TOPS supplemental variable
+*.                         arrays.
+*.    OMVT     I*4         (Constant) the pointering the VIL supplemental
+*.                         variable array containing the maximum VIL threshold
+*.                         value.
+*.    ONZE     I*4         The pointer to the minimum reflectivity threshold
+*.                         in both the VIL and ECHO TOPS supplemental variable
+*.                         arrays.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A313C0
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP13.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK13.CSS
+*.
+*.  MISC:
+*.
+*.     Further description of the Product Index and Disk Space Map
+*.     organization may be found in the CPCI 03 C5 document.
+*.
+*.*******************************************************************
+C************************************************************
+C*                THE FIFTH OF FIVE                         *
+C*               OF THE VIL/ECHO TOPS                       *
+C*              PROCESSING SUBROUTINES                      *
+C*                    A313H1.FTN                            *
+C*    *** COMPUTE MAX VIL AND MAX ECHO TOP ***              *
+C************************************************************
+C
+      IMPLICIT NONE
+C
+C Include common parameter files
+C
+$INCLUDE A313BUF.INC/G,**A313P0 (NLIST)
+$INCLUDE               **A313Z0 (NLIST)
+$INCLUDE               **A313Z1 (NLIST)
+C
+C Local variable definitions
+C
+      INTEGER INDEX, ICOL, JROW, TEMP
+      REAL PTLVIL(NCOL*NROW)
+C
+      REAL HUNDRETH
+C
+C Include common adaptable data definition files
+C
+$INCLUDE A313.INC,**A313C0 (NLIST)
+C
+C Local data definitions
+C
+      DATA HUNDRETH /0.01/
+C
+C Process all 4 x 4 km grid boxs...look for maximum values
+C
+      DO 100 INDEX=1,NROW*NCOL
+C
+C Compute total VIL values, rounded to the nearest
+C integer, units in kg/m**2.
+C
+          CALL RPG_NINT( PTLVIL(INDEX)*HUNDRETH, TEMP )
+          VILVAL(INDEX)=VILVAL(INDEX) + TEMP
+C
+C If the current VIL value is greater than the maximum
+C displayable value...set it to the maximum displayable value
+C
+          IF(VILVAL(INDEX).GT.MAXVILTH)THEN
+            VILVAL(INDEX)=MAXVILTH
+          END IF
+C
+C If the current VIL is greater than the current max VIL
+C set the current as the maximum value
+C
+          IF(VILVAL(INDEX).GT.VILPAR(OMVI)) THEN
+            VILPAR(OMVI)=VILVAL(INDEX)
+            VILPAR(OMVIC)=INDEX
+          END IF
+C
+C Determine the maximum echo top by comparing it to the
+C current max top...set it to the max top if its greater
+C
+          IF (ETVAL(INDEX).GT.ETPAR(OMET))THEN
+            ETPAR(OMET)=ETVAL(INDEX)
+            ETPAR(OMETC)=INDEX
+          END IF
+  100 CONTINUE
+C
+C Calculate grid indices for maximum VIL value
+C
+      INDEX = VILPAR(OMVIC)
+      IF (MOD(INDEX,NCOL) .EQ. 0) THEN
+         JROW = INDEX/NCOL
+      ELSE
+         JROW = INDEX/NCOL + 1
+      END IF
+      ICOL  = INDEX - (JROW-1)*NCOL
+      VILPAR(OMVIC)=ICOL
+      VILPAR(OMVIR)=JROW
+C
+C Calculate grid indices for maximum ECHO TOP value
+C
+      INDEX = ETPAR(OMETC)
+      IF (MOD(INDEX,NCOL) .EQ. 0) THEN
+         JROW = INDEX/NCOL
+      ELSE
+         JROW = INDEX/NCOL + 1
+      END IF
+      ICOL  = INDEX - (JROW-1)*NCOL
+      ETPAR(OMETC)=ICOL
+      ETPAR(OMETR)=JROW
+C
+C Set the Echo Tops adaptable parameters for the output file
+C
+      ETPAR(ONCO)=NETCOL
+      ETPAR(ONRO)=NETROW
+      ETPAR(OMSR)=MAXRNG
+      ETPAR(ONZE)=REFMIN*10
+C
+C Set the VIL adaptable parameters for the output file
+C
+      VILPAR(ONCO)=NVILCOL
+      VILPAR(ONRO)=NVILROW
+      VILPAR(OMSR)=MAXRNG
+      VILPAR(ONZE)=REFMIN*10
+      VILPAR(OMVT)=MAXVILTH
+C
+      RETURN
+      END

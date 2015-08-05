@@ -1,0 +1,320 @@
+C
+C RCS info
+C $Author: ryans $
+C $Locker:  $
+C $Date: 2005/03/09 16:35:19 $
+C $Id: a31494.ftn,v 1.5 2005/03/09 16:35:19 ryans Exp $
+C $Revision: 1.5 $
+C $State: Exp $
+C
+      SUBROUTINE A31494__APPEND_ASCII(HYDRMESG,HYDRADAP,SUPL_PRE,
+     +                                              LYR1EN,PBUFF)
+*.****************************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A31494__APPEND_ASCII
+*.
+*.  MODULE VERSION: 0003
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION     PROGRAMMER            NOTES
+*.       ----------    -------     ----------------     -------------
+*.       07/31/02       0000       Jihong Liu            CCR NA02-15801 
+*.       06/30/03       0001       Cham Pham             CCR NA02-06508
+*.       12/09/03       0002       CHRIS CALVERT         CCR NA03-30002
+*.       01/13/05       0003       Dennis A. Miller      CCR NA04-27811
+*.
+*.  CALLING SEQUENCE: CALL A31494__APPEND_ASCII(HYDRMESG,HYDRADAP,SUPL_PRE,
+*.                                                               LYR1EN,PBUFF)
+*.
+*.  MODULE FUNCTION:
+*.     This module formats the ASCII data in Layer 2 of the
+*.     Digital Storm Total (DSP) product buffer. The layer consists
+*.     of four sub-layers of information as follows: 1) Precip Status Message;
+*.     2) Adaptation  Data  (for  all  PPS  parameters);  3) Supplemental Data
+*.     (Precip. Preprocessing alg. only); 4) Bias-related fields. Each sub-layer
+*.     is preceded by a 8-character descriptive header indicating the title and
+*.     the number of fields of the sub-layer to follow.
+*.
+*.  MODULES CALLED: NONE
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT       TYPE    DESCRIPTION
+*.    -   -----       ----    -----------
+*.    P   HYDRMESG    I*4     Precip. Status Message (PSM) array
+*.    P   HYDRADAP    I*4     Adaptation data array
+*.    P   SUPL_PRE    I*4     Supplemental data array (Preproc Alg. only)
+*.    P   LYR1EN      I*4     End index of layer 1
+*.    P   PBUFF       I*2     Product buffer
+*.    G   HYZ_MESG    I*4     (CONSTANT)Size of Precip. Status Message
+*.                            (PSM) array in input buffer.
+*.    G   HYZ_ADAP    I*4     (CONSTANT)Size of Adaptation data array
+*                             in input buffer.
+*.    G   SSIZ_PRE    I*4     (CONSTANT)Size of Supplemental data array
+*                             (Preproc Alg. only) in input buffer.
+*.    G   PHEADLNG    I*4     (CONSTANT)Number of half words in product
+*.                            header (its length).
+*.    G   BIAS_FLAG   L*4     Flag indicating whether Bias is applied
+*.    C   BIAS        R*4     Bias (i.e., Gage-Radar ratio) selected
+*.                            from table
+*.    C   DBTBL_GEN   I*4     Generation Date of latest Bias Table (Julian)
+*.    C   DBTBL_OBS   I*4     Observation Date of latest Bias Table (Julian)
+*.    C   DBTBL_UPD   I*4     Date of last Update of local Bias Table (Julian)
+*.    C   DBUPDT      I*4     Date Bias value last updated locally (Julian)
+*.    C   GRPSIZ      R*4     Effective Gage-Radar Pair Size associated
+*.                            with Bias chosen from table
+*.    C   INCR        I*4     (CONSTANT)Variable used to increment by 1.
+*.    C   MSPAN       R*4     Memory Span associated with Bias chosen
+*.                            from table
+*.    C   TBTBL_GEN   I*4     Generation Time of latest Bias Table (secs)
+*.    C   TBTBL_OBS   I*4     Observation Time of latest Bias Table (secs)
+*.    C   TBTBL_UPD   I*4     Time of last Update of local Bias Table (secs)
+*.    C   TBUPDT      I*4     Time Bias value last updated locally (secs)
+*.
+*.    *   OUTPUT      TYPE    DESCRIPTION
+*.    -   ------      ----    -----------
+*.    P   LYR2EN      I*4     End index of layer 2
+*.    P   PBUFF       I*2     Product buffer
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE     DESCRIPTION
+*.    -   ----------------  ----     -----------
+*.    P   HYDRMESG          I*4      Precip. Status Message (PSM) array
+*.    P   HYDRADAP          I*4      Adaptation data array
+*.    P   SUPL_PRE          I*4      Supplemental data array (Preproc Alg. only)
+*.    P   LYR1EN            I*4      End index of layer 1
+*.    P   LYR2EN            I*4      End index of layer 2
+*.    P   PBUFF             I*2      Product buffer
+*.
+*.  DATABASE/FILE REFERENCE: NONE
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME          TYPE        DESCRIPTION
+*.    ----          ----        -----------
+*.    BLKLNOFF      I*4         Block length offset
+*.    CHARLINE      CHAR*8      Character line table.
+*.    CLIDX         I*4         CHARLINE index
+*.    DIVIDER       I*4         Parameter for layer divider
+*.    DIVOFF        I*4         Offset for layer divider
+*.    I             I*4         Do loop index.
+*.    ISTOFF        I*4         Parameter for Product buffer offset
+*.    JSTOFF        I*4         Parameter for Product buffer offset
+*.    LYR2ST        I*4         Start index of layer 2
+*.    LYR2LNG       I*4         Layer 2 length
+*.    LYRIDOFF      I*4         Offset for layer ID
+*.    LYRLNOFF      I*4         Offset for LYR2LNG
+*.    LYR_OVERHD    I*4         Overhead in bytes of layer divider
+*.    NI2           I*4         Ratio of I*4 bytes to I*2 bytes (2)
+*.    NULL          I*4         Parameter for integer 0
+*.    PACKETID      I*4         Packet ID
+*.    PRODLINE      I*2         Array equivalenced to CHARLINE to assign
+*.                              character data to product.
+*.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3136C3
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A313HYPP
+*.    A313HYDD
+*.    A314C3
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK14.CSS
+*.
+*.  MISC:  None
+*.
+*.*****************************************************************************
+C
+C RCS info
+C $Author: ryans $
+C $Locker:  $
+C $Date: 2002/07/31 13:57:50
+C $Id: a31494.ftn,v 1.5 2005/03/09 16:35:19 ryans Exp $
+C $Revision: 1.5 $
+C $State: Exp $
+C
+C
+C...'X' IN COLUMN-1 INDICATES CONDITIONALLY COMPILED DEBUG CODE...
+C
+      IMPLICIT NONE
+C
+C** Include global common data:
+C
+$INCLUDE A309.INC/G,    **A3PM00   (NEND NLIST)
+$INCLUDE                **A3PM01   (NEND NLIST)
+$INCLUDE A309ADPT.INC,  **A3CD70_HYDROMET_ADJ (NEND NLIST)
+C
+$INCLUDE A313H.INC/G,   **A3136C3  (NEND NLIST)
+C
+C** Include task-local common data:
+C
+$INCLUDE A313HBUF.INC/G,**A313HYPP (NEND NLIST)
+C
+$INCLUDE A3143.INC,     **A3143P4  (NEND NLIST)
+C
+C--------------------------------------------------------------------
+C
+      INTEGER HYDRMESG (HYZ_MESG)
+      REAL    HYDRADAP (HYZ_ADAP)
+      INTEGER SUPL_PRE (SSIZ_PRE)
+C
+      INTEGER   LYR1EN, LYR2ST, LYR2EN, LYR2LNG, I, CLIDX, INCR
+      INTEGER*2 PBUFF(*)
+      INTEGER*4  FWD
+      PARAMETER (INCR=1)
+C
+      INTEGER    LYR_OVERHD, NI2, BLKLNOFF, DIVOFF, LYRIDOFF, LYRLNOFF,
+     +           ISTOFF, JSTOFF, DIVIDER, PACKETID, NULL
+      PARAMETER (LYR_OVERHD=4, NI2=2, BLKLNOFF=5,
+     +           DIVOFF=1, LYRIDOFF=4, LYRLNOFF=3, ISTOFF=6, JSTOFF=7,
+     +           DIVIDER=-1, PACKETID=1, NULL=0)
+C
+C** Use EQUIVALENCE to decode integer value stored in real array
+C
+      INTEGER IVALUE
+      REAL    RVALUE
+      EQUIVALENCE (IVALUE,RVALUE)
+C
+C********************************************************************
+C
+C** Executable Code
+C
+      LYR2ST = LYR1EN
+      LYR2EN = LYR2ST + JSTOFF
+C
+      CLIDX = 0
+C
+C-------------------
+C
+C** Transfer PRECIP STATUS MESSAGE (PSM) to intermediate I*2 buffer
+C
+      CLIDX  = CLIDX + 1
+      WRITE (CHARLINE(CLIDX),'(A5,I2,A1)') 'PSM (', HYZ_MESG, ')'
+C
+      DO I = DAT_STAMP, HYZ_MESG
+        CLIDX  = CLIDX + 1
+        WRITE (CHARLINE(CLIDX),'(I8)') HYDRMESG( I )
+      ENDDO
+C
+C-------------------
+C
+C** Transfer ADAPTATION Data Array to intermediate I*2 buffer
+C
+      CLIDX  = CLIDX + 1
+      WRITE (CHARLINE(CLIDX),'(A5,I2,A1)') 'ADAP(', HYZ_ADAP+1, ')'
+C
+      DO I = BEAM_WDTH, HYZ_ADAP
+        CLIDX  = CLIDX + 1
+        WRITE (CHARLINE(CLIDX),'(F8.2)') HYDRADAP( I )
+      ENDDO
+C
+C** Bias Applied Flag
+C
+      CLIDX  = CLIDX + 1
+      WRITE (CHARLINE(CLIDX),'(L8)') BIAS_FLAG
+C
+C-------------------
+C
+C** Transfer SUPPLEMENTAL Data (Enhanced Preproc Alg.) to intermediate
+C** I*2 buffer
+C
+      CLIDX  = CLIDX + 1
+      WRITE (CHARLINE(CLIDX),'(A5,I2,A1)') 'SUPL(', SSIZ_PRE, ')'
+C
+      DO I = AVG_SCNDAT, TBIN_SMTH
+        CLIDX  = CLIDX + 1
+        WRITE (CHARLINE(CLIDX),'(I8)') SUPL_PRE( I )
+      ENDDO
+C
+      DO I = HYS_FILL, HIG_ELANG
+        IVALUE = SUPL_PRE( I )
+        CLIDX  = CLIDX + 1
+        WRITE (CHARLINE(CLIDX),'(F8.2)') RVALUE
+      ENDDO
+C
+      IVALUE = SUPL_PRE( RAIN_AREA )
+      CLIDX  = CLIDX + 1
+      WRITE (CHARLINE(CLIDX),'(F8.1)') RVALUE
+C
+      CLIDX  = CLIDX + 1
+      WRITE (CHARLINE(CLIDX),'(I8)') SUPL_PRE( VOL_STAT )
+C
+C-------------------
+C
+C** Transfer BIAS items in Global COMMON /A3136C3/ to intermediate I*2 buffer
+C** via ITC block
+C
+      CLIDX  = CLIDX + 1
+      WRITE (CHARLINE(CLIDX),'(A5,I2,A1)') 'BIAS(', N_BIAS_ITEMS, ')'
+C
+      CLIDX  = CLIDX + 1
+      WRITE (CHARLINE(CLIDX),'(I8)') TBUPDT
+      CLIDX  = CLIDX + 1
+      WRITE (CHARLINE(CLIDX),'(I8)') DBUPDT
+      CLIDX  = CLIDX + 1
+      WRITE (CHARLINE(CLIDX),'(I8)') TBTBL_UPD
+      CLIDX  = CLIDX + 1
+      WRITE (CHARLINE(CLIDX),'(I8)') DBTBL_UPD
+      CLIDX  = CLIDX + 1
+      WRITE (CHARLINE(CLIDX),'(I8)') TBTBL_OBS
+      CLIDX  = CLIDX + 1
+      WRITE (CHARLINE(CLIDX),'(I8)') DBTBL_OBS
+      CLIDX  = CLIDX + 1
+      WRITE (CHARLINE(CLIDX),'(I8)') TBTBL_GEN
+      CLIDX  = CLIDX + 1
+      WRITE (CHARLINE(CLIDX),'(I8)') DBTBL_GEN
+      CLIDX  = CLIDX + 1
+      WRITE (CHARLINE(CLIDX),'(F8.4)') BIAS
+      CLIDX  = CLIDX + 1
+      WRITE (CHARLINE(CLIDX),'(F8.2)') GRPSIZ
+      CLIDX  = CLIDX + 1
+      WRITE (CHARLINE(CLIDX),'(F8.0)') MSPAN
+C
+C-------------------
+C
+C** Transfer CHARLINE data to the product buffer using PRODLINE equivalence
+C
+      DO I=INCR,NI2_PRODLINE
+        LYR2EN = LYR2EN + INCR
+        PBUFF(LYR2EN) = PRODLINE(I)
+      ENDDO
+C
+C** Compute length of PRODUCT SYMBOLOGY BLOCK
+C
+      FWD  = (LYR2EN - PHEADLNG)*NI2
+      call RPG_set_product_int( PBUFF(LRMSWOFF), FWD )
+C
+C** Establish the size of this part of the output buffer
+C
+      LYR2LNG=(LYR2EN - LYR2ST - LYRLNOFF)*NI2
+C
+C** Set up layer header data
+C
+      PBUFF(LYR2ST + DIVOFF )  = DIVIDER
+      call RPG_set_product_int( PBUFF(LYR2ST + LYRLNOFF - INCR),
+     1                          LYR2LNG )
+      PBUFF(LYR2ST + LYRIDOFF) = PACKETID
+      PBUFF(LYR2ST + BLKLNOFF) = LYR2LNG - LYR_OVERHD
+      PBUFF(LYR2ST + ISTOFF)   = NULL
+      PBUFF(LYR2ST + JSTOFF)   = NULL
+C
+      RETURN
+      END

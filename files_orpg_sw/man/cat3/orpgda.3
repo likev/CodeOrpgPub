@@ -1,0 +1,373 @@
+
+NAME
+    ORPGDA_read, ORPGDA_read_window, ORPGDA_direct, ORPGDA_write,
+    ORPGDA_get_msg_id, ORPGDA_previous_msgid, ORPGDA_msg_info, ORPGDA_info,
+    ORPGDA_clear, ORPGDA_delete, ORPGDA_changed, ORPGDA_stat, ORPGDA_list,
+    ORPGDA_seek, ORPGDA_lbfd, ORPGDA_open, ORPGDA_write_permission,
+    ORPGDA_lbname, ORPGDA_group, ORPGDA_update, ORPGDA_UN_register,
+    ORPGDA_NTF_control, ORPGDA_close, ORPGDA_copy, ORPGDA_copy_msg,
+    ORPGDA_copy_to_lb, ORPGDA_copy_from_lb, ORPGDA_get_verbose
+    ORPGDA_verbose, ORPGDA_bypass_write_permission_check
+
+SYNOPSIS
+	#include <orpgda.h> (or #include <orpg.h>)
+
+	int ORPGDA_read (int data_id, char *buf, int buflen, LB_id_t id);
+
+	int ORPGDA_read_window (int data_id, int offset, int size);
+
+	int ORPGDA_direct (int data_id, char **buf, LB_id_t id);
+
+        int ORPGDA_write (int data_id, char *msg, int length, LB_id_t id);
+
+	LB_id_t ORPGDA_previous_msgid ( int data_id );
+
+        int ORPGDA_msg_info (int data_id, LB_id_t id, LB_info *info);
+
+        int ORPGDA_clear (int data_id, int msgs );
+
+        int ORPGDA_delete (int data_id, LB_id_t id );
+
+        int ORPGDA_stat (int data_id, LB_status *status);
+
+        int ORPGDA_list (int data_id, LB_info *list, int nlist);
+
+        int ORPGDA_seek (int data_id, int offset, LB_id_t id, LB_info *info);
+
+        int ORPGDA_UN_register (int data_id, LB_id_t id, void (*notify_func)());
+        int ORPGDA_NTF_control (int cntl_function, ... );
+
+	int ORPGDA_close (int data_id);
+
+	LB_id_t ORPGDA_get_msg_id ();
+
+	int ORPGDA_info (int data_id, LB_id_t id, LB_info *info);
+
+        int ORPGDA_changed (int data_id);
+
+        int ORPGDA_lbfd (int data_id);
+
+	int ORPGDA_open (int data_id, int flags);
+
+        int ORPGDA_write_permission (int data_id);
+
+	void ORPGDA_bypass_write_permission_check (int on);
+
+        char* ORPGDA_lbname (int data_id)
+
+	int ORPGDA_group (int group, int data_id, LB_id_t id, 
+					char *buf, int buf_size);
+
+	int ORPGDA_update (int group);
+	
+	int ORPGDA_copy (int dest_data_id, int src_data_id, int flags);
+	
+	int ORPGDA_copy_msg (int dest_data_id, int dest_msg_id, 
+		int src_data_id, int src_msg_id, int replace_existing);
+
+	int ORPGDA_copy_to_lb (const char* dest_lb, 
+				int src_data_id, int copy_flags);
+
+	int ORPGDA_copy_from_lb (int dest_data_id, 
+				const char* src_lb, int copy_flags);
+
+	void ORPGDA_verbose (int on);
+
+	int ORPGDA_get_verbose ();
+
+DESCRIPTION
+
+    ORPGDA is the module of ORPG data access support routines.
+
+    Functions ORPGDA_read, ORPGDA_read_window, ORPGDA_direct, ORPGDA_write, 
+    ORPGDA_previous_msgid, ORPGDA_msg_info, ORPGDA_clear, ORPGDA_delete, 
+    ORPGDA_stat, ORPGDA_list, ORPGDA_seek, ORPGDA_UN_register, 
+    ORPGDA_NTF_control, ORPGDA_close are the ORPGDA version of the their
+    corresponding LB functions. Refer to "man lb" for additional details on
+    these functions. These ORPGDA functions accept ORPG data store IDs (the
+    first parameter of these functions) instead of the LB file descriptor
+    expected by their corresponding LB functions.
+
+    These functions provide ORPG data store ID based access. ORPGDA maps from
+    the ORPG data store IDs to the physical locations (the LB file names) using
+    the ORPG system configuration information (Refer to "man cs"). It opens the
+    LBs and keeps track of the open LB file descriptors. When the data stores
+    are relocated, ORPGDA dynamically reopens the new LBs. This simplifies the
+    ORPG application development and allows run-time configuration of data
+    store locations and dynamic relocation of data stores. When there is a
+    network problem, ORPGDA will wait and retry until the data access is
+    successfully completed. This may also involve a reopen of the data object.
+    These procedures are transparent to the user of the ORPGDA module.
+
+    Examples of the ORPG data store IDs are BREF19, CENTATTR and 
+    ORPGDAT_ADAPTATION. Note that for ITC LBs the data store ID is defined by 
+    its major number. E.g. (ITC_SCAN_SUMMARY / ITC_IDRANGE) * ITC_IDRANGE. 
+    Note however that the message ID, parameter "id", for ORPGDA_read 
+    and ORPGDA_write should be a true message ID. A macro such as LB_NEXT or 
+    LB_ANY must be used with caution. This is because the read pointer of an 
+    open LB loses its meaning when the LB is relocated and reopened.
+
+    ORPGDA_read can be used to access products regardless of whether the 
+    product resides in the product data store or in the product database. 
+    If the product data stores contains a "link" to the product in the 
+    product database, the product database will be read to retrieve the 
+    product.  If ORPGDA_get_msg_id is called after ORPGDA_read for a product
+    read out of the product database, the message ID will be the ID of the
+    message from the product data store if the data ID passed to ORPGDA_read
+    is the product data store ID, or the message ID of the product in the 
+    product database if the data ID passed to ORPGDA_read is the ID of the 
+    product database.
+
+    These functions return the same return values as their corresponding LB
+    functions. Additional ORPGDA error code, however, may also be returned
+    in case of ORPG system configuration errors or networking problems are 
+    detected (details will be given later in this man-page).
+
+    ORPGDA opens an LB when access is needed. The LB is kept open afterward. If
+    the data store is opened for read-only (See the next paragraph) and the
+    application later calls ORPGDA_write to write the same data store, an error
+    code is returned. One can then close the data store and reopen it with
+    write permission. In this process, however, any LB event registration with
+    the previous read-only LB file descriptor is lost. To prevent from this,
+    one should make sure the data store is open with the correct access
+    permission according to the following.
+
+    Upon the first ORPGDA access to a data store, the data store is opened
+    according to one of the following rules.
+
+	1. The data store does not have a write permission specification (Refer
+    to data_tables.4): If the current access does not need the write
+    permission, the data store is opened as read-only. Otherwise, it is opened
+    with write permission.
+
+	2. The data store has a write permission specification: The data store 
+    is opened with the write permission if the calling task has write 
+    permission to any of the messages. Otherwise, it is opened as read-only.
+
+	3. If the data store has not been opened: ORPGDA_open (data_id,
+    LB_WRITE) opens the data store with write permission and ORPGDA_open
+    (data_id, LB_READ) opens it as read_only.
+
+    The following ORPGDA functions are provided for additional support in the
+    ORPGDA level.
+
+    ORPGDA_close can be called to close data store "data_id". ORPGDA_close 
+    may be used to prevent from consuming too many resources when a process 
+    needs to access a large number of LBs.
+
+    ORPGDA_lbfd returns the current LB descriptor for data store "data_id".
+    One can open the LB by calling this function.
+
+    ORPGDA_open opens data store "data_id" with access permission flag "flags"
+    (LB_READ, LB_WRITE or LB_READ | LB_WRITE) and returns the LB descriptor on
+    success. ORPGDA does not open any data store while it is already opened. If
+    a data store is opened for read only, a subsequent operation that needs
+    write permission (e.g. ORPGDA_write) will fail and return an error code.
+    One can always close the data store with ORPGDA_close and reopen it for
+    different access permission.
+
+    ORPGDA_write_permission opens the LB with write permission. Returns
+    non-negative value on success, or negative value on error.
+
+    ORPGDA_bypass_write_permission_check (1) sets a flag to bypass any write
+    permission check for this process. ORPGDA_bypass_write_permission_check (0)
+    resumes the check. This is designed for certain tools that need to bypass
+    write protection. When the write permission check is bypassed, data stores
+    are opened according the the first rule of the data store open rules
+    described earlier.
+
+    ORPGDA_lbname returns the lb name for data store "data_id". If the data
+    store is already open, the path of the LB is returned. If the data store is
+    not open, the LB path that is going to be used to open the data store is
+    returned. The data store is not opened if it is not already opened.
+
+    ORPGDA_get_msg_id returns the message ID involved in the latest successful
+    ORPGDA_read or ORPGDA_write. It should be called immediately after a
+    successful ORPGDA_read or ORPGDA_write call. Note the difference between
+    this and ORPGDA_previous_msgid. ORPGDA_previous_msgid returns the message
+    ID involved in the latest successful ORPGDA_read or ORPGDA_write of
+    data_id. This function is the ORPGDA interface to LB_previous_msgid.
+
+    ORPGDA_info and ORPGDA_msg_info both return, in "info", the attributes of
+    message "id" in data store "data_id". The difference between the two
+    functions is ORPGDA_info performs a "seek" operation whereas
+    ORPGDA_msg_info does not. That is, after ORPGDA_info is called, the read
+    pointer for the LB has been changed. Both return LB_SUCCESS (0) on success.
+
+    ORPGDA_changed returns no-zero if any message in data store "data_id" has 
+    been updated since previous call to ORPGDA_changed. It returns 0 if there 
+    is no change.
+    
+    ORPGDA_group and ORPGDA_update are used for reading a set of specified 
+    messages when they have been updated. ORPGDA_group is first called for
+    setting up message groups. Each call of ORPGDA_group adds a message of 
+    ID "id" in data store "data_id" to group "group". "buf" is the pointer
+    to the space that the message will be put and "buf_size" is the size of 
+    the buffer space. After a group is set, ORPGDA_update can be called to
+    read messages in group "group". ORPGDA_update reads only those messages
+    that has been updated since last ORPGDA_update call. Thus ORPGDA_update
+    can be called in high frequency without introducing performance penalty.
+    ORPGDA_group and ORPGDA_update can only be applied to LB_REPLACE type of
+    data store LBs. For other LBs other than LB_REPLACE type, one should use
+    ORPGDA_changed. On success, ORPGDA_group and ORPGDA_update return 0.
+
+    ORPGDA_changed should not be used together with ORPGDA_update for the same
+    data store and in the same process.
+
+    ORPGDA_verbose turns on/off the verbose mode. ORPGDA_get_verbose returns
+    the current verbose mode set by ORPGDA_verbose. The former is used when the
+    application wants to control error messages from the ORPGDA. The latter can
+    be used by other ORPG modules to make error messages controllable.
+
+    ORPGDA_copy is used to copy the contents of one data store to another.
+    dest_data_id is the data id of the destination data store and src_data_id
+    is the data id of the source data store. There are 3 values for the flags
+    field which may be or'd together. If the ORPGDA_CLEAR_DESTINATION flag is
+    set, the destination lb will be cleared before copying any messages. The
+    ORPGDA_COPY_NEW_MSGS_ONLY will copy only messages with message ids that do
+    not already exist in the destination file. The ORPGDA_COPY_ALL_MSGS will
+    copy all messages into the destination regardless of the contents of the
+    destination. If successful, this function returns the number of messages
+    copied which can be 0. On failure this function returns an ORPGDA error
+    code < 0.
+
+    ORPGDA_copy_msg is use for copying messages from one message to another.
+    dest_data_id and dest_msg_id are the destination data store message id.
+    src_data_id and dest_src_id are the source data store message id. 
+    if replace_existing ORPGDA_FALSE, the source message will
+    be copied into destination if the specified destination message id
+    does not already exist.  if replace_existing is ORPGDA_TRUE, the 
+    source message will be copied into the destination without regard
+    to the contents of the destination. Returns 1 if message was actually 
+    copied 0 if we were successful, but no data was copied or a 
+    value < 0 if an error occurred.
+
+    ORPGDA_copy_to_lb and ORPGDA_copy_from_lb are used to copy the contents of
+    an orpg linear buffer to some external linear buffer and vise versa.
+    dest_lb is the path of the destination linear buffer. src_data_id is the
+    data id of the source linear buffer. In addition to the flags processed by
+    ORPGDA_copy, this function also processes the ORPGDA_CREATE_DESTINATION
+    flag. Functionality is identical to ORPGDA_copy except data is copied to a
+    non-ORPG linear buffer. If the destination linear buffer does not exist and
+    the ORPG_CREATE_DESTINATION bit is set for the copy_flags parameter, then
+    the destination linear buffer will be created using the attributes of the
+    source linear buffer.
+
+    ORPGDA requires the CS service, which in turn used the EN service. If 
+    the EN daemon is not running, ORPGDA functions will not work normally.
+    However, if the configuration source name has a suffix of ".dev", the
+    ORPGDA functions will work in case that the EN service is not available.
+    Refer to "man cs".
+
+    On failure, ORPGDA functions return a negative error number which can be 
+    one of LB, RSS, RMT, CS or ORPGDA error numbers.
+
+    The ORPGDA error numbers:
+	
+	ORPGDA_TOO_MANY_ITEMS	Too many data stores opened or too many 
+				messages registered in groups.
+
+	ORPGDA_MALLOC_FAILED	malloc failed.
+
+	ORPGDA_EN_FAILED	Failed in registering the system configuration 
+				change event.
+
+        ORPGDA_INVALID_BUF_SIZE The size of the buffer is smaller than the
+                                size of an orpg product header.
+
+    If ORPGDA fails in either finding a configuration entry or opening an LB,
+    it will send a message containing additional information.
+
+
+    Examples:
+
+    The following section of code reads the base reflectivity product at time
+    "data_time".
+
+    #include <stdio.h>
+    #include <a309.h>
+    #include <orpg.h>
+
+    #define BUF_SIZE 92000
+
+    char prod[BUF_SIZE];
+    LB_id_t data_time;
+    int ret;
+
+    data_time = ...;
+    ret = ORPGDA_read (BUF16, prod, BUF_SIZE, data_time);
+
+    if (ret == LB_NOT_FOUND)
+	printf (stderr, "product (%d) not found\n", data_time);
+    }
+    else if (ret <= 0)
+	printf (stderr, "ORPGDA_read failed (ret = %d)\n", ret);
+	exit (1);
+    }
+
+    The following section of code writes the scan summary data structure to
+    the scan summary ITC LB.
+
+    #include <stdio.h>
+    #include <itc.h>
+    #include <a309.h>
+    #include <orpg.h>
+
+    Summary_Data summary;
+    int ret;
+
+    if ((ret = ORPGDA_write ((ITC_SCAN_SUMMARY / ITC_IDRANGE) * ITC_IDRANGE, 
+	(char *)&summary, sizeof (summary), LBID_SCAN_SUMMARY)) < 0) {
+	printf (stderr, "ORPGDA_write failed (ret = %d)\n", ret);
+	exit (1);
+    }
+
+    Assume that a process need to use two adaptation data blocks, RDACNT and
+    SITEADP. These blocks have to be updated in the beginning of every 
+    elevation scan. The following code segment shows how this is done with
+    ORPGDA.
+
+    #include <stdio.h>
+    #include <orpg.h>
+    #include <a309.h>
+
+    #define ADAPTATION_BLOCKS	0
+    #define RDACNT_SIZE		64000
+    #define SITEADP_SIZE	20000
+
+    char rdacnt[RDACNT_SIZE];
+    char sideadp[SITEADP_SIZE];
+
+    /* register the adaptation blocks in the group */
+    if (ORPGDA_group (ADAPTATION_BLOCKS, ORPGDAT_ADAPTATION,
+				RDACNT, rdacnt, RDACNT_SIZE) < 0 ||
+	ORPGDA_group (ADAPTATION_BLOCKS, ORPGDAT_ADAPTATION,
+				SITEADP, sideadp, SITEADP_SIZE) < 0) {
+	printf (stderr, "ORPGDA_group failed\n");
+	exit (1);
+    }
+
+    /* main processing loop */
+    while (1) {
+
+	/* read data */
+	......
+
+	/* update adaptation blocks */
+	if (... beginning of elevation condition ... &&
+	    ORPGDA_update (ADAPTATION_BLOCKS) < 0) {
+	    printf (stderr, "ORPGDA_update failed\n");
+	    exit (1);
+	}
+    }
+
+    Note that the above code required the ORPG operational environment set up
+    to run. Refer to "man cs".
+
+SEE ALSO
+    lb(3)
+
+NOTES
+
+
+

@@ -1,0 +1,353 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/17 14:57:26 $
+C $Id: a317d8.ftn,v 1.2 2002/12/17 14:57:26 christie Exp $
+C $Revision: 1.2 $
+C $State: Exp $
+C
+      SUBROUTINE A317D8__TRIM_P2DF(RANGRANK, NUM_PV, P2D_FEAT,
+     >                            TRIMMED)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A317D8__TRIM_P2DF
+*.
+*.  MODULE VERSION: 0001
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE        VERSION   PROGRAMMER       NOTES
+*.       --------    -------   ------------    --------------
+*.       05/29/97      0000      MARK FRESCH         CCR NA95-21503
+*.       03/16/99      0001      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A317D8__TRIM_P2DF(RANGRANK, NUM_PV,
+*.                                   P2D_FEAT, TRIMMED)
+*.
+*.  MODULE FUNCTION: Trims Potential 2D Features so that only one
+*.  pattern vector
+*.  remains at each range.  The output of the module is an array
+*.  of pointers to the remaining pattern vectors, TRIMMED, & the
+*.  corrected # of pattern vectors in the Potential 2D Feature
+*.
+*.  MODULES CALLED: None.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT        TYPE        DESCRIPTION
+*.    -   -----        ----        -----------
+*.    G   TDAMAIN      R*4         An array that holds pattern attributes.
+*.    G   N1D_MAX      I*4         (CONSTANT)MAXIMUM # OF PATTERN VECTORS THAT
+*.                                 CAN BE IDENTIFIED IN AN ELEVATION SCAN
+*.    C   MAX_PV_RAD   I*4         (CONSTANT)MAXIMUM NUMBER OF PATTERN VECTORS
+*.                                 PER RADIAL IN THE RAD_PV ARRAY
+*.    C   PV_BAZ       I*4         (CONSTANT)Index the Pattern Vector
+*.                                  beginning azimuth
+*.    C   PV_BIN       I*4         (CONSTANT)Index the Pattern Vector
+*.                                  bin numbers.
+*.    C   PV_DV        I*4         (CONSTANT)Index the Pattern Vector
+*.                                 delta velocity.
+*.    C   NUM_P2D_ATR   I*4         (CONSTANT)NUMBER OF POTENTIAL 2D FEATURE
+*.                                  ATTRIBUTES IN P2DFEAT AND OTHER ARRAYS
+*.    P   NUM_PV       I*4         Number of pattern vectors in the
+*.                                 potential 2D feature
+*.    P   P2D_FEAT     R*4         An array of attributes for a Potential
+*.                                 2d feature.
+*.    P   RANGRANK     I*4         Pattern Vector range rank list
+*.    P   TRIMMED      I*4         An array of pointers of the saved pattern
+*.                                 vectors
+*.
+*.    *   OUTPUT   TYPE        DESCRIPTION
+*.    -   ------   ----        -----------
+*.    P   P2D_FEAT     R*4         An array of attributes for a potential 2D
+*.                                 feature
+*.    P   TRIMMED      I*4         An array of pointers of the saved pattern
+*.                                 vectors
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME     TYPE        DESCRIPTION
+*.    ----     ----        -----------
+*.    LARGEDEG         R*4    Parameter for a large value in degrees
+*.    MAX_VEL_DIFF_RNG R*4    Maximum Velocity Difference(RANGE)
+*.    MIN_REF_AZ_DIF   R*4    Minimum Reference Azimuthal Difference
+*.    RANGE1           I*4    First range in the Potential 2D Feature
+*.    REF_AZ_DIF       R*4    The Pattern Vector Reference Azimuthal
+*.                            Difference
+*.    REF_VEC          I*4    Reference pattern vector for the Potential
+*.                            2D feature
+*.    PV               I*4    Index to the second pattern vector at a
+*.                            particular range
+*.    PV2              I*4    Do loop variable for pattern vectors
+*.    PV_NEXT          I*4    Do loop variable for pattern vectors
+*.    PV_PREV          I*4    Do loop variable of pattern vectors at the
+*.                            previous range
+*.    SMALL_VD         R*4    Parameter for a small velocity which is
+*.                            for initialization
+*.    TPV              I*4    Index into TRIMMED array of pattern vectors
+*.    X                I*4    Do loop variable for pattern vectors
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    PVECS09
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     Compiled using COMP17.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     Linked using LINK17.CSS
+*.
+*.  MISC:  None
+*.
+C********************************************************************
+C
+C          TDA 2D PROCESSING: TRIM POTENTIAL 2D FEATURE
+C
+C********************************************************************
+C
+      IMPLICIT NONE
+C
+$INCLUDE A317BUF.INC/G, **A317P3T (NLIST)
+C
+$INCLUDE A309.INC/G, **A3PM50 (NLIST)
+$INCLUDE             **A3CD09BL (NLIST)
+C
+$INCLUDE A317.INC/G, **A317TCP (NLIST)
+$INCLUDE             **A317P2DP(NLIST)
+C
+C** Passed arguements
+C
+      INTEGER RANGRANK(N1D_MAX), NUM_PV, TRIMMED(MAX_PV_RAD)
+      REAL P2D_FEAT(NUM_P2D_ATR)
+C
+C** Pattern vector DO LOOP indices
+C
+      INTEGER X, PV, LAST_PV, PV_NEXT, PV_PREV, PV2, TPV
+C
+      INTEGER RANGE1, RANGE2, REF_VEC
+      REAL MIN_REF_AZ_DIF, MAX_VEL_DIF_RNG, REF_AZ_DIF
+      REAL SMALL_VD, LARGEDEG
+      PARAMETER ( SMALL_VD = 0., LARGEDEG = 360.)
+C
+C****************** Executable Code ******************************
+C
+      REF_VEC = 1
+C
+C** Handle the case where the Potential 2D Feature is composed
+C** of pattern vector all at one range.  This case will include
+C** if there is only 1 pattern vector in the Potential 2D Feature
+C** as the Min # of Pattern Vectors/ 2D Feature can be 1.
+C
+      IF ( TDAMAIN( PV_BIN, RANGRANK(1) ) .EQ.
+     >     TDAMAIN( PV_BIN, RANGRANK(NUM_PV) ))THEN
+C
+        TPV = 1
+        MAX_VEL_DIF_RNG = SMALL_VD
+C
+C** Find the pattern vector with the highest Velocity Difference.
+C
+        DO 1000 X = 1,NUM_PV
+C
+          IF (TDAMAIN( PV_DV, RANGRANK(X)) .GE.
+     >                     MAX_VEL_DIF_RNG) THEN
+            MAX_VEL_DIF_RNG = TDAMAIN( PV_DV, RANGRANK(X))
+            REF_VEC = RANGRANK(X)
+          END IF
+ 1000   CONTINUE
+        TRIMMED(TPV) = REF_VEC
+      ELSE
+C
+C** Rather than discarding pattern vectors as in the AEL, this
+C** routine will save only 1 appropriate pattern vector at each
+C** range in the Potential 2D Feature into the TRIMMED array.
+C** TPV is the index into TRIMMED; init TPV here to zero.
+C
+       TPV = 0
+       PV = 2
+       PV_NEXT = 2
+C
+C** Find the Reference Vector at the 1ST range in this Pot. 2D
+C** Feature, and compare the first two Pattern Vectors.
+C
+       RANGE1 = TDAMAIN(PV_BIN,RANGRANK(PV-1))
+       IF (RANGE1 .EQ. TDAMAIN(PV_BIN,RANGRANK(PV))) THEN
+C
+C** Loop through the pattern vectors until the first pattern
+C** vector at the next range is found.
+C
+        DO 10 PV_NEXT = PV+1, NUM_PV
+          IF (RANGE1 .NE. TDAMAIN(PV_BIN,RANGRANK(PV_NEXT)))
+     >        GO TO 210
+ 10     CONTINUE
+ 210    CONTINUE
+C
+C** Init. the Maximum Velocity Difference(Range) to a small
+C** values and the Minimum Reference Azimuthal Difference to a
+C** large value.
+C
+        MAX_VEL_DIF_RNG = SMALL_VD
+        MIN_REF_AZ_DIF = LARGEDEG
+C
+C** Loop through the pattern vectors at the first range to find
+C** the closest one to the 1st pattern vector at the 2nd range.
+C** Use the 1st pattern vector at the 2nd range (PV_NEXT)
+C** as the temporary Reference Vector.
+C
+        DO 20 PV_PREV = PV-1, PV_NEXT-1
+C
+C** Compute the Pattern Vector Reference Azimuthal Difference
+C
+          REF_AZ_DIF = ABS( TDAMAIN(PV_BAZ, RANGRANK(PV_NEXT)) -
+     >                   TDAMAIN( PV_BAZ, RANGRANK(PV_PREV) ))
+C
+          IF (REF_AZ_DIF .LT. MIN_REF_AZ_DIF) THEN
+C
+C** Compute the Minimum Reference Azimuthal Difference
+C
+            MIN_REF_AZ_DIF = REF_AZ_DIF
+            REF_VEC = RANGRANK(PV_PREV)
+C
+C** If the azimuthal difference is the same then compute
+C** and test the Maximum Velocity Difference(Range).
+C
+          ELSE IF (REF_AZ_DIF .EQ. MIN_REF_AZ_DIF) THEN
+            IF ( TDAMAIN( PV_DV, RANGRANK(PV_PREV) ) .GE.
+     >        MAX_VEL_DIF_RNG ) THEN
+              MAX_VEL_DIF_RNG = TDAMAIN(PV_DV, RANGRANK(PV_PREV))
+              REF_VEC = RANGRANK(PV_PREV)
+            END IF
+          END IF
+ 20     CONTINUE
+C
+C** At this point one pattern vector has been retained at
+C** the first range.  Use it as the Reference Vector to find
+C** the pattern vector at the next range.
+C
+        TPV = TPV + 1
+        TRIMMED(TPV) = REF_VEC
+C
+C** There is only one pattern vector at the next range, simply
+C** save to TRIMMED.
+C
+       ELSE
+        TPV = TPV + 1
+        TRIMMED(TPV) = RANGRANK(PV-1)
+       END IF
+C
+C** Since Reference Vector for the 1st range has been identified,
+C** trim the rest of the Potential 2D Feature.  First check if its
+C** the end of the Feature.
+C
+ 100   IF (PV_NEXT .LT. NUM_PV) THEN
+        RANGE1 = TDAMAIN(PV_BIN,RANGRANK(PV_NEXT))
+C
+C** Loop through the pattern vectors until the first pattern
+C** vector at the next range is found.
+C
+        DO 30 PV = PV_NEXT+1, NUM_PV
+          IF (RANGE1 .NE. TDAMAIN(PV_BIN,RANGRANK(PV)))
+     >         GO TO 230
+ 30     CONTINUE
+ 230    CONTINUE
+C
+C** If there is more than one pattern vector at the next range...
+C** Use the TRIMMED(TPV) as the Reference Vector.
+C
+        IF (PV .GE. PV_NEXT+1) THEN
+C
+C** Init. the Maximum Velocity Difference(Range) to a small
+C** values and the Minimum Reference Azimuthal Difference to a
+C** large value and...
+C
+          MAX_VEL_DIF_RNG = SMALL_VD
+          MIN_REF_AZ_DIF = LARGEDEG
+C
+C** ...loop through the pattern vectors at the next range to find
+C** the closest one to the Reference Vector.
+C
+          DO 40 PV2 = PV_NEXT, PV-1
+C
+C** Compute the Pattern Vector Reference Azimuthal Difference
+C
+            REF_AZ_DIF = ABS( TDAMAIN(PV_BAZ, TRIMMED(TPV)) -
+     >                   TDAMAIN( PV_BAZ, RANGRANK(PV2) ))
+C
+            IF (REF_AZ_DIF .LT. MIN_REF_AZ_DIF) THEN
+C
+C** Compute the Minimum Reference Azimuthal Difference
+C
+              MIN_REF_AZ_DIF = REF_AZ_DIF
+              REF_VEC = RANGRANK(PV2)
+C
+C** If the azimuthal difference is the same then compute
+C** and test the Maximum Velocity Difference(Range).
+C
+            ELSE IF (REF_AZ_DIF .EQ. MIN_REF_AZ_DIF) THEN
+              IF ( TDAMAIN( PV_DV, RANGRANK(PV2) ) .GE.
+     >          MAX_VEL_DIF_RNG ) THEN
+                MAX_VEL_DIF_RNG = TDAMAIN(PV_DV, RANGRANK(PV2))
+                REF_VEC = RANGRANK(PV2)
+              END IF
+            END IF
+ 40       CONTINUE
+C
+C** At this point one pattern vector has been retained at
+C** the next range.  Save it as the Reference Vector to find
+C** the pattern vector at the next range...
+C
+          TPV = TPV + 1
+          TRIMMED(TPV) = REF_VEC
+C
+C** ...and go to the next range
+C
+          PV_NEXT = PV
+C
+C** There is only one pattern vector at the next range, simply
+C** save to TRIMMED...
+C
+        ELSE
+          TPV = TPV + 1
+          TRIMMED(TPV) = RANGRANK(PV_NEXT)
+C
+C** ...and go to the next range
+C
+          PV_NEXT = PV_NEXT + 1
+        END IF
+        GO TO 100
+C
+C** There is only one more pattern vector at the final range.
+C** Add it to TRIMMED.
+C
+       ELSE IF (PV_NEXT .LE. NUM_PV) THEN
+        TPV = TPV + 1
+        TRIMMED(TPV) = RANGRANK(PV_NEXT)
+       END IF
+      END IF
+
+C
+C** Lastly, correct the # of pattern vectors in the Pot. 2D Feature
+C
+      NUM_PV = TPV
+      P2D_FEAT( P2D_NPV ) = TPV
+C
+      RETURN
+      END

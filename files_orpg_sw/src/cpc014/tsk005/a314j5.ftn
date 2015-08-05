@@ -1,0 +1,283 @@
+C 
+C RCS info 
+C $Author: steves $ 
+C $Locker:  $ 
+C $Date: 2006/01/18 21:18:57 $ 
+C $Id: a314j5.ftn,v 1.4 2006/01/18 21:18:57 steves Exp $ 
+C $Revision: 1.4 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A314J5__COMP_AVG ( REFLAY,REFNUM,NCOL,NROW,
+     $                              MAXLAY,REFTY8 )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A314J5__COMP_AVG
+*.
+*.  MODULE VERSION: 0013
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       09 25 85      0000      Bradley Sutker       RPG Build 3
+*.       06 14 88      0001      STEVEN D. SMITH      SPR # 80120
+*.       08 23 88      0001      W.B. EIDSON          SPR # 80248
+*.       10 17 88      0002      VALERIE HOLDEN       SPR # 80266
+*.       04 17 90      0003      PAUL PISANI          SPR # 90697
+*.       02 22 91      0004      MARK FRESCH          SPR # 91255
+*.       11 28 90      0004      B. JOHNSTON          SPR # 90993
+*.       12 03 91      0005      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0006      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0007      Toolset              SPR 91895
+*.       03/25/93      0008      Toolset              SPR NA93-06801
+*.       01/28/94      0009      Toolset              SPR NA94-01101
+*.       03/03/94      0010      Toolset              SPR NA94-05501
+*.       04/11/96      0011      Toolset              CCR NA95-11802
+*.       12/23/96      0012      Toolset              CCR NA95-11807
+*.       03/16/99      0013      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A314J5__COMP_AVG(REFLAY,REFNUM,NCOL,NROW,
+*.                      MAXLAY,REFTY8)
+*.
+*.  MODULE FUNCTION:
+*.
+*.     Compute the average reflectivity and the maximum
+*.     average reflectivity.
+*.
+*.  MODULES CALLED: ILBYTE 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT  TYPE        DESCRIPTION
+*.    -   -----  ----        -----------
+*.    G   THRESH I*2         Adaptation Data for Color Data Table Thresholds
+*.                           (color-level code, color table number).
+*.    G   RDMSNG I*4         (CONSTANT)Flag value indicating Missing sample
+*.                           bin
+*.    P   MAXLAY I*2         The maximum reflectivity in the layer (max or
+*.                           avg), in dBz.
+*.    P   NCOL   I*4         The number of Cartesian boxes in the column
+*.                           direction (E-W).
+*.    P   NROW   I*4         The number of Cartesian boxes in the row
+*.                           direction (N-S).
+*.    P   REFLAY I*2         The Reflectivity Cartesian array.
+*.    P   REFNUM I*2         The total number of reflectivity values in a
+*.                           column (denominator in the average calculation.
+*.    P   REFTY8 I*4         The color code table index (either
+*.                           clear/convective code).
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    P   MAXLAY  I*2         The maximum reflectivity in the layer (max or
+*.                            avg), in dBz.
+*.    P   REFLAY  I*2         The Reflectivity Cartesian array.
+*.    P   REFNUM  I*2         The total number of reflectivity values in a
+*.                            column (denominator in the average calculation.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    G   THRESH            I*2         Adaptation Data for Color Data Table
+*.                                      Thresholds (color-level code, color
+*.                                      table number).
+*.    P   MAXLAY            I*2         The maximum reflectivity in the layer
+*.                                      (max or avg), in dBz.
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME     TYPE        DESCRIPTION
+*.    ----     ----        -----------
+*.    AVGMAX   R*4         The maximum average value before rounding.
+*.    CATROUND R*4         A number used to get the code of the average
+*.                         maximum value (rounded to the nearest integer)
+*.                         (0.5).
+*.    HGHCAT   I*4         Highest color catergory value.
+*.    IHGH     I*4         ILAYMAX plus one.
+*.    ILAYMAX  I*4         The color code of the layer maximum.
+*.    ILOW     I*4         ILAYMAX minus 1.
+*.    INC1     I*4         INCREMENTAL VALUE OF 1
+*.    LOWCAT   I*4         Parameter of 1 - Corresponding.  Threshold index to
+*.                         lowest category
+*.    MINIMUM  I*4         Minimum reported reflectivity -32dBZ
+*.    NBOX     I*4         PROGRAM LOOP INDEX FOR BOX NUMBER
+*.    NBOXES   I*4         NUMBER OF BOXES IN CARTESIAN GRID
+*.    NBYTE    I*4         BYTE NUMBER EQUAL TO 1
+*.    ONE      I*4         PROGRAM LOOP INDEX = 1
+*.    REAL     R*4         A number added to an integer to convert it to real
+*.                         (0.0).
+*.    REFHGH   R*4         The real reflectivity of the IHGH category, in dBz.
+*.    REFLOW   R*4         The real reflectivity of the ILOW category, in dBz.
+*.    ROUND    R*4         A value added to a number to round it to the
+*.                         nearest integer (0.5).
+*.    RZERO    R*4         Parameter value for real zero.
+*.    TEMPMAX  R*4         The real average before rounding.
+*.    THRVALH  I*4         REFLECTIVITY UPPER LIMIT VALUE
+*.    THRVALL  I*4         REFLECTIVITY LOWER LIMIT VALUE
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    COLRTBL
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK14.CSS
+*.
+*.  MISC:
+*.
+*.     The average reflectivity is calculated from the color
+*.     code average.  The maximum average is computed using
+*.     the color code category values...interpolating the
+*.     real value from the category values on either side
+*.     of the category in which the maximum falls.
+*.
+*.*******************************************************************
+C
+      IMPLICIT NONE
+C
+$INCLUDE A309.INC/G,**A3PM04           (NLIST)
+$INCLUDE A309ADPT.INC/G,**A3CD70C5     (NLIST)
+$INCLUDE A304.INC/G,**A304P4           (NLIST)
+C
+C Data declarations
+C
+      INTEGER NCOL,NROW,NBOX,NBOXES,NBYTE,THRVALL,THRVALH,LOWCAT
+      INTEGER ILAYMAX,ILOW,IHGH,REFTY8,HGHCAT,ONE,MINIMUM,INC1
+      INTEGER TEMPMAXI
+      INTEGER*2 REFLAY(*), REFNUM(*), MAXLAY
+      REAL TEMPMAX,AVGMAX,CATROUND,REAL
+      REAL REFLOW,REFHGH,RZERO
+      PARAMETER (NBYTE=1,ONE=1,RZERO=0.0,MINIMUM=-32,INC1=1,LOWCAT=1)
+      DATA CATROUND /1.0/, HGHCAT/8/
+      DATA REAL /0.0/
+
+C
+      TEMPMAX=RZERO
+      AVGMAX=RZERO
+      REFLOW=RZERO
+      REFHGH=RZERO
+C
+C Determine the one dimensional array size
+C
+      NBOXES=NCOL*NROW
+C
+C Do for all BOXES
+C
+      DO 1000 NBOX=ONE,NBOXES
+C
+C Check for boxes with values
+C
+        IF ( REFNUM(NBOX).GT.RDMSNG ) THEN
+C
+C If a real value has been added to the total...
+C subtract init value from numerator and denominator
+C
+          REFLAY(NBOX) = REFLAY(NBOX) - RDMSNG
+          REFNUM(NBOX) = REFNUM(NBOX) - RDMSNG
+C
+C Compute the real, pre-rounded categorized reflectivity
+C
+          TEMPMAX= (REAL+REFLAY(NBOX))/REFNUM(NBOX)
+C
+C If the current real average is greater than the
+C maximum real average...set it to the current maximum average
+C
+          IF ( TEMPMAX.GT.AVGMAX ) THEN
+             AVGMAX = TEMPMAX
+          ENDIF
+C
+C Compute the average...rounded to the nearest integer...
+C
+          CALL RPG_NINT( TEMPMAX, TEMPMAXI )
+          REFLAY(NBOX) = TEMPMAXI
+C
+        END IF
+C
+ 1000 CONTINUE
+C
+C If the maximum average value is < zero skip over this processing
+C (will be rounded to zero if less than CATROUND (1.0) )
+C
+      IF ( AVGMAX .LE. RZERO ) THEN
+C
+C Set the maximum to the minimum reported reflectivity in dBZ
+C
+        MAXLAY = MINIMUM
+      ELSE
+C
+C If the maximum average value is greater than maximum level minus
+C one category, set maximum average reflectivity to color table
+C maximum.
+C
+        IF ( AVGMAX .GE. (HGHCAT - CATROUND) ) THEN
+           ILAYMAX = 0
+           CALL ILBYTE (ILAYMAX,THRESH(HGHCAT,REFTY8),NBYTE)
+           MAXLAY = ILAYMAX
+        ELSE
+C
+C Otherwise compute the value
+C
+C Get the integer category of the maximum value (1-8)
+C Bias value by one (first category is 1 ..not 0 )
+C
+          ILAYMAX=AVGMAX+CATROUND
+C
+C Get the previous and the current integer categories
+C
+          ILOW = ILAYMAX
+          IHGH = ILAYMAX+INC1
+C
+C If it is the lowest category set the lower limit to
+C the minimum detectable reflectivity
+C
+          IF (ILOW .EQ. LOWCAT) THEN
+              REFLOW = MINIMUM
+C
+          ELSE
+C
+C Get the real reflectivity lower limit of this
+C category...
+C
+              THRVALL = 0
+              CALL ILBYTE(THRVALL,THRESH(ILOW,REFTY8),NBYTE)
+C
+              REFLOW=THRVALL
+C
+          ENDIF
+C
+C Get the real reflectivity upper limit of this category
+C If the last category..set to the maximum real reflectivity
+C value
+C
+          THRVALH = 0
+          CALL ILBYTE(THRVALH,THRESH(IHGH,REFTY8),NBYTE)
+C
+          REFHGH=THRVALH
+C
+C Interpolate the real maximum average reflectivity
+C
+          CALL RPG_NINT( (((REFHGH-REFLOW)*(AVGMAX-AINT(AVGMAX)))
+     $                   +REFLOW), TEMPMAXI )
+          MAXLAY=TEMPMAXI
+
+        END IF
+      END IF
+C
+      RETURN
+      END

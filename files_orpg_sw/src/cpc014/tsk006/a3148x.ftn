@@ -1,0 +1,411 @@
+C
+C RCS info
+C $Author: ryans $
+C $Locker:  $
+C $Date: 2005/03/09 16:35:17 $
+C $Id: a3148x.ftn,v 1.7 2005/03/09 16:35:17 ryans Exp $
+C $Revision: 1.7 $
+C $State: Exp $
+C
+      SUBROUTINE A3148X__PROD82_SUP(HYDRSUPL,VSNUM,
+     +           PRODBUF,STARTIDX,NPAGES)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3148X__PROD82_SUP
+*.
+*.  MODULE VERSION: 0005
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       11/15/95      000       Jay Breidenbach      CCR NA-94-33201
+*.       11/15/95      000       Jay Breidenbach      CCR NA90-92736
+*.       11/15/95      000       Jay Breidenbach      CCR NA90-92875
+*.       12/23/96      0001      Toolset              CCR NA95-11807
+*.       03/16/99      0002      Toolset              CCR NA98-23803
+*.       01/31/02      0003      Dennis A. Miller     CCR NA01-27501
+*.       06/30/03      0004      Cham Pham            CCR NA02-06508 
+*.       01/13/05      0005      Dennis A. Miller     CCR NA04-27811
+*.       01/13/05      0005      Cham Pham            CCR NA04-28102
+*.
+*.  CALLING SEQUENCE: CALL A3148X__PROD82_SUP(HYDRSUPL,VSNUM,
+*.                                 PRODBUF,STARTIDX,NPAGES)
+*.
+*.  MODULE FUNCTION: Adds supplemental precipitation data to block 3 of the
+*.                   product buffer
+*.
+*.  MODULES CALLED: A3146T__CNVTIME
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT       TYPE        DESCRIPTION
+*.    -   -----       ----        -----------
+*.    G   SIRPGID     I*4         Site Adaptation - RPG ID Number.
+*.    G   SUMMARY     I*4         Volume Scan Summary Table
+*.    G   BEG_MISDAT  I*4         (CONSTANT)Offset into precipitation
+*.                                accumulation array pointing to the date for
+*.                                the beginning time of the missing period.
+*.    G   BEG_MISTIM  I*4         (CONSTANT)Offset into precipitation
+*.                                accumulation array pointing to the beginning
+*.                                time of the missing period.
+*.    G   CUR_BIAS    I*4         (CONSTANT)Bias between rain gage and radar
+*.                                estimates positional parameter.
+*.    G   CUR_GRPSIZ  I*4         (CONSTANT)Gage-Radar Pairs (effective sample
+*.                                size) positional parameter.
+*.    G   CUR_MSPAN   I*4         (CONSTANT)Memory Span (over which Bias
+*.                                determined) positional parameter.
+*.    G   END_MISDAT  I*4         (CONSTANT)Offset into supplemental data
+*.                                array, within the output buffer, pointing to
+*.                                the date of the ending time of the missing
+*.                                period.
+*.    G   END_MISTIM  I*4         (CONSTANT)Offset into supplementary data
+*.                                array withing the output buffer, printing to
+*.                                the ending time of the missing period.
+*.    G   FLAG_CLEAR  I*4         (CONSTANT)Parameter for a cleared flag
+*.    G   FLAG_SET    I*4         (CONSTANT)Parameter for a set flag.
+*.    G   FLG_BADSCN  I*4         (CONSTANT)Indicator in hydromet scan that
+*.                                data is bad.
+*.    G   FLG_MSGPRD  I*4         (CONSTANT)Offset into supplemental data
+*.                                array within the output buffer pointing to
+*.                                the missing flag.
+*.    G   NUM_INTOUT  I*4         (CONSTANT)Offset into supplemental data
+*.                                array within the output buffer for number of
+*.                                interpolated outliers.
+*.    G   SCAN_DATE   I*4         (CONSTANT)(CONSTANT)Volume Scan Date index
+*.                                into Scan Summary Table
+*.    G   SCAN_MODE   I*4         (CONSTANT)(CONSTANT)Weather Mode index into
+*.                                Scan Summary Table
+*.    G   SCAN_TIME   I*4         (CONSTANT)(CONSTANT)Volume Scan Time index
+*.                                into Scan Summary Table
+*.    G   SCAN_VCP    I*4         (CONSTANT)(CONSTANT)Volume Coverage Pattern
+*.                                index into Scan Summary Table
+*.    G   STATUS_TASK CHAR*8      (CONSTANT)Task ID to which Status Change
+*.                                Notification Parameter is queued.
+*.    C   BIAS_TOGGLE L*4         Local adaptaion copy of BIAS_FLAG
+*.    C   ARA_PCTRED  I*4         (CONSTANT)Offset in HYDRSUPL (input buffer
+*.                                array) for the area percent reduction.
+*.    C   BLKG_CNT    I*4         (CONSTANT)Offset into Hydrsupl for total
+*.                                 no. of clutter bins rejected.
+*.    C   BLKG_CNT    I*4         (CONSTANT)Offset into Hydrsupl for total
+*.                                 no. of blockage bins rejected.
+*.    C   TBIN_SMTH   I*4         (CONSTANT)Offset into Hydrsupl for number
+*.                                 bins smoothed.
+*.    C   HYS_FILL    R*4         (CONSTANT)Offset into Hydrsupl for the
+*.                                 Hybrid Scan percent bins filled.
+*.    C   HIG_ELANG   R*4         (CONSTANT)Offset into Hydrsupl for the
+*.                                 Hybrid Scan highest elevation used (deg).
+*.    C   RAIN_AREA   R*4         (CONSTANT)Offset into Hydrsupl for total
+*.                                rain area.
+*.    P   HYDRSUPL    I*4         Supplemental data array.
+*.    P   STARTIDX    I*4         BEGINS WITH STARTING INDEX INTO PRODUCT
+*.                                BUFFER FOR THIS PORTION OF THE PRODUCT IN
+*.                                I*2 WORDS AND PASSES BACK END PRODUCT OUPUT
+*.                                BUFFER.
+*.    P   VSNUM       I*4         VOLUME SCAN NUMBER
+*.
+*.    *   OUTPUT   TYPE        DESCRIPTION
+*.    -   ------   ----        -----------
+*.    P   NPAGES   I*4         TOTAL NUMBER OF PAGES DISPLAYED ON PUP BY SPD
+*.                             PRODUCT
+*.    P   PRODBUF  I*2         Product output buffer
+*.    P   STARTIDX I*4         BEGINS WITH STARTING INDEX INTO PRODUCT BUFFER
+*.                             FOR THIS PORTION OF THE PRODUCT IN I*2 WORDS
+*.                             AND PASSES BACK END PRODUCT OUPUT BUFFER.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    G   SUMMARY           I*4         Volume Scan Summary Table
+*.    P   HYDRSUPL          I*4         Supplemental data array.
+*.
+*.  DATABASE/FILE REFERENCE:  NONE
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME           TYPE        DESCRIPTION
+*.    ----           ----        -----------
+*.    APCT_REDUC     I*4         INDEX LINE NUMBER FOR AREA PERCENT REDUCTION
+*.    BIAS           I*4         INDEX LINE NUMBER FOR MEAN-FIELD BIAS
+*.    BIAS_APPLIED   CHAR*8      FLAG (YES/NO) FOR WHETHER BIAS APPLIED
+*.    BIAS_FLAG_OFF  I*4         INDEX LINE NUMBER FOR BIAS APPLIED FLAG
+*.    BI_SCAN_RAT    I*4         INDEX LINE NUMBER FOR BI SCAN RATIO
+*.    CA             CHAR*8      CHARACTER REPRESENTATION OF THE LETTER A
+*.    CB             CHAR*8      CHARACTER REPRESENTATION OF THE LETTER B
+*.    CHARLINE       CHAR*80     FULL CHARACTER LINE IN PRODUCT
+*.    CHAR_DATE_TIME CHAR*14     CHARACTER REPRESENTATION OF DATE AND TIME
+*.    CNO            CHAR*8      CHARACTER REPRESENTATION OF "NO"
+*.    CYES           CHAR*8      CHARACTER REPRESENTATION OF "YES"
+*.    DIVIDER        I*4         DIVIDER BETWEEN PAGES OF PRODUCT
+*.    DQ_FLAG        I*4         INDEX LINE NUMBER FOR DATA QUALITY FLAG
+*.    ERRTEXT        CHAR*60     Software error message text
+*.    I              I*4         LOOP COUNTER
+*.    ISUPP          I*4         VARIABLE USED FOR DECODING REAL DATA FROM I*4
+*.                               SUPPLEMENTAL DATA: EQUIVALENCED TO RSUPP
+*.    J              I*4         Do loop counter
+*.    LOG_MESSAGE    CHAR*64     Status message for A3CM70
+*.    MEM_SPAN       I*4         INDEX LINE NUMBER FOR # MEMORY SPAN (HOURS)
+*.    MODE           CHAR*1      INDICATES PRECIPITATION MODE (A OR B)
+*.    MODE_CLEAR     I*4         INDICATOR THAT RADAR IS OPERATING IN CLEAR
+*.                               AIR MODE (=2)
+*.    MPD_BTIME      I*4         INDEX LINE NUMBER FOR MISSING PERIOD
+*.                               BEGINNING TIME
+*.    MPD_ETIME      I*4         INDEX LINE NUMBER FOR MISSING PERIOD ENDING
+*.                               TIME
+*.    NCHAR_LN       I*4         NUMBER OF CHARACTERS PER LINE
+*.    NI2            I*4         RATIO OF I*2 BYTES TO I*4 BYTES (2)
+*.    NI2_LN         I*4         NUMBER OF I*2 CHARACTERS PER LINE
+*.    NLINES         I*4         NUMBER OF LINES IN PAGE
+*.    NLIN_P_PAGE    I*4         NUMBER OF LINES PER PAGE (CONSTANT= 18)
+*.    NUM_GR_PAIR    I*4         INDEX LINE NUMBER FOR # GAGE-RADAR PAIRS
+*.    PRODLINE       I*2         I*2 EQUIVALENCE OF CHARLINE
+*.    RSUPP          R*4         VARIABLE USED TO GET REAL VALUE FROM I*4 FOR
+*.                               SUPPLEMENTAL VALUES
+*.    STAT_SEND      I*4         Status returned from call to SNDMSG
+*.    STATMESS       I*4         Character representation of message to STATMON
+*.    STATMON        CHAR*8      Statius Monitor task mnemonic
+*.    TITLE_OFF      I*4         INDEX LINE FOR TITLE
+*.    VCP_OFF        I*4         INDEX LINE NUMBER FOR VCP
+*.    WXMODE_OFF     I*4         INDEX LINE FOR WEATHER MODE
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD05
+*.    SITEADP
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A314C3
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK14.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+C...'X' IN COLUMN-1 INDICATES CONDITIONALLY COMPILED DEBUG CODE...
+C
+      IMPLICIT NONE
+C
+C** Include global common data:
+C
+$INCLUDE A309.INC/G,**A3PM00 (NEND NLIST)
+$INCLUDE            **A3PM01 (NEND NLIST)
+$INCLUDE            **A3PM06 (NEND NLIST)
+$INCLUDE            **A3CD05 (NEND NLIST)
+$INCLUDE A309ADPT.INC/G,**A3CD70P8 (NEND NLIST)
+$INCLUDE A309ADPT.INC/G,**A3CD70CA (NEND NLIST)
+C
+C** Include task-local common data:
+C
+$INCLUDE A313HBUF.INC/G,**A313HYPP (NEND NLIST)
+$INCLUDE                **A313HYDD (NEND NLIST)
+$INCLUDE A3146.INC/G,**A3146P1       (NLIST)
+$INCLUDE             **A314C3 (NEND NLIST)
+$INCLUDE A3148.INC/G,**A3148PX (NLIST)
+C
+C** Define subroutine-local variable names used:
+C
+      INTEGER*2  PRODBUF(*)
+      INTEGER    VSNUM, STARTIDX, NPAGES
+C
+      INTEGER    NI2, DIVIDER
+      PARAMETER (NI2=2, DIVIDER=-1)
+C
+      INTEGER    NLIN_P_PAGE
+      PARAMETER (NLIN_P_PAGE=18)
+C
+      INTEGER   MODE_CLEAR
+      PARAMETER (MODE_CLEAR=PFWXCLA)
+C
+C
+      CHARACTER*14 CHAR_DATE_TIME
+      CHARACTER*8 BIAS_APPLIED, CNO, CYES, CA, CB
+      CHARACTER*1 MODE
+      PARAMETER (CNO = ' NO     ', CYES = ' YES    ')
+      PARAMETER (CA  = 'A', CB = 'B')
+C
+      INTEGER*2  I2WORD(NI2)
+      INTEGER    I4WORD
+      EQUIVALENCE (I4WORD,I2WORD)
+C
+C** USE EQUIVALENCE TO DECODE REAL VALUE STORED IN INTEGER
+C** SUPPLEMENTAL DATA ARRAY
+C
+      INTEGER ISUPP
+      REAL    RSUPP
+      EQUIVALENCE (ISUPP,RSUPP)
+C
+C** Establish message for STATMON in case Bad Scan encountered
+C
+      CHARACTER*8 STATUS_TASK
+      PARAMETER (STATUS_TASK = 'STATMON')
+C
+      INTEGER   STAT_SEND
+      INTEGER*4 STATMESS(16)
+      CHARACTER*64 LOG_MESSAGE
+      EQUIVALENCE (LOG_MESSAGE,STATMESS)
+      CHARACTER*60 ERRTEXT
+      DATA ERRTEXT
+     + /'Bad Scan encountered: volume scans out of sequence in PPS'/
+C
+C**** EXECUTABLE ****
+C     ----------
+C
+C** Transfer the data from input to the Integer line
+C
+ 1001 FORMAT (I8)
+ 1002 FORMAT (F8.2)
+ 1003 FORMAT (A8)
+ 1004 FORMAT (I3)
+ 1005 FORMAT (I5)
+ 1006 FORMAT (A14)
+ 1007 FORMAT (A1)
+ 1012 FORMAT (F8.1)
+C
+C
+C** WRITE PRODUCT TITLE, DATE, AND TIME
+C** GET DATE AND TIME
+C
+      CALL A3146T__CNVTIME(SUMMARY(SCAN_TIME,VSNUM),
+     +   SUMMARY(SCAN_DATE,VSNUM), CHAR_DATE_TIME)
+C
+      WRITE(CHARLINE(TITLE_OFF    )(42:46),1005)
+     +    SIRPGID
+      WRITE(CHARLINE(TITLE_OFF    )(49:62),1006)
+     +    CHAR_DATE_TIME
+C
+C** GET VCP, WEATHER MODE
+C
+      WRITE(CHARLINE(VCP_OFF      )(27:29),1004)
+     +   SUMMARY(SCAN_VCP,VSNUM   )
+      IF (SUMMARY(SCAN_MODE,VSNUM).EQ.MODE_CLEAR) THEN
+         MODE=CB
+      ELSE
+         MODE=CA
+      ENDIF
+      WRITE(CHARLINE(WXMODE_OFF   )(40:41),1007)
+     +   MODE
+C
+C** If Bad Scan flag is set (because volume scans come in out of
+C** time sequence) send a message to STATMON for the Status Log.
+C
+      IF (HYDRSUPL(FLG_BADSCN).EQ.FLAG_SET) THEN
+C
+          WRITE (LOG_MESSAGE,400) ERRTEXT
+ 400      FORMAT(4X,A60)
+          CALL SNDMSG (STATUS_TASK,STATMESS,STAT_SEND)
+C
+          write (6,*) errtext
+      ENDIF
+C
+C** WRITE BIAS ADJUSTMENT INFO
+C
+C** If BIAS_TOGGLE is true, then the precipitation products are
+C** adjusted.
+C
+      IF(BIAS_TOGGLE)THEN
+           BIAS_APPLIED = CYES
+      ELSE
+           BIAS_APPLIED = CNO
+      ENDIF
+C
+      WRITE(CHARLINE(BIAS_FLAG_OFF   )(49:56),1003) BIAS_APPLIED
+C
+      ISUPP = HYDRSUPL(CUR_BIAS)
+      WRITE(CHARLINE(BIAS         )(45:52),1002) RSUPP
+      ISUPP = HYDRSUPL(CUR_GRPSIZ)
+      WRITE(CHARLINE(NUM_GR_PAIR  )(45:52),1002) RSUPP
+      ISUPP = HYDRSUPL(CUR_MSPAN)
+      WRITE(CHARLINE(MEM_SPAN     )(45:52),1002) RSUPP
+C
+C** Retrieve date & time Bias last updated locally from Bias Table
+C
+X     type *,'A3148X: Suppl. data: tim_bcalc; dat_bcalc =',
+X    *                      hydrsupl(tim_bcalc), hydrsupl(dat_bcalc)
+      CALL A3146T__CNVTIME(HYDRSUPL(TIM_BCALC),
+     +               HYDRSUPL(DAT_BCALC),CHAR_DATE_TIME)
+      WRITE(CHARLINE(DA_TIM_BIAS  )(45:58),1006)
+     +               CHAR_DATE_TIME
+C
+C** GET INFO ABOUT OUTLIERS
+C
+      WRITE(CHARLINE(TB_NBLK       )(45:52),1001)
+     +   HYDRSUPL(BLKG_CNT   )
+      WRITE(CHARLINE(TB_NCLT       )(45:52),1001)
+     +   HYDRSUPL(CLUTR_CNT)
+      WRITE(CHARLINE(TB_BFIL       )(45:52),1001)
+     +   HYDRSUPL(TBIN_SMTH)
+C
+C** USE EQUIVALENCE TO GET REAL VALUES
+C
+      ISUPP = HYDRSUPL(HYS_FILL)
+      WRITE(CHARLINE(TB_HYSF   )(45:52),1002) RSUPP
+      ISUPP = HYDRSUPL(HIG_ELANG)
+      WRITE(CHARLINE(TB_HELA   )(45:52),1002) RSUPP
+      ISUPP = HYDRSUPL(RAIN_AREA)
+      WRITE(CHARLINE(TB_NHRE   )(45:52),1012) RSUPP
+C
+C** GET MISSING TIMES IF ANY
+C
+      IF(HYDRSUPL(FLG_MSGPRD).EQ.FLAG_SET) THEN
+         CALL A3146T__CNVTIME(HYDRSUPL(BEG_MISTIM),
+     +        HYDRSUPL(BEG_MISDAT), CHAR_DATE_TIME)
+         WRITE(CHARLINE(MPD_BTIME    )(25:38),1006)
+     +        CHAR_DATE_TIME
+C
+         CALL A3146T__CNVTIME(HYDRSUPL(END_MISTIM),
+     +        HYDRSUPL(END_MISDAT), CHAR_DATE_TIME)
+         WRITE(CHARLINE(MPD_ETIME    )(40:53),1006)
+     +        CHAR_DATE_TIME
+      ENDIF
+C
+X     TYPE *,
+X    $    'A3148X: WRITING SCAN SUMMARY, VSNUM=',VSNUM
+C
+C COPY SUPPLEMENTAL DATA TO BUFFER'
+C
+C NOW WRITE 17 LINES OF SUPPLEMENTAL DATA
+C
+      DO 10 I=1,NLINES
+         PRODBUF(STARTIDX+1) = NCHAR_LN
+         STARTIDX = STARTIDX + 1
+         DO 5 J=1,NI2_LN
+            PRODBUF(STARTIDX+1) = PRODLINE((I-1)*NI2_LN+J)
+            STARTIDX = STARTIDX + 1
+   5     CONTINUE
+  10  CONTINUE
+C
+X     DO 11 I=1,NLINES
+X       TYPE *, CHARLINE(I) (1:80)
+X 11  CONTINUE
+C
+C INSERT PAGE DIVIDER
+C
+      PRODBUF(STARTIDX+1) = DIVIDER
+      STARTIDX=STARTIDX+1
+C
+C COUNT THE NUMBER OF PAGES IN THIS PART OF PRODUCT
+C
+      IF (NLINES.GT.1) THEN
+         NPAGES = NLINES/NLIN_P_PAGE + 1
+      ELSE
+         NPAGES = 0
+      ENDIF
+C
+      RETURN
+      END

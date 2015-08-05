@@ -1,0 +1,92 @@
+ps_routine(1)		Open RPG			ps_routine(1)
+
+NAME
+
+ps_routine - Schedule Routine Products
+
+SYNOPSIS
+   ps_routine [-h] [-v verbose_level]
+
+DESCRIPTION
+   ps_routine implements the following functions:
+
+	1. Maintains product generation information for the real-time data stream.
+
+	2. Controls real-time data stream product generation according to 
+           the default product generation list, user requests, and one-time
+           request support.
+
+        3. Publishes RPG CPU load on a periodic basis.
+
+   Product generation status is updated and advertised periodically to report
+   the real-time data stream product generation status.  ps_routine receives the
+   generation status via product generation messages read from LB ID 
+   ORPGDAT_PROD_GEN_MSGS.  ps_routine periodically polls this data store for
+   newly written product generation messages. 
+
+   The product generation status consists of a status header identifying the 
+   volume scans being reported followed by real-time data stream product generation
+   status for each of the volume scans being reported.  The present implementation 
+   maintains a volume scan history of 8 volumes.  The product generation status is
+   reported in LB ID ORPGDAT_PROD_STATUS.  The tool prod_stat can be used to 
+   display this information.
+ 
+   At the start of volume scan, whenever a user's Routine Product Set (RPS) changes,
+   or requests from the one-time scheduler arrive, ps_routine updates the master 
+   generation control list.  This list controls which products are generated off 
+   the real-time data stream.   It consists of the Default Product Generation table,
+   all RPS list requested for connected users, products which must be generated to
+   support alerting and/or one-time product requests off the replay data stream, and
+   one-time product requests which are scheduled for generation off the real-time
+   data stream.  ps_routine maintains a product dependency table in order to schedule
+   products not explicitly requested but required in order to produce the requested
+   products.  Products whose generating task has failed load-start or otherwise failed
+   are not scheduled but reported in the product status with appropriate failure code.
+   This includes those products which can not be generated owing to an upstream task
+   failure.   
+
+   For elevation-based products, the elevation angle in the current volume scan
+   closest to the elevation angle in the product request is scheduled.  If the VCP
+   number changes, ps_routine rebuilts the product generation list based on the 
+   new set of elevation angles.  
+
+   For all requested products which can be generated, the product request data is
+   published to LB ID ORPGDAT_PROD_REQUESTS.  This information can then be read by
+   product generators to control product generation.
+
+   ps_routine performs product generation scheduling upon initialization and 
+   when one of the following events are detected:
+
+	1. A new user request (routine or one-time) is received.
+
+	2. Weather mode changes (VCP change accompanies this change).
+
+   If the default product generation list is updated, the updates do not take effect 
+   until the start of the next volume scan.  
+
+   Periodically, ps_routine acquires and reports RPG CPU utilization over the 
+   monitoring period.  The utilization values are requested via a command sent
+   to mrpg.  When the information is available, the total CPU utilization over the 
+   monitoring period, expressed as a percent, is reported.  The monitoring period 
+   is command line adjustable as is the CPU overhead which is the percent 
+   utilization not monitored by RPG.
+
+OPTIONS
+   ps_routine recognizes the following options:
+
+	-h	Display help message and exit.
+
+        -l      Task log file # of messages (default: 500)
+
+        -m      CPU monitoring rate (0 = disable, default: 10 seconds)
+
+        -o      CPU overhead (added to CPU to account for unmonitored processes
+                (default: 0)
+
+	-v	Specify the LE message verbosity level.  Values range from 
+                1 - 5.
+
+SEE ALSO
+   prod_stat(1), orpgdat_prod_status(4), orpgdat_prod_gen_msgs(4), orpgdat_prod_requests(4)
+
+				$Revision: 1.20 $

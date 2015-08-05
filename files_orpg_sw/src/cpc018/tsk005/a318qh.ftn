@@ -1,0 +1,321 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/17 18:34:32 $
+C $Id: a318qh.ftn,v 1.4 2002/12/17 18:34:32 christie Exp $
+C $Revision: 1.4 $
+C $State: Exp $
+C
+      SUBROUTINE A318QH__TVS_PAGES(TVSATTR,BLNGTH,BUF)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A318QH__TVS_PAGES
+*.
+*.  MODULE VERSION: 0016
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       10 16 85      0000      JSGROMMONS
+*.       05 01 86      0001      JSGROMMONS           SPR# 60124
+*.       06 03 86      0002      JSGROMMONS           SPR# 60313
+*.       05 19 88      0003      STEVE D. SMITH       SPR# 80087
+*.       08 13 90      0004      PENNY J YELSHIN      SPR# 90919
+*.       11 06 90      0005      MEI   OU             SPR# 91259
+*.       12 03 91      0006      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0007      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0008      Toolset              SPR 91895
+*.       03/25/93      0009      Toolset              SPR NA93-06801
+*.       01/28/94      0010      Toolset              SPR NA94-01101
+*.       03/03/94      0011      Toolset              SPR NA94-05501
+*.       04/04/94      0012      Steve Smith          CCR 93158-001A00
+*.       05/04/95      0013      STEVE SMITH          CCR NA94-26302
+*.       12/23/96      0014      Toolset              CCR NA95-11807
+*.       05/06/97      0015      DAVE ZITTEL          CCR NA95-21503
+*.       03/16/99      0016      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:
+*.     CALL A318QH__TVS_PAGES(
+*.              BLNGTH,BUF)
+*.
+*.  MODULE FUNCTION:
+*.     BUILD THE TVS GRAPHIC PAGE
+*.
+*.  MODULES CALLED: A318QK__PACKET_LINES, A318QL__PACKET_WRITE, 
+*.                  A318QM__PACKET_MOVE, A3CM29__GRID_VECTORS 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT      TYPE        DESCRIPTION
+*.    -   -----      ----        -----------
+*.    G   TVFEAT_CHR I*4         (CONSTANT)# OF TVS FEATURE ATTRIBUTES IN
+*.                               TVS_MAIN AND OTHER ARRAYS
+*.    G   TVFEAT_MAX I*4         (CONSTANT)MAXIMUM # OF TVS FEATURES IN
+*.                               TVS_MAIN AND OTHER ARRAYS
+*.    C   FEATCNT    I*4         Number of TVSs + ETVSs detected by the
+*.                               Tornado Detection Algorithm.
+*.    C   GPHLNG     I*4         Length of graphic block in I*2 words.
+*.    C   N1         I*4         Lower limit of fields to be moved into line
+*.                               array.
+*.    C   N2         I*4         Upper limit of fields to be moved into line
+*.                               array.
+*.    C   NDX        I*4         Working subscript for moving data into the
+*.                               output buffer.
+*.    C   PGNO       I*2         Page number of tabular block.
+*.    C   PLNGTH     I*2         Page length (in halfwords).
+*.    C   PNDX       I*4         Index in output buffer for page number, page
+*.                               length.
+*.    P   BLNGTH     I*2         LENGTH OF PACKET BLOCK IN HALF WORDS.
+*.    P   BUF        I*2         OUTPUT BUFFER
+*.    P   TVSATTR    R*4         Array of TVS and ETVS attributes.
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    C   GPHLNG  I*4         Length of graphic block in I*2 words.
+*.    C   IPIX    I*2         I pixel location for graphic packet.
+*.    C   JPIX    I*2         J pixel location for graphic packet.
+*.    C   K1      I*4         Lower limit for graphic attribute fields to be
+*.                            written.
+*.    C   K2      I*4         Upper limit for graphic attribute fields to be
+*.                            written.
+*.    C   N2      I*4         Upper limit of fields to be moved into line
+*.                            array.
+*.    C   NDX     I*4         Working subscript for moving data into the
+*.                            output buffer.
+*.    C   PGNO    I*2         Page number of tabular block.
+*.    C   PLNGTH  I*2         Page length (in halfwords).
+*.    C   PNDX    I*4         Index in output buffer for page number, page
+*.                            length.
+*.    P   BLNGTH  I*2         LENGTH OF PACKET BLOCK IN HALF WORDS.
+*.    P   BUF     I*2         OUTPUT BUFFER
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    C   NDX               I*4         Working subscript for moving data into
+*.                                      the output buffer.
+*.    P   BLNGTH            I*2         LENGTH OF PACKET BLOCK IN HALF WORDS.
+*.    P   BUF               I*2         OUTPUT BUFFER
+*.    P   TVSATTR           R*4         Array of TVS and ETVS attributes.
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME    TYPE        DESCRIPTION
+*.    ----    ----        -----------
+*.    AZ      R*4         AZ ARRAY FOR WRITING PACKET
+*.    BL      I*4         NO OF I*2 WORDS OF PER LINE
+*.    FLD1    R*4         Real array 1 used for writing packet line. (OPT
+*.                        dependent)
+*.    FLD2    R*4         Real array 2 used for writing packet line. (OPT
+*.                        dependent)
+*.    FLD3    R*4         Real array 3 used for writing packet line.  Holds
+*.                        TVS/ETVS maximum delta velocity attribute.
+*.    FLD4    R*4         Real array 4 used for writing packet line. (OPT
+*.                        dependent)
+*.    FLD5    R*4         Real array 5 used for writing packet line. (Set in
+*.                        A318QK with TVS/ETVS depth attribute).
+*.    I       I*4         SUBSCRIPT, = PAGE NO FOR TVSs
+*.    IK      I*4         NO OF DATA FIELDS MOVED INTO
+*.    K       I*4         SUBSCRIPT FOR MESO_STORM_ID
+*.    LFEAT   CHAR*7      Character array of TDA feature type (TVS or ETVS)
+*.                        for the current page of the TDA product's graphic
+*.                        overlay table.
+*.    NCOLS   I*4         MAXIMUM NUMBER OF COLUMNS
+*.    NDXOFF  I*4         CONSTANT 7 FOR OFFSET FOR PACKET HEADER
+*.    NP      I*4         Number of pages of TVSs and ETVSs in the graphic
+*.                        alphanumeric
+*.    NPX     I*4         Intermediate number of pages of TVSs and ETVSs in
+*.                        graphic attriibute table
+*.    NROWS   I*4         MAXIMUM NUMBER OF ROWS
+*.    OPCODE  I*2         CONSTANT 8 FOR TEXT PACKET
+*.    PLNGTHX I*2         LENGTH OF PAGE IN NUMBER OF BYTES.
+*.    QF4     CHAR*1      Character array used for writing packet line.  (Set
+*.                        in A318QK as qualifier for FLD4, TVS/ETVS base
+*.                        attribute).
+*.    QF5     CHAR*1      Character array used for writing packet line.  (Set
+*.                        in A318QK as qualifier for FLD5, TVS/ETVS depth
+*.                        attribute.)
+*.    RAN     R*4         RAN ARRAY FOR WRITING PACKET
+*.    STID    I*2         STORM ID ARRAY FOR WRITING
+*.    TXCLR   I*2         VALUE FOR TEXT STRING (COLOR)
+*.    UPLIM   I*4         CONSTANT 6 FOR MAX NO OF FIELDS
+*.    VLNGTH  I*4         VECTOR LENGTH
+*.    VOPT    I*4         GRID VECTOR OPTION
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    BLKB
+*.    TVSINDEX
+*.
+*.  ERROR CONDITIONS:  NONE
+*.
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     THIS MODULE IS COMPILED USING THE COMP18.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     THIS MODULE IS LINKED USING THE LINK18.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+C
+C            TVS DEFINITIONS:
+$INCLUDE A317BUF.INC/G,**A317TP9  (NEND NLIST)
+$INCLUDE A318.INC/G,**A318TVS (NEND NLIST)
+$INCLUDE A318.INC/G,**A318TVS1 (NEND NLIST)
+C
+C            TVS ALGORITHM ATTRIBUTES:
+      REAL TVSATTR(TVFEAT_CHR,TVFEAT_MAX)
+C
+C     LOCAL DEFINITIONS:
+C
+      INTEGER*4  NROWS,NCOLS
+      PARAMETER  (NROWS=40,NCOLS=6)
+C
+      INTEGER*2  BUF(*)
+C
+      INTEGER*2  TBUF(NROWS,NCOLS)
+      INTEGER*2  OPCODE,BLNGTH,TXCLR,PLNGTHX
+      INTEGER*2  STID(NCOLS)
+      CHARACTER*1 QF4(NCOLS),QF5(NCOLS)
+      INTEGER*2  PGNO,PLNGTH,IPIX,JPIX
+C
+      INTEGER*4  VOPT,VLNGTH
+      INTEGER*4  BL
+      REAL AZ(NCOLS),RAN(NCOLS)
+      INTEGER*4  I,NP,NPX,OPT,OPT2,K,IK,NDXOFF,UPLIM
+      INTEGER*4  NDX,PNDX,GPHLNG,WIND,N1,N2,K1,K2,KI
+C
+      REAL FLD1(NCOLS),FLD2(NCOLS),FLD3(NCOLS),FLD4(NCOLS)
+      REAL FLD5(NCOLS)
+C
+      CHARACTER*7   LFEAT(NCOLS)
+      CHARACTER*80  TXCHR(NCOLS)
+C
+      PARAMETER (OPCODE=8,TXCLR=0,UPLIM=6,NDXOFF=7,VOPT=0)
+C
+      EQUIVALENCE  (TBUF(1,1),TXCHR)
+C
+C  LOCAL COMMON:
+C
+      COMMON/BLKA/TBUF
+      COMMON/BLKB/NDX,PNDX,GPHLNG,WIND,N1,N2,K1,K2,KI,
+     X        IPIX,JPIX,PLNGTH,PGNO
+C
+*****************************************************************
+C
+C   BUILD TVS PACKETS
+C   INITIALIZE FOR TVSS
+C
+      NDX = NDX + NDXOFF
+      K = 0
+      IK = 0
+      BLNGTH = 0
+C
+C   DETERMINE NUMBER OF PAGES OF TVSS AND ETVSS
+C
+C
+      IF (FEATCNT .GT. 0) THEN
+         NP = FEATCNT / UPLIM
+         NPX = UPLIM*NP
+         IF (NPX .LT. FEATCNT) THEN
+C
+C   SET PAGE NUMBER
+C
+            NP = NP + 1
+         ENDIF
+C
+C   BUILD PAGES FOR TVS
+C
+         DO 150  I = 1, NP
+            N2 = FEATCNT - IK
+            IF (N2 .GT. 0) THEN
+               IF (N2 .GT. UPLIM) THEN
+C
+C   SET UPPER FIELD LIMIT
+C
+                  N2 = UPLIM
+               ENDIF
+C
+C   BUILD PACKETS
+C
+               K = IK
+               IK = IK + N2
+               PGNO = I
+C
+C   SET I,J PIXELS
+C
+               IPIX = 0
+               JPIX = 1
+C
+C   FILL LINE FIELDS
+C
+               CALL A318QK__PACKET_LINES(K,TVSATTR,STID,FLD1
+     >          ,FLD2,FLD3,FLD4,FLD5,QF4,QF5,AZ,RAN,LFEAT)
+C
+               K1=N1
+               K2=N2
+C
+C   WRITE LINES
+C
+               CALL A318QL__PACKET_WRITE(STID,LFEAT,AZ,RAN,
+     >             FLD1,FLD2,FLD3,FLD4,FLD5,QF4,QF5,BL)
+C
+C   MOVE DATA TO OUTPUT BUFFER
+C
+               CALL A318QM__PACKET_MOVE(BUF,OPCODE,BLNGTH,TXCLR,BL)
+C
+C   MOVE GRID VECTORS INTO OUTPUT BUFFER
+C
+               CALL A3CM29__GRID_VECTORS(VOPT,BUF,NDX,VLNGTH)
+               NDX = NDX + VLNGTH
+               BLNGTH = BLNGTH + VLNGTH
+               PLNGTH = PLNGTH + BLNGTH
+               GPHLNG = GPHLNG + PLNGTH
+C
+C   STORE PAGE LENGTH, PAGE NUMBER FOR PAGE
+C
+               PLNGTHX = PLNGTH * 2
+               BUF(PNDX) = PGNO
+               PNDX = PNDX + 1
+C
+C   STORE LENGTHS
+C
+               BUF(PNDX) = PLNGTHX
+               PLNGTH = 0
+               PNDX = NDX
+               NDX = NDX + 2
+C
+            ENDIF
+  150    CONTINUE
+C
+C   END OF TVSS
+C
+      ENDIF
+C
+C   TVS ALREADY WRITTEN - ADJUST NDX
+C
+      IF (N2 .GT. 0)  THEN
+         NDX = NDX - 2
+      ENDIF
+C
+      RETURN
+C
+      END

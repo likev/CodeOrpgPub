@@ -1,0 +1,333 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/17 18:26:26 $
+C $Id: a31871.ftn,v 1.3 2002/12/17 18:26:26 christie Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A31871__BUFFER_CONTROL(PARAM)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A31871__BUFFER_CONTROL
+*.
+*.  MODULE VERSION: 0011
+*.
+*.  MODULE LANGUAGE:  FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       09 09 88      0000      VALERIE HOLDEN       SPR # 80273
+*.       05 20 90      0001      JOHN DEPHILIP        SPR # 90697
+*.       11 07 90      0002      CHARLIE BAUMHER      SPR # 91259
+*.       12 03 91      0003      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0004      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0005      Toolset              SPR 91895
+*.       03/25/93      0006      Toolset              SPR NA93-06801
+*.       01/28/94      0007      Toolset              SPR NA94-01101
+*.       03/03/94      0008      Toolset              SPR NA94-05501
+*.       04/11/96      0009      Toolset              CCR NA95-11802
+*.       12/23/96      0010      Toolset              CCR NA95-11807
+*.       03/16/99      0011      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A31871__BUFFER_CONTROL(PARAM)
+*.
+*.  MODULE FUNCTION:
+*.
+*.     THIS IS THE BUFFER CONTROL MODULE.  IT ACQUIRES THE INPUT
+*.     AND OUTPUT BUFFERS, STORES DATA INTO THE OUTPUT BUFFER
+*.     AND RELEASES THE BUFFERS WHEN FINISHED
+*.
+*.  MODULES CALLED: A31145__ABORT_ME, A31211__GET_INBUF, A31212__REL_INBUF, 
+*.                  A31215__GET_OUTBUF, A31216__REL_OUTBUF, A31218__BUF_VOL, 
+*.                  A31872__VAD2_DRIVER, A3187D__VAD2_NOHTS, 
+*.                  A3187E__CHECK_VER2_ALT, A3187H__NEW_PRODUCT_INIT, 
+*.                  A3CM24__GET_CUST_INFO, A3CM25__GET_DATE_TIME, 
+*.                  A3CM54__CUST_PROD_MEMSHED 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT     TYPE        DESCRIPTION
+*.    -   -----     ----        -----------
+*.    G   MEM       I*4         Array in RPG shared memory set aside for
+*.                              buffer sharing.
+*.    G   SUMMARY   I*4         Volume Scan Summary Table
+*.    G   FORWARD   I*4         (CONSTANT)Parameter to indicate that an output
+*.                              buffer is to be forwarded to successor tasks
+*.    G   NORMAL    I*4         (CONSTANT)Parameter which indicates normal
+*.                              completion of requested operation to acquire
+*.                              input or output buffer
+*.    G   SCAN_MODE I*4         (CONSTANT)Weather Mode index into Scan Summary
+*.                              Table
+*.    G   SCAN_VCP  I*4         (CONSTANT)Volume Coverage Pattern index into
+*.                              Scan Summary Table
+*.    G   VADTMHGT  I*4         (CONSTANT)Data Buffer Type: Velocity Address
+*.                              Display Time Height.
+*.    G   VPCV      I*4         (CONSTANT)Offset in VADTMHGT Table for current
+*.                              volume scan.
+*.    G   VPDA      I*4         (CONSTANT)Offset in VADTMHGT Table for height,
+*.                              RMS, direction and speed.
+*.    G   VPDAR     I*4         (CONSTANT)Offset in VADTMHGT Table containing
+*.                              NYQUIST Velocity region data by height.
+*.    G   VPDAZ     I*4         (CONSTANT)Offset to VAD data azimuth in output
+*.                              buffer VADTMHGT.
+*.    G   VPND      I*4         (CONSTANT)Offset to VAD missing data value in
+*.                              output buffer VADTMHGT.
+*.    C   IPTR      I*4         Input buffer pointer.
+*.    C   OPTR      I*4         Output buffer pointer.
+*.    C   VOLN      I*4         Volume scan number.
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    G   MEM     I*4         Array in RPG shared memory set aside for buffer
+*.                            sharing.
+*.    C   CLRIDX  I*4         Index into color tables.
+*.    C   CURVCP  I*4         Current volume coverage pattern.
+*.    C   CVOL    I*4         Current volume number.
+*.    C   IPTR    I*4         Input buffer pointer.
+*.    C   OPTR    I*4         Output buffer pointer.
+*.    C   V2_ALT  I*4         Current requested altitude.
+*.    C   VOLN    I*4         Volume scan number.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    G   MEM               I*4         Array in RPG shared memory set aside
+*.                                      for buffer sharing.
+*.    C   IPTR              I*4         Input buffer pointer.
+*.    C   OPTR              I*4         Output buffer pointer.
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME       TYPE        DESCRIPTION
+*.    ----       ----        -----------
+*.    BDAT       I*4         FLAG RETURNED FROM GET_INPUT
+*.    BUFSIZ     I*4         Size of output buffer.
+*.    CA         I*2         An array of customized VAD requests (Altitude)
+*.    CALLSTAT   I*4         Status returned on call to A3187E to check
+*.                           altitudes.
+*.    CCOPYNO    I*4         Index into the customizing array for the volume
+*.                           scan index
+*.    CDATE      I*4         CURRENT DATE
+*.    CTIME      I*4         CURRENT TIME
+*.    CUSTIDX    I*4         Index into CA.
+*.    CUSTSTAT   I*4         Calling status, returned from call to receive the
+*.                           control information to run.
+*.    NREQ       I*4         Number of Product requests to make. Value is
+*.                           returned from A3CM24_GET_CUST_INFO. Used as upper
+*.                           limit in Do loop running the format routine for
+*.                           each request
+*.    OPSTAT     I*4         STATUS RETURNED FOR INPUT AND OUTPUT BUFFER
+*.                           REQUESTS
+*.    REQ        I*4         Buffer processing request flag.
+*.    SCALE1000  I*4         Scale factor multiplier (1000).
+*.    V2_ALT_POS I*4         (Constant) used as index in CA array.
+*.    VADV2TBL   I*4         (Constant) Sets the index of the color table to
+*.                           use.
+*.    VADVER2    I*4         (Constant) Indicates data type is VAD version 2.
+*.    VAD_EL_IDX I*4         (Constant) VAD elevation index passed as
+*.                           parameter.
+*.    VAD_NTR    I*4         (Constant) NTR product code.
+*.    WMODE      I*4         OPERATIONAL WEATHER MODE
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD00
+*.    A3CD05
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A318C7
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  NONE
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP18.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK18.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+C
+C* GLOBAL DECLARATIONS:
+C
+$INCLUDE A309ADPT.INC/G,**A3CD70C8 (NLIST)
+$INCLUDE **A3CD70C7 (NLIST)
+$INCLUDE A309.INC/G,**A3PM00 (NLIST)
+$INCLUDE **A3PM01 (NLIST)
+$INCLUDE **A3PM04 (NLIST)
+$INCLUDE **A3PM06 (NLIST)
+$INCLUDE **A3CD00 (NLIST)
+$INCLUDE **A3CD05 (NLIST)
+$INCLUDE A317BUF.INC/G,**A317VP (NLIST)
+$INCLUDE A318.INC,**A318C7 (NLIST)
+C
+C* LOCAL DECLARATIONS:
+C
+      INTEGER*4 PARAM,OPSTAT,BDAT,A31218__BUF_VOL,BUFSIZ,REQ,NREQ
+      INTEGER*4 CDATE,CTIME,WMODE,BUFSTAT,CALLSTAT,CUSTSTAT,SCALE1000
+      INTEGER*4 VAD_EL_IDX, VAD_NTR, V2_ALT_POS, CUSTIDX, CCOPYNO
+      INTEGER*2 CA( 10, 10 ), J, I
+      PARAMETER (BUFSIZ = 10000, SCALE1000 = 1000)
+      PARAMETER (VAD_EL_IDX = 1, VAD_NTR = 12, V2_ALT_POS = 4)
+      PARAMETER (CUSTIDX = 9, CCOPYNO = 10)
+C
+C* REQUEST VADTMHGT BUFFER FORM BUFFER MANAGEMENT.  IT IS ASSUMED TO
+C* AVAILABLE AD IS THE DRIVING FORCE FOR THIS TASKS EXECUTION.
+C
+X     TYPE *,'71: ENTERED HERE...............................>'
+      CALL A31211__GET_INBUF(VADTMHGT,IPTR,BDAT,OPSTAT)
+C
+C* CHECK CALLING STATUS FOR 0=NORMAL OR ANY OTHER CASE BEING NOT
+C* AVAILABLE.
+C
+      IF (OPSTAT.EQ.NORMAL) THEN
+C
+C* RECEVIED BUFFER.  EXTRACT THE VOLUME SCAN NUMBER FORM THE BUFFER
+C* BASED UPON THAT NUMBER, EXTRACT THE WEATHER MODE AND VOLUME
+C* COVERAGE PATTERN USED FOR THAT SCAN FROM THE SUMMARY TABLE.
+C
+X           TYPE *,' *********** GOT VADTMHGT BUFFER ************* '
+X     CALL DVB_____(MEM(IPTR+VPDA),MEM(IPTR+VPDAZ),MEM(IPTR+VPDAR))
+         VOLN = A31218__BUF_VOL(IPTR)
+         WMODE = SUMMARY(SCAN_MODE,VOLN)
+         CURVCP = SUMMARY(SCAN_VCP,VOLN)
+C
+C* SET THE INDEX OF THE COLOR TABLE TO USE.
+C
+            CLRIDX = VADV2TBL
+C
+C* THE FOLLOWING LINES ARE FOR RUNNING WITH THE RPG SIMULATOR.
+C
+X     TYPE *,' ENTER NUMBER OF REQUESTS TO RUN '
+X     READ *, NREQ
+X     DO 5000 REQ=1, NREQ, 1
+X        TYPE *,' ENTER ALTITUDE FOR REQUEST ',REQ
+X        READ *,CA(V2_ALT_POS,REQ)
+X5000 CONTINUE
+X     CUSTSTAT = 0
+X     CURVCP = 1000
+C
+C* CALL A3CM24 TO RECEIVE THE CONTROL INFORMATION REQUIRED TO RUN.
+C* THE INFO NEEDED IS, NUMBER OF PRODUCTS TO MAKE AND AN ASSOCIATTED
+C* ALTITUDE TO FORMAT THE PRODUCT FROM.
+C
+         CALL A3CM24__GET_CUST_INFO(VAD_EL_IDX, VAD_NTR, CA,
+     +                              NREQ, CUSTSTAT)
+C
+C* CHECK FOR ANY REQUESTS TO HONOR, AND A GOOD CALLING STATUS.
+C
+         IF (CUSTSTAT .EQ. 0 .AND. NREQ .GT. 0) THEN
+C
+C* GOOD STATUS, RUN THE FORMAT ROUTINE FOR EACH REQUEST.
+C
+            DO 1000 REQ=1, NREQ, 1
+C
+C* INITIALIZE FORMATTING VARIABLES NEEDED FOR A NEW PRODUCT.
+C
+               CALL A3187H__NEW_PRODUCT_INIT
+C
+C* GET THE GENERATION TIME AND DATE OF THIS REQUEST FROM THE SYSTEM
+C* CLOCK.
+C
+               CALL A3CM25__GET_DATE_TIME(CDATE,CTIME)
+C
+C* REQUEST AN OUTPUT PRODUCT BUFFER TO HOLD THE VAD VERSION 2 PRODUCT.
+C
+               CALL A31215__GET_OUTBUF(VADVER2,BUFSIZ,OPTR,OPSTAT)
+C
+C* CHECK FOR SUCCESSFUL MEMORY REQUEST.
+C
+               IF (OPSTAT.EQ.NORMAL) THEN
+X                TYPE *,'RECEIVED VADVER2 BUFFER FOR REQUEST ',REQ
+C
+C* MEMORY RECEIVED, EXTRACT THE ALTITUDE NEEDED FROM THE CONTROL DATA.
+C
+                 V2_ALT = INT(CA(V2_ALT_POS,REQ))*SCALE1000
+C
+C* EXTRACT FROM THE VADTMHGT BUFFER THE CURRENT VOLUME NUMBER OF THE
+C* 11 VOLUMES OF PAST HISTORY THE VAD WIND PROFILE ROUTINE SAVES.
+C
+                 CVOL   = MEM(IPTR + VPCV)
+C
+C* CHECK THE ALTITUDE REQUESTED AGAINST THE ALTITUDES WE ACTAULY HAVE
+C* DATA, AND WHEN FOUND EXTRACT IMPORTANT VALUES FOR THE OUTPUT
+C* PRODUCT HEADER.
+C
+                 CALL A3187E__CHECK_VER2_ALT(MEM(IPTR+VPDA),
+     +                MEM(IPTR+VPND), CALLSTAT)
+C
+C* CHECK THE RETURNED STATUS FOR A GOOD HEIGHT TO RUN AT.
+C
+                 IF (CALLSTAT .EQ. 0) THEN
+C
+C* GOOD HEIGHT, CALL THE VAD PRODUCT DRIVER.
+C
+                    CALL A31872__VAD2_DRIVER(MEM(IPTR+VPDA),
+     +                      MEM(IPTR+VPDAZ),MEM(IPTR+VPDAR),MEM(OPTR))
+                 ELSE
+C
+C* BAD HEIGHT, CALL ROUTINE TO FORMAT AN OUTPUT PRODUCT CONTAINING
+C* TEXT INDICATING REQUEST WAS INVALID.
+C
+                    CALL A3187D__VAD2_NOHTS(MEM(OPTR))
+                 ENDIF
+C
+C* WHEN PRODUCT IS COMPLETED, FORWARD THE PRODUCT BUFFER TO STORAGE
+C
+                 CALL A31216__REL_OUTBUF(OPTR,FORWARD)
+               ELSE
+C
+C* OUTPUT PRODUCT BUFFER NOT AVAILABLE. BUFFER MANAGEMENT WAS UNABLE
+C* TO ALLOCATE THE OUTPUT PRODUCT MEMORY FOR THIS REQUEST.  CALL
+C* A3CM54 TO CLEAN UP FOR THIS MISSING REQUEST SO PUP USER IS
+C* INFORMED OF THE MISSING PRODUCT.  THIS ALSO INDICATES A MEMORY
+C* LOAD SHED CONDITION IS IN EFFECT.
+C
+                 CALL A3CM54__CUST_PROD_MEMSHED
+     +              (CA(CUSTIDX,REQ),CA(CCOPYNO,REQ),OPSTAT)
+               ENDIF
+ 1000       CONTINUE
+         ELSE
+C
+C* CONTROL TABLE DATA INDICATES NO REQUESTS OR BAD CALL STATUS. THIS
+C* INDICATES A SYSTEM PROBLEM HAS OCCURED AND OUR TASK HAS BEEN
+C* RUN WITHOUT A REASEON.  CALL A31145__ABORT_ME TO END THIS RUN
+C* AND TO CLEAN UP THE BUFFER MANAGEMENT ROUTING PATH AND DISTRIBUTION
+C* CONTROL PATH.
+C
+            CALL A31145__ABORT_ME
+         ENDIF
+C
+C* FOR ANY CASE WHERE DURING A RUN THE VADTMHGT BUFFER WAS RECIEVED,
+C* RETURN IT TO THE SYSTEM FOR NEXT USEAGE.
+C
+         CALL A31212__REL_INBUF( IPTR )
+      ELSE
+C
+C* TASK WAS UNABLE TO AQUIRE THE INPUT BUFFER, THIS MAY INDICATE A
+C* SYSTEM PROBLEM OR IS THE RESULT OF A "TASK CLEANUP" OR OTHER
+C* LOAD SHEDDING HAS REQUIRED THIS TASK NOT TO RUN AFTER IT HAS
+C* BEEN QUEUED THE "GO" PARAMETER.:
+C
+         CALL A31145__ABORT_ME
+      ENDIF
+C
+C* EXIT THE ROUTINE
+C
+      RETURN
+      END

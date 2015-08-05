@@ -1,0 +1,425 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/16 19:40:15 $
+C $Id: a31529.ftn,v 1.3 2002/12/16 19:40:15 christie Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A31529__EVAL_HAIL(STORMAIN,COMPSTAK)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A31529__EVAL_HAIL
+*.
+*.  MODULE VERSION: 0002
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       06/20/95      0000      MARK FRESCH          CCR NA94-26301
+*.       12/23/96      0001      Toolset              CCR NA95-11807
+*.       03/16/99      0002      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: A31529__EVAL_HAIL( STORMAIN, COMPSTAK )
+*.
+*.  MODULE FUNCTION:
+*.
+*.  This module controls the main algorithm processing.  For each
+*.  component of each cell, it decides based on the maximum reflect-
+*.  ivity and height what processing is performed.  This processing
+*.  can include calling A31539 to compute a partial SHI; calling
+*.  A31549 to compute the POH; and A31559 to compute the POSH and
+*.  MEHS (based on the SHI).
+*.
+*.  MODULES CALLED: A31539__COMPU_SHI, A31549__COMPU_POH, A31559__COMP_POSH_MEHS 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT      TYPE        DESCRIPTION
+*.    -   -----      ----        -----------
+*.    G   H_AZM      I*4         (CONSTANT)Index to the azimuth, the fifth
+*.                               position, in the HAILSTATS arrays.
+*.    G   H_MHS      I*4         (CONSTANT)Index to the MEHS, the third
+*.                               position, in the HAILSTATS arrays.
+*.    G   H_POH      I*4         (CONSTANT)Index to the POH, the first
+*.                               position, in the HAILSTATS arrays.
+*.    G   H_PSH      I*4         (CONSTANT)Index to the PSH, the second
+*.                               position, in the HAILSTATS arrays.
+*.    G   H_RNG      I*4         (CONSTANT)Index to the range, the fourth
+*.                               position, in the HAILSTATS arrays.
+*.    G   STM_AZM    I*4         (CONSTANT)Index to centroid's azimuth in
+*.                               centroid array.
+*.    G   STM_RAN    I*4         (CONSTANT)Index to centroid's range in
+*.                               centroids array.
+*.    G   STM_TOP    I*4         (CONSTANT)Index to storm top in array of
+*.                               centroid data.
+*.    G   UNKNOWN    I*4         (CONSTANT)Flag value for the POSH and POH
+*.                               indicating the cell is beyond processing
+*.                               range.
+*.    C   HT0_ARL    R*4         The height (ARL) of the 0 degrees C isotherm
+*.                               in local commom adaptation data.
+*.    C   LL_HKE_REF I*4         The Threshold HKE Reflectivity Weighting
+*.                               Lower Limit in local adaptation data.
+*.    C   MEHS       R*4         The maximum expected hail size estimate for
+*.                               the cell being processed.
+*.    C   MR_POH_TH  I*4         The Threshold Minimum Reflectivity POH in
+*.                               local adaptation data.
+*.    C   MX_HL_RNG  I*4         The Maximum Hail Processing Range in local
+*.                               adaptation data.
+*.    C   NHAILS     I*4         The number of cells processed by the hail
+*.                               algorithm.
+*.    C   POH        R*4         The Probability of Hail estimate for the cell
+*.                               being processed.
+*.    C   POSH       R*4         The Probability of Severe Hail estimate for
+*.                               the cell being processed.
+*.    C   SHI        R*4         The Severe Hail Index for the cell being
+*.                               processed.
+*.    C   STK_MRF    I*4         (CONSTANT)Index into the Componet Stack for
+*.                               the Maximum Reflectivity
+*.    C   STK_PTR    I*4         (CONSTANT)Index into Componet stack to
+*.                               Pointer to the next componet
+*.    C   STK_ZCN    I*4         (CONSTANT)Index into Componet Stack array of
+*.                               the componet's height
+*.    C   STM_ENT    I*4         (CONSTANT)Index to first componet in centroid
+*.                               array.
+*.    C   STM_NCP    I*4         (CONSTANT)Index to number of componets in
+*.                               centroid array.
+*.    P   COMPSTAK   R*4         An array of componets for a storm cell
+*.    P   STORMAIN   R*4         2-d array of Storm Cell attributes
+*.
+*.    *   OUTPUT   TYPE        DESCRIPTION
+*.    -   ------   ----        -----------
+*.    C   HAILTEMP R*4         Array used for local storage of hail
+*.                             attributes, except cell IDs.
+*.    C   MEHS     R*4         The maximum expected hail size estimate for the
+*.                             cell being processed.
+*.    C   POH      R*4         The Probability of Hail estimate for the cell
+*.                             being processed.
+*.    C   POSH     R*4         The Probability of Severe Hail estimate for the
+*.                             cell being processed.
+*.    C   SHI      R*4         The Severe Hail Index for the cell being
+*.                             processed.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    P   COMPSTAK          R*4         An array of componets for a storm cell
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME      TYPE        DESCRIPTION
+*.    ----      ----        -----------
+*.    BADFLAG   I*4         Used to flag component pointers which will be
+*.                          outside the limits of the cell.  These include the
+*.                          NEXT_PTR when the current component is the cell
+*.                          top, and t
+*.    CELL      I*4         A DO LOOP index used to process/index by cell.
+*.    COMP      I*4         The number of the component within the cell being
+*.                          processed.
+*.    COMP_TOP  L*4         A flag which indicates the component being
+*.                          processed defines the cell top.
+*.    CSHI      R*4         The SHI for a component (or partial SHI).
+*.    C_BOT     R*4         The height of the interpolated (between the
+*.                          current and previous elevation scans) bottom of
+*.                          the component being processed.
+*.    C_PTR     I*4         A pointer into the component attributes array,
+*.                          COMPSTAK, to the current component.
+*.    C_TOP     R*4         The height of the interpolated (between the
+*.                          current and next elevation scans) top of the
+*.                          component being processed.
+*.    INIT0     R*4         Real parameter of 0.0 used for initialization
+*.    INIT1     I*4         An integer constant of 1.
+*.    NCOMPS    I*4         The number of components in the cell being
+*.                          processed.
+*.    NEXT_PTR  I*4         A pointer into the component attributes array,
+*.                          COMPSTAK, to the next component (higher in
+*.                          height).
+*.    NXT_HT    R*4         The height of the next component (higher in
+*.                          height) in a cell.
+*.    NXT_MRF   R*4         The maximum reflectivity of the next component
+*.                          (higher in height) in a cell.
+*.    PREV_PTR  I*4         A pointer into the component attributes array,
+*.                          COMPSTAK, to the previous component (lower in
+*.                          height).
+*.    PRV_HT    R*4         The height of the previous component (lower in
+*.                          height) in a cell.
+*.    PRV_MRF   R*4         The maximum reflectivity of the previous component
+*.                          (lower in height) in a cell.
+*.    PRV_TPHAF L*4         A flag used in the computation of the median
+*.                          height which indicates that either the component
+*.                          is at the top of the cell; or other conditions.
+*.    ST_TOP    R*4         The storm top of the cell being processed - the
+*.                          height of the centroid of the highest component in
+*.                          a cell.
+*.    TOP_HALF  L*4         A flag which indicates that the freezing level is
+*.                          in the top half of a component's depth (i.e.
+*.                          between the component's height and top).
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A315CHH
+*.    A315CIH
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.     THIS MODULE IS COMPILED USING THE COMPXX.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.     THIS MODULE IS LINKED USING THE LINKXX.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+      IMPLICIT NONE
+C
+C** VARIABLE AND PARAMETER DECLARATIONS
+C
+$INCLUDE A315BUF.INC/G, **A315P5C (NLIST NEND)
+$INCLUDE                **A315P9H (NLIST NEND)
+$INCLUDE                **A315CHH (NLIST NEND)
+$INCLUDE                **A315D5  (NLIST NEND)
+$INCLUDE A315.INC/G,    **A315CIH (NLIST NEND)
+C
+      REAL CSHI, PRV_HT, NXT_HT, NXT_MRF, PRV_MRF, INIT0
+      REAL ST_TOP, C_TOP, C_BOT
+      INTEGER C_PTR, PREV_PTR, NEXT_PTR
+      INTEGER CELL, NCOMPS, COMP, HAILATRS
+      INTEGER INIT1, BADFLAG
+      LOGICAL COMP_TOP, PRV_TPHAF, TOP_HALF
+      PARAMETER (INIT1 = 1, INIT0 = 0., BADFLAG = -1)
+C
+C** EXECUTABLE CODE
+C
+C** Do for all Storm Cells
+C
+      DO 1000 CELL = INIT1, NHAILS
+C
+C** Initialize the POSH, POH, and MEHS for this cell to zero -
+C** If cell doesn't pass criteria, hail estimates will be zero
+C
+         POSH = INIT0
+         POH = INIT0
+         MEHS = INIT0
+         SHI = INIT0
+C
+C** Since Hail processing range is different (smaller than)
+C** the SCIT processing range, ensure cell range is within
+C** algorithm processing domain
+C
+         IF (STORMAIN(STM_RAN,CELL) .LE. MX_HL_RNG) THEN
+C
+C** Get cell top, & skip processing if not above freezing level
+C
+            ST_TOP = STORMAIN(STM_TOP,CELL)
+            IF (HT0_ARL .LE. ST_TOP) THEN
+C
+C** Initialize intermediate variables for the cell & components
+C
+               COMP = INIT1
+               PRV_HT = INIT0
+               NXT_HT = INIT0
+               NXT_MRF = INIT0
+               PRV_MRF = INIT0
+               COMP_TOP = .FALSE.
+               PRV_TPHAF = .FALSE.
+               TOP_HALF = .FALSE.
+C
+C** Get the pointer to the first component and the number of
+C** components in the cell
+C
+               C_PTR = STORMAIN(STM_ENT,CELL)
+               NCOMPS = STORMAIN(STM_NCP,CELL)
+C
+C** Since this is the first component initialize the pointer to the
+C** previous component to bad
+C
+               PREV_PTR = BADFLAG
+C
+C** Do until all components of the cell have been processed
+C
+ 10            IF (COMP .LT. NCOMPS) THEN
+                  NEXT_PTR = COMPSTAK(STK_PTR,C_PTR)
+                  NXT_MRF = COMPSTAK(STK_MRF,NEXT_PTR)
+C
+C** If this is not the last component in the cell, get the pointer
+C** to the next component and its reflectivity; otherwise flag the
+C** pointer
+C
+               ELSE
+                  NEXT_PTR = BADFLAG
+                  COMP_TOP = .TRUE.
+               END IF
+C
+C** If TOP_HALF is true (for the previous component), reinitialize
+C** it to false for this component and pass it along to PRV_TPHAF
+C
+               IF (TOP_HALF) THEN
+                  TOP_HALF = .FALSE.
+                  PRV_TPHAF = .TRUE.
+               END IF
+C
+C** Check if the Maximum Reflectivity of the component is above the
+C** Lower Limit HKE Reflectivity Threshold
+C
+               IF (COMPSTAK(STK_MRF,C_PTR).GT.LL_HKE_REF) THEN
+C
+C** Check if the component is not at the top of the cell, compute
+C** compute the Height of the Top of the Component appropiately
+C
+                  IF (NEXT_PTR .NE. BADFLAG) THEN
+                     C_TOP = (COMPSTAK(STK_ZCN,C_PTR) +
+     $                        COMPSTAK(STK_ZCN,NEXT_PTR))/2
+                  ELSE
+                     C_TOP = ST_TOP + (ST_TOP -
+     $                       COMPSTAK(STK_ZCN,PREV_PTR))/2
+C
+C** If the component is at the top, flag the component
+C
+                     PRV_TPHAF = .TRUE.
+                  END IF
+C
+C**Check if the top of the component is above the freezing level
+C
+                  IF (C_TOP .GT. HT0_ARL) THEN
+C
+C** Check if the freezing level is in the top half of the component
+C
+                     IF (HT0_ARL .GT. COMPSTAK(STK_ZCN,C_PTR)) THEN
+                        TOP_HALF = .TRUE.
+                     END IF
+                  END IF
+C
+C** If the component's height is at or above freezing level or the
+C** freezing level is in the top half of the component and the
+C** next component exceeds the reflectivity threshold, then
+C** continue processing the component - This assumes that NXT_MRF
+C** is zero if the component is at the top of the cell
+C
+                  IF (((TOP_HALF).AND.(NXT_MRF.GT.LL_HKE_REF))
+     $                .OR.(COMPSTAK(STK_ZCN,C_PTR).GE.HT0_ARL))THEN
+C
+C** If the component is not at the base of the cell, compute the
+C** height of the bottom of the component
+C
+                     IF (PREV_PTR .NE. BADFLAG) THEN
+                        C_BOT = (COMPSTAK(STK_ZCN,C_PTR) +
+     $                        COMPSTAK(STK_ZCN,PREV_PTR))/2
+                     ELSE
+C
+C** Otherwise flag the height of the bottom of the component
+C** and set the PRV_TPHAF flag
+C
+                        C_BOT = BADFLAG
+                        PRV_TPHAF = .TRUE.
+                     END IF
+C
+C** If PRV_TPHAF is not set and the previous component's maximum
+C** reflectivity is greater than the Lower Limit HKE Reflectivity
+C** Threshold, get the heights of the previous and next components
+C** (to compute median height in A31539)
+C
+                     IF (.NOT. PRV_TPHAF .AND. PRV_MRF .GT.
+     $                      LL_HKE_REF)THEN
+                        PRV_HT = COMPSTAK(STK_ZCN,PREV_PTR)
+                        NXT_HT = COMPSTAK(STK_ZCN,NEXT_PTR)
+                     END IF
+C
+C** Call A31539 to compute the SHI for the component
+C
+                     CALL A31539__COMPU_SHI(COMPSTAK(STK_MRF,C_PTR),
+     $                      C_TOP,C_BOT,PRV_HT,NXT_HT,CSHI,PRV_TPHAF,
+     $                      PRV_MRF)
+                     SHI = SHI + CSHI
+                  ELSE
+                     TOP_HALF = .FALSE.
+                  END IF
+               END IF
+C
+C** Compute the POH by finding the highest component above the
+C** freezing level with a Max. Reflectivity above threshold
+C
+               IF (COMPSTAK(STK_ZCN,C_PTR) .GE. HT0_ARL) THEN
+                  IF (COMPSTAK(STK_MRF,C_PTR) .GE. MR_POH_TH) THEN
+C
+C** If the component is at the top of the cell, pass
+C** pointers to the previous component's attributes
+C** (Assumes that the cell has at least two components)
+C
+                     IF (COMP_TOP) THEN
+                        CALL A31549__COMPU_POH(COMP_TOP,
+     $                         COMPSTAK(STK_MRF,C_PTR),
+     $                         COMPSTAK(STK_ZCN,C_PTR),
+     $                         COMPSTAK(STK_MRF,PREV_PTR),
+     $                         COMPSTAK(STK_ZCN,PREV_PTR))
+                     ELSE IF (COMPSTAK(STK_MRF,NEXT_PTR) .LT.
+     $                     MR_POH_TH) THEN
+C
+C** If the component is not at the top of the cell and the next
+C** component's maximum reflectivity is less than minimum
+C** reflectivity threshold, pass pointers to the next component's
+C** attributes
+C
+                        CALL A31549__COMPU_POH(COMP_TOP,
+     $                         COMPSTAK(STK_MRF,C_PTR),
+     $                         COMPSTAK(STK_ZCN,C_PTR),
+     $                         COMPSTAK(STK_MRF,NEXT_PTR),
+     $                         COMPSTAK(STK_ZCN,NEXT_PTR))
+                     END IF
+                  END IF
+               END IF
+C
+C** At the end of the component's processing...Reset PRV_TPHAF,
+C** set the pointers to the previous and current components,
+C** increment the component index, and save the previous component's
+C** maximum reflectivity before processing next component
+C
+               IF (COMP .LT. NCOMPS) THEN
+                  PRV_TPHAF = .FALSE.
+                  PREV_PTR = C_PTR
+                  NXT_MRF = INIT0
+                  PRV_MRF = COMPSTAK(STK_MRF,C_PTR)
+                  C_PTR = NEXT_PTR
+                  COMP = COMP + 1
+                  GO TO 10
+               END IF
+C
+C** Call A31559 to compute the cell's POSH and MEHS from the SHI
+C
+               CALL A31559__COMP_POSH_MEHS
+            END IF
+         ELSE
+C
+C** If the cell's range is outside the valid hail processing
+C** range, set the POSH and POH to an UNKNOWN flag
+C
+            POSH = UNKNOWN
+            POH  = UNKNOWN
+         END IF
+C
+C** Store the cell's hail attributes
+C
+         HAILTEMP(H_POH,CELL) = POH
+         HAILTEMP(H_PSH,CELL) = POSH
+         HAILTEMP(H_MHS,CELL) = MEHS
+         HAILTEMP(H_RNG,CELL) = STORMAIN(STM_RAN,CELL)
+         HAILTEMP(H_AZM,CELL) = STORMAIN(STM_AZM,CELL)
+C
+ 1000 CONTINUE
+C
+      RETURN
+      END

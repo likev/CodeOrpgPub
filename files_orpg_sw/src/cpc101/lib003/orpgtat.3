@@ -1,0 +1,174 @@
+orpgtat(3)		ORPG SDD Manpage		orpgtat(3)
+
+NAME
+orpgtat - ORPG Library Task Attribute Table (TAT) access routines
+
+SYNOPSIS
+
+#include <orpg.h>
+
+void ORPGTAT_set_args( int argc, char **argv );
+
+int ORPGTAT_get_my_task_name( char *task_name_buf, int buf_size );
+
+int ORPGTAT_get_data_id_from_name( Orpgtat_entry_t *task_entry,
+                                   char *data_name );
+
+Orpgtat_entry_t *ORPGTAT_get_entry(char *task_name);
+
+int ORPGTAT_read_ascii_tbl(Orpgtat_mem_ary_t *mem_ary_p,
+                           const char *tasktbl_fname);
+
+
+OVERVIEW
+The functions are described separately below.
+
+
+NAME
+ORPGTAT_get_data_id_from_name() - give a task table entry and data
+name string, returns the associated data ID.
+
+SYNOPSIS
+#include <orpg.h>
+
+DESCRIPTION:
+This function looks up the data name in the list in input_data and 
+output_data for a match.  If a match is found, the data ID is returned.
+
+RETURNS
+data ID on success, -1 on error.
+
+
+
+NAME
+ORPGTAT_set_args() - saves the number of command line arguments
+and saves the pointer to the command line arguments.
+
+SYNOPSIS
+#include <orpg.h>
+
+DESCRIPTION
+This function makes a local copy of the number of command line
+arguments and the pointer to the command line arguments.
+
+RETURNS
+There is no return value defined for this function.
+
+
+
+NAME
+ORPGTAT_get_my_task_name() - returns the task_name in the caller's 
+supplied buffer.
+
+SYNOPSIS
+#include <orpg.h>
+
+Orpgtat_get_my_task_name( char *task_name, int buf_size )
+
+DESCRIPTION:
+This function returns the caller's task name is the user-supplied
+buffer of size buf_size.  if buf_size is not large enough to 
+accommodate the entire task name, only buf_size characters of the
+name are returned.
+
+RETURNS:
+0 on success and negative error code on error.
+
+
+
+NAME
+ORPGTAT_get_entry() - returns a pointer to the ORPG Task Attribute
+Table entry that matches the specified value
+
+SYNOPSIS
+#include <orpg.h>
+
+Orpgtat_entry_t *ORPGTAT_get_entry( char *task_name )
+
+DESCRIPTION
+This functions retrieves the indicated RPG Task Attribute Table (TAT)
+entry from the LB TAT.  A pointer is returned to the corresponding
+entry.
+
+"task_name" should point to the (NULL-terminated) string representation 
+of the task name.
+
+RETURNS
+This function returns a valid entry pointer upon success; otherwise a NULL
+pointer is returned.
+
+
+
+NAME
+ORPGTAT_read_ascii_tbl() - read the ORPG Task Attribute Table (TAT) from an
+   ASCII CS file
+
+SYNOPSIS
+#include <orpg.h>
+
+int ORPGTAT_read_ascii_tbl(Orpgtat_mem_ary_t *mem_ary_p,
+                           const char *tasktbl_fname)
+
+DESCRIPTION
+This function allocates storage for an array of table entries,
+and then fills-in the array with data read from the ASCII ORPG Task
+Attribute Table.
+
+The argument "mem_ary_p" must point to a "memory TAT array" structure
+that will be initialized by this function.  This data structure includes
+the size (in bytes) of the array of TAT entries, as well as a pointer
+to the memory allocated for the array of TAT entries.  The calling
+process is responsible for freeing this memory as necessary.  HOWEVER,
+THIS FUNCTION WILL ALSO FREE THIS MEMORY IF THE POINTER IS NOT NULL WHEN
+IT IS PASSED TO THIS FUNCTION.  That is, the developer may repeatedly pass
+the same structure pointer to this function and be assured that no memory
+leak will result.
+
+The argument "tasktbl_fname" may point to an empty string, in which case the
+Task Attribute Table will be read from the default Task Tables file
+(ORPGTAT_DFLT_TT_FNAME).
+
+If "tasktbl_fname" does not point to an empty string, it must point to the
+name of a valid ASCII Configuration Support (CS) Task Tables file, from
+which the Task Attribute Table will be read.
+
+RETURNS
+ORPGTASK_read_ascii_tbl returns 0 upon success; otherwise, -1 is returned.
+
+EXAMPLES
+NOTE: the Orpgtat_mem_ary_t structure currently appears as follows:
+
+/*
+ * Use this typedef when storing TAT in memory ...
+ */
+typedef struct {
+    size_t size_bytes ;        /* size of memory array of TAT entries     */
+    Orpgtat_entry_t *ptr ;     /* pointer to array of TAT entries         */
+} Orpgtat_mem_ary_t ;
+
+We use this structure in the examples that follow.  ALWAYS REFER TO THE
+HEADER FILE WHEN DEVELOPING SOFTWARE THAT CALLS THIS LIBRARY ROUTINE.
+
+To read the TAT from the default CS (ascii) Task Table File:
+
+    retval = ORPGTAT_read_ascii_tbl(&my_mem_ary_struct, "") ;
+
+To read the TAT from a non-default CS (ascii) Task Table File:
+
+    retval = ORPGTAT_read_ascii_tbl(&my_mem_ary_struct, "my_task_table_file") ;
+
+Upon returning from a successful call, element "size_bytes" of
+"my_mem_ary_struct" holds the size of the array of TAT entries and element
+"ptr" points to the first element of the array.  Using this information,
+along with the "entry_size" element of each entry (Orpgtat_entry_t), the
+application developer can easily write code that steps through the array of
+TAT entries.
+
+Note that Orpgtat_args_entry_t defines the structure of any arguments
+defined in a given TAT entry.
+
+SEE ALSO
+cs(3), iti(1)
+
+
+                                   $Revision: 1.10 $

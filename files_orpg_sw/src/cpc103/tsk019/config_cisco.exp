@@ -1,0 +1,1288 @@
+
+# 
+# RCS info
+# $Author: cparish $
+# $Locker:  $
+# $Date: 2014/08/18 18:24:11 $
+# $Id: config_cisco.exp,v 1.50 2014/08/18 18:24:11 cparish Exp $
+# $Revision: 1.50 $
+# $State: Exp $
+#  
+
+proc Ask_password { prompt device_name } {
+    global Non_interactive
+
+    if { !$Non_interactive } {
+	stty -echo
+    }
+    Send_user $prompt
+    if { $Non_interactive } {
+	Send_user "\n"
+    }
+    set timeout 60
+    expect_user {
+	timeout {
+	    send_error "[exec date]: timeout waiting for $device_name password\n"
+	    Terminate_device_connection
+	    exit 3
+	}
+
+	-re "(.*)\n" {}
+    }
+    Send_user "\n"
+    if { !$Non_interactive } {
+	stty echo
+    }
+    return $expect_out(1,string)
+}
+
+proc Send_cntl_c { {tout 6} } {
+    global Dev_ctl
+
+    send \x03
+    set timeout $tout
+    expect {
+	timeout { 
+	    send_log "[exec date]: timeout waiting in Send_cntl_c\n"
+	    expect "*" {send_log ">Unread RESP: <$expect_out(buffer)>\n"}
+	}
+	-re $Dev_ctl(dev_prompt) { }
+    }
+}
+
+proc Disconnect_device { } {
+    global Dev_ctl
+
+    send_log "Exiting from $Dev_ctl(full_name)...\n"
+    Send_cntl_c		;# cntl-c to stop any dialog
+    Send_cntl_c		;# cntl-c to stop any dialog
+    set timeout 4
+    send \r
+    expect {
+	timeout { 
+	    send_log "[exec date]: timeout exiting from $Dev_ctl(full_name)\n"
+	    expect "*" {send_log ">Unread RESP: <$expect_out(buffer)>\n"}
+	}
+	-re $Dev_ctl(dev_prompt) {
+	    send exit\r
+	    exp_continue
+	}
+	"Press RETURN to get started" { }
+    }
+    send_log "\n"
+}
+
+proc Terminate_device_connection { } {
+    global spawn_id Use_serial_port
+
+    Disconnect_device
+    if { $Use_serial_port } {
+	send_log "[exec date]: Exiting kermit\n"
+	close -i $spawn_id
+	sleep 3
+    } else {
+	Close_console_server
+    }
+}
+
+proc Login_to_device { } {
+    global Dev_ctl Cr_password Cr_enpassword
+
+    set dev_name $Dev_ctl(full_name)
+    set enable_phase 0
+    set access_verification 0
+    set tout_cnt 0
+    set cntl_c_cnt 0
+    if { $Cr_password == "cisco" } {
+	set pswds $Cr_password
+    } else {
+	set pswds "$Cr_password cisco"
+    }
+    set pswd_ind 0
+    set Cr_password ""
+    set enpassword $Cr_enpassword
+    set Cr_enpassword ""
+    set pswd_input_cnt 0
+    set exiting 0
+    set password ""
+
+    set timeout 8
+    expect {
+	timeout {
+	    if { $tout_cnt < 10 } {
+		incr tout_cnt 1
+		send \r		;# CR to allow console message
+		exp_continue
+	    }
+	    send_error "[exec date]: timeout in Login_to_device $dev_name\n"
+	    expect "*" {send_log ">Unread RESP: <$expect_out(buffer)>\n"}
+	    Process_exception
+	}
+	-re {---------------------------\r} {
+	    send \r
+	    exp_continue
+	}
+	-re {configuration dialog\? \[yes/no} {
+	    send no\r
+	    exp_continue
+	}
+	-re {terminate autoinstall? [yes]} {
+	    send \r
+	    exp_continue
+	}
+	-re "Press RETURN to get started" { 
+	    send \r 
+	    exp_continue 
+	}
+	"User Access Verification" {
+	    set access_verification 1
+	    exp_continue 
+	}
+	"\nPassword: " {
+	    if { !$access_verification && !$enable_phase } {
+		send \r 
+		exp_continue 
+	    }
+	    set out_proc_tm 1
+	    if { $password == "" } {
+		set password [lindex $pswds $pswd_ind]
+	    }
+	    if { $password == "" && $pswd_input_cnt < 4 } {
+		if { $enable_phase == 0 } {
+		    set prmt "Enter $dev_name user Password: "
+		} else {
+		    set prmt "Enter $dev_name enable Password: "
+		}
+		set password [Ask_password $prmt $dev_name]
+		incr pswd_input_cnt 1
+		set out_proc_tm 2
+	    }
+	    if { $password == "" } {
+		if { $enable_phase == 0 } {
+		    send_error "[exec date]: $dev_name user password invalid\n"
+		} else {
+	   	    send_error "[exec date]: $dev_name enable password invalid\n"
+		}
+		Terminate_device_connection
+		exit 4
+	    }
+
+	    ;# process all device output while waiting for the password input
+	    set timeout_old $timeout
+	    set bad_passwords 0
+	    set pswd_prompt 1
+	    set timeout $out_proc_tm
+	    expect {
+		timeout { }
+		-re "Bad passwords|Bad secrets" {
+		    set bad_passwords 1
+		    exp_continue 
+		}
+		"timeout expired" {
+		    set pswd_prompt 0
+		    exp_continue 
+		}
+		"Password: " {
+		    set pswd_prompt 1
+		    exp_continue 
+		}
+#		"\n" {
+#		    set timeout $out_proc_tm
+#		    exp_continue 
+#		}
+	    }
+	    set timeout $timeout_old
+
+	    if { $bad_passwords } {
+		send \r 
+	    } elseif { $pswd_prompt } {
+		if { $enable_phase == 0 } {
+		    set Cr_password $password
+		} else {
+		    set Cr_enpassword $password
+		}
+		send -- $password\r
+		incr pswd_ind 1
+		set password ""
+	    }
+	    exp_continue 
+	}
+	" --More-- "  { 
+	    send " " 
+	    exp_continue 
+	}
+	-re {\[.*](\?|:)} {
+	    if { $access_verification && $cntl_c_cnt < 3 } {
+		incr cntl_c_cnt 1
+		Send_cntl_c 3		;# cntl-c to stop any dialog
+	    }
+	    exp_continue
+	}
+	-re $Dev_ctl(dev_prompt) { 
+	    if { $expect_out(5,string) eq ">" } {
+		if { $exiting } {
+		    send exit\r
+		    set exiting 0
+		    exp_continue
+		}
+		send enable\r
+		if { !$enable_phase } {
+		    set pswd_input_cnt 0
+		    set enable_phase 1
+		    if { $enpassword == "" } {
+			set pswds "$Cr_password cisco"
+		    } else {
+			set pswds "$enpassword cisco"
+		    }
+		    set pswd_ind 0
+		}
+		exp_continue
+	    } elseif { $expect_out(5,string) eq "#" } {
+		if { !$enable_phase } {
+		    send exit\r
+		    set exiting 1
+		    exp_continue
+		}
+	    } else {
+	   	send_error "[exec date]: unexpected prompt ($expect_out(0,string)) in Login_to_device for $dev_name\n"
+		Process_exception
+	    }
+	}  
+    }
+    send_log "\n"
+    Send_user  "[exec date]: Connected and enabled $dev_name\n"
+}
+
+proc Login_device_for_config { } {
+
+    Login_to_device
+    Wait_for_output 4
+    Send_cfg_cmd "configure t"
+    Send_cfg_cmd "no logging console"
+    Send_cfg_cmd "no service config"
+    Send_cfg_cmd "end"
+    Wait_for_output 3
+}
+
+proc Process_exception { } {
+    global Retry_cnt
+
+    Terminate_device_connection
+    if { $Retry_cnt > 0 } {
+	incr Retry_cnt -1
+	Send_user  "[exec date]: Failed - we retry\n"
+	Load_and_config_cisco
+	exit 0
+    } else {
+	send_error "[exec date]: Failed - exit\n"
+	exit 1
+    }
+}
+
+proc Send_cfg_cmd { cmd {to 5} } {
+    global Dev_ctl Hostname
+
+    set tocnt 0
+    set timeout $to
+    send "$cmd\r"
+    expect {
+	timeout {
+	    if { $tocnt < 2 } {
+		incr tocnt 1
+		send \r
+		exp_continue;
+	    }
+	    send_error "[exec date]: timeout waiting for Send_cfg_cmd $cmd\n"
+	    expect "*" {send_log ">Unread RESP: <$expect_out(buffer)>\n"}
+	    Process_exception
+	}
+	-re $Dev_ctl(dev_prompt) {
+	    set Hostname $expect_out(1,string)
+	}
+    }
+}
+
+proc Config_tftp { } {
+    global Dev_ctl Device_name Mscf_hub_site Site_name Hardware
+
+    Send_cfg_cmd "configure t"
+    if { $Device_name == "lan" } {
+	Send_cfg_cmd "int vlan1" 
+	Send_cfg_cmd "ip address $Dev_ctl(dev_ip) 255.255.255.128" 
+	Send_cfg_cmd "no shutdown" 
+    } elseif { $Device_name == "rtr" } {
+	Send_cfg_cmd "no logging console" 
+	Send_cfg_cmd "bridge irb" 
+	Send_cfg_cmd "bridge 1 protocol ieee" 
+	Send_cfg_cmd "bridge 1 route ip" 
+	Send_cfg_cmd "int bvi1" 
+	Send_cfg_cmd "ip address $Dev_ctl(dev_ip) 255.255.255.128" 
+	Send_cfg_cmd "exit" 
+	if { $Hardware == "c3825" } {
+	    Send_cfg_cmd "int GigabitEthernet0/0" 
+	} else {
+	    Send_cfg_cmd "int f0/0" 
+	}
+	Send_cfg_cmd "bridge-group 1" 
+	Send_cfg_cmd "no shutdown" 
+    } else {
+	Send_cfg_cmd "no logging console"
+  	Send_cfg_cmd "no int bvi1"
+  	Send_cfg_cmd "no int bvi2"
+  	Send_cfg_cmd "no int bvi3"
+  	Send_cfg_cmd "no int bvi4"
+  	Send_cfg_cmd "no int bvi5"
+    if { $Mscf_hub_site } {
+         if { $Hardware == "c2900" } {
+             Send_cfg_cmd "int f0/2/1"
+         } else {
+             Send_cfg_cmd "int e1/1"
+         }
+     } else {
+         if { $Hardware == "c2900" } {
+             Send_cfg_cmd "int g0/1"
+         } else {
+             Send_cfg_cmd "int f0/1"
+         }
+     }
+	Send_cfg_cmd "ip address $Dev_ctl(dev_ip) 255.255.255.128" 
+	Send_cfg_cmd "no shutdown" 
+    }
+    Send_cfg_cmd "end" 
+}
+
+# Set up network connection to RPG for tftp
+proc Prepare_tftp { } {
+    global Dev_ctl
+
+    Config_tftp
+    Send_cfg_cmd "" 
+    Wait_for_output 3		;# let messages to flush
+
+    Send_user  "[exec date]: Wait until connection to RPG is up...\n"
+    set status 1		;# wait until the connection to RPG is up
+    set cnt 0
+    while { $status == 1 && $cnt < 20 } {
+	set status [catch { exec ping -c 1 $Dev_ctl(dev_ip) > /dev/null }]
+	incr cnt 1
+    }
+}
+
+proc Is_file_fine { file } {
+    global Dev_ctl
+
+    send "dir flash:\r"
+    set verify_ok 0
+    set timeout 10
+    expect {
+	timeout {
+	    send_error "[exec date]: timeout in Is_file_fine 1\n"
+	    expect "*" {send_log ">Unread RESP: <$expect_out(buffer)>\n"}
+	    Process_exception
+	}
+	" flash:" {
+	    exp_continue
+	}
+	"bytes free" {
+	    exp_continue
+	}
+    -re "--More--" {
+        send " "
+        exp_continue
+    }
+	-re { ([^\n\r ]*)[\r|\n]} {
+	    set fname $expect_out(1,string)
+	    if { $fname != "" && ( "flash:$fname" == $file || $fname == $file ) } {
+		set verify_ok 1
+	    }
+	    exp_continue
+	}
+	-re $Dev_ctl(dev_prompt) { }
+    }
+    if { !$verify_ok } {
+	return 0
+    }
+
+    set verify_ok 0
+    set timeout 10
+    send "verify $file\r"
+    expect {
+	timeout { 
+	    send_error "[exec date]: timeout waiting in Is_file_fine\n"
+	    expect "*" {send_log ">Unread RESP: <$expect_out(buffer)>\n"}
+	    Process_exception
+	}
+	"Verified $file" {
+	    set verify_ok 1
+	    exp_continue
+	}
+	"Signature Verified" {
+	    set verify_ok 1
+	    exp_continue
+	}
+	"does not support verify" {
+	    set verify_ok 1
+	    exp_continue
+	}
+	"Verifying file integrity" {
+	    set verify_ok 0
+	    exp_continue
+	}
+	"................................................" {
+	    exp_continue
+	}
+	"ERROR" {
+	    set verify_ok 0
+	    exp_continue
+	}
+	-re $Dev_ctl(dev_prompt) { }
+    }
+    return $verify_ok
+}
+
+proc Tftp_copy { src dest erase is_ios {tout 120} } {
+    global Dev_ctl Hardware
+
+    send_log "[exec date]: Tftp_copy $src $dest...\n"
+    Send_cntl_c		;# cntl-c to stop any dialog
+    set num_bytes 0
+    set copy_failed 0
+    set timeout $tout
+    send "copy $src $dest\r"
+    expect {
+	timeout { 
+	    send_error "[exec date]: timeout waiting in Tftp_copy\n"
+	    expect "*" {send_log ">Unread RESP: <$expect_out(buffer)>\n"}
+	    Process_exception
+	}
+	-re {Erase flash: before copying\? \[confirm]} {
+	    if { $erase } {
+		send "\r"
+	    } else {
+		send "n"
+	    }
+	    exp_continue
+	}
+	-re {\[.*]\?} {
+	    send "\r"
+	    exp_continue
+	}
+	-re {\[confirm]} {
+	    send "\r"
+	    exp_continue
+	}
+	"Error copying $src" {
+	    if { $erase } {
+		send_error "[exec date]: tfpt failed in Tftp_copy\n"
+		Process_exception
+	    } else {
+		set copy_failed 1
+		exp_continue
+	    }
+	}
+	"Error opening $src" {
+	    send_error "[exec date]: tfpt failed in Tftp_copy\n"
+	    Process_exception
+	}
+	"!!!!!!!!!!!!!!!!!" {
+	    exp_continue
+	}
+	-re {\[OK - ([^\n]*) bytes]} {
+	    scan $expect_out(1,string) "%d" num_bytes
+	    if { [ info exists num_bytes ] == 0 } {
+		set num_bytes 0
+	    }
+	    exp_continue
+	}
+	-re $Dev_ctl(dev_prompt) { }
+    }
+    Wait_for_output 2		;# let messages to flush
+
+    if { $copy_failed } {
+	return 0
+    }
+
+    set verify_ok 1
+    if { $Hardware != "c2900" } {
+        if { $is_ios || $Hardware != "c3825" } {
+            set verify_ok [Is_file_fine $dest]
+        }
+    }
+
+    if { !$verify_ok } {
+	send_error "[exec date]: verify $dest failed\n"
+	Process_exception
+    }
+    return $num_bytes
+}
+
+proc Reboot_device { boot_file } {
+    global Dev_ctl
+
+    Send_cfg_cmd "configure t"
+    Send_cfg_cmd "config-reg 0x2102"
+    Send_cfg_cmd "exit"
+
+    set boot_called 0
+    set timeout 300
+    send "reload\r"
+    expect {
+	timeout { 
+	    send_error "[exec date]: timeout waiting in Reboot_device\n"
+	    expect "*" {send_log ">Unread RESP: <$expect_out(buffer)>\n"}
+	    Process_exception
+	}
+	-re {to terminate autoinstall\? \[yes\]: } {
+	    send \r
+	    exp_continue
+	}
+	-re {System restarted --} {
+	    if { ![Check_line_return 3] } {
+		send \r
+	    }
+	    exp_continue
+	}
+	-re {rommon 1 >} {
+	    if { !$boot_called } {
+		set boot_called 1
+		send "boot $boot_file\r"
+		exp_continue
+	    } else {
+		send_error "[exec date]: do not know how to do in rommon\n"
+		expect "*" {send_log ">Unread RESP: <$expect_out(buffer)>\n"}
+		Process_exception
+	    }
+	}
+	-re {\[confirm]} {
+	    send \r
+	    exp_continue
+	}
+	-re {([^\n]*)?\[yes/no]: } {
+	    send no\r
+	    exp_continue
+	}
+	"Press RETURN to get started" {
+	    send \r
+	    exp_continue
+	}
+	-re $Dev_ctl(dev_prompt) { Send_user  "[exec date]: Rebooting done\n" }
+	-notransfer "Password: " { Send_user  "[exec date]: Rebooting done\n" }
+	-notransfer "User Access Verification" { Send_user  "[exec date]: Rebooting done\n" }
+    }
+#   Wait_for_output 5 - No wait here because we don't want -notransfer consumed
+}
+
+proc Erase_startup_config { } {
+    global Dev_ctl
+
+    set cmd_error 0
+    set timeout 20
+    set first_try 1
+    send "erase startup-config\r"
+    expect {
+	timeout { 
+	    send_error "[exec date]: timeout waiting in Erase_startup_config\n"
+	    expect "*" {send_log ">Unread RESP: <$expect_out(buffer)>\n"}
+	    Process_exception
+	}
+	"Invalid input detected" {
+	    set cmd_error 1
+	    exp_continue
+	}
+	-re {\[confirm]} {
+	    send "\r"
+	    exp_continue
+	}
+	-re $Dev_ctl(dev_prompt) {
+	    if { $cmd_error } {
+		if { $first_try } {
+		    send "write erase\r"
+		    set first_try 0
+		    set cmd_error 0
+		    exp_continue
+		} else {
+		    send_error "[exec date]: Bad cmd in Erase_startup_config\n"
+		    expect "*" {send_log ">Unread RESP: <$expect_out(buffer)>\n"}
+		    Process_exception
+		}
+	    } else {
+		 send_log "Erase_startup_config done\n"
+	    }
+	}
+    }
+}
+
+proc Delete_file { file } {
+    global Dev_ctl
+
+    Wait_for_output 3
+    set timeout 10
+    set confirm_done 0
+    send "delete $file\r"
+    expect {
+	timeout { 
+	    send_error "[exec date]: timeout waiting in Delete_file\n"
+	    expect "*" {send_log ">Unread RESP: <$expect_out(buffer)>\n"}
+	    Process_exception
+	}
+	-re {\[.*]\?} {
+	    set confirm_done 1
+	    send "\r"
+	    exp_continue
+	}
+	-re {\[confirm]} {
+	    set confirm_done 1
+	    send "\r"
+	    exp_continue
+	}
+	-re $Dev_ctl(dev_prompt) {
+	    if { $confirm_done } {
+		send_log "Delete_file done\n"
+	    } else {
+		exp_continue
+	    }
+	}
+    }
+}
+
+proc Squeeze_flash { } {
+    global Dev_ctl
+
+    set timeout 180
+    send "squeeze flash:\r"
+    expect {
+	timeout { 
+	    send_error "[exec date]: timeout waiting in Squeeze_flash\n"
+	    expect "*" {send_log ">Unread RESP: <$expect_out(buffer)>\n"}
+	    Process_exception
+	}
+	-re {\[confirm]} {
+	    send "\r"
+	    exp_continue
+	}
+	-re $Dev_ctl(dev_prompt) {
+	    send_log "Squeeze_flash done\n"
+	}
+    }
+}
+
+proc Post_config { } {
+    global Hostname Device_name New_pswd New_enpswd Hardware
+
+    Send_cfg_cmd "configure t"
+    Send_cfg_cmd "no logging console"
+    Send_cfg_cmd "no service config"
+    Send_cfg_cmd "no service timestamp log"
+    Send_cfg_cmd "service timestamp log datetime"
+    if { $Hardware == "c2900" } {
+        Send_cfg_cmd "crypto key generate rsa modulus 1024"
+    }
+    if { $Device_name == "lan" } {
+	Send_cfg_cmd "no enable password"
+	Send_cfg_cmd "no enable secret"
+	Send_cfg_cmd "service password-encryption"
+	Send_cfg_cmd "enable secret $New_enpswd"
+	Send_cfg_cmd "no username $Hostname"
+	Send_cfg_cmd "username $Hostname password 0 $New_pswd"
+	Send_cfg_cmd "line vty 0 4"
+	Send_cfg_cmd "login"
+	Send_cfg_cmd "password $New_pswd"
+	Send_cfg_cmd "line con 0"
+	Send_cfg_cmd "login"
+	Send_cfg_cmd "password $New_pswd"
+	Send_cfg_cmd "exit"
+	Send_cfg_cmd "logging console"
+    } else  {
+	Send_cfg_cmd "no enable password"
+	Send_cfg_cmd "no enable secret"
+	Send_cfg_cmd "service password-encryption"
+	Send_cfg_cmd "enable secret $New_enpswd"
+	Send_cfg_cmd "line vty 0 4"
+	Send_cfg_cmd "login"
+	Send_cfg_cmd "password $New_pswd"
+	Send_cfg_cmd "line con 0"
+	Send_cfg_cmd "login"
+	Send_cfg_cmd "password $New_pswd"
+	Send_cfg_cmd "line aux 0"
+	Send_cfg_cmd "login"
+	Send_cfg_cmd "password $New_pswd"
+	Send_cfg_cmd "exit"
+	Send_cfg_cmd "logging console"
+    }
+    Send_cfg_cmd "end"
+    Send_cfg_cmd ""
+    Wait_for_output 2
+}
+
+proc Load_startup { src } {
+    global Dev_ctl
+
+    set timeout 150
+    set tout_cnt 0
+    send "copy $src startup-config\r"
+    expect {
+	timeout {
+	    if { $tout_cnt < 2 } {
+		incr tout_cnt 1
+		expect "*" {}
+		send "\r"
+		set timeout 20
+		exp_continue
+	    }
+	    send_error "[exec date]: timeout waiting in Load_startup \n"
+	    expect "*" {send_log ">Unread RESP: <$expect_out(buffer)>\n"}
+	    Process_exception
+	}
+	-re {\[.*]\?} {
+	    send "\r"
+	    exp_continue
+	}
+	-re $Dev_ctl(dev_prompt) { }
+    }
+    Wait_for_output 2
+}
+
+proc Copy_to_startup { } {
+    global Dev_ctl
+
+    set timeout 20
+    send "copy running-config startup-config\r"
+    expect {
+	timeout { 
+	    send_error "[exec date]: timeout copying to startup-config\n"
+	    expect "*" {send_log ">Unread RESP: <$expect_out(buffer)>\n"}
+	    Process_exception
+	}
+	-re {Destination filename \[startup-config\]\?} {
+	    send "\r"
+	    exp_continue
+	}
+	-re $Dev_ctl(dev_prompt) { }
+    }
+}
+
+proc Delete_files_except_one { file } {
+    global Dev_ctl
+
+    set list ""
+    send "dir flash:\r"
+    set timeout 40
+    expect {
+	timeout {
+	    send_error "[exec date]: timeout in Delete_files_except_one\n"
+	    expect "*" {send_log ">Unread RESP: <$expect_out(buffer)>\n"}
+	    Process_exception
+	}
+	" flash:" {
+	    exp_continue
+	}
+	"bytes free" {
+	    exp_continue
+	}
+	-re { ([^\n\r ]*)[\r|\n]} {
+	    set fname $expect_out(1,string)
+	    if { $fname != "" && $fname != $file } {
+		lappend list $fname
+	    }
+	    exp_continue
+	}
+	-re $Dev_ctl(dev_prompt) { }
+    }
+    foreach element $list {
+	send_log "Delete file flash:$element\n"
+	Delete_file flash:$element
+    }
+}
+
+proc Get_version { ios_ver cfg_ver } {
+    global Dev_ctl Hardware
+    upvar $cfg_ver config_ver $ios_ver ver
+
+    set no_grep 0
+    set timeout 4
+    send "show clock | include UTC\r"
+    expect {
+	"Invalid input detected" {
+	    set no_grep 1
+	}
+	-re $Dev_ctl(dev_prompt) { }
+    }
+
+    set ver ""
+    set Hardware ""
+    set timeout 20
+    if { $no_grep } {
+	send "show ver\r"
+    } else {
+	send "show ver | include flash|revision\r"
+    }
+    expect {
+	timeout {
+	    send_error "[exec date]: timeout looking for ios version\n"
+	    expect "*" {send_log ">Unread RESP: <$expect_out(buffer)>\n"}
+	    Process_exception
+	}
+	-re {System image file is ["](flash[0-9]*:)[/]?([^\n]*)["]} {
+	    set ver $expect_out(2,string)
+	    exp_continue
+	}
+	-re {\n(Cisco|cisco)[ ]*(.*) \(revision } {
+	    set Hardware $expect_out(2,string)
+	    exp_continue
+	}
+	-re "--More--" {
+	    send " "
+	    exp_continue
+	}
+	-re $Dev_ctl(dev_prompt) { }
+    }
+
+    if { [string match "*3825*" $Hardware] == 1 } {
+	set Hardware "c3825"
+    } elseif { [string match "*3560*" $Hardware] == 1 } {
+	set Hardware "c3560"
+    } elseif { [string match "*2621*" $Hardware] == 1 } {
+	set Hardware "c2600"
+    } elseif { [string match "*2901*" $Hardware] == 1 } {
+    set Hardware "c2900"
+        set Cfg_file_name "hub2-cfg"
+    } else {
+	set Hardware ""
+    }
+
+    set config_ver ""
+    set timeout 30
+    if { $no_grep } {
+	send "show running\r"
+    } else {
+	send "show running | include banner motd\r"
+    }
+    expect {
+	timeout {
+	    send_error "[exec date]: timeout looking for config version\n"
+	    expect "*" {send_log ">Unread RESP: <$expect_out(buffer)>\n"}
+	    Process_exception
+	}
+	-re {RPG ND CONFIG VERSION <([^\n]*)>} {
+	    set config_ver $expect_out(1,string)
+	    exp_continue
+	}
+	-re "--More--" {
+	    send " "
+	    exp_continue
+	}
+	-re $Dev_ctl(dev_prompt) { }
+    }
+}
+
+# sets up the local connection in RPG test bed
+
+proc Set_up_local_con { } {
+    global Rpg_ip Dev_ctl Subnet_id Channel_num
+
+    set cnt 0
+    set timeout 30
+
+    send "show running | include ip nat inside source static\r"
+    expect {
+	timeout {
+	    send_error "[exec date]: timeout in Set_up_local_con\n"
+	    expect "*" {send_log ">Unread RESP: <$expect_out(buffer)>\n"}
+	    Process_exception
+	}
+	-re {(ip nat inside source static ([\041-\176]*) ([\041-\176]*))\r} {
+	    if { $expect_out(2,string) == "172.25.172.1" || $expect_out(2,string) == "172.25.172.20" || $expect_out(2,string) == "172.25.172.22" } {
+		set no_nat_cmd($cnt) "no $expect_out(1,string)"
+		incr cnt 1
+	    }
+	    exp_continue
+	}
+	-re $Dev_ctl(dev_prompt) { }
+    }
+
+    Send_cfg_cmd "configure t"
+    Send_cfg_cmd "int e3/3"
+    Send_cfg_cmd "ip address 129.15.58.189 255.255.255.0"
+    Send_cfg_cmd "ip nat outside"
+    Send_cfg_cmd "no shutdown"
+    Send_cfg_cmd "exit"
+    Send_cfg_cmd "int f0/0"
+    Send_cfg_cmd "no shutdown"
+    Send_cfg_cmd "exit"
+    Send_cfg_cmd "int BVI1"
+    if { $Channel_num == 2 } {
+	Send_cfg_cmd "ip address 172.25.$Subnet_id.77 255.255.255.128"
+    } else {
+	Send_cfg_cmd "ip address 172.25.$Subnet_id.7 255.255.255.128"
+    }
+    Send_cfg_cmd "no ip access-group 102 out"
+    Send_cfg_cmd "exit"
+    set ind 0
+    while { $ind < $cnt } {
+	Send_cfg_cmd "$no_nat_cmd($ind)"
+	incr ind 1
+    }
+    Send_cfg_cmd "ip nat inside source static $Rpg_ip 129.15.58.190"
+    Send_cfg_cmd "ip nat inside source static 172.25.$Subnet_id.20 129.15.58.191"
+    if { $Channel_num == 2 } {
+	Send_cfg_cmd "ip nat inside source static 172.25.$Subnet_id.83 129.15.58.189"
+    } else {
+	Send_cfg_cmd "ip nat inside source static 172.25.$Subnet_id.22 129.15.58.189"
+    }
+    Send_cfg_cmd "ip route 129.15.62.0 255.255.255.0 129.15.58.1"
+    Send_cfg_cmd "end"
+
+    Copy_to_startup
+}
+
+proc Cleanup_device { } {
+    global spawn_id Dev_ctl
+
+    set saved_prompt $Dev_ctl(dev_prompt)
+    set Dev_ctl(dev_prompt) {\n(((([^\n <]*))))(>|#)}
+
+    Send_user  "[exec date]: Cleaning up $Dev_ctl(full_name) - Connect to it...\n"
+    Login_device_for_config
+
+    Erase_startup_config
+    Send_user  "[exec date]: Rebooting $Dev_ctl(full_name)... (up to 4 minutes)\n"
+    Reboot_device ""
+    Disconnect_device
+    Send_user  "[exec date]: Cleaning up $Dev_ctl(full_name) - Done\n"
+
+    set Dev_ctl(dev_prompt) $saved_prompt
+}
+
+proc Set_logging_console { } {
+    Send_cfg_cmd "configure t"
+    Send_cfg_cmd "logging console"
+    Send_cfg_cmd "end"
+}
+
+proc Ask_verify_password { prompt dev_name excl_name } {
+
+    while { 1 } {
+	set new_pswd [Ask_password $prompt $dev_name]
+	if { $new_pswd == "cisco" } {
+	    set prompt "cisco is not accepted as password. Enter new Password: "
+	    continue;
+	}
+	if { $excl_name != "" && $new_pswd == $excl_name } {
+	    set prompt "Enable password must be different. Enter new Password: "
+	    continue;
+	}
+	set check [Ask_password "Retype the new Password: " $dev_name]
+	if { $check != $new_pswd } {
+	    set prompt "Retyped password does not match. Enter new Password: "
+	} else {
+	    break
+	}
+    }
+    return $new_pswd
+}
+
+proc Get_new_password { } {
+    global Cr_password New_pswd Cr_enpassword New_enpswd Dev_ctl
+
+    set need_pswd_set 0
+    set d_name $Dev_ctl(full_name)
+
+    set good_newpswd 1
+    if { $New_pswd == "" || $New_pswd == "cisco" } {
+	set good_newpswd 0
+    }
+    if { $Cr_password == "" || $Cr_password == "cisco" } {
+	set need_pswd_set 1
+	if { !$good_newpswd } {
+	    set prompt "Enter new $d_name user Password: "
+	    set New_pswd [Ask_verify_password $prompt $d_name ""]
+	}
+    } elseif { !$good_newpswd } {
+	set New_pswd $Cr_password
+    }
+
+    set good_newpswd 1
+    if { $New_enpswd == "" || $New_enpswd == "cisco" || $New_enpswd == $New_pswd} {
+	set good_newpswd 0
+    }
+    if { $Cr_enpassword == "" || $Cr_enpassword == "cisco" } {
+	set need_pswd_set 1
+	if { !$good_newpswd } {
+	    set prompt "Enter new $d_name enable Password: "
+	    set New_enpswd [Ask_verify_password $prompt $d_name $New_pswd]
+	}
+    } elseif { !$good_newpswd } {
+	set New_enpswd $Cr_enpassword
+    }
+
+    if { $New_enpswd == $New_pswd } {
+	set prompt "Enter new $d_name enable Password: "
+	set New_enpswd [Ask_verify_password $prompt $d_name $New_pswd]
+    }
+
+    if { $New_pswd != $Cr_password || $New_enpswd != $Cr_enpassword } {
+	set need_pswd_set 1
+    }
+    return $need_pswd_set
+}
+
+proc Load_and_config_cisco { } {
+    global spawn_id Dev_ctl Ios_file_name Force_update Cfg_file_name
+    global Cfg_version Test_only Rpg_ip Device_name Retry_cnt Force_ios_update
+    global Mscf_hub_site Subnet_id Use_serial_port
+    global Manual_mode Console_conn_success Hardware
+    global mscf_ipo3 mscf_ipo4 Change_passwd
+
+    Send_user  "[exec date]: Loading and configuring $Dev_ctl(full_name)...\n"
+    if { $Use_serial_port } {
+	Start_kermit
+	send connect\r
+	if { $Manual_mode } {
+	    Manual_process "kermit"
+	    exit 0
+	}
+    } else {
+	if { [Connect_to_a_port $Dev_ctl(dev_port)] } {
+	    Process_exception
+	}
+    }
+
+    if { $Retry_cnt == 0 && [ info exists Console_conn_success ] } {
+	Cleanup_device
+    }
+    set Console_conn_success 1
+
+    Send_user  "[exec date]: Connecting to $Dev_ctl(full_name)...\n"
+    Login_device_for_config
+
+    if { $Device_name == "local" } {
+	set Retry_cnt -1
+	Set_up_local_con
+	Set_logging_console
+	Terminate_device_connection
+	return
+    }
+
+    if { $Change_passwd } {
+	Post_config
+	Copy_to_startup
+	Terminate_device_connection
+	return
+    }
+
+    Get_version ios_ver cfg_ver
+    send_log "The current: ios_ver <$ios_ver>  cfg_ver <$cfg_ver>\n"
+    
+    set load_ios 0
+    set copy_ios 0
+
+    if { $Device_name == "hub" && $Hardware == "c2900" } {
+        set Dev_ctl(cfg_file_name) "hub2-cfg"
+        Get_install_info
+    }
+
+    if { $Ios_file_name != "" } {
+	if { $Ios_file_name != $ios_ver } {
+	    if { $Hardware == "" || ![string match "$Hardware*" $Ios_file_name] } {
+		send_error "[exec date]: IOS file $Ios_file_name does not match hardware $Hardware\n"
+		Terminate_device_connection
+		exit 1
+	    }
+	    set load_ios 1
+	    if { ![Is_file_fine flash:$Ios_file_name] } {
+		set copy_ios 1
+	    }
+	}
+    }
+    if { $Force_ios_update } {
+	set load_ios 1
+	set copy_ios 1
+    }
+
+    set need_cfg 0
+    if { $Force_update || $Cfg_version != $cfg_ver || $cfg_ver == "" || $load_ios } {
+	set need_cfg 1
+    }
+
+    if { $Test_only } {
+	if { $copy_ios } {
+	    Send_user  "IOS file needs to be updated\n"
+	}
+	if { $need_cfg } {
+	    Send_user  "Configuration needs to be updated\n"
+	}
+	Set_logging_console
+	Terminate_device_connection
+	return
+    }
+
+    set need_pswd_set [Get_new_password]
+
+    if { !$need_cfg && !$need_pswd_set } {
+	Send_user  "Nothing to be updated - Done\n"
+	Set_logging_console
+	Terminate_device_connection
+	return
+    }
+
+    if { $need_cfg } {
+	Send_user  "[exec date]: Preparing for tftp...\n"
+	Prepare_tftp
+    } else {
+	Send_user  "[exec date]: IOS file and config do not need update\n"
+    }
+
+    set tftp_ip $Rpg_ip
+    if { $Device_name == "hub" && $Mscf_hub_site } {
+	set tftp_ip "172.25.$mscf_ipo3.$mscf_ipo4"
+    }
+
+    if { $need_cfg } {
+	Send_user  "[exec date]: Tftping the new config file...\n"
+	Tftp_copy tftp://$tftp_ip/$Cfg_file_name flash:$Cfg_file_name 0 0 30
+    }
+
+    set erase 0
+    if { $copy_ios } {
+	if { $Device_name == "hub" } {
+	    set erase 1
+	}
+	Send_user  "[exec date]: TFTPing the new IOS file... (up to 3 minutes)\n"
+	Tftp_copy tftp://$tftp_ip/$Ios_file_name flash:$Ios_file_name $erase 1 180
+    }
+
+    if { $load_ios } {
+	if { ( $Device_name == "lan" || $Hardware == "c3825" ) && $ios_ver != "" } {
+	    Send_user  "[exec date]: Erasing current IOS $ios_ver...\n"
+	    Delete_file flash:$ios_ver
+	}
+	if { $Device_name == "rtr" && $Hardware != "c3825" } {
+	    Delete_files_except_one $Ios_file_name
+	    Squeeze_flash
+	    set erase 1
+	}
+    }
+
+    if { $erase && $need_cfg } {
+	Send_user  "[exec date]: TFTPing the new config file again...\n"
+	Tftp_copy tftp://$tftp_ip/$Cfg_file_name flash:$Cfg_file_name 0 0 30
+    }
+
+    if { $need_cfg } {
+	Send_user  "[exec date]: Loading startup-config...\n"
+	Erase_startup_config
+	Load_startup flash:$Cfg_file_name
+    
+	Send_user  "[exec date]: Rebooting $Dev_ctl(full_name)... (up to 4 minutes)\n"
+	Reboot_device flash:$Ios_file_name
+
+	Login_device_for_config
+    }
+    
+    set format "+%T %e %b %Y"
+    catch { exec date -u $format } buf
+    Send_cfg_cmd "clock set $buf"
+    Send_user  "[exec date]: Post-configuring $Dev_ctl(full_name)...\n"
+    Post_config
+    Copy_to_startup
+    send_log "[exec date]: Post-configuring done\n"
+
+    Terminate_device_connection 
+}
+
+proc Set_dev_ctl { dev_name } {
+    global Lan_prompt Lan_port Rtr_prompt Rtr_port Hub_prompt Hub_port
+    global Dev_ctl Device_name dev_full_name
+
+    set Device_name $dev_name
+    set Dev_ctl(full_name) "$dev_full_name($Device_name)"
+    if { $dev_name == "lan" } {
+	set Dev_ctl(dev_prompt) $Lan_prompt
+	set Dev_ctl(dev_port) $Lan_port
+    } elseif { $dev_name == "rtr" } {
+	set Dev_ctl(dev_prompt) $Rtr_prompt
+	set Dev_ctl(dev_port) $Rtr_port
+    } else {
+	set Dev_ctl(dev_prompt) $Hub_prompt
+	set Dev_ctl(dev_port) $Hub_port
+    }
+}
+
+proc Get_cisco_passwords { } {
+    global spawn_id Dev_ctl Retry_cnt Device_name
+    global New_pswd New_enpswd Cr_password Cr_enpassword
+    global Lan_port Rtr_port Hub_port
+    global Use_serial_port Channel_num
+
+    Send_user  "[exec date]: Getting and printing passwords...\n"
+    set Retry_cnt -1
+
+    Set_dev_ctl "lan"
+    set ret [ Connect_to_a_port $Lan_port ]
+    if { $ret != 0 } {
+	send_error "[exec date]: Failed in connecting to the console for getting passwords\n"
+	exit 1
+    }
+    Login_to_device
+    Get_new_password
+    puts "Passwords for $Device_name - $Cr_password - $New_pswd - $Cr_enpassword - $New_enpswd -\n"
+    set New_pswd ""
+    set New_enpswd ""
+    Disconnect_device
+    Disconnect_port
+
+    Set_dev_ctl "rtr"
+    From_console_server_to_port $Rtr_port
+    Login_to_device
+    Get_new_password
+    puts "Passwords for $Device_name - $Cr_password - $New_pswd - $Cr_enpassword - $New_enpswd -\n"
+    set New_pswd ""
+    set New_enpswd ""
+    Disconnect_device
+
+    if { $Channel_num == "2" } {
+	Close_console_server
+	Send_user  "[exec date]: Getting passwords done\n"
+	exit 0
+    }
+
+    if { [catch { exec find_adapt -V NODE_NAME } node ] } {
+	Close_console_server
+	Send_user  "[exec date]: Node name not found\n"
+	exit 0
+    }
+
+    set loadhub 0
+    set Use_serial_port 0
+    if { ![catch { exec find_adapt -V HLMSCF@/tftpboot/$Dev_ctl(cfg_file_name) } ] && $node == "mscf" } {
+	set loadhub 1
+	set Use_serial_port 1
+    }
+    if { ![catch { exec find_adapt -V HLRPG@/tftpboot/$Dev_ctl(cfg_file_name) } ] && $node == "rpga" } {
+	set loadhub 1
+    }
+
+    if { $loadhub } {
+	set Retry_cnt -1
+	Set_dev_ctl "hub"
+	if { $Use_serial_port } {
+	    Close_console_server
+	    Start_kermit
+	    send connect\r
+	} else {
+	    Disconnect_port
+	    From_console_server_to_port $Hub_port
+	}
+	Login_to_device
+	Get_new_password
+	puts "Passwords for $Device_name - $Cr_password - $New_pswd - $Cr_enpassword - $New_enpswd -\n"
+	set New_pswd ""
+	set New_enpswd ""
+	Disconnect_device
+    }
+    Close_console_server
+    Send_user  "[exec date]: Getting passwords done (hub site)\n"
+
+    exit 0;
+}
+

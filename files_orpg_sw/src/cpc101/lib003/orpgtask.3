@@ -1,0 +1,61 @@
+
+NAME
+    ORPGTASK_exit, ORPGTASK_reghdlr, ORPGTASK_reg_term_handler
+
+SYNOPSIS
+    #include <orpg.h>
+    
+    void ORPGTASK_exit (int exit_code);
+    
+    int ORPGTASK_reg_term_handler (int (*term_handler)(int, int));
+    
+    int ORPGTASK_reghdlr (void (*cleanup_fxn_p)(int));
+
+    void ORPGTASK_print_stack (char *host, int pid);
+
+DESCRIPTION
+    This is the ORPG Library task module.
+
+    ORPGTASK_exit calls the task's registered termination handler, if there is
+    one, and exits with code "exit_code". See ORPGTASK_reg_term_handler for 
+    details on termination handler.
+
+    ORPGTASK_reg_term_handler registers a process termination handler of 
+    "term_handler". When one of the following signals is received by the 
+    process, the term_handler is called:
+
+	SIGINT, SIGQUIT, SIGILL, SIGABRT, SIGFPE, SIGBUS, SIGSEGV, SIGSYS, 
+	SIGPIPE, SIGTERM, SIGXCPU, SIGXFSZ and SIGLOST.
+
+    The termination handler has the following signature:
+
+	int term_handler (int sig, int flag);
+
+    where "sig" is the signal received and "flag" is ORPGTASK_EXIT_ABNORMAL_SIG
+    if the signal is one of the following "core generating" signals:
+
+	SIGQUIT, SIGILL, SIGFPE, SIGBUS, SIGSEGV, SIGSYS, SIGXCPU, SIGXFSZ and 
+	SIGLOST.
+
+    for other signal, "flag" is set to ORPGTASK_EXIT_NORMAL_SIG. If
+    term_handler returns a non-zero value and the signal is of
+    ORPGTASK_EXIT_NORMAL_SIG, the process will continue to run. Otherwise, the
+    process will terminates after term_handler is called.
+
+    For ORPGTASK_EXIT_ABNORMAL_SIG signals, a stack dump is generated on the
+    standard error port after term_handler is called.
+
+    If termination handler is NULL, any previously registered termination
+    handler will be deregistered.
+
+    ORPGTASK_reg_term_handler returns 0 on success or -1 on failure.
+
+    ORPGTASK_reghdlr is the older version of ORPGTASK_reg_term_handler. It is 
+    replaced by ORPGTASK_reg_term_handler.
+
+    ORPGTASK_print_stack dumps the stack of process "pid" on host "host" into
+    the caller Log file. If host == NULL, the local host is assumed.
+
+SEE ALSO
+    signal(5)
+

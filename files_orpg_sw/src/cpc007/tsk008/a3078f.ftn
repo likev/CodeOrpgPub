@@ -1,0 +1,297 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/04 14:13:10 $
+C $Id: a3078f.ftn,v 1.3 2002/12/04 14:13:10 christie Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A3078F__SOUTH_HEMI (RADAZM, I, MATCH, HR, HL,
+     $                               SLANT_RIGHT, SLANT_LEFT, SLOPE)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3078F__SOUTH_HEMI
+*.
+*.  MODULE VERSION: 0011
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       03 03 89      0000      CHARLIE BAUMHER      SPR # 80271
+*.       05 09 90      0001      R VISIOLI            SPR # 90697
+*.       02 13 91      0002      MARK FRESCH          SPR # 91248
+*.       12 03 91      0003      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0004      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/20/92      0005      Toolset              SPR 91895
+*.       03/25/93      0006      Toolset              SPR NA93-06801
+*.       01/28/94      0007      Toolset              SPR NA94-01101
+*.       03/03/94      0008      Toolset              SPR NA94-05501
+*.       04/11/96      0009      Toolset              CCR NA95-11802
+*.       12/23/96      0010      Toolset              CCR NA95-11807
+*.       03/16/99      0011      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:
+*.  CALL A3078F__SOUTH_HEMI(RADAZM,I, MATCH,HR,HL,
+*.                          SLANT_RIGHT,SLANT_LEFT,SLOPE)
+*.
+*.  MODULE FUNCTION:
+*.     THIS MODULE DETERMINES WHETHER THE LATEST RADIAL IS NEEDED FOR
+*.  A PARTICULAR REQUEST.  IF IT IS, IT ALSO DETERMINES WHERE AND HOW
+*.  THE RADIAL INTERSECTS THE LINE P1P2.  THIS MODULE IS FOR THE SOUTH
+*.  HEMI CASE SO THETA3 IS LOCATED AT POINT P1.  RIGHT AND LEFT REFER
+*.  TO CLOCKWISE ORIENTATION OF RADIALS, I.E. A LEFT AZ COMES BEFORE A
+*.  RIGHT AZ.  NOTE THAT FOR SOUTH HEMI CASE, WE ARE LOOKING FROM THE
+*.  OPPOSITE SIDE OF LINE P1P2 THAN THE NORTH HEMI CASE.  IF YOU WERE
+*.  STANDING AT P1 AND LOOKING TOWARDS P2, THE RADAR WOULD BE TO THE
+*.  LEFT SIDE OF P1P2.  BY CONVENTION IN THIS PROGRAM, THE NORMAL CASE
+*.  IS THE NORTH HEMI CASE SO IN THIS MODULE, WE ARE LOOKING AT THE
+*.  BACKSIDE OF THE LINE, WITH DISTANCES ALONG P1P2 INCREASING RIGHT
+*.  TO LEFT.  THIS IS THE REASON THE PASSED IN PARAMETERS ARE IN
+*.  REVERSE ORDER IN THE ARGUMENT LIST FROM MODULE A3078E__NORTH_HEMI.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT       TYPE        DESCRIPTION
+*.    -   -----       ----        -----------
+*.    C   BEG_AZ      R*4         Beginning azimuth of P1-P2 Plane.
+*.    C   END_AZ      R*4         Ending azimuth of P1-P2 plane.
+*.    C   ORIG_PTS    R*4         Table of cross-setion end points for each
+*.                                request.
+*.    C   P1P2_LENG   R*4         Length of P1-P2 plane.
+*.    C   THETA3      R*4         Azimuth angle between P1-P2 line and 0-P1
+*.                                (the baseline).
+*.    C   ZEROCROSS   L*4         Set if P1-P2 plan crosses 360.
+*.    C   DEGTORAD    R*4         (CONSTANT)Constant, used in calculation to
+*.                                convert degrees to radians.
+*.    C   P1_AZZ      I*4         (CONSTANT)Constant used as an index into the
+*.                                buffer ORIG_PTS for P1's Azimuth.
+*.    C   P1_RAN      I*4         (CONSTANT)Constant used as an index into the
+*.                                buffer ORIG_PTS for P1's Range.
+*.    C   P2_AZZ      I*4         (CONSTANT)Constant used as an index into the
+*.                                buffer ORIG_PTS for P2's Azimuth.
+*.    C   P2_RAN      I*4         (CONSTANT)Constant used as an index into the
+*.                                buffer ORIG_PTS for P2's Range.
+*.    C   TWO         I*4         (CONSTANT)Constant value of an integer 2.
+*.    C   ZERO        I*4         (CONSTANT)Program parameter for 0.
+*.    P   HL          R*4         DIST FROM P1 TO LEFT_AZ ALONG THE P1P2 LINE
+*.    P   HR          R*4         DIST FROM P1 TO RIGHT_AZ ALONG THE P1P2 LINE
+*.    P   I           I*4         Product requested index.
+*.    P   MATCH       L*4         INCOMING AZ MATCHES P1P2 RANGE
+*.    P   RADAZM      R*4         AZIMUTH OF THIS BASE RADIAL
+*.    P   SLANT_LEFT  R*4         RANGE FROM RADAR TO LEFT_AZ
+*.    P   SLANT_RIGHT R*4         RANGE FROM RADAR TO RIGHT_AZ
+*.
+*.    *   OUTPUT      TYPE        DESCRIPTION
+*.    -   ------      ----        -----------
+*.    P   HL          R*4         DIST FROM P1 TO LEFT_AZ ALONG THE P1P2 LINE
+*.    P   HR          R*4         DIST FROM P1 TO RIGHT_AZ ALONG THE P1P2 LINE
+*.    P   MATCH       L*4         INCOMING AZ MATCHES P1P2 RANGE
+*.    P   SLANT_LEFT  R*4         RANGE FROM RADAR TO LEFT_AZ
+*.    P   SLANT_RIGHT R*4         RANGE FROM RADAR TO RIGHT_AZ
+*.    P   SLOPE       R*4         SLOPE OF RADIAL THRU P1P2 PLANE
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME        TYPE        DESCRIPTION
+*.    ----        ----        -----------
+*.    ALPHA_LEFT  R*4         ANGLE BETWEEN SLANT_LEFT LINE & LINE P1P2
+*.    ALPHA_RIGHT R*4         ANGLE BETWEEN SLANT_RIGHT LINE & LINE P1P2
+*.    LEFT_AZ     R*4         INCOMING RADIAL - 0.5 TOLERANCE
+*.    PI          R*4         CONSTANT VALUE OF 180.0
+*.    RIGHT_AZ    R*4         INCOMING AZIMUTH + TOLERANCE
+*.    RINIT       R*4         CONSTANT VALUE OF 0.0
+*.    THETA_LEFT  R*4         ANGLE BETWEEN LEFT_AZ RADIAL
+*.    THETA_RIGHT R*4         ANGLE BETWEEN RIGHT_AZ RADIAL
+*.    TOLERANCE   R*4         RANGE FOR MATCHING AZIMUTHS.
+*.    TWOPI       R*4         CONSTANT VALUE OF 360.0
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3078CA
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS: NONE
+*.
+*.  DEVIATION FROM STANDARDS: NONE
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP07.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK07.CSS
+*.
+*.  MISC: NONE
+*.
+*.*******************************************************************
+C*
+C*
+C***************************************************************
+C*
+C*                A 3 0 7 8 F __ SOUTH_HEMI
+C*
+C*   VERTICAL CROSS SECTION ROUTINE TO CHECK EACH BASE RADIAL
+C*   REQUESTED BY THE PUP.
+C*
+C***************************************************************
+C*
+C*  MODULE   A3078F__SOUTH_HEMI (RADAZM,I, MATCH,HL,HR,
+C*                                  SLANT_LEFT,SLANT_RIGHT,SLOPE)
+C*
+      IMPLICIT NONE
+C*
+C*  INCLUDE COMMON PARAMETER FILE
+C*
+$INCLUDE A307.INC,**A30788   (     NLIST)
+$INCLUDE          **A3078CA  (     NLIST)
+C*
+C***************************************************************
+C*  LOCAL DECLARATIONS
+C*
+      INTEGER*4    I
+C
+      REAL*4       RADAZM, TOLERANCE
+      REAL*4       RINIT
+      REAL*4       PI, TWOPI
+      REAL*4       LEFT_AZ, RIGHT_AZ
+      REAL*4       THETA_LEFT, THETA_RIGHT
+      REAL*4       ALPHA_LEFT, ALPHA_RIGHT
+      REAL*4       SLANT_LEFT, SLANT_RIGHT
+      REAL*4       HL, HR, SLOPE
+C
+      LOGICAL      MATCH
+C*
+C***************************************************************
+C*  LOCAL PARAMETER  DECLARATIONS
+C*
+      PARAMETER   ( PI = 180.0 )
+      PARAMETER   ( TWOPI = 360.0 )
+      PARAMETER   ( TOLERANCE = .5 )
+      PARAMETER   ( RINIT = 0. )
+C*
+C*
+C*********************************************************************
+C*  CHECK IF THE INCOMING RADIAL IS BETWEEN POINTS P1 AND P2
+C*   +/ - TOLERANCE.
+C*
+      MATCH = .FALSE.
+      IF ( ZEROCROSS(I) ) THEN
+        IF (RADAZM.GE.BEG_AZ(I) .OR. RADAZM.LE.END_AZ(I)) MATCH=.TRUE.
+      ELSE
+        IF (RADAZM.GE.BEG_AZ(I) .AND. RADAZM.LE.END_AZ(I)) MATCH=.TRUE.
+      ENDIF
+C
+      IF ( MATCH ) THEN
+C
+C*********************************************************************
+C*  SOUTH_HEMI CASE:  THETA3 IS AT POINT P1 WHICH IS MOST CLOCKWISE
+C*     POINT.  LEFT AND RIGHT REFER TO PERSPECTIVE OF STANDING AT RADAR
+C*     ORIGIN AND LOOKING TOWARD LINE P1P2.  IN THIS CASE P1 IS TO THE
+C*     RIGHT AND DISTANCES MEASURED FROM P1 (I.E. HL AND HR) INCREASE
+C*     RIGHT TO LEFT, OPPOSITE THAT IN MODULE A3078E__NORTH_HEMI.  THIS
+C*     MEANS HL SHOULD BE GREATER THAN HR.
+C
+C     CALCULATE THE TWO-EDGE AZIMUTHS OF THE INCOMING AZIMUTH
+C
+        LEFT_AZ  = RADAZM - TOLERANCE
+        RIGHT_AZ = RADAZM + TOLERANCE
+        IF ( LEFT_AZ.LT.ZERO ) LEFT_AZ = LEFT_AZ + TWOPI
+        IF ( RIGHT_AZ.GT.TWOPI ) RIGHT_AZ = RIGHT_AZ - TWOPI
+C
+X       TYPE *,'8F: FOUND MATCHING AZ ',LEFT_AZ,RIGHT_AZ,
+     $         ' FOR PRODUCT NUMBER ',I
+C*
+C*********************************************************************
+C*  CALCULATE THE ANGLE BETWEEN THE EDGE AZIMUTHS & THE BASELINE 0-P1
+C*
+        IF ( LEFT_AZ .LE. ORIG_PTS(P2_AZZ,I) ) THEN
+C
+C*  SPECIAL CASE OF EDGE AZIMUTH
+C
+          SLANT_LEFT = ORIG_PTS(P2_RAN,I)
+          HL         = P1P2_LENG(I)
+        ELSE
+C*
+C*********************************************************************
+C*  NORMAL CASE:
+C*  CALCULATE THE SLANT RANGE FROM THE RADAR TO THE P1P2 LINE
+C*  ALONG THE LEFT-EDGE OF THE AZIMUTH LINE. CALCULATE THE RANGE FROM
+C*  P1 TO THE LEFT_AZIMUTH (HL).
+C*
+          THETA_LEFT  = ORIG_PTS(P1_AZZ,I) - LEFT_AZ
+          IF (THETA_LEFT.LT.RINIT) THETA_LEFT = THETA_LEFT + TWOPI
+          ALPHA_LEFT  = PI - THETA3(I) - THETA_LEFT
+          SLANT_LEFT  = (ORIG_PTS(P1_RAN,I) * SIN( THETA3(I)
+     $                * DEGTORAD)) / SIN( ALPHA_LEFT * DEGTORAD )
+C
+          HL = ORIG_PTS(P1_RAN,I)**TWO + SLANT_LEFT**TWO - TWO*
+     $          ORIG_PTS(P1_RAN,I)*SLANT_LEFT*COS(THETA_LEFT*DEGTORAD)
+          IF ( HL.LT.RINIT ) HL = RINIT
+          HL = SQRT( HL )
+C
+X         TYPE *,'8F: THETA_LEFT_AZ = ',THETA_LEFT,
+     $               '  ALPHA_LEFT =  ',ALPHA_LEFT
+        ENDIF
+C
+        IF ( RIGHT_AZ .GE. ORIG_PTS(P1_AZZ,I) ) THEN
+C
+C*  SPECIAL CASE OF EDGE AZIMUTH
+C
+          SLANT_RIGHT = ORIG_PTS(P1_RAN,I)
+          HR          = ZERO
+        ELSE
+C*
+C*********************************************************************
+C*  NORMAL CASE:
+C*  CALCULATE THE SLANT RANGE FROM THE RADAR TO THE P1P2 LINE ALONG
+C*  THE RIGHT-EDGE OF THE AZIMUTH LINE (SLANT_RIGHT). CALCULATE
+C*  THE HORIZONTAL RANGE FROM P1 TO THE RIGHT AZIMUTH (HR).
+C*
+          THETA_RIGHT = ORIG_PTS(P1_AZZ,I) - RIGHT_AZ
+          IF (THETA_RIGHT.LT.RINIT) THETA_RIGHT = THETA_RIGHT + TWOPI
+          ALPHA_RIGHT = PI - THETA3(I) - THETA_RIGHT
+          SLANT_RIGHT = (ORIG_PTS(P1_RAN,I) * SIN( THETA3(I)
+     $                * DEGTORAD)) / SIN( ALPHA_RIGHT * DEGTORAD )
+C
+          HR = ORIG_PTS(P1_RAN,I)**TWO + SLANT_RIGHT**TWO - TWO*
+     $        ORIG_PTS(P1_RAN,I)*SLANT_RIGHT*COS(THETA_RIGHT*DEGTORAD)
+          IF ( HR.LT.RINIT ) HR = RINIT
+          HR = SQRT( HR )
+C
+X         TYPE *,'8F: THETA_RIGHT = ',THETA_RIGHT,
+     $           '  ALPHA_RIGHT =  ',ALPHA_RIGHT
+        ENDIF
+C
+X       TYPE *,'8F: SLANT_LEFT  SLANT_RIGHT =',SLANT_LEFT,SLANT_RIGHT,
+     $         '  HL, HR = ',HL,HR
+C*
+C*********************************************************************
+C*  CALCULATE THE SLOPE OF THE BEAM THROUGH THE PLANE
+C*
+        IF ( HL - HR .LE. ZERO ) THEN
+          SLOPE = ZERO
+        ELSE
+          SLOPE = ( SLANT_LEFT - SLANT_RIGHT )  /  ( HL - HR )
+        ENDIF
+X       TYPE *,'8F: SLOPE = ',SLOPE
+C
+      ENDIF   ;MATCH IS TRUE
+      RETURN
+      END

@@ -1,0 +1,389 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/03 15:02:15 $
+C $Id: a3078a.ftn,v 1.3 2002/12/03 15:02:15 christie Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A3078A__BUILD_GRID
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3078A__BUILD_GRID
+*.
+*.  MODULE VERSION: 0012
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       10 24 89      0000      PAUL JENDROWSKI      SPR # 80271
+*.       05 08 90      0001      CHI CHAN             SPR # 90697
+*.       02 13 91      0002      MARK FRESCH          SPR # 91248
+*.       10 11 91      0003      EDWARD WENDOWSKI     SPR # 92410
+*.       10 22 91      0003      EDWARD WENDOWSKI     SPR # 92598
+*.       12 03 91      0004      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0005      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/20/92      0006      Toolset              SPR 91895
+*.       03/25/93      0007      Toolset              SPR NA93-06801
+*.       01/28/94      0008      Toolset              SPR NA94-01101
+*.       03/03/94      0009      Toolset              SPR NA94-05501
+*.       04/11/96      0010      Toolset              CCR NA95-11802
+*.       12/23/96      0011      Toolset              CCR NA95-11807
+*.       03/16/99      0012      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A3078A__BUILD_GRID
+*.
+*.  MODULE FUNCTION:
+*.
+*.     BUILDS THE CARTESIAN COORDINATE GRID BLOCK FOR THE
+*.     VERTICAL CROSS SECTION
+*.
+*.  MODULES CALLED: A3078B__UNLNKV_PKT, A3078C__CHAR_PKT 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT         TYPE        DESCRIPTION
+*.    -   -----         ----        -----------
+*.    G   FT_TO_KM      R*4         (CONSTANT)DEFINES THE SCALING FACTOR FOR
+*.                                  FEET TO KILOMETERS PARAMETERS
+*.    G   NM_TO_KM      R*4         (CONSTANT)SCALING FACTOR FOR NAUTICAL
+*.                                  MILES TO KILOMETERS
+*.    C   GRID_VECTORS  I*2         Pre-formatted grid vectors and labels.
+*.    C   BOXHGHT       R*4         (CONSTANT)Height of the cartesian grid
+*.                                  box.
+*.    C   INC1          I*4         (CONSTANT)Constant, used as an incrementor
+*.                                  value.
+*.    C   ONE           I*4         (CONSTANT)Constant value of one.
+*.    C   XTITLE_Y      I*4         (CONSTANT)Y-Pixel location for X-Axis grid
+*.                                  title.
+*.    C   YTITLE_Y      I*4         (CONSTANT)Y-Pixel location for Y-Axis grid
+*.                                  title.
+*.    C   Y_PIX_PER_BOX I*4         (CONSTANT)Number of Pixels per Y
+*.                                  (vertical) grid box.
+*.
+*.    *   OUTPUT       TYPE        DESCRIPTION
+*.    -   ------       ----        -----------
+*.    C   GRID_I2S     I*4         Number of I*2 words for each grid in the
+*.                                 GRID_VECTORS array.
+*.    C   GRID_VECTORS I*2         Pre-formatted grid vectors and labels.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    C   GRID_VECTORS      I*2         Pre-formatted grid vectors and labels.
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME           TYPE        DESCRIPTION
+*.    ----           ----        -----------
+*.    BEG_TICY       I*4         BEG Y COORD TIC MARK
+*.    BHGHT          I*4         INITIAL HEIGHT VALUE
+*.    BLOCK_LENGTH   I*4         LENGTH OF GRID BLOCK IN BYTES
+*.    BYTES_ENTRY    I*4         NUMBER OF BYTES PER ENTRY
+*.    CHAR2          CHAR*2      CHARACTER VARIABLE FOR HEIGHT LABEL
+*.    CHAR4          CHAR*4      CHARACTER VARIABLE FOR X-AXIS LABEL
+*.    END_TICY       I*4         END Y COORD TIC MARK
+*.    ENTRY_LNS      I*4         NUMBER OF ENTRYS PER GRID LINE
+*.    GRID           I*4         INDEX FOR GRID NUMBER
+*.    I              I*4         INDEX LOOP
+*.    I2_C2          I*2         EQUIVALENCED TO CHAR2 TO GET INTEGER
+*.    I2_C4          I*2         EQUIVALENCED TO CHAR4 TO GET INTEGER
+*.    I2_PTITLE      I*2         EQUIVALENCED TO P_CHAR_TITLE TO GET I*2
+*.    I2_XTITLE      I*2         EQUIVALENCED TO X_CHAR_TITLE TO GET I*2
+*.    I2_YTITLE      I*2         EQUIVALENCED TO Y_CHAR_TITLE TO GET I*2
+*.    J              I*4         INDEX LOOP
+*.    K              I*4         INDEX LOOP
+*.    L              I*4         INDEX LOOP
+*.    LEN            I*4         LENGTH OF FORMATTED GRID VECTORS
+*.    NGRIDS         I*4         Number of grids possible.
+*.    NUM_HGHTLNS    I*4         NUMBER OF HORIZONTAL LINES
+*.    NUM_X_LAB      I*4         NUMBER OF X LABELS FOR EACH GRID
+*.    PTITLE_Y       I*4         Y-PIXEL LOCATION FOR POINT TITLE
+*.    P_CHAR_TITLE   CHAR*6      POINT TITLE
+*.    P_TITLE_I2S    I*4         NUMBER OF I*2 WORDS IN POINT TITLE
+*.    TGRID_LNS      I*4         TOTAL # OF GRID LINES
+*.    VALUE          I*4         VALUE OF THE HORIZONTAL AXIS IN NAUTICAL
+*.                               MILES OR THE VERTICAL AXIS IN 1000 FEET
+*.    VECFRMT_ID     I*4         VECTOR FORMAT ID NUMBER
+*.    XDIF           R*4         X COORD DIFFERENCE VALUE
+*.    XHGHT          I*4         X-PIXEL LOCATION OF HEIGHT LABELS
+*.    XLAB           I*4         X COORD FOR NM LABEL VALUES
+*.    XTICS          I*4         X COORDINATE TIC MARKS
+*.    XTITLE_X       I*4         X-pixel location for X-axis title.
+*.    X_BOT_LINE     I*4         X-pixel location of the start of the
+*.                               horizontal grid line
+*.    X_CHAR_TITLE   CHAR*2      X-PIXEL LOCATION OF X-AXIS TITLE
+*.    X_LAB_I2S      I*4         NUMBER OF I*2 WORDS IN HEIGHT LABELS
+*.    X_LAB_INTERVAL I*4         INVERVAL IN NM BETWEEN X-AXIS LABELS
+*.    X_LAB_START    I*4         STARTING X-PIXEL OFFSET FOR X-AXIS LABELS
+*.    X_LFT_LINE     I*4         X-pixel location of left vertical grid line.
+*.    X_PIX_PER_KM   I*4         Number of pixels per KM for each grid line.
+*.    X_RGT_LINE     I*4         X pixel location of right vertical grid line.
+*.    X_TITLE_I2S    I*4         NUMBER OF I*2 WORDS IN X-AXIS TITLE
+*.    X_TOP_LINE     I*4         X pixel location of the start of the V top
+*.                               horizontal grid line.
+*.    YB_LFT_LINE    I*4         Bottom Y pixel coordinate of the left
+*.                               vertical line of the cartesian coordinate
+*.                               grid.
+*.    YDIF           R*4         Y COORD DIFFERENCE VALUE
+*.    YHEIGHT        I*4         Y COORDINATE FOR THE HEIGHT LINES
+*.    YLAB           I*4         Y COORD FOR HEIGHT VALUES
+*.    YTITLE_X       I*4         X - pixel location for Y-axis title.
+*.    YT_LFT_LINE    I*4         Top Y pixel coordinate of the left vertical
+*.                               line of the cartesian coordinate grid.
+*.    Y_BOT_LINE     I*4         Y pixel coordinate of the bottom horizontal
+*.                               line of the cartesian coordinate grid.
+*.    Y_CHAR_TITLE   CHAR*8      Y AXIS TITLE
+*.    Y_LAB_I2S      I*4         NUMBER OF CHARS IN NM LABELS
+*.    Y_LAB_START    I*4         Y-PIXEL LOCATION OF Y-AXIS LABELS
+*.    Y_TITLE_I2S    I*4         NUMBER OF I*2 WORDS IN Y TITLE
+*.    Y_TOP_LINE     I*4         Y pixel coordinate of the bottom  horizontal
+*.                               line of the cartesian coordinate grid.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3078CM
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP07.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK07.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+C
+$INCLUDE A309.INC,**A3PM50  (NLIST)
+$INCLUDE A307.INC,**A30788 (NLIST)
+$INCLUDE          **A3078CM (NLIST)
+C*
+      INTEGER*4    LEN, GRID
+      INTEGER*4    VALUE
+      INTEGER*4    VECFRMT_ID
+      INTEGER*4    BLOCK_LENGTH, ENTRY_LNS, BYTES_ENTRY, TGRID_LNS
+C
+C** DISPLAY GRID PIXEL DEFINITIONS
+C
+      INTEGER*4    I,J,K,L
+      INTEGER*4    NUM_HGHTLNS, YHEIGHT
+      INTEGER*4    BEG_TICY, END_TICY, XTICS
+      INTEGER*4    BHGHT, XHGHT
+      INTEGER*4    XLAB, YLAB
+      INTEGER*4    Y_LAB_I2S, X_LAB_I2S
+      INTEGER*4    X_LAB_START,  Y_LAB_START
+      INTEGER*4    PTITLE_Y
+C*
+      PARAMETER   ( VECFRMT_ID = 7 )
+      PARAMETER   ( TGRID_LNS = 4, ENTRY_LNS = 4, BYTES_ENTRY = 2 )
+      PARAMETER   ( NUM_HGHTLNS = 6 )
+      PARAMETER   ( BEG_TICY = Y_BOT_LINE, END_TICY = BEG_TICY - 6 )
+      PARAMETER   ( BHGHT = 10, XHGHT = 30 )
+      PARAMETER   ( X_LAB_START = X_LFT_LINE - 17 )
+      PARAMETER   ( Y_LAB_START = Y_BOT_LINE - 4 )
+      PARAMETER   ( X_LAB_I2S = 2, Y_LAB_I2S = 1 )
+      PARAMETER   ( PTITLE_Y = XTITLE_Y + 10 )
+C
+C** AXIS LABELS
+C
+      CHARACTER*2 CHAR2, X_CHAR_TITLE
+      CHARACTER*4 CHAR4
+      CHARACTER*6 P_CHAR_TITLE
+      CHARACTER*8 Y_CHAR_TITLE
+      INTEGER     X_TITLE_I2S,   Y_TITLE_I2S,  P_TITLE_I2S
+      PARAMETER ( X_TITLE_I2S = 1,  Y_TITLE_I2S = 4)
+      PARAMETER ( P_TITLE_I2S = 3 )
+C
+C* SETUP EQUIVALENCED I*2 VARIABLES FOR CHARACTER DATA
+C
+X     LOGICAL PRINTED
+X     DATA PRINTED /.FALSE./
+C
+      INTEGER*2   I2_C2(Y_LAB_I2S), I2_C4(X_LAB_I2S)
+      INTEGER*2   I2_XTITLE(X_TITLE_I2S), I2_YTITLE(Y_TITLE_I2S)
+      INTEGER*2   I2_PTITLE(P_TITLE_I2S)
+      EQUIVALENCE (CHAR2,I2_C2)
+      EQUIVALENCE (CHAR4,I2_C4)
+      EQUIVALENCE (X_CHAR_TITLE,I2_XTITLE)
+      EQUIVALENCE (Y_CHAR_TITLE,I2_YTITLE)
+      EQUIVALENCE (P_CHAR_TITLE,I2_PTITLE)
+C
+C** HORIZONTAL SPECIFICATIONS FOR THE DIFFERENT GRIDS
+C
+      INTEGER      X_LAB_INTERVAL(NGRIDS)
+      INTEGER      NUM_X_LAB(NGRIDS)
+      REAL         XDIF,  YDIF
+C
+C** COMPUTE PIXEL INTERVAL BETWEEN HEIGHT LINES BY CONVERTING PIXELS
+C** PER .5 KILOMETER TO PIXELS PER 10000 FEET
+C
+      PARAMETER (YDIF=(BHGHT*1000.)*(Y_PIX_PER_BOX/BOXHGHT)*FT_TO_KM)
+C
+X     INTEGER CLOSESTAT
+X     CLOSE(14,IOSTAT=CLOSESTAT)
+X     OPEN (14,FILE='CON:')
+X     WRITE(14,*)'A3078A: VALUES FOR PARAMETER YDIF LINE 347 '
+X     WRITE(14,*)'BHGHT EQUALS ',BHGHT
+X     WRITE(14,*)'BHGHT*1000 EQUALS ',BHGHT*1000
+X     WRITE(14,*)'Y_PIX_PER_BOX EQUALS ',Y_PIX_PER_BOX
+X     WRITE(14,*)'BOXHGHT EQUALS ',BOXHGHT
+X     WRITE(14,*)'FEET TO KILOMETERS EQUALS ',FT_TO_KM
+X     WRITE(14,*)'A3078A: RESULTS OF PARAMETER YDIF EQUALS ',YDIF
+C
+C** INITIALIZE GRID SPECIFICATIONS
+C
+      DATA NUM_X_LAB    / 9,  8, 12/
+      DATA X_LAB_INTERVAL/ 5, 10, 10/
+C
+      DATA X_CHAR_TITLE/'NM'/, Y_CHAR_TITLE/'ALT KFT '/
+      DATA P_CHAR_TITLE/'(AZ/R)'/
+C
+C*********************************************************************
+C*  INITIALIZE THE DIFFERENT GRIDS
+C
+X     WRITE(14,*) ' ENTERED MODULE A3078A '
+C
+      DO 500 GRID=ONE,NGRIDS
+C*
+C*********************************************************************
+C*    STORE PACKET ID FOR NO VALUE UNLINKED VECTOR
+C*
+        LEN = INC1
+        GRID_VECTORS(LEN, GRID) = VECFRMT_ID
+C*
+C*********************************************************************
+C*    STORE LENGTH OF HEREAFTER VALUE
+C*
+        BLOCK_LENGTH = ENTRY_LNS*BYTES_ENTRY*( TGRID_LNS + NUM_HGHTLNS +
+     $                       NUM_X_LAB(GRID) )
+        GRID_VECTORS( LEN + INC1, GRID ) = BLOCK_LENGTH
+        LEN = LEN + INC1
+C*
+C*********************************************************************
+C*    BUILD THE FOUR BORDER LINES OF THE CARTESIAN COORDINATE GRID.
+C*    FIRST BUILD THE TWO HORIZONTAL LINES.
+C*
+        CALL A3078B__UNLNKV_PKT ( X_TOP_LINE, Y_TOP_LINE, X_RGT_LINE,
+     $             Y_TOP_LINE, LEN, GRID_VECTORS(INC1,GRID) )
+C*
+        CALL A3078B__UNLNKV_PKT ( X_BOT_LINE, Y_BOT_LINE, X_RGT_LINE,
+     $             Y_BOT_LINE, LEN, GRID_VECTORS(INC1,GRID) )
+C*
+C*********************************************************************
+C*    BUILD THE VERTICAL LINES OF THE CARTESIAN COORDINATE BORDER.
+C*
+C*
+        CALL A3078B__UNLNKV_PKT ( X_LFT_LINE, YT_LFT_LINE, X_LFT_LINE,
+     $             YB_LFT_LINE, LEN, GRID_VECTORS(INC1,GRID) )
+C*
+        CALL A3078B__UNLNKV_PKT ( X_RGT_LINE, Y_TOP_LINE, X_RGT_LINE,
+     $             Y_BOT_LINE, LEN, GRID_VECTORS(INC1,GRID) )
+C*
+C*********************************************************************
+C*    BUILD THE HEIGHT DIVIDER LINES
+C*
+        DO 100 I = ONE, NUM_HGHTLNS
+          YHEIGHT = Y_BOT_LINE - NINT( YDIF*I )
+          CALL A3078B__UNLNKV_PKT ( X_LFT_LINE, YHEIGHT, X_RGT_LINE,
+     $               YHEIGHT, LEN, GRID_VECTORS(INC1,GRID) )
+100     CONTINUE
+C*
+C*********************************************************************
+C*    BUILD THE TIC MARKS ON THE CARTESIAN GRID MAP.
+C*
+C*    COMPUTE NUMBER OF PIXELS BETWEEN TIC MARKS
+C
+        XDIF = X_PIX_PER_KM(GRID)*NM_TO_KM*X_LAB_INTERVAL(GRID)
+C
+X     IF (.NOT. PRINTED) THEN
+X     WRITE(14,*)'A3078A: VALUES IN CALCULATION LINE 423 '
+X     WRITE(14,*)'X_PIX_PER_KM(GRID)*NM_TO_KM*X_LAB_INTERVAL(GRID)'
+X     WRITE(14,*)'X_PIX_PER_KM(GRID) EQUALS ',X_PIX_PER_KM(GRID)
+X     WRITE(14,*)'X_LAB_INTERVAL(GRID) EQUALS ',X_LAB_INTERVAL(GRID)
+X     WRITE(14,*)'NAUTICAL MILES TO KILOMETERS EQUALS ',NM_TO_KM
+X     WRITE(14,*)'A3078A: RESULTS OF CALCULATION ',XDIF
+X     PRINTED = .TRUE.
+X     ENDIF
+C
+        DO 200 J= ONE, NUM_X_LAB(GRID)
+          XTICS = X_LFT_LINE + NINT( XDIF*J )
+          CALL A3078B__UNLNKV_PKT(XTICS,BEG_TICY,XTICS,END_TICY,LEN,
+     $                         GRID_VECTORS(INC1,GRID))
+200     CONTINUE
+C
+X       TYPE *,' AFTER LINES; GRID=',GRID,'  LENGTH=',LEN
+C*
+C*********************************************************************
+C*    BUILD THE HEIGHT MARK LABELS ON THE VERTICAL AXIS
+C*
+        DO 300 K = ONE, NUM_HGHTLNS
+          VALUE = BHGHT * K
+          WRITE(CHAR2,301) VALUE
+          YLAB = Y_LAB_START - ( YDIF * K )
+C
+X      TYPE *,' Y-LABEL: VALUE=',VALUE,'  CHAR2=',CHAR2,'  LEN=',LEN
+C
+          CALL A3078C__CHAR_PKT( Y_LAB_I2S, XHGHT, YLAB, I2_C2,
+     $                         LEN, GRID_VECTORS(INC1,GRID) )
+300     CONTINUE
+301     FORMAT(I2)
+C
+X       TYPE *,' AFTER Y-LABELS; LENGTH=',LEN
+C*
+C*********************************************************************
+C*    BUILD THE TIC MARK LABELS ON THE HORIZONTAL AXIS
+C*
+        DO 400 L = ONE, NUM_X_LAB(GRID)
+          VALUE = X_LAB_INTERVAL(GRID)*L
+          WRITE(CHAR4,401) VALUE
+          XLAB  = X_LAB_START + NINT( XDIF * L )
+          CALL A3078C__CHAR_PKT( X_LAB_I2S, XLAB, XTITLE_Y, I2_C4,
+     $                         LEN, GRID_VECTORS(INC1,GRID) )
+400     CONTINUE
+401     FORMAT(I4)
+C
+C** PUT ON THE HEIGHT (Y) AXIS TITLE
+C
+        CALL A3078C__CHAR_PKT( Y_TITLE_I2S, YTITLE_X, YTITLE_Y,
+     $                      I2_YTITLE, LEN, GRID_VECTORS(INC1,GRID) )
+C
+C** PUT ON THE X AXIS TITLE
+C
+        CALL A3078C__CHAR_PKT( X_TITLE_I2S, XTITLE_X, XTITLE_Y,
+     $                      I2_XTITLE, LEN, GRID_VECTORS(INC1,GRID) )
+C
+C** PUT ON THE TITLE FOR END AND MID POINTS BELOW THE X-AXIS LABELS
+C
+        CALL A3078C__CHAR_PKT( P_TITLE_I2S, YTITLE_X, PTITLE_Y,
+     $                      I2_PTITLE, LEN, GRID_VECTORS(INC1,GRID) )
+C
+C** SAVE THE LENGTH OF THE FORMATTED GRID
+C
+        GRID_I2S(GRID) = LEN
+C
+X       TYPE *,'8A: GRID # ',GRID,'  I*2 LENGTH = ',LEN
+C
+ 500  CONTINUE
+C
+X     WRITE(14,*) ' LEAVING MODULE A3078A '
+C
+      RETURN
+      END

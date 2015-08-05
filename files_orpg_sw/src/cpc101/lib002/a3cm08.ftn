@@ -1,0 +1,201 @@
+C 
+C RCS info 
+C $Author: ccalvert $ 
+C $Locker:  $ 
+C $Date: 2004/06/30 20:15:51 $ 
+C $Id: a3cm08.ftn,v 1.5 2004/06/30 20:15:51 ccalvert Exp $ 
+C $Revision: 1.5 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A3CM08__CHANGE_NOTICE(OLD_QP,P1,P2,P3,P4,P5)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3CM08__CHANGE_NOTICE
+*.
+*.  MODULE VERSION: 0008
+*.
+*.  MODULE LANGUAGE:  FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       08 19 88      0000      W.B. EIDSON          SPR # 80030
+*.       11 08 90      0001      T. LYNCH             SPR # 91250
+*.       04 29 91      0001      JOHN DEPHILIP        SPR # 92100
+*.       12 03 91      0002      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0003      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0004      Toolset              SPR 91895
+*.       03/25/93      0005      Toolset              SPR NA93-06801
+*.       03/03/94      0006      Toolset              SPR NA94-05501
+*.       12/23/96      0007      Toolset              CCR NA95-11807
+*.       03/16/99      0008      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A3CM08__CHANGE_NOTICE(OLD_QP,P1,P2,P3,P4,P5)
+*.
+*.  MODULE FUNCTION:
+*.
+*.     THIS MODULE RECEIVES STATUS/ALARM NOTIFICATIONS ALONG WITH
+*.     RELEVANT AMPLIFICATION DATA FROM VARIOUS SUBSYSTEMS WITHIN
+*.     THE RPG AND FORWARDS THE INFORMATION TO STATUS MONITOR, CPC
+*.     10, FOR PROCESSING.
+*.
+*.  MODULES CALLED: A31215__GET_OUTBUF, A31216__REL_OUTBUF, A3CM09__MY_NAME, 
+*.                  A3CM70__REPORT_ERROR 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT    TYPE        DESCRIPTION
+*.    -   -----    ----        -----------
+*.    G   CPC10MSG I*4         (CONSTANT)Data Buffer Type: CPC 10 Message.
+*.    G   FORWARD  I*4         (CONSTANT)Parameter to indicate that an output
+*.                             buffer is to be forwarded to successor tasks
+*.    G   NORMAL   I*4         (CONSTANT)Parameter which indicates normal
+*.                             completion of requested operation to acquire
+*.                             input or output buffer
+*.    P   OLD_QP   I*4         SUBSYSTEM NOTIFICATION CODE
+*.    P   P1       I*4         AMPLIFICATION DATA 1
+*.    P   P2       I*4         AMPLIFICATION DATA 2
+*.    P   P3       I*4         AMPLIFICATION DATA 3
+*.    P   P4       I*4         AMPLIFICATION DATA 4
+*.    P   P5       I*4         AMPLIFICATION DATA 5
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    G   MEM     I*4         Array in RPG shared memory set aside for buffer
+*.                            sharing.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME                 TYPE        DESCRIPTION
+*.    ----                 ----        -----------
+*.    ERRPHR               CHAR*60     Phrase for reporting error getting CPC
+*.                                     70 MSG Buffer.
+*.    NAME                 CHAR*8      Variable used to hold task name when
+*.                                     building status change messge to be
+*.                                     forwarded to STATMON.
+*.    NAMEI2               I*4         Integer*4 variable equivalenced to
+*.                                     NAME.
+*.    NI21_OFS             I*4         (Constant) offset which when added to
+*.                                     PTR points to NAMEI2(1) in MEM.
+*.    NI22_OFS             I*4         (Constant) offset which when added to
+*.                                     PTR points to NAMEI2(1) in MEM.
+*.    OLD_QP_OFS           I*4         (Constant) subsystem notifiction code
+*.                                     offset.
+*.    P1_OFS               I*4         (Constant) Value used as P1-index
+*.                                     (offset) into array (MEM) which
+*.                                     contains status change message to be
+*.                                     forwarded to CPC #10.
+*.    P2_OFS               I*4         (Constant) Value used as P2-index
+*.                                     (offset) into array (MEM) which
+*.                                     contains status change message to be
+*.                                     forwarded to CPC #10.
+*.    P3_OFS               I*4         (Constant) Value used as P3-index
+*.                                     (offset) into array (MEM) which
+*.                                     contains status change message to be
+*.                                     forwarded to CPC #10.
+*.    P4_OFS               I*4         (Constant) Value used as P4-index
+*.                                     (offset) into array (MEM) which
+*.                                     contains status change message to be
+*.                                     forwarded to CPC #10.
+*.    P5_OFS               I*4         Parameter value used as P5-index
+*.                                     (offset) into array (MEM) whiccontains
+*.                                     status message changes to be forwarded
+*.                                     to STATMON.
+*.    PTR                  I*4         Index into MEM buffer
+*.    STAT                 I*4         Status returned from call to
+*.                                     A31215_GET_OUTBUF.
+*.    STATUS_CHANGE_NOTIFY I*4         Notifies status change; inserted into
+*.                                     the MEM buffer.
+*.    STCHNOT_OFS          I*4         Constant used as an index into the MEM
+*.                                     buffer.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD00
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: None
+*.
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP09.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK09.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+$INCLUDE A309.INC/G,**A3PM00 (NLIST)
+$INCLUDE            **A3CD00 (NLIST)
+      INTEGER P1, P2, P3, P4, P5, OLD_QP, PTR, STAT
+      INTEGER STATUS_CHANGE_NOTIFY, STCHNOT_OFS, NI21_OFS, NI22_OFS
+      INTEGER OLD_QP_OFS, P1_OFS, P2_OFS, P3_OFS, P4_OFS, P5_OFS
+      PARAMETER (NI21_OFS = 0)
+      PARAMETER (NI22_OFS = 1)
+      PARAMETER (STCHNOT_OFS = 2)
+      PARAMETER (OLD_QP_OFS = 3)
+      PARAMETER (P1_OFS = 4)
+      PARAMETER (P2_OFS = 5)
+      PARAMETER (P3_OFS = 6)
+      PARAMETER (P4_OFS = 7)
+      PARAMETER (P5_OFS = 8)
+      PARAMETER (STATUS_CHANGE_NOTIFY = -1)
+      CHARACTER*8 NAME, A3CM09__MY_NAME
+      CHARACTER*60 ERRPHR
+      INTEGER NAMEI2(2), I
+      EQUIVALENCE (NAME, NAMEI2(1))
+*
+*** EXECUTABLE CODE FOLLOWS
+*
+*
+*** REQUEST MEMORY FROM BUFFER MANANGEMENT TO SEND STATUS CHANGE
+*
+      CALL A31215__GET_OUTBUF(CPC10MSG,10,PTR,STAT)
+*
+*** MEMORY RECEIVED?
+*
+      IF (STAT .EQ. NORMAL) THEN
+*
+*** YES ... BUILD STATUS CHANGE MESSAGE AND FORWARD IT TO CPC 10.
+*
+         NAME = A3CM09__MY_NAME()
+         MEM(PTR + NI21_OFS) = NAMEI2(1)
+         MEM(PTR + NI22_OFS) = NAMEI2(2)
+         MEM(PTR + OLD_QP_OFS) = OLD_QP
+         MEM(PTR + STCHNOT_OFS) = STATUS_CHANGE_NOTIFY
+         MEM(PTR + P1_OFS) = P1
+         MEM(PTR + P2_OFS) = P2
+         MEM(PTR + P3_OFS) = P3
+         MEM(PTR + P4_OFS) = P4
+         MEM(PTR + P5_OFS) = P5
+         CALL A31216__REL_OUTBUF(PTR, FORWARD)
+      ELSE
+*
+*** NO ... ISSUE AN ERROR TO MESSAGE LU
+*
+         WRITE (ERRPHR,111) STAT
+ 111     FORMAT('ERROR GETTING CPC10MSG BUFFER ,STAT=',I4)
+         CALL A3CM70__REPORT_ERROR(ERRPHR)
+      ENDIF
+*
+*** EXIT THE PROGRAM
+*
+      RETURN
+      END

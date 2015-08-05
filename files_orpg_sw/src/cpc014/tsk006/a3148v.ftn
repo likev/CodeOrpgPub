@@ -1,0 +1,343 @@
+C
+C RCS info
+C $Author: ryans $
+C $Locker:  $
+C $Date: 2005/03/09 16:35:15 $
+C $Id: a3148v.ftn,v 1.5 2005/03/09 16:35:15 ryans Exp $
+C $Revision: 1.5 $
+C $State: Exp $
+C
+       SUBROUTINE A3148V__PROD81_APPEND_ADAP(HYDRADAP,LYR3EN,PBUFF)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3148V__PROD81_APPEND_ADAP
+*.
+*.  MODULE VERSION: 0004
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   -----------------    --------------------
+*.       08/05/97      0000      ELLIOTT P. FRIEND    CCR NA96-18402
+*.       03/16/99      0001      Toolset              CCR NA98-23803
+*.       01/31/02      0002      Dennis A. Miller     CCR NA01-27501
+*.       06/30/03      0003      Cham Pham            CCR NA02-06508
+*.       01/13/05      0004      D. Miller; C. Pham   CCR NA04-33201
+*.
+*.  CALLING SEQUENCE: CALL A3148V__PROD81_APPEND_ADAP(HYDRADAP,LYR3EN,PBUFF)
+*.
+*.  MODULE FUNCTION:
+*.
+*.     This routine is called to build the ADAPTATION Data Array sub-layer for
+*.     the Digital Precipitation Data Array (DPA) product as an ASCII array. The
+*.     ADAPTATION Data Array contains the present settings of all PPS adaptable
+*.     parameters. This data will be added as a sub-layer in Layer3, before the
+*.     Bias Table and Supplemental Data sub-layers of the DPA product.
+*.
+*.  MODULES CALLED: NONE
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT           TYPE        DESCRIPTION
+*.    -   -----           ----        -----------
+*.    P   HYDRADAP        I*4         ADAPTATION DATA ARRAY
+*.    P   LYR3EN          I*4         END INDEX OF LAYER 3
+*.    P   PBUFF           I*2         PRODUCT BUFFER
+*.    G   HYZ_ADAP        I*4         (CONSTANT)Size of Adaptation data array
+*                                     in input buffer.
+*.    C   INCR            I*4         (CONSTANT)Variable used to increment by 1.
+*.
+*.    *   OUTPUT          TYPE        DESCRIPTION
+*.    -   ------          ----        -----------
+*.    P   LYR3EN          I*4         END INDEX OF LAYER 3
+*.    P   PBUFF           I*2         PRODUCT BUFFER
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE      DESCRIPTION
+*.    -   ----------------  ----      -----------
+*.    P   HYDRADAP        I*4         ADAPTATION DATA ARRAY
+*.    P   LYR3EN          I*4         END INDEX OF LAYER 3
+*.    P   PBUFF           I*2         PRODUCT BUFFER
+*.
+*.  DATABASE/FILE REFERENCE: NONE
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME          TYPE        DESCRIPTION
+*.    ----          ----        -----------
+*.    BLKLNOFF      I*4         Block length offset
+*.    CHARLINE      CHAR*8      Character line table.
+*.    CLIDX         I*4         CHARLINE index
+*.    DIVIDER       I*4         Parameter for layer divider
+*.    DIVOFF        I*4         Offset for layer divider
+*.    FWD           I*4         Full word variable used to put I*4
+*.    HWD           I*2         Array equivalenced to FWD
+*.    I             I*4         Do loop index.
+*.    ISTOFF        I*4         Parameter for Product buffer offset
+*.    JSTOFF        I*4         Parameter for Product buffer offset
+*.    LSW           I*4         Least significant word index
+*.    LYRIDOFF      I*4         Offset for layer ID
+*.    LYRLNOFF      I*4         Offset for LYR4LNG
+*.    LYR_OVERHD    I*4         OVERHEAD IN BYTES OF LAYER DIVIDER
+*.    MSW           I*4         Most significant word index
+*.    NULL          I*4         Parameter for integer 0
+*.    PACKETID      I*4         Packet ID
+*.    PRODLINE      I*2         Array equivalenced to CHARLINE to assign
+*.                              character data to product.
+*.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A313HYPP
+*.    A313HYDD
+*.    A314C3
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK14.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+C...'X' IN COLUMN-1 INDICATES CONDITIONALLY COMPILED DEBUG CODE...
+C
+      IMPLICIT NONE
+C
+C** Include global common data:
+C
+$INCLUDE A309.INC/G,**A3PM00 (NEND NLIST)
+$INCLUDE            **A3PM01 (NEND NLIST)
+C
+C** Include task-local common data:
+C
+$INCLUDE A313HBUF.INC/G,**A313HYPP (NEND NLIST)
+$INCLUDE A3146.INC/G,   **A314C3 (NEND NLIST)
+$INCLUDE A3148.INC/G,   **A3148PV (NEND NLIST)
+C
+      REAL      HYDRADAP(HYZ_ADAP)
+      INTEGER   LYR3EN, I, CLIDX, INCR
+      INTEGER*2 PBUFF(*)
+      PARAMETER (INCR=1)
+C
+C---------------------
+C
+X     WRITE(6,*) 'A3148V: STARTING A3148V'
+C
+C
+C** Transfer ADAPTATION Data Array to intermediate Integer*2 buffer
+C
+      CLIDX = 0
+C
+C
+C** ...ADAPTATION Data sub-layer header line (Char*8)
+C
+      CLIDX  = CLIDX + 1
+      WRITE (CHARLINE(CLIDX),'(A5,I2,A1)') 'ADAP(', HYZ_ADAP+1, ')'
+C
+C
+C** ...PRECIPITATION ENHANCED PREPROCESSING
+C
+C** Radar Half Power Beam Width (in deg)
+C
+      CLIDX  = CLIDX + 1
+      WRITE (CHARLINE(CLIDX),'(F8.2)') HYDRADAP( AOFF_PRE + BEAM_WDTH)
+C
+C** Max Allowable % of Beam Blockage
+C
+      CLIDX  = CLIDX + 1
+      WRITE (CHARLINE(CLIDX),'(F8.2)') HYDRADAP( AOFF_PRE + BLK_THRES)
+C
+C** Max Allowable % Likelihood of Clutter
+C
+      CLIDX  = CLIDX + 1
+      WRITE (CHARLINE(CLIDX),'(F8.2)') HYDRADAP( AOFF_PRE + CLUT_THRES)
+C
+C** Portion of Beam Required to Compute Average Power
+C
+      CLIDX  = CLIDX + 1
+      WRITE (CHARLINE(CLIDX),'(F8.2)') HYDRADAP( AOFF_PRE + WEIG_THRES)
+C
+C** % of Hybrid Scan Needed to be Considered full
+C
+      CLIDX  = CLIDX + 1
+      WRITE (CHARLINE(CLIDX),'(F8.2)') HYDRADAP( AOFF_PRE + FHYS_THRES)
+C
+C** Low Refl. Threshold
+C
+      CLIDX  = CLIDX + 1
+      WRITE (CHARLINE(CLIDX),'(F8.2)') HYDRADAP( AOFF_PRE + LOWZ_THRES)
+C
+C** Rain Relf. Threshold
+C
+      CLIDX  = CLIDX + 1
+      WRITE (CHARLINE(CLIDX),'(F8.2)') HYDRADAP( AOFF_PRE + RAIN_ZTHR)
+C
+C** Rain Area Threshold
+C
+      CLIDX  = CLIDX + 1
+      WRITE (CHARLINE(CLIDX),'(F8.2)') HYDRADAP( AOFF_PRE + RAIN_ATHR)
+C
+C** Rain Time Threshold
+C
+      CLIDX  = CLIDX + 1
+      WRITE (CHARLINE(CLIDX),'(F8.2)') HYDRADAP( AOFF_PRE + RAIN_TMTHR)
+C
+C** Z-R Mult. Coef.
+C
+      CLIDX  = CLIDX + 1
+      WRITE (CHARLINE(CLIDX),'(F8.2)') HYDRADAP( AOFF_PRE + MLT_ZRCOEF)
+C
+C** Z-R Power Coef.
+C
+      CLIDX  = CLIDX + 1
+      WRITE (CHARLINE(CLIDX),'(F8.2)') HYDRADAP( AOFF_PRE + PWR_ZRCOEF)
+C
+C** Min Refl. to convert to Rate
+C
+      CLIDX  = CLIDX + 1
+      WRITE (CHARLINE(CLIDX),'(F8.2)') HYDRADAP( AOFF_PRE + MIN_ZREFL)
+C
+C** Max Refl. to convert to Rate
+C
+      CLIDX  = CLIDX + 1
+      WRITE (CHARLINE(CLIDX),'(F8.2)') HYDRADAP( AOFF_PRE + MAX_ZREFL)
+C
+C** Number Exclusion Zones
+C
+      CLIDX  = CLIDX + 1
+      WRITE (CHARLINE(CLIDX),'(F8.2)') HYDRADAP( AOFF_PRE + NUM_EXZONE)
+C
+C
+C** ...PRECIPITATION RATE
+C
+C** Range Cut-Off
+C
+      CLIDX  = CLIDX + 1
+      WRITE (CHARLINE(CLIDX),'(F8.2)') HYDRADAP( AOFF_RATE + RNG_CUTOFF)
+C
+C** Range Effect Coeff. #1
+C
+      CLIDX  = CLIDX + 1
+      WRITE (CHARLINE(CLIDX),'(F8.2)') HYDRADAP( AOFF_RATE + RNG_E1COEF)
+C
+C** Range Coeff. Coeff. #2
+C
+      CLIDX  = CLIDX + 1
+      WRITE (CHARLINE(CLIDX),'(F8.2)') HYDRADAP( AOFF_RATE + RNG_E2COEF)
+C
+C** Range Coeff. Coeff. #3
+C
+      CLIDX  = CLIDX + 1
+      WRITE (CHARLINE(CLIDX),'(F8.2)') HYDRADAP( AOFF_RATE + RNG_E3COEF)
+C
+C** Min Precip. Rate for inclusion
+C
+      CLIDX  = CLIDX + 1
+      WRITE (CHARLINE(CLIDX),'(F8.2)') HYDRADAP( AOFF_RATE + MIN_PRATE)
+C
+C** Max Precip. Rate allowed
+C
+      CLIDX  = CLIDX + 1
+      WRITE (CHARLINE(CLIDX),'(F8.2)') HYDRADAP( AOFF_RATE + MAX_PRATE)
+C
+C
+C** ...PRECIPITATION ACCUMULATION
+C
+C** Thresh. Elapsed Time to Restart
+C
+      CLIDX  = CLIDX + 1
+      WRITE (CHARLINE(CLIDX),'(F8.2)') HYDRADAP( AOFF_ACUM + TIM_RESTRT)
+C
+C** Max. Time for Interpolation
+C
+      CLIDX  = CLIDX + 1
+      WRITE (CHARLINE(CLIDX),'(F8.2)') HYDRADAP( AOFF_ACUM + MAX_TIMINT)
+C
+C** Min. Time in Hourly Period
+C
+      CLIDX  = CLIDX + 1
+      WRITE (CHARLINE(CLIDX),'(F8.2)') HYDRADAP( AOFF_ACUM + MIN_TIMPRD)
+C
+C** Threshold Hourly Outlier
+C
+      CLIDX  = CLIDX + 1
+      WRITE (CHARLINE(CLIDX),'(F8.2)') HYDRADAP( AOFF_ACUM + THR_HLYOUT)
+C
+C** End Time Gage Accumulation
+C
+      CLIDX  = CLIDX + 1
+      WRITE (CHARLINE(CLIDX),'(F8.2)') HYDRADAP( AOFF_ACUM + END_TIMGAG)
+C
+C** Max Period Accum Value
+C
+      CLIDX  = CLIDX + 1
+      WRITE (CHARLINE(CLIDX),'(F8.2)') HYDRADAP( AOFF_ACUM + MAX_PRDVAL)
+C
+C** Max Hourly Accum Value
+C
+      CLIDX  = CLIDX + 1
+      WRITE (CHARLINE(CLIDX),'(F8.2)') HYDRADAP( AOFF_ACUM + MAX_HLYVAL)
+C
+C
+C** ...PRECIPITATION ADJUSTMENT
+C
+C** Time Bias Estimation
+C
+      CLIDX  = CLIDX + 1
+      WRITE (CHARLINE(CLIDX),'(F8.2)') HYDRADAP( AOFF_ADJU + TIM_BIEST)
+C
+C** Thresh. No. Gage-Radar Pairs
+C
+      CLIDX  = CLIDX + 1
+      WRITE (CHARLINE(CLIDX),'(F8.2)') HYDRADAP( AOFF_ADJU + THR_NPAIRS)
+C
+C** Reset Bias Value
+C
+      CLIDX  = CLIDX + 1
+      WRITE (CHARLINE(CLIDX),'(F8.2)') HYDRADAP( AOFF_ADJU + RES_BIAS)
+C
+C** Longest Time Lag (hours)
+C
+      CLIDX  = CLIDX + 1
+      WRITE (CHARLINE(CLIDX),'(F8.2)') HYDRADAP( AOFF_ADJU + LNGST_LAG)
+C
+C** Bias Applied Flag
+C
+      CLIDX  = CLIDX + 1
+      WRITE (CHARLINE(CLIDX),'(L8)') BIAS_TOGGLE
+C
+C
+C** Transfer CHARLINE data to the product buffer using PRODLINE equivalence
+C
+      DO I=INCR,NI2_PRODLINE
+        LYR3EN = LYR3EN + INCR
+        PBUFF(LYR3EN) = PRODLINE(I)
+      ENDDO
+C
+X     WRITE(6,*) 'A3148V: ADAPTATION DATA ARRAY'
+X     WRITE(6,'(6A8)') (CHARLINE(I),I=INCR,NCHARLINE)
+X     WRITE(6,*) 'A3148V: END ADAPTATION DATA ARRAY'
+C
+X     WRITE(6,*) 'A3148V: LAYER 3 END:',LYR3EN
+C
+C
+X     WRITE(6,*) 'A3148V: EXITING A3148V... '
+C
+      RETURN
+      END

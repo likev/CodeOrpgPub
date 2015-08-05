@@ -1,0 +1,722 @@
+#!/bin/sh
+#
+# File: save_log
+# Purpose: Save system log information to file
+#
+# RCS info
+# $Author: ccalvert $
+# $Locker:  $
+# $Date: 2011/09/19 14:48:43 $
+# $Id: save_log.script,v 1.39 2011/09/19 14:48:43 ccalvert Exp $
+# $Revision: 1.39 $
+# $State: Exp $
+#
+
+MAX_DESCRIPTION_LENGTH=25
+MAX_NUM_LOG_FILES=30
+
+#####################################################################
+# PRINT_USAGE: Display usage of this script
+#####################################################################
+
+print_usage ()
+{
+    echo
+    echo "Usage: save_log [Options]"
+    echo
+    echo "Options:"
+    echo "     -a    Description (up to $MAX_DESCRIPTION_LENGTH characters) to be embedded"
+    echo "           into the save log file name. Only the underscore"
+    echo "           (\"_\"), period (\".\"), and alphanumeric characters"
+    echo "           are permitted."
+    echo "           This option is required when creating a save log"
+    echo "           file. Strings longer than $MAX_DESCRIPTION_LENGTH characters are"
+    echo "           truncated."
+    echo "     -c    Write the save log file to CD."
+    echo "     -f    Write the save log file to floppy."
+    echo "     -h    Print the usage message."
+    echo "     -l    List previously created save logs for this node."
+    echo "     -r    Remove previously created save logs for this node."
+    echo "     -p    Save log file name is only output when finished."
+    echo "     -s    Suppress inclusion of root-owned files. Otherwise,"
+    echo "           user is required to have sudo access."
+    echo
+    echo "Note: Save logs are automatically saved to the ~/save_logs"
+    echo "      with the following file naming convention:"
+    echo "      YYYYMMDD.HHMMSS.save_log.nnnn.ch#.desc.tar.gz"
+    echo "      where YYYYMMDD.HHMMSS is the timestamp, nnnn is the"
+    echo "      node name, \"#\" is the channel number, and desc is"
+    echo "      the user-defined description."
+    echo
+    echo "      In addition, only the latest $MAX_NUM_LOG_FILES save log files are"
+    echo "      kept in ~/save_logs. Older files are removed as new"
+    echo "      save log files are created."
+    echo
+    echo "Examples:"
+    echo
+    echo "   save_log -a mda_prod_failure"
+    echo "     - creates a save log in ~/save_logs with the string"
+    echo "       mda_prod_failure enbedded in the filename"
+    echo
+    echo "   save_log -a mda_prod_failure -c"
+    echo "     - creates a save log in ~/save_logs with the string"
+    echo "       mda_prod_failure enbedded in the filename and"
+    echo "       writes the file to a CD"
+    echo
+    echo "   save_log -h"
+    echo "     - prints the usage message"
+    echo
+}
+
+#**************************************************************************
+# ECHO_STDOUT: Echo to stdout.
+#**************************************************************************
+
+echo_stdout ()
+{
+  echo -e $1
+  echo -e $1 | $LE_LOG_CMD
+}
+
+#**************************************************************************
+# ECHO_STDERR: Echo to stderr.
+#**************************************************************************
+
+echo_stderr ()
+{
+  echo -e $1 >&2
+  echo -e $1 | $LE_ERR_CMD
+}
+
+#**************************************************************************
+# ECHO_ERROR: Echo error message and exit.
+#**************************************************************************
+
+echo_error ()
+{
+  if [ $# -eq 1 ]
+  then
+    exit_code=1
+  else
+    exit_code=$2
+  fi
+
+  echo_stderr "ERROR: $1"
+
+  # Remove unfinished working directory 
+
+  if [ -d $WORK_DIR ]
+  then
+    /bin/rm -rf $WORK_DIR > /dev/null 2>&1
+  fi
+
+  # Exit with appropriate code
+
+  exit $exit_code
+}
+
+#**************************************************************************
+# INIT_LE_LOG: Initialize logging.
+#**************************************************************************
+
+init_le_log ()
+{
+  LE_NUM_LINES=100
+
+  LE_UID=`id -u 2>/dev/null`
+  if [ $? -ne 0 -o "$LE_UID" = "" ]
+  then
+    echo_error "Command \"id -u 2>/dev/null\" failed ($?)"
+  fi
+  LE_GID=`id -g 2>/dev/null`
+  if [ $? -ne 0 -o "$LE_GID" = "" ]
+  then
+    echo_error "Command \"id -g 2>/dev/null\" failed ($?)"
+  fi
+  LE_FILE_NAME=`basename $0 2>/dev/null`
+  if [ $? -ne 0 -o "$LE_FILE_NAME" = "" ]
+  then
+    echo_error "Command \"basename $0 2>/dev/null\" failed ($?)"
+  fi
+
+  LE_LOG_CMD="le_pipe -t $LE_FILE_NAME -n $LE_NUM_LINES -w $LE_UID -g $LE_GID"
+  LE_ERR_CMD="$LE_LOG_CMD -e GL_ERROR"
+}
+
+#####################################################################
+# INITIALIZE_VARIABLES: Initialize variables.
+#####################################################################
+
+initialize_variables ()
+{
+  NODE_NAME=`find_adapt -N`
+
+  if [ $? -ne 0 ]
+  then
+    echo_error "Failure calling 'find_adapt -N' ($?)"
+  fi
+
+  NODE_CHANNEL=`find_adapt -C`
+
+  if [ $? -ne 0 ]
+  then
+    echo_error "Failure calling 'find_adapt -C' ($?)"
+  fi
+
+  if echo $NODE_CHANNEL | grep -q 1
+  then
+    NODE_CHANNEL=1
+  else
+    NODE_CHANNEL=2
+  fi
+
+  TIME_STRING=`date +%Y%m%d.%H%M%S`
+
+  SAVE_LOG_DIR=$HOME/save_logs
+
+  if [ ! -d $SAVE_LOG_DIR ]
+  then
+    if ! mkdir $SAVE_LOG_DIR > /dev/null 2>&1
+    then
+      echo_error "Cannot create directory $SAVE_LOG_DIR"
+    fi
+  fi
+
+  WORK_DIR=$SAVE_LOG_DIR/save_log_$NODE_NAME.$$
+}
+
+#####################################################################
+# LIST_FILES: List save log files for this node.
+#####################################################################
+
+list_files ()
+{
+  cd $SAVE_LOG_DIR
+  for save_log_file in `ls -c *.tar.gz 2> /dev/null`
+  do
+    echo "$save_log_file `stat -c '%s' $save_log_file` bytes"
+  done
+}
+
+#####################################################################
+# REMOVE_FILES: Remove all previously created save log files for this node.
+#####################################################################
+
+remove_files ()
+{
+  cd $SAVE_LOG_DIR
+  for save_log_file in `ls -c *.tar.gz 2> /dev/null`
+  do
+    rm -f $save_log_file
+  done
+}
+
+#####################################################################
+# PARSE_CMDLINE: Parse the command line arguments.
+#####################################################################
+
+parse_cmdline ()
+{
+  APPEND_DESCRIPTION=""
+  COPY_TO_CD=0
+  COPY_TO_FLOPPY=0
+  PRINT_FILENAME_ONLY=0
+  SAVE_ROOT_FILES="YES"
+
+  while getopts a:cfhlrps option
+  do
+    case $option in
+       a) APPEND_DESCRIPTION=$OPTARG ;;
+       c) COPY_TO_CD=1 ;;
+       f) COPY_TO_FLOPPY=1 ;;
+       h) print_usage; exit 0 ;;
+       l) list_files; exit 0 ;;
+       r) remove_files; exit 0 ;;
+       p) PRINT_FILENAME_ONLY=1 ;;
+       s) SAVE_ROOT_FILES="NO" ;;
+      \?) print_usage; exit 1 ;;
+    esac
+  done
+
+  # Make sure description is defined
+
+  if [ "$APPEND_DESCRIPTION" == "" ]
+  then
+    echo_error "Option: -a not defined"
+  fi
+
+  # Make sure description is of appropriate length
+
+  APPEND_DESCRIPTION=`echo $APPEND_DESCRIPTION | awk '{ print substr($0,1,max_desc_len); }' max_desc_len=$MAX_DESCRIPTION_LENGTH`
+
+  # Make sure description is of appropriate format
+
+  APPEND_DESCRIPTION=`echo $APPEND_DESCRIPTION | sed 's/\./_/g'`
+
+  if ! echo $APPEND_DESCRIPTION | grep -qv '[^a-zA-Z0-9_]'
+  then
+    echo_error "Description contains invalid character."
+  fi
+
+  if env | grep ORPG_NONOPERATIONAL > /dev/null 2>&1
+  then
+    # Do not save root files on a non-operational system
+    SAVE_ROOT_FILES="NO"
+  fi
+}
+
+#####################################################################
+# BUILD_FILENAME: Build name of save log file.
+#####################################################################
+
+build_filename ()
+{
+  # Note current directory and restore when finished.
+
+  current_dir=`pwd`
+  cd $SAVE_LOG_DIR
+
+  # Loop through previously created save log files and make sure
+  # the description (6th token) has not been previously used.
+
+  for save_log_file in `ls *.tar.gz 2> /dev/null`
+  do
+    prev_desc=`echo $save_log_file | awk -F. '{print $6}'`
+    if [ $APPEND_DESCRIPTION == "$prev_desc" ]
+    then
+      # The description has been previously used. Increment the number
+      # appended to the description by 1 until a unique description
+      # has been found (i.e. "mrpg", "mrpg1", "mrpg2", etc.).
+      tag_number=1
+      while [ $tag_number -gt 0 ]
+      do
+        temp_tag="${APPEND_DESCRIPTION}$tag_number"
+        found_desc=0
+        for temp_file in `ls *.tar.gz 2> /dev/null`
+        do
+          temp_desc=`echo $temp_file | awk -F. '{print $6}'`
+          if [ $temp_tag == "$temp_desc" ]
+          then
+            found_desc=1
+            break
+          fi
+        done
+        if [ $found_desc -eq 1 ]
+        then
+          tag_number=`expr $tag_number + 1`
+        else
+          APPEND_DESCRIPTION=$temp_tag
+          break
+        fi
+      done
+      break
+    fi
+  done
+  # Restore current directory.
+  cd $current_dir
+
+  SAVE_LOG_FILENAME="${TIME_STRING}.save_log.${NODE_NAME}.ch${NODE_CHANNEL}"
+  if [ "$APPEND_DESCRIPTION" != "" ]
+  then
+    SAVE_LOG_FILENAME="${SAVE_LOG_FILENAME}.${APPEND_DESCRIPTION}"
+  fi
+}
+
+#####################################################################
+# CREATE_SAVE_LOG_FILE: Create the actual save log file.
+#####################################################################
+
+create_save_log_file ()
+{
+  # Temporary directory named "save_logPID" is created to
+  # collect files and provide top-level directory in
+  # tar file. PID is the process id of the task. Using PID
+  # allows multiple save_log tasks to be running at the same
+  # time. Start fresh by removing "save_logPID" if it exists
+  # and then re-creating it.
+
+  if [ -d $WORK_DIR ]
+  then
+    /bin/rm -rf $WORK_DIR > /dev/null 2>&1
+  fi
+  if ! mkdir -p $WORK_DIR > /dev/null 2>&1
+  then
+    echo_error "Cannot create directory $WORK_DIR"
+  fi
+
+  # Create needed sub-directories.
+
+  misc_dir=$WORK_DIR/misc
+  if ! mkdir $misc_dir > /dev/null 2>&1
+  then
+    echo_error "Cannot create directory $misc_dir"
+  fi
+
+  # Create log file for this save log
+
+  LOG_FILE=$WORK_DIR/save_log.log
+  if ! touch $LOG_FILE > /dev/null 2>&1
+  then
+    echo_error "Cannot create file $LOG_FILE"
+  fi
+  echo_stdout "Creating $SAVE_LOG_FILENAME" >> $LOG_FILE 2>&1
+  echo_stdout "Begin saving files to $WORK_DIR" >> $LOG_FILE 2>&1
+
+  # Save various files/info for the operational account.
+
+  echo_stdout "Saving environmental files from operational account" >> $LOG_FILE 2>&1
+  cp -p $HOME/.bashrc $misc_dir/bashrc >> $LOG_FILE 2>&1
+  cp -p $HOME/.bash_profile $misc_dir/bash_profile >> $LOG_FILE 2>&1
+  cp -p $HOME/rssd.* $misc_dir >> $LOG_FILE 2>&1
+  cp -p $HOME/.rssd.conf $misc_dir/rssd.conf >> $LOG_FILE 2>&1
+  echo_stdout "Saving environmental info from operational account" >> $LOG_FILE 2>&1
+  env > $misc_dir/env 2>>$LOG_FILE
+  echo_stdout "Saving RPG ps info from operational account" >> $LOG_FILE 2>&1
+  rpg_ps -af > $misc_dir/rpg_ps_af 2>>$LOG_FILE
+
+  # Save various directories from the operational account. Use tar
+  # to keep directory structure.
+
+  echo_stdout "Saving cfg directory from operational account" >> $LOG_FILE 2>&1
+  tar -C $HOME -cf - cfg 2>>$LOG_FILE | tar -C $WORK_DIR -xf - 2>>$LOG_FILE
+  echo_stdout "Saving data/logs directory from operational account" >> $LOG_FILE 2>&1
+  tar -C $HOME -cf - data/logs 2>>$LOG_FILE | tar -C $WORK_DIR -xf - 2>>$LOG_FILE
+  echo_stdout "Saving orda/log directory from operational account" >> $LOG_FILE 2>&1
+  tar -C $HOME -cf - orda/log 2>>$LOG_FILE | tar -C $WORK_DIR -xf - 2>>$LOG_FILE
+  echo_stdout "Saving screenshots directory from operational account" >> $LOG_FILE 2>&1
+  tar -C $HOME -cf - screenshots 2>>$LOG_FILE | tar -C $WORK_DIR -xf - 2>>$LOG_FILE
+
+  # Save various root-owned log files, unless suppressed by user. Use tar
+  # to keep directory structure.
+
+  if [ $SAVE_ROOT_FILES == "YES" ]
+  then
+
+    # Get files from /syslog
+
+    if ls /syslog/*.log > /dev/null 2>>$LOG_FILE
+    then
+      echo_stdout "Saving /syslog/*.log files" >> $LOG_FILE 2>&1
+      sudo tar -cf - `ls /syslog/*.log` 2>>$LOG_FILE | tar -C $WORK_DIR -xf - 2>>$LOG_FILE
+    else
+      echo_stderr "No /syslog/*.log files found" >> $LOG_FILE 2>&1
+    fi
+
+    # Get files from /var/log
+
+    if ls /var/log/secure* > /dev/null 2>>$LOG_FILE
+    then
+      echo_stdout "Saving /var/log/secure files" >> $LOG_FILE 2>&1
+      sudo tar -cf - `ls /var/log/secure*` 2>>$LOG_FILE | tar -C $WORK_DIR -xf - 2>>$LOG_FILE
+    else
+      echo_stderr "No /var/log/secure files found" >> $LOG_FILE 2>&1
+    fi
+
+    if ls /var/log/boot.log* > /dev/null 2>>$LOG_FILE
+    then
+      echo_stdout "Saving /var/log/boot.log files" >> $LOG_FILE 2>&1
+      sudo tar -cf - `ls /var/log/boot.log*` 2>>$LOG_FILE | tar -C $WORK_DIR -xf - 2>>$LOG_FILE
+    else
+      echo_stderr "No /var/log/boot.log files found" >> $LOG_FILE 2>&1
+    fi
+
+    if ls /var/log/cron* > /dev/null 2>>$LOG_FILE
+    then
+      echo_stdout "Saving /var/log/cron files" >> $LOG_FILE 2>&1
+      sudo tar -cf - `ls /var/log/cron*` 2>>$LOG_FILE | tar -C $WORK_DIR -xf - 2>>$LOG_FILE
+    else
+      echo_stderr "No /var/log/cron files found" >> $LOG_FILE 2>&1
+    fi
+
+    if ls /var/log/messages* > /dev/null 2>>$LOG_FILE
+    then
+      echo_stdout "Saving /var/log/messages files" >> $LOG_FILE 2>&1
+      sudo tar -cf - `ls /var/log/messages*` 2>>$LOG_FILE | tar -C $WORK_DIR -xf - 2>>$LOG_FILE
+    else
+      echo_stderr "No /var/log/messages files found" >> $LOG_FILE 2>&1
+    fi
+
+    if ls /var/log/Xorg.0.log* > /dev/null 2>>$LOG_FILE
+    then
+      echo_stdout "Saving /var/log/Xorg.0.log files" >> $LOG_FILE 2>&1
+      sudo tar -cf - `ls /var/log/Xorg.0.log*` 2>>$LOG_FILE | tar -C $WORK_DIR -xf - 2>>$LOG_FILE
+    else
+      echo_stderr "No /var/log/Xorg.0.log files found" >> $LOG_FILE 2>&1
+    fi
+
+    if ls /var/log/dmesg* > /dev/null 2>>$LOG_FILE
+    then
+      echo_stdout "Saving /var/log/dmesg files" >> $LOG_FILE 2>&1
+      sudo tar -cf - `ls /var/log/dmesg*` 2>>$LOG_FILE | tar -C $WORK_DIR -xf - 2>>$LOG_FILE
+    else
+      echo_stderr "No /var/log/dmesg files found" >> $LOG_FILE 2>&1
+    fi
+
+    if ls /var/log/*_rpg.log > /dev/null 2>>$LOG_FILE
+    then
+      echo_stdout "Saving /var/log/*_rpg.log files" >> $LOG_FILE 2>&1
+      sudo tar -cf - `ls /var/log/*_rpg.log` 2>>$LOG_FILE | tar -C $WORK_DIR -xf - 2>>$LOG_FILE
+    else
+      echo_stderr "No /var/log/*_rpg.log files found" >> $LOG_FILE 2>&1
+    fi
+
+    # Get files from /root. Can't `ls /root/*` (even with sudo),
+    # so other method employed.
+
+    if sudo find /root -maxdepth 1 -name "*" | grep '\.log' > /dev/null 2>>$LOG_FILE
+    then
+      echo_stdout "Saving /root/*.log* files" >> $LOG_FILE 2>&1
+      sudo tar -cf - `sudo find /root -maxdepth 1 -name "*.log*"` 2>>$LOG_FILE | tar -C $WORK_DIR -xf - 2>>$LOG_FILE
+    else
+      echo_stderr "No /root/*.log* files found" >> $LOG_FILE 2>&1
+    fi
+
+    # Get files from /etc
+
+    if ls /etc/boot_time > /dev/null 2>>$LOG_FILE
+    then
+      echo_stdout "Saving /etc/boot_time file" >> $LOG_FILE 2>&1
+      sudo tar -cf - `ls /etc/boot_time` 2>>$LOG_FILE | tar -C $WORK_DIR -xf - 2>>$LOG_FILE
+    else
+      echo_stderr "No /etc/boot_time file found" >> $LOG_FILE 2>&1
+    fi
+
+  fi
+
+  # Save various OS info.
+
+  # NTP
+
+  echo_stdout "Saving NTP info" >> $LOG_FILE 2>&1
+  ntpdc -p > $misc_dir/ntpdc 2>&1
+
+  # lspci 
+
+  echo_stdout "Saving lspci info" >> $LOG_FILE 2>&1
+  lspci > $misc_dir/lspci 2>&1
+
+  # lshal
+
+  echo_stdout "Saving lshal info" >> $LOG_FILE 2>&1
+  lshal > $misc_dir/lshal 2>&1
+
+  # RPM list
+
+  echo_stdout "Saving list of installed RPMs" >> $LOG_FILE 2>&1
+  rpm -qa | sort > $misc_dir/rpm.list 2>&1
+
+  # Virus Scan version
+
+  echo_stdout "Saving version of Virus Scan software" >> $LOG_FILE 2>&1
+  uvscan --version > $misc_dir/uvscan.version 2>&1
+
+  # Network
+
+  echo_stdout "Saving network info" >> $LOG_FILE 2>&1
+  net_file=$misc_dir/network.snapshot
+  echo >> $net_file
+  echo >> $net_file
+  echo "**** Interface Configs ****" >> $net_file
+  ifconfig -a >> $net_file 2>&1
+  echo >> $net_file
+  echo >> $net_file
+  echo "**** Routing Tables ****" >> $net_file
+  netstat -rn >> $net_file 2>&1
+  echo >> $net_file
+  echo >> $net_file
+  echo "**** IP Stats   ****" >> $net_file
+  netstat -i >> $net_file 2>&1
+  echo >> $net_file
+  echo >> $net_file
+  echo "**** Per-Protocol Stats  ****" >> $net_file
+  netstat -s >> $net_file 2>&1
+  echo >> $net_file
+  echo >> $net_file
+  echo "**** Arp Entries  ****" >> $net_file
+  arp -a >> $net_file 2>&1
+  echo >> $net_file
+  echo >> $net_file
+  echo "**** Socket Stats  ****" >> $net_file
+  netstat -a >> $net_file 2>&1
+
+  # Save LDM-related information.
+
+  echo_stdout "Saving LDM-specific files" >> $LOG_FILE 2>&1
+
+  if [ -n $LDMHOME ]
+  then
+    ldm_dir=$WORK_DIR/ldm
+    if ! mkdir -p $ldm_dir > /dev/null 2>&1
+    then
+      echo_error "Cannot create directory $ldm_dir"
+    fi
+    echo_stdout "Saving etc directory from LDM account" >> $LOG_FILE 2>&1
+    tar -C $LDMHOME -chf - etc 2>>$LOG_FILE | tar -C $ldm_dir -xf - 2>>$LOG_FILE
+    echo_stdout "Saving logs directory from LDM account" >> $LOG_FILE 2>&1
+    tar -C $LDMHOME -cf - logs 2>>$LOG_FILE | tar -C $ldm_dir -xf - 2>>$LOG_FILE
+  fi
+
+  # Save various node-specific files.
+
+  if [ $NODE_NAME == "mscf" ]
+  then
+
+    echo_stdout "Saving MSCF specific files" >> $LOG_FILE 2>&1
+
+    echo_stdout "Saving .MSCF_printing_configured file" >> $LOG_FILE 2>&1
+    cp -p $HOME/.MSCF_printing_configured $misc_dir/MSCF_print_config >> $LOG_FILE 2>&1
+
+    if ls /var/log/nvidia-installer.log > /dev/null 2>>$LOG_FILE
+    then
+      echo_stdout "Saving /var/log/nvidia-installer file" >> $LOG_FILE 2>&1
+      sudo tar -cf - `ls /var/log/nvidia-installer.log` 2>>$LOG_FILE | tar -C $WORK_DIR -xf - 2>>$LOG_FILE
+    else
+      echo_stderr "No /var/log/nvidia-installer file found" >> $LOG_FILE 2>&1
+    fi
+
+  elif [ $NODE_NAME == "rpga" ]
+  then
+
+    echo_stdout "Saving RPGA specific files" >> $LOG_FILE 2>&1
+
+    data_dir=$WORK_DIR/data
+    if [ ! -d $data_dir ]
+    then
+      echo_stdout "Creating data directory" >> $LOG_FILE 2>&1
+      mkdir -p $data_dir > /dev/null 2>>$LOG_FILE
+    fi
+    if [ -d $data_dir ]
+    then
+      echo_stdout "Saving various data LB files" >> $LOG_FILE 2>&1
+      cp -p $HOME/data/rpg_state $data_dir >> $LOG_FILE 2>&1
+      cp -p $HOME/data/mngrpg/syslog.lb $data_dir >> $LOG_FILE 2>&1
+      cp -p $HOME/data/mngrpg/errlog.lb $data_dir >> $LOG_FILE 2>&1
+      cp -p $HOME/data/mngrpg/rpg_info.lb $data_dir >> $LOG_FILE 2>&1
+      cp -p $HOME/data/msgs/gen_stat_msg.lb $data_dir >> $LOG_FILE 2>&1
+      cp -p $HOME/data/pdist/prod_info.lb $data_dir >> $LOG_FILE 2>&1
+      cp -p $HOME/data/pdist/prod_status.lb $data_dir >> $LOG_FILE 2>&1
+      cp -p $HOME/data/rda/Accounting_data.lb $data_dir >> $LOG_FILE 2>&1
+    else
+      echo_stderr "Cannot create directory $data_dir" >> $LOG_FILE 2>&1
+    fi
+
+    # Product stats
+
+    echo_stdout "Saving prod_stat info" >> $LOG_FILE 2>&1
+    prod_stat > $misc_dir/prod_stat 2>&1
+
+  fi
+
+  echo_stdout "Finished saving files to $WORK_DIR" >> $LOG_FILE 2>&1
+
+  # Tar the temporary directory containing the save log info. Build new
+  # name of save log (post tar). Create new variable taking path into
+  # account.
+
+  SAVE_LOG_FILENAME="${SAVE_LOG_FILENAME}.tar"
+
+  new_tarfile=$SAVE_LOG_DIR/$SAVE_LOG_FILENAME
+
+  if ! tar -C $SAVE_LOG_DIR -cf $new_tarfile `basename $WORK_DIR` > /dev/null 2>&1
+  then
+    echo_error "Command: tar -C $SAVE_LOG_DIR -cf $new_tarfile `basename $WORK_DIR` failed."
+  fi
+
+  # Compress the tar file containing the save log info.
+
+  if ! gzip -f $new_tarfile > /dev/null 2>&1
+  then
+    /bin/rm -f $new_tarfile > /dev/null 2>&1
+    echo_error "Command: gzip -f $new_tarfile failed."
+  fi
+
+  # Build new name of save log (post gzip).
+
+  SAVE_LOG_FILENAME="${SAVE_LOG_FILENAME}.gz"
+
+  # Print name of new file if flag is set.
+
+  if [ $PRINT_FILENAME_ONLY -eq 1 ]
+  then
+    echo_stdout "$SAVE_LOG_FILENAME"
+  fi
+
+  # Remove temporary directory
+
+  /bin/rm -rf $WORK_DIR > /dev/null 2>&1
+}
+
+#####################################################################
+# PURGE_OLD_FILES: Remove old save log files.
+#####################################################################
+
+purge_old_files ()
+{
+  # Keep the $MAX_NUM_LOG_FILES most recent save log files.
+  # Remove the rest. Note where user is currently located
+  # and make sure to return there when finished.
+
+  current_dir=`pwd`
+  cd $SAVE_LOG_DIR
+  echo `ls -ct *.tar.gz 2> /dev/null` | awk '{for( i=num_files+1; i<=NF; i++ ){system( "rm -f " $i )}}' num_files=$MAX_NUM_LOG_FILES
+  cd $current_dir
+}
+
+#####################################################################
+# COPY_TO_MEDIA: Copy save log file to media.
+#####################################################################
+
+copy_file_to_media ()
+{
+  temp_filename="${SAVE_LOG_DIR}/${SAVE_LOG_FILENAME}"
+
+  if [ $COPY_TO_FLOPPY -eq 1 ]
+  then
+    echo_stdout "Begin copy to floppy." 2>&1
+    medcp -c $temp_filename floppy
+    return_value=$?
+    if [ $return_value -ne 0 ]
+    then
+      echo_error "Failed copying $temp_filename to floppy ($return_value)"
+    fi
+  fi
+
+  if [ $COPY_TO_CD -eq 1 ]
+  then
+    medcp -ce $temp_filename cd > /dev/null 2>&1
+    return_value=$?
+    if [ $return_value -ne 0 -a $return_value -ne 115 ]
+    then
+      # Exit code 115 is due to eject -t. It doesn't  work on RPGA, so ignore.
+      echo_error "Failed copying $temp_filename to CD ($return_value)"
+    fi
+  fi
+}
+
+####################################################################
+#
+# MAIN BODY OF SCRIPT
+#
+####################################################################
+
+# Initialize logging
+init_le_log
+
+# Initialize variables
+initialize_variables
+
+# Read the command line options
+parse_cmdline $*
+
+# Read the command line options
+build_filename
+
+# Create the save log file
+create_save_log_file
+
+# Remove old save log files
+purge_old_files
+
+# Copy save log file to media
+copy_file_to_media
+

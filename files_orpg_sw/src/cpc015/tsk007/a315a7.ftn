@@ -1,0 +1,383 @@
+C
+C RCS info
+C $Author: steves $
+C $Locker:  $
+C $Date: 2012/09/05 16:20:20 $
+C $Id: a315a7.ftn,v 1.4 2012/09/05 16:20:20 steves Exp $
+C $Revision: 1.4 $
+C $State: Exp $
+C
+      SUBROUTINE A315A7__BUFFER_CONTROLLER( PARAM )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A315A7__BUFFER_CONTROLLER
+*.
+*.  MODULE VERSION: 0018
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       08 16 85      0000      DENNIS MILLER        BUILD 2
+*.       05 07 86      0001      DENNIS MILLER        SPR # 304
+*.       11 15 86      0002      M STEWART            SPR # 60346
+*.       11 15 86      0002      M STEWART            SPR # 60650
+*.       02 26 87      0003      DENNIS MILLER        SPR # 70106
+*.       10 10 88      0004      STEVE D SMITH        SPR # 80338
+*.       04 14 89      0005      CHI CHAN             SPR # 90299
+*.       03 20 90      0006      RICH MIHOCI          SPR # 90697
+*.       02 22 91      0007      DENNIS MILLER        SPR # 91256
+*.       02 15 91      0007      JOHN DEPHILIP        SPR # 91762
+*.       12 03 91      0008      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0009      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0010      Toolset              SPR 91895
+*.       03/25/93      0011      Toolset              SPR NA93-06801
+*.       01/28/94      0012      Toolset              SPR NA94-01101
+*.       03/03/94      0013      Toolset              SPR NA94-05501
+*.       04/05/94      0014      Steve Smith          CCR NW-94-007-10
+*.       04/01/95      0015      Toolset              CCR NA95-11802
+*.       05/25/95      0016      STEVE SMITH          CCR NA94-26302
+*.       12/23/96      0017      Toolset              CCR NA95-11807
+*.       03/16/99      0018      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A315A7__BUFFER_CONTROLLER( PARAM )
+*.
+*.  MODULE FUNCTION:
+*.
+*.    This is the routine which is entered for the task in reponse to
+*.  a queued "wake-up" parameter.  It obtains and releases input and
+*.  output buffers (i.e.memory blocks within the shared RPG memory
+*.  buffer) as needed by algorithms Storm Track & Forecast, enabling
+*.  them to execute in real time in coordination with the other tasks
+*.  of the RPG (CPC-03).  The routine also performs high-level pro-
+*.  cessing control for the algorithms.
+*.
+*.  MODULES CALLED: A31145__ABORT_ME, A31168__ABORT_ME_BECAUSE, 
+*.                  A31211__GET_INBUF, A31212__REL_INBUF, A31215__GET_OUTBUF, 
+*.                  A31216__REL_OUTBUF, A315E7__FCAST_ERROR, 
+*.                  A315F7__FORECAST_LOCS, A315G7__AVG_SPEED, A315H7__PAST_LOCS, 
+*.                  A315I6__INIT_TABLES, A315I7__FILL_A3CD09, 
+*.                  A315J6__UPDATE_TABLES, A315J7__TREND_DATA, 
+*.                  A315K6__CORREL_STORMS, A315O7__INIT_VARS, 
+*.                  A315S7__COMPUTE_SPEED, A315X6__INPUT_ADAP, 
+*.                  A315Y7__OUTPUT_ADAP 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT         TYPE        DESCRIPTION
+*.    -   -----         ----        -----------
+*.    G   MEM           I*4         Array in RPG shared memory set aside for
+*.                                  buffer sharing.
+*.    G   BFA           I*4         (CONSTANT)Index for beginning location of
+*.                                  the Storm cell adaptation data in the
+*.                                  Tracking/Forecast output buffer.
+*.    G   BNT           I*4         (CONSTANT)Offset pointer of the location
+*.                                  of the number of storms in the storm
+*.                                  track/forecast output buffer.
+*.    G   BSA           I*4         (CONSTANT)Offset in MEM buffer to Storm
+*.                                  Series Adaptation Data
+*.    G   BSB           I*4         (CONSTANT)Offset pointer of the location
+*.                                  of the past storm positions in the storm
+*.                                  track/forecast output buffer in global
+*.                                  memory.
+*.    G   BSF           I*4         (CONSTANT)Offset pointer for the
+*.                                  extrapolated storm forecast positions in
+*.                                  the storm track/forecast output buffer in
+*.                                  global memory.
+*.    G   BSI           I*4         (CONSTANT)Offset pointer of the location
+*.                                  of each storm type, numerical ID, and
+*.                                  number of volumes tracked in the storm
+*.                                  track/forecast output buffer in global
+*.                                  memory.
+*.    G   BSM           I*4         (CONSTANT)Offset pointer of the location
+*.                                  of storm motion vectors and errors in the
+*.                                  storm track/forecast output buffer in
+*.                                  global memory.
+*.    G   BST           I*4         (CONSTANT)Offset to MEM buffer for Storm
+*.                                  Motion Attributes array
+*.    G   BVD           I*4         (CONSTANT)Offset pointer for the location
+*.                                  of the storm direction in the storm
+*.                                  track/forecast output buffer in global
+*.                                  memory.
+*.    G   BVS           I*4         (CONSTANT)Offset pointer for the location
+*.                                  of the storm speed in the storm
+*.                                  track/forecast output buffer in global
+*.                                  memory.
+*.    G   CENTATTR      I*4         (CONSTANT)Data buffer type: Storm centroid
+*.                                  attributes.
+*.    G   DESTROY       I*4         (CONSTANT)Mnemonic used as input to
+*.                                  A31216__REL_OUTBUF. Indicates "do not pass
+*.                                  data to other tasks".
+*.    G   FORWARD       I*4         (CONSTANT)Parameter to indicate that an
+*.                                  output buffer is to be forwarded to
+*.                                  successor tasks
+*.    G   NORMAL        I*4         (CONSTANT)Parameter which indicates normal
+*.                                  completion of requested operation to
+*.                                  acquire input or output buffer
+*.    G   NO_MEM        I*4         (CONSTANT)Parameter which indicates no
+*.                                  memory available on attempt to acquire
+*.                                  output buffer
+*.    G   PROD_MEM_SHED I*4         (CONSTANT)(CONSTANT)Parameter which
+*.                                  indicates that product aborted due to
+*.                                  memory load shedding
+*.    G   TRFRCATR      I*4         (CONSTANT)Data Buffer Type: Track Forecast
+*.                                  Attributes.
+*.    C   BNS           I*4         (CONSTANT)Offset in MEM buffer to number
+*.                                  of storm cells
+*.    C   BVT           I*4         (CONSTANT)Index to volume time in input
+*.                                  buffer
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    G   MEM     I*4         Array in RPG shared memory set aside for buffer
+*.                            sharing.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    G   MEM               I*4         Array in RPG shared memory set aside
+*.                                      for buffer sharing.
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME    TYPE        DESCRIPTION
+*.    ----    ----        -----------
+*.    BNO     I*4         Index to number of "Continuing" Storm in current
+*.                        volume in the Tracking and Forecast output buffer
+*.    IDATID  I*4         Data type received from buffer request
+*.    IPR     I*4         Pointer to starting position of input buffer in MEM
+*.    ISTAT   I*4         Return status from getting input buffer
+*.    N       I*4         Loop index
+*.    OPR     I*4         Pointer to starting position of output buffer in MEM
+*.    OSTAT   I*4         Return status from output buffer request
+*.    OUTACT  I*4         Indicator of action to be taken upon
+*.    SIZ_FOR I*4         Size of Track/Forecast output buffer
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD00
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:
+*.
+*.     If return status (i.e."ISTAT") from call to "GET_INBUF" is not
+*.   normal, the input data stream has been prematurely terminated:
+*.   Processing is aborted; the output buffer is released for destruc-
+*.   tion; and control is returned to the calling routine (Trap-Wait
+*.   state).
+*.
+*.     If return status (i.e."OSTAT") from call to "GET_OUTBUF" is not
+*.   normal, the output data is not required by the system at this
+*.   time, or insufficient memory is available: Processing is aborted;
+*.   and control is returned to the calling routine (Trap-Wait state)
+*.
+*.     The subroutine is entered, and processing for the task init-
+*.   iated, in response to a queued parameter trap received from
+*.   RPG Buffer Control.
+*.
+*.     When not processing, the task is in Trap-Wait state.
+*.
+*.     If a call is made to GET_INBUF when the input buffer is not yet
+*.   available, the task is suspended until that data becomes available.
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     Compiled using COMP15.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     Linked using LINK15.CSS
+*.
+*.  MISC:  None
+*.
+C********************************************************************
+C
+C             STORM TRACK/FORECAST: BUFFER CONTROL ROUTINE
+C
+C********************************************************************
+C
+C
+      IMPLICIT NONE
+C
+C**Attach master parameter file of named RPG data files.
+$INCLUDE A309.INC/G,**A3PM00 (NLIST)
+C
+C**Include no memory abort parameters
+$INCLUDE A309.INC/G,**A3PM07 (NLIST)
+C
+C**Connect with master shared memory buffer for RPG.
+$INCLUDE **A3CD00 (NLIST)
+C
+C**Attach input parameter-definition file (from "STORM_CENTROIDS")
+$INCLUDE A315BUF.INC/G,**A315P5C (NLIST)
+C
+C**Attach output parameter-definition file (of "STORM TRACK/FORECAST")
+$INCLUDE **A315P7F (NLIST)
+C
+C**Attach internal common area (CT)
+$INCLUDE A315.INC/G,**A315CTT(NLIST)
+C
+C************************* DATA DECLARATIONS ************************
+C
+C** Communication with Buffer Management:
+C
+      INTEGER  PARAM, IDATID, ISTAT, OSTAT, IPR, OPR, N
+C
+C** Local flags:
+C
+      INTEGER  OUTACT
+C
+C******************* BEGIN MAIN PROCESSING SECTION ******************
+C
+C**  Acquire TRACK/FORECAST output buffer (on a volume scan basis).
+C
+      CALL A31215__GET_OUTBUF( TRFRCATR,SIZ_FOR,OPR,OSTAT )
+      IF ( OSTAT .EQ. NORMAL )  THEN
+C
+C**  If output buffer successfully acquired, initialize single-
+C**  element variables in the buffer to zero.  These are:
+C**  Offset 0:  Total Number of Storm Cells in Current Volume
+C**         1:  Number of Continuing Storm Cells in Current Volume
+C**         2:  Average Speed of all "Continuing" Storm Cells
+C**         3:  Average Direction of all "Continuing" Storm Cells
+C
+         DO 50  N = BNT, BVD
+            MEM( OPR + N ) = 0
+  50     CONTINUE
+C
+C**  Set flag for action taken upon release of output buffer to
+C**  "FORWARD".
+C
+         OUTACT = FORWARD
+C
+C**  Acquire input buffer of CENTROIDS data, on a volume-scan basis.
+C
+         CALL A31211__GET_INBUF( CENTATTR,IPR,IDATID,ISTAT )
+         IF ( ISTAT .EQ. NORMAL )  THEN
+C
+C--------------------------------------------------------------------
+C**  Begin main processing for TRACKING algorithm:
+C
+C**  Copy all current Adaptation Data from input to internal buffer
+C
+            CALL A315X6__INPUT_ADAP( MEM(IPR+BSA) )
+C
+C**  If restarting, or change in Adaptation Data detected, or time
+C**  between current and previous volume scans exceeds limit set by
+C**  adaptation data, or there has not been any storm cells detected
+C**  within an adaptive number of volume scans, initialize Storm Cell
+C**  Label and/or Correlation tables.
+C
+            CALL A315I6__INIT_TABLES( MEM(IPR+BVT), MEM(IPR+BNS) )
+C
+C**  Update History and Correlation tables for new volume scan.
+C
+            CALL A315J6__UPDATE_TABLES
+C
+C**  Input new storm cells for current volume scan and attempt to
+C**  correlate with storm cells of previous volume scan.
+C
+            CALL A315K6__CORREL_STORMS( MEM(IPR+BVT), MEM(IPR+BNS),
+     >                                  MEM(IPR+BST))
+C
+C--------------------------------------------------------------------
+C**  Begin main processing for FORECAST algorithm:
+C
+C**  Initialize variables & tables for FORECAST processing.
+C
+            CALL A315O7__INIT_VARS( MEM(OPR+BNT) ,MEM(OPR+BNO),
+     >                              MEM(OPR+BSM) )
+C
+C**  Determine Forecast Error for all "Continuing" storm cells by
+C**  extrapolating prior speeds & comparing to present locations.
+C
+            CALL A315E7__FCAST_ERROR( MEM(OPR+BSM) )
+C
+C**  Determine Storm Cell Speeds by performing linear least-squares
+C**  analysis upon prior storm cell positions.
+C
+            CALL A315S7__COMPUTE_SPEED( MEM(OPR+BNO), MEM(OPR+BSI),
+     >                                                 MEM(OPR+BSM) )
+C
+C**  Analyze Permissible Errors of storm cells at future times and
+C**  determine projected positions of storm cells at time intervals
+C**  for which Forecast Error is less than Permissible Error.
+C
+            CALL A315F7__FORECAST_LOCS( MEM(OPR+BSI), MEM(OPR+BSM),
+     >                                  MEM(OPR+BSF) )
+C
+C**  Store past positions of storm cells up to maximum (10), provided
+C**  storm cell history is available.
+C
+            CALL A315H7__PAST_LOCS( MEM(OPR+BSI), MEM(OPR+BSB) )
+C
+C**  Determine Vector Speed & Direction of "Continuing" Storm Cells
+C**  and assign averages of these fields to all "New" storm cells.
+C
+            CALL A315G7__AVG_SPEED( MEM(IPR+BST),MEM(OPR+BNO),
+     >                              MEM(OPR+BVS),MEM(OPR+BVD),
+     >                              MEM(OPR+BSI), MEM(OPR+BSM) )
+C
+C**  Fill A3CD09 buffers with storm cell data.  This data is used
+C**  by the Storm Relative Mean Radial Velocity and Weak Echo Region
+C**  product tasks.
+C
+            CALL A315I7__FILL_A3CD09( MEM(IPR+BVT), MEM(IPR+BNS),
+     >                                MEM(IPR+BST), MEM(OPR+BVS),
+     >                                MEM(OPR+BVD), MEM(OPR+BSI),
+     >                                MEM(OPR+BSM) )
+C
+C**  Copy all current Adaptation Data from internal to output buffer.
+C
+            CALL A315Y7__OUTPUT_ADAP( MEM(OPR+BFA) )
+C
+C**  Update storm cell trend and volume scan times lists.
+C
+            CALL A315J7__TREND_DATA( MEM(IPR+BVT), MEM(IPR+BST),
+     >                               MEM(OPR+BSI) )
+C
+C--------------------------------------------------------------------
+C**  Release input buffer.
+C
+            CALL A31212__REL_INBUF( IPR )
+         ELSE
+C
+C**  Else If input buffer status indicates data stream Terminated,
+C**  abort processing & set output buffer-action flag to "Destroy".
+C
+            CALL A31145__ABORT_ME
+            OUTACT = DESTROY
+         END IF
+C
+C** Release output buffer, with appropriate action to be taken.
+C
+         CALL A31216__REL_OUTBUF( OPR,OUTACT )
+      ELSE
+C
+C** Else If output buffer status indicates data-type Not Required or
+C** No Memory available, abort processing & return to Trap Wait.
+C
+         IF (OSTAT .EQ. NO_MEM) THEN
+           CALL A31168__ABORT_ME_BECAUSE(PROD_MEM_SHED)
+         ELSE
+           CALL A31145__ABORT_ME
+         END IF
+C
+      END IF
+C
+C**  End of processing for Volume Scan.
+C
+C************** END OF PROCESSING FOR SUBROUTINE ********************
+C
+      RETURN
+      END

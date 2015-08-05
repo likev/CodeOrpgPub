@@ -1,0 +1,232 @@
+C
+C RCS info
+C $Author: steves $
+C $Locker:  $
+C $Date: 2004/01/12 17:02:37 $
+C $Id: a318q3.ftn,v 1.5 2004/01/12 17:02:37 steves Exp $
+C $Revision: 1.5 $
+C $State: Exp $
+C
+      SUBROUTINE A318Q3__TVS_SYM(BUF)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A318Q3__TVS_SYM
+*.
+*.  MODULE VERSION: 0014
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       03 15 85      0000      D.A.HUMPHREYS        PART 2, RPG BUILD 1
+*.       05 01 86      0001      D.A.HUMPHREYS        SPR # 60119
+*.       10 20 89      0002      S.J.MANOSKI          SPR # 90524
+*.       04 15 90      0003      JOHN DEPHILIP        SPR # 90303
+*.       08 13 90      0004      PENNY J YELSHIN      SPR # 90919
+*.       11 06 90      0005      MEI   OU             SPR # 91259
+*.       12 03 91      0006      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0007      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0008      Toolset              SPR 91895
+*.       03/25/93      0009      Toolset              SPR NA93-06801
+*.       01/28/94      0010      Toolset              SPR NA94-01101
+*.       03/03/94      0011      Toolset              SPR NA94-05501
+*.       04/11/96      0012      Toolset              CCR NA95-11802
+*.       12/23/96      0013      Toolset              CCR NA95-11807
+*.       04/30/97      0014      DAVE ZITTEL          CCR NA95-21503
+*.       03/16/99      0014      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:
+*.         CALL A318Q3__TVS_SYM(TVSBOTAZ,TVSBOTRN,TVSBOTEA,
+*.                 TVSMES,BUF)
+*.
+*.  MODULE FUNCTION:
+*.
+*.     MODULE UPDATES PRODUCT HEADER AND PRODUCT BLOCK HEADER FIELDS:
+*.     BLOCK DIVIDER, BLOCKID, NUMBER OF LAYERS AND LAYER DIVIDER.
+*.     MODULE STORES TVS SYMBOLOGY FOR ALL TVS PRESENT.MODULE STORES
+*.     BLOCK LENGTH AND LAYER LENGTH.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT      TYPE        DESCRIPTION
+*.    -   -----      ----        -----------
+*.    G   BLOCKIDOFF I*4         (CONSTANT)Product block ID offset.
+*.    G   DIV2OFF    I*4         (CONSTANT)Product block offset: Second
+*.                               divider.
+*.    G   LRLSWOFF   I*4         (CONSTANT)Product block offset: Length of
+*.                               product block portion of product (LSW).
+*.    G   LRMSWOFF   I*4         (CONSTANT)Product block offset: Length of
+*.                               product block portion of product (MSW).
+*.    G   LYRDIVOFF  I*4         (CONSTANT)PRODUCT BLOCK OFFSET: LAYER DIVIDER
+*.    G   LYRLLSWOFF I*4         (CONSTANT)Product block offset:  Layer length
+*.                               (LSW).
+*.    G   LYRLMSWOFF I*4         (CONSTANT)Product block offset: Layer length
+*.                               (MSW).
+*.    G   NLYROFF    I*4         (CONSTANT)Product block offsets: Number of
+*.                               layers.
+*.    G   PCODSTR    I*4         (CONSTANT)Start of product code.
+*.    C   FEATCNT    I*4         Number of TVSs + ETVSs detected by the
+*.                               Tornado Detection Algorithm.
+*.    C   ITVS       I*4         Number of TVS features detected identified by
+*.                               the Tornado Detection Algorithm.
+*.    C   TVSIDX     I*4         TVS product output buffer index for pointing
+*.                               to next location in array BUF.
+*.    C   TVS_LAB_XP R*4         X Cartesian coordinate relative to the radar
+*.                               of a storm cell label for an associated TVS
+*.                               or an ETVS feature.
+*.    C   TVS_LAB_YP R*4         Y Cartesian coordinate relative to the radar
+*.                               of a storm cell label for an associated TVS
+*.                               or an ETVS feature.
+*.    C   TVS_STM_ID I*2         Array to hold the integer equivalent of the
+*.                               two-character label of a storm cell
+*.                               associated with a TVS or an ETVS.
+*.    C   TVS_XP     R*4         X Cartesian coordinate relative to the radar
+*.                               of a TVS or an ETVS feature.
+*.    C   TVS_YP     R*4         Y Cartesian coordinate relative to the radar
+*.                               of a TVS or an ETVS feature.
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    C   TVSIDX  I*4         TVS product output buffer index for pointing to
+*.                            next location in array BUF.
+*.    P   BUF     I*2         DUMMY OUTPUT BUFFER FOR STORING I*2 DATA INTO
+*.                            I*4 MEMORY
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME     TYPE        DESCRIPTION
+*.    ----     ----        -----------
+*.    BLKLNG   I*4         BLOCK LENGTH
+*.    DIVIDER  I*2         DIVIDER IN PRODUCT OUTPUT BUFFER
+*.    ETVS_SYM I*2         Code for ETVS symbology packet.
+*.    I        I*4         TVSINDEX TO DO LOOP
+*.    KMX4     R*4         Scaling factor to improve accuracy of TVS/ETVS
+*.                         symbology placement for the TDA product on the PUP
+*.                         graphic screen (KM to KM/4 Conversion)
+*.    LYRLNG   I*4         LENGTH
+*.    NLYR     I*2         NUMBER OF LAYERS
+*.    PHLNG    I*4         LENGTH CONSTANT
+*.    PRDBLK   I*2         Product Symbology Block ID (= 1)
+*.    SYMLNG   I*4         Length constant of the TVS symbol block
+*.    SYMLNGX  I*4         Length of Storm ID packet
+*.    TVS_SYM  I*2         CODE FOR TVS SYMBOLOGY PACKET
+*.    TVS_TEX  I*2         TVS INDEX CONSTANT
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A318TVS
+*.    TVSINDEX
+*.
+*.  ERROR CONDITIONS:  NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  NONE
+*.
+*.  DEVIATION FROM STANDARDS:  NONE
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     THIS MODULE IS COMPILED USING THE COMP18.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     THIS MODULE IS LINKED USING THE LINK18.CSS
+*.
+*.  MISC:  NONE
+*.
+*.*******************************************************************
+$EJECT
+      IMPLICIT NONE
+C
+C     LOCAL DEFINITIONS:
+C
+      REAL  KMX4
+      PARAMETER  (KMX4 = 4.0 )
+C
+C     INCLUDE FILES:
+C
+C     PARAMETERS AND OFFSETS FOR TORNADO DETECTION ALGORITHM
+$INCLUDE A317BUF.INC/G,**A317TP9 (NEND NLIST)
+C     COMMON BLOCK FOR TDA
+$INCLUDE A318.INC/G,**A318TVS (NEND NLIST)
+$INCLUDE A318.INC/G,**A318TVS1 (NEND NLIST)
+C     PARAMETERS AND OFFSETS FOR PRODUCT HEADER BLOCK:
+$INCLUDE A309.INC/G,**A3PM01 (NEND NLIST)
+C
+C ********  TORNADO DETECTION ALGORITHM DECLARATIONS *******
+C
+C     LOCAL DECLARATIONS:
+      INTEGER*4 I,BLKLNG,LYRLNG,PHLNG,SYMLNG,SYMLNGX
+      INTEGER*2 BUF(*),TVS_SYM,ETVS_SYM,
+     1          DIVIDER,PRDBLK,NLYR
+      INTEGER*2 TVS_TEX
+      PARAMETER (TVS_TEX=15,SYMLNGX=6,SYMLNG=4)
+      PARAMETER (TVS_SYM=12,DIVIDER=-1,PHLNG=16,PRDBLK=1,NLYR=1)
+      PARAMETER (ETVS_SYM=26)
+C
+C ******************  E X E C U T A B L E  **********************
+C
+C     LOAD PRODUCT HEADER FIELDS
+      BUF(DIV2OFF)=DIVIDER
+      BUF(BLOCKIDOFF)=PRDBLK
+      BUF(NLYROFF)=NLYR
+      BUF(LYRDIVOFF)=DIVIDER
+C     SET TVSINDEX
+      TVSIDX=PCODSTR
+C
+      DO 20 I=1,FEATCNT
+C   BUILD TVS SYMBOLOGY PACKETS
+         IF(I .GT. ITVS) THEN
+           BUF(TVSIDX)=ETVS_SYM
+         ELSE
+           BUF(TVSIDX)=TVS_SYM
+         ENDIF
+         TVSIDX=TVSIDX+1
+C   LENGTH OF BLOCK HEREAFTER BYTES
+         BUF(TVSIDX)=SYMLNG
+         TVSIDX=TVSIDX+1
+C   I COORDINATE IN 1/4 KM UNITS
+         BUF(TVSIDX) = NINT(TVS_XP(I)*KMX4)
+         TVSIDX=TVSIDX+1
+C   J COORDINATE IN 1/4 KM UNITS
+         BUF(TVSIDX) = NINT(TVS_YP(I)*KMX4)
+         TVSIDX=TVSIDX+1
+C   INSERT STORM PACKETS
+         BUF(TVSIDX) = TVS_TEX
+         TVSIDX = TVSIDX + 1
+         BUF(TVSIDX) = SYMLNGX
+         TVSIDX = TVSIDX + 1
+C   INSERT I,J POSITIONS
+         BUF(TVSIDX) = NINT(TVS_LAB_XP(I)*KMX4)
+         TVSIDX = TVSIDX + 1
+         BUF(TVSIDX) = NINT(TVS_LAB_YP(I)*KMX4)
+         TVSIDX = TVSIDX + 1
+C   INSERT STORM ID
+         BUF(TVSIDX) = TVS_STM_ID(I)
+         TVSIDX = TVSIDX + 1
+ 20   CONTINUE
+C
+C  BLOCK LENGTH CALCULATED
+C
+      BLKLNG=(TVSIDX-DIV2OFF)*2
+      call RPG_set_product_int( BUF(LRMSWOFF), BLKLNG )
+C
+C  LAYER LENGTH CALCULATED
+C
+      LYRLNG=BLKLNG-PHLNG
+      call RPG_set_product_int( BUF(LYRLMSWOFF), LYRLNG )
+
+      RETURN
+      END

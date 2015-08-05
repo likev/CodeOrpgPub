@@ -1,0 +1,285 @@
+C
+C RCS info
+C $Author: nolitam $
+C $Locker:  $
+C $Date: 2002/11/27 17:26:42 $
+C $Id: pvil.ftn,v 1.4 2002/11/27 17:26:42 nolitam Exp $
+C $Revision: 1.4 $
+C $State: Exp $
+C
+C***********************************************************************
+C
+C	Module:	pvil.ftn
+C
+C	Description: This module contains the main function for printing 
+C	the Echo Tops (ET) Table and the Vertically Integrated Liquid
+C       (VIL) Table.
+
+C***********************************************************************
+
+C***********************************************************************
+C
+C	Description: The main function for printing the ET and VIL
+C       Tables.
+C
+C	Notes: 
+C
+C***********************************************************************
+
+	IMPLICIT NONE
+
+	character*64 argv
+	integer iargc, i, m
+	integer type
+
+$INCLUDE A309.INC/G,**A3PM00		;ETTAB and VILTABL
+
+	m = iargc ()
+	do 10 i = 1, m		; send all argv to the c module
+	    call getarg (i, argv)
+	    call process_argv (argv, 64)
+10	continue
+
+	call parse_arg ()	; interprete the command line arguments
+
+	call which_buffer (type)	; get buffer number
+
+	if (type .eq. ETTAB) then
+	    call print_ettab ()
+	    call print_ettab_2d ()
+	else if (type .eq. VILTABL) then
+	    call print_viltabl ()
+	    call print_viltabl_2d ()
+	else
+	    write (*, *) 'type ', type, ' not expected'
+	end if
+
+	stop
+	end
+
+C**********************************************************************
+
+C    Description: This subroutine prints the seven "header"
+C		integers in the parameters section of the ETTAB and
+C		then prints any entry in the values section of the
+C		ETTAB that exceeds the recorded maximum ET value.
+C
+C		ET values are in thousands of feet
+
+C**********************************************************************
+
+	subroutine print_ettab ()
+
+	IMPLICIT NONE
+
+$INCLUDE a313buf.inc,**A313P0
+$INCLUDE a313buf.inc,**A313Z0
+
+	integer len
+	parameter ( len = ((NCOL*NROW)/2)+NUMW+NETSIZ )
+	integer buffer (len)
+	integer index
+	integer maxndx
+	integer maxchk
+
+	equivalence (ETPAR, buffer(1))
+	equivalence (ETVAL, buffer(OVET+1))
+
+
+	call pvil_read_lb (buffer, len)
+
+	write (*, *) len, ' fields in ETTAB:'
+	write (*, *) ' # Columns = ', ETPAR(ONCO)
+	write (*, *) '    # Rows = ', ETPAR(ONRO)
+	write (*, *) '     Range = ', ETPAR(OMSR), ' (km)'
+	write (*, *) ' Min. Refl.= ', ETPAR(ONZE), ' (10*dBz)'
+	write (*, *) '    Max ET = ', ETPAR(OMET), ' (kft)'
+	write (*, *) 'Max ET col = ', ETPAR(OMETC)
+	write (*, *) 'Max ET row = ', ETPAR(OMETR)
+
+	maxndx = ETPAR(OMETC) + ((ETPAR(OMETR) - 1) * NETCOL)
+
+	write (*, *) 'ETVAL( ', maxndx, ') = ', ETVAL(maxndx)
+
+	maxchk = 0
+	do 10 index = 1, NETCOL*NETROW,1
+	   if (ETVAL(index) .gt. ETPAR(OMET)) then
+	      write (*, *) 'ETVAL( ', index, ') = ', ETVAL(index)
+	      maxchk = 1	
+	   else if ((ETVAL(index) .eq. ETPAR(OMET))
+     1                           .and.
+     2              (index .eq. maxndx)) then
+	      maxchk = 2	
+	   endif
+10	continue
+
+	if (maxchk .eq. 2) then
+	   write (*, *) 'VERIFIED recorded max ET value'
+	else if (maxchk .eq. 1) then
+	   write (*, *) 'PROBLEM conflicting max ET value'
+	else
+	   write (*, *) 'PROBLEM unable to verify max ET value'
+	endif
+
+	return
+
+CEND of print_ettab
+	end
+
+C**********************************************************************
+
+C    Description: This subroutine prints the maximum ET value using
+C		the two-dimensional version of ETVAL
+C
+C		ET values are in thousands of feet
+
+C**********************************************************************
+
+	subroutine print_ettab_2d ()
+
+	IMPLICIT NONE
+
+$INCLUDE a313buf.inc,**A313P0
+$INCLUDE a313buf.inc,**A313ZA
+
+	integer len
+	parameter ( len = ((NCOL*NROW)/2)+NUMW+NETSIZ )
+	integer buffer (len)
+	integer index
+	integer maxcol,maxrow
+
+	equivalence (ETPAR, buffer(1))
+	equivalence (ETVAL, buffer(OVET+1))
+
+	call pvil_read_lb (buffer, len)
+
+	maxcol = ETPAR(OMETC)
+	maxrow = ETPAR(OMETR)
+
+	write (*, *) ' '
+	write (*, *) 'Check of **A313ZA 2-d version of ETVAL ...'
+	write (*, *) 'ETVAL( ', maxcol, ' , ', maxrow, ' ) = ',
+     1		ETVAL(maxcol,maxrow)
+
+	return
+
+CEND of print_ettab_2d
+	end
+
+C**********************************************************************
+
+C    Description: This subroutine prints the eight "header"
+C		integers in the parameters section of the VILTAB and
+C		then prints any entry in the values section of the
+C		VILTAB that exceeds the recorded maximum VIL value.
+C
+C		VIL values are in kg/m**2
+
+C**********************************************************************
+
+	subroutine print_viltabl ()
+
+	IMPLICIT NONE
+
+$INCLUDE a313buf.inc,**A313P0
+$INCLUDE a313buf.inc,**A313Z1
+
+	integer len
+	parameter ( len = ((NVILCOL*NVILROW)/2) + NVILSIZ )
+	integer buffer (len)
+	integer index
+	integer maxndx
+	integer maxchk
+
+C	integer*4 vilpar(NVILSIZ)
+C	integer*2 vilval(NVILCOL*NVILROW)
+	equivalence (VILPAR, buffer(1))
+	equivalence (VILVAL, buffer(OVVI+1))
+
+
+	call pvil_read_lb (buffer, len)
+
+	write (*, *) len, ' fields in VILTABL:'
+	write (*, *) '      # Columns = ', VILPAR(ONCO)
+	write (*, *) '         # Rows = ', VILPAR(ONRO)
+	write (*, *) '          Range = ', VILPAR(OMSR), ' (km)'
+	write (*, *) '      Min. Refl.= ', VILPAR(ONZE), ' (dBz)'
+	write (*, *) '        Max VIL = ', VILPAR(OMVI), ' (kg/m**2)'
+	write (*, *) '    Max VIL col = ', VILPAR(OMVIC)
+	write (*, *) '    Max VIL row = ', VILPAR(OMVIR)
+	write (*, *) 'Max Dsply Thrsh = ', VILPAR(OMVT), ' (kg/m**2)'
+
+	maxndx = VILPAR(OMVIC) + ((VILPAR(OMVIR) - 1) * NVILCOL)
+
+	write (*, *) 'VILVAL( ', maxndx, ') = ', VILVAL(maxndx)
+
+	maxchk = 0
+	do 10 index = 1, NVILCOL*NVILROW,1
+
+	   if (VILVAL(index) .gt. VILPAR(OMVI)) then
+
+	      write (*, *) 'VILVAL( ', index, ') = ', VILVAL(index)
+	      maxchk = 1	
+
+	   else if ((VILVAL(index) .eq. VILPAR(OMVI))
+     1                           .and.
+     2              (index .eq. maxndx)) then
+
+	      maxchk = 2	
+
+	   endif
+
+10	continue
+
+	if (maxchk .eq. 2) then
+	   write (*, *) 'VERIFIED recorded max VIL value'
+	else if (maxchk .eq. 1) then
+	   write (*, *) 'PROBLEM conflicting max VIL value'
+	else
+	   write (*, *) 'PROBLEM unable to verify max VIL value'
+	endif
+
+	return
+
+CEND of print_viltabl
+	end
+
+C**********************************************************************
+
+C    Description: This subroutine prints the maximum VIL value using
+C		the two-dimensional version of VILVAL
+
+C		VIL values are in kg/m**2
+
+C**********************************************************************
+
+	subroutine print_viltabl_2d ()
+
+	IMPLICIT NONE
+
+$INCLUDE a313buf.inc,**A313P0
+$INCLUDE a313buf.inc,**A313ZB
+
+	integer len
+	parameter ( len = ((NVILCOL*NVILROW)/2) + NVILSIZ )
+	integer buffer (len)
+	integer maxcol,maxrow
+
+	equivalence (VILPAR, buffer(1))
+	equivalence (VILVAL, buffer(OVVI+1))
+
+	call pvil_read_lb (buffer, len)
+
+	maxcol = VILPAR(OMVIC)
+	maxrow = VILPAR(OMVIR)
+
+	write (*, *) ' '
+	write (*, *) 'Check of **A313ZB 2-d version of VILVAL ...'
+	write (*, *) 'VILVAL( ', maxcol, ' , ', maxrow, ' ) = ',
+     1		VILVAL(maxcol,maxrow)
+
+
+	return
+
+CEND of print_viltabl_2d
+	end

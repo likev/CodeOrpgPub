@@ -1,0 +1,437 @@
+
+NAME
+    The DEAU (Data Element Attribute Utility) functions.
+
+SYNOPSIS
+    #include <infr.h>
+
+    void DEAU_set_error_func (void (*err_func) (char *));
+
+    void DEAU_LB_name (char *name);
+
+    int DEAU_use_attribute_file (char *fname, int override);
+
+    int DEAU_special_suffix (char *suff);
+
+    int DEAU_create_dea_db ();
+
+    int DEAU_update_hash_tables ();
+
+    int DEAU_get_next_dea (char **id, DEAU_attr_t **at);
+
+    int DEAU_get_attr_by_id (char *id, DEAU_attr_t **at);
+
+    int DEAU_get_dea_by_msgid (LB_id_t msgid, DEAU_attr_t *at);
+
+    void DEAU_free_tables ();
+
+    int DEAU_update_attr (char *id, int which_attr, char *text_attr);
+
+    int DEAU_get_number_of_values (char *id);
+
+    int DEAU_get_values (char *id, double *values, int buf_size);
+
+    int DEAU_get_string_values (char *id, char **p);
+
+    int DEAU_get_branch_names (char *node, char **p);
+
+    int DEAU_get_baseline_values (char *id, double *values, int buf_size);
+
+    int DEAU_get_baseline_string_values (char *id, char **p);
+
+    int DEAU_move_baseline (char *id, int to_baseline);
+
+    int DEAU_set_values (char *id, int is_str_type, void *values, 
+					int n_items, int is_base_line);
+
+    int DEAU_use_default_values (char *id, char *site, int force);
+
+    int DEAU_check_permission (DEAU_attr_t *at, char *user_id);
+
+    int DEAU_get_data_type (DEAU_attr_t *at);
+
+    int DEAU_get_enum (DEAU_attr_t *attr, char *str, int *enum, int str_s);
+
+    int DEAU_get_allowable_values (DEAU_attr_t *attr, char **p);
+
+    int DEAU_get_min_max_values (DEAU_attr_t *attr, char **p);
+
+    int DEAU_lock_de (char *id, int lock_cmd);
+
+    int DEAU_check_data_range (char *id, int data_type, 
+					int array_size, char *data);
+
+    int DEAU_check_struct_range (char *type, void *data, int data_len);
+
+    int DEAU_get_number_of_checked_fields ();
+
+    int DEAU_set_func_pt (char *func_name, void *func);
+
+    int DEAU_UN_register (char *de_group, void (*notify_func)());
+
+    LB_id_t DEAU_get_msg_id (char *id);
+
+    int DEAU_read_listed_attrs (char *id_list);
+
+    void DEAU_set_read_attr_type (int attr, int yes);
+
+    int DEAU_write_listed_attrs (char *id_list, int *which_attr, char *attrs);
+
+    void DEAU_delete_cache ();
+
+    int DEAU_remote_lock_de (char *id, int lock_cmd);
+
+    int DEAU_update_dea_db (char *remote_host, char *lb_name, LB_id_t msg_id);
+
+    char *DEAU_values_to_text (int str_type, void *values, int n_items);
+
+    int DEAU_set_binary_value (char *id, void *bytes, 
+						int n_bytes, int baseline);
+    int DEAU_get_binary_value (char *id, char **p, int baseline);
+
+DESCRIPTION
+
+    The DEAU (Data Element Atribute Utility) library module provides funtions
+    that read and parse the Data Element Attribute files, create and access the
+    DEA data base, update the DEA data base and perform data conversion and
+    range checks. This module can be used for data checking and managing
+    adaptation data.
+
+    DEAU_set_error_func registers an error reporting function "err_func" which
+    accepts an ASCII text error message from the DEAU module. The error
+    reporting function then can present the DEAU messags to the user. The DEAU
+    messages may contain useful info such as why and which field is out of
+    range as detected in a DEAU range checking function. If the function is
+    never called, the DEAU messages are discarded.
+
+    DEAU_LB_name passes "name" to DEAU to set up the name of the DEA database
+    LB. The DEAU uses an LB to store shared DEA info. The LB can be on a remote
+    host in which case "name" must contain the host name (e.g. "host:name").
+    The DEAU module does not create the LB. It must be created before any DEAU
+    function can access the LB. The LB must be created as type LB_DB and
+    sized appropriately. DEAU_LB_name does not open the LB. The LB is opened
+    when the first time the LB is accessed by DEAU. If DEAU_LB_name is called
+    with a name different from the previous one, the old shared DEA database is
+    closed and the new one will be opened when access is required.
+
+    DEAU_use_attribute_file reads the data attribute file "fname" and ingests
+    the info read into an in-memory DEA database private to the application. It
+    can be called multiple times to read multiple files. If there are
+    duplicated attribute specifications, the later read will override the
+    prevously read if "override" is non-zero. If "override" is zero, however,
+    DEAU_use_attribute_file fails and returns with an error code in case a
+    duplicated specification is encountered. The DEA data are then available
+    for other DEAU functions. The DEA data can also be used for creating the
+    shared DEA LB database. This function returns the number of new DEs found
+    in the file on success or a negative error code. If "fname" is NULL, this
+    function discards the in-memory DEA database.
+
+    DEAU_special_suffix adds a new special suffix "suff" to the special suffix
+    list in the DEAU module. If a DEA file has one of the special suffixes (the
+    file name part after the last "."), the suffix is used as the first part of
+    the identifier for any of the data element in the file. By using this
+    feature one can organize the data elements into groups. For example, all
+    algorithm adaptation/configuration data elements can have a group name of
+    "alg" (The special suffix). DEAU_special_suffix, if used, must be called
+    before calling DEAU_use_attribute_file. DEAU_special_suffix can be called
+    multiplly with the same "suff". It returns 0 on success or a negative error
+    code.
+
+    DEAU_create_dea_db writes the DEA in memory to the LB (the shared DEA
+    database). It returns 0 on success or a negative error number. Any data
+    stored in the LB are removed before the shared DEA database is created.
+    DEAU_create_dea_db creates the database hash table and the identifier
+    table.
+
+    DEAU_update_hash_tables updates (rebuilds) the hash and identifier tables
+    in the DEA database LB. It returns 0 on success or a negative error code.
+    This function is called by DEAU_create_dea_db when the database is created.
+    This function needs to be called if a new data element is added to the
+    database. The DEA database has two index tables: The hash table, which is
+    sorted according to the hash values of the identifiers, and the identifier
+    table which is sorted according to the identifier strings. These tables are
+    used for efficiently searching a particular data element.
+
+    DEAU_get_next_dea steps through the LB DEA data base, in the order of
+    sorted hash values, to retrieve DE identifiers, if "id" is not NULL, and,
+    if "at" is not NULL, DE attributes. If both "id" and "at" are NULL, the
+    pointer is reset to the first DE. This function returns 0 on success or a
+    negative error code. *WARNING*: The pointers returned with "id" and
+    "at" cannot be saved for later use. The pointers or the contents in the
+    buffers can be *DESTROYED* after the next DEAU function call. The caller
+    shoud *NOT* try to free the returned pointers. "at" can, however, be passed
+    to other DEAU functions as input. DEAU_get_next_dea does not access the DEA
+    read from DEA files.
+
+    DEAU_get_attr_by_id searches data element of identifier "id" and returns,
+    with "at", the attribute structure of the data element if it is found.
+    *WARNING*: The pointer returned with "at" cannot be saved for later use.
+    The pointer or the contents in the buffer can be *DESTROYED* after the next
+    DEAU function call. The caller shoud *NOT* try to free the returned
+    pointer. "at" can, however, be passed to other DEAU functions as input. It
+    returns 0 on success or a negative error code. DEAU_get_attr_by_id uses a
+    binary searching technique on the sorted hash table for efficiently
+    locating the data element. It only finds exact match of the identifier. It
+    searches both the shared DEA database in LB and the in-memory database as
+    read from DEA files. It searches the in-memory database first.
+
+    DEAU reads in the hash and identifier tables from the shared DEA database,
+    when the database access is needed by any of the DEAU functions, and stores
+    them in memory for latter use. DEAU_free_tables destroys these tables and
+    frees the memory. One case in which one needs to call DEAU_free_tables is
+    that, if it is known that any new data element has been added to the
+    database or any element has been removed from the database, one can call
+    DEAU_free_tables to force an update of the locally cached tables.
+
+    DEAU_get_dea_by_msgid reads the DEA of message id "msgid" in the LB and
+    fills in "at" with the DEA. "msgid" can be LB_NEXT. It returns the message
+    id if the message is a DEA, 0 if not or a negative error code.
+    DEAU_get_dea_by_msgid provides a way to access DEA with LB message ID.
+
+    DEAU_get_number_of_values retrieves the number of values of data element 
+    "id". The function returns the number of values on success. On failure the 
+    function returns a negative error code.
+
+    DEAU_get_values retrieves numerical values of data element "id" and put
+    them in buffer "values" of size "buffer_size". This function works for all
+    numerical and enumeration types. The data returned are in double type. The
+    function returns the number of values retrieved on success. If
+    "buffer_size" is too small, the function returns an error code after the
+    first "buffer_size" of data values are put in "values". On failure the
+    function returns a negative error code.
+
+    DEAU_get_string_values retrieves string values of data element "id", puts
+    them in a static buffer and returns the pointer to the buffer with "p".
+    *WARNING*: The pointer returned cannot be saved for future use. The pointer
+    or the contents in the buffer can be *DESTROYED* after the next call to
+    thiss function. The caller shoud *NOT* try to free the returned pointer.
+    All string values are null terminated and put in the buffer one after
+    another. The function returns the number of values retrieved on success. On
+    failure the function returns a negative error code. The buffer is not
+    shared by other DEAU functions.
+
+    DEAU_get_branch_names retrieves branch names of internal node "node", puts
+    them in a static buffer and returns the pointer to the buffer with "p".
+    *WARNING*: The pointer that returned with "p" cannot be saved for future
+    use. The pointer or the content in the buffer can be *DESTROYED* after the
+    next call to this function. The caller shoud *NOT* try to free the returned
+    pointer. "p" can, however, be passed to other DEAU functions as input. All
+    names are null terminated and put in the buffer one after another. The
+    function returns the number of branches retrieved on success. On failure
+    the function returns a negative error code. The buffer is not shared by
+    other DEAU functions.
+
+    DEAU_get_baseline_values and DEAU_get_baseline_string_values are the 
+    functions that get values from the baseline attribute instead of the 
+    current value attribute. They are similar to DEAU_get_values and 
+    DEAU_get_string_values.
+
+    DEAU_move_baseline moves the current value of DE "id" to baseline, if 
+    "to_baseline" is true, or vice versa otherwise. Returns 0 on success or a 
+    negative error number.
+
+    All DEAU_get_* functions search both in-memory and the shared DEA 
+    databases.
+
+    DEAU_set_values sets the current value attribute of data element "id" using
+    the "n_items" data values pinted to by "values". If "is_str_type" is
+    non-zero, the values are treated as strings. The values must all be
+    null-terminated and stored in buffer pointed to by "values" one after
+    another. If "is_str_type" is zero, the values are numerical and stored in a
+    double array pointed by "values". If "is_base_line" is non-zero, the
+    base-line attribute, instead of the current value attribute, is set. Range
+    check is performed on the data. It "is_str_type" is zero and the DE is a
+    enumeration type, "values" are first converted to strings before written to
+    the DB. The function returns 0 on success or a negative error code. This 
+    function works only for data elements in the shared (LB) DEA database.
+
+    DEAU_update_attr sets the attribute "which_attr" of data element "id" to
+    "text_attr" which is the text form attribute reprentation. "which_attr"
+    must be one of "DEAU_AT_*" defined in deau.h. The function returns 0 on
+    success or a negative error code. This function works only for data
+    elements in the shared (LB) DEA database.
+
+    DEAU_use_default_values sets the current value attribute of data element
+    "id" using its default attribute at site "site". If "force" is zero, the
+    funcion will not reset the value if the velue is already set. The function
+    returns 0 on success or a negative error code. This function modifies the
+    content in the DE attribute buffer returned from DEAU_get_attr_by_id or
+    DEAU_get_next_dea. User-defined site group names are assumed under node
+    "@site_names".
+
+    DEAU_check_permission checks if "user_id", e.g. "URC", has a write 
+    permission according to attribute "at". It returns 1 if permission is 
+    granted, 0 if not, or a negative error code.
+
+    DEAU_get_data_type returns the data type of attribute "attr". It returns 
+    the type enumeration value (DEAU_T_*) on success or -1 on failure.
+
+    DEAU_get_enum returns, with "enum", the enumeration value for string "str"
+    in terms of attributes "attr" if "str_s" = 0. If "str_s" > 0, It copies
+    the string corresponding to enum value "*enum" to buffer "str" of size 
+    "str_s". If "attr" is NULL, it assumes the previous attribute. Calling with
+    "attr" = NULL is more efficient. It returns 0 on success or a negative 
+    error code.
+
+    DEAU_get_allowable_values returns the number of allowable values for
+    attribute "at" if the number of allowable values is finite. The values, a
+    sequence of null-terminated string, are returned with "p". *WARNING*: The
+    pointer that returned with "p" cannot be saved for future use. The pointer
+    or the content in the buffer can be *DESTROYED* after the next DEAU
+    function call. The caller shoud *NOT* try to free the returned pointers. If
+    the range is not a finite set, it returns 0. It returns a negative error
+    code on failure.
+
+    DEAU_get_min_max_values returns, with "p", the min and max values, two
+    null-terminated strings, for attribute "at". *WARNING*: The pointer that
+    returned with "p" cannot be saved for future use. The pointer or the
+    content in the buffer can be *DESTROYED* after the next DEAU function call.
+    The caller shoud *NOT* try to free the returned pointers. The return value
+    is 1, 3, 5, or 7 if, respectively, the range is (), [), (] and []. If the
+    range is not an interval, it returns 0.
+
+    DEAU_lock_de locks data element "id" which can be either a data element or
+    an internal node. "lock_cmd" is one of the lock command for LB_lock. Refer 
+    to "man lb". It returns one of the LB_lock return values or a DEAU error 
+    code.
+
+    The argument of "id" in functions DEAU_get_attr_by_id,
+    DEAU_get_number_of_values, DEAU_get_values, DEAU_get_string_values,
+    DEAU_get_baseline_values, DEAU_get_baseline_string_values, and
+    DEAU_check_data_range, can take the value of "NULL". If it is NULL, it uses
+    the latestly accessed attribute structure. Calling with id = NULL does not 
+    involve a DB access and thus is more efficient.
+
+    DEAU_check_data_range performs data range check on an array of size
+    "array_size" at address "data". The data must be of primitive type
+    "data_type" (one of DEAU_T_* defined in deau.h). The data element
+    identifier is "id". "data" is a pointer to an array of the appropriate
+    type. If "data_type" is DEAU_T_STRING, "data" is a pointer to a character
+    buffer that contains "array_size" null-terminated strings with one
+    immediately after another. The function returns 1 if range check is OK for
+    all array elements, 0 if no range attribute is specified, -1 if any array
+    element is out of range, or other negative codes. DEAU_check_data_range
+    maintains a table of used data range and conversion attributes for improved
+    efficiency.
+
+    DEAU_check_struct_range performs range check of all fields on "data" of
+    type "type" which must be a C struct. "data_len", if non-zero, is the size
+    of "data". This returns the number of range-check-failed fields on success.
+    In other error conditions, this function returns an negative error code.
+    This function use the service of SMIA_go_through_struct to iteratively call
+    DEAU_check_data_range for each struct field to do the job. 
+
+    DEAU_get_number_of_checked_fields returns the number of successfully
+    range-checked fields in the previous suceeded DEAU_check_struct_range
+    function call.
+
+    DEAU_set_func_pt sets the function pointer to "func" for function named
+    "func_name". It returns 0 on success or a negative error code.
+    DEAU_check_data_range performs dynamic loading of DEA functions (i.e.
+    functions specified in the data element attributes by function names).
+    This, however, does not work if the function is implemented in the local
+    application instead of in a shared library. DEAU_set_func_pt can be used to
+    pass the function pointer to the DEAU library module if a DEA function is
+    implemented in the local application.
+
+    DEAU_UN_register registers the data element update notification callback
+    function "notify_func" for data element group "de_group". "de_group"
+    should be the ID of an internal node. A DE group, by default, is the
+    collection of DEs that are immediate sub-nodes of "de_group". For exmple,
+    if we have two DEs "alg.alg1.param1" and "alg.alg1.param2" in the
+    database, group "alg.alg1" then contains the two DEs. One can define DE
+    groups to override the default groups by putting UN group statements in
+    DEA files. Each UN group statement is a line such as "DE_UN_node alg",
+    where the first token is a reserved word and the second token is an
+    internal node name. The statement will cause all DEs branched from node
+    "alg" to be in the group "alg". Multiple UN group statements are
+    supported. They can be specified in any of the DEA files. The behavior of
+    conflicting definition of UN groups is not defined. If "de_group" is NULL
+    or an empty string, all DEs are assumed in the group. The argument of
+    "notify_func" is passed to LB_UN_register. Refer to "man lb" for further
+    information. Returns the group ID (a 2 byte non-negative int) on success
+    or a negative error code on failure.
+
+    DEAU_get_msg_id returns the message ID in the DEA DB for DE "id". Returns 
+    0xffffffff if not found. This funcition can be used with DEAU_UN_register
+    to process update events.
+
+    The following four functions are designed for accessing the DEA database
+    through a link that requires to minimize the the number of byte transmitted
+    and the number of round-trip RPCs.
+
+    DEAU_read_listed_attrs reads attributes of a list of DEs in "id_list" and
+    put them in a cache for future access. This function does not do anything
+    if the DEA DB is on the local host. Each call to this function adds any new
+    DEs to the cache. It updates the cache if the DE is already in the cache.
+    The other DEAU functions (except DEAU_get_next_dea) first searches the DEA
+    in the cache before searches the remote DB. If we call this function to
+    read all DEAs we need to access, we can then use other DEAU access
+    functions without invoking any remote DEA LB access (e.g. reading the hash
+    table). "id_list" is a list of DE identifiers separated with a single
+    space. "*" can be used in the last identifier section to indicate all such
+    identifiers. An example is "alg.application_name.*". This function returns
+    the number of DEs actually read on success or a negative error code. Note
+    that the DEA in the cache may be old if this or another application updates
+    the DEA DB. If the application wants the cache to be always updated, it
+    must detect the event and call this function to update the cache.
+
+    DEAU_set_read_attr_type modifies the attribute list that controls which
+    attributes need to be read by DEAU_read_listed_attrs. If "yes" is non-zero,
+    attribute type of "attr" is added to the list. If "yes" is zero, attribute
+    type of "attr" is removed from the list. The default is all attributes are
+    read (i.e. All types are in the list).
+
+    DEAU_write_listed_attrs updates, with RPC, attributes of a list of DEs in
+    "id_list". Identifiers in "id_list" are separated by a single space. It
+    calls DEAU_update_attr for each DE in "id_list with corresponding array
+    element in "which_attr" and "attrs". "attrs" is a sequence of
+    null-terminated strings stored one after another. DEAU_write_listed_attrs
+    modifies "attrs". It returns the number of successful calls to 
+    DEAU_update_attr on success or a negative error code. If the DEA LB is 
+    local, RPC is bypassed.
+
+    DEAU_update_dea_db updates the value of DE of message "msg_id" in the DEA
+    database on host "remote_host" using the value of the local DEA database.
+    "lb_name" is the DEA database file's full path on "remote_host". If
+    "lb_name" is NULL, the local DEA database file's full path is used. If
+    "msg_id" is LB_ALL, all messages that has "URC" or "AGENCY" permission are
+    updated. Returns the number of successful DEA updates on success or a
+    negative error code. Identical value update does not cause database updated
+    and is considered successful.
+
+    DEAU_values_to_text converts the "n_items" data values in array "values" to
+    the text form of the DEA value attribute. If "str_type" is non-zero, the
+    values are treated as strings. They must all be null terminated and stored
+    in buffer pointed to by "values" one after another. If "str_type" is zero,
+    the values are numerical and stored in a double array pointed by "values".
+    The function returns the pointer to the converted string. This function can
+    be used to prepare arguments for calling DEAU_write_listed_attrs.
+
+    DEAU_delete_cache deletes all DEA read by DEAU_read_listed_attrs and stored
+    in the cache.
+
+    DEAU_remote_lock_de is the RPC version of DEAU_lock_de. This is for 
+    low-bandwidth/high-latency links.
+
+    DEAU_set_binary_value and DEAU_get_binary_value allows binary data to be
+    stored as the value attribute in the DEA database. Binary data is an array
+    of arbitrary byte values. Binary data is converted into a character string
+    using a modified uuencode algorithm. The encoded string then is stored in
+    DEA database as of "string" type. DEAU_set_binary_value encodes the binary
+    array "bytes" of size "n_bytes" and stores the encoded string in the value
+    attribute of DE "id". It returns the encoded string length on success or a
+    negative DEAU error code. DEAU_get_binary_value reads the value of DE "id",
+    decodes it and puts the original binary array in a malloced buffer. The
+    pointer to the buffer is returned with "p". The caller should free the
+    returned pointer after use it if the return value is greater than 0. The
+    return value is the size of the returned binary array. On failure, it
+    returns a negative DEAU error code. If "baseline" is non-zero, these
+    functions operate on the baseline value attribute instead of the value
+    attribute. Only DE of "string" type can store binary data. When storing
+    binary data, only a single array of data can be stored for each DE.
+
+SEE ALSO
+    
+
+NOTES

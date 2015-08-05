@@ -1,0 +1,170 @@
+C 
+C RCS info 
+C $Author: nolitam $ 
+C $Locker:  $ 
+C $Date: 2002/12/11 20:00:24 $ 
+C $Id: a3148b.ftn,v 1.2 2002/12/11 20:00:24 nolitam Exp $ 
+C $Revision: 1.2 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A3148B__HEAP_SORT( ARRAY, NUM_VALUES )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3148B__HEAP_SORT
+*.
+*.  MODULE VERSION: 0001
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.     DATE      VERSION  PROGRAMMER        NOTES
+*.     --------  -------  ----------------  --------------------------
+*.     02/25/97   0000    Steve Smith       CCR NA96-17903
+*.       03/16/99      0001      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: A3148B__HEAP_SORT( ARRAY, NUM_VALUES )
+*.
+*.  MODULE FUNCTION: SORTS ARRAY IN ASCENDING ORDER.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT      TYPE        DESCRIPTION
+*.    -   -----      ----        -----------
+*.    P   ARRAY      I*2         An integer array to be sorted
+*.    P   NUM_VALUES I*4         Number of valid points
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    P   ARRAY   I*2         An integer array to be sorted
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME  TYPE        DESCRIPTION
+*.    ----  ----        -----------
+*.    I     I*4         Not used
+*.    IR    I*4         Heap selection index
+*.    J     I*4         Heap sort index for switching
+*.    L     I*4         Heap sort index for decrementing
+*.    TEMP  I*2         Temporary storage of array element
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP07.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK07.CSS
+*.
+*.  MISC:  THIS ALGORITHM WAS TAKEN FROM:
+*.
+*.         NUMERICAL RECIPES - THE ART OF SCIENTIFIC COMPUTING
+*.         CAMBRIDGE PRESS
+*.
+*.*******************************************************************
+C
+      IMPLICIT NONE
+C
+C*** PASSED ARGUMENTS:
+C
+      INTEGER*4 NUM_VALUES
+      INTEGER*2 ARRAY( * )
+C
+C*** LOCAL DECLARATIONS:
+C
+      INTEGER*4 L, IR, I, J
+      INTEGER*2 TEMP
+C
+C*** EXECUTABLE CODE:
+C-------------------
+C
+      L = NUM_VALUES/2 + 1
+      IR = NUM_VALUES
+C
+C*** THE INDEX L WILL BE DECREMENTED FROM ITS INITIAL VALUE DOWN TO 1
+C*** DURING THE HEAP CREATION PHASE.  ONCE IT IS REACHES 1, THE
+C*** INDEX IR WILL BE DECREMENTED FROM ITS INITIAL VALUE DOWN TO 1
+C*** DURING THE HEAP SELECTION PHASE.
+C
+ 10   CONTINUE
+
+         IF( L .GT. 1 ) THEN
+C
+C****       STILL IN HEAP CREATION PHASE.
+C
+            L = L - 1
+            TEMP = ARRAY(L)
+
+         ELSE
+C
+C****       IN HEAP SELECTION PHASE.
+C
+            TEMP = ARRAY(IR)
+            ARRAY(IR) = ARRAY(1)
+            IR = IR - 1
+            IF( IR .EQ. 1 ) THEN
+
+               ARRAY(1) = TEMP
+               RETURN
+
+            END IF
+
+         END IF
+C
+C**** WHETHER WE ARE IN THE HEAP CREATION PHASE OR THE HEAP-
+C**** SELECTION PHASE, WE ARE SET UP TO SIFT DOWN ELEMENT TEMP TO
+C**** IT PROPER LEVEL.
+C
+         I = L
+         J = L + L
+ 20      IF( J .LE. IR ) THEN
+
+            IF( J .LT. IR ) THEN
+
+               IF( ARRAY(J) .LT. ARRAY(J+1) ) J = J + 1
+
+            END IF
+
+            IF( TEMP .LT. ARRAY(J) ) THEN
+
+               ARRAY(I) = ARRAY(J)
+               I = J
+               J = J + J
+
+            ELSE
+
+               J = IR + 1
+
+            END IF
+
+            GO TO 20
+
+         END IF
+
+         ARRAY(I) = TEMP
+
+      GO TO 10
+C
+C*** RETURN TO CALLING ROUTINE
+C
+      END

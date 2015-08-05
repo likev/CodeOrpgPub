@@ -1,0 +1,460 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/17 14:56:46 $
+C $Id: a317a9.ftn,v 1.2 2002/12/17 14:56:46 christie Exp $
+C $Revision: 1.2 $
+C $State: Exp $
+C
+      SUBROUTINE A317A9__TDA2D3D_BUF_CONTROL( PARAM )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A317A9__TDA2D3D_BUF_CONTROL
+*.
+*.  MODULE VERSION: 0001
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       05/29/97      0000      MARK FRESCH          CCR NA95-21503
+*.       03/16/99      0001      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A317A9__TDA2D3D_BUF_CONTROL( PARAM )
+*.
+*.  MODULE FUNCTION:
+*.
+*.    This is the routine which is entered for the task in reponse to
+*.  a queued "wake-up" parameter.  It obtains and releases input and
+*.  output buffers (i.e.memory blocks within the RPG shared memory
+*.  buffer pool) as needed by 2D & 3D processing of the Tornado
+*.  Detection Algorithm (TDA), enabling it to execute in real time
+*.  in coordination with the other tasks of the RPG (CPC-03).  The
+*.  The routine performs high-level processing control for the
+*.  algorithm.
+*.
+*.  MODULES CALLED: A31211__GET_INBUF, A31212__REL_INBUF, A31215__GET_OUTBUF, 
+*.                  A31216__REL_OUTBUF, A317B9__MATCH_TDA2D, A317E9__TVS_TYPE, 
+*.                  A317F9__SAVE_3D_FEAT, A317H9__SORT_BY_HEIGHT, 
+*.                  A317I9__INIT_TDA3D, A317L9__SORT_TVS, A317O8__INIT_SCAN, 
+*.                  A317Q9__DERIVE_ADAP, A317S8__PROCESS_SCAN, 
+*.                  A317S9__STORE_TVS, A317T9__SORT2D_BY_DV, 
+*.                  A317W8__ABORT_PROCESSING, A317Y9__OUTPUT_ADAP 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT         TYPE        DESCRIPTION
+*.    -   -----         ----        -----------
+*.    G   MEM           I*4         Array in RPG shared memory set aside for
+*.                                  buffer sharing.
+*.    G   FORWARD       I*4         (CONSTANT)Parameter to indicate that an
+*.                                  output buffer is to be forwarded to
+*.                                  successor tasks
+*.    G   NORMAL        I*4         (CONSTANT)Parameter which indicates normal
+*.                                  completion of requested operation to
+*.                                  acquire input or output buffer
+*.    G   NO_MEM        I*4         (CONSTANT)Parameter which indicates no
+*.                                  memory available on attempt to acquire
+*.                                  output buffer
+*.    G   PROD_MEM_SHED I*4         (CONSTANT)(CONSTANT)Parameter which
+*.                                  indicates that product aborted due to
+*.                                  memory load shedding
+*.    G   TAD           I*4         (CONSTANT)POINTER INTO THE TVSATTR BUFFER
+*.                                  TO TDAADAP (THE TVS ADAPTATION DATA ARRAY)
+*.    G   TAM           I*4         (CONSTANT)POINTER INTO THE TVSATTR BUFFER
+*.                                  TO TVS_MAIN (THE TVS FEATURE ATTRIBUTE
+*.                                  ARRAY)
+*.    G   TERMINATE     I*4         (CONSTANT)Mnemonic used as output from
+*.                                  A31211__GET_ INBUF and A31215__GET_OUTBUF.
+*.                                  Indicates "terminate processing".
+*.    G   TNE           I*4         (CONSTANT)POINTER INTO THE TVSATTR BUFFER
+*.                                  TO THE # OF ETVSes IDENTIFIED IN THE
+*.                                  CURRENT VOLUME SCAN (A NEGATIVE #
+*.                                  INDICATES MORE THAN THE MAX. ALLOWED WERE
+*.                                  FOUND)
+*.    G   TNT           I*4         (CONSTANT)POINTER INTO THE TVSATTR BUFFER
+*.                                  TO THE # OF TVSes IDENTIFIED IN THE
+*.                                  CURRENT VOLUME SCAN (A NEGATIVE #
+*.                                  INDICATES MORE THAN THE MAX. ALLOWED WERE
+*.                                  FOUND)
+*.    G   TVSATTR       I*4         (CONSTANT)Buffer Data Type: TVS Attributes
+*.                                  buffer
+*.    C   NBR_P3DF      I*4         Counter for number of potential
+*.                                  three-dimensional features.
+*.    C   NEWVOL        L*4         Flag indicating whether a new volume scan
+*.                                  has just been started
+*.    C   NO_ROOM_2D    L*4         FLAG INDICATING WHETHER THERE IS NO ROOM
+*.                                  FOR MORE 2D FEATURES; ALG. PROCESSING
+*.                                  SHOULD SKIP TO 3D
+*.    C   NUM3D         I*4         Counter for number of three-dimensional
+*.                                  features having the required number
+*.                                  (ADPMFPD) of two-dimensional features.
+*.    C   TOT_2DF       I*4         TOTAL NUMBER OF 2D FEATURES IN THE VOLUME
+*.                                  SCAN
+*.    C   AVAILABLE     L*4         (CONSTANT)Switch to tell program when
+*.                                  TDA1D buffer is available for reading or
+*.                                  writing.
+*.    C   TBAE          I*4         (CONSTANT)Index to Avg. Elev angle in the
+*.                                  elevation scan in the output buffer
+*.    C   TBAZP         I*4         (CONSTANT)Index in the output buffer to a
+*.                                  pointer to 1st good azimuthal index within
+*.                                  the tda1d attributes array (1 or 401).
+*.    C   TBBS          I*4         (CONSTANT)Index in Tda output buffer to
+*.                                  the doppler bin size
+*.    C   TBESF         I*4         (CONSTANT)Index in TDA output buffer to
+*.                                  the elevation status within the volume.
+*.    C   TBET          I*4         (CONSTANT)Index in TDA output buffer to
+*.                                  beginning time of the elevation scan
+*.                                  (msec).
+*.    C   TBHF          I*4         (CONSTANT)Index in TDA output buffer to
+*.                                  the logical flag which indicates which
+*.                                  half of the TDA1D attribute buffer was
+*.                                  most recently updated.
+*.    C   TBPVC         I*4         (CONSTANT)Index in TDA output buffer to
+*.                                  the number of pattern vectors in the
+*.                                  elevation scan.
+*.    C   TBPVIP        I*4         (CONSTANT)Index in TDA output buffer to a
+*.                                  pointer to 1st good pattern vector index
+*.                                  within the TDA1D attributes array (0 or
+*.                                  3000).
+*.    C   TBRC          I*4         (CONSTANT)Index in TDA output buffer to
+*.                                  number of radials in the elevation scan.
+*.    C   TBRIP         I*4         (CONSTANT)Index in TDA output buffer to a
+*.                                  pointer to 1st good radial index within
+*.                                  the TDA1D attributes array (1 or 401).
+*.    C   TDA1DATR      I*4         (CONSTANT)Data Buffer Type: TDA 1D
+*.                                  attributes buffer
+*.    C   UNAVAILABLE   L*4         (CONSTANT)Switch to tell program when
+*.                                  TDA1D buffer is available for reading or
+*.                                  writing.
+*.
+*.    *   OUTPUT       TYPE        DESCRIPTION
+*.    -   ------       ----        -----------
+*.    G   MEM          I*4         Array in RPG shared memory set aside for
+*.                                 buffer sharing.
+*.    G   TDA_BUF_LOCK L*4         Flag inidcating whether the TDA buffer is
+*.                                 available for processing
+*.    C   ETVCOUNT     I*4         Counter for number of ETVSs detected
+*.    C   NBRTVS       I*4         Sum of number of TVSs and ETVSs detected.
+*.    C   NBR_P3DF     I*4         Counter for number of potential
+*.                                 three-dimensional features.
+*.    C   NEWVOL       L*4         Flag indicating whether a new volume scan
+*.                                 has just been started
+*.    C   NO_ROOM_2D   L*4         FLAG INDICATING WHETHER THERE IS NO ROOM
+*.                                 FOR MORE 2D FEATURES; ALG. PROCESSING
+*.                                 SHOULD SKIP TO 3D
+*.    C   TVSCOUNT     I*4         Counter for number of TVSs detected.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    G   MEM               I*4         Array in RPG shared memory set aside
+*.                                      for buffer sharing.
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME            TYPE        DESCRIPTION
+*.    ----            ----        -----------
+*.    ELEVSTAT        I*4         STATUS OF THE CURRENT ELEVATION SCAN WITHIN
+*.                                THE VOLUME SCAN - LAST ELEVATION SCAN = 1,
+*.                                ELSE = 0
+*.    EL_LAST         I*4         Elevation status parameter for determining
+*.                                that the highest elevation scan has been
+*.                                processed.
+*.    IDATID          I*4         Data type received from buffer request
+*.    IPR             I*4         POINTER IN MEM TO INPUT BUFFER
+*.    ISTAT           I*4         Return status from getting input buffer
+*.    KEY             I*4         KEY TO THE TDA 1D SHARED IMAGE BUFFER
+*.                                INDICATING WHICH HALF OF THE BUFFER IS TO BE
+*.                                PROCESSED
+*.    N               I*4         Do loop index
+*.    NULL            I*4         Parameter value of zero.
+*.    NUMLEVS         I*4         Count of number of unique elevation cuts
+*.                                processed by TDA 2D feature formation code
+*.                                (14 for VCP 11; 9 for VCP 21).
+*.    OPR             I*4         Pointer to starting position of output
+*.                                buffer in MEM
+*.    OSTAT           I*4         Status flag for output buffer as given by
+*.                                buffer Manager to indicate retrieval status.
+*.    SIZ_TVS         I*4         THE SIZE OF THE TVSATTR BUFFER IN FULLWORDS
+*.    TDA_BUF_UNAVAIL L*4         FLAG INDICATING WHICH HALF OF THE TDA 1D
+*.                                SHARED IMAGE BUFFER IS AVAILABLE
+*.    TVD             I*4         POINTER INTO THE TVSATTR BUFFER TO THE
+*.                                VOLUME SCAN DATE (JULIAN)
+*.    TVT             I*4         POINTER INTO THE TVSATTR BUFFER TO THE
+*.                                VOLUME SCAN TIME (IN MSEC SINCE MIDNIGHT)
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A317LOCK
+*.    A3CD00
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A317C3DA
+*.    A317C3DB
+*.    A317TC2
+*.    A317TCA
+*.    A317TDNE
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:
+*.
+*.     If return status (i.e."ISTAT") from call to "GET_INBUF" is not
+*.   normal, the input data stream has been prematurely terminated:
+*.   Processing is aborted; the output buffer is released for destruc-
+*.   tion; and control is returned to the calling routine (Trap-Wait
+*.   state).
+*.
+*.     If return status (i.e."OSTAT") from call to "GET_OUTBUF" is not
+*.   normal, the output data is not required by the system at this
+*.   time, or insufficient memory is available: Processing is aborted;
+*.   and control is returned to the calling routine (Trap-Wait state)
+*.
+*.     The subroutine is entered, and processing for the task init-
+*.   iated, in response to a queued parameter trap received from
+*.   RPG Buffer Control.
+*.
+*.     When not processing, the task is in Trap-Wait state.
+*.
+*.     If a call is made to GET_INBUF when the input buffer is not
+*.   yet available, the task is suspended until that data becomes
+*.
+*.     Processing is keyed by the "Elevation-Status Flag", received
+*.   in the input buffer once per elevation.  The scans are assumed
+*.   to enter in order of increasing elevation angle.  Detection of
+*.   a "last-of-volume" elevation-status flag triggers the termin-
+*.   ation of processing for a volume scan, the computation of all
+*.   attribute of TVSs & ETVSs and the output of those attributes
+*.   to the output-buffer.  The # of 2D Features, 3D Features, TVSs,
+*.   and ETVSs output is capped, at a number set in Adaptation Data.
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     Compiled using COMP17.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     Linked using LINK17.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C*********************************************************************
+C
+C            TDA 2D & 3D PROCESSING: BUFFER CONTROL ROUTINE
+C
+C*********************************************************************
+C
+C
+      IMPLICIT NONE
+C
+C**Attach master parameter file of named RPG data files.
+$INCLUDE A309.INC/G,**A3PM00 (NLIST)
+C
+C**Include no memory abort parameters
+$INCLUDE A309.INC/G,**A3PM07 (NLIST)
+C
+C**Connect with master shared memory buffer for RPG.
+$INCLUDE **A3CD00 (NLIST)
+C
+C**Attach input buffer parameter-definition file for TDA1DATR
+$INCLUDE A317BUF.INC/G,**A317P3T (NLIST)
+C
+C**Attach TDA pattern vector buffer lock defintions.
+$INCLUDE                **A317LOCK (NLIST NEND)
+$INCLUDE                **A317CLOK (NLIST NEND)
+C
+C**Attach output buffer parameter-definition file for TVSATTR
+$INCLUDE                **A317TP9 (NLIST)
+C
+C** PV Input Buffer and Shared Image declarations
+$INCLUDE A317.INC/G,**A317TD1 (NLIST)
+C
+C** Elevation & TDA #'s info. common area
+$INCLUDE            **A317TDNE  (NLIST)
+$INCLUDE            **A317TCP  (NLIST)
+$INCLUDE            **A317TCA  (NLIST)
+$INCLUDE            **A317TP2  (NLIST)
+$INCLUDE            **A317TC2  (NLIST)
+$INCLUDE            **A317C3DA  (NLIST)
+$INCLUDE            **A317P3DB  (NLIST)
+$INCLUDE            **A317C3DB  (NLIST)
+C
+C************************* DATA DECLARATIONS ************************
+C
+C** Communication with Buffer Management:
+C
+      INTEGER  PARAM, IDATID, ISTAT, OSTAT, IPR, OPR, NUMLEVS
+C
+C** Logical & local flags:
+C
+      INTEGER  NULL, N
+C
+      PARAMETER ( NULL = 0 )
+C
+C******************* BEGIN MAIN PROCESSING SECTION ******************
+C
+C** Initialize Logical & other Local flags and variables.
+C
+      ELEVSTAT = EL_LAST
+      NEWVOL = .TRUE.
+      NUMLEVS = NULL
+      NO_ROOM_2D = .FALSE.
+C
+C** Acquire TVS Attributes output buffer (on a volume scan basis).
+C
+      CALL A31215__GET_OUTBUF( TVSATTR,SIZ_TVS,OPR,OSTAT )
+      IF ( OSTAT .EQ. NORMAL )  THEN
+C
+C** If output buffer successfully acquired, initialize it.
+C** SIZ_TVS = 685, but, since there are only 684 words in the
+C** OUTBUF, subtract 1 from the loop to initialize the buffer.
+C
+         DO 50  N = TVT, SIZ_TVS-1
+            MEM( OPR + N ) = 0
+  50     CONTINUE
+C
+C** Simulate DO FOR ALL ELEVATIONS loop
+C
+ 100     CONTINUE
+         CALL A31211__GET_INBUF( TDA1DATR,IPR,IDATID,ISTAT )
+         IF ( ISTAT .EQ. NORMAL )  THEN
+C
+C** If input buffer successfully acquired, make local copy of Elev-
+C** ation-Status flag (determined in TDA 1D processing).
+C
+            ELEVSTAT = MEM( IPR+TBESF )
+C
+C** If logical variable indicates First Elevation of volume scan,
+C** copy all TDA Adaptation data to output buffer.
+C
+            IF ( NEWVOL )  THEN
+               CALL A317Y9__OUTPUT_ADAP( MEM(OPR+TAD) )
+               CALL A317Q9__DERIVE_ADAP(MEM(IPR+TBBS))
+            END IF
+C
+C** Initialize volume and elevation-dependent flags and variables.
+C
+            CALL A317O8__INIT_SCAN(MEM(IPR+TBAZP),MEM(IPR+TBAE),
+     >        MEM(IPR+TBET),MEM(IPR+TBPVC),MEM(IPR+TBHF),
+     >        MEM(IPR+TBRC),MEM(IPR+TBPVIP),TDA_BUF_UNAVAIL,KEY,IPR)
+C
+C** Check if the buffer indicated by MEM(IPR+TBHF) is really
+C** available, i.e., the pattern vector buffer lock is not locked.
+C
+            IF ( TDA_BUF_UNAVAIL ) THEN
+               CALL A317W8__ABORT_PROCESSING( IPR, NULL, OPR,
+     >                          NULL, PROD_MEM_SHED, UNAVAILABLE )
+               GO TO 200
+            END IF
+C
+C**  If the 2D Feature array hasn't been filled up,
+C**  build 2D features from the pattern vector data.
+C
+            IF (.NOT. NO_ROOM_2D) THEN
+              CALL A317S8__PROCESS_SCAN( MEM(IPR+TBPVIP),
+     >             MEM(IPR+TBRIP), MEM(IPR+TBAZP) )
+            END IF
+C
+C** Unlock the segment buffer just processed.
+C
+            TDA_BUF_LOCK( KEY ) = .FALSE.
+C
+C** Release input buffer.
+C
+            CALL A31212__REL_INBUF( IPR )
+         ELSE
+C
+C** Else If input buffer status indicates data stream Terminated,
+C** abort processing & set output buffer-action flag to "Destroy".
+C
+            CALL A317W8__ABORT_PROCESSING( NULL, TERMINATE, OPR,
+     >                                     NULL, NULL, AVAILABLE )
+            GO TO 200
+C
+         END IF
+C
+C** If 2D processing isn't complete for Volume Scan (i.e. if
+C** Elevation Status Flag is not the last elevation) continue w/
+C** the next elevation scan.  Otherwise, move on to 3D processing.
+C
+         NUMLEVS = NUMLEVS + 1
+         IF (ELEVSTAT.NE.EL_LAST) GO TO 100
+C
+C** End DO UNTIL (all elevations of volume scan processed).
+C
+C** Perform the 3D processing. Combine 2D Features into 3D Features,
+C** and determine if the 3D Features qualify as TVSs or ETVSs.
+C
+         NBR_P3DF = 0
+         NBRTVS = 0
+         TVSCOUNT = 0
+         ETVCOUNT = 0
+C
+C$DELETE
+         CALL A317I9__INIT_3D()
+C$ENDDELETE
+C$INSERT         CALL A317I9__INIT_TDA3D()
+C
+C** Only bother building 3D Features if there are 2D Features
+C
+         IF ( TOT_2DF .GT. 0 ) THEN
+           CALL A317T9__SORT2D_BY_DV(NUMLEVS)
+           CALL A317B9__MATCH_TDA2D(NUMLEVS)
+         ENDIF
+C
+C** If there were Potential 3D Features detected, then.....
+C
+         IF ( NBR_P3DF .GT. 0 ) THEN
+C
+            CALL A317H9__SORT_BY_HEIGHT( )
+            CALL A317F9__SAVE_3D_FEAT( NUMLEVS )
+C
+C** If there are 3D Features, then....
+C
+            IF (NUM3D .GT. 0) THEN
+               CALL A317E9__TVS_TYPE( )
+               CALL A317L9__SORT_TVS( )
+            END IF
+         END IF
+C
+C** Store TVS Feature information in the output buffer.
+C
+         CALL A317S9__STORE_TVS( MEM(OPR+TVT), MEM(OPR+TVD),
+     >                             MEM(OPR+TNT), MEM(OPR+TNE),
+     >                             MEM(OPR+TAM) )
+C
+C** Release output buffer, with appropriate action to be taken.
+C
+         CALL A31216__REL_OUTBUF( OPR,FORWARD )
+      ELSE
+C
+C** Else If output buffer status indicates data-type Not Required or
+C** No_Memory available, abort processing & return to Trap Wait.
+C
+         IF ( OSTAT .EQ. NO_MEM ) THEN
+            CALL A317W8__ABORT_PROCESSING( NULL, TERMINATE, NULL,
+     >                        TERMINATE, PROD_MEM_SHED, AVAILABLE )
+         ELSE
+            CALL A317W8__ABORT_PROCESSING( NULL, TERMINATE, NULL,
+     >                        TERMINATE, NULL, AVAILABLE )
+         END IF
+C
+      END IF
+C
+C** End of processing for Volume Scan.
+C
+C************** END OF PROCESSING FOR SUBROUTINE ********************
+C
+ 200  CONTINUE
+      RETURN
+      END

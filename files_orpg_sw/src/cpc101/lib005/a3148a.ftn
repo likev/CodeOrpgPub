@@ -1,0 +1,279 @@
+C 
+C RCS info 
+C $Author: steves $ 
+C $Locker:  $ 
+C $Date: 2005/05/03 17:36:44 $ 
+C $Id: a3148a.ftn,v 1.4 2005/05/03 17:36:44 steves Exp $ 
+C $Revision: 1.4 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A3148A__PERFORM_MEDIAN_FILTERING( PRE_FILTER,
+     >                                             POST_FILTER )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3148A__PERFORM_MEDIAN_FILTERING
+*.
+*.  MODULE VERSION: 0002
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.     DATE      VERSION  PROGRAMMER        NOTES
+*.     --------  -------  ----------------  --------------------------
+*.     02/25/97   0000    Steve Smith       CCR NA96-17903
+*.     03/16/99   0001    Toolset           CCR NA98-23803
+*.     05/17/99   0002    Mike Istok        CCR NA96-17803
+*.
+*.  CALLING SEQUENCE: A3148A__PERFORM_MEDIAN_FILTERING( PRE_FILTER,
+*.                                                      POST_FILTER )
+*.
+*.  MODULE FUNCTION: APPLY MEDIAN FILTER TO LAYER COMPOSITE REFLECTIVITY
+*.                   POLAR GRID.
+*.                   Note:  This function no longer median filters
+*.
+*.  MODULES CALLED: 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT             TYPE        DESCRIPTION
+*.    -   -----             ----        -----------
+*.    G   ONE_RADIAN        R*4         (CONSTANT)PARAMETER VALUE FOR ONE
+*.                                      RADIAN
+*.    C   ADCRMEDIAN_L      I*4         Local copy of ADCRMEDIAN (Cross-range
+*.                                      distance threshold used for median
+*.                                      filter window)
+*.    C   ADPGDMEDIAN_L     R*4         Local copy of ADPGDMEDIAN (Ma Median
+*.                                      Filter Percent Good)
+*.    C   ADRNGMEDIAN_L     I*4         Local copy of ADRNGMEDIAN (:MA Maximum
+*.                                      Range Bin Difference)
+*.    C   CLUTTER_FLAG      I*4         (CONSTANT)Value assigned to
+*.                                      reflectivity if it is classified as
+*.                                      clutter
+*.    C   MAX_PRODUCT_RANGE I*4         (CONSTANT)Maximum reflectivity bin
+*.                                      number to use for layer composite
+*.                                      reflectivity - AP removed polar grid
+*.                                      generation.
+*.    C   MISSING_FLAG      I*4         (CONSTANT)Value used to indicate bin
+*.                                      value in layer composite reflectivity
+*.                                      -AP removed polar grid is missing.
+*.    C   MAX_RADS          I*4         Number of radials in layer composite
+*.                                      reflectivity - AP removed polar grid.
+*.    P   POST_FILTER       I*2         An polar grid array of reflectivity
+*.                                      after it has been edited for clutter.
+*.    P   PRE_FILTER        I*2         Polar grid array of reflectivity
+*.                                      before clutter filtering performed
+*.
+*.    *   OUTPUT      TYPE        DESCRIPTION
+*.    -   ------      ----        -----------
+*.    P   POST_FILTER I*2         An polar grid array of reflectivity after it
+*.                                has been edited for clutter.
+*.    P   PRE_FILTER  I*2         Polar grid array of reflectivity before
+*.                                clutter filtering performed
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME             TYPE        DESCRIPTION
+*.    ----             ----        -----------
+*.    CURRAD           I*4         Do loop variable for the radials within
+*.                                 median filter window
+*.    FULL_CIRCLE      I*4         Parameter value representing '360' degrees
+*.                                 (full circle)
+*.    I                I*4         Do loop index
+*.    MAX_POINTS       I*4         Maximum number of valid points needed for
+*.                                 sorting
+*.    NUM_PNTS         I*4         Umber of points (both clutter and weather)
+*.    NUM_VALID_PNTS   I*4         Count of number of bins that contain valid
+*.                                 reflectivity data
+*.    POINTS           I*2         An array of points to be filtered
+*.    RAD              I*4         Radial index
+*.    RADIAL           I*4         Loop counter.
+*.    RADIALS_ONE_WAY  I*4         The number of radials to used in median
+*.                                 filtering
+*.    RATIO            R*4         Ratio of Valid points to total number of
+*.                                 points
+*.    RNG_BIN          I*4         Do loop index for range bins
+*.    TAN_ONE_DEGREE   R*4         Tangent of one degree
+*.    TRANSITION_RANGE R*4         Transition range bin for number of radials
+*.                                 to use in median filtering
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3148C1
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP07.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK07.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+      IMPLICIT NONE
+C
+$INCLUDE A304.INC/G,**A304P4      (NLIST)
+$INCLUDE A309.INC/G,**A3PM00      (NLIST)
+$INCLUDE A309.INC/G,**A3PM07      (NLIST)
+$INCLUDE A309.INC/G,**A3PM50      (NLIST)
+$INCLUDE            **A3CD00      (NLIST)
+$INCLUDE A314BUF.INC,  **A3148P3      (NLIST)
+$INCLUDE A314BUF.INC,  **A3148C1      (NLIST)
+$INCLUDE A314BUF.INC,  **A3148C3      (NLIST)
+C
+C*** PASSED ARGUMENTS:
+C
+      INTEGER*2 PRE_FILTER( MAX_PRODUCT_RANGE, MAX_RADS )
+      INTEGER*2 POST_FILTER( MAX_PRODUCT_RANGE, MAX_RADS )
+C
+C*** LOCAL DECLARATIONS:
+C
+      INTEGER*4 RADIALS_ONE_WAY, RADIAL, CURRAD, RAD, RNG_BIN
+      INTEGER*4 I
+
+      REAL RATIO, RTD, TRANSITION_RANGE, TAN_ONE_DEGREE
+      PARAMETER( RTD = 1.0/ONE_RADIAN )
+
+      INTEGER*4 MAX_POINTS, FULL_CIRCLE
+      PARAMETER( MAX_POINTS = 100, FULL_CIRCLE = 360 )
+      PARAMETER( TAN_ONE_DEGREE = 0.017455064 )
+      INTEGER*4 NUM_PNTS, NUM_VALID_PNTS
+      INTEGER*2 POINTS(MAX_POINTS)
+
+C
+C*** EXECUTABLE CODE:
+C-------------------
+C
+C*** COPY POLAR GRID TO SCRATCH BUFFER.
+C
+      DO 1 I = 1,MAX_PRODUCT_RANGE*MAX_RADS,1
+         PRE_FILTER(I,1) = POST_FILTER(I,1)
+ 1    CONTINUE
+
+      TRANSITION_RANGE = NINT( ADCRMEDIAN_L / TAN_ONE_DEGREE )
+C
+C*** PERFORM THE MEDIAN FILTERING.
+C
+C***  FOR ALL RANGES BINS OUT TO MAXIMUM PRODUCT RANGE
+C
+      DO 5 RNG_BIN = (1 + ADRNGMEDIAN_L),
+     >               (MAX_PRODUCT_RANGE - ADRNGMEDIAN_L)
+C
+C***     CALCULATE THE NUMBER OF RADIALS TO USE IN THE MEDIAN FILTER.
+C
+         IF( RNG_BIN .GE. TRANSITION_RANGE ) THEN
+            RADIALS_ONE_WAY = 0
+         ELSE
+            RADIALS_ONE_WAY = 1
+         END IF
+C
+C***  FOR ALL AZIMUTHS
+C
+         DO 4 RADIAL = 1, MAX_RADS
+C
+C***        GATHER POINTS TO FILTER.
+C
+            NUM_PNTS = 0
+            NUM_VALID_PNTS = 0
+C
+C***        DO FOR ALL RADIALS WITHIN THE MEDIAN FILTER WINDOW.
+C
+            DO 3 CURRAD = RADIAL-RADIALS_ONE_WAY, RADIAL+RADIALS_ONE_WAY
+
+               IF( CURRAD .LE. 0 ) THEN
+C
+C***              IF RAD LESS THAN OR EQUAL TO ZERO, SUBTRACT FROM
+C***              360 (FULL_CIRCLE).
+C
+                  RAD = CURRAD + FULL_CIRCLE
+
+               ELSE IF( CURRAD .GT. FULL_CIRCLE ) THEN
+C
+C***              IF RAD GREATER THAN 360, SUBTRACT 360.
+C
+                  RAD = CURRAD - FULL_CIRCLE
+
+               ELSE
+C
+C***              USE INDEX AS IS.
+C
+                  RAD = CURRAD
+
+               END IF
+
+C
+C***           DO FOR ALL RANGE BINS WITHIN MEDIAN FILTER WINDOW.
+C
+               DO 2 I = (RNG_BIN-ADRNGMEDIAN_L),
+     >                  (RNG_BIN+ADRNGMEDIAN_L)
+
+                  IF( PRE_FILTER( I, RAD ) .GT. MISSING_FLAG ) THEN
+
+                     NUM_PNTS = NUM_PNTS + 1
+
+                     IF( PRE_FILTER( I, RAD ) .GT. CLUTTER_FLAG ) THEN
+
+                        NUM_VALID_PNTS = NUM_VALID_PNTS + 1
+                        POINTS( NUM_VALID_PNTS ) = PRE_FILTER( I, RAD )
+
+C
+C***                    IF MAXIMUM NUMBER OF POINTS REACH, BREAK OUT OF
+C***                    LOOP.
+C
+                        IF( NUM_VALID_PNTS .GE. MAX_POINTS ) GO TO 6
+
+                     END IF
+
+                  END IF
+
+ 2             CONTINUE
+
+ 3          CONTINUE
+
+ 6          IF( NUM_VALID_PNTS .GT. 1 ) THEN
+C
+C***           IF RATIO OF VALID POINTS (NON-CLUTTER) TO NUMBER OF POINTS
+C***           (CLUTTER AND NON_CLUTTER) IS GREATER THAN THRESHOLD, FIND
+C***           MEDIAN VALUE.
+C
+C***  Note:  The following code was changed per Chris Porter recommendation.
+C***         Median filtering was removed.
+C
+               RATIO = FLOAT(NUM_VALID_PNTS)/NUM_PNTS
+               IF( RATIO .LT. ADPGDMEDIAN_L ) THEN
+C
+C***              NOT ENOUGH GOOD POINTS.  SET REFLECTIVITY TO CLUTTER
+C***              VALUE.
+C
+                  POST_FILTER( RNG_BIN, RADIAL ) = CLUTTER_FLAG
+
+               END IF
+
+            END IF
+C
+ 4       CONTINUE
+
+ 5    CONTINUE
+C
+C*** RETURN TO CALLING ROUTINE
+C
+      RETURN
+      END

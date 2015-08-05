@@ -1,0 +1,177 @@
+C 
+C RCS info 
+C $Author: nolitam $ 
+C $Locker:  $ 
+C $Date: 2002/12/11 20:00:42 $ 
+C $Id: a3cm31.ftn,v 1.3 2002/12/11 20:00:42 nolitam Exp $ 
+C $Revision: 1.3 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A3CM31__DOWN_VECTORS
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3CM31__DOWN_VECTORS
+*.
+*.  MODULE VERSION: 0009
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       03 24 86      0000      DENNIS MILLER
+*.       10 02 86      0001      J GROMMONS           SPR # 60346
+*.       11 08 90      0002      J WHEELER            SPR # 91250
+*.       12/10/91      0003      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0004      Toolset              SPR 91895
+*.       03/25/93      0005      Toolset              SPR NA93-06801
+*.       03/03/94      0006      Toolset              SPR NA94-05501
+*.       12/23/95      0007      Toolset              CCR NA95-11807
+*.       08/18/97      0008      Steve D Smith        CCR NA95-21503
+*.       03/16/99      0009      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:
+*.
+*.     CALL A3CM31__DOWN_VECTORS
+*.
+*.  MODULE FUNCTION:
+*.
+*.    BUILD THE VECTORS FOR THE LINE DOWN THE GRID FOR CONSTANT
+*.        FIELD WIDTHS
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT  TYPE        DESCRIPTION
+*.    -   -----  ----        -----------
+*.    C   BEGI   I*4         Beginning I Coordinate of the vector for variable
+*.                           field widths.
+*.    C   BEGJ   I*4         Beginning J Coordinate of the vector for variable
+*.                           field widths.
+*.    C   ENDI   I*4         Ending I Coordinate of the vector for variable
+*.                           field widths.
+*.    C   ENDJ   I*4         Ending J Coordinate of the vector for variable
+*.                           field widths.
+*.    C   ID     I*4         NUMBER OF DOWN VECTORS TO BUILD
+*.    C   INCI   I*4         Number of pixels in the field width.
+*.    C   JLNGTH I*4         LENGTH OF THE DOWN GRID VECTOR
+*.    C   K      I*4         Not used
+*.    C   LLNGTH I*4         Length of the block of across vectors in the
+*.                           SCRAY array.
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    C   BEGI    I*4         Beginning I Coordinate of the vector for
+*.                            variable field widths.
+*.    C   BEGJ    I*4         Beginning J Coordinate of the vector for
+*.                            variable field widths.
+*.    C   ENDI    I*4         Ending I Coordinate of the vector for variable
+*.                            field widths.
+*.    C   ENDJ    I*4         Ending J Coordinate of the vector for variable
+*.                            field widths.
+*.    C   K       I*4         Not used
+*.    C   LLNGTH  I*4         Length of the block of across vectors in the
+*.                            SCRAY array.
+*.    C   SCRAY   I*4         Array containing the block of vectors.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME  TYPE        DESCRIPTION
+*.    ----  ----        -----------
+*.    I     I*4         LOOP COUNTER
+*.    INCIA I*4         NO OF PIXELS IN THE FIELD WIDTH
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3CM29
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.        THIS MODULE IS COMPILED USING THE COMP09.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.        THIS MODULE IS LINKED USING THE LINK09.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+C     WRITTEN BY JOYCE GROMMONS, 9/85
+*****************************************************************
+C
+C     BUILD THE VECTORS FOR THE LINE DOWN THE GRID FOR CONSTANT
+C         FIELD WIDTHS
+C
+C       INITIALIZE ACROSS INCREMENT FOR I TO ZERO
+C       DETERMINE BEGINNING (I,J) VECTOR COORDINATES AND ENDING
+C           (I,J) VECTOR COORDINATES FOR EACH LINE DOWN THE GRID
+C       SET THE LENGTH OF THE BLOCK OF DOWN GRID VECTORS
+C       RETURN
+C       END
+C
+C
+C       BEGI     BEGINNING I COORDINATE OF THE VECTOR
+C       BEGJ     BEGINNING J COORDINATE OF THE VECTOR
+C       ENDI     ENDING I COORDINATE OF THE VECTOR
+C       ENDJ     ENDING J COORDINATE OF THE VECTOR
+C       INCI     NO OF PIXELS TO INCREMENT I
+C       INCIA    NO OF PIXELS IN THE FIELD WIDTH
+C       JLNGTH   LENGTH OF THE DOWN GRID VECTOR
+C       ID       NUMBER OF DOWN VECTORS TO BUILD
+C       K        INDEX TO SCRAY FOR STORAGE OF DATA
+C       LLNGTH   LENGTH OF THE BLOCK OF ACROSS VECTORS IN SCRAY
+C       SCRAY    ARRAY CONTAINING THE BLOCKS OF VECTORS
+C
+C
+****************************************************************
+C
+      INTEGER*4  SCRAY(100),KLNGTH,LLNGTH,INCIA,I,K,L,IA,ID
+      INTEGER*4  BEGI,BEGJ,ENDI,ENDJ,INCI,INCJ,ILNGTH,JLNGTH
+
+      COMMON/A3CM29/SCRAY,BEGI,BEGJ,ENDI,ENDJ,INCI,INCJ,KLNGTH,LLNGTH,
+     X           K,L,IA,ID,ILNGTH,JLNGTH
+
+C        INITIALIZE
+      INCIA = 0
+      LLNGTH = 0
+
+      DO 210  I = 1,ID
+         BEGI = BEGI + INCIA
+         BEGJ = BEGJ
+         ENDI = BEGI
+         ENDJ = BEGJ + JLNGTH
+         INCIA = INCI
+
+         K = K + 1
+         SCRAY(K) = BEGI
+         K = K + 1
+         SCRAY(K) = BEGJ
+         K = K + 1
+         SCRAY(K) = ENDI
+         K = K + 1
+         SCRAY(K) = ENDJ
+         LLNGTH = LLNGTH + 4
+
+  210 CONTINUE
+
+
+      RETURN
+
+
+      END

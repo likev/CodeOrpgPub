@@ -1,0 +1,797 @@
+
+	File: rmt.doc
+	A description of the RMT tool
+
+   A. General:
+
+	The RMT software is a concurrent remote procedure call (RPC) tool, 
+	which allows an application to make function calls on a remote host 
+	as if it were running on that host. The tool includes a library that 
+	allows the user to create the RMT server as well as client 
+	applications. The server, containing the remote functions, runs on	
+	the remote host. An application that needs to perform a remote 
+	function call links the library into its executable. RMT uses a 
+	simple client/server mechanism. When an application makes a remote 
+	function call, the RMT routine first looks for an existing connection 
+	to the server on that host, and, if the connection does not exist, it 
+	makes a connection to the server through a socket. Then it sends a 
+	request to the server and waits for a return message. The server then 
+	responds to the request by performing the required procedure call and 
+	sending the results to the client.
+
+	The remote function call facility is built on top of UNIX TCP/IP 
+	sockets. Thus the communication is reliable unless one of the 
+	following occurs 
+
+	    a) there is a network failure,
+	    b) the client or server dies,
+	    c) there is a host failure.
+
+	If the client is still alive and such a failure occurs, the client's 
+	call will fail and a message indicating a communication error will be 
+	returned. If the server is still alive and such a failure occurs, it 
+	will close the connection and exit.
+
+	The server, called the RMT daemon, is a concurrent server. It forks 
+	a child process for each client process when the client process calls 
+	the RMT_create_connection function. The child process will remain 
+	alive and the connection will remain open for later remote calls 
+	until one of the following happens: 
+
+	    a) The client process closes the connection to the server. 
+	    b) The client process terminates. 
+	    c) The connection to the client is detected to be broken due to a
+	       client host crash or a networking problem.
+
+	Forking a child process to serve each client has several advantages: 
+	First, there are no constraints on the remote functions. In 
+	particular, they can be slow and can retain state information. 
+	Second, there is no clean-up problem because the child server will 
+	terminate if the client crashes. Finally, the server is less
+	sensitive to faulty clients or errors in the remote functions and, 
+	thus is more robust. 
+
+	If a communication problem (e.g. broken cable) happens between the 
+	client and the server, the server uses the SO_KEEPALIVE feature to 
+	detect it and exits. It may take a few hours for the server to detect 
+	a broken connection through keepalive probe messages in TCP/IP. This 
+	may not be feasible for some applications. The RMT server supports an 
+	optional fast detection mode. In this mode, the RMT server sends test 
+	data at regular intervals for detecting connection status. With this
+	technique the crash detection time can be reduced to several minutes. 
+	Upon a communication failure, a remote call issued by the client will 
+	return after a time-out. In either of the two cases, the opened 
+	resources are lost. For example, an open fd for a remote file in the 
+	client will become stale and the application will need to reopen that 
+	resource. 
+
+	The default time-out period in the client is 60 seconds, which means 
+	that if a RMT call can not finish in 60 seconds, it will return 
+	assuming that the connection is broken. The user can call 
+	RMT_time_out (n_seconds) to set a different time-out period.
+
+	The server uses a configuration file for host and file access 
+	control. If a higher level of security is required, a password based 
+	security mechanism built in the RMT module can be used. Refer to 
+	later related sections for details.
+
+	For user's convenience, a default port number deduced from the user
+	name is used unless the user specifies an alternative port number.
+
+	The server, running in the background, opens a log file and writes 
+	error messages and other log information to that file. The default 
+	log file's name is $(HOME)/server_name.log, where "server_name" is the 
+	server's program name. The user can specify, through a command option, 
+	an alternative file name for the log file. Use "server_name -h" for 
+	finding out all available command line options.
+	
+
+    B. The remote user function: 
+
+	All inputs to a remote function must be put in a byte string called 
+	the input byte string. All outputs of a remote function must be 
+	placed in a byte string called the output byte string.
+
+	A remote function must have the following interface:
+
+	int my_function (int length, char *input_string, 
+			 char **output_string),
+
+	where "length" is the length (in number of bytes) of the input byte 
+	string, which is stored in "input_string". The function's output byte
+	string is stored in "output_string" on return. The function returns 
+	the length of the output byte string. If the function returns a 
+	negative value, an error was encountered and the remote call failed. 
+	The user function can use values from -1 through MIN_USER_FUNC_RETN 
+	(-999) for error returns. In case a negative value is returned, there 
+	is no data in "output_string". When the function is implemented 
+	remotely, a call to the function can return other negative values 
+	indicating additional error conditions.
+
+	Multiple inputs and multiple outputs can be packed into the input 
+	byte string and the output byte string. This is processed at the user 
+	function level. The RMT tool does not process the user's data (both 
+	the input and the output byte strings). If necessary, an encoding 
+	scheme such as XDR can be used at the user function level to support 
+	data representation transparency in a heterogeneous hardware 
+	environment.
+
+	The input and the output byte strings are, in general, not ASCII 
+	character strings. They can contain any byte value including NULL. 
+	If ASCII strings are used, the "length" parameter and the return 
+	length must account for any terminating NULLs.
+
+	It is important to note that the space for the output byte string 
+	must be statically allocated in a remote user function because the 
+	string will be used after returned from the user remote function.
+
+	A remote function must normally return a non-negative integer 
+	number, which is the length of the return string. A remote 
+	function may also use negative numbers ranging from -1 through
+	RMT_MIN_USER_FUNC_RETN (-999) for indicating failure conditions. 
+	A RMT remote call may return a value that is less than 
+	RMT_MIN_USER_FUNC_RETN for indicating one of the following errors:
+
+	Errors detected on the client side:
+
+	RMT_BAD_ARG_CLIENT_SIDE (-1003)   
+				Calling argument is illegal. e.g., the	
+				function number (id) is incorrect.
+
+	RMT_CONNECTION_NOT_SET (-1008)
+				The current remote connection is not set 
+				yet. Before invoking a remote procedure 
+				call the client program must first call 
+			        RMT_create_connection to set up the current 
+			        remote connection.
+
+	RMT_TIMED_OUT (-1018)	The function call failed due to timed-out.
+
+	RMT_SELECT_FAILED (-1019)
+				Select system call failed.
+
+	RMT_WRITE_FAILED (-1020)
+				Socket write failed.
+
+	RMT_SERVER_DISCONNECTED (-1021)
+				The connection is detect to be broken.
+
+	RMT_READ_FAILED (-1022)	Socket read failed.
+
+	RMT_BAD_RESPONSE (-1023)
+				The response received from the server is 
+				incorrect.
+
+	RMT_MALLOC_FAILED (-1024)
+				Malloc failed.
+
+
+	Errors detected on the server side:
+
+	RMT_BAD_ARG_SERVER_SIDE (-1012)
+				Function ID number is out of range.
+
+	RMT_USER_FUNC_UNDEFINED (-1013)
+				The specified user function is not 
+				defined.
+
+	RMT_BAD_USER_FUNC_RETN (-1014)
+				The user function returned a negative value 
+			        that is less than MIN_USER_FUNC_RETN.
+
+	RMT_REQ_MSG_TOO_LARGE (-1015)
+				The remote call failed in allocating work 
+			        space. The message is probably too large or 
+				the server's host lacks sufficient memory.
+
+	The connection is disconnected upon the following error returns:
+	RMT_TIMED_OUT, RMT_SELECT_FAILED, RMT_WRITE_FAILED, 
+	RMT_SERVER_DISCONNECTED, RMT_READ_FAILED, RMT_BAD_RESPONSE, 
+	RMT_MALLOC_FAILED.
+
+   C. RMT library functions:
+
+	The following functions are used by client programs:
+
+	int RMT_create_connection (char *remote_host_name)
+
+	    RMT_create_connection causes the remote RMT server to fork a 
+	    child server and then builds a TCP connection to that server. 
+	    This function returns the socket file descriptor for the 
+	    connection on success. It returns a negative value on failure. If 
+	    the connection to "remote_host_name" exists, the existing fd is 
+	    returned. This function also sets the current connection (Refer 
+	    to the next function). The "remote_host_name" argument can be 
+	    either a formal name such as "virga" or a internet address form 
+	    such as "128.117.192.15". The errors as indicated by the negative 
+	    return values are:
+
+	    RMT_BAD_REMOTE_HOST_NAME (-1001)
+				Connection creation failed due to faulty 
+				remote_host_name.
+
+	    RMT_TOO_MANY_CONNECTIONS (-1002)
+				Failed in registering the new server. 
+				Probably too many connections have been made.
+
+	    RMT_PORT_NUMBER_NOT_FOUND (-1004)
+				Failed in finding the port number to the 
+				server on the remote host.
+
+	    RMT_GETHOSTBYNAME_FAILED (-1005)
+				Failed in gethostbyname call.
+
+	    RMT_OPEN_SOCKET_FAILED (-1006)
+				Failed in opening a socket.
+
+	    RMT_CONNECT_FAILED (-1007)
+				The connect call failed. The server is 
+				probably not running.
+
+	    RMT_SET_SOCK_PROP_FAILED (-1009)
+				Failed in setting socket properties.
+
+	    RMT_AUTHENTICATION_FAILED (-1010)
+				Failed in passing authentication check.
+
+	    RMT_TIMED_OUT (-1018)
+				Failed due to timed-out.
+
+	int RMT_set_current (int fd)
+
+	    The RMT library keeps a current remote connection. Any remote
+	    procedure call will use the current connection (and thus the
+	    function is executed on the remote host on the other end of the
+	    connection). RMT_set_current sets the current connection to
+	    the one specified by the socket fd. The RMT_create_connection 
+	    call, by default, sets the current connection to the newly 
+	    created fd. RMT_set_current returns RMT_INVALID_FD (-1017) if 
+	    "fd" is invalid. It returns RMT_SUCCESS (0) on success.
+
+	void RMT_messages (int sw)
+
+	    RMT_messages (RMT_ON) switches error message printing on in RMT 
+	    library functions. RMT_messages (RMT_OFF) switches it off.
+
+	int RMT_port_number (int port_number)
+
+	    RMT_port_number sets the port number to "port_number". It returns
+	    the port number set on success or RMT_FAILURE (-1) if the 
+	    port_number is not suitable. RMT_port_number 
+	    (RMT_USE_DEFAULT_PORT) sets the default RMT port number and 
+	    return the default port number. Note that, because 
+	    RMT_USE_DEFAULT_PORT = 0, the user can never use the port number 
+	    0.
+
+	void RMT_time_out (int time)
+	
+	    RMT_time_out resets the time-out period to "time" seconds. This 
+	    time out period is used for opening all connections and 
+	    performing all remote procedure calls on all connections. If one 
+	    needs different time out periods, multiple calls to this function 
+	    are necessary. The default time out period is 60 seconds.
+
+	void RMT_set_password (char *password)
+	
+	    If the server is in password mode, a client application
+	    must call RMT_set_password to provide the RMT library with an
+	    appropriate password. This function must be called before
+	    calling RMT_create_connection.
+
+	int RMT_close_connection ()
+
+	    RMT_close_connection closes the current socket connection. 
+	    The closing will terminate the child server process 
+	    on the remote side of the connection. This function returns 
+	    RMT_SUCCESS (0) on success or RMT_FAILURE (-1) if the connection 
+	    is locked or there is no current connection.
+
+	int RMT_lock_connection (int sw)
+
+	    This function locks and unlocks the server on the current 
+	    connection when "sw" is respectively RMT_LOCK and RMT_UNLOCK. A 
+	    locked server cannot be closed (the RMT_close_connection call is 
+	    ignored). This function returns the lock count on success or 
+	    RMT_FAILURE (-1) if the current connection is not set. 
+
+	    The connection lock is useful when an application simultaneously 
+	    uses several modules independently developed on top of the RMT 
+	    module where some of the modules make RMT_close_connection calls. 
+	    For example, an application may use two modules, one implementing
+	    file access and another implementing signaling. The signaling 
+	    module may call RMT_close_connection to close a connection after 
+	    it sends a signal. However, the connection should not be closed 
+	    if the file module has a remote file opened on that connection. 
+	    To solve this problem, the file module may lock the connection if 
+	    it has any file opened on that connection.
+
+	void RMT_ask_password (char *prompt, int pw_size, char *password)
+
+	    This is a utility function that asks the user to type in a 
+	    password. The user entered password is returned in "password". 
+	    The size of the "password" space is at least "pw_size" bytes. 
+	    The function has no return value. 
+
+	void RMT_use_buffer (int size, char *buf)
+
+	    This function receives a user specified buffer for the output
+	    string in the next remote function call. By default RMT will 
+	    allocate appropriate space for the output string. The user, however,
+	    can provide his own buffer by calling this function. This will save
+	    both an extra copy of the output and a duplicated memory allocation 
+	    sometimes. If the size of the buffer, "size", is not sufficient for 
+	    the output string, RMT will allocate a buffer and not use the user
+	    provided buffer. The RMT_use_buffer call only affects the immediate
+	    next RPC call.
+
+
+	The following functions can be called by user remote functions (in the
+	server):
+
+	void RMT_send_log (char *msg, int beep)
+
+	    This function allows the user remote procedure to write messages
+	    to the log file. If "beep" is non-zero, the server will beep 
+	    once. This function can only be called by a remote user function.
+
+	char *RMT_get_conf_file ()
+	
+	    This function allows the user remote procedure to get the 
+	    configuration file name for reading the RMT conf file. This 
+	    function can only be called by a remote user function.
+
+	void RMT_free_user_buffer (char **buf)
+
+	    This function allows a remote function to pass the address of an
+	    allocated pointer to a buffer space to the server. The allocated
+	    space pointed by the pointer will be freed by the server upon 
+	    completion of the remote procedure call. This feature permits 
+	    better memory usage. This function can only be called by a
+	    remote user function.
+
+
+	NOTES:
+
+	The RMT library keeps, for each remote connection, a lock_count 
+	which is initially set to 0. Every time a RMT_lock_connection is 
+	called with RMT_LOCK, the lock_count is incremented by 1. It is 
+	decreased by 1 when the function is called with argument 
+	RMT_UNLOCK. If lock_count > 0, the server can not be closed.
+
+	Thus, to use RMT_lock_connection correctly, one must observe the
+	following rules: Call the function with RMT_UNLOCK only if you
+	have locked the connection. Call the function with RMT_LOCK only if 
+	the connection is not locked or you have unlocked the connection. 
+	Recall that the connection is initiated as unlocked.
+
+	If the sizes of the input and output strings are not large than
+	RMT_PREFERRED_SIZE which is defined in rmt.h, the RPC effciency is
+	higher because there is no memory allocation involved.
+
+	The RMT tool uses only the lower 28 bits in the argument "length"
+	of the user function for the input string length. The highest 4 bits
+	are not interpreted as length and are passed to the remote user 
+	function. This feature can be used for effciently implementing some 
+	of the functions, such as write and MB_write, by eliminating a copy in
+	the client side and a memory allocation.
+
+    D. How to use the RMT tool to make remote procedure calls.
+
+	1. Prepare the rmt_user_def.h file that contains the following:
+
+	   A line defines the number of remote functions (e.g., 2)
+
+		#define Rmt_def_user_func 2
+
+	   For each function put the following line:
+
+		#define func_name(a, b, c) Rmt_user_func_?(a, b, c),
+
+	   where func_name is the name of the user function and ? is the 
+	   function ID number. All user functions must use different function 
+	   ID numbers. The ID numbers must be in the range from 1 to 
+	   Rmt_def_user_func. A more detailed example will be given later.
+
+	2. Prepare the remote functions in conformance with the standard 
+	   function interface as described in "The remote user function". 
+	   Store the user functions in a file, for instance, my_func.c. This 
+	   file, which will be used for creating the server, must include two 
+	   files, rmtd_user_func_set.h and rmt_user_def.h. The 
+	   rmtd_user_func_set.h file must be included before rmt_user_def.h. 
+	   The file rmtd_user_func_set.h is provided with the RMT tool.
+
+	3. Create the server:
+
+	   cc -o my_server rmt_user_func_set.c my_func.c -lrmt
+
+	   Here the file rmt_user_func_set.c and the library librmt.a are 
+	   components of the RMT tool. The file my_server is the server's 
+	   executable file name.
+
+	   The file rmt_user_func_set.c can also be included in one of the 
+	   user's server source (.c) files. In this case one does not need to 
+	   copy it to the local building directory and can use the following 
+	   to build the server:
+
+	   cc -o my_server my_func.c -lrmt
+
+	4. Create the client application:
+
+	   "cc -o my_application my_application.c -lrmt"
+
+	   In the client program, the files rmt_user_def.h and rmt.h must be 
+	   included. In the client application one must first call 
+	   RMT_create_connection to specify the remote host name and connect 
+	   to the server. After that, the remote functions can be invoked 
+	   exactly as if they were locally linked functions. Refer to a 
+	   later example.
+
+	5. Prepare the configuration file and run the server (on the remote 
+	   host):
+	  
+	   my_server (options)
+
+	6. Run the client (on the local host)
+
+	   my_application
+    
+    E: An example:
+
+	This example demonstrates how to make remote procedure calls for the 
+	following two functions. The first function, local_date(), reads the 
+	current time on the remote host and sends the time back as an 
+	integer. The second function, convert(), sends back the time to the 
+	remote host, calls the ctime() function to convert the time into a 
+	character string and returns the string.
+
+	The following is the file rmt_user_def.h:
+
+	#define Rmt_def_user_func 2
+
+	#define local_date(a, b, c) Rmt_user_func_1(a, b, c)
+	#define convert(a, b, c) Rmt_user_func_2(a, b, c)
+
+	The following is the file "my_func.c" containing two user functions:
+
+	#include "stdio.h"
+	#include "sys/time.h"
+
+	#include "rmtd_user_func_set.h"
+	#include "rmt_user_def.h"
+
+	int local_date (int len, char *arg, char **ret_val)
+	{
+	    static long loc_time;      /* This must be static */
+
+	    loc_time = time (NULL);
+	    *ret_val = (char *)&loc_time;
+
+	    return (sizeof(long));
+	}
+
+	int convert (int len, char *arg, char **ret_val)
+	{
+	    static char buf[128];       /* This must be static */
+	    time_t t;
+
+	    t = *((int *)arg);
+
+	    strcpy (buf, ctime (&t));
+	    *ret_val = (char *)buf;
+
+	    return (strlen (buf) + 1);
+	}
+
+	The following is the client application, test.c:
+
+	#include <stdio.h>
+
+	#include "rmt.h"
+	#include "rmt_user_def.h"
+
+	void main (int argc, char **argv)
+	{
+	    char buf[128];
+	    int i, ret;
+	    char *ret_val;
+
+	    /* create a child server on "everest" and a socket connection to 
+	       it */
+	    if ((ret = RMT_create_connection ("everest")) <0 ) {
+		printf ("Failed in creating connection; ret = %d\n", ret);
+		exit (0);
+	    }
+
+	    ret = local_date (0, buf, &ret_val); /* remote procedure call */
+
+	    printf ("local_date: ret = %d\n", ret);  /* check return value */
+	    if (ret < 0) 
+		exit (0);
+	    printf ("local_date: time = %d\n", *((int *)ret_val));
+
+	    strncpy (buf, ret_val, 4);           /* prepare calling arg */
+	    ret = convert (4, buf, &ret_val);    /* remote procedure call */
+
+	    printf ("convert: ret = %d\n", ret);     /* check return value */
+	    if (ret < 0) 
+		exit (0);
+	    ret_val[ret] = 0;
+	    printf ("convert: ret_val = %s\n", ret_val);
+    
+	    exit (0);
+	}
+
+	Create the server:
+
+	    "cc -o my_server rmt_user_func_set.c my_func.c -lrmt"
+
+	Create the client application:
+
+	    "cc -o test test.c -lrmt"
+
+	Create a file, $(HOME)/.rmt.conf, on "everest" containing
+	the following line:
+
+	    Client: client_host_name
+
+	Run the server (on remote host, "everest"):
+	  
+	    my_server -n
+
+	Run the client (on local host)
+
+	    test
+
+	NOTES:
+
+	    1. Both the remote functions and the calling statements are 
+	       identical to their local version. In fact, if my_func.c is 
+	       compiled and linked together with test.c without the RMT 
+	       library (with the RMT_create_connection call and "#include 
+	       rmt.h", of course, removed from test.c), we will get a local 
+	       version of the same testing program. 
+
+	    2. The user function must provide static space for the return 
+	       byte string. This space cannot be passed in by the local 
+	       calling function for remote usage because we may not be able 
+	       to determine the buffer size needed for the function output 
+	       before calling the function. And, if we pass a buffer space of 
+	       given size, we will need an additional argument (the return 
+	       buffer size) in the remote function interface, which is 
+	       inconvenient.
+
+    F. Configuration file:
+
+	The user must prepare a configuration file for the RMT daemon. 
+	In the file hosts that are given access to the RMT daemon are listed. 
+	This avoids unexpected access from unlisted hosts. The host lists are 
+	echoed on the screen when the RMT daemon is started for further 
+	protection. 
+
+	In the file the user can also list a set of local files and 
+	directories. This information can be used by other modules on top of 
+	RMT for implementing protection schemes. For example, a file access 
+	module on top of RMT can refuse to open any file that is not listed 
+	in the RMT configuration file. If a directory is listed, a possible 
+	implementation is that all subdirectories are then accessible.
+
+	The default configuration file's name is $(HOME)/.server_name.conf, 
+	where server_name is the file name of the RPC server. The 
+	user can specify an alternative RMT configuration file name through 
+	a server command option. The configuration file contains lines in the 
+	following format:
+
+	Client: host_name
+	Path: directory
+
+	Example configuration file:
+
+	Client: everest
+	Client: 128.117.192.15
+	Client: brightband
+
+	Path: /weather/ddp
+	Path: /tmp
+
+	The host name checking is performed in the RMT package.
+	The file and directory name check is left for the user remote
+	functions that need the information. For example, if the "open"
+	function is implemented as a remote function call, the remote
+	"open" may read the configuration file and refuse to open any file
+	that is not listed in the configuration.
+
+    G. Password based security
+
+	The RMT software contains an optional password based security 
+	mechanism that can be utilized when security is a concern. To switch 
+	on the password mode, the user needs to put the following line in the 
+	"rmt_user_def.h" file:
+
+	#define RMT_SECURITY_ON
+
+	before building the RMT server. 
+
+	To run the password mode RMT server, the user needs to prepare a 
+	password file, named "$HOME/.rmt/.rmt_passwd". This file contains an 
+	encrypted RMT password. This file can be initiated and modified by
+	using a command called "rmt_passwd". The command works just like
+	the UNIX "passwd" command. The file "$HOME/.rmt/.rmt_passwd" must be
+	owned by "root". It can only be modified or removed by "root"
+	or by using the "rmt_passwd" command. The "rmt_passwd" executable
+	file must be owned by "root" and must have the "rws" permission 
+	for the user ("root"). After a password mode RMT server is created or 
+	installed, the user should run "rmt_passwd" once to initialize the 
+	"$HOME/.rmt/.rmt_passwd" for security protection.
+
+	When the RMT daemon is started, the user is asked to input a 
+	password. The password is compared with the RMT password stored in
+	"$HOME/.rmt/.rmt_passwd". The RMT daemon can be started only if the two 
+	passwords are identical. In an operational environment it is 
+	inconvenient to type in the password for each RMT server. The RMT 
+	tool allows the user to put the password in the file 
+	"$HOME/.password". If the file exists, the RMT server reads the 
+	password from it instead of interactively asking the user to type in 
+	the password. It is the user's responsibility to keep the 
+	"$HOME/.password" well protected: It should have right permission
+	and it should exist for a as short as possible time period.
+
+	In the password mode, a client process must provide the same password
+	before it can get any service from the RMT server. To do this, a 
+	client program must first call RMT_set_password(), before making any 
+	remote procedure calls, to pass a password to the RMT client library. 
+	The RMT library module stores only a single password. If a different 
+	password is needed for another remote server, another 
+	RMT_set_password() call can be invoked.
+	
+	It is the application program's responsibility to generate the 
+	password. The RMT library provides a function, called
+	RMT_ask_password(), for this purpose. This function asks the
+	user to type in a password.
+	
+	If a client keeps trying to use invalid passwords, the 
+	server will respond by denying access from the client's host for 
+	a certain time period. This prevents a rogue client from finding 
+	the valid password by exhaustive search.
+
+        NOTES: The password based authentication procedure:
+
+	If the password mode is selected, the server will first send a 
+	message asking for a password when a new connection is made by a 
+	client. A randomly generated key is sent together with the message to 
+	the client. If the password mode is not selected, the server will 
+	tell the client that the password is not needed.
+
+	After connecting to the server, the client first waits for a
+	message. If the message indicates that a password is required, the 
+	client must send its password to the server and wait for a response. 
+	The password is encrypted with the random key from the server before
+	sent to the server. This protects the password from being intercepted
+        by a fake server or an eaves-dropper.
+
+	The server, after receiving the password, verifies the password
+	and sends back a message of either "Password_OK" or 
+	"Password_INVALID". The client will respond to the message 
+	appropriately.
+
+	The server waits up to 600 seconds for the client's response after 
+	it sends the message asking for a password. If it does not receive
+	a response from the client within that time period, it breaks the 
+	connection with the client.
+
+	In our implementation, the authentication is performed by the parent 
+	server process as opposed to forking a child to handle the 
+	authentication. This avoids forking too many child processes when a 
+	rogue client makes frequent illegal connections. The parent server
+	processes authentication for up to MAX_CLIENTS (64) (or 
+	MAX_CONNECTIONS (32) from a single host) clients simultaneously.
+
+    H. The Port Number:
+
+	The RMT tool uses an encoded number derived from the user name for 
+	the RMT server port number. This is convenient since RMT is a user 
+	level tool. The number generated may not be unique for each user. 
+	In the case there is a port number conflict one of the following 
+	schemes can be used instead.
+
+	Optionally the user can use an environmental variable, RMTPORT, for 
+	specifying the port number (e.g., setenv RMTPORT 12345). RMTPORT 
+	must be greater than MIN_PORT_NUMBER (10000) and less than 
+	MAX_PORT_NUMBER (65535). It must be defined on both server and 
+	client machines. 
+	
+	The user can also choose to directly specify a port number,
+	when the server is started (as a command option for the RMT daemon), 
+	and use the RMT_port_number call for setting the port number on the
+	client side.
+
+	The RMT port number used is always greater than MIN_PORT_NUMBER
+	(10000) to avoid a port number collision with frequently used
+	port numbers.
+
+	If the environmental variable RMTPORT or HOME changes, both the
+	RMT server and the client process need to be restarted in order
+	to use the new default RMT port number.
+
+    I. The message format:
+
+	The RMT uses two different communication channels, one for normal
+	remote procedure call message passing and one for authentication.
+	These two channels utilize different message formats.
+
+	Remote Procedure Call Message Format:
+
+	The child server process uses the following message format for
+	receiving remote call requests and returning remote call results.
+
+	Both request and return messages use a HEAD_SIZE byte header,
+	which contains two integer numbers, namely the
+	remote function ID and the data length. In the request message,
+	the data length is the length of the input byte string and the 
+	input byte string starts from the HEAD_SIZE-th byte in the message.
+	In the return message, the data length is the length of the 
+	output byte string and the output byte string starts
+	from the HEAD_SIZE-th byte. In the return message, the data length
+	can be negative. In this case, the number is the error number of 
+	the failed remote call and no output byte string is returned.
+
+	A particular user function is identified by an integer called the
+	function ID number. The number ranges from 1 to MAX_NUM_FUNCTIONS. 
+	In the current implementation MAX_NUM_FUNCTIONS must be less than 
+	or equal to 32. The user cannot further increase the number of remote 
+	functions by simply setting MAX_NUM_FUNCTIONS > 32 and recompiling 
+	the program.
+
+	Both request and return messages are fixed length messages.
+	The request message length is REQ_MSG_SIZE bytes
+	and the return message length is RET_MSG_SIZE bytes. Meaningless
+	bytes may exist in the messages after the header and data.
+
+	If the input byte string is too long to be held in the request 
+	message, the remainder is sent as an additional byte stream following 
+	the request message. If the output byte string is too long to
+	be held in the return message, the remainder is sent following the 
+	return message.
+
+	The request and return messages can be illustrated as in the 
+	following:
+
+	| rmt func ID | data length | input string | input string remainder |
+	| <-         REQ_MSG_SIZE bytes         -> |
+	| <-   HEAD_SIZE bytes   -> |
+
+	| rmt func ID | data length | output string | output string remainder |
+	| <-         RET_MSG_SIZE bytes          -> |
+	| <-   HEAD_SIZE bytes   -> |
+
+	The ID number 0 is reserved for control messages. There is 
+	currently only one implemented control function, which is
+	no operation. This can be used for testing the connection status
+	from the client side.
+
+	In the current implementation, the header length is 8 bytes. The 
+	first byte is the character "*". Byte 3 is the function id. The
+	data length is placed in byte 4 through byte 7. The data length is 
+	encoded in "network byte order".
+
+	Implementation note: Because we use TEST_BYTE for connection testing, 
+	the first character in the header of a return message must not be 
+	TEST_BYTE. This must be taken into account if we use other encoding 
+	schemes (such as XDR) in the RMT message header implementation.
+
+	Authentication Message Format:
+
+	The authentication messages, which are processed by the parent server 
+	process, use the ASCII character string format. Valid authentication 
+	messages are listed in the following:
+	
+	From the server:
+
+	"Key:(8 byte key)" - A password is needed. Send me the password.
+	"No_password"   - No password is needed.
+	"Password_OK"   - Password is correct.
+	"Pw_INVALID" - Password is invalid.
+
+	From the client:
+
+	The password string. The length of the password is limited to
+	REQ_MSG_SIZE - 1.

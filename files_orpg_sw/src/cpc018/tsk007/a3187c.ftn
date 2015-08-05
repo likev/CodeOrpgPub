@@ -1,0 +1,169 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/17 18:26:37 $
+C $Id: a3187c.ftn,v 1.3 2002/12/17 18:26:37 christie Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A3187C__VERT_AXIS_FIT(MAX_SCALE,VERT_LABEL,
+     $             VERT_LINE )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3187C__VERT_AXIS_FIT
+*.
+*.  MODULE VERSION: 0012
+*.
+*.  MODULE LANGUAGE:  FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       09 08 88      0000      VALERIE HOLDEN       SPR # 80273
+*.       05 20 90      0001      JOHN DEPHILIP        SPR # 90697
+*.       08 07 90      0002      MIKE ISTOK           SPR # 90928
+*.       11 07 90      0003      CHARLIE BAUMHER      SPR # 91259
+*.       12 03 91      0004      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0005      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0006      Toolset              SPR 91895
+*.       03/25/93      0007      Toolset              SPR NA93-06801
+*.       01/28/94      0008      Toolset              SPR NA94-01101
+*.       03/03/94      0009      Toolset              SPR NA94-05501
+*.       04/11/96      0010      Toolset              CCR NA95-11802
+*.       12/23/96      0011      Toolset              CCR NA95-11807
+*.       03/16/99      0012      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A3187C__VERT_AXIS_FIT(MAX_SCALE,VERT_LABEL
+*.                     ,VERT_LINE)
+*.
+*.  MODULE FUNCTION:
+*.
+*.     CALCULATES THE RANGE OF VELOCITY POINTS TO SIZE THE VERTICAL
+*.     AXIS.  SIZE OF THE VERTICAL AXIS FOR THE VAD PRODUCT IS
+*.     SCALED TO ALLOW ALL VELOCITY POINTS TO BE DISPLAYED.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT     TYPE        DESCRIPTION
+*.    -   -----     ----        -----------
+*.    C   MAX_VELOC R*4         Maximum velocity in current sample.
+*.    C   MIN_VELOC R*4         Minimum velocity in current sample.
+*.    P   MAX_SCALE I*4         MAXIMUM VERTICAL SCALE IN KNOTS
+*.
+*.    *   OUTPUT     TYPE        DESCRIPTION
+*.    -   ------     ----        -----------
+*.    P   MAX_SCALE  I*4         MAXIMUM VERTICAL SCALE IN KNOTS
+*.    P   VERT_LABEL I*4         INTERVALS FOR POSITIONING VERTICAL VELOCITY
+*.                               LABELS IN KNOTS
+*.    P   VERT_LINE  I*4         INTERVALS FOR POSITIONING VERTICAL VELOCITY
+*.                               LINES IN KNOTS
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME          TYPE        DESCRIPTION
+*.    ----          ----        -----------
+*.    MAX_ABS_VEL   I*4         MAXIMUM MAGNITUDE OF VELOCITY POINTS
+*.    NUM_POS_LABS  I*4         NUMBER OF POSITIVE VELOCITY LABELS =4
+*.    NUM_POS_LINES I*4         NUMBER OF POSITIVE VELOCITY LINES = 4
+*.    SIZE_100      I*4         MAX. VELOCITY DOMAIN OF 100 KNOTS
+*.    SIZE_200      I*4         Maximum velocity domain is 200 knots.
+*.    SIZE_40       I*4         MAX. VELOCITY DOMAIN OF 40 KNOTS
+*.    SIZE_60       I*4         MAX. VELOCITY DOMAIN OF 60 KNOTS
+*.    SIZE_80       I*4         MAX. VELOCITY DOMAIN OF 80 KNOTS
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A318C7
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  NONE
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP18.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK18.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+$INCLUDE A318.INC,**A318C7 (NLIST)
+C*
+      INTEGER*4    MAX_SCALE,VERT_LABEL,VERT_LINE,MAX_ABS_VEL
+      INTEGER*4    SIZE_40,SIZE_60,SIZE_80,SIZE_100,SIZE_200
+      INTEGER*4    NUM_POS_LABS,NUM_POS_LINES
+      PARAMETER    (SIZE_40=40,SIZE_60=60,SIZE_80=80,SIZE_100=100)
+      PARAMETER    (SIZE_200=200,NUM_POS_LABS=4)
+      PARAMETER    (NUM_POS_LINES=4)
+C
+C*    CALCULATE MAXIMUM VELOCITY MAGNITUDE BASED ON MAXIMUM AND
+C*    MINIMUM VELOCITY OF THE 360 VELOCITY DATA POINTS
+C*
+X     TYPE *,'7C: ENTERED A3187C '
+C
+      IF (ABS(MIN_VELOC) .GT. MAX_VELOC) THEN
+         MAX_ABS_VEL = ABS (MIN_VELOC)
+X        TYPE *,'7C: MIN_VELOC GT MAX_VELOC '
+      ELSE
+         MAX_ABS_VEL = MAX_VELOC
+X        TYPE *,'7C: MIN_VELOC LE MAX_VELOC '
+      END IF
+X     TYPE *,'7C: MAX_ABS_VEL = ',MAX_ABS_VEL
+C*
+C*    IF MAX MAGNITUDE VELOCITY IS <= 40 KTS, SET MAX SCALE TO 40 KTS
+C*
+      IF (MAX_ABS_VEL.LE.SIZE_40) THEN
+         MAX_SCALE = SIZE_40
+X        TYPE *,'7C: MAX_ABS_VEL LE SIZE_40 '
+C*
+C*    IF MAX MAGNITUDE VELOCITY IS <= 60 KTS, SET MAX SCALE TO 60 KTS
+C*
+      ELSEIF(MAX_ABS_VEL.LE.SIZE_60)THEN
+         MAX_SCALE = SIZE_60
+X        TYPE *,'7C: MAX_ABS_VEL LE SIZE_60 '
+C*
+C*    IF MAX MAGNITUDE VELOCITY IS <= 80 KTS, SET MAX SCALE TO 80 KTS
+C*
+      ELSEIF (MAX_ABS_VEL.LE.SIZE_80) THEN
+         MAX_SCALE = SIZE_80
+X        TYPE *,'7C: MAX_ABS_VEL LE SIZE_80 '
+C*
+C*  IF MAX MAGNITUDE VELOCITY IS <= 100 KTS, SET MAX SCALE TO 100 KTS
+C*
+      ELSEIF (MAX_ABS_VEL.LE.SIZE_100) THEN
+         MAX_SCALE = SIZE_100
+X        TYPE *,'7C: MAX_ABS_VEL LE SIZE_100 '
+C*
+C*    ELSE MAX MAGNITUDE VELOCITY IS GREATER THAN 100,. SET MAX SCALE
+C*    TO 200 KTS
+C*
+      ELSE
+         MAX_SCALE = SIZE_200
+X        TYPE *,'7C: MAX_ABS_VEL GT SIZE_100 '
+      ENDIF
+C
+      VERT_LABEL = MAX_SCALE / NUM_POS_LABS
+      VERT_LINE  = MAX_SCALE / NUM_POS_LINES
+X     TYPE *,'7C: EXIT 7C; VERT LABEL/LINE = ',VERT_LABEL,VERT_LINE
+C
+      RETURN
+      END

@@ -1,0 +1,169 @@
+C 
+C RCS info 
+C $Author: nolitam $ 
+C $Locker:  $ 
+C $Date: 2002/12/11 20:00:34 $ 
+C $Id: a3cm17.ftn,v 1.4 2002/12/11 20:00:34 nolitam Exp $ 
+C $Revision: 1.4 $ 
+C $State: Exp $ 
+C 
+       SUBROUTINE A3CM17__THETA (X,Y,THETA,MAX_THETA,MIN_THETA,FLAG)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3CM17__THETA
+*.
+*.  MODULE VERSION: 0010
+*.
+*.
+*.  MODULE LANGUAGE:  FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       03 24 86      0000      DENNIS MILLER
+*.       10 02 86      0001      J GROMMONS           SPR # 60346
+*.       10 17 89      0002      VALERIE HOLDEN       SPR # 90519
+*.       07 04 90      0003      B. JOHNSTON          SPR # 90776
+*.       11 08 90      0004      T. LYNCH             SPR # 91250
+*.       12/10/91      0005      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0006      Toolset              SPR 91895
+*.       03/25/93      0007      Toolset              SPR NA93-06801
+*.       03/03/94      0008      Toolset              SPR NA94-05501
+*.       12/23/96      0009      Toolset              CCR NA95-11807
+*.       03/16/99      0010      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:
+*.
+*.     CALL A3CM17__THETA (X,Y,THETA,MAX_THETA,MIN_THETA,FLAG)
+*.
+*.  MODULE FUNCTION:
+*.
+*.     CONVERT CARTESIAN COORDINATES TO POLAR
+*.
+*.  MODULES CALLED: A3CM15__MAXI, A3CM16__MINI 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT     TYPE        DESCRIPTION
+*.    -   -----     ----        -----------
+*.    P   FLAG      I*2         FIND MAX THETA,MIN THETA INDICATOR
+*.    P   MAX_THETA R*4         MAXIMUM VALUE OF THETA
+*.    P   MIN_THETA R*4         POLAR ANGLE FOR X,Y COORDINATES
+*.    P   THETA     R*4         AZIMUTH ANGLE
+*.    P   X         R*4         X COORDINATE
+*.    P   Y         R*4         Y COORDINATE
+*.
+*.    *   OUTPUT    TYPE        DESCRIPTION
+*.    -   ------    ----        -----------
+*.    P   MAX_THETA R*4         MAXIMUM VALUE OF THETA
+*.    P   MIN_THETA R*4         POLAR ANGLE FOR X,Y COORDINATES
+*.    P   THETA     R*4         AZIMUTH ANGLE
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    P   MAX_THETA         R*4         MAXIMUM VALUE OF THETA
+*.    P   MIN_THETA         R*4         POLAR ANGLE FOR X,Y COORDINATES
+*.    P   THETA             R*4         AZIMUTH ANGLE
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME   TYPE        DESCRIPTION
+*.    ----   ----        -----------
+*.    CONVRT R*4         CONSTANT 57.29578
+*.    FIVE   I*2         CONSTANT 5
+*.    I      I*2         LOOP COUNTER
+*.    THREE  I*2         CONSTANT 3
+*.    TWO    I*2         CONSTANT 2
+*.    ZERO   R*4         PARAMETER VALUE '0'
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP09.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK09.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+*
+           IMPLICIT NONE
+*
+           REAL X(5),Y(5),THETA(5),ZERO
+           REAL MAX_THETA,MIN_THETA
+           REAL CONVRT
+           PARAMETER (CONVRT = 57.29578)
+           INTEGER*2 TWO,THREE,FIVE,I,FLAG
+           PARAMETER (TWO=2,THREE=3,FIVE=5,ZERO=0.0)
+*
+*******************************************************************
+C$  DO UNTIL ALL CORNER CARTESIAN COORDINATES HAVE BEEN CONVERTED
+*******************************************************************
+*
+           DO 70 I=TWO,FIVE
+*
+************************************************************
+C$  CONVERT CORNER CARTESIAN COORDINATES TO POLAR ANGLE  \
+C$    "THETA" USING ARCTAN2 FUNCTION
+************************************************************
+*
+             THETA(I)=ATAN2(X(I),Y(I))*CONVRT
+*
+***************************************
+C$  IF "THETA" IS LESS THAN 0.0, THEN
+***************************************
+*
+             IF (THETA(I).LT.ZERO) THEN
+*
+********************************************************
+C$  CONVERT "THETA" TO ANGLE IN THE RANGE 0.0 -> 360.0
+********************************************************
+*
+               THETA(I)=THETA(I)+360.0
+             ENDIF
+  70         CONTINUE
+*
+***************
+C$  70  ENDDO
+***************
+*
+**************************************************
+C$  IF MAXIMUM AND MINIMUM THETA REQUESTED, THEN
+**************************************************
+*
+           IF (FLAG.EQ.TWO) THEN
+*
+********************************************
+C$  CALL A3CM15__MAXI TO GET MAXIMUM THETA
+********************************************
+*
+             CALL A3CM15__MAXI (THETA,THREE,FIVE,MAX_THETA)
+*
+********************************************
+C$  CALL A3CM16__MINI TO GET MINIMUM THETA
+********************************************
+*
+             CALL A3CM16__MINI (THETA,THREE,FIVE,MIN_THETA)
+           ENDIF
+*
+           RETURN
+*
+           END

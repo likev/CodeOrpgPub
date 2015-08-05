@@ -1,0 +1,491 @@
+libL2(3)              libL2 Manpage
+
+NAME
+
+  libL2 - libL2 Library Functions.
+
+SYNOPSIS
+
+  #include <libL2.h>
+  System shared library links: -lm -lz -lbz2
+  RPG shared library links: -linfr -ll2
+
+/* RELEVANT ENUMERATIONS IN libL2.h */
+
+  /* Binary values */
+  LIBL2_NO    - No (0)
+  LIBL2_YES   - Yes (1)
+
+  /* Moment indices */
+  LIBL2_REF_INDEX    - Reflectivity moment index
+  LIBL2_VEL_INDEX    - Velocity moment index
+  LIBL2_SPW_INDEX    - Spectrum Width moment index
+  LIBL2_ZDR_INDEX    - Differential Reflectivity moment index
+  LIBL2_PHI_INDEX    - Differential Phase moment index
+  LIBL2_RHO_INDEX    - Correlation Coefficient moment index
+  LIBL2_NUM_MOMENTS  - Number of possible base moments
+
+  /* Level-II file formats */
+  LIBL2_NEXRAD         - Level-II file is NEXRAD
+  LIBL2_GZIP           - Level-II file is gzip compressed (*.gz) NCDC
+  LIBL2_BZIP2          - Level-II file is bzip2 compressed (*.bz2) NCDC
+  LIBL2_COMPRESS       - Level-II file is compressed (*.Z) NCDC
+  LIBL2_UNCOMPRESS     - Level-II file is non-compressed NCDC
+  LIBL2_UNKNOWN_FORMAT - Level-II file is of unknown format 
+
+  /* Elevation segment macros */
+  LIBL2_ELEV_SEGMENT_NUMBER_ONE (=1) - Elevation segment number 1 
+  LIBL2_ELEV_SEGMENT_NUMBER_TWO      - Elevation segment number 2
+  LIBL2_ELEV_SEGMENT_NUMBER_THREE    - Elevation segment number 3
+  LIBL2_ELEV_SEGMENT_NUMBER_FOUR     - Elevation segment number 4
+  LIBL2_ELEV_SEGMENT_NUMBER_FIVE     - Elevation segment number 5
+
+  /* Output flags */
+  LIBL2_ALL_SEGMENTS - Output for all segments
+  LIBL2_ALL_CUTS     - Output for all cuts
+  LIBL2_ALL_RADIALS  - Output for all radials
+  LIBL2_ALL_MOMENTS  - Output for all moments
+
+  /* Error codes */
+  LIBL2_L2_FILENAME_NULL (-600)        - Level-II file name is empty
+  LIBL2_L2_FILENAME_TOO_LONG (-599)    - Level-II file name is longer than
+                                         the LIBL2_MAX_FILE_NAME_LEN macro
+  LIBL2_L2_UNKNOWN_FORMAT (-598)       - Level-II file isn't NEXRAD or NCDC
+  LIBL2_STAT_L2_FILE_FAILED (-597)     - Could not stat() level-II file
+  LIBL2_OPEN_L2_FILE_FAILED (-596)     - Could not open level-II file
+                                         for reading
+  LIBL2_STAT_L2_FILE_SIZE_ERROR (-595) - Level-II file size was invalid
+  LIBL2_MALLOC_FAILED (-594)           - Failed to allocate memory
+  LIBL2_REALLOC_FAILED (-593)          - Failed to reallocate memory
+  LIBL2_L2_FILE_READ_ERROR (-592)      - Read of level-II file failed
+  LIBL2_NO_L2_HEADER (-591)            - Level-II header not found in
+                                         level-II file
+  LIBL2_BUNZIP_FAILED (-590)           - Bzip2 decompression failed
+  LIBL2_GUNZIP_FAILED (-589)           - Gzip decompression failed
+  LIBL2_UNCOMPRESS_FAILED (-588)       - Z decompression failed
+  LIBL2_BAD_CUT_INDEX (-587)           - Invalid index for an elevation cut
+  LIBL2_BAD_MOMENT_INDEX (-586)        - Invalid index for a base moment
+  LIBL2_BAD_MOMENT_BITMASK (-585)      - Invalid moment bitmask value
+  LIBL2_BAD_SEGMENT_NUMBER (-584)      - Invalid value for an elevation
+                                         segment
+  LIBL2_INVALID_MSG_TYPE (-583)        - Unknown RDA/RPG message type
+  LIBL2_ICAO_NOT_DEFINED (-582)        - 4-letter ICAO not found in
+                                         level-II file
+  LIBL2_NO_DATA_CUTS (-581)            - No base moment data cuts available
+  LIBL2_NO_STATUS_MSGS (-580)          - No RDA Status Messages available
+  LIBL2_NO_PMD_MSG (-579)              - No Perf Maint Data Message available
+  LIBL2_NO_VCP_MSG (-578)              - No VCP Message available
+  LIBL2_NO_ADAPT_MSG (-577)            - No RDA Adaptation Data
+                                         Message available
+  LIBL2_NO_BYPASS_MAP_MSG (-576)       - No RDA Bypass Map Message available
+  LIBL2_NO_CLUTTER_MAP_MSG (-575)      - No RDA Clutter Map Message available
+  LIBL2_NO_MOMENTS_IN_FLAG (-574)      - No specified moment in bitmask
+  LIBL2_BAD_RADIAL_NUMBER (-573)       - Invalid number for a radial
+
+/* RELEVANT DEFINITIONS IN libL2.h */
+
+  /* Misc */
+  LIBL2_NO_ERROR          - No error detected
+  LIBL2_MAX_FILE_NAME_LEN - Maximum length of level-II file name
+  LIBL2_NO_DATA -999      - Indicates below SNR (i.e. missing) data
+  LIBL2_RF_DATA -888      - Indicates range folded data
+
+/* Relevant STRUCTS in libL2.h */
+
+typedef ORDA_status_msg_t          libL2_status_t;
+typedef Pmd_t                      libL2_pmd_t;
+typedef VCP_ICD_msg_t              libL2_vcp_t;
+typedef ORDA_adpt_data_t           libL2_adapt_t;
+typedef ORDA_clutter_map_t         libL2_clutter_map_t;
+typedef ORDA_bypass_map_t          libL2_bypass_map_t;
+typedef Generic_vol_t              libL2_RVOL_t;
+typedef Generic_elev_t             libL2_RELV_t;
+typedef Generic_rad_t              libL2_RRAD_t;
+typedef ORDA_bypass_map_segment_t  libL2_bypass_map_segment_t;
+typedef ORDA_clutter_map_segment_t libL2_clutter_map_segment_t;
+typedef ORDA_clutter_map_filter_t  libL2_clutter_map_filter_t;
+typedef Generic_basedata_t         libL2_base_t;
+typedef Generic_basedata_header_t  libL2_base_hdr_t;
+typedef Generic_moment_t           libL2_moment_t;
+typedef Generic_any_t              libL2_any_t;
+typedef RDA_RPG_message_header_t   libL2_msg_hdr_t;
+typedef VCP_message_header_t       libL2_vcp_hdr_t;
+typedef VCP_elevation_cut_header_t libL2_vcp_elev_hdr_t;
+
+/* PROTOTYPES */
+
+/* Level-II File/Associated Data */
+
+int libL2_read( char *level-II-file )
+  Specified level-II-file name (with length not longer than
+  LIBL2_MAX_FILE_NAME_LEN) will initialize library's static
+  variables with file's information. The name is a full path.
+  Return values are LIBL2_NO_ERROR or one of the error codes
+  defined above.
+
+int libL2_filetype()
+  Returns integer representing the detected Level-II file format. See
+  enumerations of Level-II file formats above for possible values.
+
+char *libL2_filetype_string()
+  Returns string representing the detected Level-II file format. The
+  string is static and should not be freed. There will always be a string
+  of length > 0 returned (i.e. non-NULL).
+
+char *libL2_ICAO()
+  Returns string representing the ICAO associated with the Level-II file.
+  String is static and should not be freed. If ICAO is NOT defined, NULL
+  is returned. The value is taken from the Volume Record Header at the
+  start of a valid level-II file.
+
+float libL2_latitude()
+  Returns float representing latitude of the RDA in degrees. The value
+  is taken from the first L2_RVOL_t object.
+
+float libL2_longitude()
+  Returns float representing longitude of the RDA in degrees. The value
+  is taken from the first L2_RVOL_t object.
+
+int libL2_height()
+  Returns integer representing height above sea level of the RDA in meters.
+  The value is taken from the first L2_RVOL_t object.
+
+int libL2_VCP()
+  Returns integer representing Volume Coverage Pattern (VCP) of Level-II file
+  or negative integer if not defined. The value is taken from the
+  libL2_vcp_t object in the meta data.
+
+int libL2_num_cuts()
+  Returns integer representing number of elevation cuts in Level-II file.
+
+float libL2_compression_ratio()
+  Returns float representing ratio of compressed size to uncompressed size
+  for Level-II file. If Level-II file to read is uncompressed, value is 1.0.
+
+/* Meta-Data */
+
+int libL2_num_status_msgs()
+  Returns integer representing number of RDA Status Messages in Level-II file.
+
+libL2_status_t *libL2_status_msgs()
+  Returns array of libL2_status_t objects with each element representing a RDA
+  Status Message. The number of elements is the same as the return value of
+  libL2_num_status_msgs(). The array is static and should not be freed. If
+  none defined, NULL is returned.
+
+libL2_pmd_t *libL2_pmd_msg()
+  Returns pointer to libL2_pmd_t object representing a RDA Performance
+  Maintenance Data Message in RDA metadata. Object is static and should
+  not be freed. If undefined, NULL is returned.
+
+libL2_vcp_t *libL2_vcp_msg()
+  Returns pointer to libL2_vcp_t object representing a RDA Volume Coverage 
+  Pattern (VCP) Message in RDA metadata. Object is static and should
+  not be freed. If undefined, NULL is returned.
+
+libL2_adapt_t *libL2_adapt_msg()
+  Returns pointer to libL2_adapt_t object representing a RDA Adaptation
+  Data Message in RDA metadata. Object is static and should not be freed.
+  If undefined, NULL is returned.
+
+libL2_bypass_map_t *libL2_bypass_map_msg()
+  Returns pointer to libL2_bypass_map_t object representing a RDA Bypass
+  Map Message in RDA metadata. Object is static and should not be freed.
+  If undefined, NULL is returned.
+
+libL2_clutter_map_t *libL2_clutter_map_msg()
+  Returns pointer to libL2_clutter_map_t object representing a RDA Clutter
+  Map Message in RDA metadata. Object is static and should not be freed.
+  If undefined, NULL is returned.
+
+/* Elevation-based Data */
+
+float *libL2_elevations()
+  Returns array of floats with each element representing elevation (in degrees)
+  of each cut in the Level-II file. The number of elements is the same as
+  the return value of libL2_num_cuts(). The array is static and should not
+  be freed. If none defined, NULL is returned.
+
+int libL2_num_azimuths( int cut_index )
+  Returns integer representing the number of azimuths for specified cut
+  index (zero-indexed). The macro LIBL2_ALL_CUTS is NOT a valid value
+  for cut_index.
+
+float *libL2_azimuths( int cut_index )
+  Returns array of floats with each element representing azimuth (in degrees)
+  of radials for specified cut index (zero-indexed). Array is static and
+  should not be freed. If no azimuths defined for the cut, NULL is returned.
+  The macro LIBL2_ALL_CUTS is NOT a valid value for cut_index.
+
+int libL2_num_gates( int cut_index, int moment_index )
+  Returns integer representing the number of gates/bins along a radial for
+  specified cut and moment indices (both zero-indexed). The macros
+  LIBL2_ALL_CUTS and LIBL2_ALL_MOMENTS are NOT valud values for cut_index
+  and moment_index respectively.
+
+float *libL2_gates( int cut_index, int moment_index )
+  Returns array of floats with each element representing range (in meters)
+  from radar of gate/bin along a radial for specified cut and moment indices
+  (both zero-indexed). Array is static and should not be freed. If no gates
+  are defined for the cut and moment NULL is returned. The macros
+  LIBL2_ALL_CUTS and LIBL2_ALL_MOMENTS are NOT valud values for cut_index
+  and moment_index respectively.
+
+float libL2_azimuth_resolutions( int cut_index, int moment_index )
+  Returns float representing azimuth resolution (in degrees) for specified
+  cut and moment indices (zero-indexed). Azimuth resolution is defined
+  as the radial-to-radial distance along a constant range. The macros
+  LIBL2_ALL_CUTS and LIBL2_ALL_MOMENTS are NOT valud values for cut_index
+  and moment_index respectively.
+
+float libL2_gate_resolutions( int cut_index, int moment_index )
+  Returns float representing range resolution (in meters) for specified
+  cut and moment indices (zero-indexed). Range resolution is defined
+  as gate-to-gate distance along a radial. The macros LIBL2_ALL_CUTS
+  and LIBL2_ALL_MOMENTS are NOT valud values for cut_index and moment_index
+  respectively.
+
+/* Base Moments */
+
+int libL2_cut_has_REF( int cut_index )
+  Returns LIBL2_YES if specified cut index (zero-indexed) has reflectivity
+  defined, else returns LIBL2_NO. The macro LIBL2_ALL_CUTS is NOT a valid
+  value for cut_index.
+
+int libL2_cut_has_VEL( int cut_index )
+  Returns LIBL2_YES if specified cut index (zero-indexed) has velocity
+  defined, else returns LIBL2_NO.  The macro LIBL2_ALL_CUTS is NOT a valid
+  value for cut_index.
+
+int libL2_cut_has_SPW( int cut_index )
+  Returns LIBL2_YES if specified cut index (zero-indexed) has spectrum width
+  defined, else return LIBL2_NO.  The macro LIBL2_ALL_CUTS is NOT a valid
+  value for cut_index.
+
+int libL2_cut_has_ZDR( int cut_index )
+  Returns LIBL2_YES if specified cut index (zero-indexed) has differential
+  reflectivity defined, else return LIBL2_NO.  The macro LIBL2_ALL_CUTS is
+  NOT a valid value for cut_index.
+
+int libL2_cut_has_PHI( int cut_index )
+  Returns LIBL2_YES if specified cut index (zero-indexed) has differential
+  phase defined, else returns LIBL2_NO.  The macro LIBL2_ALL_CUTS is NOT a
+  valid value for cut_index.
+
+int libL2_cut_has_RHO( int cut_index )
+  Returns LIBL2_YES if specified cut index (zero-indexed) has correlation 
+  coefficient defined, else return LIBL2_NO.  The macro LIBL2_ALL_CUTS is
+  NOT a valid value for cut_index.
+
+/* Radial Data */
+
+libL2_RVOL_t *libL2_rvol( int cut_index, int radial_number )
+  Returns array of libL2_RVOL_t objects for a specifiied cut index (zero-
+  indexed) and radial number (one-indexed) with each element representing
+  a libL2_RVOL_t object for a radial. Array is static and should not be
+  freed. If no elements defined, NULL is returned.  The macros LIBL2_ALL_CUTS
+  and LIBL2_ALL_RADIALS are valid values for cut_index and radial_number
+  respectively.
+
+libL2_RELV_t *libL2_relv( int cut_index, int radial_number )
+  Returns array of libL2_RELV_t objects for a specifiied cut index (zero-
+  indexed) and radial number (one-indexed) with each element representing
+  a libL2_RELV_t object for a radial. Array is static and should not be
+  freed. If no elements defined, NULL is returned.  The macros LIBL2_ALL_CUTS
+  and LIBL2_ALL_RADIALS are valid values for cut_index and radial_number
+  respectively.
+
+libL2_RRAD_t *libL2_rrad( int cut_index, int radial_number )
+  Returns array of libL2_RRAD_t objects for a specifiied cut index (zero-
+  indexed) and radial number (one-indexed) with each element representing
+  a libL2_RRAD_t object for a radial. Array is static and should not be
+  freed. If no elements defined, NULL is returned.  The macros LIBL2_ALL_CUTS
+  and LIBL2_ALL_RADIALS are valid values for cut_index and radial_number
+  respectively.
+
+float *libL2_base_data( int cut_index, int moment_index, int radial_number )
+  Returns array of floats with each element reresenting data for specified
+  cut and moment indices (zero-indexed) and radial number (one-indexed).
+  Array is static and should not be freed. If none defined, NULL is returned.
+  The macros LIBL2_ALL_CUTS, LIBL2_ALL_MOMENTS and LIBL2_ALL_RADIALS are
+  valid values for cut_index, moment_index and radial_number respectively.
+
+/* RDA Elevation Segments */
+
+int libL2_num_segments()
+  Returnes integer representing number of elevation segments as defined in
+  RDA Adaptation Data in RDA metadata.
+
+float libL2_segment_limits( int segment_number )
+  Returns float representing elevation (in degrees) of upper limit of
+  specified elevation segment (one-indexed) as defined in RDA Adaptation
+  Data in RDA metadata. The macro LIBL2_ALL_SEGMENTS is NOT a valid
+  value for segment_number.
+
+/* RDA Bypass Map */
+
+int libL2_bypass_map_num_segments()
+  Returns integer representing number of bypass map elevation segments
+  as defined in RDA Bypass Map Message in RDA metadata.
+
+int *libL2_bypass_map( int segment_number, int radial_number )
+  Returns 2-D array of integers with each element representing the RDA
+  Bypass Map for specified elevation segment (one-indexed). The data is
+  stored as consecutive radials so radials is the outer loop and gate is
+  the inner loop. If none defined, NULL is returned. The macros
+  LIBL2_ALL_SEGMENTS and LIBL2_ALL_RADIALS are valid values for
+  segment_number and radial_number respectively.
+
+int libL2_bypass_map_num_azimuths( int segment_number )
+  Returns number of azimuths defined for RDA Bypass Map for specified
+  elevation segment (one-indexed). The macro LIBL2_ALL_SEGMENTS is NOT a
+  valid value for segment_number.
+
+float *libL2_bypass_map_azimuths( int segment_number )
+  Returns array of floats with each element representing azimuths of
+  RDA Bypass Map for specified elevation segment. If none defined,
+  NULL is returned. The macro LIBL2_ALL_SEGMENTS is NOT a valid
+  value for segment_number.
+
+int libL2_bypass_map_num_gates( int segment_number )
+  Returns number of gates for a radial defined for RDA Bypass Map for
+  specified elevation segment (one-indexed). The macro LIBL2_ALL_SEGMENTS is
+  NOT a valid value for segment_number.
+
+
+float *libL2_bypass_map_gates( int segment_number )
+  Returns array of floats with each element representing ranges from the
+  radar for a radial of RDA Bypass Map for specified elevation segment.
+  If undefined, NULL is returned. The macro LIBL2_ALL_SEGMENTS is NOT a valid
+  value for segment_number.
+
+/* RDA Clutter Map */
+
+int libL2_clutter_map_num_segments()
+  Returns integer representing number of bypass map elevation segments as
+  defined in RDA Clutter Map Message in RDA metadata.
+
+int *libL2_clutter_map( int segment_number, int radial_number )
+  Returns 2-D array of integers with each element representing the RDA
+  Clutter Map for specified elevation segment (one-indexed). The data is
+  stored as consecutive radials so radials is the outer loop and gates is
+  the inner loop. If none defined, NULL is returned. The macros
+  LIBL2_ALL_SEGMENTS and LIBL2_ALL_RADIALS are valid values for
+  segment_number and radial_number respectively.
+
+int libL2_clutter_map_num_azimuths( int segment_number )
+  Returns number of azimuths defined for RDA Clutter Map for specified
+  elevation segment (one-indexed). The macro LIBL2_ALL_SEGMENTS is NOT a valid
+  value for segment_number.
+
+float *libL2_clutter_map_azimuths( int segment_number )
+  Returns array of floats with each element representing azimuths of
+  RDA Clutter Map for specified elevation segment. If none defined,
+  NULL is returned. The macro LIBL2_ALL_SEGMENTS is NOT a valid
+  value for segment_number.
+
+int libL2_clutter_map_num_gates( int segment_number )
+  Returns number of gates for a radial defined for RDA Clutter Map for
+  specified elevation segment (one-indexed). The macro LIBL2_ALL_SEGMENTS is
+  NOT a valid value for segment_number.
+
+float *libL2_clutter_map_gates( int segment_number )
+  Returns array of floats with each element representing ranges from
+  the radar for a radial of RDA Clutter Map for specified elevation
+  segment. If none defined, NULL is returned. The macro LIBL2_ALL_SEGMENTS
+  is NOT a valid value for segment_number.
+
+/* Error Handling */
+
+char *libL2_error_msg()
+  Returns string representation of error encountered during a call to
+  the libL2 library. The string is static and should not be freed. If
+  no message is defined, NULL is returned.
+
+int libL2_error_code()
+  Returns integer representing error code encountered during call to
+  the libL2 library. See error codes defined above. If no error occurs,
+  then value should be LIBL2_NO_ERROR.
+
+/* Debugging */
+
+void libL2_debug_on()
+  Turn on debugging print statements
+
+void libL2_debug_off()
+  Turn off debugging print statements
+
+/* Output */
+
+int libL2_print_misc()
+  Prints Miscellaneous information of the level-II file such as number
+  of elevations, compression ratio, ICAO, etc. to stdout.
+
+int libL2_print_rda_adapt()
+  Prints RDA Adaptation Data Message to stdout.
+
+int libL2_print_bypass_map( int segment_number, int radial_number)
+  Prints Bypass Map Data stdout for specified elevation segment and radial
+  numbers (both one-indexed). The macros LIBL2_ALL_SEGMENTS and
+  LIBL2_ALL_RADIALS are valid values to pass for segment_number and
+  radial_number respectively.
+
+int libL2_print_clutter_map( int segment_number, int radial_number)
+  Prints Clutter Map Data stdout for specified elevation segment and radial
+  numbers (both one-indexed). The macros LIBL2_ALL_SEGMENTS and
+  LIBL2_ALL_RADIALS are valid values to pass for segment_number and
+  radial_number respectively.
+
+int libL2_print_VCP()
+  Prints RDA VCP Message to stdout.
+
+int libL2_print_pmd()
+  Prints RDA Performance Maintenance Data Message to stdout.
+
+int libL2_print_rda_status_msgs()
+  Prints RDA Status Messages to stdout. If more than one exists,
+  then all are printed.
+
+int libL2_print_msg_header( int cut_index, int radial_number )
+  Prints RDA/RPG Message header for specified cut index (zero-indexed)
+  and radial number (one-indexed). The macros LIBL2_ALL_CUTS and
+  LIBL2_ALL_RADIALS are valid values to pass for cut_index and
+  radial_number respectively.
+
+int libL2_print_base_header( int cut_index, int radial_number )
+  Prints Base Radial header for specified cut index (zero-indexed)
+  and radial number (one-indexed). The macros LIBL2_ALL_CUTS and
+  LIBL2_ALL_RADIALS are valid values to pass for cut_index and
+  radial_number respectively.
+
+int libL2_print_moment_header( int cut_index, int radial_number, int moment_index )
+  Prints Generic Moment header for specified cut index (zero-indexed),
+  radial number (one-indexed) and moment_index (zero-indexed). The macros
+  LIBL2_ALL_CUTS, LIBL2_ALL_RADIALS and LIBL2_ALL_MOMENTS are valid values
+  to pass for cut_index, radial_number and moment_index respectively.
+
+int libL2_print_base_data( int cut_index, int radial_number, int moment_index )
+  Prints Base Data for specified cut index (zero-indexed),
+  radial number (one-indexed) and moment_index (zero-indexed). The macros
+  LIBL2_ALL_CUTS, LIBL2_ALL_RADIALS and LIBL2_ALL_MOMENTS are valid values
+  to pass for cut_index, radial_number and moment_index respectively.
+
+int libL2_print_RVOL( int cut_index, int radial_number )
+  Prints RVOL data block for specified cut index (zero-indexed)
+  and radial number (one-indexed). The macros LIBL2_ALL_CUTS and
+  LIBL2_ALL_RADIALS are valid values to pass for cut_index and
+  radial_number respectively.
+
+int libL2_print_RELV( int cut_index, int radial_number )
+  Prints RELV data block for specified cut index (zero-indexed)
+  and radial number (one-indexed). The macros LIBL2_ALL_CUTS and
+  LIBL2_ALL_RADIALS are valid values to pass for cut_index and
+  radial_number respectively.
+
+int libL2_print_RRAD( int cut_index, int radial_number )
+  Prints RRAD data block for specified cut index (zero-indexed)
+  and radial number (one-indexed). The macros LIBL2_ALL_CUTS and
+  LIBL2_ALL_RADIALS are valid values to pass for cut_index and
+  radial_number respectively.
+
+

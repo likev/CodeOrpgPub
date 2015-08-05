@@ -1,0 +1,69 @@
+C
+C RCS info
+C $Author: steves $
+C $Locker:  $
+C $Date: 2011/02/25 15:20:08 $
+C $Id: vertxsct.ftn,v 1.9 2011/02/25 15:20:08 steves Exp $
+C $Revision: 1.9 $
+C $State: Exp $
+C
+      Program VERTICAL_CROSS_SECTION
+C**********************************************************************
+C
+C	Description: The main function for the Vertical Cross Section
+C		     Task
+C
+C**********************************************************************
+	IMPLICIT NONE
+
+$INCLUDE rpg_port.inc,**rpg_port	
+
+C adaptation common blocks
+$INCLUDE A309ADPT.INC, **A3CD70C5
+$INCLUDE A309ADPT.INC, **A3CD70CA
+$INCLUDE A309ADPT.INC, **A3CD70C8
+
+$INCLUDE A309.INC/G,**A3PM00		;BASEDATA, VCS52, VCS53
+                                        ;VCS54, VCSR8, VCSV8
+
+C Reflectivity/Velocity/Spectrum Width lookup tables
+$INCLUDE A3CD99.FTN
+
+        integer param
+
+	;** Specify inputs.
+	call RPG_in_data ( COMBBASE, RADIAL_DATA )
+
+	;** Specify outputs.
+        call RPG_out_data ( VCS52, VOLUME_DATA, 50 )
+        call RPG_out_data ( VCS53, VOLUME_DATA, 51 )
+        call RPG_out_data ( VCSR8, VOLUME_DATA, 85 )
+        call RPG_out_data ( VCSV8, VOLUME_DATA, 86 )
+C
+C   Commented out reference to obsolete product VCS54. Code
+C   has been retained in case SCS Cross Section (Spectrum Width) is
+C   resurrected at a later date.
+C       call RPG_out_data ( VCS54, VOLUME_DATA, 52 )
+
+	;** Register adapdation blocks.
+	call RPG_reg_adpt( COLRTBL_ID, COLRTBL_FIRST, BEGIN_VOLUME ) 
+	call RPG_reg_adpt( RDACNT_ID, RDACNT_FIRST, BEGIN_VOLUME ) 
+
+        ;** Register for scan summary update
+        call RPG_reg_scan_summary()
+
+	;** Register for site into adapdation data
+        call RPG_reg_site_info( SIRDALAT )
+
+        ;** tell system we are volume-based.
+        call RPG_task_init( VOLUME_BASED )
+
+        ;** Initialize the grids for the product displays.
+        call A3078A__BUILD_GRID()
+
+	;** waiting for activation.
+ 10     call RPG_wait_act( WAIT_DRIVING_INPUT )
+        call A30781__VXS_MAIN( param )
+	goto 10
+
+	end

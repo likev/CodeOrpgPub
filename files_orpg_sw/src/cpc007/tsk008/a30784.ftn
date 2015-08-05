@@ -1,0 +1,295 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/03 14:21:50 $
+C $Id: a30784.ftn,v 1.4 2002/12/03 14:21:50 christie Exp $
+C $Revision: 1.4 $
+C $State: Exp $
+C
+      SUBROUTINE  A30784__VRT_INTRPOL(BUFF, NYROW, NXCOL )
+C*
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A30784__VRT_INTRPOL
+*.
+*.  MODULE VERSION: 0013
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY: NONE
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       06 09 85      0000      BOB BENEDICT         RPG BUILD 2
+*.       04 22 88      0001      STEVE SMITH          SPR # 80061
+*.       10 11 88      0002      CHARLIE BAUMHER      SPR # 80271
+*.       05 09 90      0003      CHI CHAN             SPR # 90697
+*.       02 13 91      0004      MARK FRESCH          SPR # 91248
+*.       12 03 91      0005      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0006      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/20/92      0007      Toolset              SPR 91895
+*.       03/25/93      0008      Toolset              SPR NA93-06801
+*.       01/28/94      0009      Toolset              SPR NA94-01101
+*.       03/03/94      0010      Toolset              SPR NA94-05501
+*.       04/11/96      0011      Toolset              CCR NA95-11802
+*.       12/23/96      0012      Toolset              CCR NA95-11807
+*.       03/16/99      0013      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:
+*.
+*.   CALL A30784__VRT_INTRPOL(BUFF,NYROW,NXCOL)
+*.
+*.  MODULE FUNCTION:
+*.
+*.  VERTICAL CROSS SECTION ROUTINE TO VERTICALLY DOWNWARD INTERPOLATE
+*.  DATA IN THE CARTESIAN MAP. THIS "FILLS IN THE GAPS" THAT ARE LEFT
+*.  WHEN AZIMUTH SCANS DO NOT OVERLAP, OR ARE NON-CONTIGUOUS IN SPACE.
+*.  NO VALUES ARE INTERPOLATED BETWEEN BAD VALUES UNLESS BOTH TOP AND
+*.  BOTTOM INTERPOLATION VALUES ARE THE SAME BAD VALUE (BAD IS BELOW
+*.  THRESHOLD, RANGE FOLDED OR MISSING DATA VALUES).
+*.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT      TYPE        DESCRIPTION
+*.    -   -----      ----        -----------
+*.    G   RDBLTH     I*4         (CONSTANT)Flag value indicating sample bin
+*.                               Below Threshold
+*.    G   RDMSNG     I*4         (CONSTANT)Flag value indicating Missing
+*.                               sample bin
+*.    G   RDRNGF     I*4         (CONSTANT)Flag value indicating sample bin
+*.                               Range Folded
+*.    C   DEC1       I*4         (CONSTANT)Constant, used as a decrementor
+*.                               value.
+*.    C   INC1       I*4         (CONSTANT)Constant, used as an incrementor
+*.                               value.
+*.    C   NOT_MAPPED I*4         (CONSTANT)Grid value if no data was mapped to
+*.                               it-initialization value.
+*.    C   ONE        I*4         (CONSTANT)Constant value of one.
+*.    C   ZERO       I*4         (CONSTANT)Program parameter for 0.
+*.    P   BUFF       I*2         CARTESIAN MAP TO BE INTERPOLATED
+*.    P   NXCOL      I*4         NUMBER OF COLUMNS IN THE MAP
+*.    P   NYROW      I*4         NUMBER OF ROWS IN THE MAP
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    P   BUFF    I*2         CARTESIAN MAP TO BE INTERPOLATED
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME   TYPE        DESCRIPTION
+*.    ----   ----        -----------
+*.    BOTBOX I*4         INDEX TO DATA TO INTERPOLATE WITH
+*.    COL    I*4         COL LOOP INDEX
+*.    COL1   I*4         BEGINNING COLUMN NUMBER
+*.    HOLE   R*4         NUMBER OF BOXES THAT NEED TO HAVE INTERPOLATED DATA
+*.                       INSERTED
+*.    INTERP R*4         INTERPOLATED VALUE
+*.    K      I*4         LOOP INDEX
+*.    ROW    I*4         ROW LOOP INDEX
+*.    STEP   I*4         INCREMENTAL INTERPOLATED VALUE USED TO FILL IN THE
+*.                       EMPTY BOXES.
+*.    TOPBOX I*4         INDEX TO DATA TO INTERPOLATE WITH
+*.    X      R*4         LOOP COUNTER
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  NONE
+*.
+*.  DEVIATION FROM STANDARDS:  NONE
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP07.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK07.CSS
+*.
+*.  MISC:  NONE
+*.
+*.*******************************************************************
+C$DELETE
+$TITLE A30784__VERT_INTERPOLATION
+C$ENDDELETE
+C*
+C********************************************************************
+C*
+C*             A 3 0 7 8 4 __ VERT_ I N T E R P O L A T I O N
+C*
+C*    VERTICAL CROSS SECTION ROUTINE TO VERTICALY DOWNWARD
+C*    INTERPOLATE DATA IN THE CARTESIAN MAP.
+C*    THIS "FILLS IN THE GAPS" THAT ARE LEFT WHEN AZIMUTH
+C*    SCANS DO NOT OVERLAP, OR ARE NON-CONTIGUOUS IN SPACE.
+C*
+C*********************************************************************
+C*
+C*
+      IMPLICIT NONE
+C*
+C*
+$INCLUDE A309ADPT.INC/G,**A3CD70CA (NEND NLIST)
+$INCLUDE A304.INC/G,**A304P4 (NLIST)
+$INCLUDE A307.INC,  **A30788 (NLIST)
+C*
+C*
+C*
+C*   LOCAL DECLARATIONS
+C*
+#IFDEF LINUX
+       INTEGER*4    NYROW, NXCOL, STEP, K, COL1
+#ENDIF
+      INTEGER*2    BUFF(NXCOL, NYROW)
+C
+      INTEGER*4    ROW, COL
+#IFDEF LINUX
+C     NOTHING
+#ELSE
+      INTEGER*4    NYROW, NXCOL, STEP, K, COL1
+#ENDIF
+      INTEGER*4    TOPBOX, BOTBOX
+C
+      REAL*4       INTERP, X, HOLE
+C
+      PARAMETER    ( COL1 = 1 )
+C*
+C*
+C*
+C*
+C*********************************************************************
+C*    SEARCH EACH COLUMN OF THE GRAPH DOWNWARDS, LOOKING
+C*    FOR THE FIRST DATA ENTRY. CONTINUE SEARCHING PAST THIS
+C*    POINT FOR NULL ENTRIES. FILL THE NULL ENTRIES WITH
+C*    VALUES INTERPOLATED FROM THE BOXES IMEDIATELY ABOVE AND
+C*    BELOW THE NULL BOXES.
+C*
+X     TYPE *,'84: ENTERED A30784__VRT_INTERPOLATE ROUTINE '
+X     TYPE *,'84: BUFF, NYROW, NXCOL = ',BUFF,NYROW,NXCOL
+C
+      DO 800 COL = COL1, NXCOL
+        HOLE    = ZERO
+        ROW     = ZERO
+C*
+C*********************************************************************
+C*  THE FOLLOWING LOOP, IMPLEMENTED WITH A "GOTO", IS USED
+C*  TO FIND THE FIRST BOX, IN THIS PARTICULAR COLUMN, THAT
+C*  CONTAINS A VALUE (NON-NULL).
+C*
+ 200    CONTINUE
+        ROW = ROW +INC1
+        IF ( BUFF(COL,ROW).EQ.NOT_MAPPED) THEN
+C*
+C*********************************************************************
+C*  THE FIRST BOX IN THIS COLUMN WITH A VALUE HASN'T BEEN FOUND YET.
+C*  IF WE ARE AT THE END OF THIS COLUMN THEN BEGIN CHECKING THE
+C*  NEXT COLUMN FOR "HOLES" TO INTERPOLATE. RESET NOT_MAPPED (HOLE)
+C*  VALUE TO BELOW THRESHOLD FOR DISPLAY PURPOSES
+C*
+          BUFF(COL, ROW) = RDBLTH
+C
+C*  SIMULATE DO WHILE STRUCTURE WITH A GO TO
+C
+          IF ( ROW .LT. NYROW ) GO TO 200
+        ELSE
+C
+C*  FOUND FIRST MAPPED VALUE FROM TOP OF COLUMN
+C
+          TOPBOX = ROW
+C*
+C*********************************************************************
+C*  THE FIRST NON-NULL BOX HAS BEEN FOUND. TOPBOX = IT'S INDEX.
+C*  NOW SEARCH FOR THE FIRST NULL BOX (HOLE). IF A "HOLE" IS FOUND,
+C*  CONTINUE SEARCHING THIS COLUMN FOR MORE "HOLES" AND A BOTTOM BOX
+C*  TO INTERPOLATE WITH THE TOP BOX.
+C*
+          DO 400 BOTBOX = ROW  + INC1, NYROW
+            IF ( BUFF(COL, BOTBOX) .EQ. NOT_MAPPED ) THEN
+              HOLE = HOLE + INC1
+C*
+C*  SET HOLE TO BELOW THRESHOLD VALUE FOR DISPLAY PURPOSES IN CASE
+C*  THERE AREN'T GOOD VALUES TO INTERPOLATE FROM
+C*
+              BUFF(COL,BOTBOX) = RDBLTH
+            ELSE
+C*
+C*********************************************************************
+C*  FOUND A VALID VALUE IN THE NEXT ROW OF THIS COLUMN . IF THERE
+C*  WERE'T ANY "HOLES" ABOVE THIS VALUE THEN MAKE THIS NEW VALUE
+C*  THE TOP BOX. CONTINUE MOVING DOWN THE COLUMN CHECKING FOR "HOLES"
+C*  AND A BOTTOM BOX TO INTERPOLATE WITH THE TOP BOX.
+C*
+              IF ( HOLE .EQ. ZERO ) THEN
+                TOPBOX = BOTBOX
+              ELSE
+C*
+C*********************************************************************
+C*  A MAPPED BOX HAS BEEN FOUND, FOLLOWING THE NOT MAPPED BOX(ES).
+C*  BOTBOX = IT'S INDEX. NOW INTERPOLATE THE TOP AND BOTTOM
+C*  BOX VALUES TO FILL IN THE HOLES.
+C*
+C
+C*  IF BOTH TOP AND BOTTOM BOX VALUES ARE THE SAME, JUST FILL IN
+C*  HOLES WITH THIS VALUE.  NOTE THAT IF TOP AND BOTTOM VALUES ARE
+C*  FLAGGED BAD BUT THE SAME, HOLES WILL BE FILLED IN WITH THE BAD
+C*  VALUE.  THIS IS THE ONLY CASE WHERE HOLES CAN GET BAD VALUES
+C
+                IF ( BUFF(COL,TOPBOX).EQ.BUFF(COL,BOTBOX) ) THEN
+                  DO 250 K = TOPBOX + INC1, BOTBOX - DEC1
+                    BUFF(COL, K) = BUFF(COL, TOPBOX)
+ 250              CONTINUE
+C
+C*  ELSE DO INTERPOLATION ONLY IF TOP AND BOTTOM VALUES ARE GOOD
+C
+                ELSE IF (BUFF(COL,TOPBOX).NE.RDBLTH .AND. BUFF(COL,
+     $        TOPBOX).NE.RDRNGF .AND. BUFF(COL,TOPBOX).NE.RDMSNG) THEN
+C*
+C*  INTERPOLATE VERTICALLY IF ONLY IF BOTBOX IS "GOOD" DATA
+C*
+                  IF (BUFF(COL,BOTBOX).NE.RDBLTH.AND.BUFF(COL,BOTBOX)
+     $                .NE.RDRNGF .AND. BUFF(COL,BOTBOX).NE.RDMSNG) THEN
+C
+                    INTERP  = BUFF(COL,TOPBOX) - BUFF(COL,BOTBOX)
+                    INTERP  = INTERP / (HOLE + INC1)
+                    X       = ONE
+C
+                    DO 300 K = TOPBOX + INC1, BOTBOX - DEC1
+                      STEP        = NINT( X * INTERP )
+                      BUFF(COL,K) = BUFF(COL,TOPBOX) - STEP
+                      X           = X + INC1
+300                 CONTINUE
+                  END IF
+                END IF
+C*
+C*********************************************************************
+C*  RESET AND SEARCH FOR MORE HOLES IN THIS COLUMN.
+C*
+                TOPBOX  = BOTBOX
+                HOLE    = ZERO
+              END IF
+C
+            END IF
+400       CONTINUE
+C*
+        END IF
+C
+800   CONTINUE
+C
+X     TYPE *,'84: FINISHED A30784 '
+C
+      RETURN
+      END

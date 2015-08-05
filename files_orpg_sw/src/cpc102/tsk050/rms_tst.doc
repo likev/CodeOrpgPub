@@ -1,0 +1,403 @@
+File rms_tst.doc
+
+
+This file describes the RMS interface test tool.
+
+DESCRIPTION
+
+This tool simulates a connection with FAA/RMMS. It is a menu driven program that
+formats messages and places them into the rms_input buffer.  It then posts an
+event to alert the interface that a message is waiting.  This tool bypasses the
+port manager by reading and writing directly to the linear buffer.  It can be
+run without an RS-232 connection and will exericse the ORPG/RMS software by
+forcing it to respond as if an interface were connected.  It does not read any
+responses produced by the ORPG/RMS.  Another tool, rms_read_msg, is designed to
+perform that function.  By using both the rms_tst and rms_read_msg tools a fully
+operational FAA/RMMS can be simulated without having an actual connection.
+
+The rms_tst tool is started in a separate terminal window from the ORPG/RMS and
+communicates with the ORPG/RMS using linear buffers and event notification. The
+tool is completely independant and affects the ORPG/RMS only when posting a
+message to the input linear buffer.
+
++++ PROC
+
+DATA OUT
+                rms_input(4)
+
+
+EVENTS OUT
+                ORPGEVT_RMS_MSG_RECEIVED
+
+APIs USED
+                LB(3)
+                EN(3)
+---
+
+The main menu is the user interface for the test tool.  It appears in the
+terminal window when the program is started.
+
+MAIN MENU:
+                                        ------------------------------------
+                                                Main Menu
+                                        ------------------------------------
+		                4: RDA state
+		                5: RDA channel control
+		                6: RDA operational mode
+		                7: Archive II
+		                8: RPG control
+		                9: Force adaptation update
+		                10: Narrowband interface command
+		                11: Wideband Interface
+		                12: Wideband Loopback
+		                14: Free Text Message
+		                15: Edit PUP ID's
+		                17: Download PUP ID's
+		                18: Edit clutter zones
+		                20: Download clutter zones
+		                21: Edit bypass maps
+		                23: Download bypass maps
+		                24: Edit load shed
+		                26: Download load shed
+		                27: Edit Narrowband Configuration
+		                29: Download Narrowband Configuration
+		                30: Edit Narrowband Dial-In control
+		                32: Download Narrowband Dial-In control
+		                33: Edit authorized users
+		                35: Download authorized users
+		                39: RMS up
+		                99: Exit
+
+		                Enter number for message:
+
+
+MESSAGES:
+
+(4)  RDA STATE COMMAND - Sends a command to change the state of the RDA. The
+DATA ARGUMENTS are:
+                                RDA STATE COMMAND:
+                                        Standby (1)
+                                        Restart (2)
+                                        Operate (5)
+                                        Offline Operate (6)
+                                        Performance Data (10)
+                                        Activate/Switch to Auxiliary Power (12)
+                                        Select Remote Control (13)
+                                        Enable Local Control (15)
+                                        Auto - Calibration Override (16)
+                                        ISU Enable/Disable (17)
+                                        Base Data Transmission
+                                        Enable/Disable(18)
+                                        Request Status Data (19)
+                                        Automatic Calibration (20)
+                                        Spot Blanking(*) (22)
+                                BASE DATA ENABLE (**)
+                                        R, V, & W All Enabled (A)
+                                        Reflectivity enabled (R)
+                                        Velocity enabled (V)
+                                        Width Enabled (W)
+                                        R, V, & W All Disabled (N)
+
+* Spot blanking The Data arguments in halfwords 2 - 16 shall transmit the
+additional parameters needed for Base Data enable or the password for Spot
+blanking.
+** Up to 5 characters can be sent. combinations of V, W, and R separated
+with a delimiter ( / ) are allowed.
+
+(5)  RDA CHANNEL CONTROL COMMAND - Sends an RDA channel command.
+The DATAARGUMENTS are:
+                                 RDA CHANNEL CONTROL COMMAND:
+                                        Set RDA to Controlling Channel (4)
+                                        Set RDA to Non-Controlling Channel (5)
+                                PASSWORD (*)
+
+* An 8 character password is required from the FAA/RMMS.
+
+(6)  CHANGE RDA OPERATING MODE COMMAND - Sends an RDA mode command.
+The DATA ARGUMENT is:
+                                RDA OPERATING MODE COMMAND:
+                                        Set RDA to Maintenance Mode (2)
+                                        Set RDA to Operational Mode (4)
+
+(7)  ARCHIVE II CONTROL (RECORD) COMMAND - Sends an Archive II control message.
+The DATA ARGUMENTS are:
+                                ARCHIVE II COMMAND:
+                                        Start (4)
+                                        Stop (6)
+                                ARCHIVE NUMBER OF VOLUME SCANS:
+                                        Continous Recording (0)
+                                        Number of Volume Scans (1 - 255)
+
+
+(8)  RPG CONTROL COMMAND MESSAGE - Sends an ORPG control message.
+The DATA ARGUMENT is:
+                                ORPG CONTROL COMMAND:
+                                        Operational Mode (1)
+                                        Test Mode (2)
+                                        Restart (4)
+                                        Shutdown - Standby (5)
+                                        Shutdown _ Off (6)
+
+
+(9)  FORCE ADAPTATION DATA UPDATE COMMAND - Sends a command to force the active
+ORPG channel to update adaptation data to the redundant ORPG channel.
+The DATA ARGUMENT is:
+                                UPDATE ADAPTATION DATA (1)
+
+
+(10) NARROWBAND INTERFACE COMMAND - Sends a command to connect or disconnect
+either single or multiple narrowband lines.
+The DATA ARGUMENTS are:
+                                NARROWBAND COMMAND:
+                                        No Change in Status (0)
+                                        Disconnect (1)
+                                        Connect (2)
+                                STARTING LINE NUMBER (1 - 47)
+                                ENDING LINE NUMBER (*)  (0, 2 - 47)
+
+* If the Ending Line Number is zero then previous halfword is the single line
+number to change.
+
+
+(11) WIDEBAND INTERFACE COMMAND - Sends a command to connect or disconnect the
+wideband line.
+The DATA ARGUMENTS are:
+                                WIDEBAND COMMAND:
+                                        No Change in Status (0)
+                                        Disconnect (1)
+                                        Connect (2)
+                                WIDEBAND LINE TO CHANGE (1,3)
+
+(12) WIDEBAND LOOP TEST COMMAND - Sends a command to start or stop a wideband
+loopback test.
+The DATA ARGUMENT is:
+                                WIDEBAND LOOPBACK COMMAND:
+                                        Disable LB Test (0)
+                                        Set Wideband Loopback Interval (60000-300000)
+
+
+(14) SEND FREE TEXT MESSAGE COMMAND - Sends a free text message to the ORPG.
+The DATA ARGUMENTS are:
+                                SEND FREE TEXT MESSAGE:
+                                        All (0)
+                                        RDA (1)
+                                        UCP (2)
+                                        APUP (4)
+                                        PUES (8)
+                                        Line# (32)
+                                FREE TEXT MESSAGE SIZE (0 - 200)
+                                FREE TEXT MESSAGE (*)
+
+* The message consists of an ASCII string with 2 characters per halfword
+including embedded carriage returns, line feeds, etc.
+
+
+(15) EDIT ASSOCIATED PUPS IDS/COMMLINE ASSIGNMENTS - Requests a current PUP id.
+The DATA ARGUMENTS are:
+                                EDIT PUPsIDS COMMLINE ASSIGNMENT:
+                                        Edit PUPs IDS/Commline (1)
+                                        Cancel the pending Edit (2)
+                                LINE NUMBER (1 - 47)
+
+
+(17) DOWNLOAD ASSOCIATED PUPS IDS/COMMLINE ASSIGNMENTS - Sends the edited PUP id
+to the ORPG/RMS.
+The DATA ARGUMENTS are:
+                                LINE NUMBER (1 - 47)
+                                PUP ID (*)
+
+*An ASCII string representing the 4 character id used for the PUP.
+
+
+(18) EDIT CLUTTER SUPPRESSION REGIONS - Requests a current clutter suppression
+region for a selected file.
+The DATA ARGUMENTS are:
+                                EDIT CLUTTER SUPPRESSION REGIONS:
+                                        Edit Regions (1)
+                                        Cancel pending Edit (2)
+                                FILE NUMBER (1 - 20)
+
+
+(20) DOWNLOAD CLUTTER SUPPRESSION REGIONS (RMMS to ORPG) - Sends a an edited
+version of the clutter suppression regions for the requested file number to the
+ORPG/RMS.
+The DATA ARGUMENTS are:
+                                FILE NUMBER (1 - 20)
+                                START RANGE (2 - 510)
+                                STOP RANGE (2 - 510)
+                                START AZIMUTH (0 - 360)
+                                STOP AZIMUTH (0 - 360)
+                                ELEVATION SEGMENT NUMBER (1 - 2)
+                                OPERATION SELECT CODE:
+                                        Bypass filter forced (0)
+                                        Bypass Map in control (1)
+                                        Clutter filtering forced (2)
+                                CHANNEL D WIDTH:
+                                        Minimum (1)
+                                        Medium (2)
+                                        Maximum (3)
+                                CHANNEL S WIDTH:
+                                        Minimum (1)
+                                        Medium (2)
+                                        Maximum (3)
+
+These values can be sent for all zones in the file.
+
+
+(21) EDIT CLUTTER FILTER BYPASS MAPS - Requests the current clutter filter
+bypass map information.
+The DATA ARGUMENTS are:
+                                EDIT CLUTTER MAP:
+                                        Edit all maps (1)
+                                        Edit Seg# and Rad# (2)
+                                        Cancel pending edit (3)
+                                SEGMENT NUMBER (1 - 2)
+                                RADIAL NUMBER (1 - 256)
+
+
+(23) DOWNLOAD CLUTTER FILTER BYPASS MAPS - Sends edited clutter filter bypass
+map segement and radial to the ORPG/RMS.
+The DATA ARGUMENTS are:
+                                SEGMENT NUMBER (1 - 2)
+                                RADIAL NUMBER (1 - 256)
+                                RANGE BINS 0 - 15 (0,1)
+                                RANGE BINS 16 - 31 (0,1)
+                                .
+                                .
+                                .
+                                RANGE BINS 480 - 495 (0,1)
+                                RANGE BINS 496 - 511 (0,1)
+
+Each elevation segement includes 256 azimuth radials, each of which consists of
+512 range cells with each range cell having a 1 kilometer resolution starting at
+0 to 1 kilometer.  Increasing radials are taken to be clockwise relative to true
+north. Elevation segment number 1 is closest to the ground, increasing segment
+numbers denote increasing elevation.
+
+
+(24) EDIT LOAD SHED CATEGORIES - Request current load shed warning and alarm
+levels for the selected load ched category.
+The DATA ARGUMENTS are:
+                                EDIT LOAD SHED CATEGORIES:
+                                        Edit Load Shed Categories (1)
+                                        Cancel Pending Edit (2)
+                                WEATHER MODE:
+                                        Precipitation/Severe Weather (A)
+                                        Clear Air (B)
+                                LINE NUMBER:
+                                        CPU (1)
+                                        Memory (2)
+                                        Distribution (3)
+                                        Storage (4)
+                                        Input buffer (5)
+                                        Wideband (7)
+
+
+
+(26) DOWNLOAD LOAD SHED CATEGORIES - Sends edited load shed warning and alarm
+levels to the ORPG/RMS.
+The DATA ARGUMENTS are:
+                                LINE NUMBER:
+                                        CPU (1)
+                                        Memory (2)
+                                        Distribution (3)
+                                        Storage (4)
+                                        Input buffer (5)
+                                        Wideband (7)
+                                WARNING (0 - 100)
+                                ALARM (0 - 100)
+
+Typically, alarm levels are set high and warning levels are set significantly
+lower to prevent rapid variations between over and under load conditions.
+
+
+(27) EDIT NARROWBAND RECONFIGURATION CONTROL - Request current narrowband
+configuration for requested line.
+The DATA ARGUMENTS are:
+                                EDIT NB RE-CONFIGURATION:
+                                        Edit NB Re_Config (1)
+                                        Cancel pending Edit (2)
+                                LINE NUMBER (1 - 47)
+
+
+
+(29) DOWNLOAD NARROWBAND RECONFIGURATION CONTROL - Sends edited narrowband
+configuration for requested line to the ORPG/RMS.
+The DATA ARGUMENTS are:
+                                LINE NUMBER (1 - 47)
+                                LINE CLASS:
+                                        Associated PUP (APUP)
+                                        Non_Associated PUP (NAPUP)
+                                        Other Users (Others)
+                                        River Forecast Center (RFC)
+                                        Rain guage Data Acq. (RGDAC)
+                                        RPG Operator Position (RPGOP)
+                                BAUD RATE (4800,9600,56000)
+                                LINE TYPE:
+                                        Dedicated (DECIC)
+                                        Dial-In (DIALIN)
+                                        Dial-In/Dial-Out (DINOUT)
+                                PUP ID/PASSWORD (*)
+                                DISTRIBUTION METHOD:
+                                        Single Set of Products (SSET)
+                                        Single Set sent every volume scan(RSET)
+                                        One-time Requests (1TIM)
+                                        Combination (COMB)
+                                TIME LIMIT (1 - 1440)
+
+*An ASCII string representing the 4 character id used for the PUP ID/Password.
+
+(30) EDIT NARROWBAND DIAL-IN CONTROL - Sends current dial in configuration for
+selected line to the ORPG/RMS.
+The DATA ARGUMENTS are:
+                                EDIT NB DIAL-IN CONTROL:
+                                        Edit NB Dial-In (1)
+                                        Cancel pending Edit (2)
+                                LINE NUMBER (1 - 47)
+
+
+(32) DOWNLOAD NARROWBAND DIAL-IN CONTROL - Sends edited dial in configuration to
+the ORPG/RMS.
+The DATA ARGUMENTS are:
+                                LINE NUMBER (1 - 47)
+                                PORT PASSWORD (*)
+                                DISTRIBUTION METHOD:
+                                        Single Set of Products (SSET)
+                                        Single Set sent every volume scan(RSET)
+                                        One-time Requests (1TIM)
+                                        Combination (COMB)
+                                TIME LIMIT (1- 1440)
+
+*An ASCII string representing the 4 character id used for the Password.
+
+
+(33) EDIT NARROWBAND AUTHORIZED USER CONTROL - Request current authorized user
+configuration for specified line.
+The DATA ARGUMENTS are:
+                                EDIT NB AUTHORIZED USER:
+                                        Edit NB Auth User (1)
+                                        Cancel pending Edit (2)
+                                LINE NUMBER (1 - 47)
+
+
+(35) DOWNLOAD NARROWBAND AUTHORIZED USER CONTROL -  Sends edited authorized user
+configuration to the ORPG/RMS.
+The DATA ARGUMENTS are:
+                                LINE NUMBER (1 - 47)
+                                USER ID (*)
+                                USER PASSWORD (**)
+                                DISCONNECT OVERRIDE (Y, N)
+
+*An ASCII string of 4 characters representing the User id.
+**An ASCII string of 6 characters representing the User Password.
+
+
+(39) RMS UP MESSAGE - Sends an  RMS up message to simulate an interface
+re-connection.
+The DATA ARGUMENT is:
+                                RETRY NUMBER (0 - 32768)
+
+SEE ALSO  rms_read_msg(1) rms_tst(1)
+
+$Revision: 1.3 $
+

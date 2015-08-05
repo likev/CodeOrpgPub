@@ -1,0 +1,171 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/17 16:27:15 $
+C $Id: a317z8.ftn,v 1.2 2002/12/17 16:27:15 christie Exp $
+C $Revision: 1.2 $
+C $State: Exp $
+C
+      SUBROUTINE A317Z8__REM_UNC_PVS( NUM_PV, RAD_PV )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A317Z8__REM_UNC_PVS
+*.
+*.  MODULE VERSION: 0001
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       05/29/97      0000      MARK FRESCH          CCR NA95-21503
+*.  CALLING SEQUENCE;  CALL A317Z8__REM_UNC_PVS( NUM_PV, RAD_PV )
+*.       03/16/99      0001      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:NONE.
+*.
+*.  MODULE FUNCTION:
+*.
+*.  THIS MODULE REMOVES UNCORRELATED PAT. VECS FROM RAD_PV WHEN
+*.  THE P2DF ID STACK IS EXHAUSTED ON AN ELEVATION BASIS.  IT
+*.  PREVENTS THE INSERTION OF MULTIPLE P2DFs WITH THE SAME ID
+*.  OR A P2DF WITH AN ID OF ZERO FROM BEING USED.  THE LATTER IS
+*.  ESPECIALLY IMPORTANT SINCE THE P2DF IDs ARE USED AS AN INDEX
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT         TYPE        DESCRIPTION
+*.    -   -----         ----        -----------
+*.    C   MAX_PV_RAD    I*4         (CONSTANT)MAXIMUM NUMBER OF PATTERN
+*.                                  VECTORS PER RADIAL IN THE RAD_PV ARRAY
+*.    C   MAX_RADPV_ATR I*4         (CONSTANT)NUMBER OF ATTRIBUTES IN THE
+*.                                  RAD_PV ARRAY
+*.    C   PV_BIN        I*4         (CONSTANT)Index in TDAMAIN to pattern
+*.                                  vector bin numbers
+*.    C   PV_DV         I*4         (CONSTANT)Index to Pattern vector delta
+*.                                  velocity
+*.    C   PV_ID         I*4         (CONSTANT)INDEX INTO RAD_PV TO THE 2D
+*.                                  FEATURE ID NUMBER TO WHICH A PATTERN
+*.                                  VECTOR IS ASSIGNED
+*.    C   PV_INX        I*4         (CONSTANT)INDEX INTO RAD_PV TO THE PATTERN
+*.                                  VECTOR POINTER INTO THE PATTERN VECTOR
+*.                                  ARRAY - TDAMAIN
+*.    P   NUM_PV        I*4         The number of above threshold pattern
+*.                                  vectors in the current radial.
+*.    P   RAD_PV        I*4         CONTAINS THE CORRELATION FLAG, BIN #
+*.                                  (RANGE), AND INDEX INTO TDAMAIN OF THE
+*.                                  ABOVE THRESHOLD PATTERN VECTORS IN THE
+*.                                  "CURRENT" RADIAL
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    P   NUM_PV  I*4         The number of above threshold pattern vectors in
+*.                            the current radial.
+*.    P   RAD_PV  I*4         CONTAINS THE CORRELATION FLAG, BIN # (RANGE),
+*.                            AND INDEX INTO TDAMAIN OF THE ABOVE THRESHOLD
+*.                            PATTERN VECTORS IN THE "CURRENT" RADIAL
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME      TYPE        DESCRIPTION
+*.    ----      ----        -----------
+*.    DEL_PVCNT I*4         Number of deleted pattern vectors
+*.    ID1       I*4         Pattern vector ID
+*.    ID2       I*4         Pattern vector ID
+*.    IX        I*4         Do loop variable for the number of pattern vectors
+*.    IXX       I*4         Do loop variable for the remaining pattern vectors
+*.    PV_SHR    I*4         UNUSED - INDEX INTO TDAMAIN TO THE SHEAR OF A
+*.                          PATTERN VECTOR
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     Compiled using COMP17.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     Linked using LINK17.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+      IMPLICIT NONE
+C
+$INCLUDE A317BUF.INC/G, **A317P3T  (NLIST)
+C
+$INCLUDE A317.INC/G, **A317TCP  (NLIST)
+C
+C** NUM_PV is the number of above threshold pattern vectors
+C** in the current radial.
+C
+      INTEGER DEL_PVCNT, NUM_PV, RAD_PV( MAX_RADPV_ATR, MAX_PV_RAD )
+      INTEGER IX, IXX, ID1, ID2
+C
+C************************** EXECUTABLE CODE *************************
+C
+C** Initialize the number of deleted pattern vectors.
+C
+      DEL_PVCNT = 0
+C
+C** Loop through all the above threshold pattern vectors in the
+C** current radial and delete those which are uncorrelated.
+C
+      DO 100 IX = 1,NUM_PV
+        ID1 = RAD_PV( PV_ID, IX )
+C
+C** Uncorrelated pattern vectors will have an ID of 0.
+C
+        IF( ID1 .EQ. 0 ) THEN
+           DEL_PVCNT = DEL_PVCNT + 1
+           DO 110 IXX = IX + 1, NUM_PV
+C
+C** Loop through the remaining above threshold pattern vectors
+C** in the radial and move them up one one position in the
+C** RAD_PV array, in effect deleting the uncorrelated vector.
+C
+             ID2 = RAD_PV( PV_ID, IXX )
+             IF( ID2 .GT. 0 ) THEN
+               RAD_PV( PV_ID, IX ) = ID2
+               RAD_PV( PV_BIN, IX ) = RAD_PV( PV_BIN, IXX )
+               RAD_PV( PV_SHR, IX ) = RAD_PV( PV_SHR, IXX )
+               RAD_PV( PV_DV, IX )  = RAD_PV( PV_DV, IXX )
+               RAD_PV( PV_INX, IX ) = RAD_PV( PV_INX, IXX )
+               RAD_PV( PV_ID, IXX ) = 0
+C
+C** Once the next pattern vector has been moved up skip to
+C** the next pattern vector in the outside loop.
+C
+               GO TO 100
+             ENDIF
+ 110       CONTINUE
+        END IF
+ 100  CONTINUE
+C
+C** Correct the number of above threshold pattern vectors in
+C** in the current radial.
+C
+      NUM_PV = NUM_PV - DEL_PVCNT
+      RETURN
+      END

@@ -1,0 +1,73 @@
+LB_stat(3) 		   ORPG SDD Manpage   		LB_stat(3)
+
+NAME
+LB_stat - return status information for a Linear Buffer (LB) file
+
+SYNOPSIS
+#include <lb.h>
+int LB_stat (int lbd, LB_status *status)
+
+DESCRIPTION
+This function returns, in argument "status", the status information 
+which includes the following fields:
+
+	LB_attr *attr:	The LB attributes.
+
+	time_t time:	LB creation time.
+
+	int n_msgs:	Number of messages in the LB.
+
+	int updated:	LB_TRUE or LB_FALSE - the update status (the LB 
+			has been updated since last LB_stat call). For 
+			LB_REPLACE type LB, this field is set to LB_TRUE 
+			if a new message is added, a message is removed 
+			or any of the listed message in check_list is 
+			replaced since last LB_stat call. For other 
+			types of LB, this field is set to LB_TRUE 
+			if a new message is added or any message is 
+			removed.
+
+	int n_check:	The number of messages to be checked for update 
+			(the size of array check_list). This and the 
+			next "check_list" are used for LB_REPLACE type 
+			only. For non-LB_REPLACE, if n_check is not 
+			zero, LB_stat will fail.
+
+	LB_check_list *check_list: The array used for message based 
+			update check. The LB_check_list structure has 
+			the following two fields:
+
+	LB_id_t id:	 message id;
+
+	int status:	 message status;
+
+			For each element in array check_list, the user 
+			specifies, in check_list[i].id, the id of a 
+			message that requires update check. Upon return 
+			check_list[i].status is assigned by 
+			LB_MSG_UPDATED, LB_MSG_NOCHANGE or 
+			LB_MSG_NOT_FOUND if the message is respectively 
+			updated (i.e. replaced), since the previous 
+			LB_stat call, not updated or not found in the 
+			LB. Array check_list must have "n_check" 
+			effective elements.
+
+If "attr" is NULL, LB_attr is not returned. If n_check is 0, 
+"check_list" is never used. 
+
+LB_stat returns LB_SUCCESS on success or one of the following 
+negative numbers to indicate an error:
+
+	LB_BAD_DESCRIPTOR:	"lbd" is not a valid LB descriptor.
+	LB_N_CHECK_ERROR:	n_check is non-zero and the LB is not
+				of LB_REPLACE type.
+	LB_MALLOC_FAILED:	Failed in allocating memory.
+	LB_SHMDT_FAILED:	Failed in shmdt system call.
+	LB_LOCK_FAILED:		Failed in a lock system call.
+	LB_MMAP_FAILED:		Failed in mmap system call.
+	LB_MPROTECT_FAILED:	Failed in mprotect system call.
+
+SEE ALSO
+LB_clear(3), LB_close(3), LB_direct(3), LB_list(3), LB_mark(3), LB_open(3),
+LB_previous_msgid(3), LB_read(3), LB_remove(3), LB_seek(3), LB_size(3),
+LB_write(3), lb(3), lb_create(1), lb_info(1), lb_rm(1)

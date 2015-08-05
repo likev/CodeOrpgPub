@@ -1,0 +1,277 @@
+C
+C RCS info
+C $Author: steves $
+C $Locker:  $
+C $Date: 2002/08/01 20:42:41 $
+C $Id: a31491.ftn,v 1.1 2002/08/01 20:42:41 steves Exp $
+C $Revision: 1.1 $
+C $State: Exp $
+C
+      SUBROUTINE A31491__DIGSTM_PRODUCT_CONTROL(HYDRMESG, HYDRADAP,
+     $               HYDRSUPL, REASONKODE, OPSTAT1, VSNUM, STMINFO)
+
+
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A31491__DIGSTM_PRODUCT_CONTROL
+*.
+*.  MODULE VERSION: 0000
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES 
+*.       ----------    -------   ----------------     -------------------
+*.       07/31/02      0000      Jihong Liu           CCR NA02-15801
+*.
+*.
+*.  CALLING SEQUENCE: CALL  A31491__DIGSTM_PRODUCT_CONTROL(HYDRMESG, HYDRADAP,
+*.     $               HYDRSUPL, REASONKODE, OPSTAT1, VSNUM, STMINFO)
+*.
+*.  MODULE FUNCTION:
+*.
+*.     This routine performs the buffer control for Digital Storm Total
+*.     operations: preparing the data level for packing into product,
+*.     making the byte compaction in layer1, filling the alpha-
+*.     numerical data into layer2  and packing its product header part
+*.
+*.  MODULES CALLED: A31492__GET_DLSCALE_MAX,  A31493__DIG_RADIAL,
+*.                  A31494__APPEND_ASCII, A31495__PRODUCT_HDR
+*.
+*.
+*.  PRAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT         TYPE        DESCRIPTION
+*.    -   -----         ----        -----------
+*.    G   MEM           I*4         Array in RPG shared memory set aside for
+*.    G   DESTROY       I*4         (CONSTANT)Mnemonic used as input to
+*.                                  A31216__REL_OUTBUF. Indicates "do not pass
+*.                                  data to other tasks".
+*.                                  data is bad.
+*.    G   FORWARD       I*4         (CONSTANT)Parameter to indicate that an
+*.                                  output buffer is to be forwarded to
+*.                                  successor tasks
+*.    G   NORMAL        I*4         (CONSTANT)Parameter which indicates normal
+*.                                  completion of requested operation to
+*.                                  acquire input or output buffer
+*.    G   NO_MEM        I*4         (CONSTANT)Parameter which indicates no
+*.                                  memory available on attempt to acquire
+*.                                  output buffer
+*.    G   PROD_MEM_SHED I*4         (CONSTANT)(CONSTANT)Parameter which
+*.                                  indicates that product aborted due to
+*.                                  memory load shedding
+*.    G   SCRATCH       I*4         (CONSTANT)DATA BUFFER TYPE FOR TASK
+*.                                  SCRATCH DATA BUFFERS
+*.    C   DIG_STM_SIZ   I*4         (CONSTANT)Product buffer size requested
+*.                                  (in words) from call to A31215 to get
+*.                                  product buffer.
+*.    C   KPOLAR_WORDS  I*4         (CONSTANT)Scratch buffer size for polar
+*.                                  grid.
+*.    P   STMINFO       I*2         Polar grid of precipitation value for
+*.                                  latest volume scan.
+*.    P   HYDRADAP      R*4         Array of RPG adaptation parameters.
+*.    P   HYDRMESG      I*4         Array for the precip. status message.
+*.    P   HYDRSUPL      I*4         Supplemental data array.
+*.    P   VSNUM         I*4         Volume scan number
+*.    P   REASONKODE    I*4         Reason code why product is NULL
+*.    P   OPSTAT1       I*4         Buffer status returned from call to
+*.                                  GET_OUTBUF
+*.
+*.    *   OUTPUT          TYPE      DESCRIPTION
+*.    -   ------          ----       -----------
+*.    G   MEM             I*4       Array in RPG shared memory set aside for
+*.                                  buffer sharing.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE    DESCRIPTION
+*.    -   ----------------  ----    -----------
+*.    G   MEM               I*4     Array in RPG shared memory set aside
+*.                                  for buffer sharing.
+*.    P   STMINFO           I*2     Polar grid of precipitation value for
+*.                                  latest volume scan.
+*.    P   HYDRADAP          R*4     Array of RPG adaptation parameters.
+*.    P   HYDRMESG          I*4     Array for the precip. status message.
+*.    P   HYDRSUPL          I*4     Supplemental data array.
+*.    P   VSNUM             I*4     Volume scan number
+*.    P   REASONKODE        I*4     Reason code why product is NULL
+*.    P   OPSTAT1           I*4     Buffer status returned from call to
+*.                                  GET_OUTBUF
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME           TYPE        DESCRIPTION
+*.    ----           ----        -----------
+*.    HYDIGSTM       I*4         Data Buffer Type: Digtital Storm Total Precip
+*.                               product buffer
+*.    I              I*4         Do loop index for I2_GRID_PTR
+*.
+*.    I2_GRID_PTR    I*4         Pointer to start of buffer for I*2 output
+*.                               grid
+*.    I2_GRID_STATUS I*4         Status of buffer reception for I*2 output
+*.                               grid
+*.    MAXVAL         I*4         Max value found in Storm Total grid
+*.    DSP_CODE       I*4         Product code number for DSP
+*.    SCALE_FACTOR   I*4         Scale factor to determine the real data  
+*.    NULL           I*4         Parameterized value =0
+*.    OPSTAT1        I*4         Buffer status returned from call to
+*.                               GET_OUTBUF
+*.    P138PTR        I*4        BUFFER POINTER FOR PRODUCT 138
+*.    P138STAT       I*4        Buffer status returned from call to A31215
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    None
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3146C4
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  MISC:  None
+*.********************************************************************************
+
+C
+C RCS info
+C $Author: steves $
+C $Locker:  $
+C $Date: 2002/07/31 13:57:50
+C $Id: a31491.ftn,v 1.1 2002/08/01 20:42:41 steves Exp $
+C $Revision: 1.1 $
+C $State: Exp $
+C
+
+      IMPLICIT NONE
+
+
+$INCLUDE A309.INC/G,**A3PM00 (NEND NLIST)
+$INCLUDE            **A3PM07 (NEND NLIST)
+$INCLUDE            **A3CD00 (NEND NLIST)
+
+$INCLUDE A313HBUF.INC/G,**A313HYPP (NEND NLIST)
+$INCLUDE                **A313HYDD (NEND NLIST)
+
+$INCLUDE A3143.INC/G,**A3143P4 (NEND NLIST)
+
+$INCLUDE A3146.INC/G,**A3146P1 (NEND NLIST)
+$INCLUDE             **A3146P3 (NEND NLIST)
+$INCLUDE             **A314C2 (NEND NLIST)
+
+C
+C---------------------------------------------------------------------------------
+C 
+      INTEGER*2 STMINFO (MAX_ADJBINS, MAX_AZMTHS)
+C
+      INTEGER REASONKODE, VSNUM, OPSTAT1, LYR1EN, I
+      INTEGER P138PTR, P138STAT, NULL
+      INTEGER  MAXVAL, SCALE_FACTOR
+      INTEGER I2_GRID_PTR, I2_GRID_STATUS, DSP_CODE
+      PARAMETER(NULL=0)
+      PARAMETER(DSP_CODE=138)
+      MAXVAL=NULL
+
+C** GET OUTPUT BUFFER FOR DIGTAL STORM TOTAL PRODUCT
+C
+X     TYPE *,'A31491: ******************** BEGIN TO BUILD DIG_STORM ',
+X    $                'PRODUCT'
+X     TYPE *,'A31491: READY FOR A31215-HYDIGSTM... P138SIZ=',
+X    $                    DIG_STM_SIZ 
+C
+      CALL A31215__GET_OUTBUF(HYDIGSTM,DIG_STM_SIZ,P138PTR,P138STAT)
+      IF (P138STAT.EQ.NORMAL .AND. OPSTAT1.NE.NO_MEM) THEN
+C
+X        TYPE *,'A31491: PROD138 OUTBUF STATUS IS NORMAL'
+C** Get scratch buffer for biased output array.
+C
+         CALL A31215__GET_OUTBUF (SCRATCH, KPOLAR_WORDS,
+     $                               I2_GRID_PTR, I2_GRID_STATUS)
+C
+         IF ((I2_GRID_STATUS .EQ. NORMAL)) THEN
+C
+C** DO IF A STORM TOTAL GRID WAS OBTAINED
+C
+           IF (REASONKODE.EQ.NULL) THEN
+C
+C FIND THE MAXIMUM VALUE & SCALE FACTOR, AND THE CALCULATION OF DATA LEVEL 
+              
+             CALL A31492__GET_DLSCALE_MAX(MAXVAL, SCALE_FACTOR,
+     $                         STMINFO, MEM(I2_GRID_PTR))
+C
+           ELSE
+C
+C** NO DATA, SET OUTPUT GRID TO ZERO
+C
+X             TYPE *,'A31491: ERROR CONDITION= ',REASONKODE
+X             TYPE *,'A31491: SET GRID TO ZERO'
+C
+             DO 100 I=NULL,KPOLAR_WORDS-INCRMENT
+                MEM(I2_GRID_PTR + I) = NULL
+ 100         CONTINUE
+C
+           ENDIF
+C
+C** 256-LEVEL DIGITAL RADIAL ENCODING OF THE BIASED STORM TOTAL 
+C** DATA, AND FILL THE PRODUCT SYMBOLOGY BlOCK
+
+           CALL A31493__DIG_RADIAL(MEM(I2_GRID_PTR),MEM(P138PTR),
+     $                             LYR1EN) 
+C** RELEASE THE SCRATCH BUFFER
+C
+           CALL A31216__REL_OUTBUF (I2_GRID_PTR, DESTROY)
+C
+C** Format ASCII data in Layer 2 of product buffer 
+
+           CALL A31494__APPEND_ASCII(HYDRMESG,HYDRADAP,HYDRSUPL,
+     $                               LYR1EN,MEM(P138PTR))
+C
+C** Format the product header.
+C
+           CALL A31495__PRODUCT_HDR (MEM(P138PTR),VSNUM,DSP_CODE,
+     $                               MAXVAL, SCALE_FACTOR, HYDRSUPL)
+C
+C** Release the product output buffer.
+C
+           CALL A31216__REL_OUTBUF(P138PTR, FORWARD)
+      
+         ELSE
+C
+C** Cannot get scratch buffers for output grid processing
+C** Release appropriate buffer and set reason code
+C
+           CALL A31216__REL_OUTBUF (P138PTR, DESTROY)
+           CALL A31169__ABORT_DATATYPE_BECAUSE(HYDIGSTM,PROD_MEM_SHED)
+C
+         ENDIF
+      ELSE
+C
+C** Cannot get buffer for Digital Storm Total (product-138)
+C
+C
+        IF (P138STAT.EQ.NO_MEM .OR. (P138STAT.EQ.NORMAL .AND.
+     $                              OPSTAT1.EQ.NO_MEM)) THEN
+C
+X         TYPE *,'A31491: P138STAT=',P138STAT,'   OPSTAT1=',OPSTAT1
+X         TYPE *,'A31491:  NO_MEM: CALL A31169 ABORT DATATYPE'
+C
+          CALL A31169__ABORT_DATATYPE_BECAUSE(HYDIGSTM,PROD_MEM_SHED)
+          IF (P138STAT.EQ.NORMAL) CALL A31216__REL_OUTBUF(P138PTR,
+     $                                                DESTROY)
+        ENDIF
+      ENDIF
+C
+C** That's all....
+C
+X     TYPE *,'A31491: ******************** FINISHED BUILDING DIG_STORM ',
+X    $                'PRODUCT'
+X     TYPE *,'A31491: EXITING A31491'
+C
+      RETURN
+      END
+ 

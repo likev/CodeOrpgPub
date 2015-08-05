@@ -1,0 +1,172 @@
+C 
+C RCS info 
+C $Author: nolitam $ 
+C $Locker:  $ 
+C $Date: 2002/12/11 19:32:07 $ 
+C $Id: a3cd09.ftn,v 1.2 2002/12/11 19:32:07 nolitam Exp $ 
+C $Revision: 1.2 $ 
+C $State: Exp $ 
+C 
+      BLOCK DATA A3CD09__STORM_DATA
+*.*******************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3CD09__STORM_DATA
+*.
+*.  MODULE VERSION: 0010
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       03 24 86      0000      PHIL STALEY
+*.       10 02 86      0001      J GROMMONS           SPR # 60346,60650
+*.       01 30 91      0002      JOHN DEPHILIP        SPR # 91250
+*.       12 03 91      0003      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0004      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0005      Toolset              SPR 91895
+*.       03/25/93      0006      Toolset              SPR NA93-06801
+*.       01/28/94      0007      Toolset              SPR NA94-01101
+*.       03/03/94      0008      Toolset              SPR NA94-05501
+*.       04/01/95      0009      Toolset              CCR NA95-11802
+*.       07/06/95      0010      STEVE SMITH          CCR NA94-26301
+*.       07/06/95      0010      STEVE SMITH          CCR NA94-26302
+*.
+*.  CALLING SEQUENCE: N/A
+*.
+*.  MODULE FUNCTION:
+*.
+*.     INITIALIZE STORM STRUCTURE AND MOTION DATA
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT    TYPE        DESCRIPTION
+*.    -   -----    ----        -----------
+*.    G   NSTR_TOT I*4         (CONSTANT)Total number of storms.
+*.
+*.    *   OUTPUT   TYPE        DESCRIPTION
+*.    -   ------   ----        -----------
+*.    G   AVGSTDIR R*4         Average direction of all storms for which
+*.                             forcasts were made in this volume scan.
+*.    G   AVGSTSPD R*4         Average speed of all storms for which forecasts
+*.                             were made in this volume scan.
+*.    G   LOKID    L*4         Test & set bit for locking/unlocking shared
+*.                             common block (for allowing writes).
+*.    G   NUMSTRM  I*4         Number of storms.
+*.    G   STRMID   I*4         Array containing ID-labels of all storms alive
+*.                             in current volume scan.
+*.    G   STRMINDX I*4         Array containing low and high elevation indices
+*.                             of each storm of current volume scan.
+*.    G   STRMOVE  R*4         Array containing X & Y positions and vector
+*.                             motion of each storm.
+*.    G   TIMETAG  R*4         Time of beginning of volume scan in
+*.                             Milliseconds past Midnight.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME     TYPE        DESCRIPTION
+*.    ----     ----        -----------
+*.    NITEMS   I*4         NUMBER OF ITEMS IN  STRMOVE ARRAY (STORM STRUCTURE)
+*.                         TO INITIALIZE.
+*.    NSTR_MOV I*4         Dimensional Parameter.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD09
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS:  NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     THIS MODULE IS COMPILED USING THE COMP09.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     THIS MODULE IS LINKED USING THE LINK09.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+C$NCOMP
+C*********************************************************************
+C
+C         STORM SERIES: FILL SHARED BUFFER (BLOCK DATA)  ROUTINE
+C
+C*********************************************************************
+C
+C
+C** This routine fills a shared buffer with special information about
+C** storm structure and motion that is needed by various products.
+C
+      IMPLICIT NONE
+C
+C**Attach local common block (SHARED IMAGE):
+C**Attach segment buffer locks:
+$INCLUDE A315BUF.INC/G, **A315LOCK (NLIST)
+C
+C**  Attach pointers and definitions for storm adaptation data
+$INCLUDE A315BUF.INC/G,**A315P3S (NLIST)
+$INCLUDE **A315PSAD (NLIST)
+$INCLUDE **A315CSAD (NLIST)
+C
+C**Attach local common block (SHARED IMAGE):
+$INCLUDE A309.INC/G,**A3CD09 (NLIST)
+$INCLUDE **A3CD09DZ (NLIST)
+C
+C**Attach local common block (SHARED IMAGE):
+$INCLUDE A315BUF.INC/G, **A315P7F (NLIST)
+$INCLUDE                **A315PTRD (NLIST)
+$INCLUDE                **A315CTRD (NLIST)
+C
+      INTEGER  NITEMS
+      PARAMETER ( NITEMS = NSTR_MOV*NSTR_TOT )
+      INTEGER  NM, NT
+C
+      DATA  NUMSTRM/0/
+      DATA STRMID/1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20
+     $  ,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40
+     $  ,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60
+     $  ,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80
+     $  ,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99,100
+     $ /
+      DATA  LOKID/.FALSE./
+      DATA  TIMETAG/64696000./, AVGSTSPD/0.0/, AVGSTDIR/0.0/
+      DATA  STRMOVE/ NITEMS*0.0 /
+C
+C**  Begin definitions and data declarations for A3CD09DZ
+C
+      INTEGER TWO
+      PARAMETER ( TWO = 2 )
+      INTEGER NITEM0
+      PARAMETER ( NITEM0 = NSEG_ATR * NSEG_MAX * TWO )
+      INTEGER NITEM1
+      PARAMETER ( NITEM1 = NSEG_REF * NRAD_ELV * NSEG_NID * TWO )
+      INTEGER NITEM2
+      PARAMETER ( NITEM2 = NRAD_ELV * TWO )
+C
+      DATA SEGMAIN/NITEM0*0/
+      DATA SEGINDX/NITEM1*0/
+      DATA SEGAZIM/NITEM2*0.0/
+      DATA STRMADAP/NSTA_ADP*0/
+      DATA SEGBUF_TH/1.5,3.5,10.0,16.0,21.0,24.0,24.0/
+C
+      DATA SEG_BUF_LOCK/ .FALSE., .FALSE. /
+C
+      END

@@ -1,0 +1,80 @@
+      Program TDA1D
+C***********************************************************************
+C
+C	Description: This module contains the main function for the 
+C	Tornado Detection Algorithm(TDA) 1D algorithm. 
+C
+C***********************************************************************
+C
+C RCS info
+C $Author: steves $
+C $Locker:  $
+C $Date: 2011/02/24 15:22:12 $
+C $Id: tda1d.ftn,v 1.8 2011/02/24 15:22:12 steves Exp $
+C $Revision: 1.8 $
+C $State: Exp $
+C
+	IMPLICIT NONE
+
+$INCLUDE rpg_port.inc,**rpg_port	
+
+C adaptation common blocks
+$INCLUDE A309ADPT.INC, **A3CD70_TDA
+$INCLUDE A309ADPT.INC, **A3CD70_DEA_NAMES
+$INCLUDE A309ADPT.INC, **A3CD70C8
+
+C itc data (A3CD09 global common variables)
+$INCLUDE itc.inc,**PVECS09
+$INCLUDE itc.inc,**A317LOCK
+$INCLUDE itc.inc,**A317CTAD
+
+$INCLUDE A309.INC/G,**A3PM00	
+
+$INCLUDE A304.INC/G,**A304P4
+$INCLUDE A317.INC/G,**A317C3T
+
+        integer param
+
+	INTEGER TDA_CALLBACK_FX     ;adapt callback f(x)
+	EXTERNAL TDA_CALLBACK_FX    ;adapt callback f(x)
+
+	;** Specify inputs.
+	call RPG_in_data ( COMBBASE, RADIAL_DATA )
+
+	;** Specify outputs.
+        call RPG_out_data ( TDA1DATR, ELEVATION_DATA, INT_PROD )
+
+	;** Register adaptation blocks and scan summary array.
+	call RPG_reg_adpt( RDACNT_ID, RDACNT_FIRST, BEGIN_VOLUME ) 
+	call RPG_reg_scan_summary()
+
+	;** register adaptation blocks and the scan summary array
+	call RPG_reg_ade_callback( TDA_CALLBACK_FX,
+     $                             MINREFL,
+     $                             TDA_DEA_NAME,
+     $                             BEGIN_VOLUME )
+
+	;** Register ITC input and outputs.
+	call RPG_itc_out ( PVECS09_ID, PVECS09_FIRST, PVECS09_LAST (2), 
+     1                     TDA1DATR )
+        call RPG_itc_out ( A317CTAD_ID, A317CTAD_FIRST, 
+     1                     A317CTAD_LAST (2), TDA1DATR )
+        call RPG_itc_out ( A317LOCK_ID, A317LOCK_FIRST, 
+     1                     A317LOCK_LAST (2), TDA1DATR )
+
+        ;** Initialize this task.
+        call RPG_task_init( VOLUME_BASED )
+
+        ;** Initialize the hi/low buffer flag for SEGMAIN and SEGINDX
+        TDAHIFLG = .FALSE.
+
+        ;** Unlock the TDA buffer locks.
+        TDA_BUF_LOCK( LOW ) = .FALSE.
+        TDA_BUF_LOCK( HIGH ) = .FALSE.
+
+	;** The main loop, which will never end.
+ 10     call RPG_wait_act( WAIT_DRIVING_INPUT )
+        call A317A7__TDA1D_BUF_CNTRL( param )
+	goto 10
+
+	end

@@ -1,0 +1,371 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/16 19:41:03 $
+C $Id: a315s5.ftn,v 1.3 2002/12/16 19:41:03 christie Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A315S5__STORE_CELLS( NSTORMS, NCOMPSTK, STORMAIN,
+     >                                COMPSTAK, VOLTIME )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A315S5__STORE_CELLS
+*.
+*.  MODULE VERSION: 0002
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       06 29 95      0000      STEVE SMITH          CCR NA94-26302
+*.       12/23/96      0001      Toolset              CCR NA95-11807
+*.       03/16/99      0002      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A315S5__STORE_CELLS( NSTORMS, NCOMPSTK,
+*.                                              STORMAIN, COMPSTAK,
+*.                                              VOLTIME )
+*.
+*.  MODULE FUNCTION:
+*.
+*.
+*.  MODULES CALLED: A315U5__SORT_COMPONENT_STACK 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT        TYPE        DESCRIPTION
+*.    -   -----        ----        -----------
+*.    G   ONE_RADIAN   R*4         (CONSTANT)PARAMETER VALUE FOR ONE RADIAN
+*.    G   STM_AZM      I*4         (CONSTANT)Index to centroid's azimuth in
+*.                                 centroid array.
+*.    G   STM_BAS      I*4         (CONSTANT)Index to centroid's base in
+*.                                 centroid array.
+*.    G   STM_LCB      I*4         (CONSTANT)Index to flag value indicating
+*.                                 storm base is from lowest elevation cut in
+*.                                 centroid array.
+*.    G   STM_LCT      I*4         (CONSTANT)Index to flag value indicating
+*.                                 storm top is from highest elevation cut in
+*.                                 centroid array.
+*.    G   STM_MRF      I*4         (CONSTANT)Index to maximum refelctivity in
+*.                                 cetroids array.
+*.    G   STM_RAN      I*4         (CONSTANT)Index to centroid's range in
+*.                                 centroids array.
+*.    G   STM_RFH      I*4         (CONSTANT)Index to height in centroids
+*.                                 array.
+*.    G   STM_TOP      I*4         (CONSTANT)Index to storm top in array of
+*.                                 centroid data.
+*.    G   STM_VIL      I*4         (CONSTANT)Index to cell based VIL in array
+*.                                 of centroid data.
+*.    G   STM_XCN      I*4         (CONSTANT)Index to storm cell x-position in
+*.                                 an array of centroid data.
+*.    G   STM_YCN      I*4         (CONSTANT)Index to storm cell y-position in
+*.                                 an array of centroid data.
+*.    G   STM_ZCN      I*4         (CONSTANT)Index to storm cell z-position in
+*.                                 an array of centroid data.
+*.    C   ADPSTMMX     I*4         Maximum number of storm cells computed as
+*.                                 the lesser of  max no. of detected storm
+*.                                 cells and max no. of storm cells.
+*.    C   ADPVILMX     R*4         Capping value for the maximum cell-based
+*.                                 VIL (kg/km**2) that will be carried forward
+*.                                 as a storm cell attribute.
+*.    C   BEG_VOL_TIME R*4         Beginning time of a volume scan in
+*.                                 milliseconds past midnight (Universal Time
+*.                                 Coordinated).
+*.    C   CELLCOMP     R*4         Array of potential storm cell
+*.                                 characteristics.
+*.    C   CELL_CNT     I*4         Count of number of storm cells not
+*.                                 previously deleted by merges and proximity
+*.                                 checks.
+*.    C   NBR_COMP     I*4         Number of components that comprise each
+*.                                 potential storm cell.
+*.    C   STORM_ID     I*4         An array of storm indices within Centroids.
+*.    C   STRMCELL     R*4         Array of storm cell characteristics of all
+*.                                 storm cells built from components.
+*.    C   CCM_MRF      I*4         (CONSTANT)Location in the CELLCOMP array of
+*.                                 a component's maximum reflectivity (dBZ).
+*.    C   CCM_ZCN      I*4         (CONSTANT)Location in the CELLCOMP array of
+*.                                 the azimuth (radians) of a component's
+*.                                 centroid.
+*.    C   STC_BAS      I*4         (CONSTANT)Location in the STRMCELL array of
+*.                                 the height (km ARL) of the the lowest
+*.                                 centroid of any component associated with a
+*.                                 storm cell.
+*.    C   STC_LCB      I*4         (CONSTANT)A pointer to the elevation index
+*.                                 of the base component of a cell in the
+*.                                 STRMCELL array.  The index will be set to
+*.                                 negative if the component is on the lowes
+*.    C   STC_LCT      I*4         (CONSTANT)Location in the STRMCELL array of
+*.                                 the highest elevation index for any
+*.                                 component associated with a storm cell.
+*.    C   STC_MRF      I*4         (CONSTANT)Location in the STRMCELL array of
+*.                                 the storm cell's maximum reflectivity
+*.                                 (dBZ).
+*.    C   STC_MZH      I*4         (CONSTANT)Location in the STRMCELL array of
+*.                                 the height (km ARL) of the component
+*.                                 contributing the maximum reflectivity to a
+*.                                 storm cell.
+*.    C   STC_TOP      I*4         (CONSTANT)Location in the STRMCELL array of
+*.                                 the height (km ARL) of the highest centroid
+*.                                 of any component associated with a storm
+*.                                 cell.
+*.    C   STC_VIL      I*4         (CONSTANT)Location in the STRMCELL array of
+*.                                 the storm cell's VIL
+*.    C   STC_XCN      I*4         (CONSTANT)Location in the STRMCELL array of
+*.                                 the mass-weighted X-coordinate (km) of a
+*.                                 storm cell's 3-D centroid.
+*.    C   STC_YCN      I*4         (CONSTANT)Location in the STRMCELL array of
+*.                                 the mass-weighted Y coordinate (km) of a
+*.                                 storm cell's 3-D centroid.
+*.    C   STC_ZCN      I*4         (CONSTANT)Location in the STRMCELL array of
+*.                                 the mass-weighted Z coordinate (km ARL) of
+*.                                 a storm cell's 3-D centroid.
+*.    C   STK_MRF      I*4         (CONSTANT)Index into the Componet Stack for
+*.                                 the Maximum Reflectivity
+*.    C   STK_PTR      I*4         (CONSTANT)Index into Componet stack to
+*.                                 Pointer to the next componet
+*.    C   STK_ZCN      I*4         (CONSTANT)Index into Componet Stack array
+*.                                 of the componet's height
+*.    C   STM_ENT      I*4         (CONSTANT)Index to first componet in
+*.                                 centroid array.
+*.    C   STM_NCP      I*4         (CONSTANT)Index to number of componets in
+*.                                 centroid array.
+*.    P   COMPSTAK     R*4         An array of componets for a storm cell
+*.    P   NCOMPSTK     I*4         Number of componets in a stack
+*.    P   STORMAIN     R*4         2-d array of Storm Cell attributes
+*.
+*.    *   OUTPUT   TYPE        DESCRIPTION
+*.    -   ------   ----        -----------
+*.    C   CELL_CNT I*4         Count of number of storm cells not previously
+*.                             deleted by merges and proximity checks.
+*.    P   COMPSTAK R*4         An array of componets for a storm cell
+*.    P   NCOMPSTK I*4         Number of componets in a stack
+*.    P   NSTORMS  I*4         Number of Storm Cells
+*.    P   STORMAIN R*4         2-d array of Storm Cell attributes
+*.    P   VOLTIME  R*4         Volume Scan Time
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    P   COMPSTAK          R*4         An array of componets for a storm cell
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME          TYPE        DESCRIPTION
+*.    ----          ----        -----------
+*.    AZIM          R*4         Storm Cell Azimuth
+*.    CELL_NDX      I*4         Do loop varaible for number of cells
+*.    CMP_NDX       I*4         Do loop variable for number of cell componets
+*.    FULLCIRC      R*4         Real parameter for number of degrees in a full
+*.                              circle
+*.    NCOMP         I*4         Number of componets
+*.    NSTK_MAX      I*4         2nd dimension of COMPSTAK array and equals the
+*.                              maximum number of all components of all storm
+*.                              cells combined. NSTK_MAX = NCMP_MAX * NLEV_MAX
+*.                              = 200 * 20 = 4
+*.    ONE_DEGREE    R*4         One degree
+*.    RANGE         R*4         Storm Cell range
+*.    STARTING_COMP I*4         The starting location of this storm cells
+*.                              components in the componet stack
+*.    STM_NDX       I*4         Storm cell index in array STRMCELL
+*.    UNSCALE_VIL   R*4         Scaling Componet's VIL to hundredths of gram
+*.    XCENT         R*4         The mass-weighted X-coordinate (km) of a storm
+*.                              cell's 3-D centroid.
+*.    YCENT         R*4         The mass-weighted Y coordinate (km) of a storm
+*.                              cell's 3-D centroid.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A315CUCC
+*.    A315CVCC
+*.    A315CWCC
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:
+*.
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     Compiled using COMP15.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     Linked using LINK15.CSS
+*.
+*.  MISC:  None
+*.
+C********************************************************************
+C
+C             STORM CENTROIDS: LINK COMPONENTS  ROUTINE
+C
+C********************************************************************
+C
+      IMPLICIT NONE
+C
+C**Attach output parameter-definition file (of "STORM_CENTROIDS")
+$INCLUDE A315BUF.INC/G,**A315P5C (NLIST)
+$INCLUDE               **A315D5 (NLIST)
+C
+C**Attach internal common area (CNCC)
+$INCLUDE A315.INC/G,**A315CNCC (NLIST)
+C
+C**Attach internal common area (CUCC)
+$INCLUDE A315.INC/G, **A315CUPC (NLIST)
+$INCLUDE             **A315CUCC (NLIST)
+C
+C**Attach internal common area (CVCC)
+$INCLUDE A315.INC/G, **A315CVPC (NLIST)
+$INCLUDE             **A315CVCC (NLIST)
+C
+C**Attach internal common area (CWCC)
+$INCLUDE A315BUF.INC/G, **A315PSAD (NLIST)
+$INCLUDE A315.INC/G, **A315CWCC (NLIST)
+C
+$INCLUDE A309.INC/G, **A3PM50 (NLIST)
+C
+C*********************** DATA DECLARATIONS **************************
+C
+      INTEGER  CELL_NDX, CMP_NDX, STM_NDX, NCOMP, STARTING_COMP
+C
+      REAL     XCENT, YCENT, RANGE, AZIM, FULLCIRC, VOLTIME
+      REAL     ONE_DEGREE, UNSCALE_VIL
+      PARAMETER (FULLCIRC = 360.0, ONE_DEGREE = 1.0/ONE_RADIAN)
+      PARAMETER (UNSCALE_VIL = 0.01)
+C
+C****************** BEGIN MAIN PROCESSING SECTION *******************
+C
+      NCOMPSTK = 0
+      IF ( CELL_CNT .GT. ADPSTMMX ) CELL_CNT = ADPSTMMX
+C
+C** DO FOR ALL (STORM CELLs)
+C
+      DO 100 CELL_NDX = 1, CELL_CNT
+         STM_NDX = STORM_ID( CELL_NDX )
+C
+C** Get storm cell x and y centroid position.
+C
+         XCENT = STRMCELL( STC_XCN, STM_NDX )
+         YCENT = STRMCELL( STC_YCN, STM_NDX )
+C
+C** Get storm cell range and azimuth.
+C
+         RANGE = SQRT( XCENT*XCENT + YCENT*YCENT )
+         AZIM = ATAN2( XCENT, YCENT )*ONE_DEGREE
+         IF ( AZIM .LT. 0.0 ) AZIM = FULLCIRC + AZIM
+C
+C** WRITE storm cell attributes to output buffer.
+C
+C** WRITE (AZIMUTH(Storm Cell)).
+C
+         STORMAIN( STM_AZM, CELL_NDX ) = AZIM
+C
+C** WRITE (RANGE(Storm Cell)).
+C
+         STORMAIN( STM_RAN, CELL_NDX ) = RANGE
+C
+C** WRITE (X-POSITION(Storm Cell)) and WRITE (Y-POSITION(Storm Cell))
+C
+         STORMAIN( STM_XCN, CELL_NDX ) = XCENT
+         STORMAIN( STM_YCN, CELL_NDX ) = YCENT
+C
+C** Write the z-centroid position.
+C
+         STORMAIN( STM_ZCN, CELL_NDX ) = STRMCELL( STC_ZCN, STM_NDX )
+C
+C** WRITE (maximum REFLECTIVITY(Storm Cell)).
+C
+         STORMAIN( STM_MRF, CELL_NDX ) = STRMCELL( STC_MRF, STM_NDX )
+C
+C** WRITE (HEIGHT maximum REFLECTIVITY(Storm Cell)).
+C
+         STORMAIN( STM_RFH, CELL_NDX ) = STRMCELL( STC_MZH, STM_NDX )
+C
+C** WRITE (VERTICALLY INTEGRATED LIQUID(Storm Cell)).
+C
+         STORMAIN( STM_VIL, CELL_NDX ) = STRMCELL( STC_VIL, STM_NDX )
+     >                                 * UNSCALE_VIL
+C
+C** Clip the VIL at the maximum allowed.
+C
+         IF (STORMAIN( STM_VIL, CELL_NDX ) .GT. ADPVILMX)
+     >       STORMAIN( STM_VIL, CELL_NDX ) = ADPVILMX
+C
+C** WRITE (NUMBER OF COMPONENTS(Storm Cell)).
+C
+         NCOMP = NBR_COMP( STM_NDX )
+         STORMAIN( STM_NCP, CELL_NDX ) = FLOAT( NCOMP )
+C
+C** WRITE (TOP(Storm Cell)).
+C
+         STORMAIN( STM_TOP, CELL_NDX ) = STRMCELL( STC_TOP, STM_NDX )
+C
+C** If the storm cell top detected at the highest elevation scan of
+C** the VCP, flag it.
+C
+         STORMAIN( STM_LCT, CELL_NDX ) = STRMCELL( STC_LCT, STM_NDX )
+C
+C** WRITE (BASE(Storm Cell)).
+C
+         STORMAIN( STM_BAS, CELL_NDX ) = STRMCELL( STC_BAS, STM_NDX )
+C
+C** If the storm cell base detected at the lowest elevation scan of
+C** the VCP, flag it.
+C
+         STORMAIN( STM_LCB, CELL_NDX ) = STRMCELL( STC_LCB, STM_NDX )
+C
+C**
+C
+         IF ( NCOMP+NCOMPSTK .LE. NSTK_MAX ) THEN
+C
+C** Save starting location of this storm cells components in the
+C** component stack.
+C
+            STARTING_COMP = NCOMPSTK + 1
+            STORMAIN( STM_ENT, CELL_NDX ) = FLOAT( STARTING_COMP )
+C
+C** DO FOR ALL (COMPONENTS(Storm Cell)).
+C
+            DO 200 CMP_NDX = 1, NCOMP
+               NCOMPSTK = NCOMPSTK + 1
+               COMPSTAK( STK_ZCN, NCOMPSTK ) =
+     >                   CELLCOMP( CCM_ZCN, CMP_NDX, STM_NDX )
+               COMPSTAK( STK_MRF, NCOMPSTK ) =
+     >                   CELLCOMP( CCM_MRF, CMP_NDX, STM_NDX )
+               IF ( CMP_NDX .EQ. NCOMP ) THEN
+                  COMPSTAK( STK_PTR, NCOMPSTK ) = 0.0
+               ELSE
+                  COMPSTAK( STK_PTR, NCOMPSTK ) = NCOMPSTK + 1
+               END IF
+ 200        CONTINUE
+C
+C** Sort the components for this cell in increasing height order.
+C
+            CALL A315U5__SORT_COMPONENT_STACK( NCOMP,
+     >                   COMPSTAK( 1, STARTING_COMP ) )
+         ELSE
+            STORMAIN( STM_ENT, CELL_NDX ) = 0.0
+         END IF
+ 100  CONTINUE
+C
+C** Store number of storm cells this volume scan.
+C
+      NSTORMS = CELL_CNT
+C
+C** Store the beginning of volume scan time.
+C
+      VOLTIME = BEG_VOL_TIME
+C
+C************** END OF PROCESSING FOR SUBROUTINE ********************
+C
+      RETURN
+      END

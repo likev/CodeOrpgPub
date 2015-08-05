@@ -1,0 +1,885 @@
+#!/bin/sh
+
+# RCS info
+# $Author: ccalvert $
+# $Locker:  $
+# $Date: 2011/01/19 18:55:22 $
+# $Id: change_radar.script,v 1.8 2011/01/19 18:55:22 ccalvert Exp $
+# $Revision: 1.8 $
+# $State: Exp $
+
+#**************************************************************************
+#
+# File name:            change_radar
+# Author:               Chris Calvert
+# Creation Date:        2/17/05
+#
+# Purpose: This script changes the RPG name and id, and RDA latitude,
+#          longitude, and elevation for the site info adaptation data.
+#          It is based on the script change_it written by Chris Gilbert
+#          in 10/2001.
+#
+# Note:    This script must be run by a user that has RPG installed.
+#
+#          Since the script is written in Bourne shell, the functions are
+#          defined first. To locate the start of the script, search for
+#          the string "Main Body of Script".
+#
+#**************************************************************************
+
+# Pre-defined constants.
+
+CFG_DIR=$HOME/cfg
+BIN_DIR=$HOME/bin
+DATA_DIR=$HOME/data
+TOOLS_DIR=$HOME/tools
+RADAR_LIST_FILE1=$CFG_DIR/change_radar.dat	  #First possible location
+RADAR_LIST_FILE2=$TOOLS_DIR/cfg/change_radar.dat  #Second possible location
+SITE_INFO_FILE=$CFG_DIR/site_info.dea
+SITE_DATA_FILE=$CFG_DIR/site_data
+TOOLS_SITE_INFO_FILE=$TOOLS_DIR/cfg/site_info.dea
+RPG_INSTALL_INFO_FILE=$CFG_DIR/rpg_install.info
+BLOCKAGE_FILE=blockage.lb
+ADAPT_DEA_FILE="adapt_data.lb.adapt##"
+USER_PROFILE_DEA_FILE="user_profile_data_base.lb.adapt##"
+TEMP_FILE=/tmp/tmp.$$
+
+#**************************************************************************
+#**************************************************************************
+#
+# Beginning of Functions
+#
+#**************************************************************************
+#**************************************************************************
+
+#**************************************************************************
+# ECHO_ERROR: Echo error message and exit.
+#**************************************************************************
+
+echo_error ()
+{
+  echo
+  echo
+  echo $0 "ERROR: " $1
+  echo "Stopping script."
+  echo "Use -h option for help"
+  echo
+  echo
+  exit 1
+}
+
+#**************************************************************************
+# DISPLAY_HELP: Display "help" to screen.
+#**************************************************************************
+
+display_help ()
+{
+  echo
+  echo
+  echo "***************************************************"
+  echo "HELP SCREEN FOR SCRIPT: $0"
+  echo "***************************************************"
+  echo
+  echo
+  echo "OPTIONS:"
+  echo
+  echo "-h  - display help"
+  echo
+  echo "-m  - run script in interactive mode"
+  echo
+  echo "-l  - list all radars this script supports"
+  echo
+  echo "-r  - 4-letter id of RPG site (ICAO)"
+  echo
+  echo "-i  - numeric id of RPG site (if -r and -i are defined, -i is ignored)"
+  echo
+  echo "-S  - no automatic shutdown of the RPG software (optional)"
+  echo
+  echo "-R  - no automatic restart of the RPG software (optional)"
+  echo
+  echo "-b  - directory containing blockage data file (optional)"
+  echo
+  echo
+  echo
+  exit 0
+}
+
+#**************************************************************************
+# CHECK_FOR_RADAR_LIST_FILE: Make sure radar list file is present.
+#**************************************************************************
+
+check_for_radar_list_file ()
+{
+  # Make sure the radar list file is present. It
+  # could be in one of two places, so check both.
+
+  if [ -f "$RADAR_LIST_FILE1" ]
+  then
+    RADAR_LIST_FILE=$RADAR_LIST_FILE1
+  elif [ -f "$RADAR_LIST_FILE2" ]
+  then
+    RADAR_LIST_FILE=$RADAR_LIST_FILE2
+  else
+    echo_error "FILE $RADAR_LIST_FILE1 OR $RADAR_LIST_FILE2 DOESN'T EXIST"
+  fi
+}
+
+#**************************************************************************
+# PARSE_INPUT: Parse command line input.
+#**************************************************************************
+
+parse_input ()
+{
+  # Parse input options/arguments. If option doesn't have an argument (and
+  # requires one) or option isn't valid, print message and exit.
+
+  RADAR_ICAO_ID=""      # 4-letter ID of radar site
+  RADAR_NUMERIC_ID=""   # Numeric ID of radar site
+  SHUTDOWN_RPG=YES      # Shutdown RPG software?
+  RESTART_RPG=YES       # Restart RPG software when finished?
+  BLOCKAGE_DATA_FILE="" # Blockage data file
+  RADAR_LAT=""		# Latitude of radar site
+  RADAR_LON=""		# Longitude of radar site
+  RADAR_ELEV=""		# Elevation of radar site
+
+  while getopts r:i:lmSRb:h options
+  do
+    case $options in
+      r)  RADAR_ICAO_ID=$OPTARG;;	# define radar's ICAO
+      i)  RADAR_NUMERIC_ID=$OPTARG;;	# define radar's numeric id
+      l)  list_radars;;			# list supported radars
+      m)  interactive_mode		# run script in interactive mode
+          return;;			# exit this function
+      S)  SHUTDOWN_RPG=NO;;		# don't shutdown RPG software
+      R)  RESTART_RPG=NO;;		# don't auto-restart RPG software
+      b)  BLOCKAGE_DATA_FILE=$OPTARG;;	# define blockage data file
+      h)  display_help;;		# display help info
+      :)  echo_error "OPTION: $OPTARG needs an argument after it";;
+      \?) echo_error "OPTION: $OPTARG is not a valid option";;
+    esac
+  done
+
+  # Make sure the radar list file is present.
+
+  check_for_radar_list_file
+
+  # Make sure either the 4-letter or numeric
+  # radar id is defined and supported
+
+  if [ "$RADAR_ICAO_ID" != "" ]
+  then
+    # User defined radar site's ICAO.
+
+    # Make sure radar's ICAO is 4-letter
+    if [ `echo $RADAR_ICAO_ID | egrep '^[a-zA-Z][a-zA-Z][a-zA-Z][a-zA-Z0-9]$'` = "" ]
+    then
+      echo_error "$RADAR_ICAO_ID ISN'T 4-LETTERS"
+    fi
+
+    # Make sure ICAO is lower case
+    RADAR_ICAO_ID=`echo $RADAR_ICAO_ID | tr '[A-Z]' '[a-z]'`
+
+    # Make sure radar's ICAO is found in radar list file
+    RADAR_RECORD=`awk -F, '{ if( $1 == radar_ICAO ) print $0 }' radar_ICAO=$RADAR_ICAO_ID $RADAR_LIST_FILE`
+    if [ "$RADAR_RECORD" = "" ]
+    then
+      echo_error "ICAO $RADAR_ICAO_ID ISN'T FOUND IN $RADAR_LIST_FILE"
+    fi
+
+    # Radar's ICAO is in radar list file. Pull numeric id from record.
+    RADAR_NUMERIC_ID=`echo $RADAR_RECORD | awk -F, '{print $5}'`
+
+  elif [ "$RADAR_NUMERIC_ID" != "" ]
+  then
+    # User defined radar site's numeric id.
+
+    # Make sure radar's numeric id is a base 10 number
+    if [ `echo $RADAR_NUMERIC_ID | egrep '^[0-9]+$'` = "" ]
+    then
+      echo_error "$RADAR_NUMERIC_ID ISN'T A POSITIVE BASE 10 NUMBER"
+    fi
+
+    # Make sure radar's numeric id is found in radar list file
+    RADAR_RECORD=`awk -F, '{ if( $5 == radar_id ) print $0 }' radar_id=$RADAR_NUMERIC_ID $RADAR_LIST_FILE`
+    if [ "$RADAR_RECORD" = "" ]
+    then
+      echo_error "NUMERIC ID $RADAR_NUMERIC_ID ISN'T FOUND IN $RADAR_LIST_FILE"
+    fi
+
+    # Radar's numeric id is in radar list file. Pull ICAO from record.
+    RADAR_ICAO_ID=`echo $RADAR_RECORD | awk -F, '{print $1}'`
+
+  else
+    echo_error "OPTION -r OR -i MUST BE DEFINED"
+  fi
+
+  # Convert radar's ICAO to different cases
+  UC_RADAR_ICAO_ID=`echo $RADAR_ICAO_ID | tr '[a-z]' '[A-Z]'`
+  LC_RADAR_ICAO_ID=`echo $RADAR_ICAO_ID | tr '[A-Z]' '[a-z]'`
+
+  # Pull latitude, longitude, and elevation from record.
+  RADAR_LAT=`echo $RADAR_RECORD | awk -F, '{print $2}'`
+  RADAR_LON=`echo $RADAR_RECORD | awk -F, '{print $3}'`
+  RADAR_ELEV=`echo $RADAR_RECORD | awk -F, '{print $4}'`
+
+  if [ "$BLOCKAGE_DATA_FILE" != "" ]
+  then
+    # Make sure file exists.
+    if [ ! -f $BLOCKAGE_DATA_FILE ]
+    then
+      echo_error "FILE $BLOCKAGE_DATA_FILE DOESN'T EXIST"
+    fi
+  fi
+
+  INITIAL_ICAO=`find_adapt -S 2>/dev/null`
+}
+
+#**************************************************************************
+# LIST_RADARS: Lists supported radar ICAOs and numeric ids
+#**************************************************************************
+
+list_radars ()
+{
+  check_for_radar_list_file
+
+  echo
+  echo "==========================="
+  echo "  LIST  OF  VALID  RADARS  "
+  echo "==========================="
+  echo
+  # aligning output depends upon length of radar's numeric id
+  awk -F, '
+  {
+    if( $5 < 10 )
+    {
+      printf("%s    %s  %s\n",$1,$5,$6)
+    }
+    else if( $5 < 100 )
+    {
+      printf("%s   %s  %s\n",$1,$5,$6)
+    }
+    else
+    {
+      printf("%s  %s  %s\n",$1,$5,$6)
+    }
+  }' $RADAR_LIST_FILE | more
+  echo
+  echo
+  exit 0
+}
+
+#**************************************************************************
+# INTERACTIVE_MODE: Run script in interactive mode
+#**************************************************************************
+
+interactive_mode ()
+{
+  # Get radar ICAO
+
+  while true
+  do
+    echo
+    echo "Enter new 4-letter radar ICAO"
+    echo "Example: ktlx, KBMX, , kFsX, etc."
+    echo
+    read RADAR_ICAO_ID
+
+    if [ `echo $RADAR_ICAO_ID | egrep '^[a-zA-Z][a-zA-Z][a-zA-Z][a-zA-Z0-9]$'` = "" ]
+    then
+      echo
+      echo "ICAO isn't 4-letters.  Try again."
+      echo
+      continue
+    fi
+    # Make sure ICAO is lower case
+    RADAR_ICAO_ID=`echo $RADAR_ICAO_ID | tr '[A-Z]' '[a-z]'`
+    # Convert radar's ICAO to upper-case
+    UC_RADAR_ICAO_ID=`echo $RADAR_ICAO_ID | tr '[a-z]' '[A-Z]'`
+    break
+  done
+
+  # Get radar numeric id
+
+  while true
+  do
+    echo
+    echo "Enter new numeric radar id"
+    echo
+    read RADAR_NUMERIC_ID
+
+    if [ `echo $RADAR_NUMERIC_ID | egrep '^[0-9]+$'` = "" ]
+    then
+      echo
+      echo "New numeric id isn't a positive base 10 integer.  Try again."
+      echo
+      continue
+    fi
+    break
+  done
+
+  # Get radar latitude
+
+  while true
+  do
+    echo
+    echo "Enter new radar site latitude (integer in .001 degree increments)"
+    echo "Example: for 35.238 degrees, enter 35238"
+    echo "Example: for -35.238 degrees, enter -35238"
+    echo
+    read RADAR_LAT
+
+    if [ `echo $RADAR_LAT | egrep '^\-?[0-9]+$'` = "" ]
+    then
+      echo
+      echo "New latitude isn't a base 10 integer.  Try again."
+      echo
+      continue
+    fi
+    break
+  done
+
+  # Get radar longitude
+
+  while true
+  do
+    echo
+    echo "Enter new radar site longitude (integer in .001 degree increments)"
+    echo "Example: for 35.238 degrees, enter 35238"
+    echo "Example: for -35.238 degrees, enter -35238"
+    echo
+    read RADAR_LON
+
+    if [ `echo $RADAR_LON | egrep '^\-?[0-9]+$'` = "" ]
+    then
+      echo
+      echo "New longitude isn't a base 10 integer.  Try again."
+      echo
+      continue
+    fi
+    break
+  done
+
+  # Get radar elevation
+
+  while true
+  do
+    echo
+    echo "Enter new radar site elevation (integer in feet)"
+    echo
+    read RADAR_ELEV
+
+    if [ `echo $RADAR_ELEV | egrep '^\-?[0-9]+$'` = "" ]
+    then
+      echo
+      echo "New elevation isn't a base 10 integer.  Try again."
+      echo
+      continue
+    fi
+    break
+  done
+
+  # Get blockage data info
+
+  while true
+  do
+    echo
+    echo "Enter blockage data file (leave blank to ignore option)"
+    echo
+    read BLOCKAGE_DATA_FILE
+
+    # Make sure file exists.
+    if [ "$BLOCKAGE_DATA_FILE" != "" ]
+    then
+      if [ ! -f $BLOCKAGE_DATA_FILE ]
+      then
+        echo
+        echo "File: $BLOCKAGE_DATA_FILE doesn't exist.  Try again."
+        echo
+        continue
+      else
+        break
+      fi
+    else
+      break
+    fi
+  done
+
+  # Get RPG shutdown info
+
+  while true
+  do
+    echo
+    echo "Do you want this script to shutdown the RPG software? (Y,y/N,n)"
+    echo
+    read TEMP
+
+    if echo $TEMP | egrep '^[Yy]$'
+    then
+      SHUTDOWN_RPG=YES
+    elif echo $TEMP | egrep '^[Nn]$'
+    then
+      SHUTDOWN_RPG=NO
+    else
+      echo
+      echo "Bad choice.  Try again"
+      echo
+      continue
+    fi
+    break
+  done
+
+  # Get RPG restart info
+
+  while true
+  do
+    echo
+    echo "Do you want this script to restart the RPG software? (Y,y/N,n)"
+    echo
+    read TEMP
+
+    if echo $TEMP | egrep '^[Yy]$'
+    then
+      RESTART_RPG=YES
+    elif echo $TEMP | egrep '^[Nn]$'
+    then
+      RESTART_RPG=NO
+    else
+      echo
+      echo "Bad choice.  Try again"
+      echo
+      continue
+    fi
+    break
+  done
+}
+
+#**************************************************************************
+# SHUTDOWN_RPG: Shutdown RPG software, if applicable
+#**************************************************************************
+
+shutdown_RPG ()
+{
+  if [ $SHUTDOWN_RPG = YES ]
+  then
+    echo
+    echo "SHUTTING DOWN RPG"
+    echo
+    mrpg shutdown
+  fi
+}
+
+#**************************************************************************
+# RESTART_RPG: Restart RPG software, if applicable
+#**************************************************************************
+
+restart_RPG ()
+{
+  if [ $RESTART_RPG = YES ]
+  then
+    echo
+    echo "RESTARTING RPG"
+    echo
+    mrpg startup
+  fi
+}
+
+#**************************************************************************
+# EDIT_SITE_INFO: Edit site info to make change permanent
+#**************************************************************************
+
+edit_site_info ()
+{
+  # If environmental variable ORPG_NONOPERATIONAL is defined, then a
+  # development environment is assumed. If the variable is not defined,
+  # then an operational environment is assumed.
+
+  env | grep ORPG_NONOPERATIONAL > /dev/null 2>&1
+
+  if [ $? -eq 0 ]
+  then
+    # If this is a development environment, change the site info file.
+    # If it doesn't exist, try to copy it over from the tools directory.
+    # If neither files exists. Exit with error. Make sure the file is
+    # read/writable.
+    if [ ! -f $SITE_INFO_FILE -o ! -s $SITE_INFO_FILE ]
+    then
+      if [ -f $TOOLS_SITE_INFO_FILE ]
+      then
+        cp $TOOLS_SITE_INFO_FILE $SITE_INFO_FILE > /dev/null 2>&1
+        if [ $? -ne 0 ]
+        then
+          echo_error "UNABLE TO COPY FILE $TOOLS_SITE_INFO_FILE"
+        fi
+      else
+        echo_error "FILE $SITE_INFO_FILE DOESN'T EXIST OR IS EMPTY"
+      fi
+    fi
+
+    if [ ! -r $SITE_INFO_FILE ]
+    then
+      chmod u+r $SITE_INFO_FILE > /dev/null 2>&1
+      if [ $? -ne 0 ]
+      then
+        echo_error "UNABLE TO MAKE FILE $SITE_INFO_FILE READABLE"
+      fi
+    fi
+
+    if [ ! -w $SITE_INFO_FILE ]
+    then
+      chmod u+w $SITE_INFO_FILE > /dev/null 2>&1
+      if [ $? -ne 0 ]
+      then
+        echo_error "UNABLE TO MAKE FILE $SITE_INFO_FILE WRITABLE"
+      fi
+    fi
+
+    # Modify the site_info.dea ascii file
+    awk  '
+    {
+      if ( $1 == "site_info.rpg_name:" )
+      {
+        $2 = rpg_name
+        print "    " $1 "\t\t\t" $2
+      }
+      else if ( $1 == "site_info.rpg_id:" )
+      {
+        $2 = rpg_id
+        print "    " $1 "\t\t\t" $2
+      }
+      else if ( $1 == "site_info.rda_lat:" )
+      {
+        $2 = rda_lat
+        print "    " $1 "\t\t\t" $2
+      }
+      else if ( $1 == "site_info.rda_lon:" )
+      {
+        $2 = rda_lon
+        print "    " $1 "\t\t\t" $2
+      }
+      else if ( $1 == "site_info.rda_elev:" )
+      {
+        $2 = rda_elev
+        print "    " $1 "\t\t\t" $2
+      }
+      else
+      {
+        print $0
+      }
+
+    }' rpg_name=$UC_RADAR_ICAO_ID rpg_id=$RADAR_NUMERIC_ID rda_lat=$RADAR_LAT rda_lon=$RADAR_LON rda_elev=$RADAR_ELEV $SITE_INFO_FILE > $TEMP_FILE
+
+    cp $TEMP_FILE $SITE_INFO_FILE
+    rm $TEMP_FILE
+
+    # This function call tells the RPG to re-read the $SITE_INFO_FILE
+    # at startup
+    init_adapt_data -t clear
+  else
+    # If this is an operational environment, then the only way to change
+    # the site information is in the dea memory using edit_dea.
+    # The utility edit_dea modifies the dea db already in memory. In
+    # addition, it does a validity check on the new values. If edit_dea
+    # returns an error, then the new values are deemed invalid.
+
+    edit_dea -n $UC_RADAR_ICAO_ID site_info.rpg_name > /dev/null 2>&1
+    if [ $? != 0 ]
+    then
+      echo_error "BAD VALUE FOR site_info.rpg_name"
+    fi
+
+    edit_dea -n $RADAR_NUMERIC_ID site_info.rpg_id > /dev/null 2>&1
+    if [ $? != 0 ]
+    then
+      echo_error "BAD VALUE FOR site_info.rpg_id"
+    fi
+
+    edit_dea -n $RADAR_LAT site_info.rda_lat > /dev/null 2>&1
+    if [ $? != 0 ]
+    then
+      echo_error "BAD VALUE FOR site_info.rda_lat"
+    fi
+
+    edit_dea -n $RADAR_LON site_info.rda_lon > /dev/null 2>&1
+    if [ $? != 0 ]
+    then
+      echo_error "BAD VALUE FOR site_info.rda_lon"
+    fi
+
+    edit_dea -n $RADAR_ELEV site_info.rda_elev > /dev/null 2>&1
+    if [ $? != 0 ]
+    then
+      echo_error "BAD VALUE FOR site_info.rda_elev"
+    fi
+
+    # Move site_data to site_data.bk so it doesn't cause problems
+
+    if [ -f $SITE_DATA_FILE ]
+    then
+      mv $SITE_DATA_FILE ${SITE_DATA_FILE}.bk > /dev/null 2>&1
+      if [ $? != 0 ]
+      then
+        echo_error "Unable to backup $SITE_DATA_FILE"
+      fi
+    fi
+  fi
+}
+
+#**************************************************************************
+# EDIT_INSTALL_INFO: Edit install info to make change permanent
+#**************************************************************************
+
+edit_install_info ()
+{
+  # If environmental variable ORPG_NONOPERATIONAL is defined, then a
+  # development environment is assumed. If the variable is not defined,
+  # then an operational environment is assumed.
+
+  env | grep ORPG_NONOPERATIONAL > /dev/null 2>&1
+
+  if [ $? -ne 0 ]
+  then
+    # If this is an operational environment, change the rpg_intall.info
+    # file. If it doesn't exist, or unable to be modified, exit with error.
+    if [ ! -f $RPG_INSTALL_INFO_FILE -o ! -w $RPG_INSTALL_INFO_FILE ]
+    then
+      echo_error "FILE $RPG_INSTALL_INFO_FILE DOESN'T EXIST OR IS NOT WRITABLE"
+    fi
+    # Modify the rpg_install.info ascii file
+    awk  '
+    {
+      if ( $1 == "ICAO:" )
+      {
+        $2 = rpg_name
+        print $1 "                   " $2
+      }
+      else
+      {
+        print $0
+      }
+
+    }' rpg_name=$UC_RADAR_ICAO_ID $RPG_INSTALL_INFO_FILE > $TEMP_FILE
+
+    cp $TEMP_FILE $RPG_INSTALL_INFO_FILE
+    rm $TEMP_FILE
+  fi
+}
+
+#**************************************************************************
+# EDIT_ADAPT_FILE: Edit adaptation data to make change permanent
+#**************************************************************************
+
+edit_adapt_file ()
+{
+  adapt_file_list=`find $CFG_DIR/adapt -type f -name "adapt*$INITIAL_ICAO*"`
+  temp_dir=/tmp/adapt
+  pipe_cmd=" > /dev/null 2>&1"
+
+  for adapt_file_full_path in $adapt_file_list
+  do
+    # Pre-create file names
+    adapt_file_base=`basename $adapt_file_full_path`
+    adapt_file_base_uncompressed=`echo $adapt_file_base | sed 's/\.Z$//'`
+
+    # Make temporary workingn
+    cmd="mkdir -p $temp_dir $pipe_cmd"
+    eval $cmd; ret=$?
+    if [ $ret != 0 ]
+    then
+      echo_error "Command \"$cmd\" failed ($ret)"
+    fi
+
+    # Copy adaptation data file to temporary working directory
+    cmd="cp $adapt_file_full_path $temp_dir $pipe_cmd"
+    eval $cmd; ret=$?
+    if [ $ret != 0 ]
+    then
+      echo_error "Command \"$cmd\" failed ($ret)"
+    fi
+
+    # Uncompress adaptation data file
+    cmd="uncompress -c $temp_dir/$adapt_file_base > $temp_dir/$adapt_file_base_uncompressed 2>/dev/null"
+    eval $cmd; ret=$?
+    if [ $ret != 0 ]
+    then
+      echo_error "Command \"$cmd\" failed ($ret)"
+    fi
+
+    # Untar adaptation data file
+    cmd="tar -xf $temp_dir/$adapt_file_base_uncompressed -C $temp_dir $pipe_cmd"
+    eval $cmd; ret=$?
+    if [ $ret != 0 ]
+    then
+      echo_error "Command \"$cmd\" failed ($ret)"
+    fi
+
+    # Make sure DEA DB file is in adaptation data
+    d_file=$temp_dir/$ADAPT_DEA_FILE
+    if [ ! -f $d_file ]
+    then
+      echo_error "File: $d_file not found"
+    fi
+
+    # In DEA DB file, set RPG name
+    cmd="edit_dea -n $UC_RADAR_ICAO_ID -f $d_file site_info.rpg_name $pipe_cmd"
+    eval $cmd; ret=$?
+    if [ $ret != 0 ]
+    then
+      echo_error "Command \"$cmd\" failed ($ret)"
+    fi
+
+    # In DEA DB file, set RPG id 
+    cmd="edit_dea -n $RADAR_NUMERIC_ID -f $d_file site_info.rpg_id $pipe_cmd"
+    eval $cmd; ret=$?
+    if [ $ret != 0 ]
+    then
+      echo_error "Command \"$cmd\" failed ($ret)"
+    fi
+
+    # In DEA DB file, set RDA latitude
+    cmd="edit_dea -n $RADAR_LAT -f $d_file site_info.rda_lat $pipe_cmd"
+    eval $cmd; ret=$?
+    if [ $ret != 0 ]
+    then
+      echo_error "Command \"$cmd\" failed ($ret)"
+    fi
+
+    # In DEA DB file, set RDA longitude
+    cmd="edit_dea -n $RADAR_LON -f $d_file site_info.rda_lon $pipe_cmd"
+    eval $cmd; ret=$?
+    if [ $ret != 0 ]
+    then
+      echo_error "Command \"$cmd\" failed ($ret)"
+    fi
+
+    # In DEA DB file, set RDA elevation
+    cmd="edit_dea -n $RADAR_ELEV -f $d_file site_info.rda_elev $pipe_cmd"
+    eval $cmd; ret=$?
+    if [ $ret != 0 ]
+    then
+      echo_error "Command \"$cmd\" failed ($ret)"
+    fi
+
+    # Retar adaptation data file
+    cmd="tar -cf $temp_dir/$adapt_file_base_uncompressed -C $temp_dir $ADAPT_DEA_FILE $USER_PROFILE_DEA_FILE $pipe_cmd"
+    eval $cmd; ret=$?
+    if [ $ret != 0 ]
+    then
+      echo_error "Command \"$cmd\" failed ($ret)"
+    fi
+
+    # Recompress adaptation data file
+    cmd="compress -c $temp_dir/$adapt_file_base_uncompressed > $temp_dir/$adapt_file_base 2>/dev/null"
+    eval $cmd; ret=$?
+    if [ $ret != 0 ]
+    then
+      echo_error "Command \"$cmd\" failed ($ret)"
+    fi
+
+    # Copy modified adaptation data file to original location
+    final_file=`echo $adapt_file_full_path | sed "s/$INITIAL_ICAO/$UC_RADAR_ICAO_ID/"`
+    cmd="cp -f $temp_dir/$adapt_file_base $final_file $pipe_cmd"
+    eval $cmd; ret=$?
+    if [ $ret != 0 ]
+    then
+      echo_error "Command \"$cmd\" failed ($ret)"
+    fi
+
+    # Remove adaption file from original ICAO
+    cmd="rm -f $adapt_file_full_path $pipe_cmd"
+    eval $cmd; ret=$?
+    if [ $ret != 0 ]
+    then
+      echo_error "Command \"$cmd\" failed ($ret)"
+    fi
+
+    # Remove the temporary working directory
+    rm -rf $temp_dir > /dev/null 2>&1
+  done
+}
+
+#**************************************************************************
+# COPY_BLOCKAGE_FILE: Copy blockage data file to correct location
+#**************************************************************************
+
+copy_blockage_file ()
+{
+  # If the user defined a blockage file, then copy the
+  # file to the appropriate locations. If the user didn't
+  # define a blockage file, then this function doesn't
+  # do anything.
+
+  cfg_blockage_dir=$CFG_DIR/bin
+  cfg_blockage_file=$cfg_blockage_dir/$BLOCKAGE_FILE
+  data_blockage_dir=$DATA_DIR/precip
+  data_blockage_file=$data_blockage_dir/$BLOCKAGE_FILE
+
+  if [ "$BLOCKAGE_DATA_FILE" != "" ]
+  then
+    if [ -d $cfg_blockage_dir ]
+    then
+      if [ -f $cfg_blockage_file ]
+      then
+        chmod 664 $cfg_blockage_file
+      fi
+      cp $BLOCKAGE_DATA_FILE $cfg_blockage_file
+    else
+      echo_error "DIRECTORY $cfg_blockage_dir DOESN'T EXIST"
+    fi
+    if [ -d $data_blockage_dir ]
+    then
+      if [ -f $data_blockage_file ]
+      then
+        chmod 664 $data_blockage_file
+      fi
+      cp $BLOCKAGE_DATA_FILE $data_blockage_file
+    else
+      echo_error "DIRECTORY $data_blockage_dir DOESN'T EXIST"
+    fi
+  fi
+}
+
+#**************************************************************************
+# PRINT_CONFIRMATION: Print confirmation message for user
+#**************************************************************************
+
+print_confirmation ()
+{
+  echo
+  echo
+  echo "SITE ADAPTATION DATA HAS BEEN CHANGED TO THE FOLLOWING:"
+  echo
+  echo "RPG ICAO:       $UC_RADAR_ICAO_ID"
+  echo "RPG ID:         $RADAR_NUMERIC_ID"
+  echo "RDA LATITUDE:   $RADAR_LAT"
+  echo "RDA LONGITUDE:  $RADAR_LON"
+  echo "RDA ELEVATION:  $RADAR_ELEV"
+  echo
+  echo
+}
+
+#**************************************************************************
+#**************************************************************************
+#
+# End of Functions
+#
+#**************************************************************************
+#**************************************************************************
+
+#**************************************************************************
+#**************************************************************************
+#
+# Main Body of Script
+#
+#**************************************************************************
+#**************************************************************************
+
+parse_input "$@"		# Parse command line input
+shutdown_RPG			# Shutdown the RPG software (if applicable)
+edit_install_info		# Edit install info to make change permanent
+edit_site_info			# Edit site info info to make change permanent
+edit_adapt_file			# Edit adaptation data to make change permanent
+copy_blockage_file		# Copy blockage data file to right location
+restart_RPG			# Restart RPG software (if applicable)
+print_confirmation		# Print confirmation statement
+
+

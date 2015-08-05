@@ -1,0 +1,193 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/17 18:34:35 $
+C $Id: a318qm.ftn,v 1.2 2002/12/17 18:34:35 christie Exp $
+C $Revision: 1.2 $
+C $State: Exp $
+C
+      SUBROUTINE A318QM__PACKET_MOVE(BUF,OPCODE,BLNGTH,TXCLR,BL)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A318QM__PACKET_MOVE
+*.
+*.  MODULE VERSION: 0013
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       10 16 85      0000      JSGROMMONS
+*.       05 01 86      0001      JSGROMMONS           SPR# 60124
+*.       06 03 86      0002      JSGROMMONS           SPR# 60313
+*.       05 19 88      0003      STEVE D. SMITH       SPR# 80087
+*.       11 06 90      0004      MEI   OU             SPR# 91259
+*.       12/10/91      0005      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0006      Toolset              SPR 91895
+*.       03/25/93      0007      Toolset              SPR NA93-06801
+*.       01/28/94      0008      Toolset              SPR NA94-01101
+*.       03/03/94      0009      Toolset              SPR NA94-05501
+*.       04/11/96      0010      Toolset              CCR NA95-11802
+*.       12/23/96      0011      Toolset              CCR NA95-11807
+*.       05/13/97      0012      DAVE ZITTEL          CCR NA95-21503
+*.       03/16/99      0013      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:
+*.     CALL A318QM__PACKET_MOVE(BUF,OPCODE,BLNGTH,TXCLR,BL)
+*.
+*.  MODULE FUNCTION:
+*.   MOVE PACKETS TO OUTPUT BUFFER
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT  TYPE        DESCRIPTION
+*.    -   -----  ----        -----------
+*.    G   TBUF   I*2         Array of text data.
+*.    G   TXCHR  CHAR*80     Array of 80 character lines.
+*.    C   IPIX   I*2         I pixel location for graphic packet.
+*.    C   JPIX   I*2         J pixel location for graphic packet.
+*.    C   NDX    I*4         Working subscript for moving data into the output
+*.                           buffer.
+*.    P   BL     I*4         Number of half words (at two characters per half
+*.                           word) for a line of text for the TDA product's
+*.                           graphic overlay table.
+*.    P   OPCODE I*2         Packet code in the TDA product output buffer that
+*.                           indicates the data that follows is text.
+*.    P   TXCLR  I*2         Value for the text string color in the TDA
+*.                           product's graphical overlay table.
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    G   TBUF    I*2         Array of text data.
+*.    G   TXCHR   CHAR*80     Array of 80 character lines.
+*.    C   JPIX    I*2         J pixel location for graphic packet.
+*.    C   NDX     I*4         Working subscript for moving data into the
+*.                            output buffer.
+*.    P   BLNGTH  I*2         LENGTH OF PACKET BLOCK IN HALF WORDS.
+*.    P   BUF     I*2         Output buffer for the TDA product.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME    TYPE        DESCRIPTION
+*.    ----    ----        -----------
+*.    BLNGTHX I*2         Length of a line of text for the TDA's graphic
+*.                        overlay table in bytes which is entered into the
+*.                        product output buffer.
+*.    IB      I*4         Do loop index for moving characters in the current
+*.                        line from TBUF array to the output buffer array,
+*.                        BUF.
+*.    JB      I*4         Do loop index for pointing to the current line used
+*.                        to transfer characters from TBUF array to the output
+*.                        array, BUF
+*.    N10     I*4         Number of pixels required vertically for each line
+*.                        of output in the TDA product's graphical overlay
+*.                        table.
+*.    NCOLS   I*4         Number of columns on a page of the TDA product's
+*.                        graphic overlay table.
+*.    NOLNS   I*4         Number of lines of text output per page in the TDA
+*.                        product's graphical overlay table.
+*.    NROWS   I*4         Number of half words required to hold 80 characters.
+*.    POFF1   I*4         Offset of 5 half words used to calculate the number
+*.                        of half words in the graphical overlay portion of
+*.                        the TDA product.
+*.    POFF2   I*4         Offset of 3 bytes used to calculate the number of
+*.                        bytes in a line of text for the graphical overlay
+*.                        portion of the TDA product.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    BLKA
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    BLKB
+*.
+*.  ERROR CONDITIONS:  NONE
+*.
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     THIS MODULE IS COMPILED USING THE COMP18.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     THIS MODULE IS LINKED USING THE LINK18.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+      IMPLICIT NONE
+C
+C            LOCAL DEFINITIONS:
+C
+      INTEGER*4  NROWS,NCOLS
+      PARAMETER  (NROWS=40,NCOLS=6)
+C
+      INTEGER*2  BUF(*)
+
+      INTEGER*2  TBUF(NROWS,NCOLS)
+      INTEGER*2  OPCODE,BLNGTH,TXCLR,BLNGTHX
+      INTEGER*2  PGNO,PLNGTH,IPIX,JPIX
+
+      INTEGER*4  IB,JB,BL,NOLNS,POFF1,POFF2,VIPIX,VJPIX,N10
+      INTEGER*4  NDX,PNDX,GPHLNG,WIND,N1,N2,K1,K2,KI
+
+      CHARACTER*80  TXCHR(NCOLS)
+
+      EQUIVALENCE  (TBUF(1,1),TXCHR)
+
+      PARAMETER  (NOLNS=5,POFF1=5,POFF2=3,N10=10)
+
+      COMMON/BLKA/TBUF
+      COMMON/BLKB/NDX,PNDX,GPHLNG,WIND,N1,N2,K1,K2,KI,
+     X        IPIX,JPIX,PLNGTH,PGNO
+
+
+*****************************************************************
+
+C  INITIALIZE FOR PACKET
+      BLNGTH = NOLNS * (BL+POFF1)
+      BLNGTHX = (BL+POFF2) * 2
+
+C  MOVE LINE OF DATA TO OUTPUT BUFFER
+      DO 150  JB = 1,NOLNS
+         BUF(NDX) = OPCODE
+         NDX = NDX + 1
+         BUF(NDX) = BLNGTHX
+C  MOVE COLOR TO OUTPUT BUFFER
+         NDX = NDX + 1
+         BUF(NDX) = TXCLR
+         NDX = NDX + 1
+C  MOVE I,J PIXELS TO OUTPUT BUFFER
+         BUF(NDX) = IPIX
+         NDX = NDX + 1
+         BUF(NDX) = JPIX
+         NDX = NDX + 1
+C  MOVE CHARACTERS TO OUTPUT BUFFER
+         DO 140  IB = 1,BL
+            BUF(NDX) = TBUF(IB,JB)
+            NDX = NDX + 1
+  140 CONTINUE
+C  DETERMINE JPIX VALUE FOR NEXT LINE LOCATION
+         JPIX = JPIX + N10
+  150 CONTINUE
+
+      RETURN
+
+      END

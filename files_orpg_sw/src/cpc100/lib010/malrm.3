@@ -1,0 +1,94 @@
+
+NAME
+    MALRM_cancel, MALRM_deregister, MALRM_register, MALRM_set
+
+SYNOPSIS
+    #include <infr.h> or #include <malrm.h>
+
+    int MALRM_cancel (malrm_id_t alarmid, unsigned int *remaining_secs);
+    
+    int MALRM_deregister (malrm_id_t alarmid);
+    
+    int MALRM_register (malrm_id_t alarmid, void (*callback)());
+    
+    int MALRM_set (malrm_id_t alarmid,time_t start_time, 
+					unsigned int interval_secs);
+
+DESCRIPTION
+    In UNIX, one process can only have one alarm. The Multiple Alarm Services
+    (MALRM) module provides a client process with multiple (up to
+    MALRM_MAX_ALARMS) alarms.
+
+    Any process using the MALRM library routine must not trap or otherwise
+    interact with the signal corresponding to MALRM_ALARM_SIG.
+
+    MALRM_cancel cancels alarm "alarmid". "alarmid" is assumed to be a valid
+    alarm ID (zero is not a valid alarm ID) that corresponds to an alarm that
+    is both registered and currently set. The time remaining for the alarm is
+    stored in the location pointed to by "remaining_secs", unless the pointer
+    is NULL. MALRM_cancel returns zero upon success, or a negative value
+    corresponding to one of the following macros on failure:
+
+	MALRM_BAD_ALARMID		invalid alarm ID (e.g., '0')
+	MALRM_ALARM_NOT_REGISTERED	attempt to cancel an unregistered alarm
+	MALRM_ALARM_NOT_SET		attempt to cancel an unset alarm
+
+    MALRM_deregister deregisteres alarm "alarmid". "alarmid" is assumed to be a
+    valid alarm ID (zero is not a valid alarm ID). MALRM_deregister returns the
+    number of remaining registered alarms, or a negative value corresponding to
+    one of the following macros on failure:
+
+	MALRM_BAD_ALARMID		invalid alarm ID (e.g., '0')
+	MALRM_ALARM_NOT_REGISTERED	attempt to deregister an unregistered 
+					alarm
+	MALRM_SIGACTION_FAILED
+	MALRM_SIGEMPTYSET_FAILED
+
+    MALRM_register registers function "callback" for alarm "alarmid". "alarmid"
+    is assumed to be a valid alarm ID (zero is not a valid alarm ID).
+    "callback" is a pointer to an MALRM alarm callback routine that the user
+    wishes to have invoked upon occurrence of the specified alarm. This
+    callback routine must be defined as follows (the name, of course, will be
+    selected by the user):
+
+	void callback (malrm_id_t alarmid);
+
+    The scope of the MALRM alarm callback routine lies within the scope of an
+    MALRM library signal handler, so accepted signal-handler design principles
+    should be used when designing the callback routine. All blockable POSIX
+    signals are blocked while the MALRM library signal handler is executing.
+    MALRM_register returns the number of registered alarms, or a negative value
+    corresponding to one of the following macros on failure:
+
+	MALRM_BAD_ALARMID	invalid alarm ID (e.g., '0')
+	MALRM_DUPL_REG		attempt to re-register a registered alarm
+	MALRML_SUSPECT_PTR	the callback routine pointer is suspect
+	MALRM_TOO_MANY_ALARMS	attempt to register more than MALRM_MAX_ALARMS
+				alarms
+	MALRM_SIGACTION_FAILED
+	MALRM_SIGEMPTYSET_FAILED
+
+    MALRM_set sets alarm "alarmid". "alarmid" is assumed to be a valid alarm ID
+    (zero is not a valid alarm ID) that corresponds to an alarm that is
+    registered. If the alarm is not currently set, it will be set; otherwise,
+    it will be reset. "start_time" is the POSIX time at which the first
+    invocation of the registered MALRM alarm callback routine is to take place.
+    The macro MALRM_START_TIME_NOW is provided when the user requires that the
+    callback routine be invoked immediately. "interval_secs" is the number of
+    seconds that should elapse between subsequent invocations of the alarm
+    callback routine. The following macros are provided:
+
+	MALRM_ONESHOT_NTVL	"one-shot" (no intervals)
+	MALRM_MIN_NTVL		a minute-long interval
+	MALRM_HOUR_NTVL		an hour-long interval
+	MALRM_DAY_NTVL		a day-long interval
+
+    MALRM_set returns zero upon success, or a negative value corresponding to
+    one of the following macros on failure:
+
+	MALRM_BAD_ALARMID		invalid alarm ID (e.g., '0')
+	MALRM_BAD_START_TIME		invalid POSIX start time (e.g., earlier
+					than current POSIX time)
+	MALRM_ALARM_NOT_REGISTERED	attempt to set an unregistered alarm
+
+SEE ALSO

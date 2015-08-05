@@ -1,0 +1,191 @@
+C 
+C RCS info 
+C $Author: steves $ 
+C $Locker:  $ 
+C $Date: 2004/01/15 16:35:48 $ 
+C $Id: a3146r.ftn,v 1.5 2004/01/15 16:35:48 steves Exp $ 
+C $Revision: 1.5 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A3146R__GET_RATESCANS(START_INDX,
+     $          NSCANS, END_INDX, BUFF)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3146R__GET_RATESCANS
+*.
+*.  MODULE VERSION: 0011
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       08 23 90      0000      Paul Jendrowski      SPR# 90899
+*.       11 05 90      0001      PAUL JENDROWSKI      SPR# 91255
+*.       12 03 91      0002      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0003      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0004      Toolset              SPR 91895
+*.       10/20/92      0005      BRADLEY SUTKER       CCR NA92-28001
+*.       03/25/93      0006      Toolset              SPR NA93-06801
+*.       01/28/94      0007      Toolset              SPR NA94-01101
+*.       03/03/94      0008      Toolset              SPR NA94-05501
+*.       04/11/96      0009      Toolset              CCR NA95-11802
+*.       12/23/96      0010      Toolset              CCR NA95-11807
+*.       03/16/99      0011      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A3146R__GET_RATESCANS( START_INDX,
+*.                             LFM4_BXSZ, NSCANS, END_INDX, BUFF)
+*.
+*.  MODULE FUNCTION:
+*.
+*.      This module retrieves the run-length encoded (RLE) Rate Scan
+*.   data from the Digital Precip. Array (DPA) product database and
+*.   adds this data along with the layer header to the product buffer.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT          TYPE        DESCRIPTION
+*.    -   -----          ----        -----------
+*.    G   HYZ_LFM4       I*4         (CONSTANT)Dimension of the 1/4 LFM rate
+*.                                   scan grid.
+*.    C   NEWEST_RS_INDX I*4         Index in database of newest rate scan.
+*.    C   OLDEST_RS_INDX I*4         Index in database of oldest rate scan.
+*.    C   RS_DB          I*2         Array containing run length encoded rate
+*.                                   scans in the database.
+*.    C   SUP_DB         I*4         Supplemental database array.
+*.    C   USE_RS         L*4         Flag array indicating which rate scans
+*.                                   are used in the hourly period.
+*.    C   MAX_RATESCANS  I*4         (CONSTANT)Maximum number of rate scans in
+*.                                   database.
+*.    C   RS_NRLE        I*4         (CONSTANT)Offset in SUP_DB for rate scan
+*.                                   RLE halfwords.
+*.    P   END_INDX       I*4         LAST BUFFER WORD WRITTEN TO
+*.    P   NSCANS         I*4         NUMBER OF SCANS IN BUFFER
+*.    P   START_INDX     I*4         STARTING BUFFER INDEX
+*.
+*.    *   OUTPUT   TYPE        DESCRIPTION
+*.    -   ------   ----        -----------
+*.    P   BUFF     I*2         PRODUCT OUTPUT BUFFER
+*.    P   END_INDX I*4         LAST BUFFER WORD WRITTEN TO
+*.    P   NSCANS   I*4         NUMBER OF SCANS IN BUFFER
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE: NONE
+*.
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME           TYPE        DESCRIPTION
+*.    ----           ----        -----------
+*.    BOXH_OFF       I*4         HEADER OFFSET FOR BOX HEIGHT
+*.    BOXW_OFF       I*4         HEADER OFFSET FOR BOX WIDTH
+*.    CNVRT_I2       I*4         BYTES PER I*2 WORD
+*.    DIVIDER        I*4         DIVIDER PARAMETER
+*.    HDR_LNGTH      I*4         HEADER LENGTH IN I*2 WORDS
+*.    INC            I*4         PARAMETER FOR 1
+*.    LOFF           I*4         OFFSET IN HEADER FOR LAYER LENGTH
+*.    NULL           I*4         PARAMETER FOR ZERO
+*.    OPCODE4        I*4         PACKET CODE FOR 1/4 LFM RATE SCAN
+*.    QTRLFM_RLE_HDR I*2         LAYER HEADER ARRAY
+*.    RLE_HDR_BYTES  I*4         BYTES IN RLE HEADER
+*.    SCAN           I*4         INDEX FOR RATE SCAN IN DATABASE
+*.    WORD           I*4         LOOP INDEX FOR LAYER HEADER
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3146CD
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS: None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK14.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+C
+$INCLUDE A313HBUF.INC/G,**A313HYPP (NEND NLIST)
+$INCLUDE A3146.INC, **A3146PD (NEND NLIST)
+$INCLUDE            **A3146CD (NEND NLIST)
+C
+      INTEGER*2 BUFF(*)
+      INTEGER START_INDX,  NSCANS, END_INDX
+      INTEGER SCAN, WORD
+      INTEGER DIVIDER, OPCODE4, NULL, INC, HDR_LNGTH
+      INTEGER LOFF, BOXH_OFF, BOXW_OFF, CNVRT_I2
+      INTEGER RLE_HDR_BYTES, FWD
+C
+      PARAMETER ( DIVIDER=-1, OPCODE4=18, NULL=0, INC=1, HDR_LNGTH=8)
+      PARAMETER ( LOFF=3, BOXH_OFF=5, BOXW_OFF=6, CNVRT_I2=2)
+      PARAMETER ( RLE_HDR_BYTES = (HDR_LNGTH - LOFF)*CNVRT_I2 )
+C
+      INTEGER*2 QTRLFM_RLE_HDR(HDR_LNGTH)
+      DATA QTRLFM_RLE_HDR/DIVIDER,NULL,NULL,OPCODE4,NULL,NULL,
+     $             HYZ_LFM4,HYZ_LFM4/
+C
+C*******************************************************************
+C
+C** SET 1/4 LFM BOX SIZE IN RLE HEADER
+C
+      QTRLFM_RLE_HDR(BOXH_OFF) = NULL
+      QTRLFM_RLE_HDR(BOXW_OFF) = NULL
+C
+C** DO FOR ALL RATE SCANS IN DATABASE
+C
+      NSCANS = NULL
+      END_INDX = START_INDX
+      SCAN = OLDEST_RS_INDX - INC
+  10  CONTINUE
+        SCAN = SCAN + INC
+        IF (SCAN.GT.MAX_RATESCANS) SCAN = INC
+C
+C** USE ONLY SCANS FLAGGED TO USE
+C
+        IF (USE_RS(SCAN)) THEN
+          NSCANS = NSCANS + INC
+C
+C** SET NUMBER OF RLE BYTES IN HEADER
+C
+          FWD = SUP_DB(RS_NRLE,SCAN)*CNVRT_I2 + RLE_HDR_BYTES
+          call RPG_set_product_int( QTRLFM_RLE_HDR(LOFF - 1), FWD )
+C
+C** COPY RLE HEADER TO BUFFER
+C
+          DO 20 WORD = INC,HDR_LNGTH
+            END_INDX = END_INDX + INC
+            BUFF(END_INDX) = QTRLFM_RLE_HDR(WORD)
+  20      CONTINUE
+C
+C** COPY RLE DATA TO BUFFER
+C
+          DO 30 WORD = INC, SUP_DB(RS_NRLE,SCAN)
+            END_INDX = END_INDX + INC
+            BUFF(END_INDX) = RS_DB(WORD,SCAN)
+  30      CONTINUE
+C
+        END IF
+C
+C** SIMULATE DO UNTIL WITH A GO TO
+C
+      IF (SCAN.NE.NEWEST_RS_INDX) GO TO 10
+C
+      END

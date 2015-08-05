@@ -1,0 +1,44 @@
+LB_seek(3) 		   ORPG SDD Manpage   		LB_seek(3)
+
+NAME
+LB_seek - move a Linear Buffer (LB) descriptor read pointer
+
+SYNOPSIS
+#include <lb.h>
+int LB_seek (int lbd, int offset, LB_id_t id, LB_info *info)
+
+DESCRIPTION
+This function moves the read pointer for "lbd". Argument "offset"
+specifies the offset of the new pointer in terms of the message 
+of "id". "id" can take the value of LB_FIRST, LB_CURRENT or 
+LB_LATEST which means that the offset starts from the 
+first available message, the current read pointer, or the latest 
+message respectively. If there are no messages in the LB, LB_FIRST 
+and LB_LATEST will cause LB_seek to not move the pointer at all. 
+"offset" can be positive, negative or zero. A positive offset 
+moves the pointer towards a later message while a negative offset 
+moves the pointer towards an earlier message. The new pointer may
+be pointing to an expired or yet-to-come message. 
+
+The argument "info", if not NULL, returns the information about 
+the message pointed to by the new pointer. Refer to LB_list for
+a description of the LB_info data structure. The info->size field 
+is set to a negative value, LB_SEEK_TO_COME or LB_SEEK_EXPIRED,
+if the message pointed to by the new pointer is yet-to-come or 
+expired respectively. "info" is not assigned if LB_seek failed.
+
+This function returns LB_SUCCESS on success or one of the following  	
+negative numbers to indicate an error:
+
+	LB_NOT_FOUND:		The message of "id" is not found.
+	LB_BAD_DESCRIPTOR:	Unopened or closed LB descriptor is 
+                        	used.
+	LB_SHMDT_FAILED:	Failed in shmdt system call.
+	LB_LOCK_FAILED:		Failed in a lock system call.
+	LB_MMAP_FAILED:		Failed in mmap system call.
+	LB_MPROTECT_FAILED:	Failed in mprotect system call.
+
+SEE ALSO
+LB_clear(3), LB_close(3), LB_direct(3), LB_list(3), LB_mark(3), LB_open(3),
+LB_previous_msgid(3), LB_read(3), LB_remove(3), LB_size(3), LB_stat(3),
+LB_write(3), lb(3), lb_create(1), lb_info(1), lb_rm(1)

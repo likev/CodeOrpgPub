@@ -1,0 +1,234 @@
+hci_ccz.doc			NOTES				hci_ccz.doc
+
+
+This file contains information about the HCI Clutter Suppression Regions Editor
+task.  It is intended to be used by those interested in how the software is
+designed rather than by a typical user.  More detailed information about data
+stores and events used by this task is presented.
+
+Design
+------
+
+**** NOTE NOTE NOTE NOTE NOTE NOTE NOTE ****
+
+While both the legacy RDA and ORDA are being supported, temporary design
+changes have been implemented. There are now three executables. The main
+executable (hci_ccz) determines what the RDA configuration is. Once determined,
+hci_ccz calls either hci_ccz_legacy (for the legacy RDA) or hci_ccz_orda (for
+the ORDA configuration). The legacy version is described below. The ORDA version
+is similar, except that ORDA no longer has multiple clutter suppression
+channels (surveillance and doppler). Instead, there is only one clutter
+suppression channel.
+
+*******************************************
+
+
+The Clutter Suppression Regions Editor task was created as a sub task in the
+HCI family of tasks.  A typical user would normally activate it by selecting
+the "Clutter Regions icon pushbutton in the Applications region of the RPG
+Control/Status  window.  However, as a stand-alone application, it can be
+launched from the command line using the "hci_ccz" command or by invoking a
+system call in any other application wishing to launch it.  This modular
+approach has a number of benefits which are described in the doc file for the
+hci task (hci.doc).
+
+The Clutter Suppression Regions Editor task includes the clutter suppression
+regions data functionality provided by the legacy UCP "Clutter Suppression
+Regions" menu.  A full description can be found in the man page hci_ccz(1).
+
+In the ORPG an up to 32 character file label (including null terminator) has
+been added to the clutter suppression regions data message for each file.  This
+allows the user to tag each file for better reference.  The maximum number of
+allowable clutter suppression regions files has remained 20.  In the ORPG,
+only one "Default" file is defined.  This contrasts with the legacy RPG where
+4 default files were defined.
+
+The window cannot be resized.
+
+There no longer is a requirement (Open build 2) to restrict editing and
+downloading to URC and ROC level users.  However, in order to modify existing
+files (using the "Save" button) or delete them the user must specify a valid
+a valid URC or ROC level password.
+
+The "Default" file cannot be edited but can be used as a template to create
+a new file (use the "Save As" function).  The "Default" file cannot be deleted.
+
+Selecting the "New" button currently is the same as selecting the default
+file as a template and editing it.
+
+An advisory lock is placed on the data message corresponding to the clutter
+suppression regions message (LBID_CENSOR_ZONES_LGCY or LBID_CENSOR_ZONES_ORDA)
+in the ORPGDAT_CLUTTERMAP
+linear buffer when the window is unlocked for editing.  If another instance of
+the task is running and unlocked, a warning popup is displayed advising the
+user that the message is currently being edited by another user.
+
+The biggest enhancement to the clutter suppression regions functionality in
+the ORPG has been the capability to interactively define clutter suppression
+regions over a background reflectivity product.  Since the purpose of this
+function is to allow users to define regions containing non-meteorological
+targets so different filtering can be applied, displaying a background
+reflectivity product is a neccessity.
+
+Also, when multiple regions are defined, it is useful to know what the
+composite clutter filter map will look like; epsecially where regions overlap.
+To the right of the base product display are color-coded composite maps for
+the surveillance and Doppler channels.
+
+A change in ORPG build 2 has been the capability to select the type of
+background radial product to display.  Although one would typically expect
+reflectivity based radial products as the background, most RPG products are
+allowed (ones which are supported in the hci_decode_product.c module).  The
+list of allowed background products are defined in the "hci_task_data"
+configuration file in the "$ORPGDIR/cfg" directory.  The "n_products" key
+is followed by the number of defined background products.  The "products" key
+is followed by a list of "n_product" product codes.  If new background
+products are added in the future they should be added to the configuration
+file.  Of course if a new product code is added to the RPG then the product
+decoder (hci_decode_product.c) and color header file (hci_product_colors.h)
+must be updated to support it.  The Clutter Regions Editor task reads the
+HCI_CCZ_RASK_DATA_MSG_ID message in the ORPGDAT_HCI_DATA LB for its background
+product configuration data.
+
+Upon startup, "hci_agent" task reads the "hci_task_data" configuration file
+if the message HCI_CCZ_TASK_DATA_MSG_ID in the ORPGDAT_HCI_DATA LB doesn't
+exist.  Using the definitions found for the "hci_ccz" entry in the
+configuration file the HCI_CCZ_TASK_DATA_MSG_ID message is built.  The
+product list is read in by the Clutter Regions Editor task and is presented
+as a drop down menu in the Clutter Regions Editor window.  When an item is
+selected from the menu, the message HCI_CCZ_TASK_DATA_MSG_ID is updated in
+the ORPGDAT_HCI_DATA data store.  If the Clutter Regions Editor is running
+in a high bandwidth configuration, the default high bandwidth product entry
+is updated.  If it is running in a low bandwidth configuration, the default
+low bandwidth product entry is updated.
+
+The "hci_agent" task is registered for updates from the ORPGDAT_HCI_DATA LB.
+When it detects a change to the HCI_CCZ_TASK_DATA_MSG_ID message it builds a
+new RPS list and sends it to the ORPGDAT_RT_REQUEST LB for the "ps_routine"
+task to handle.  The HCI uses 0 as the line index for the RPS list since it
+is not used by any narrowband configuration.  IT IS IMPORTANT THAT FUTURE ORPG
+NARROWBAND CONFIGURATIONS DO NOT USE LINE 0.
+
+In addition to the base reflectivity background display, the capability was
+added to display the Clutter Filter Control (CFC) product instead of the
+base reflectivity product.  This feature allows the user to compare the
+clutter suppression regions he/she defined with those actually being used at
+the RDA.  After a user defines clutter regions, saves them, and downloads them,
+they should be available at the start of the next volume scan.  The new CFC
+product will be built at the RPG after the RDA sends a new notchwidth map to
+the RPG.
+
+Testing
+-------
+
+To fully test the Clutter Suppression Regions Editor task one should be
+connected to a live RDA.  This is beacause one needs to be able to download
+new clutter regions to the RDA and get a new notchwidth map from the RDA so
+the resultant CFC product can be used to verify the clutter regions data that
+were defined.
+
+To test the background product select function one needs a level II data feed.
+In a clean install the HCI agent task will builld an RPS list from the
+configuration file.  The "lelb_mon ps_routine" command can be used to validate
+that an RPS list was received from line 0 and that the default low and high
+bandwidth products are scheduled for generation.  The "prod_stat -p" command
+can also be used to verify that the selected product has been requested and
+scheduled.
+
+Data should be available for display for the low segment selection after the
+low cut is complete and for the high segment when the ~2.5 degree cut
+is complete.  The display does not automatically update when the new products
+are available.  The user must select the low or high segment radio buttons to
+force a display update.
+
+When selecting a new product from the list, if the selected product is already
+defined in the current product generation list, then it can be displayed
+immediately.  If not, then you need to wait until the next volume scan.
+
+If the latest product available is older than 15 minutes, then the message
+"Background Product Data Expired" is displayed instead of the product.  To
+test this you can wait until a product is generated and displayed.  Then,
+stop the level II data input for 10-15 minutes and then restart the data
+stream.  When a new volume is started select the low or high radio buttons.
+The message should be dipslayed instead of the product.  When the low elevation
+cut has completed, reselect the low radio button.  The product should now be
+available.  Select the high radio button again.  The product will not be
+available until the ~2.5 degree cut has completed.
+
+
+SOURCE FILES
+------------
+
+        hci_ccz.c
+                                This module determines which RDA configuration
+                                is being used and calls the correct executable.
+
+	hci_clutter_censor_zones_editor_orda.c
+				This module contains all of the code to build
+				and display the Clutter Regions window for ORDA.
+
+	hci_clutter_censor_zones_functions_orda.c
+				This module contains support functions for the
+				Clutter Regions window for ORDA.
+
+	hci_clutter_censor_zones_editor_legacy.c
+				This module contains all of the code to build
+				and display the Clutter Regions window for the
+                                legacy RDA.
+
+	hci_clutter_censor_zones_functions_legacy.c
+				This module contains support functions for the
+				Clutter Regions window for the legacy RDA.
+				
+	hci_clutter_censor_zones_orda.h
+				Contains macros and function prototypes used
+				by the main program for ORDA.
+
+	hci_clutter_censor_zones_legacy.h
+				Contains macros and function prototypes used
+				by the main program for the legacy RDA.
+				
++++ PROC
+
+DATA IN
+
+	ORPGDAT_ADAPT.4
+	ORPGDAT_CLUTTERMAP.4
+	ORPGDAT_HCI_DATA.4
+	ORPGDAT_HCI_CCZ_BREF.4
+	ORPGDAT_PRODUCTS.4
+	ORPGDAT_REDMGR_CHAN_MSGS.4
+	
+DATA OUT
+
+	ORPGDAT_CLUTTERMAP.4
+	ORPGDAT_HCI_DATA.4
+	ORPGDAT_RDA_COMMAND.4
+		
+EVENTS OUT
+
+	ORPGEVT_HCI_COMMAND_ISSUED
+	
+APIs USED
+
+	orpg.3
+	
+		ORPGDA.3
+		ORPGPAT.3
+		ORPGRED.3
+		ORPGSITE.3
+		ORPGRDA.3
+		ORPGEDLOCK.3
+		ORPGMISC.3
+
+	hci.3
+
+---
+	
+SEE ALSO
+
+hci(1) hci_agent(1) hci_ccz(1) hci(3) orpg(3) orpgred(3) orpgsite(3)
+orpgrda(3) orpgmisc(3) orpgedlock(3)
+
+
+hci_ccz.doc							hci_ccz.doc

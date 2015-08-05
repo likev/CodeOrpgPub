@@ -1,0 +1,66 @@
+File name orpgedlock.doc
+
+ORPGEDLOCK - Library routines used by ORPG to lock and unlock adaptation linear
+buffers. The routines also check linear buffers for locks and updates. These
+routines are primarily used by RMS and HCI to prevent simultaneous editing of
+adaptation data.
+
+FILENAMES and CALLS:
+
+        int ORPGEDLOCK_get_edit_status(int data_id, LB_id_t msg_id)
+
+        int ORPGEDLOCK_set_edit_lock(int data_id, LB_id_t msg_id)
+
+        int ORPGEDLOCK_clear_edit_lock(int data_id, LB_id_t msg_id)
+
+        int ORPGEDLOCK_check_update_status(int data_id, LB_id_t msg_id)
+
+        int ORPGEDLOCK_set_write_lock(int data_id, LB_id_t msg_id)
+
+        int ORPGEDLOCK_clear_write_lock(int data_id, LB_id_t msg_id)
+
++++ API
+
+APIs USED:
+                ORPGRDA.3
+                LE.3
+                LB.3
+---
+
+The library consists of the following sources:
+
+ORPGEDLOCK_get_edit_status() will return the lock status of a linear buffer or
+message. The caller passes the linear buffer and message that need to be
+checked. The routine returns the lock status of the buffer and message.
+
+ORPGEDLOCK_set_edit_lock() will set a shared lock on the message and buffer
+specified by the calling routine.  This will allow a user access to the linear
+buffer even though another process has a lock on it.  The check routine will
+alert the calling process if a lock is currently applied. The calling process
+will have override capability. The lock is only applied to the message specified
+in the calling parameters.
+
+ORPGEDLOCK_clear_edit_lock() will clear the shared lock on a linear buffer
+message. Get edit staus will then report the buffer message unlocked.
+
+ORPGEDLOCK_check_update_status() will check a linear buffer to see if the
+buffer has been updated by another process while a lock was in place. This
+allows a process with override ability the option of replacing the
+information in the buffer. If a process over writes an updated buffer, all the
+information updated while the lock was in place will be lost.
+
+ORPGEDLOCK_set_write_lock() will set an exclusive lock on the entire linear
+buffer. While the exclusive lock is active, no changes can be made by another
+process. This lock cannot be overidden.  It will also prevent editing of all
+messages in the linear buffer, not just a selected message.
+
+ORPGEDLOCK_clear_write_lock() removes the exclusive lock placed on a linear
+buffer. The process that placed the lock is the only one that can remove it.
+When the lock is removed other processes will be able to edit the information in 
+the buffer.
+
+
+ SEE ALSO lb(3) hci(1) rms_message(3)
+
+$Revision: 1.2 $
+

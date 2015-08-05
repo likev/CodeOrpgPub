@@ -1,0 +1,325 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/16 19:40:45 $
+C $Id: a315j3.ftn,v 1.3 2002/12/16 19:40:45 christie Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A315J3__DERIVE_ADAP
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A315J3__DERIVE_ADAP
+*.
+*.  MODULE VERSION: 0016
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       08 16 85      0000      DENNIS MILLER        BUILD 2
+*.       05 07 86      0001      DENNIS MILLER        SPR # 304
+*.       07 10 86      0002      DENNIS MILLER        SPR # 60313, 60367
+*.       04 04 89      0003      DAVID M. LYNCH       SPR # 80308, 90082
+*.       06 06 89      0003      DAVID M. LYNCH       SPR # 90298
+*.       05 09 90      0004      STACY RONALD         SPR # 90712
+*.       11 05 90      0005      DENNIS MILLER        SPR # 91256
+*.       11 19 91      0006      PJ YELSHIN           SPR # 92505
+*.       12 03 91      0007      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0008      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0009      Toolset              SPR 91895
+*.       03/25/93      0010      Toolset              SPR NA93-06801
+*.       01/28/94      0011      Toolset              SPR NA94-01101
+*.       03/03/94      0012      Toolset              SPR NA94-05501
+*.       04/04/95      0013      Toolset              CCR NA95-11802
+*.       06/22/94      0014      DAVID ZITTEL         CCR NA94-26302
+*.       12/23/96      0015      Toolset              CCR NA95-11807
+*.       03/16/99      0016      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A315J3__DERIVE_ADAP
+*.
+*.  MODULE FUNCTION:
+*.
+*.  This subroutine determines variables derived from Adaptation Data
+*.  for the first good radial of each volume scan.
+*.
+*.  MODULES CALLED: A315Q3__STRM_LIQW 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT       TYPE        DESCRIPTION
+*.    -   -----       ----        -----------
+*.    G   SEGBUF_TH   R*4         The percentage of (half of) the segment data
+*.                                shared image available for segments found at
+*.                                each reflectivity threshold.
+*.    G   STMRADAP    R*4         Array containing the real variables in SCIT
+*.                                adaptation data in internal common.
+*.    G   STRMADAP    I*4         Array containing the integer variables in
+*.                                SCIT adaptation data in internal common.
+*.    G   STA_MCOF    I*4         (CONSTANT)Offset to the Mass Coef. Factor in
+*.                                the adaptation data part of the centroids &
+*.                                tracking/forecast output buffers.
+*.    G   STA_MULF    I*4         (CONSTANT)Offset to the Mass Mult. Factor in
+*.                                the adaptation data part of the centroids &
+*.                                tracking/forecast output buffers.
+*.    G   STA_MWTF    I*4         (CONSTANT)Offset to the Mass Weighted Factor
+*.                                in the adaptation data part of the centroids
+*.                                & tracking/forecast output buffers.
+*.    G   STA_NAVG    I*4         (CONSTANT)Offset to the Ref. Avg. Factor
+*.                                (bins) in the adaptation data part of the
+*.                                centroids & tracking/forecast output
+*.                                buffers.
+*.    G   STA_NDRO    I*4         (CONSTANT)Offset to the Thresh. Dropout
+*.                                Count (bins) in the adaptation data part of
+*.                                the centroids & tracking/forecast output
+*.                                buffers.
+*.    G   STA_RDIF    I*4         (CONSTANT)Offset to the Thresh. Dropout Ref.
+*.                                Difference (dB) in the adaptation data part
+*.                                of the centroids & tracking/forecast output
+*.                                buffers.
+*.    G   STA_RLVL    I*4         (CONSTANT)Offset to the Number of
+*.                                Reflectivity Levels in the adaptation data
+*.                                part of the centroids & tracking/forecast
+*.                                output buffers.
+*.    G   STA_SGL1    I*4         (CONSTANT)Offset to the Thresh. Segment
+*.                                Length #1 (km) in the adaptation data part
+*.                                of the centroids & tracking/forecast output
+*.                                buffers.
+*.    G   STA_SGMX    I*4         (CONSTANT)Offset to the Max. # of
+*.                                Segments/Elev. in the adaptation data part
+*.                                of the centroids & tracking/forecast output
+*.                                buffers.
+*.    C   ADPMCOEF    R*4         The Mass Coefficient Factor stored in
+*.                                segments local common for comparison to
+*.                                adaptation data each volume scan.
+*.    C   ADPMNZ      I*4         The minimum reflectivity allowed in a
+*.                                segment (Reflectivity Threshold - Dropout
+*.                                Reflectivity Difference).
+*.    C   ADPMULTF    R*4         The Mass Multiplicative Factor stored in
+*.                                segments local (mm**6/mm**3)*(hr/mm)**MCF
+*.    C   ADPMWGTF    R*4         The Mass Weighted Factor stored in segments
+*.                                local common for comparison to adaptation
+*.                                data each volume scan. hr*kg/km**3/mm
+*.    C   BSEG_THR    R*4         The computed maximum number of segments
+*.                                allowed for each reflectivity threshold per
+*.                                elevation.
+*.    C   CALC_LW_FLG L*4         Flag indicating whether to recalculate the
+*.                                Liquid Water Concentration Table because one
+*.                                of the coefficients changed.
+*.    C   REFDIFBIAS  I*4         Biased value for the reflectivity differnece
+*.    C   REFTHRBIAS  I*4         The reflectivity thresholds from adaptation
+*.                                data converted to biased dBZ units.
+*.    C   REF_MAX_NDX I*4         The index of the highest reflectivity
+*.                                threshold.
+*.    C   REF_MIN_NDX I*4         Upper limit of reflectivity index for
+*.                                processing segments and components.
+*.    C   SUM_BUFTH   R*4         The maximum buffer size threshold
+*.    C   ADDFACT     R*4         (CONSTANT)A parameter used in the conversion
+*.                                of reflectivity from biased to dBZ units or
+*.                                vice versa.
+*.    C   MULTFACT    R*4         (CONSTANT)A multiplication parameter used in
+*.                                the conversion of reflectivity from biased
+*.                                to dBZ units.
+*.    C   OFFACT      R*4         (CONSTANT)An offset parameter used in the
+*.                                conversion of reflectivity from biased to
+*.                                dBZ units.
+*.
+*.    *   OUTPUT      TYPE        DESCRIPTION
+*.    -   ------      ----        -----------
+*.    G   STMRADAP    R*4         Array containing the real variables in SCIT
+*.                                adaptation data in internal common.
+*.    G   STRMADAP    I*4         Array containing the integer variables in
+*.                                SCIT adaptation data in internal common.
+*.    C   ADPMCOEF    R*4         The Mass Coefficient Factor stored in
+*.                                segments local common for comparison to
+*.                                adaptation data each volume scan.
+*.    C   ADPMNZ      I*4         The minimum reflectivity allowed in a
+*.                                segment (Reflectivity Threshold - Dropout
+*.                                Reflectivity Difference).
+*.    C   ADPMULTF    R*4         The Mass Multiplicative Factor stored in
+*.                                segments local (mm**6/mm**3)*(hr/mm)**MCF
+*.    C   ADPMWGTF    R*4         The Mass Weighted Factor stored in segments
+*.                                local common for comparison to adaptation
+*.                                data each volume scan. hr*kg/km**3/mm
+*.    C   ADPNAVGB    I*4         Reflectivity Averaging Factor stored in
+*.                                segments local common.
+*.    C   ADPNDROP    I*4         Dropout Count Threshold stored in segments
+*.                                local common.
+*.    C   ADPNSGMX    I*4         Maximum # of Segments per Elevation
+*.                                Threshold in segments
+*.    C   ADPSEGLN    R*4         Segment Reflectivity Threshold stored in
+*.                                segments local common.
+*.    C   BSEG_THR    R*4         The computed maximum number of segments
+*.                                allowed for each reflectivity threshold per
+*.                                elevation.
+*.    C   CALC_LW_FLG L*4         Flag indicating whether to recalculate the
+*.                                Liquid Water Concentration Table because one
+*.                                of the coefficients changed.
+*.    C   DROPRFBIAS  I*4         The derived dropout reflectivity threshold
+*.                                in biased units.
+*.    C   REFDIFBIAS  I*4         Biased value for the reflectivity differnece
+*.    C   REFTHRBIAS  I*4         The reflectivity thresholds from adaptation
+*.                                data converted to biased dBZ units.
+*.    C   REF_MAX_NDX I*4         The index of the highest reflectivity
+*.                                threshold.
+*.    C   REF_MIN_NDX I*4         Upper limit of reflectivity index for
+*.                                processing segments and components.
+*.    C   SUM_BUFTH   R*4         The maximum buffer size threshold
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME      TYPE        DESCRIPTION
+*.    ----      ----        -----------
+*.    MINUS_ONE I*4         Parameter value for negative one
+*.    ONE       I*4         Parameter value of one.
+*.    REALZERO  R*4         Parameter value of real zero.
+*.    RINDX     I*4         Do loop variable for reflectivity thresholds
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A315CSAD
+*.    SGMTS09
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A315CD
+*.    A315CDM
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:
+*.
+*.     Thresholds used for testing which are derived from Adaptation
+*.   Data have values that are tailored for specific tests, which may
+*.   be different than the original values seen as Adaptation Data.
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     Compiled using COMP15.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     Linked using LINK15.CSS
+*.
+*.  MISC:  None
+*.
+C********************************************************************
+C
+C         STORM SEGMENTS: DERIVED ADAPTATION VARIABLES  ROUTINE
+C
+C********************************************************************
+C
+      IMPLICIT NONE
+C
+C**Attach local STORMS Adaptation Data parameter file:
+$INCLUDE A315BUF.INC/G,**A315PSAD (NLIST)
+C
+C**Attach local STORMS Adaptation Data definitions:
+$INCLUDE **A315CSAD (NLIST)
+C
+C**Attach derived Storms Adaptation Data definitions (CD)
+$INCLUDE A315.INC/G,**A315CDS (NLIST)
+C
+C**  Attach pointers/parameters for segment buffer A3CD09DZ
+$INCLUDE A315BUF.INC/G,**A315P3S (NLIST)
+C
+C**  Attach segments COMMON from A3CD09DZ
+$INCLUDE A309.INC/G,**A3CD09DZ (NLIST)
+C
+C************************ DATA DECLARATIONS *************************
+C
+      REAL REALZERO
+      INTEGER ONE, MINUS_ONE, RINDX
+C
+C********************** PARAMETER INITIALIZATIONS *******************
+C
+      PARAMETER ( MINUS_ONE = -1, REALZERO = 0.0, ONE = 1 )
+C
+C***************** BEGIN MAIN PROCESSING SECTION ********************
+C
+C**  Set the maximum buffer size thresholds to zero.
+C
+      SUM_BUFTH = REALZERO
+C
+C**  Compute the biased value for the reflectivity difference.
+C
+      REFDIFBIAS = STRMADAP( STA_RDIF ) * MULTFACT
+C
+C**  Set the maximum and minimum reflectivity indexes.
+C
+      REF_MAX_NDX = ONE
+      REF_MIN_NDX = STRMADAP( STA_RLVL )
+C
+C** Convert Reflectivity Thresholds (received as RPG Adaptation Data)
+C** from dBZ to equivalent biased units used in radial data files
+C** for all reflectivity levels and the DROPOUT reflectivity levels.
+C
+      DO 100 RINDX = REF_MAX_NDX, REF_MIN_NDX
+        REFTHRBIAS(RINDX)=MULTFACT*( STRMADAP(RINDX)+ADDFACT )+OFFACT
+        DROPRFBIAS( RINDX ) = REFTHRBIAS( RINDX ) - REFDIFBIAS
+        ADPSEGLN(RINDX) = STMRADAP(RINDX + STA_SGL1 - ONE )
+C
+        SUM_BUFTH = SUM_BUFTH + SEGBUF_TH( RINDX )
+ 100  CONTINUE
+C
+C** Set testing value for number of bins over which
+C** average reflectivity is to be calculated.
+C
+      ADPNAVGB = STRMADAP( STA_NAVG )
+      ADPNDROP = STRMADAP( STA_NDRO )
+      ADPNSGMX = STRMADAP( STA_SGMX )
+C
+C** Test whether any of the coefficients in the dBZ-to-R relationship
+C** have changed since the last input of Adaptation Data and if so,
+C** recalculate the Liquid Water Concentration Table.
+C
+      CALC_LW_FLG = .FALSE.
+      IF ( ADPMWGTF .NE. STMRADAP( STA_MWTF ) ) THEN
+        ADPMWGTF = STMRADAP( STA_MWTF )
+        CALC_LW_FLG = .TRUE.
+      END IF
+      IF( ADPMULTF .NE. STMRADAP( STA_MULF ) ) THEN
+        ADPMULTF = STMRADAP( STA_MULF )
+        CALC_LW_FLG = .TRUE.
+      END IF
+      IF( ADPMCOEF .NE. STMRADAP( STA_MCOF ) ) THEN
+        ADPMCOEF = STMRADAP( STA_MCOF )
+        CALC_LW_FLG = .TRUE.
+      END IF
+C
+C** Test whether the minimum reflectivity to process ( i.e.,
+C** minimum reflectivity threshold - drop out reflectivity threshold)
+C** has change.  If so, need to recalculated Liquid Water Table.
+C
+      IF ( ADPMNZ .GT. ( STRMADAP(REF_MIN_NDX) -
+     >                   STRMADAP(STA_RDIF) ) ) THEN
+         ADPMNZ = STRMADAP(REF_MIN_NDX) - STRMADAP(STA_RDIF)
+         CALC_LW_FLG = .TRUE.
+      END IF
+C
+      IF( CALC_LW_FLG ) CALL A315Q3__STRM_LIQW
+C
+C**  Calculate as a cumulative percentage the number of segments that
+C**  will be permitted from lowest to highest reflectivity levels
+C
+      BSEG_THR( REF_MIN_NDX ) = SEGBUF_TH( REF_MIN_NDX ) / SUM_BUFTH
+      DO 110 RINDX = REF_MIN_NDX - ONE, REF_MAX_NDX, MINUS_ONE
+        BSEG_THR( RINDX ) = BSEG_THR( RINDX + ONE ) +
+     $                      SEGBUF_TH( RINDX )/SUM_BUFTH
+ 110  CONTINUE
+C
+C************** END OF PROCESSING FOR SUBROUTINE ********************
+C
+      RETURN
+      END

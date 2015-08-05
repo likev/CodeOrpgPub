@@ -1,0 +1,59 @@
+user_sel_LRM(1)			ORPG SDD Manpage		user_sel_LRM(1)
+
+NAME
+cpc014 tsk011 user_sel_LRM - User Selectable Layer Composite Reflectivity Polar Grid
+
+INPUTS
+	REFLDATA - RADIAL_DATA
+
+OUTPUTS
+	ulrdata - VOLUME_DATA
+
+BASE
+	VOLUME_BASED
+
+DESCRIPTION
+	This task takes REFLDATA (79) as data input and generates 
+	volume based products - ulrdata(137) for each user specified
+ 	layer. It handles maximum ten user requests per volume scan.
+	
+	User requests that contain top and bottom boundaries of a
+	layer are sent to ORPG through product request message. The 
+	first and second product dependent parameters are used as 
+	top and bottom boundaries, respectively. The range for a boundary
+	is from 0 to 70 kft above MSL. The unit is k-feet. The minimum
+	thickness of a layer is 1000 feet.  
+	 
+	The Process_control() function is the entry point of all the 
+	logic. It calls RPGC_get_customizing_data() to get user requests.
+	
+	Validate_boundary() is called by Process_control() to validate
+	layer boudaries. The validation makes sure that all boundaries 
+	are in the range from 0 kft to 70 kft. The radar's height will
+	be subtracted from boundaries. The validation is just for 
+	internal calculation purpose. The original boundaries user requested
+	will be kept intact in ICD product description block.	
+
+	Get_lower_upper_bins() is called by Process_control() at the 
+	beginning of each new volume or elevation to determine starting
+	and ending bins for each user request and every elevation cut.
+	Process_radial() then projects each radial bin value to the 
+	Polar_grid_buf[][][]. 
+
+	After the data of the whole volume scan being processed, 
+	Process_control() calls Assemble_ICD() to assemble the final
+	ICD products for each user request. 
+
+	Build_sym_block() constructs the symbology block for each ICD
+	product. Finish_pdb() finishes the rest part of the Product 
+	Description Block. In PDB, the first product dependent parameter
+	is for original bottom boundary, the second product dependent
+	parameter is for original top boundary, the third parameter is
+	for maximum reflectivity in this layer, the fourth and fifth
+	product dependent parameters are for the actual bottom and top
+	boundaries used for internal calculation.  
+
+SEE ALSO
+ulrdata(4), refldata(4)
+
+				$Revision: 1.1 $

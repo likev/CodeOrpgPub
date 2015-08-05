@@ -1,0 +1,423 @@
+C
+C RCS info
+C $Author: ccalvert $
+C $Locker:  $
+C $Date: 2003/07/01 19:05:22 $
+C $Id: a31465.ftn,v 1.5 2003/07/01 19:05:22 ccalvert Exp $
+C $Revision: 1.5 $
+C $State: Exp $
+C
+      SUBROUTINE A31465__UPDATE_HRLYDB(SUPL, ADJHRLY)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A31465__UPDATE_HRLYDB
+*.
+*.  MODULE VERSION: 0015
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       06 13 89      0000      P.A.JENDROWSKI       SPR# 90348
+*.       03 23 90      0001      DAVE HOZLOCK         SPR# 90697
+*.       07 13 90      0002      EDWARD WENDOWSKI     SPR# 90775
+*.       02 14 91      0003      PAUL JENDROWSKI      SPR# 91255
+*.       12 03 91      0004      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0005      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0006      Toolset              SPR 91895
+*.       03/25/93      0007      Toolset              SPR NA93-06801
+*.       01/28/94      0008      Toolset              SPR NA94-01101
+*.       03/03/94      0009      Toolset              SPR NA94-05501
+*.       08/10/94      0010      C. Stephenson        CCR NW-94-084-02
+*.       04/01/95      0011      Toolset              CCR NA95-11802
+*.       05/31/95      0012      R. RIERSON           CCR NA9435301 (SPR NA94-08102)
+*.       08/08/95      0012      TIM O'BANNON         CCR 94-33207
+*.       12/23/96      0013      Toolset              CCR NA95-11807
+*.       01/31/02      0014      Dennis A. Miller     CCR NA01-27501
+*.       06/30/03      0015      Dennis A. Miller     CCR NA02-06508 
+*.
+*.  CALLING SEQUENCE: CALL A31465__UPDATE_HRLYDB (SUPL, ADJHRLY)
+*.
+*.  MODULE FUNCTION:
+*.
+*.     This routine updates the hourly precipitation data base. It
+*.     stores the latest buffer of precipitation data in polar
+*.     coordinate form, and then determines if the previous two
+*.     hours of data are still valid. The previous data is still
+*.     valid if the clock hour associated with the data is no more
+*.     than two hours different from the clock hour of the latest
+*.     data.
+*.
+*.  MODULES CALLED: A31468__PDB_IO, A3148N__BUILD_3HOUR
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT           TYPE        DESCRIPTION
+*.    -   -----           ----        -----------
+*.    G   CUR_BIAS        I*4         (CONSTANT)Bias between rain gage and
+*.                                    radar estimates positional parameter.
+*.    G   CUR_GRPSIZ      I*4         (CONSTANT)Gage-Radar Pairs (effective
+*.                                    sample size) positional parameter.
+*.    G   CUR_MSPAN       I*4         (CONSTANT)Memory Span (over which Bias
+*.                                    determined) positional parameter.
+*.    G   END_BOTH        I*4         (CONSTANT)Indicator that hour was set
+*.                                    back to both clock hour and end gage
+*.                                    accumulation time.
+*.    G   END_CLOCK       I*4         (CONSTANT)Indicator that the hour was
+*.                                    set back to the clock hour
+*.    G   END_HRDATE      I*4         (CONSTANT)Positional parameter for end
+*.                                    date of the input hourly scan.
+*.    G   END_HRTIME      I*4         (CONSTANT)Positional parameter for
+*.                                    ending time of hourly scan.
+*.    G   FLAG_SET        I*4         (CONSTANT)Parameter for a set flag.
+*.    G   FLG_NOHRLY      I*4         (CONSTANT)Index to flag indicating
+*.                                    hourly scan data is not there.
+*.    G   FLG_SPOT_BLANK  I*4         (CONSTANT)(Constant) Parameter for
+*.                                    position of Spot Blanking flag within
+*.                                    Supplemental Data array
+*.    G   FLG_ZERHLY      I*4         (CONSTANT)Index to flag indicating
+*.                                    hourly scan data is zero-filled.
+*.    G   HLY_SCNTYP      I*4         (CONSTANT)Offset into supplementary data
+*.                                    array within the output buffer pointing
+*.                                    to the hourly scan type.
+*.    G   HYZ_SUPL        I*4         (CONSTANT)(CONSTANT)Size of Supplemental
+*.                                    Data array in Hybrid Scan output buffer.
+*.                                    SSIZ_PRE + SSIZ_RATE + SSIZ_ACUM +
+*.                                    SSIZ_ADJU
+*.    C   FILE_REC        I*4         Array of file records where the hourly
+*.                                    scans are stored on disk. Accessed with
+*.                                    rotating indicies: Knewest, kmiddle,
+*.                                    koldest.
+*.    C   FIL_STAT        I*4         Status of disk file.
+*.    C   FLG_NO_3HR      I*4         Flag indicating, if set, that there is a
+*.                                    3 hr total on the disk.
+*.    C   FLG_NO_HRLY     I*4         Array to save the flags for no hourly
+*.                                    accumulation.
+*.    C   HOURLY_BUFFERS  I*4         Number of hourly scans used in 3 hr
+*.                                    total.
+*.    C   HRLY_EDATE      I*4         Ending dates of hourly data.
+*.    C   HRLY_ETIME      I*4         Ending times of hourly data.
+*.    C   KMIDDLE         I*4         Index of the middle of the 3 hourly
+*.                                    scans.
+*.    C   KNEWEST         I*4         Index of the newest of the 3 hourly
+*.                                    scans.
+*.    C   KOLDEST         I*4         Index of the oldest of the 3 hourly
+*.                                    scans.
+*.    C   SB_STATUS_HRLY  I*4         Spot Blanking status of each of the
+*.                                    hours used in the 3 Hour Accumulation
+*.                                    Product
+*.    C   GOOD            I*4         (CONSTANT)Status flag value.
+*.    C   IBEG            I*4         (CONSTANT)Constant used as loop control
+*.                                    variable (initial value).
+*.    C   KMISSING        I*4         (CONSTANT)Flag value when hourly data is
+*.                                    missing.
+*.    C   NSCANS          I*4         (CONSTANT)Number of scans that can go
+*.                                    into 3HR accumulation.
+*.    C   WRITKODE        I*4         (CONSTANT)I/O code indicating write to
+*.                                    disk I/O operation should be performed.
+*.    P   ADJHRLY         I*2         Adjusted hourly accumulation scan data.
+*.    P   SUPL            I*4         Hydromet supplemental data array
+*.
+*.    *   OUTPUT          TYPE        DESCRIPTION
+*.    -   ------          ----        -----------
+*.    C   BIAS_ESTM_1HR   R*4         Radar Bias estimate. One hour product
+*.                                    uses mean HYDRSUPL(CUR_BIAS).
+*.    C   BIAS_GRPSIZ_1HR R*4         Gage-Radar Pair estimate. One hour product
+*.                                    uses mean HYDRSUPL(CUR_GRPSIZ).
+*.    C   BIAS_MSPAN_1HR  R*4         Memory Span estimate. One hour product
+*.                                    uses mean HYDRSUPL(CUR_MSPAN).
+*.    C   FLG_NO_HRLY     I*4         Array to save the flags for no hourly
+*.                                    accumulation.
+*.    C   FLG_ZERO_HRLY   I*4         Array to save the flags for zero hourly
+*.                                    accumulations.
+*.    C   HOURLY_BUFFERS  I*4         Number of hourly scans used in 3 hr
+*.                                    total.
+*.    C   HRLY_EDATE      I*4         Ending dates of hourly data.
+*.    C   HRLY_ETIME      I*4         Ending times of hourly data.
+*.    C   HRLY_SCAN_TYPE  I*4         Hourly data scan type flags.
+*.    C   KMIDDLE         I*4         Index of the middle of the 3 hourly
+*.                                    scans.
+*.    C   KNEWEST         I*4         Index of the newest of the 3 hourly
+*.                                    scans.
+*.    C   KOLDEST         I*4         Index of the oldest of the 3 hourly
+*.                                    scans.
+*.    C   SB_STATUS_HRLY  I*4         Spot Blanking status of each of the
+*.                                    hours used in the 3 Hour Accumulation
+*.                                    Product
+*.    C   SB_STAT_3HR     I*4         Spot Blanking status for the 3 hour
+*.                                    Accumulation product
+*.    C   SUM_TIMES       I*4         Temporary flag array indicating which
+*.                                    hourly periods went into 3 hr.
+*.                                    accumulation.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    P   ADJHRLY           I*2         Adjusted hourly accumulation scan
+*.                                      data.
+*.
+*.  DATABASE/FILE REFERENCE: NONE
+*.
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME           TYPE        DESCRIPTION
+*.    ----           ----        -----------
+*.    DELTA_TIME     I*4         Time difference from newest hour scan
+*.    FLAG_HRLY_SCAN L*4         Flag indicating whether the cuurent scan ends
+*.                               at a clock hour
+*.    IBIAS          I*4         Equivalenced variable used to get real value
+*.                               of current Bias from Supplementary data
+*.    IGRPSIZ        I*4         Equivalenced variable used to get real value
+*.                               of current G-R Pair size from Suppl. data
+*.    IMSPAN         I*4         Equivalenced variable used to get real value
+*.                               of current Memory Span from Suppl. data
+*.    INC            I*4         Parameter to increment with; =1
+*.    INDEX          I*4         Do-Loop index for number of scans
+*.    IOSTAT         I*4         I/O STATUS RETURN FROM CALL TO A31468
+*.    MAX_TIME_DIFF  I*4         Max time difference for an hourly scan to be
+*.                               included in the 3-hour total
+*.    MIN_IN_DAY     I*4         Number of minutes in a day
+*.    NEWTIME        I*4         Time in minutes of the newest clock hour
+*.                               accumulation scan
+*.    NULL           I*4         Parameter for null value; =0
+*.    RECNO          I*4         RECORD NUMBER FOR I/O
+*.    RBIAS          R*4         Equivalenced variable used to set the Bias
+*.                               for the current hour in the hourly database
+*.    RGRPSIZ        R*4         Equivalenced variable used to set the current
+*.                               G-R Pair size in the hourly database
+*.    RMSPAN         R*4         Equivalenced variable used to set the current
+*.                               Memory Span in the hourly database
+*.    SEC_IN_MIN     I*4         Number of seconds in a minute
+*.    TEMP           I*4         Temporary storage for KNEWEST used
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3146C2
+*.    A3146C3
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK14.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+C...'X' IN COLUMN-1 INDICATES CONDITIONALLY COMPILED DEBUG CODE...
+C
+      IMPLICIT NONE
+C
+$INCLUDE A3146.INC/G ,**A3146P1 (NEND NLIST)
+$INCLUDE           **A3146C2 (NEND NLIST)
+$INCLUDE           **A3146C3 (NEND NLIST)
+C
+$INCLUDE A313HBUF.INC/G,**A313HYPP (NEND NLIST)
+$INCLUDE                **A313HYD6 (NEND NLIST)
+C
+      LOGICAL FLAG_HRLY_SCAN
+      INTEGER SUPL(HYZ_SUPL)
+      INTEGER INDEX, IOSTAT, RECNO, INC, NULL
+      PARAMETER(INC=1, NULL=0 )
+      INTEGER TEMP, SEC_IN_MIN, MIN_IN_DAY
+      PARAMETER (SEC_IN_MIN=60, MIN_IN_DAY=1440)
+      INTEGER MAX_TIME_DIFF, DELTA_TIME, NEWTIME
+      PARAMETER (MAX_TIME_DIFF=120)
+      INTEGER IBIAS, IGRPSIZ, IMSPAN
+      REAL    RBIAS, RGRPSIZ, RMSPAN
+      EQUIVALENCE (IBIAS,RBIAS)
+      EQUIVALENCE (IGRPSIZ,RGRPSIZ)
+      EQUIVALENCE (IMSPAN, RMSPAN )
+C
+C---------------------
+C
+X     TYPE *,'A31465: STARTING A31465'
+X     TYPE *,'        SCAN DATE AND TIME:      ',SUPL(AVG_SCNDAT),
+X    $                                           SUPL(AVG_SCNTIM)
+X     TYPE *,'        FLAG BAD SCAN:           ',SUPL(FLG_BADSCN)
+X     TYPE *,'        FLAG ZERO SCAN:          ',SUPL(FLG_ZERSCN)
+X     TYPE *,'        FLAGS 0 AND NO HOURLY:   ',SUPL(FLG_ZERHLY),
+X    $                                           SUPL(FLG_NOHRLY)
+X     TYPE *,'        END HOURLY DATE AND TIME:',SUPL(END_HRDATE),
+X    $                                           SUPL(END_HRTIME)
+X     TYPE *,'        HOURLY SCAN TYPE:        ',SUPL(HLY_SCNTYP)
+X     TYPE *,'        MAX HOURLY ACCUMULATION: ',SUPL(MAX_HLYACU)
+C
+C** DO WE HAVE A GOOD SCAN THAT IS ALSO CLOCK HOUR DATA?
+C
+      FLAG_HRLY_SCAN = .FALSE.
+      IF (SUPL(HLY_SCNTYP).EQ.END_CLOCK .OR.
+     $                         SUPL(HLY_SCNTYP).EQ.END_BOTH ) THEN
+C
+X        TYPE *,'A31465: WE HAVE A GOOD SCAN THAT IS ALSO A CLOCK HOUR'
+C
+         FLAG_HRLY_SCAN = .TRUE.
+C
+C** ROTATE THE INDICES FOR THE THREE HOURS THAT NEED TO BE SAVED
+C
+         TEMP=KNEWEST
+         KNEWEST=KOLDEST
+         KOLDEST=KMIDDLE
+         KMIDDLE=TEMP
+C
+X        TYPE *,'A31465: UPDATED HOUR INDICES:  NEW, MIDDLE, OLDEST:'
+X        TYPE *,'A31465:                     ',KNEWEST,KMIDDLE,KOLDEST
+C
+C** UPDATE THE SUPPLEMENTARY DATA THAT IS KEPT WITH THE FILE
+C
+         HRLY_EDATE   (KNEWEST)= SUPL(END_HRDATE)
+         HRLY_ETIME   (KNEWEST)= SUPL(END_HRTIME)/SEC_IN_MIN
+         FLG_ZERO_HRLY(KNEWEST)= SUPL(FLG_ZERHLY)
+         FLG_NO_HRLY  (KNEWEST)= SUPL(FLG_NOHRLY)
+         HRLY_SCAN_TYPE(KNEWEST)=SUPL(HLY_SCNTYP)
+         SB_STATUS_HRLY(KNEWEST) = SUPL(FLG_SPOT_BLANK)
+X        WRITE (14,51) SUPL(FLG_SPOT_BLANK),KNEWEST,
+X    $                 SB_STATUS_HRLY(KNEWEST)
+X51      FORMAT(1X,'1465:SUPL(FLG_SPOT_BLANK):',I3,' KNEWEST: ',
+X    $          I2,/,1X,' SB_STATUS_HRLY(KNEWEST): ',I2)
+C
+X        TYPE *,'A31465: DONE UPDATING SUPPLEMENTARY DATA TO COMMON'
+C
+C** SET THE BIAS-ESTIMATE, (EFFECTIVE) SAMPLE SIZE AND MEMORY SPAN
+C** USING EQUIVALENCE TO GET REAL VALUES
+C
+         IBIAS   = SUPL(CUR_BIAS)
+         IGRPSIZ = SUPL(CUR_GRPSIZ)
+         IMSPAN  = SUPL(CUR_MSPAN)
+C
+X     TYPE *,' CURRENT BIAS, GRPSIZ AND MSPAN: ',
+X    $               RBIAS, RGRPSIZ, RMSPAN
+C
+         BIAS_ESTM_1HR  (KNEWEST) = RBIAS
+         BIAS_GRPSIZ_1HR(KNEWEST) = RGRPSIZ
+         BIAS_MSPAN_1HR (KNEWEST) = RMSPAN
+C
+C** DETERMINE THE NUMBER OF BUFFERS (UP TO A MAXIMUM OF 3) WHICH
+C** CONTAIN VALID DATA. THE BUFFER IS VALID IF ITS ASSOCIATED
+C** CLOCK HOUR IS TWO OR LESS HOURS DIFFERENT FROM THE CLOCK HOUR
+C** OF THE BUFFER WHICH HAS JUST BEEN RECEIVED. IF THE BUFFER IS
+C** MORE THAN TWO HOURS DIFFERENT FROM THE LATEST BUFFER, STORE
+C** THE VALUE OF KMISSING IN FLAGS TABLE SUM_TIMES.
+C
+C** INITIALIZE THE BIAS TERMS AND COUNT OF HOURS TO ZERO
+C
+         HOURLY_BUFFERS = NULL
+         SB_STAT_3HR = NULL
+C
+C** GET LATEST TIME IN HOURS
+C
+         NEWTIME=HRLY_EDATE(KNEWEST)*MIN_IN_DAY+ HRLY_ETIME(KNEWEST)
+C
+C** CYCLE THROUGH THE 3 HOURLY SCANS
+C
+         DO 300 INDEX=INC,NSCANS
+           IF (FLG_NO_HRLY(INDEX).EQ.FLAG_SET) THEN
+             SUM_TIMES(INDEX)=KMISSING
+           ELSE
+C
+C** COMPUTE TIME RELATIVE TO NEWTIME
+C
+             DELTA_TIME = NEWTIME - HRLY_EDATE(INDEX)*MIN_IN_DAY
+     $                            - HRLY_ETIME(INDEX)
+C
+C** CHECK THE TIME DIFFERENCE
+C
+             IF (DELTA_TIME.LE.MAX_TIME_DIFF) THEN
+C
+C** GOOD HOUR SO INCREMENT HOURLY COUNT
+C
+               HOURLY_BUFFERS = HOURLY_BUFFERS + INC
+               SUM_TIMES(INDEX) = HRLY_ETIME(INDEX)
+C
+C** CHECK IF SPOT BLANK ACTIVE FOR ANY OF THE HOURS IN 3HR ACCUM
+C
+               IF (SB_STATUS_HRLY(INDEX) .EQ. FLAG_SET) THEN
+                 SB_STAT_3HR = FLAG_SET
+X                WRITE (14,50) INDEX,SB_STATUS_HRLY(INDEX),SB_STAT_3HR
+X50   FORMAT(1X,'1465:INDEX: ',I2,' SB_STATUS_HRLY(INDEX): ',I2,
+X    $       /,1X,' SB_STAT_3HR: ',I2)
+               END IF
+C
+             ELSE
+               SUM_TIMES(INDEX) = KMISSING
+             END IF
+           END IF
+300      CONTINUE
+C
+X        TYPE *,'A31465: DONE LOOP 300...'
+C
+C** NOW WRITE THE NEWEST SCAN TO DISK TO SAVE IT DURING DOWN TIMES
+C
+         IF (FIL_STAT .EQ. GOOD ) THEN
+C
+C** WRITE NEWEST SCAN TO DISK IF IT IS NOT ALL ZERO AND IT EXISTS
+C
+           RECNO = FILE_REC(KNEWEST)
+           IF (SUPL(FLG_ZERHLY).NE.FLAG_SET .AND. SUPL(FLG_NOHRLY)
+     $                                      .NE.FLAG_SET) THEN
+             CALL A31468__PDB_IO(WRITKODE, RECNO, ADJHRLY, IOSTAT)
+C
+X            TYPE *,'A31465: BACK FROM A31468 WRITE; STATUS=',IOSTAT
+C
+           END IF
+         ENDIF
+      ENDIF
+C
+C** UPDATE THE 3-HR SUM GRID AND WRITE TO DISK
+C
+      IF (FIL_STAT.EQ.GOOD .AND. HOURLY_BUFFERS.GT.IBEG .AND.
+     $         (FLG_NO_3HR.EQ.FLAG_SET .OR. FLAG_HRLY_SCAN)) THEN
+         CALL A3148N__BUILD_3HOUR
+      END IF
+C
+X     TYPE *,'A31465: DIRECTORY RECORD CONTENTS:'
+C
+C
+X     WRITE(6,10)
+X 10  FORMAT('         EDATE ETIME STIME FZ FN ST    BIAS   GRPSIZ',
+X    $                                          '    MSPAN    REC')
+X 11  FORMAT(' NEWEST',3I6,1X,3I3,F8.3,2F9.3,I6)
+X 12  FORMAT(' MIDDLE',3I6,1X,3I3,F8.3,2F9.3,I6)
+X 13  FORMAT(' OLDEST',3I6,1X,3I3,F8.3,2F9.3,I6)
+X     WRITE(6,11) HRLY_EDATE(KNEWEST),HRLY_ETIME(KNEWEST),SUM_TIMES
+X    $     (KNEWEST),FLG_ZERO_HRLY(KNEWEST),FLG_NO_HRLY(KNEWEST),
+X    $     HRLY_SCAN_TYPE(KNEWEST),BIAS_ESTM_1HR(KNEWEST),
+X    $     BIAS_GRPSIZ_1HR(KNEWEST),BIAS_MSPAN_1HR(KNEWEST),
+X    $     FILE_REC(KNEWEST)
+X     WRITE(6,12) HRLY_EDATE(KMIDDLE),HRLY_ETIME(KMIDDLE),SUM_TIMES
+X    $     (KMIDDLE),FLG_ZERO_HRLY(KMIDDLE),FLG_NO_HRLY(KMIDDLE),
+X    $     HRLY_SCAN_TYPE(KMIDDLE),BIAS_ESTM_1HR(KMIDDLE),
+X    $     BIAS_GRPSIZ_1HR(KMIDDLE),BIAS_MSPAN_1HR(KMIDDLE),
+X    $     FILE_REC(KMIDDLE)
+X     WRITE(6,13) HRLY_EDATE(KOLDEST),HRLY_ETIME(KOLDEST),SUM_TIMES
+X    $     (KOLDEST),FLG_ZERO_HRLY(KOLDEST),FLG_NO_HRLY(KOLDEST),
+X    $     HRLY_SCAN_TYPE(KOLDEST),BIAS_ESTM_1HR(KOLDEST),
+X    $     BIAS_GRPSIZ_1HR(KOLDEST),BIAS_MSPAN_1HR(KOLDEST),
+X    $     FILE_REC(KOLDEST)
+X     WRITE(6,15)
+X 15  FORMAT(' 3-HOUR VALUES:   BIAS   GRPSIZ    MSPAN   MAXVAL',
+X    $       '   RLE_WORDS   FLAG(NO_3HR)?')
+X     WRITE(6,16) BIAS_ESTM_3HR,BIAS_GRPSIZ_3HR,BIAS_MSPAN_3HR,
+X    $             MXVAL_3HR,RLE_WORDS,FLG_NO_3HR
+X 16  FORMAT(13x,3F9.2,I7,I10,I12)
+C
+C
+X     TYPE *,'A31465: EXITING A31465... MXVAL_3HR=',MXVAL_3HR
+C
+      RETURN
+      END

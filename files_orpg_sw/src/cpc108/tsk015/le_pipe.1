@@ -1,0 +1,94 @@
+le_pipe(1)		Open RPG		   le_pipe(1)
+
+NAME
+     le_pipe - Pipe stdout or stderr into an LE log file
+
+SYNOPSIS
+     le_pipe [options]
+
+DESCRIPTION
+	Read data from stdin or from a file and write the
+     data, one line at a time into an LE log file.  This program
+     is useful for writing to ORPG log files from a script or
+     for re-directing the output of 3rd party tools into ORPG
+     log files.  It is generally used with the | operator on
+     the command line or in a script.
+	Each line of the input file is read from the beginning
+     of the file.  Newline characters are assumed to be a line
+     separator in the input file.  Each line generates a separate
+     LE message.  If an input line is longer than the maximum LE
+     message length, it will be split into multiple LE messages.
+     The output LE log file will be created in the directory
+     specified by the LE_DIR_EVENT environment variable if it
+     does not exist.  LB creation parameters can be specified
+     on the command line to control some information about the
+     created LE log file.  Since le_pipe is sometime run from the
+     super-user account, command line options are provided for
+     setting the user id and group id of the created LE log file.
+     Other options are provided to set the LE error code, specify
+     which log file where the messages will be written, and force
+     re-creation of the output log file even if it already exists.
+	Currently, this tool does not cause any messages to be
+     written to the ORPG system log file.  It may do this in
+     the future.
+
+OPTIONS
+	-h                  print usage information
+        -a avg_msg_size     average msg size for a newly created output
+			    log file (default: unspecified)
+	-c                  create a new log file even if it already exists
+			    (default: do not force creation)
+        -e error_type       GL_ERROR or GL_STATUS (default: GL_INFO)
+        -f file_name        input file name (default: stdin)
+        -g group_id         group id to use if log file is created
+        -i instance no      instance number (default: unspecified)
+        -m mode             permissions if log file is created(in octal)
+        -n no_of_msgs       max no of msgs for a newly created output
+			    log file (default: 25)
+        -o error_no         error number for GL_ERROR log messages
+        -s sleep_time       number of milli-seconds to sleep between reads
+			    of the input file (default: 500)
+        -t task_name        task name to log message for (default: le_pipe)
+        -v                  turn verbosity on
+        -w owner            owner id to use if log file is created
+
+EXAMPLES
+     Cause a message to be sent to the mrpg log file from the task_table
+     configuration file.
+
+     	Add the following to the Startup_init_cmds section of the task_table
+	configuration file.
+
+	echo "This is my message" | le_pipe -e GL_INFO -t mrpg
+
+	When mrpg startup is executed, the above command will be executed, and
+	"This is my message" will be put in the mrpg log file.
+
+     Put the results of the 3rd party tool, snmptrapd, into an LE log file.
+     Since snmptrapd is executed as super-user, and the application that reads
+     the information is in the rpg account, the output log file must be created
+     with the user id and group id of the rpg account.  The output LE log file
+     will contain 5000 messages with an average size of 100 bytes per message.
+
+        From bourne shell:
+
+        snmptrapd -m ALL -s -P | le_pipe -t trap -g 100 -w 200 -n 5000 -a 100 2>&1 &
+
+     All of the information written to stdout and stderr by snmptrapd will be
+     written to the trap.log file that will be created in the directory specified
+     in the LE_DIR_EVENT environment variable.
+
+DATA IN
+     "Text file or stdin"
+
+DATA OUT
+     "LE log file"
+
+API USED
+     le(3)
+
+SEE ALSO
+     le(3), orpgmisc(3)
+
+
+				$Revision: 1.5 $

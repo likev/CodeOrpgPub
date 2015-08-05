@@ -1,0 +1,325 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/16 19:40:25 $
+C $Id: a315b5.ftn,v 1.3 2002/12/16 19:40:25 christie Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A315B5__MATCH_COMP( )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A315B5__MATCH_COMP
+*.
+*.  MODULE VERSION: 0002
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       06 28 95      0000      STEVE SMITH          CCR NA94-26302
+*.       12/23/96      0001      Toolset              CCR NA95-11807
+*.       03/16/99      0002      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A315B5__MATCH_COMP( )
+*.
+*.  MODULE FUNCTION:
+*.
+*.
+*.  MODULES CALLED: A315C5__ADD_COMP 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT             TYPE        DESCRIPTION
+*.    -   -----             ----        -----------
+*.    G   ADPMDSTM          I*4         Local copy of Adaptation parameter for
+*.                                      maximum number of storm cells
+*.    C   ADPRDSTH_SQR      R*4         Array of the distance squared (km**2)
+*.                                      of the maximum search radius for
+*.                                      vertically linking components.
+*.    C   CELLCOMP          R*4         Array of potential storm cell
+*.                                      characteristics.
+*.    C   LEV               I*4         Counter indicating the number of the
+*.                                      elevation being processed.
+*.    C   NBR_COMP          I*4         Number of components that comprise
+*.                                      each potential storm cell.
+*.    C   NBR_STMS          I*4         Counter for the number of storm cells
+*.                                      constructed from components before
+*.                                      calls to merge or delete modules.
+*.    C   NVCOMP            I*4         Number of components per elevation
+*.                                      passed on to Centroids.
+*.    C   VOLCOMP           R*4         Array of characteristics of components
+*.                                      stored at each elevation for an entire
+*.                                      volume.
+*.    C   CCM_ELV           I*4         (CONSTANT)Location in the CELLCOMP
+*.                                      array of the average elevation
+*.                                      (degrees) of the scan from which a
+*.                                      component was built.
+*.    C   MAX_SEARCH_RADIUS I*4         (CONSTANT)Parameter to set dimension
+*.                                      size in local adaptation data for
+*.                                      number of radii searched when
+*.                                      vertically associating components into
+*.                                      storm cells.
+*.    C   VCM_ACH           I*4         (CONSTANT)Location in the VOLCOMP
+*.                                      array of the cell association flag of
+*.                                      a component.  Flag value set to 0 in
+*.                                      Components.
+*.    C   VCM_ELV           I*4         (CONSTANT)Location in the VOLCOMP
+*.                                      array of the average elevation
+*.                                      (degrees) of the scan from which a
+*.                                      component was built.
+*.    C   VCM_XCN           I*4         (CONSTANT)Location in the VOLCOMP
+*.                                      array of the mass-weighted
+*.                                      X-coordinate (km) of a component's
+*.                                      centroid.
+*.    C   VCM_YCN           I*4         (CONSTANT)Location in the VOLCOMP
+*.                                      array of the mass-weighted Y
+*.                                      coordinate (km) of a component's
+*.                                      centroid.
+*.
+*.    *   OUTPUT   TYPE        DESCRIPTION
+*.    -   ------   ----        -----------
+*.    G   ADPMDSTM I*4         Local copy of Adaptation parameter for maximum
+*.                             number of storm cells
+*.    C   CELLCOMP R*4         Array of potential storm cell characteristics.
+*.    C   NBR_COMP I*4         Number of components that comprise each
+*.                             potential storm cell.
+*.    C   NBR_STMS I*4         Counter for the number of storm cells
+*.                             constructed from components before calls to
+*.                             merge or delete modules.
+*.    C   VOLCOMP  R*4         Array of characteristics of components stored
+*.                             at each elevation for an entire volume.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    C   CELLCOMP          R*4         Array of potential storm cell
+*.                                      characteristics.
+*.    C   VOLCOMP           R*4         Array of characteristics of components
+*.                                      stored at each elevation for an entire
+*.                                      volume.
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME      TYPE        DESCRIPTION
+*.    ----      ----        -----------
+*.    CELL_NUM  I*4         Cell Number
+*.    CM1_NDX   I*4         Do loop index for number of componets on elevation
+*.                          1
+*.    CM2_NDX   I*4         Do loop index of number of componets on elevation
+*.                          2
+*.    DTHRESH   R*4         Search Radius Threshold
+*.    ELINDX    I*4         Do loop index for pointing to the lower of two
+*.                          elevations within the 3-dim VOLCOMP array.
+*.    ELINDX1   I*4         Do loop index for pointing to the higher of two
+*.                          elevation cuts within the 3-Dim array VOLCOMP
+*.    HORZDIST2 R*4         Componet distance difference
+*.    NCMPEL1   I*4         Number of componets in elevation 1
+*.    NCMPEL2   I*4         Number of componets in elevation 2
+*.    NCOMP     I*4         Number of componets
+*.    RDS_NDX   I*4         Do loop index for Search Radii Thresholds
+*.    XDIST     R*4         X coordinate distance between two componets
+*.    YDIST     R*4         Y coordinate distance between two componets
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A315CSAD
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A315CNCC
+*.    A315CRCC
+*.    A315CUCC
+*.    A315CWCC
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     Compiled using COMP15.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     Linked using LINK15.CSS
+*.
+*.  MISC:  None
+*.
+C********************************************************************
+C
+C         STORM CELL CENTROIDS: MATCH COMPONENTS ROUTINE
+C
+C********************************************************************
+C
+      IMPLICIT NONE
+C
+C**Attach output parameter-definition file (of "STORM_CENTROIDS")
+$INCLUDE A315BUF.INC/G,**A315P5C (NLIST)
+C
+$INCLUDE A315BUF.INC/G, **A315PSAD (NLIST)
+$INCLUDE                **A315CSAD (NLIST)
+C
+C**Attach internal common area (CNCC)
+$INCLUDE A315.INC/G,**A315CNCC (NLIST)
+C
+C**Attach internal common area (CRCC)
+$INCLUDE A315.INC/G,**A315CRPC (NLIST)
+$INCLUDE            **A315CRCC (NLIST)
+C
+C**Attach internal common area (CUCC)
+$INCLUDE A315.INC/G,**A315CUPC (NLIST)
+$INCLUDE            **A315CUCC (NLIST)
+C
+C**Attach internal common area (CWCC)
+$INCLUDE A315.INC/G,**A315CWCC (NLIST)
+C
+C*********************** DATA DECLARATIONS **************************
+C
+      INTEGER   ELINDX, ELINDX1, NCMPEL1, NCMPEL2, CELL_NUM
+      INTEGER   RDS_NDX, CM1_NDX, CM2_NDX, NCOMP
+C
+      REAL      XDIST, YDIST, HORZDIST2, DTHRESH
+C
+C****************** BEGIN MAIN PROCESSING SECTION *******************
+C
+C** DO FOR ALL (ELEVATIONs except the highest)
+C
+      DO 80 ELINDX = 1, LEV - 1
+        ELINDX1 = ELINDX + 1
+        NCMPEL1 = NVCOMP( ELINDX )
+        NCMPEL2 = NVCOMP( ELINDX1 )
+C
+C** If no components this elevation and next, no need to do any
+C** checks.
+C
+        IF ( NCMPEL1 .NE. 0 .AND. NCMPEL2 .NE. 0 ) THEN
+C
+C** DO FOR ALL (THRESHOLD (Search Radii))
+C
+          DO 70 RDS_NDX = 1, MAX_SEARCH_RADIUS
+C
+C** Get the Search Radius Threshold.
+C
+            DTHRESH = ADPRDSTH_SQR( RDS_NDX )
+C
+C** DO FOR ALL (COMPONENTs (ELEVATION))
+C
+            DO 60 CM1_NDX = 1, NCMPEL1
+              DO 50 CM2_NDX = 1, NCMPEL2
+C
+C** If the component on the higher elevation scan is already
+C** correlated skip it.
+C
+                IF ( VOLCOMP( VCM_ACH, CM2_NDX, ELINDX1 ) .EQ.
+     >               0.0 ) THEN
+C
+C** DO UNTIL (COMPONENT (ELEVATION) is correlated with a COMPONENT
+C** (next ELEVATION).
+C
+                  XDIST = VOLCOMP( VCM_XCN, CM1_NDX, ELINDX ) -
+     >                    VOLCOMP( VCM_XCN, CM2_NDX, ELINDX1 )
+                  YDIST = VOLCOMP( VCM_YCN, CM1_NDX, ELINDX ) -
+     >                    VOLCOMP( VCM_YCN, CM2_NDX, ELINDX1 )
+C
+C** COMPUTE (COMPONENT DISTANCE DIFFERENCE).
+C
+                  HORZDIST2 = XDIST*XDIST + YDIST*YDIST
+C
+C** IF (COMPONENT DISTANCE DIFFERENCE is less than or equal to
+C** THRESHOLD (Search Radius)), Then...
+C
+                  IF ( HORZDIST2 .LE. DTHRESH ) THEN
+                    IF ( VOLCOMP( VCM_ACH, CM1_NDX, ELINDX )
+     >                   .EQ. 0.0 ) THEN
+C
+C** Define a new storm cell with the two components.
+C
+                      IF ( NBR_STMS .LT. ADPMDSTM ) THEN
+C
+C** Increment the number of storm cells.
+C
+                        NBR_STMS = NBR_STMS + 1
+C
+C** Initialize the number of components for this storm cell.
+C
+                        NBR_COMP( NBR_STMS ) = 1
+                        NCOMP = 1
+                        VOLCOMP( VCM_ACH, CM1_NDX, ELINDX ) =
+     >                           FLOAT( NBR_STMS )
+C
+C** Call A315C5 to Correlate COMPONENT(NEXT ELEVATION) with
+C** COMPONENT(ELEVATION)
+C
+                        CALL A315C5__ADD_COMP( ELINDX,
+     >                                VOLCOMP( 1, CM1_NDX, ELINDX ),
+     >                                CELLCOMP( 1, NCOMP, NBR_STMS ))
+                        NBR_COMP( NBR_STMS ) =
+     >                               NBR_COMP( NBR_STMS ) + 1
+                        NCOMP = NBR_COMP( NBR_STMS )
+                        VOLCOMP( VCM_ACH, CM2_NDX, ELINDX1 ) =
+     >                           FLOAT( NBR_STMS )
+                        CALL A315C5__ADD_COMP( ELINDX1,
+     >                                VOLCOMP( 1, CM2_NDX, ELINDX1 ),
+     >                                CELLCOMP( 1, NCOMP, NBR_STMS ))
+                        GO TO 60
+C
+C** Jump to the next component on the lower elevation scan
+C
+                      ELSE
+                        GO TO 60
+C
+C** Jump to the next component on the lower elevation scan to
+C** continue building cells which have already been started
+C
+                      END IF
+                    ELSE
+C
+C** Component at lower elevation scan is already correlated.
+C** Check if it already is correlated with a component on the
+C** higher elevation scan.  If so, jump to the next component on
+C** the lower elevation scan.
+C
+                      CELL_NUM = INT(VOLCOMP(VCM_ACH,CM1_NDX,ELINDX))
+                      NCOMP = NBR_COMP( CELL_NUM )
+                      IF ( CELLCOMP( CCM_ELV, NCOMP, CELL_NUM ) .EQ.
+     >                    VOLCOMP( VCM_ELV, CM2_NDX, ELINDX1 ) ) THEN
+                        GO TO 60
+                      ELSE
+C
+C** Component at the lower elevation scan was already part of a cell,
+C** but wasn't correlated to a component at the higher scan.  So,
+C** add the component in the higher scan to the cell.
+C
+                        NCOMP = NCOMP + 1
+                        NBR_COMP( CELL_NUM ) = NCOMP
+                        VOLCOMP( VCM_ACH, CM2_NDX, ELINDX1 ) =
+     >                           FLOAT( CELL_NUM )
+                        CALL A315C5__ADD_COMP( ELINDX1,
+     >                                VOLCOMP( 1, CM2_NDX, ELINDX1 ),
+     >                                CELLCOMP( 1, NCOMP, CELL_NUM ))
+                      END IF
+                      GO TO 60
+C
+C** Jump to the next component on the lower elevation scan
+C
+                    END IF
+                  END IF
+                END IF
+ 50           CONTINUE
+ 60         CONTINUE
+ 70       CONTINUE
+        END IF
+ 80   CONTINUE
+C
+C************** END OF PROCESSING FOR SUBROUTINE ********************
+C
+      RETURN
+      END

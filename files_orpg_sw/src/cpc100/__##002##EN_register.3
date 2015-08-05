@@ -1,0 +1,146 @@
+EN_register(3) 		   ORPG SDD Manpage   		EN_register(3)
+
+NAME
+EN_register - register a callback routine for a given event
+EN_register_obj - same as EN_register, plus register object pointer
+
+SYNOPSIS
+#include <en.h>
+int EN_register(en_t evtcd, void (*encallback)())
+int EN_register_obj(en_t evtcd, void (*encallback)(), void *obj_ptr)
+
+ENVIRONMENT VARIABLES
+The environment variable corresponding to EN_CLIENT_SOCKNAME_ENVAR
+(refer to en.h) may be used to override the default base EN client socket
+name ($HOME/en_client.s).  Such an alternative EN client socket name must,
+of course, be known by the target EN daemon.  Note that the library
+adds the hostname to the base EN client socket (default or specified).
+For example, if the hostname is "osrpg002", the default EN client socket name
+is "$HOME/en_client.s.osrpg002".
+
+DESCRIPTION
+The specified callback routine is registered for a given event.
+
+EN_register_obj will provide the registered EN callback routine with
+access to the specified object pointer (see description of EN callback
+routines below).  A NULL object pointer is acceptable to EN_register_obj;
+the presumption being it is also acceptable to the registered EN callback
+routine!
+
+Registering multiple object pointers for a given event-code/callback
+pair is not supported.
+
+Up to EN_MAX_CALLBACKS EN callback routines may be registered for a given
+event code.
+
+The macro EN_POST_MAX_MSGLEN sets the maximum event post message 
+length at compile time.
+
+"evtcd" is assumed to be a valid event code identifier.  The event
+codes 1-EN_POST_MAX_RESERVED_EVTCD are reserved.  Of these, only
+EN_NTFYR_EXCEPTION_EVTCD is currently of interest to clients.
+Registration for an unknown event will produce indeterminate results,
+the most likely of which is that the notification will never be delivered.
+A given client process may register for notification for no more than
+EN_MAX_EVTCD_REGS events.
+
+If "evtcd" is EN_NTFYR_EXCEPTION_EVTCD, the callback routine will be
+registered as the client's EN Library Notifier Handler exception-
+handling routine (the client may register more than one callback routine).
+The exception message API is TBD at this time, so the client should simply
+log receipt of the exception message.  At this time, all of the exception
+messages consist of a single integer value that corresponds to an error
+code defined in the public header file.
+
+"obj_ptr" is a pointer to an object that the object-oriented client
+would like to access upon receipt of a given event notification.  As
+mentioned above, the object pointer may be NULL.
+
+"encallback" is a pointer to an event notification callback routine
+that the user wishes to have invoked upon notification of the specified
+event.
+
+This callback routine must be defined as follows (the name, of course,
+will be selected by the user).  For EN_register():
+
+void encallback(en_t evtcd, void *msg, size_t msglen) 
+
+Or, for EN_register_obj():
+
+void encallback(en_t evtcd, void *msg, size_t msglen, void *obj_ptr) 
+
+The contents of the buffer pointed to by "msg" are indeterminate
+beyond the scope of the event notification callback routine.
+"msglen" provides the size of the event data message pointed to by "msg".
+The scope of the event notification callback routine lies within the scope
+of an EN library signal handler, so accepted signal-handler design principles
+should be used when designing the callback routine.  All blockable POSIX
+signals are blocked while the EN library signal handler is executing.
+
+If the value of "evtcd" corresponds to the value of the EN_POST_ERR_EVTCD
+macro, this is an indication that an error has been detected by the EN library
+signal handler.  "msglen" has its normal meaning, and the data pointed
+to by "msg" should correspond to an int error code that may be logged.
+
+Any process using the "EN_register" library routine must not trap
+or otherwise interact with the EN client notification signal (default:
+SIGUSR1).
+
+POSIX.1 guarantees that any current call to the sleep() function will be
+interrupted following execution of the callback routine.  Any interruptible
+system call should behave in a similar fashion. 
+
+The EN client notification signal (default: SIGUSR1) is blocked while an
+event is registered or deregistered.  SIGPIPE is ignored while an event is
+registered or deregistered.
+
+The POSIX HOME environment variable must be defined.
+
+RETURN VALUES
+Zero on success or a negative value corresponding to one of the following
+macros on failure:
+
+EN_BAD_EVTCD		attempt to register an event code corresponding to
+			EN_POST_ERR_EVTCD
+EN_DUPL_EVTCD		attempt to register a duplicate event code
+EN_NULL_CALLBACK_PTR	attempt to register a null EN callback routine
+			pointer
+EN_TOO_MANY_EVTCD_REGS	attempt to register an EN callback routine for a given
+			event code when EN_MAX_EVTCD_REGS event codes are
+			already registered
+EN_TOO_MANY_CALLBACKS	attempt to register an EN callback routine for a given
+			event code when EN_MAX_CALLBACKS EN callback routines
+			are already registered for the event code
+EN_SIGACTION_FAILED
+EN_SIGADDSET_FAILED
+EN_SIGDELSET_FAILED
+EN_SIGEMPTYSET_FAILED
+EN_SIGISMEMBER_FAILED
+EN_SIGPROCMASK_FAILED
+EN_WRITE_FAILED
+
+EXAMPLES
+
+Following is an example showing the use of arrays to register for events 3,
+9, and 15:
+
+#define NUMEVTS 3
+
+   int i ;
+   int evtcds[] = {3, 9, 15};
+   void (*encallback[])() = {encallback3, encallback9, encallback15} ;
+
+   for (i=0; i < NUMEVTS; i++){
+      retval = EN_register(evtcds[i],encallback[i]) ;
+      if (retval != 0){
+         /* handle the error */
+      }
+   }
+
+FILES
+$HOME/en_client.s - default client socket
+
+SEE ALSO
+en(3), rssd(1), EN_deregister(3), EN_post(3)
+
+				$Revision: 1.11 $

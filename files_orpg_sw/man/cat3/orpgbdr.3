@@ -1,0 +1,152 @@
+orpgbdr(3)			ORPG SUM Man Page		orpgbdr(3)
+
+NAME
+
+orpgbdr - OPRGBDR Library Functions
+
+SYNOPSIS
+
+#include <orpg.h>
+
+int     ORPGBDR_reg_radial_replay_type (int data_type, int data_lb_id, 
+                                        int acct_data_lb_id);
+
+int     ORPGBDR_write_radial (int data_type, void *ptr, int len);
+
+LB_id_t ORPGBDR_get_start_of_elevation_msgid (int data_type, 
+                                              int vol_seq_num,
+                                              int elev_ind);
+
+LB_id_t ORPGBDR_get_end_of_elevation_msgid (int data_type, 
+                                            int vol_seq_num,
+                                            int elev_ind);
+
+LB_id_t ORPGBDR_get_start_of_volume_msgid (int data_type, 
+                                           int vol_seq_num,
+                                           int elev_ind);
+
+LB_id_t ORPGBDR_get_end_of_volume_msgid (int data_type, 
+                                         int vol_seq_num,
+                                         int elev_ind);
+
+int     ORPGBDR_get_num_completed_cuts (int data_type, 
+                                        int vol_seq_num);
+
+int     ORPGBDR_get_num_elevation_cuts (int data_type, 
+                                        int vol_seq_num);
+
+int     ORPGBDR_get_start_date_and_time (int data_type, 
+                                         int vol_seq_num,
+                                         int *start_date,
+                                         time_t *start_time);
+
+LB_id_t ORPGBDR_check_complete_volume (int data_type, 
+                                       int vol_seq_num);
+
+LB_id_t ORPGBDR_check_complete_elevation (int data_type, 
+                                          int vol_seq_num,
+                                          int elev_ind);
+
+int     ORPGBDR_read_radial (int data_type, void *buf, 
+                             int buflen, LB_id_t msg_id);
+
+int     ORPGBDR_read_radial_direct (int data_type, void *buf, 
+                                    LB_id_t msg_id);
+
+DESCRIPTION
+
+ORPGBDR is a module in library ORPG that can be used to maintain and
+provide access to a radial replay data base.  Only one type of data is
+currently supported in the data base.  However multiple data bases can
+be maintained if multiple data type are stored. 
+
+ORPGBDR_reg_radial_replay_type() is used to establish or access a radial
+replay data base.  This function need only be called once.  The LB ID of 
+the data base and and LB ID of the data base accounting data are provided
+as arguments.   The data_type argument is used to associate the data base
+and accounting data with a certain type of data.  If registration is 
+successful or the data type has been previously registered, this function
+returns 0.  Registration fails if more than MAXN_TYPES have been registered
+and ORPGBDR_ERROR is returned.  The MAXN_TYPES macro and error codes are 
+defined in header file orpgbdr.h.
+
+NOTE:  The data base LB and accounting data LB must already exist.  The 
+       library assumes the LB's have been sized appropriately.
+       
+    
+ORPGBDR_write_radial() writes a radial message at "ptr" to the radial replay
+data base associated with data type "data_type".  The radial message length 
+is given as "len" and specified in bytes.  This is function also maintains
+accounting data, failure to successfully update either the replay data base
+or accounting data results in the ORPGBDR_WRITE_FAILED error code returned.
+Otherwise, 0 is returned.
+
+ORPGBDR_get_start_of_elevation_msgid() returns the radial replay data base
+LB message ID associated with data type "data_type", volume sequence number
+"vol_seq_num", and RPG elevation index "elev_ind" of the start of the 
+elevation scan radial.  If "elev_ind" is negative or there is no valid 
+accounting data for "vol_seq_num" and "elev_ind", then 0 is returned.
+
+ORPGBDR_get_end_of_elevation_msgid() returns the radial replay data base
+LB message ID associated with data type "data_type", volume sequence number 
+"vol_seq_num", and RPG elevation index "elev_ind" of the end of the elevation 
+scan radial.  If "elev_ind" is negative or there is no valid accounting data 
+for "vol_seq_num" and "elev_ind", then 0 is returned.
+
+ORPGBDR_get_start_of_volume_msgid() returns the radial replay data base LB 
+message ID associated with data type "data_type" and volume sequence number 
+"vol_seq_num" of the start of the volume scan radial.  If there is no valid 
+accounting data for "vol_seq_num", then 0 is returned.
+
+ORPGBDR_get_end_of_volume_msgid() returns the radial replay data base LB 
+message ID associated with data type "data_type" and volume sequence number 
+"vol_seq_num" of the end of the volume scan radial.  If there is no valid 
+accounting data for "vol_seq_num", then 0 is returned.
+
+ORPGBDR_get_num_completed_cuts() returns the number of completed elevation
+cuts for the volume scan associated with volume sequence number "vol_seq_num"
+for data type "data_type".  If accounting data for "vol_seq_num" is not 
+available, the error code ORPGBDR_DATA_NOT_FOUND is returned.
+
+ORPGBDR_get_num_elevation_cuts() returns the number of elevation cuts for
+the volume scan associated with volume sequence number "vol_seq_num" for 
+data type "data_type".  If accounting data for "vol_seq_num" is not available, 
+the error code ORPGBDR_DATA_NOT_FOUND is returned.
+ 
+ORPGBDR_get_start_date_and_time() returns the starting (Julian) date and 
+starting time (sec since midnight) for the volume scan specified by 
+"vol_seq_num" for "data_type".  If accounting data for "vol_seq_num" is 
+not available, the error code ORPGBDR_DATA_NOT_FOUND is returned.
+
+ORPGBDR_check_complete_volume() returns the radial replay data base LB 
+message ID of the start of volume radial associated with volume scan
+"vol_seq_num" and "data_type" if the associated volume scan was found 
+in accounting data and successfully completed.  Otherwise, 0 is returned.
+
+ORPGBDR_check_complete_volume() returns the radial replay data base LB 
+message ID of the start of elevation rdial associated with volume scan
+"vol_seq_num" and "data_type" if the associated elevation scan was found
+in accounting data and successfully completed.  Otherwise, 0 is returned.
+
+ORPGBDR_set_read_pointer() sets the LB read pointer for the radial replay
+data base for "data_type", read pointer "msg_id" and offset "offset".  The
+error ORPGBDR_DATA_NOT_FOUND" is returned if the read pointer is not 
+successfully set.
+
+ORPGBDR_read_radial() reads the radial from the radial replay data base 
+associated with "data_type" and LB message ID "msg_id".  The receiving
+buffer is "buf" of length "buflen".  The LB "msg_id" can take on valid
+message IDs or special values such as "LB_NEXT", "LB_FIRST", etc.  On
+error, any one of the common LB error codes is returned.  On success, the 
+number of bytes successfully read is returned.
+
+ORPGBDR_read_radial_direct() is the same as ORPGBDR_read_radial expect
+this function is used for radial replay data bases having the "LB_DIRECT"
+attribute.  These data base types are implemented as shared memory.
+
+SEE ALSO
+
+orpg(3), data_tables(4), lb(3)
+
+
+				$Revision: 1.1 $

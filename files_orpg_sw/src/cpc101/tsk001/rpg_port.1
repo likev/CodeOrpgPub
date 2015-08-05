@@ -1,0 +1,256 @@
+
+    File: rpg_port.1
+
+    Description: This file describes the procedure for porting existing RPG 
+	algorithm and product generation tasks. A development environment 
+	is also explained. In the following we assume that your work 
+	directory for porting is $(RPG).
+
+
+    The porting procedure:
+
+    1.  Create a subdirectory for each RPG task. For example:
+	
+	$(RPG)/rpg/b9a315/segments
+
+	Copy all *.ftn files that are necessary to build the task into the
+	directory. Change file names to lower case characters (e.g. using 
+	script "Mv_lc").
+
+    2.  Generate a Makefile for that task by modifying a template Makefile.
+
+    3.  Develop a new main function, e.g. segmtalg.ftn, by referencing to
+	a template. Don't forget to copy possible initialization statements
+	in the original main subroutine (*m?.ftn), which is not going
+	to be used.
+
+    4.  Create the new task by running make and move the executable to 
+	your bin directory.
+
+    5.  Add the new task to the start(run) and stop(cl) scripts. Add the 
+	necessary output and ITC (Inter-Task Common block) LB creation 
+	lines in "Create_lb" script.
+
+    6.  Generate request messages for the new task if it is required. This
+	is done by modifying $(RPG)/adapt/prod_request_sim.c and
+	recreate the product request LB.
+
+
+    FORTRAN-C call conventions:
+
+    To maximize portability, we would like to minimize the assumptions used 
+    in developing programs containing both ROFTRAN and C routines. The 
+    following conventions were assumed:
+
+    1.	The main function will always be in FORTRAN. 
+
+    2.	When a FORTRAN routine calls a C function, all argument are pointers.
+	No CHARACTER type variables are ever passed through arguments. When 
+	an array name is used as an actual variable, we assume it is the 
+	address of the first element of the array. If a constant is used as
+	an actual variable, we assume it is the address of the constant.
+
+    3.	A C function, if designed to be called by a FORTRAN routine, can only
+	use lower-case characters in its name and always returns an integer. 
+	The return value is never used. This, in particular, implicates that 
+	a FORTRAN function (not subroutine) can not be directly implemented 
+	with a C function.
+
+    4.	C functions never share global (common) variables with FORTRAN 
+	routines. i.e. The only means for passing variables between C
+	and FORTRAN routines is using the arguments.
+
+    5.	If a macro (#define in C; PARAMETER in FORTRAN) needs to be used
+	by both C and FORTRAN routines, it should be defined in two
+	files that have the same base name with suffixes .h and .inc
+	respectively. This will allow automatic consistence check.
+
+    6.	BLOCK DATA files can be included in the main functions of the tasks 
+	that need the data. The "BLOCK DATA" and "END" statements are 
+	commented by ftnpp when the file in used as an INCLUDE file.
+
+
+    The following tips are probably useful:
+
+    1.	Create a cross reference table by running "make task_name_list" on
+	SUN. By examining the table, one can figure out which of the adaptation 
+	common blocks are used by the task, whether the scan summary is needed, 
+	and which of the ITCs are used by this task.
+
+	All, but no more, a?cm??.ftn modules in directory $(RPG)/lib/src/rpgcm 
+	used by a task must be listed as *_SRC_SHARED in the task's Makefile 
+	in order to generate the correct cross reference table. Run "make 
+	task_name_list" and examine the output after "Undefined symbol" will 
+	help you to find out whether all have been listed.
+
+    2.	Missing shared modules and OS32 functions may need to be added. All
+	modules in $(RPG)/lib/src/rpgcm are original RPG code while those in
+	$(RPG)/lib/rpg are new emulated modules.
+
+    3.  Block data files, such as those initializing A3CD99 common block and 
+	ITCs, can be included in the main subroutine. No modification is 
+	necessary to these block data files to be used as INCLUDE files.
+
+    4.	Examples of test programs are pscit and print_hd.
+
+    5.	When there is a need to add new ITCs, one needs to modify itc.inc.
+
+    6.	RPG FORTRAN code reuses local variables assuming they are static.
+	Make sure to setup your FORTRAN compiler flags correctly to support
+	this kind of usage.
+
+    7.	The LBs used by the ORPG system should be created on a local disk
+	partition. NFS partitions may not work for LBs.
+
+    8.  Unused arrays should be identified and removed to save memory. Certain 
+	array sizes should be reduced (e.g. MEM).
+
+    9.  The buffer offsets returned by get_inbuf may be larger than 2**31 
+	if the input LB is created as of shared memory type. In this case a 
+	direct access to MEM, such as MEM(offset + i), will fail because 
+	offset is interpreted as a negative number by FORTRAN. Note, however, 
+	MEM(offset) can be passed as an actual variable to a function, in
+	which case offset is correctly interpreted as an unsigned integer.
+
+
+
+    The working environment (This directory tree is identical to that under
+    /xpit):
+
+    $(RPG):	bin:	(All executable files and scripts)
+
+		lib:	include:	Public lib include files
+
+			src:		All library modules and daemons.
+
+				(for example)
+
+				rpgcm:	RPG shared modules.
+
+				rpg:	New functions implementing the API
+					for the ported RPG tasks.
+
+		include:		All *.h files and RPG files used as 
+					INCLUDE files (e.g *.inc and block 
+					data files)
+
+		rpg:			All ported RPG tasks
+
+			(for example)
+
+			b9a315:		
+				segments:
+				cmpctrd:
+				track_forecast:
+				hail:
+
+		orpg:			All new ORPG tasks
+
+			pbd:		Processing base data
+
+			prm:		Remove processes by names
+
+		tools:			Development and testing tools
+
+			ftnpp:		OS32 FORTRAN code preprocessor
+
+			adapt:		Programs initializing the 
+					adaptation and product request LBs.
+
+			list_filter:	FORTRAN Cross Reference table filter.
+
+			print_hd:	Tool printing product headers.
+
+			read_lb:	Generate base data flow by reading
+					an LB.
+
+			read_nexrd_tape:Generate base data flow by reading
+					an archive II tape.
+
+			read_ridds:	Generate base data flow by reading
+					real time RIDDS data.
+
+
+    $(RPGTEST):		(This should be on a local disk; e.g./home/jing/rpgtest)
+
+			data:		Adapt_data.lb
+					prod_request.lb
+					95.05.07.15.03.16	(test data LB)
+
+			test:		(run your ORPG here)
+					Adapt_data.lb (a link)
+					prod_request.lb (a link)
+					Create_lb (ORPG LB creation script)
+					cl	(clean up script)
+					run	(ORPG start script)
+					Product and ITC LBs generated by ORPG
+
+    Perform development in Subdirectories in $(RPG) and run your ORPG in 
+    $(RPGTEST).
+
+    To set up the environment:
+
+    a.  Create the two directory trees, $(RPG) and $(RPGTEST). Check out the 
+	files from the Razor data base and put them in $(RPG). This can also 
+	be performed by extracting the two files, "rpg.tar.Z" and "rpgtest.tar.Z", 
+	that are created for the two directory trees:
+	
+	"cd $(RPG)"
+	"uncompress rpg.tar.Z"
+	"tar xvf rpg.tar"
+	"cd $(RPGTEST)"
+	"uncompress rpgtest.tar.Z"
+	"tar xvf rpgtest.tar"
+
+    b.  Perform the following:
+
+	Check local compiling environment in Make_local (Customize this in
+	terms of the local platform)
+
+	Build all library modules, daemons and tools in $(RPG)/lib
+
+	Build all tools in $(RPG)/tools.
+
+	Build adaptation and product request LBs in $(RPG)/tools/adapt. Refer 
+	to adapt_data_notes in that directory.
+	mv Adapt_data.lb $(RPGTEST)/data/Adapt_data.lb
+	mv prod_request.lb $(RPGTEST)/data
+
+	Build tasks in $(RPG)/orpg.
+
+	Build ported tasks in $(RPG)/rpg.
+
+    c.  Test the SCIT programs.
+
+	cd $(RPGTEST)/test
+	Create_lb 	(Create the product LBs - First time only)
+	run	(start SCIT)
+	cl	(stop SCIT)
+	Examine the outputs
+
+    I use the following commands to generate the tar files:
+
+    cd /users/jing/rpg ($(RPG))
+
+    "tar cvf rpg.tar ./lib/include ./lib/src ./include ./tools ./rpg ./orpg"
+    "compress rpg.tar"
+
+    cd /home/jing/rpgtest
+
+    tar cvf rpgtest.tar ./data/Adapt_data.lb ./data/prod_request.lb \
+    ./data/95.05.07.15.03.16 ./test/Adapt_data.lb ./test/prod_request.lb \
+    ./test/Create_lb ./test/cl ./test/run  
+    compress rpgtest.tar
+
+    The following tools are sometimes useful:
+
+	Make_local_HP-UX, Make_local_SunOS and Make_rpg_port in $(HOME)/lib:
+	    These are files included by all Makefiles.
+
+	Diff, Grep, Make_all, Mv_lc, rci, rco and rget in $(HOME)/bin:
+	    Useful scripts.
+
+    Ask the author to get these files.
+
+
+

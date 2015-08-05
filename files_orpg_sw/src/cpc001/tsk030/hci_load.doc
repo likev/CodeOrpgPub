@@ -1,0 +1,101 @@
+hci_load.doc			    NOTES			  hci_load.doc
+
+
+This file contains information about the HCI Load Shed Categories task.  It
+is intended to be used by those interested in how the software is designed
+rather than by a typical user.  More detailed information about data stores
+and events used by this task is presented.
+
+Design
+------
+
+The Load Shed Categories task was created as a sub task in the HCI family of
+tasks.  A typical user would normally activate it by selecting the hot label
+to the right of the "Load Shed" label in the RPG Control/Status window.
+However, as a stand-alone application, it can be launched from the command
+line using the "hci_load" command or by invoking a system call in any other
+application wishing to launch it.  This modular approach has a number of
+benefits which are described in the doc file for the hci task (hci.doc).
+
+The Load Shed Categories task provides functionality provided by the "Load
+Shed Categories" menu in the legacy UCP.  A full description can be found in
+the man page hci_load(1).
+
+The Alert Threshold Editor window cannot be resized.
+
+There is a requirement to restrict editing of load shed category data to the
+ROC level user.  A valid password must be entered before any editing can be
+performed.
+
+An advisory lock is placed on the data message corresponding to the load shed
+threshold message (LOAD_SHED_THRESHOLD_MSG_ID) in the ORPGDAT_LOAD_SHED_CAT
+linear buffer when the window is unlocked for editing.  If another instance of
+the task is running and unlocked, a warning popup is displayed advising the
+user that the message is currently being edited by another user.  When the
+window is locked, the advisory lock is removed.
+
+Updates to load shed data displayed in the Load Shed Categories window are
+not done while the window is unlocked for editing.
+
+The timer procedure is activated in 1 second intervals.  It checks for updates
+to load shed data and also check the archive III status.  If the window is
+unlocked for editing, no updates will be allowed.  If the window is locked,
+window updates are allowed when the data are updated.  If the archive III disk
+is not mounted or archive III is not installed, the current archive III
+utilization is reported as "N/A".
+Testing
+-------
+
+To test this function a fully operational RPG must be running.  The test tool
+"load_shed" can be used to set the various load shed category current
+utilization levels below and above the warining and alarm levels.
+
+SOURCE FILES
+------------
+
+	hci_popup_load_shed_window.c
+			This module contains all of the code to build and
+			manage and edit load shed category data.
+				
++++ PROC
+
+DATA IN
+
+	ORPGDAT_REDMGR_CHAN_MSGS.4
+	ORPGDAT_ADAPTATION.4
+	ORPGDAT_LOAD_SHED_CAT.4
+	ORPGDAT_HCI_DATA.4
+	ORPGDAT_GSM_DATA.4
+
+DATA OUT
+
+	ORPGDAT_LOAD_SHED_CAT.4
+	
+
+
+EVENTS OUT
+
+	ORPGEVT_HCI_COMMAND_ISSUED
+			
+APIs USED
+
+	orpg.3
+	
+		ORPGRED.3
+		ORPGSITE.3
+		ORPGMISC.3
+		ORPGLOAD.3
+		ORPGEDLOCK.3
+		ORPGARCHIII.3
+
+	hci.3
+
+---
+
+SEE ALSO
+
+hci(1) hci_load(1) load_shed(1) hci(3) orpg(3) orpgred(3) orpgsite(3)
+orpgload(3) orpgmisc(3) orpgedlock(3) orpgarchIII(3)
+
+
+hci_load.doc						         hci_load.doc

@@ -1,0 +1,233 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/16 19:40:36 $
+C $Id: a315g4.ftn,v 1.3 2002/12/16 19:40:36 christie Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A315G4__BEGIN_COMP( COMPFEAT )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A315G4__BEGIN_COMP
+*.
+*.  MODULE VERSION: 0016
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       08 16 85      0000      DENNIS MILLER        BUILD 2
+*.       05 07 86      0001      DENNIS MILLER        SPR # 304
+*.       07 10 86      0002      DENNIS MILLER        SPR # 60313
+*.       07 10 86      0002      DENNIS MILLER        SPR # 60367
+*.       10 17 88      0003      DAVID M. LYNCH       SPR # 80378
+*.       06 06 89      0003      DAVID M. LYNCH       SPR # 90298
+*.       05 21 90      0004      JOHN DEPHILIP        SPR # 90697
+*.       07 31 90      0005      R. VISIOLI           SPR # 90775
+*.       02 22 91      0006      DENNIS MILLER        SPR # 91256
+*.       02 15 91      0006      JOHN DEPHILIP        SPR # 91762
+*.       12 03 91      0007      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0008      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0009      Toolset              SPR 91895
+*.       03/25/93      0010      Toolset              SPR NA93-06801
+*.       01/28/94      0011      Toolset              SPR NA94-01101
+*.       03/03/94      0012      Toolset              SPR NA94-05501
+*.       04/01/95      0013      Toolset              CCR NA95-11802
+*.       06/28/95      0014      STEVE SMITH          CCR NA94-26302
+*.       12/23/96      0015      Toolset              CCR NA95-11807
+*.       03/16/99      0016      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:  CALL A315G4__BEGIN_COMP ( COMPFEAT )
+*.
+*.  MODULE FUNCTION:
+*.
+*.  This routine begins a new component by assigning it attributes
+*.  from its initial segment.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT    TYPE        DESCRIPTION
+*.    -   -----    ----        -----------
+*.    G   ADPRFLEV I*4         Reflectivity threshold for a componet
+*.    G   SEGMAIN  R*4         The segment attributes array in the segment
+*.                             data shared image.  One half is updated each
+*.                             elevation scan.
+*.    C   AZANGLE  R*4         Azimuth angles, in radians, of first, current
+*.                             and previous radials and used to determine the
+*.                             0 degree cross-over.
+*.    C   AZC      I*4         Points to current azimuth in radial status
+*.                             arrays.
+*.    C   AZCOUNT  R*4         Count of the number of radials in an elevation
+*.                             scan.
+*.    C   JXC      I*4         Index pointing to segment in SEGMAIN.
+*.    C   RINDX    I*4         Index used to point to current reflectivity
+*.                             level for processing segment index array and
+*.                             component arrays.
+*.    C   FEA_ARA  I*4         (CONSTANT)Location of a component's area in
+*.                             CMPFEAT array.
+*.    C   FEA_CNT  I*4         (CONSTANT)Location of the count of the number
+*.                             of segments in a component in CMPFEAT array.
+*.    C   FEA_FAZ  I*4         (CONSTANT)Location of the radial number of a
+*.                             component's first (most counter-clockwise)
+*.                             segment in the CMPFEAT array.
+*.    C   FEA_FBN  I*4         (CONSTANT)Location in the CMPFEAT array of the
+*.                             beginning bin of a component's segment that
+*.                             starts closest to the radar.
+*.    C   FEA_FZA  I*4         (CONSTANT)Location of the first azimuth in
+*.                             radians (most counter-clockwise) segment of a
+*.                             component in the CMPFEAT array.
+*.    C   FEA_LAZ  I*4         (CONSTANT)Location of the radial number of a
+*.                             component's last (most clockwise) segment in
+*.                             the CMPFEAT array.
+*.    C   FEA_LBN  I*4         (CONSTANT)Location in the CMPFEAT array of the
+*.                             ending bin of a component's segment that ends
+*.                             farthest from the radar.
+*.    C   FEA_LZA  I*4         (CONSTANT)Location of the last azimuth in
+*.                             radians (most clockwise) segment of a component
+*.                             in the CMPFEAT array.
+*.    C   FEA_MRF  I*4         (CONSTANT)Location of a component's maximum
+*.                             reflectivity in CMPFEAT array.
+*.    C   FEA_MWA  I*4         (CONSTANT)Location of component's mass-weighted
+*.                             area in CMPFEAT array.
+*.    C   FEA_RTH  I*4         (CONSTANT)Location of a component's
+*.                             reflectivity threshold in CMPFEAT array.
+*.    C   FEA_XCN  I*4         (CONSTANT)Location of a component's centroid's
+*.                             X coordinate in CMPFEAT array.
+*.    C   FEA_YCN  I*4         (CONSTANT)Location of a component's centroid's
+*.                             Y coordinate in CMPFEAT array.
+*.    C   FEA_ZCR  I*4         (CONSTANT)Location in the CMPFEAT array of the
+*.                             360-0 degrees azimuth cross-over flag for a
+*.                             component.
+*.    C   NCFCHR   I*4         (CONSTANT)Total number of component feature
+*.                             characteristics (attributes).
+*.    C   SEG_FBN  I*4         (CONSTANT)Index to the beginning range bin in
+*.                             the segments attribute array in the shared data
+*.                             image.
+*.    C   SEG_LBN  I*4         (CONSTANT)Index to ending range bin in segments
+*.                             attribute array in the shared data image.
+*.    C   SEG_LEN  I*4         (CONSTANT)Index to segments length in the
+*.                             segments attribute array in the shared data
+*.                             array.
+*.    C   SEG_MRF  I*4         (CONSTANT)Index to Maximum Reflectivity Factors
+*.                             in segments attribute array.
+*.    C   SEG_MWL  I*4         (CONSTANT)Index to Mass Weighted Length in
+*.                             segments attribute array in the shared data
+*.                             image
+*.    C   SEG_XCN  I*4         (CONSTANT)Index of the x-componet in the
+*.                             segments attribute array of the shared data
+*.                             image.
+*.    C   SEG_YCN  I*4         (CONSTANT)Index to the y-componet in the
+*.                             segments attribute array in the shared data
+*.                             image.
+*.
+*.    *   OUTPUT   TYPE        DESCRIPTION
+*.    -   ------   ----        -----------
+*.    G   ADPRFLEV I*4         Reflectivity threshold for a componet
+*.    P   COMPFEAT R*4         Array of attributes for a new componet
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME  TYPE        DESCRIPTION
+*.    ----  ----        -----------
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A315CSAD
+*.    SGMTS09
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A315COCC
+*.    A315CPCC
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     Compiled using COMP15.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     Linked using LINK15.CSS
+*.
+*.  MISC:  None
+*.
+C********************************************************************
+C
+C               STORM COMPONENTS: BEGIN_COMP  SUBROUTINE
+C
+C********************************************************************
+C
+C
+      IMPLICIT NONE
+C
+$INCLUDE A315BUF.INC/G, **A315PSAD (NLIST)
+C
+$INCLUDE                **A315CSAD (NLIST)
+C
+C**Attach Storm Segments "pseudo-input buffer"
+$INCLUDE A315BUF.INC/G, **A315P3S (NLIST)
+$INCLUDE A309.INC/G,**A3CD09DZ (NLIST)
+C
+C**Attach internal common area (CPPC)
+$INCLUDE A315.INC/G, **A315CPPC (NLIST)
+$INCLUDE             **A315CPCC (NLIST)
+C
+C**Attach parameter definition (CQPC)
+$INCLUDE A315.INC/G, **A315CQPC (NLIST)
+C
+C**Attach internal common area (COCC)
+$INCLUDE A315.INC/G, **A315COCC (NLIST)
+C
+C*********************** DATA DECLARATIONS **************************
+C
+      REAL     COMPFEAT( NCFCHR )
+C
+C****************** BEGIN MAIN PROCESSING SECTION *******************
+C
+C** Begin building fields of new Component from corresponding fields
+C** of its first segment, in incoming radial buffer.
+C
+C** Size, position-dependent fields:
+C
+      COMPFEAT( FEA_ARA ) = SEGMAIN( SEG_LEN, JXC )
+      COMPFEAT( FEA_MWA ) = SEGMAIN( SEG_MWL, JXC )
+      COMPFEAT( FEA_XCN ) = SEGMAIN( SEG_XCN, JXC )
+      COMPFEAT( FEA_YCN ) = SEGMAIN( SEG_YCN, JXC )
+C
+C** Max/Min fields:
+C
+      COMPFEAT( FEA_MRF ) = SEGMAIN( SEG_MRF, JXC )
+      COMPFEAT( FEA_RTH ) = ADPRFLEV( RINDX )
+C
+C** Delimiting fields:
+C
+      COMPFEAT( FEA_CNT ) = 1.0
+      COMPFEAT( FEA_FAZ ) = AZCOUNT
+      COMPFEAT( FEA_LAZ ) = AZCOUNT
+      COMPFEAT( FEA_FZA ) = AZANGLE( AZC )
+      COMPFEAT( FEA_LZA ) = AZANGLE( AZC )
+      COMPFEAT( FEA_FBN ) = SEGMAIN( SEG_FBN, JXC )
+      COMPFEAT( FEA_LBN ) = SEGMAIN( SEG_LBN, JXC )
+      COMPFEAT( FEA_ZCR ) = 0.0
+C
+C**************** END OF PROCESSING FOR SUBROUTINE ******************
+C
+      RETURN
+      END

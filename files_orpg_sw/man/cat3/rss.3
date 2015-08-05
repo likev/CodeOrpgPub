@@ -1,0 +1,568 @@
+
+
+NAME
+    The remove access (PRC functions), RSS_*, in libinfr.
+
+SYNOPSIS
+    #include <infr.h>
+    #include <rss_replace.h>	/* optional. See later descriptions */
+
+    int RSS_rpc (char *name, char *arg_f, ...);
+
+    int RSS_lpc (char *name, char *arg_f, ...);
+
+    int RSS_pc (char *name, char *arg_f, ...);
+
+    int RSS_rpc_need_byteswap ();
+
+    int RSS_set_SMI_func_name (char *name);
+
+    int RSS_open (char *path, int flags, int mode);
+
+    int RSS_read (int fd, char *buf, int nbyte);
+
+    int RSS_write (int fd, char *buf, int nbyte);
+
+    off_t RSS_lseek (int fd, off_t offset, int whence);
+
+    int RSS_close (int fd);
+
+    int RSS_copy (char *path_from, char *path_to);
+
+    int RSS_kill (char *host, pid_t pid, int sig);
+
+    int RSS_LB_open (char *path, int flags, LB_attr *attr);
+
+    int RSS_LB_read (int lbd, char *buf, int buf_size, LB_id_t msg_id);
+
+    int RSS_LB_write (int lbd, char *msg, int length, LB_id_t msg_id);
+
+    int RSS_LB_close (int lbd);
+
+    int RSS_LB_remove (char *lb_name);
+
+    int RSS_LB_seek (int lbd, int offset, LB_id_t id, LB_info *info);
+
+    int RSS_LB_msg_info (int lbd, LB_id_t id, LB_info *info);
+
+    int RSS_LB_clear (int lbd, int nrm);
+
+    int RSS_LB_stat (int lbd, LB_status *status);
+
+    int RSS_LB_list (int lbd, LB_info *list, int nlist);
+
+    int RSS_LB_mark (int lbd, LB_id_t id, int mark);
+
+    int RSS_LB_size (int lbd);
+
+    LB_id_t RSS_LB_previous_msgid ();
+
+    int RSS_LB_set_poll (int lbd, int max_poll, int wait_time);
+
+    int RSS_LB_lock (int lbd, int command, LB_id_t id);
+
+    int RSS_LB_set_tag (int lbd, LB_id_t id, int tag);
+
+    int RSS_LB_register (int lbd, int type, void *value);
+
+    int RSS_LB_read_window (int lbd, int offset, int size);
+
+    int RSS_LB_direct (int lbd, char **ptr, LB_id_t msg_id);
+
+    int RSS_LB_compress (int lbd, int sw);
+
+    int RSS_time (char *host, time_t *t);
+
+    char RSS_expand_env (char *host, char *str, char *buf, int buf_size);
+
+    int RSS_test_rpc (char *host);
+
+DESCRIPTION
+
+    A. General:
+
+    The RSS module implements a convenient remote procedure call (RPC)
+    interface using the RMT module. Refer to rmt (3) for additional information.
+    The server is named rssd. rssd must be started on a remote host before any
+    of the RPCs can be executed on that host. rssd also supports event 
+    notification. Refer to lb (3) for further descriptions on the subject.
+
+    RSS_rpc is a dynamic loading based function for generic remote procedure
+    calls. This function can be used for invoking remote functions that are not
+    implemented in the server. RSS_lpc supports local procedure call which
+    means that the function is executed on the local host but in a different
+    process (the local rssd). RSS_pc dynamically loads a function and invokes it
+    in the same address space.
+
+    The RSS module also explicitly implements certain remotely callable
+    functions that are often used for developing distributed applications.
+    Explicit implementation, instead of using the generic RPC interface such as
+    RSS_rpc, provides optimized performance and, sometimes, additional
+    features. These functions include a set of selected UNIX system calls and
+    standard C library functions as well as most LB (Linear Buffer) functions.
+    The function interface and return values, whenever possible, remain the
+    same as their original version except some minor extensions, which will be
+    discussed later.
+
+    B. RSS functions:
+
+    RSS functions are described in the following 5 groups.
+
+    1. The generic RPC functions:
+
+	RSS_rpc, RSS_lpc and RSS_pc.
+
+	RSS_rpc is a generic RPC function. Argument "name" specifies the
+	location and name of the function to be invoked. "name", of the form
+	"host_name:file_name,function_name", has three fields, the name of the
+	host on which the function to execute, the name of the file containing
+	the function implementation and the function name. File "file_name"
+	must be a shared library file. If "host_name" is the local host, local
+	procedure call is performed. If "host_name" is missing, the function is
+	executed in the process's address space (with dynamic loading if
+	needed). If the "file_name" part is missing, the default shared
+	libraries are assumed. The "function_name" part is required.
+
+	The second argument specifies the info about all arguments and return
+	type of the function. It is an ASCII string of space separated tokens.
+	Each token specifies an argument. If the function is not of type
+	"void", the return value is returned with an additional argument. The
+	return argument must proceed all other arguments (i.e. must be the
+	first argument). A token, of format "type-size-io", has three fields
+	separated by "-". The "type" field specifies the type of the argument.
+	The "size" field is an integer specifying the size of the field. The
+	"size" is optional for certain types and required for other types. The
+	third field, with valid values of "i", "o", "io" or "r", indicates that
+	the argument is used for input, output, both input and output or return
+	respectively. If the third field is not specified, "i" is assumed.
+	Valid argument types are
+
+	s - (i, o, r); Treated as a null terminated string pointer which is
+	    dereferenced and the string is passed over. An argument of type s
+	    can be used as either input or output but not both. When used as
+	    input the char * type is assumed and when used as output char **
+	    type is assumed. NULL is allowed for both input and output.
+
+	ba - (i, o, r); Size required; Treated as a byte array which 
+	    is dereferenced and data of "size" bytes are passed over. NULL is 
+	    allowed for input but not output.
+
+	p - (i, r); Generic pointer value passed over. Byte swap NOT
+	    performed because it is useless.
+
+	ia - (i, o, r); Size optional with default 1; Treated as an
+	    int array which is dereferenced and data of "size" 4-byte
+	    ints are passed over; Byte swap performed. NULL is allowed for 
+	    input but not output.
+
+	i - (i, r); 4-byte integer value passed over. Byte swap 
+	    performed.
+
+	v - (i, o, r); Byte array of variable size. An argument of type v can
+	    be used as either input or output but not both. When used as input,
+	    the argument must be of type "RSS_variable_size_arg *" and, when
+	    used as output, it must be of type "RSS_variable_size_arg **". NULL
+	    is allowed for both input and output. Field "data" in
+	    RSS_variable_size_arg is the pointer to the variable sized data
+	    array and the number of bytes in "data" is specified with field
+	    "size". The data is treated as a byte array. Fields "free_this" and
+	    "free_data" specify respectively whether the output pointer and
+	    the pointer to the data (the value of field "data") need to be
+	    freed when the argument is used as an output.
+
+	    Type v is useful if SMI info is not available or the caller wants
+	    to do its own serialization and byteswap. Otherwise the following
+	    user defined type should be used.
+
+	user_type_t - (i, o, r); Any user defined C struct. For example,
+	    "user_type_t-i" indicates to pass a pointer to "typedef"ed type
+	    "user_type_t" (must be a C struct) as an input argument. The C
+	    struct can be a type 2 struct, described in smia.3, which supports
+	    certain kinds of pointer fields (and thus of variable size).
+	    Serialization and byteswap are performed automatically. An argument
+	    of this type can be used as either input or output but not both.
+	    When used as input, the argument must be of type "user_type_t *",
+	    when used as output, the argument must be of type "user_type_t **".
+	    NULL is allowed for both input and output. RSS_set_SMI_func_name
+	    must be called before using this kind of argument.
+
+	"%d" can be used in the argument specification string for dynamic
+	size specification. For example "i-r ba-%d-io" is fine with appropriate 	size argument immediately following the type info string argument.
+
+	The pointers passed to the remote function via input arguments (types
+	s, v, or user defined types) will be freed by rss_rpc after the
+	function returns. They then become invalid. One should not try to free
+	them or save them for future use. rss_rpc does not try to free any
+	pointers output from the remote function.
+
+	The pointers passed to the caller via output arguments (types s, v, or
+	user defined types) will be freed by rss_rpc the next time rss_rpc is
+	called. They then become invalid. One should not try to free them or
+	save them for future use. rss_rpc does not try to free any pointers
+	passed from the caller, nor it modifies the content in the memory
+	pointed to by those pointers.
+. 
+	Refer to an example in the later part of this man-page for how to use
+	RSS_rpc.
+
+	RSS_rpc uses the OS dynamic loading mechanism the load the function if 
+	it is not already loaded. It then invokes the function. When running
+	locally, the function is invoked in the callers address space. 
+	Otherwise, it is invoked in rssd.
+
+	Instead of always converting to big endian format, the argument string
+	carries the endianness info and byte swap is done only if the data come
+	from a host of different byte order. If any structured data are passed
+	to/from the function as byte array, one may need to perform additional
+	byte swap on the data. After a successful RSS_rpc call,
+	one can call RSS_rpc_need_byteswap to find out whether the byteswap is
+	needed for the output data. RSS_rpc_need_byteswap returns non-zero for
+	YES and zero for NO. One may need to do this too in the remote 
+	function.
+
+	RSS_set_SMI_func_name passes the SMI function name to rss_rpc so any
+	user defined type can be interpreted. If not called, the existing, if
+	any, SMI function will be used. One can call this from one RSS_rpc to
+	another if the SMI function changes. The SMI function cannot change
+	within a RSS_rpc call. "name" must be either "lib_file,func_name" or
+	"func_name". Where "lib_file" is the name of the shared library file
+	that contains function "func_name" which is the function that returns
+	the SMI info (See smia.s for further info). One can use the latter
+	format if the shared library "lib_file" is already linked in (rssd or
+	the application for local procedure call). Statically linked SMI
+	function does not work because UNIX does not support dynamic function
+	name lookup of statically linked functions.
+
+	All output to stdout and stderr in the remote function are redirected
+	to the local stdout. One can call RSS_rpc_stdout_redirect to register a
+	function to accept the stdout and stderr.
+
+	RSS_rpc returns 0 on success or a negative libinfr error number.
+
+	RSS_lpc is an LPC (local procedure call) function. The "name" argument
+	should not contain the host_name part. It is equivalent to RSS_rpc with
+	local host name except that RSS_lpc automatically uses server group
+	number 0 for connecting to the rmt server. Therefore all applications
+	calling RSS_lpc will share the same rmt child server.
+
+	RSS_pc is equivalent to RSS_rpc without host_name. The "name" argument
+	should not contain the host_name part.
+
+    2. File access functions:
+
+	RSS_open, RSS_read, RSS_write, RSS_lseek, RSS_close and RSS_copy.
+
+	RSS_open, RSS_read, RSS_write, RSS_lseek and RSS_close are RPC 
+	implementation of UNIX system calls open, read,
+	write, lseek and close respectively. When used for file
+	accesses, these functions perform the same functions as their UNIX
+	version except that the file may be located on a remote host. The
+	arguments and return values of these functions are also the same as
+	their UNIX counterparts except the following.
+
+	The "path" argument used in RSS_open is extended to 
+	include the host name on which the function should be executed. An 
+	extended path has the following form:
+
+	    host_name:path
+
+	where "host_name" is the remote host name and "path" is the normal Unix
+	path. If the "host_name" is explicitly specified, either a remote or
+	the local host, and the path name does not start from the root, "/", it
+	is assumed that the path starts from the user's home directory. Note
+	that the user's home directory here is the one on the remote host if
+	"host_name" is a remote host name. If the "host_name" part in the
+	extended path is missing, it is assumed to be the local host. In this
+	case, if the path name does not start from the root, the current
+	working directory is assumed.
+
+	Examples:
+
+	open ("virga:/home/dave/doc/my_file", flags, mode);
+
+	opens a file called "/home/dave/doc/my_file" on machine "virga". If
+	the user's home directory is "/home/dave" and "virga" is a remote 
+	host, the call
+
+	    open ("virga:doc/my_file", flags, mode);
+
+	will open the same file.
+
+	RSS_copy copies file "path_from" to file "path_to", both of which are
+	extended paths. With RSS_copy one can always copy a remote file to a
+	local temporary file and apply standard C library functions to access
+	the temporary file. RSS_copy is not a true RPC function rather it calls
+	other RSS functions to perform the job. RSS_copy returns RSS_SUCCESS on
+	success or a negative number on failure. The negative number can be
+	RSS_NO_MEMORY_CLIENT, which means that it failed in allocating a work
+	buffer, or an error number returned by RSS_open, RSS_read or RSS_write.
+
+    3. Selected UNIX system calls and standard C library functions:
+
+	    RSS_kill.
+	
+	RSS_kill sends a signal "sig" to process of id "pid" on host "host".
+	If "host" is NULL or a NULL string, the host is assumed to be local.
+
+    4. The LB (Linear Buffer) functions:
+
+	RSS_LB_open, RSS_LB_read, RSS_LB_write, RSS_LB_close, RSS_LB_remove,
+	RSS_LB_seek, RSS_LB_msg_info, RSS_LB_clear, RSS_LB_stat, RSS_LB_list,
+	RSS_LB_mark, RSS_LB_size, RSS_LB_previous_msgid, RSS_LB_set_poll,
+	RSS_LB_lock, RSS_LB_set_tag, RSS_LB_register, RSS_LB_read_window,
+	RSS_LB_direct, RSS_LB_compress.
+
+	These functions are RPC implementation of the linear buffer functions
+	respectively. Their arguments and return values are the 
+	same as that of their original counterparts except that the argument 
+	"path" in RSS_LB_open is extended to include the host name part as 
+	described in RSS_open ().
+
+	The RMT time-out value for RSS_LB_read and RSS_LB_seek is set to 1 hour
+	because the internal polling may be set.
+
+	The user must specify "n_check" = 0 in LB_status in calling 
+	RSS_LB_stat if the LB is not of type LB_REAPLCE. RSS_LB_stat applies
+	an upper limit on "n_check". If "n_check" is too large, the function 
+	will fail and return an error value of RSS_TOO_MANY_CHECKS.
+
+	If rss_replace.h is included in the user's source file, the user can
+	directly use the original linear buffer calls, LB_open, LB_read and 
+	so on, and they will be automatically replaced by the corresponding 
+	RSS_* calls. infr.h includes rss_replace.h. Thus if infr.h is included,
+	the replacement will happen without including rss_replace.h.
+
+	Data compression support:
+
+	RSS supports data compression for RSS_LB_read and RSS_LB_write. The
+	messages are compressed before being sent through the network and
+	decompressed on the other side. To use this feature one needs to supply
+	the compression and decompression functions in rss_compress.c. Function
+	templates are provided. In the client application one needs to call
+	RSS_LB_compress (int lbd, int sw) to activate/deactivate ("sw" is
+	non-zero/zero) the compression feature after the LB is opened. This
+	function returns 0 on success or a negative RSS error message.
+
+    5. Utility functions
+
+	RSS_expand_env, RSS_time, RSS_test_rpc.
+
+	RSS_expand_env expands all environmental variables in a string on a
+	remote host. It is the remote version of MISC_expand_env. Refer to "man
+	misc" for further details. In particular, this function can be used to
+	get the value of a environmental variable on a remote machine.
+
+	RSS_time returns in "t" the current time (the UNIX time) on host
+	"host". If "host" is NULL or a NULL string, the host is assumed to be
+	local. This function requires an "rssd" running on the "host" even if
+	it is a local host.
+
+	RSS_test_rpc is a tool for testing if the RMT server on host "host" 
+	is responding. It returns RSS_SUCCESS (0) if it is responding or a 
+	negative error number otherwise.  If "host" is NULL or a NULL string, 
+	the host is assumed to be local. RSS_test_rpc is implemented by 
+	calling RSS_time. Thus it is not a true RPC function. It can also
+	be used for finding whether a local "rssd" is running.
+
+    NOTES: In the current implementation, RSS functions do not close the 
+    connection. One can call RMT_close_connection, if one knows that the 
+    connection is no longer needed by the application and want to free the 
+    resource allocated for the connection.
+
+    C. Error returns
+
+    If no error is detected in the RSS and RMT levels, functions in RSS
+    module return the return values of the remote functions. The remote errno
+    on failure is assigned to the local errno. For example, if "RSS_open"
+    returns -1, it means an error occurred in the remote "open" function call.
+    Further error information can be found by checking the "errno" value in
+    this case. Note that the "errno" returned is the "errno" value on the
+    remote host, which can be different from that on the local host.
+
+    A RSS function call, however, can be subject to additional error
+    conditions. These additional error conditions are indicated by negative
+    return values that are different from possible remote function return
+    values. The RSS module can generate the following error return values:
+
+    Errors detected on the server side:
+
+	RSS_HOME_UNDEFINED: The environmental variable "HOME" was not found on
+		the server machine.
+	RSS_BAD_REQUEST_SERVER: An incorrect request message was received. This
+		could be caused by either an error in the RSS module or a
+		communication problem.
+	RSS_PERMISSION_DENIED: The access permission was denied by the RSS
+		module.
+	RSS_NO_MEMORY_SERVER: Failed in allocating memory on the server
+		machine.
+
+    Errors detected on the client side:
+
+	RSS_HOSTNAME_FAILED: The host name specified was not recognized.
+	RSS_BAD_PATH_NAME: The path is a null string.
+	RSS_BAD_RET_VALUE: The returned data has been corrupted or is
+		incorrect. This can be due to an error in the RSS module or a
+		communication problem.
+	RSS_BAD_SOCKET_FD: The file descriptor is invalid or the remote
+		connection associated with it is broken. One needs to open it
+		again.
+	RSS_NO_MEMORY_CLIENT: Failed in allocating memory on the client 
+		machine.
+
+    Additional error return values can also be generated by the RMT module when
+    a communication problem is encountered. Refer to rmt (3) for a detailed
+    description.
+
+    D. Local support, efficiency and security:
+
+    The explicit RSS functions, except RSS_time, directly call the
+    original functions when the function is executed on the local host. Thus a
+    local rssd is not required. This maximizes efficiency.
+
+    rssd needs a configuration file $(HOME)/.rssd.conf to start. In this file
+    one has to list all remote hosts that are going to use the rssd services.
+    For a description of the file format, refer to rmt.doc. RSS also conducts
+    path check. All files and LB files that can be accessed remotely must be
+    listed in $(HOME)/.rssd.conf. The permission check is performed by
+    comparing the path argument with every listed path character by character
+    up to the length of the listed path. For example, if "/home/dave" is a
+    listed path, then "/home/dave/doc/my_file" is accessible. But
+    "/home/others/file" is not accessible. If "/" is listed, all files are
+    accessible.
+
+    An example of the .rssd.conf file:
+
+	# specify remote hosts that can use the rssd services
+	Client: wqueen
+	Client: 128.117.192.56  # everest
+
+	# specify the local files that can be accessed
+	Path: /users/dave
+	Path: /tmp 
+
+    Except for these permission checks, conventional Unix file protection
+    schemes are in effect. Note that the server has the permissions of the user
+    that started it.
+
+    If the file path permission changes while rssd is running, the existing 
+    open file descriptors will not be affected until they are closed.
+
+    rssd generates a log file $(HOME)/rssd.log, in which exceptions encountered
+    by the server are stored. In particular, all permission violations are
+    recorded.
+
+    rssd also supports event notification. Refer to lb (3) for details on the
+    configuration issues for that.
+
+    E: Examples:
+
+    The RSS module includes a daemon process "rssd", which must be running on 
+    each remote host that needs to be accessed.
+
+    The following example shows how to use RSS_rpc to open a file
+    "/users/my_dir/my_file" on a remote host "remote_host" with fopen, read
+    each line of the file with fgets and finally close the file with fclose:
+
+	#define BUF_SIZE 128
+	int ret, close_ret;
+	FILE *fhdl;
+	char *fget_ret;
+	char buf[BUF_SIZE];
+
+	ret = RSS_rpc ("remote_host:fopen",
+		    "p-r s-i s-i", &fhdl,
+		    "/users/my_dir/my_file", "r");
+	if (ret < 0) {
+	    printf ("RSS_rpc fopen failed (ret %d)\n", ret);
+	    exit (0);
+	}
+	printf ("fopen returns %p\n", fhdl);
+    
+	while ((ret = RSS_rpc ("remote_host:fgets",
+			"p-r ba-128-o i p", &fget_ret,
+			buf, BUF_SIZE, fhdl)) == 0 &&
+			fget_ret != NULL)
+	    printf ("%s", buf);
+	if (ret < 0) {
+	    printf ("RSS_rpc fgets failed (ret %d)\n", ret);
+	    exit (0);
+	}
+
+	ret = RSS_rpc ("remote_host:fclose",
+			"i-r p", &close_ret,
+			fhdl);
+	if (ret < 0) {
+	    printf ("RSS_rpc fclose failed (ret %d)\n", ret);
+	    exit (0);
+	}
+	else
+	    printf ("fclose ret %d\n", close_ret);
+	exit (0);
+
+    The following example shows how to use RSS_open and other file access
+    functions to open a file on a remote host called "virga" and read a part of
+    it.
+
+        #include <fcntl.h>
+	#include <infr.h>
+	#include <rss_replace.h>
+
+	int fd;
+	char buf[BUFFER_SIZE];
+	int len;
+	int offset;
+	int ret;
+
+	fd = open ("virga:/home/jing/test/test_file", O_RDONLY, 0);
+	if (fd < 0) {
+	    ...open failed. print fd and errno...
+	}
+
+	offset = ?;
+	ret = lseek (fd, offset, 0);
+	if (ret < 0) {
+	    ...lseek failed. print ret and errno...
+	}
+
+	len = ?;
+	ret = read (fd, buf, len);
+	if (ret < len) {
+	    ...read failed. print ret and errno...
+	}
+
+	ret = close (fd);
+	if (ret < 0) {
+	    ...close failed. print ret and errno...
+	}
+
+    In this example, if rss_replace.h is not included, open, lseek, read and
+    close in the above example must be replaced respectively by RSS_open,
+    RSS_lseek, RSS_read and RSS_close.
+
+    For additional features such as password mode, changing the time-out
+    period, using alternative ports and printing error messages, the
+    application can call appropriate RMT functions.
+
+    F. Implementation notes:
+
+    In the current file access implementation, the value returned from the
+    "open" function call is a combination of the connection identification (the
+    socket fd) and the file fd on the remote host. The return value is
+    calculated by fd = ((sfd + 1) << 8) + ffd, where "sfd" is the socket fd and
+    "ffd" is the remote file fd. The file descriptor returned from RSS_LB_open
+    is also a combination of the remote LB descriptor and the connection socket
+    file descriptor. The way of combining them, however, may be different.
+
+    The current implementation of RSS_read, RSS_write, RSS_LB_read and
+    RSS_LB_write is optimized in performance. For small data, single RPC call
+    is used for efficiency. For large data, multiple RPC is used for avoiding
+    large data copy and large memory allocation.
+
+SEE ALSO
+    rssd(1), lb(3), rmt(3)
+
+NOTES
+    The RSS library module and the rssd daemon are built on top on RMT. Refer
+to rmt(3) for further details. Refer to lb(3) for rssd's event notification 
+functions.
+

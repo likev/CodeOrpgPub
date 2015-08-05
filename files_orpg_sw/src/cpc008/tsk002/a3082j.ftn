@@ -1,0 +1,344 @@
+C
+C RCS info
+C $Author: steves $
+C $Locker:  $
+C $Date: 2006/12/18 20:30:05 $
+C $Id: a3082j.ftn,v 1.5 2006/12/18 20:30:05 steves Exp $
+C $Revision: 1.5 $
+C $State: Exp $
+C
+      SUBROUTINE A3082J__CENTROIDS_PARTC(CAT_NUM_STORMS,CAT_FEAT,
+     $   COMB_ATT,NUM_FPOSITS,FORCST_POSITS,CAT_TVST,IROW,ICOL,
+     $   NBYTES,RCMBUF)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3082J__CENTROIDS_PARTC
+*.
+*.  MODULE VERSION: 0016
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       02 19 88      0000      VALERIE HOLDEN       SPR # 80002
+*.       02 06 89      0001      VALERIE HOLDEN       SPR # 90027
+*.       10 09 89      0002      STAN MANOSKI         SPR # 90508
+*.       05 07 90      0003      PAUL PISANI          SPR # 90697
+*.       07 19 90      0004      JOHN DEPHILIP        SPR # 90775
+*.       02 22 91      0005      VALERIE HOLDEN       SPR # 91249
+*.       03 06 91      0005      BAYARD JOHNSTON      SPR # 91225
+*.       12 03 91      0006      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0007      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/20/92      0008      Toolset              SPR 91895
+*.       03/25/93      0009      Toolset              SPR NA93-06801
+*.       01/28/94      0010      Toolset              SPR NA94-01101
+*.       03/03/94      0011      Toolset              SPR NA94-05501
+*.       06/15/94      0012      Steve Smith          CCR 93123-003A00
+*.       08/05/94      0012      Steve Smith          CCR 92289-001A00
+*.       04/01/95      0013      Toolset              CCR NA95-11802
+*.       07/08/95      0014      STEVE SMITH          CCR NA94-26301
+*.       12/23/96      0015      Toolset              CCR NA95-11807
+*.       03/16/99      0016      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A3082J__CENTROIDS_PARTC (CAT_NUM_STORMS,
+*.                    CAT_FEAT,COMB_ATT,NUM_FPOSITS,FORCST_POSITS,
+*.                    CAT_TVST,IROW,ICOL,NBYTES,RCMBUF)
+*.
+*.  MODULE FUNCTION:
+*.
+*.     FOR ALL STORMS LESS THAN 230 KM SPECIFIC CENTROID DATA
+*.     IS COLLECTED AND SAVED. THIS CENTROID DATA INCLUDES:
+*.     STORM ID, AZIMUTH, RANGE, ELEVATION, STORM TOP HEIGHT
+*.     AND HAIL INDEX. THE TOTAL NUMBER OF CENTROIDS IS COMPUTED
+*.     AND WRITTEN TO THE RCM BUFFER. FINALLY, FOR ALL CENTROIDS
+*.     THE I,J COORDINATES ARE CALCULATED, THE LFM GRID LOCATION
+*.     IS COMPUTED, AND ALL CENTROID RELATED DATA WRITTEN INTO
+*.     THE RCM BUFFER
+*.
+*.  MODULES CALLED: A30828__GRID_LETTERS, A3082G__GET_IJ, A3082K__STORE_LINE, 
+*.                  A3082Q__PROCESS_LINE 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT          TYPE        DESCRIPTION
+*.    -   -----          ----        -----------
+*.    G   NCENTROIDS     I*4         Number of Centroids to report in the
+*.                                   Radar Coded Message. Default is 12.
+*.    G   SIRDAHGT       I*4         Site Adaptation - RDA Height.
+*.    G   CAT_AZ         I*4         (CONSTANT)Combined attributes index for
+*.                                   Azimuth of storm centroid.
+*.    G   CAT_RNG        I*4         (CONSTANT)Combined attributes index for
+*.                                   projected range of storm centroid.
+*.    G   CAT_SID        I*4         (CONSTANT)Combined attributes features
+*.                                   index for storm ID.
+*.    G   CAT_STP        I*4         (CONSTANT)Combined attributes index for
+*.                                   height of storm top
+*.    G   LAB_NEG        I*4         (CONSTANT)Flag indicating a cell's POSH
+*.                                   equates to a Hail 'NONE' estimate for the
+*.                                   RCM.
+*.    G   LAB_POS        I*4         (CONSTANT)Flag indicating a cell's POSH
+*.                                   equates to a Hail 'Positive' estimate for
+*.                                   the RCM.
+*.    G   LAB_PRB        I*4         (CONSTANT)Flag indicating a cell's POSH
+*.                                   equates to a Hail 'Probable' estimate for
+*.                                   the RCM.
+*.    G   LAB_UNK        I*4         (CONSTANT)Flag indicating a cell's POSH
+*.                                   is 'Unknown' for the RCM, due to the cell
+*.                                   being out of processing range.
+*.    G   M_TO_FT        R*4         (CONSTANT)SCALING FACTOR FOR METERS TO
+*.                                   FEET
+*.    C   CAT_ELCN       I*4         (CONSTANT)Offset in combined attributes
+*.                                   table of elevation of storm centroid.
+*.    C   CAT_HAIL       I*4         (CONSTANT)Combined attributes features
+*.                                   index for presence of hail.
+*.    C   MAX_STORM      I*4         (CONSTANT)Maximum number of storms.
+*.    C   NACOLS         I*4         (CONSTANT)Number of columns available for
+*.                                   Radar Coded Message product.
+*.    P   CAT_FEAT       I*4         Table of associated severe features.
+*.    P   CAT_NUM_STORMS I*4         Number of storms processed for the
+*.                                   combined attributes table.
+*.    P   COMB_ATT       R*4         Table of combined attributes.
+*.    P   ICOL           I*4         COLUMN NUMBER
+*.    P   IROW           I*4         ROW NUMBER
+*.    P   NBYTES         I*4         NUMBER OF BYTES
+*.    P   RCMBUF         I*2         RADAR-CODED-MESSAGE BUFFER
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    P   ICOL    I*4         COLUMN NUMBER
+*.    P   IROW    I*4         ROW NUMBER
+*.    P   NBYTES  I*4         NUMBER OF BYTES
+*.    P   RCMBUF  I*2         RADAR-CODED-MESSAGE BUFFER
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    P   ICOL              I*4         COLUMN NUMBER
+*.    P   IROW              I*4         ROW NUMBER
+*.    P   NBYTES            I*4         NUMBER OF BYTES
+*.    P   RCMBUF            I*2         RADAR-CODED-MESSAGE BUFFER
+*.
+*.  DATABASE/FILE REFERENCE: NONE
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME       TYPE        DESCRIPTION
+*.    ----       ----        -----------
+*.    AZIM       R*4         AZIMUTH OF STORM
+*.    BLANK      CHAR*1      ONE BLANK CHARACTER
+*.    CCHAR      CHAR*1      C CHARACTER
+*.    CENCHAR    CHAR*2      STORM ID CHARACTER VALUE
+*.    CENNUM     I*4         STORM ID NUMBER
+*.    CENT_TOTAL I*4         TOTAL # CENTROIDS WITHIN 230 KM RANGE
+*.    COLON      CHAR*1      COLON CHARACTER
+*.    COMMA      CHAR*1      COMMA CHARACTER
+*.    ELEV       R*4         ELEVATION ANGLE OF STORM
+*.    FLAG       I*4         FLAG FOR END OF LINE
+*.    GRID       CHAR*3      LFM GRID LOCATION
+*.    HAIL       CHAR*1      HAIL VALUE
+*.    HAILIND    I*4         HAIL INDEX (N=NO HAIL, P=POSSIBLE/).
+*.    HCHAR      CHAR*1      Hail character.
+*.    HEIGHT     R*4         STORM TOP HEIGHT (HUNDREDS OF FEET)
+*.    HUNDFT     R*4         CONSTANT VALUE 100
+*.    I          I*4         Index control variable.
+*.    IC         I*4         START POSITION FOR WRITING COMMA
+*.    IHEIGHT    I*4         STORM TOP HEIGHT ROUNDED
+*.    INC1       I*4         INCREMENTAL VALUE OF 1
+*.    INC12      I*4         VARIABLE TO INCREMENT BY 12
+*.    INC14      I*4         VARIABLE TO INCREMENT BY 14
+*.    INCREM     I*4         INCREMENTAL VALUE FOR COMMA POSITION
+*.    IS         I*4         START POSITION FOR WRITING STORM DATA
+*.    ISM        I*4         END POSITION FOR WRITING STORM DATA
+*.    IVAL       I*4         I GRID COORDINATE
+*.    JVAL       I*4         J GRID COORDINATE
+*.    K          I*4         Loop control index variable.
+*.    KM2HFT     R*4         Conversion factor kilometers to 100s of feet
+*.    L1_END     I*4         MAX NUMBER OF CENTROIDS ON LINE 1
+*.    L2_END     I*4         MAX NUMBER OF CENTROIDS ON LINE 2
+*.    L3_END     I*4         MAX NUMBER OF CENTROIDS ON LINE 3
+*.    L4_END     I*4         MAX NUMBER OF CENTROIDS ON LINE 4
+*.    L5_END     I*4         MAX NUMBER OF CENTROIDS ON LINE 5
+*.    L6_END     I*4         MAX NUMBER OF CENTROIDS ON LINE 6
+*.    LEND       I*4         END OF LINE INDICATOR
+*.    NCHAR      CHAR*1      N CHARACTER
+*.    NUM_CENS   CHAR*5      Header for Total Number of Centroids
+*.    ONE        I*4         Parameter value of one.
+*.    PCHAR      CHAR*1      P CHARACTER
+*.    RANGE      R*4         RANGE OF STORM
+*.    RANGE_MAX  R*4         MAXIMUM RANGE VALUE = 230.0 KM
+*.    RCM_LINE   CHAR*70     RADAR CODED MESSAGE LINE
+*.    SCHAR      CHAR*1      S CHARACTER
+*.    SET10      I*4         VARIABLE TO INITIALIZE TO 10
+*.    SET23      I*4         VARIABLE TO INITIALIZE TO 23
+*.    TEMPNUM    I*4         TEMP. LOCATION EQUIVALENCED CENCHAR
+*.    TOTAL      I*4         TOTAL NUMBER OF CENTROIDS
+*.    UCHAR      CHAR*1      U CHARACTER PROBABLE HAIL, H=HAIL, U=UNKNOWN)
+*.    ZERO       I*4         Program parameter for 0.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    PRODSEL
+*.    SITEADP
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS: NONE
+*.
+*.  DEVIATION FROM STANDARDS: NONE
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     THIS MODULE IS COMPILED USING COMP08.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     THIS MODULE IS LINKED USING LINK08.CSS
+*.
+*.  MISC: NONE
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+C*
+$INCLUDE A308BUF.INC/G,**A308P3    (NEND NLIST)
+$INCLUDE               **A308D3    (NEND NLIST)
+$INCLUDE A315BUF.INC/G,**A315P9H   (NEND NLIST)
+$INCLUDE A309ADPT.INC/G,**A3CD70C7 (NEND NLIST)
+$INCLUDE A309ADPT.INC/G,**A3CD70CA (NEND NLIST)
+$INCLUDE A308.INC,**A308P2         (NEND NLIST)
+$INCLUDE A309.INC/G,**A3PM50       (NEND NLIST)
+C*
+      INTEGER*2    RCMBUF(*)
+      INTEGER*4    IROW,ICOL,NBYTES,I,K,LEND,IS,IC,ISM,IVAL,JVAL
+      INTEGER*4    FLAG,INC12,INC14,SET10,SET23,CENNUM(MAX_STORM)
+      INTEGER*4    IHEIGHT,HAILIND(MAX_STORM),CENT_TOTAL,INCREM
+      INTEGER*4    TEMPNUM,ZERO,INC1,L1_END,L2_END,L3_END,L4_END
+      INTEGER*4    L5_END,L6_END,ONE,TOTAL
+      REAL         AZIM(MAX_STORM),RANGE(MAX_STORM),ELEV(MAX_STORM)
+      REAL         HEIGHT(MAX_STORM),RANGE_MAX
+      REAL         HUNDFT, KM2HFT
+      PARAMETER    (HUNDFT=100.0, KM2HFT=M_TO_FT*10.0)
+      PARAMETER    (FLAG=100,INC12=12,INC14=14,SET10=10,SET23=23)
+      PARAMETER    (RANGE_MAX=230.0,INCREM=14,ZERO=0,ONE=1)
+      PARAMETER    (L1_END=4,L2_END=9,L3_END=14,L4_END=19)
+      PARAMETER    (L5_END=24,L6_END=29,INC1=1)
+      CHARACTER*1  COLON,COMMA,CCHAR,BLANK
+      CHARACTER*1  SCHAR,HCHAR,PCHAR,NCHAR,UCHAR,HAIL
+      CHARACTER*2  CENCHAR
+      CHARACTER*3  GRID
+      CHARACTER*5  NUM_CENS
+      CHARACTER*70 RCM_LINE
+      DATA         COLON/':'/,COMMA/','/,CCHAR/'C'/,BLANK/' '/
+      DATA         SCHAR/'S'/,HCHAR/'H'/,NUM_CENS/'/NCEN'/
+      DATA         PCHAR/'P'/,NCHAR/'N'/,UCHAR/'U'/
+      EQUIVALENCE  (TEMPNUM,CENCHAR)
+C*
+C*    CLEAR RCM_LINE TO BLANKS
+C*
+      DO 10 I = ONE,NACOLS
+ 10      RCM_LINE(I:I) = BLANK
+C*
+C*    COLLECT DATA FOR CENTROIDS WITHIN 230 KM RANGE
+C*
+      I = ZERO
+      DO 51 K = ONE,CAT_NUM_STORMS
+         IF (COMB_ATT(CAT_RNG,K).GT.RANGE_MAX) THEN
+         ELSE
+C*
+C*    SAVE CENTROID NUMBER, AZIMUTH, RANGE, ELEVATION ANGLE, HEIGHT
+C*    AND HAIL INDEX
+C*
+            I = I + INC1
+C*
+C*    IF COUNTER GREATER THAN MAX_STORM, RESET IT AND BRANCH OUT OF
+C*    LOOP.
+C*
+            IF (I .GT. MAX_STORM) THEN
+               I = MAX_STORM
+               GO TO 52
+            END IF
+C*
+            CENNUM(I)  = CAT_FEAT(CAT_SID,K)
+            AZIM(I)    = COMB_ATT(CAT_AZ,K)
+            RANGE(I)   = COMB_ATT(CAT_RNG,K)
+            ELEV(I)    = COMB_ATT(CAT_ELCN,K)
+            HEIGHT(I)  = ABS(COMB_ATT(CAT_STP,K)*KM2HFT)
+            HAILIND(I) = CAT_FEAT(CAT_HAIL,K)
+         ENDIF
+ 51   CONTINUE
+C*
+ 52   CONTINUE
+      CENT_TOTAL = I
+      TOTAL = MIN(NCENTROIDS,CENT_TOTAL)
+C*
+C*    WRITE TOTAL NUMBER OF CENTROIDS
+C*
+      WRITE(RCM_LINE,100) NUM_CENS,TOTAL,COLON
+ 100  FORMAT(A5,I2.2,A1)
+      IF (TOTAL.EQ.ZERO) CALL A3082K__STORE_LINE(IROW,ICOL,
+     $   NBYTES,RCM_LINE,RCMBUF)
+C*
+C*    INITIALIZE INDEX PARAMETERS FOR BUFFER WRITE
+C*
+      IS = SET10
+      IC = SET23
+      LEND = ZERO
+C
+C*    COLLECT DATA FOR EACH CENTROID
+C*
+      DO 200 K = ONE,TOTAL
+C*
+C*    GET LFM GRID LOCATION
+C*
+         CALL A3082G__GET_IJ(AZIM(K),RANGE(K),ELEV(K),IVAL,JVAL)
+         CALL A30828__GRID_LETTERS(IVAL,JVAL,GRID)
+C*
+C*    ADJUST HEIGHT TO MSL
+C*
+C*
+         HEIGHT(K) = HEIGHT(K) + (SIRDAHGT / HUNDFT)
+C*
+C*    ROUND TO NEAREST INTEGER FOR HEIGHT
+C*
+         IHEIGHT = NINT(HEIGHT(K))
+C*
+C*    HAIL INDEX = 1 (HAIL), = 2 (POSSIBLE OR PROBABLE HAIL),
+C*               = 3 (NO HAIL), = 4 (UNKNOWN)
+C*
+         IF (HAILIND(K).EQ.LAB_POS) HAIL = HCHAR
+         IF (HAILIND(K).EQ.LAB_PRB) HAIL = PCHAR
+         IF (HAILIND(K).EQ.LAB_NEG) HAIL = NCHAR
+         IF (HAILIND(K).EQ.LAB_UNK) HAIL = UCHAR
+         ISM = IS + INC12
+         TEMPNUM = CENNUM(K)
+C*
+C*    WRITE CENTROID IDENTIFIER #, LFM LOCATION, HEIGHT AND HAIL INDEX
+C*
+         WRITE(RCM_LINE(IS:ISM),105) CCHAR,CENCHAR,GRID,SCHAR,
+     $      IHEIGHT,HCHAR,HAIL
+ 105     FORMAT(A1,A2,A3,' ',A1,I3.3,A1,A1)
+C*
+C*    CHECK IF MORE CENTROID DATA FOLLOWS: ADD COMMA SEPARATOR
+C*
+         IF (TOTAL.GT.K) WRITE(RCM_LINE(IC:IC),106) COMMA
+ 106     FORMAT(A1)
+         IS = IS + INC14
+         IC = IC + INC14
+C*
+C*    CHECK FOR END OF LINE CONDITION
+C*
+         IF ((K.EQ.L1_END).OR.(K.EQ.L2_END).OR.(K.EQ.L3_END).OR.
+     $      (K.EQ.L4_END).OR.(K.EQ.L5_END).OR.(K.EQ.L6_END)) LEND=FLAG
+C*
+C*    CHECK IF NO MORE CENTROID DATA OR END OF LINE CONDITION EXISTS
+C*
+         IF ((TOTAL.EQ.K).OR.(LEND.EQ.FLAG)) THEN
+            CALL A3082Q__PROCESS_LINE(IROW,ICOL,NBYTES,IS,IC,
+     $         INCREM,LEND,RCM_LINE,RCMBUF)
+         ENDIF
+ 200  CONTINUE
+      END

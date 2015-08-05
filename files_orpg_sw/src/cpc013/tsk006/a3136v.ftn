@@ -1,0 +1,149 @@
+C 
+C RCS info 
+C $Author: nolitam $ 
+C $Locker:  $ 
+C $Date: 2002/11/27 15:58:37 $ 
+C $Id: a3136v.ftn,v 1.2 2002/11/27 15:58:37 nolitam Exp $ 
+C $Revision: 1.2 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A3136V__UPDATE_BIAS_TABL( LAG )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3136V__UPDATE_BIAS_TABL
+*.
+*.  MODULE VERSION: 0000
+*.
+*.
+*.  MODULE LANGUAGE:  FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       01/31/02      0000      Dennis A. Miller     CCR NA01-27501
+*.
+*.  CALLING SEQUENCE:
+*.
+*.     CALL A3136V__UPDATE_BIAS_TABL( LAG )
+*.
+*.  MODULE FUNCTION:
+*.
+*.     Update Bias Table (Effective no. G-R pairs field) in accordance
+*.     with Lag (hours) between the most recent clock hour and the hour
+*.     of observation of the last Bias Table received.
+*.
+*.
+*.  MODULES CALLED:  None
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.
+*.    *   INPUT       TYPE    DESCRIPTION
+*.    -   -----       ----    -----------
+*.    P   LAG         I*4     Lag (hours) betw. Current time & latest Bias Table
+*.    C   DATECUR     I*4     Current Date (modified Julian, rel. 1/1/70)
+*.    C   RBIAS_TABL  Real    Unscaled, internal Bias Table, received from AWIPS
+*.    C   SEC_IN_HOUR I*4     (CONSTANT)Number of seconds in an hour (3600)
+*.    C   TIMECUR     I*4     Current time, in seconds of the volume scan
+*.
+*.
+*.    *   OUTPUT      TYPE    DESCRIPTION
+*.    -   ------      ----    -----------
+*.    C   DBTBL_UPD   I*4     Date of last Update of local Bias Table (Julian)
+*.    C   TBTBL_UPD   I*4     Time of last Update of local Bias Table (secs)
+*.    C   RBIAS_TABL  Real    Unscaled, internal Bias Table, received from AWIPS
+*.
+*.
+*.    *   ACTUAL ARGUMENTS    TYPE   DESCRIPTION
+*.    -   ----------------    ----   -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME          TYPE        DESCRIPTION
+*.    ----          ----        -----------
+*.    DECAY_FACTOR  Real        Exponential decay factor, based on memory 
+*.                              span, applied to sample size in Bias Table
+*.    ix_mspan      I*4         Index into Bias Table for Memory Span (hours)
+*.    ix_grsiz      I*4         Index into Bias Table for No. G-R Pairs
+*.    n_bias_lines  I*4         No. lines (rows) in Bias Table
+*.    nl            I*4         Index for cycling through bias table lines
+*.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP09.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK09.CSS
+*.
+*.  MISC:  None
+*.
+*.**********************************************************************
+      IMPLICIT NONE
+C
+$INCLUDE A313HBUF.INC/G,**A313HYPP (NLIST)
+$INCLUDE A313H.INC/G,**A3136P      (NLIST)
+$INCLUDE **A3136C3                 (NLIST)
+$INCLUDE **A3136P5                 (NLIST)
+$INCLUDE **A3136C5                 (NLIST)
+C
+C************************* DATA DECLARATIONS ***************************
+C
+      INTEGER  LAG, NL
+C
+      REAL  DECAY_FACTOR
+C
+C**************************** EXECUTABLE *******************************
+C
+X     type *
+X     type *, '...Enter module a3136v__update_bias_tabl...'
+X     type *
+C
+C** Update all rows of Effective No. G-R Pairs field in Bias Table
+C** accordance with exponential decay factor and lag (in hours)
+C
+      DO 10, nl = 1, n_bias_lines
+C
+        DECAY_FACTOR = EXP( -(1./RBIAS_TABL(ix_mspan,nl) )* LAG)
+C
+        RBIAS_TABL(ix_grsiz,nl) = RBIAS_TABL(ix_grsiz,nl) * DECAY_FACTOR
+C
+X       write (6,920) nl, decay_factor, rbias_tabl(ix_grsiz,nl)
+X920    format(/'   Table row',i3,': decay factor = ',f6.4,
+X    $          '; revised Effective No. G-R Pairs =',f10.4)
+  10  CONTINUE
+C
+C** Reset Date & Time of Bias Table Update to current date and clock 
+C** hour preceding current time
+C
+      DBTBL_UPD = DATECUR
+      TBTBL_UPD = (TIMECUR/SEC_IN_HOUR) * SEC_IN_HOUR
+C
+X     type *
+X     type *,' Updated Date (Julian) & Time (secs) of Bias Table =',
+X    $          DBTBL_UPD,';', TBTBL_UPD
+C
+X     type *
+X     type *, '...Exit module a3136v__update_bias_tabl...'
+X     type *
+C
+      RETURN
+      END

@@ -1,0 +1,397 @@
+
+rms_message - Library routines used by ORPG RMS to read, process and respond
+to messages from the FAA/RMMS.
+
+FILENAMES and CALLS:
+        rms_header.c
+                int strip_header(UNSIGNED_BYTE *msg_buffer, struct header* header_values);
+                int build_header(ushort *message_size, ushort message_type, UNSIGNED_BYTE *msg_buf, ushort ack_seq);
+
+        rms_rec_ack.c
+                int build_ack(struct header *msg_header);
+
+        rms_rec_ack
+                int receive_ack(UNSIGNED_BYTE *in_buf);
+
+        rms_send.c
+                int send_message (UNSIGNED_BYTE *write_buf, ushort msg_type, int msg_group);
+                void add_terminator (UNSIGNED_BYTE *buf_ptr);
+
+        rms_pad.c
+                void pad_message(UNSIGNED_BYTE *buf_ptr, int message_size, int final_length);
+
+        rms_send_status.c
+	  void send_status_msg();
+
+        rms_check_resend.c
+                void check_resend();
+
+        rms_up.c
+                void send_rms_up_msg();
+
+        rms_rpg_state.c:
+                void rms_send_rpg_state();
+
+        rms_alarm_msg.c
+                void rms_send_alarm();
+
+        rms_handle_msg.c
+                int rms_rec_wb_command (UNSIGNED_BYTE *rda_wb_buf);
+
+        rms_handle_msg.c
+                int rms_rec_rda_state_command (UNSIGNED_BYTE *rda_change_buf);
+
+        rms_rec_rda_mode_command.c
+                int rms_rec_rda_mode_command (UNSIGNED_BYTE *rda_mode_buf);
+
+        rms_handle_msg.c
+                int rms_rec_rda_channel_command (UNSIGNED_BYTE *rda_channel_buf);
+
+        rms_edit_clutter.c
+                int rms_rec_clutter_command (UNSIGNED_BYTE *rda_clutter_buf);
+
+        rms_download_clutter.c
+                int rms_rec_download_clutter_command (UNSIGNED_BYTE *rda_clutter_buf);
+
+        rms_edit_bypass_map.c
+                int rms_rec_bypass_command (UNSIGNED_BYTE *rda_bypass_buf);
+
+        rms_download_bypass_map.c
+                int rms_rec_download_bypass_command (UNSIGNED_BYTE *rda_bypass_buf);
+
+        rms_arch.c
+                int rms_rec_arch_command (UNSIGNED_BYTE *rda_arch_buf);
+
+        rms_loopback_msg.c
+                int rms_rec_loopback_command (UNSIGNED_BYTE *loopback_buf);
+
+        rms_force_adaptation_msg.c
+                int rms_rec_adaptation_command (UNSIGNED_BYTE *adaptation_buf);
+
+        rms_handle_msg.c
+                void rms_handle_msg();
+
+        rms_edit_load_shed.c
+                int rms_rec_load_shed_command (UNSIGNED_BYTE *load_shed_buf);
+
+        rms_download_load_shed.c
+                int rms_rec_download_load_shed_command (UNSIGNED_BYTE *auth_user_buf);
+
+        rms_edit_pup_id.c
+                int rms_rec_pup_id_command (UNSIGNED_BYTE *pup_id_buf);
+
+        rms_download_pup_id.c
+                int rms_rec_download_pup_id_command (UNSIGNED_BYTE *pup_id_buf);
+
+        rms_edit_nb_cfg.c
+                int rms_rec_nb_cfg_command (UNSIGNED_BYTE *nb_cfg_buf);
+
+        rms_download_nb_cfg.c
+                int rms_rec_download_nb_cfg_command (UNSIGNED_BYTE *nb_cfg_buf);
+
+        rms_edit_dial_cfg.c
+                int rms_rec_dial_cfg_command (UNSIGNED_BYTE *dial_cfg_buf);
+
+        rms_download_dial_cfg.c
+                int rms_rec_download_dial_cfg_command (UNSIGNED_BYTE *dial_cfg_buf);
+
+        rms_rec_free_text.c
+                int rms_rec_free_text_command(UNSIGNED_BYTE *free_text_buf);
+
+        rms_send_free_text.c
+                void rms_send_free_text_msg();
+
+        rms_rpg_control.c
+                int rms_rec_rpg_control_command (UNSIGNED_BYTE *rpg_change_buf);
+
+       rms_inhibit.c
+                int rms_inhibit (int seconds);
+
+        rms_init.c
+                int init_rms_interface();
+                int reset_rms_interface();
+                void close_rms_interface();
+
+        rms_send_record_log.c
+                void rms_send_record_log_msg (int fd, LB_id_t msgid, int msg_info, void *arg);
+                void rms_clear_record_log();
+
++++ API
+DATA IN
+                ORPGDAT_RDA_ALARMS(4)
+                ORPGDAT_CLUTTERMAP(4)
+                ORPGDAT_GSM_DATA(4)
+                ORPGDAT_RMS_TEXT_MSG(4)
+                ORPGDAT_SYSLOG(4)
+                BASEDATA(4)
+                rms_resend(4)
+                rms_input(4)
+                rms_statlog(4)
+
+DATA OUT
+                ORPGDAT_PROD_INFO(4)
+                ORPGDAT_CLUTTERMAP(4)
+                ORPGDAT_RDA_CONSOLE_MSG(4)
+                ORPGDAT_RDA_COMMAND(4)
+                rms_resend(4)
+                rms_output(4)
+                rms_status(4)
+
+EVENTS OUT
+                ORPGEVT_RESET_RMS
+                ORPGEVT_RMS_CHANGE
+                ORPGEVT_PD_USER
+                ORPGEVT_FREE_TXT_MSG
+                ORPGEVT_RMS_SEND_MSG
+                ORPGEVT_RDA_CONTROL_COMMAND
+                ORPGEVT_RDA_STATUS_CHANGE
+
+APIs USED
+                ORPGRDA(3)
+                EN(3)
+                LE(3)
+                LB(3)
+                ORPGEDLOCK(3)
+                ORPGLOAD(3)
+                ORPGSITE(3)
+                ORPGRED(3)
+                ORPGNBC(3)
+                ORPGINFO(3)
+                ORPGGST(3)
+                ORPGCMI(3)
+                ORPGMGR(3)
+---
+
+The library consists of the following sources:
+
+strip_header( ) is used to strip the header from an FAA/RMMS incoming message.
+The header is placed into a structure for easy to access by other library
+functions.
+
+build_header( ) is used to build and append the header to outgoing messages to
+the FAA/RMMS.  It also assigns and keeps track of the outgoing message sequence
+numbers.
+
+build_ack( ) builds and sends an acknowledgement for each valid message received
+from the FAA/RMMS.
+
+receive_ack( ) processes an acknowledgement message from the FAA/RMMS. The
+routine searchs the resend list for the acknowledged message and removes it.
+Since a good acknowledgement from the FAA/RMMS indicates that the interface is
+up the process also clears the interface error counter.
+
+send_message ( ) places an outgoing message in the ouput linear buffer and calls
+the port manager which sends the message to the FAA/RMMS. The message type,
+sequence number, LB id, and time are entered into the resend list until an
+acknowledgement message is received from the FAA/RMMS.
+
+add_terminator ( ) adds the terminator to the end of the message.  The
+terminator consists of a hexidecimal 7F placed in the last four bytes of
+the message.
+
+pad_message( ) places zeros into messages that must be padded to a constant
+size.  The buffer pointer, current size of the message, and the required size
+are sent to the routine.  The pointer is set to the end of the current message
+and then zeros are added until the message reaches the required size.
+
+send_status_msg( ) collects ORPG, RDA, and Comms status every minute and
+sends it to the FAA/RMMS.
+
+check_resend( ) searches the resend list for messages that are more than 20
+seconds old and have not received an acknowledgement. When a message is found it
+is resent to the FAA/RMMS. The resend counter for that message and the error
+counter are incremented.  If the message has not received an acknowlegement
+after three tries and the interface is up, the message is removed from the
+resend list and an message is posted to the interface error LB.
+
+send_rms_up_msg( ) sends a special message to the FAA/RMMS when the interface is
+down.  The ORPG/RMS considers the interface down when the error counter exceeds
+the max allowable errors ( the error counter is incremented whenever a message
+does not receive an acknowledgement or has a bad checksum). When this happens
+the ORPG/RMS shuts down normal functions and starts sending an rms up message.
+The rms up message will be sent every 10 seconds until a response is received
+from the FAA/RMMS.
+
+rms_send_rpg_state( ) sends the state of the ORPG every minute, or whenever the
+state changes. The ORPG states are: MRPG_ST_TRANSITION, MRPG_ST_OPERATING,
+MRPG_ST_STANDBY, MRPG_ST_SHUTDOWN, MRPG_TM_RPG.
+
+rms_send_alarm( ) sends ORPG, RDA, and Wideband alarms every minute, or whenever
+an alarm occurs.
+
+rms_rec_wb_command( ) accepts a command from the FAA/RMMS to connect or
+disconnect the Primary or Secondary wideband lines.
+
+rms_rec_rda_state_command( ) accepts a command from the FAA/RMMS to change the
+state of the RDA. Teh RDA state command controls many functions of the RDA. The
+commands are: CRDA_STANDBY, CRDA_RESTART, CRDA_OPERATE, CRDA_OFFOPER,
+DREQ_PERFMAINT, CRDA_UTIL, CRDA_AUXGEN, CRDA_REQREMOTE, CRDA_ENALOCAL,
+CRDA_AUTOCAL, CRDA_CTLISU, CRDA_BDENABLE, DREQ_STATUS, CRDA_SB_ENAB,
+CRDA_SB_DIS.
+
+rms_rec_rda_mode_command( ) accepts a command from the FAA/RMMS to change the
+mode of the RDA. The commands are: CRDA_MODE_MNT, CRDA_MODE_OP.
+
+rms_rec_rda_channel_command( ) accepts a command from the FAA/RMMS to change the
+channel control of the RDA. The commands are: CRDA_CHAN_CTL, CRDA_CHAN_NONCTL.
+
+rms_rec_clutter_command( ) receives a request to either send the clutter zones
+for a specified file or cancel a pending edit. If it's an edit command the
+clutter zones are placed into a message, sent to the FAA/RMMS, and the clutter
+zone ORPGDAT_CLUTTERMAP linear buffer is locked indicating an edit is occuring.
+If it's a cancel command the routine responds by unlocking the
+ORPGDAT_CLUTTERMAP linear buffer and stopping the edit process.
+
+rms_rec_download_clutter_command( ) receives a message from the FAA/RMMS that
+contains edited clutter zone information. The the information is stored in the
+ORPGDAT_CLUTTERMAP linear buffer using the file number supplied in the message.
+A command is then sent to the RDA to update the clutter zones. If this is a
+redundant system the edited clutter zones are updated to the redundant channel
+at the same time. The program then unlocks the ORPGDAT_CLUTTERMAP linear buffer.
+
+rms_rec_bypass_command( ) receives a request to either send the bypass map
+information for a specified segment and radial or cancel a pending edit. If
+it's an edit command the bypass map information is placed into a message, sent
+to the FAA/RMMS, and the ORPGDAT_CLUTTERMAP linear buffer is locked indicating
+an edit is occuring. If it's a cancel command the routine responds by unlocking
+the ORPGDAT_CLUTTERMAP linear buffer and stopping the edit process.
+
+rms_rec_download_bypass_command( )receives a message from the FAA/RMMS that
+contains edited bypass map information. The information is stored in the
+bypass map ORPGDAT_CLUTTERMAP linear buffer using the segment number and radial
+supplied in the message. A command is then sent to the RDA to update the bypass
+maps. If this is a redundant system the edited bypass maps are updated to the
+redundant channel at the same time. The program then unlocks the
+ORPGDAT_CLUTTERMAP linear buffer.
+
+rms_rec_arch_command( ) receives a command to start or stop the Archive II
+recorder. The FAA/RMMS can send a specified number of scans or a zero for
+continous recording. The commands are: CRDA_ARCH_COLLECT, CRDA_ARCH_STOP.
+
+rms_rec_loopback_command( ) receives a command to start or stop a wideband
+loopback test.  The message contains the time the loopback test should run. If
+the time is zero the loopback test is terminated. The command is: COM4_LBTEST.
+
+rms_rec_adaptation_command( ) receives the command to force an adaptation
+update to the redundant channel.
+
+rms_handle_msg( ) is the main routine used by the interface to route messages to
+the appropiate library for processing.  It is triggered by an event from the
+port manager indicating that a message is in the input linear buffer. The main
+interface program calls handle message which reads the message, strips the
+header and places the header information in a header structure. The message is
+then passed to a specific library routine based on the message type found in the
+header. This routine will then process the message and return an error code,
+indicating whether or not the message was successful. That error code is
+returned to the main interface and included in the acknowledgement message.
+Validation checking is done by performing a checksum on the message and
+comparing it with the checksum stored in the input message header. If the
+checksums are the same, the message is valid.
+
+rms_rec_load_shed_command( ) receives a request to either send the load shed
+warning and alarm values for a specified component or cancel a pending edit. If
+it's an edit command the load shed values are placed into a message, sent to the
+FAA/RMMS, and the ORPGDAT_LOAD_SHED_CAT linear buffer is locked indicating an
+edit is occuring. If it's a cancel command the routine responds by unlocking the
+ORPGDAT_LOAD_SHED_CAT linear buffer and stopping the edit process.
+
+rms_rec_download_load_shed_command( ) receives a message from the FAA/RMMS that
+contains edited load shed values. The information is stored in the load shed
+ORPGDAT_LOAD_SHED_CAT linear buffer using the specified component supplied in
+the message. If this is a redundant  system the edited load shed values are
+updated to the redundant channel at the same time. The program then unlocks the
+ORPGDAT_LOAD_SHED_CAT linear buffer.
+
+rms_rec_pup_id_command( ) receives a request to either send the PUP ID/Port
+Password for a specified line or cancel a pending edit. If it's an edit command
+the PUP ID/Port Password is placed into a message, sent to the FAA/RMMS, and the
+ORPGDAT_USER_PROFILES linear buffer is locked indicating an edit is occuring.
+If it's a cancel command the routine responds by unlocking the
+ORPGDAT_USER_PROFILES linear buffer and stopping the edit process.
+
+rms_rec_download_pup_id_command( ) receives a message from the FAA/RMMS that
+contains an edited PUP ID/Port Password. The information is stored in the
+ORPGDAT_USER_PROFILES linear buffer using the specified line number supplied in
+the message.  If this is a redundant system the edited PUP ID/Port Password is
+updated to the redundant channel at the same time. The program then unlocks the
+ORPGDAT_USER_PROFILES linear buffer.
+
+rms_rec_nb_cfg_command( ) receives a request to either send the narrowband
+configuration data for a specified line or cancel a pending edit. If it's an
+edit command the narrowband configuration data is placed into a message, sent to
+the FAA/RMMS, and the ORPGDAT_USER_PROFILES and ORPGDAT_PROD_INFO linear buffers
+are locked indicating an edit is occuring. If it's a cancel command the routine
+responds by unlocking the ORPGDAT_USER_PROFILES and ORPGDAT_PROD_INFO linear
+buffers and stopping the edit process.
+
+rms_rec_download_nb_cfg_command( ) receives a message from the FAA/RMMS that
+contains an edited narrowband configuration data. The information is stored in
+the ORPGDAT_USER_PROFILES and ORPGDAT_PROD_INFO linear buffers using the
+specified line number supplied in the message.  If this is a redundant system
+the edited narrowband configuration data values are updated to the redundant
+channel at the same time. The program then unlocks the ORPGDAT_USER_PROFILES and
+ORPGDAT_PROD_INFO linear buffers.
+
+rms_rec_dial_cfg_command( ) receives a request to either send the dial in user
+configuration data for a specified line or cancel a pending edit. If it's an
+edit command the dial in user configuration data is placed into a message, sent
+to the FAA/RMMS, and the ORPGDAT_USER_PROFILES and ORPGDAT_PROD_INFO linear
+buffers are locked indicating an edit is occuring. If it's a cancel command the
+routine responds by unlocking the ORPGDAT_USER_PROFILES and ORPGDAT_PROD_INFO
+linear buffers and stopping the edit process.
+
+rms_rec_download_dial_cfg_command( ) receives a message from the FAA/RMMS that
+contains edited dial in user configuration data. The information is stored in
+the ORPGDAT_USER_PROFILES and ORPGDAT_PROD_INFO linear buffers using the
+specified line number supplied in the message. If this is a redundant system the
+edited dial in user configuration data values are updated to the redundant
+channel at the same time. The program then unlocks the ORPGDAT_USER_PROFILES and
+ORPGDAT_PROD_INFO linear buffers.
+
+rms_rec_free_text_command( ) receives a free text message from the FAA/RMMS and
+posts it to the users listed in the message.  A free text message can contain
+embedded control characters, and can be up to 400 characters long. The users in
+the message can be: ALL, RDA, HCI, APUP, PUES, and LINE. LINE specifies a
+narrowband line that receives the free text message.
+
+rms_send_free_text_msg( ) is called by the handle message library routine when a
+free text message is entered into the HCI for the FAA/RMMS.  The process reads
+the free text message from the ORPGDAT_RMS_TEXT_MSG linear buffer, and sends it
+to the FAA/RMMS.
+
+rms_rec_rpg_control_command( ) accepts a command from the FAA/RMMS to change the
+operational mode of the ORPG. The commands are: MRPG_STANDBY, MRPG_EXIT_TM,
+MRPG_ENTER_TM, MRPG_RESTART, MRPG_SHUTDOWN.
+
+rms_inhibit( ) sends a message to the FAA/RMMS containing an inhibit time. The
+FAA/RMMS suspends all commands for the length of time sent in the message.
+
+init_rms_interface( ) initializes the interface.  Creates the local linear
+buffers used only by the interface.  It initializes all counters, flags, arrays,
+and sends an event to alert the HCI that the interface is up and running.
+
+reset_rms_interface( ) resets the interface.  Clears the local linear buffers
+used only by the interface.  It resets all counters, flags, arrays, and
+registers a timer to send the buffered status log messages to the FAA/RMMS.
+
+close_rms_interface( ) closes down the interface.  It removes all the local
+linear buffers from the system, frees allocated memory and sends an event to
+alert the HCI that the interface is down. The close interface routine also
+removes the ptmgr child process called listen.
+
+rms_send_record_log_msg( ) is called when a status log message is written to the
+ORPGDAT_SYSLOG linear buffer.  A date and time stamp is placed on the message
+and then the message is sent to the FAA/RMMS.  If the interface is down the
+messages are buffered in the rms_statlog linear buffer up to a maximum of 1500.
+
+rms_clear_record_log( ) is called when the interface connection is
+re-established.  The buffered log messages in the ORPGDAT_SYSLOG linear buffer
+are sent to the FAA/RMMS in groups of five, separated by a delay of 5 seconds.
+This is done to keep from overwhelming the FAA/RMMS. When all the buffered
+messages are sent the buffer is cleared until the next time the interface is
+down.
+
+SEE ALSO rms_interface(1) rms_interface(doc) rms_message(3)
+
+$Revision: 1.5 $
+

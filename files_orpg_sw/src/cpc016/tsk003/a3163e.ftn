@@ -1,0 +1,332 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/16 20:36:12 $
+C $Id: a3163e.ftn,v 1.4 2002/12/16 20:36:12 christie Exp $
+C $Revision: 1.4 $
+C $State: Exp $
+C
+      SUBROUTINE A3163E__PACKET_LINES(PGNO,NTOTPRED,STORMIDTYP,
+     *                                STORMOTION,STORMAIN)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3163E__PACKET_LINES
+*.
+*.  MODULE VERSION: 0018
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       10 25 85      0000      Mary Jo Staley       Part 2, RPG Build 3
+*.       05 05 86      0001      MARY JO STALEY       SPR # 60124
+*.       06 27 86      0002      ATARA WEINSTEIN      SPR # 60313
+*.       10 02 86      0003      J GROMMONS           SPR # 60346
+*.       11 14 88      0004      J STALEY             SPR # 80477
+*.       05 09 89      0005      TERRI LEWIS          SPR # 80611
+*.       08 09 90      0006      MARY LOU ECKERLE     SPR # 90827
+*.       01 30 91      0007      David M. Lynch       SPR # 91257
+*.       10 14 91      0008      EDWARD WENDOWSKI     SPR # 92598
+*.       10 14 91      0008      EDWARD WENDOWSKI     SPR # 92410
+*.       12 03 91      0009      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0010      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0011      Toolset              SPR 91895
+*.       03/25/93      0012      Toolset              SPR NA93-06801
+*.       01/28/94      0013      Toolset              SPR NA94-01101
+*.       03/03/94      0014      Toolset              SPR NA94-05501
+*.       04/01/95      0015      Toolset              CCR NA95-11802
+*.       04/27/95      0016      STEVE SMITH          CCR NA94-26302
+*.       12/23/96      0017      Toolset              CCR NA95-11807
+*.       03/16/99      0018      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A3163E__PACKET_LINES(PAGNO,NTOTPRED,
+*.            STORMIDTYP, STORMOTION,STORMAIN)
+*.
+*.  MODULE FUNCTION:  BUILDS PACKETS FOR GRAPHIC ATTRIBUTES
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT      TYPE        DESCRIPTION
+*.    -   -----      ----        -----------
+*.    G   KM_TO_NM   R*4         (CONSTANT)DEFINES THE SCALING FACTOR FOR
+*.                               KILOMETER TO NAUTICAL MILES PARAMETER
+*.    G   MPS_TO_KTS R*4         (CONSTANT)SCALING FACTOR FOR METERS PER
+*.                               SECOND TO KNOTS
+*.    G   M_TO_FT    R*4         (CONSTANT)SCALING FACTOR FOR METERS TO FEET
+*.    G   NSTF_IDT   I*4         (CONSTANT)The number of attributes for each
+*.                               storm cell in the array STORMIDTYP which
+*.                               contains Storm ID, storm type, and number of
+*.                               volumes tracked.
+*.    G   NSTF_MAX   I*4         (CONSTANT)The maximum number of storm cells
+*.                               the array STORMIDTYP may hold.  The array
+*.                               provides the storm cell Id attribute.
+*.    G   NSTF_MOT   I*4         (CONSTANT)The number of storm motion
+*.                               attributes for each storm cell in the array
+*.                               STORMOTION. (First dimension)
+*.    G   NSTM_CHR   I*4         (CONSTANT)Maximum number of storm
+*.                               characteristics  (dimension of STORMAIN)
+*.    G   NSTM_MAX   I*4         (CONSTANT)Maximum number of storms (Dimension
+*.                               for STORMAIN)
+*.    G   STF_DIR    I*4         (CONSTANT)Offset to the cell direction (deg)
+*.                               in the STORMOTION part of the
+*.                               tracking/forecast output buffer.
+*.    G   STF_ERR    I*4         (CONSTANT)Offset to the forecast error (km)
+*.                               in the STORMOTION part of the
+*.                               tracking/forecast output buffer.
+*.    G   STF_ID     I*4         (CONSTANT)Offset to the cell ID index in the
+*.                               STORMIDTYP part of the tracking/forecast
+*.                               output buffer.
+*.    G   STF_MFE    I*4         (CONSTANT)Offset to the mean forecast error
+*.                               (km) in the STORMOTION part of the
+*.                               tracking/forecast output buffer.
+*.    G   STF_SPD    I*4         (CONSTANT)Offset to the cell speed (m/s) in
+*.                               the STORMOTION part of the tracking/forecast
+*.                               output buffer.
+*.    G   STF_TYP    I*4         (CONSTANT)Offset to the cell type in the
+*.                               STORMIDTYP part of the tracking/forecast
+*.                               output buffer.
+*.    G   STF_X0     I*4         (CONSTANT)Offset to the x-coord. of the
+*.                               centroid (km) in the STORMOTION part of the
+*.                               tracking/forecast output buffer.
+*.    G   STF_Y0     I*4         (CONSTANT)Offset to the y-coord. of the
+*.                               centroid (km) in the STORMOTION part of the
+*.                               tracking/forecast output buffer.
+*.    G   STM_MRF    I*4         (CONSTANT)Index to maximum refelctivity in
+*.                               cetroids array.
+*.    G   STM_RFH    I*4         (CONSTANT)Index to height in centroids array.
+*.    G   TYP_NEW    I*4         (CONSTANT)Flag that indicates that a storm is
+*.                               newly identified in the current volume scan.
+*.    G   UNDEF      R*4         (CONSTANT)Value that shows that storm cell
+*.                               attributes of motion cannot be calculated
+*.                               because there is no storm cell history.
+*.    P   NTOTPRED   I*4         TOTAL NUMBER OF STORMS.
+*.    P   PGNO       I*4         PAGE NUMBER
+*.    P   STORMAIN   R*4         2-D array of Storm Cell attributes
+*.    P   STORMIDTYP I*4         STORM-ID TYPE TABLE FROM ALGO
+*.    P   STORMOTION R*4         STORM INFO FROM THE ALOG
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    G   TBUF    I*2         Array of text data.
+*.    G   TXCHR   CHAR*80     Array of 80 character lines.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME          TYPE        DESCRIPTION
+*.    ----          ----        -----------
+*.    AZ            I*4         FORMATTED AZIMUTH
+*.    AZRADIANS     R*4         AZIMUTH IN RADIANS
+*.    CHARIDTABLE   CHAR*2      Character table of storm IDs.
+*.    COVTO360      I*4         PARAMETER SET TO 360
+*.    DIRSPD        CHAR*8      An array of forecasted movement (direction and
+*.                              speed) of the storm cells
+*.    ENDIX         I*4         END INDEX FOR STORM
+*.    FACTOR6       I*4         CONVERSION FACTOR
+*.    FLD1          I*4         STORMOTION,STORMAIN DATA AS INTEGER
+*.    FLD2          I*4         STORMOTION, STORMAIN data as real.
+*.    FLD3          R*4         STORMOTION, STORMAIN data as real.
+*.    FLD4          R*4         STORMOTION, STORMAIN data as real.
+*.    FLD5          I*4         STORMOTION, STORMAIN data as real.
+*.    FLD6          R*4         STORMOTION, STORMAIN data as real.
+*.    I             I*4         Loop index variable.
+*.    IDEGREE       I*4         AZIMUTH AS INTEGER
+*.    IT            I*4         Loop control.
+*.    J             I*4         Loop control.
+*.    K             I*4         Loop control index variable.
+*.    N2            I*4         Internal variable used to hold maximum in loop
+*.                              control.
+*.    NEW_STORM     CHAR*8      Text string indicating that the storm cell in
+*.                              question was first detected in the current
+*.                              volume scan
+*.    NUM_STMS      I*4         NUMBER OF STORMS PER PRINTED PAGE
+*.    RADFACT       R*4         FACTOR TO CONVERT RADIANS TO DEG
+*.    RAN           I*4         RANGE
+*.    RNGE          R*4         RANGE OF STORM FROM RADAR
+*.    STARTIX       I*4         START INDEX FOR STORM
+*.    STID          CHAR*2      2-CHARACTER STORM ID
+*.    STMS_PER_PAGE I*4         NUMBER OF STORMS PER PAGE IN BUFFER
+*.    TBUF_MAX      I*4         MAX NUMBER IN TBUF
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    BLKA
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP16.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK16.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+$INCLUDE A309.INC/G,**A3PM50 (NLIST)
+$INCLUDE A315BUF.INC/G,**A315P7F  (NEND NLIST)
+$INCLUDE A315BUF.INC/G,**A315P5C (NEND NLIST)
+C
+      REAL STORMAIN(NSTM_CHR,NSTM_MAX)
+      REAL STORMOTION(NSTF_MOT,NSTF_MAX)
+      INTEGER STORMIDTYP(NSTF_IDT,NSTF_MAX)
+      INTEGER I,STARTIX,ENDIX,N2,NTOTPRED
+C
+$INCLUDE A309.INC/G,**A3CD08 (NLIST)
+$INCLUDE A309.INC/G,**A3CD08D (NEND NLIST)
+C
+C** LOCAL DEFINITIONS
+C
+      INTEGER FACTOR6,STMS_PER_PAGE,NUM_STMS
+      PARAMETER(FACTOR6=6,STMS_PER_PAGE=5,NUM_STMS=6)
+      REAL RNGE,AZRADIANS,RADFACT
+      INTEGER COVTO360,IDEGREE,TBUF_MAX
+C
+      PARAMETER(COVTO360=360,TBUF_MAX=40)
+      PARAMETER(RADFACT=57.29578)
+C
+      CHARACTER*2  STID(NUM_STMS)
+      CHARACTER*8  DIRSPD(NUM_STMS), NEW_STORM
+      PARAMETER (NEW_STORM = '   NEW  ')
+      CHARACTER*80 TXCHR(NUM_STMS)
+      INTEGER*2  TBUF(TBUF_MAX,NUM_STMS)
+C
+      INTEGER*4  J,K,IT,PGNO,AZ(NUM_STMS),RAN(NUM_STMS)
+C
+      REAL  FLD3(NUM_STMS),FLD4(NUM_STMS)
+      REAL  FLD6(NUM_STMS)
+      INTEGER FLD2(NUM_STMS), FLD1(NUM_STMS),FLD5(NUM_STMS)
+C
+      EQUIVALENCE  (TBUF(1,1),TXCHR)
+      COMMON/BLKA/TBUF
+C
+C****************************************************************
+C
+      STARTIX = (PGNO-1)*FACTOR6+1
+      ENDIX   = MIN(STARTIX+STMS_PER_PAGE,NTOTPRED)
+      N2 = ENDIX - STARTIX +1
+      K = STARTIX
+C
+      DO 150  J = 1,N2
+C
+C** GET STORM ID INDEX TO CHAR TABLE
+C
+         STID(J)=CHARIDTABLE(STORMIDTYP(STF_ID,K))
+C
+C** FORMAT AZIMUTH AND RANGE
+C
+         RNGE=(STORMOTION(STF_X0,K)*STORMOTION(STF_X0,K)+
+     *      STORMOTION(STF_Y0,K)*STORMOTION(STF_Y0,K))** 0.5
+C
+         IF( STORMOTION(STF_X0,K) .EQ. 0.0 .AND. STORMOTION(STF_Y0,K)
+     >     .EQ. 0.0 ) THEN
+            IDEGREE = 0
+         ELSE
+           AZRADIANS=ATAN2(STORMOTION(STF_X0,K),STORMOTION(STF_Y0,K))
+           IDEGREE = NINT(AZRADIANS*RADFACT)
+           IF(IDEGREE .LE.0) IDEGREE=IDEGREE+COVTO360
+         END IF
+         AZ(J) =IDEGREE
+C
+C** CONVERT RANGE FROM KILOMETERS TO NEAREST NAUTICAL MILE
+C
+         RAN(J)=NINT(RNGE*KM_TO_NM)
+C
+C** CHECK IF THE STORM IS A NEW ONE.  IF IT ISN'T, THEN....
+C
+         IF (STORMIDTYP(STF_TYP,K) .NE. TYP_NEW) THEN
+            FLD1(J)=NINT(ABS(STORMOTION(STF_DIR,K)))
+C
+C** CONVERT SPEED FROM METERS/SEC TO KNOTS
+C
+            FLD2(J)=NINT(ABS(STORMOTION(STF_SPD,K))*MPS_TO_KTS)
+            IF( FLD2(J) .EQ. 0) FLD1(J) = 0
+C
+C** FORMAT FORECAST MOVEMENT (DIRECTION AND SPEED)
+C
+            WRITE(DIRSPD(J),905) FLD1(J),FLD2(J)
+         ELSE
+C
+C** LABEL THE STORM CELLS DIRECTION AND SPEED AS SIMPLY "NEW".
+C
+            DIRSPD(J) = NEW_STORM
+         END IF
+C
+C*** FORMAT FORECAST ERROR FIELDS (ERR/MEAN)
+C*** ERROR AND MEAN ARE FIRST CONVERTED FROM KM TO NEAREST NM
+C
+         IF(STORMOTION(STF_ERR,K).EQ.UNDEF) THEN
+            FLD3(J)=0.0
+         ELSE
+            FLD3(J)=(STORMOTION(STF_ERR,K)*KM_TO_NM)
+         ENDIF
+C
+         IF(STORMOTION(STF_MFE,K).EQ.UNDEF)THEN
+            FLD4(J)=0.0
+         ELSE
+            FLD4(J)=(STORMOTION(STF_MFE,K)*KM_TO_NM)
+         ENDIF
+C
+C** GET MAX DBZ AND HEIGHT FROM CENTROIDS BUFFER
+C
+         FLD5(J)=NINT(STORMAIN(STM_MRF,K))
+C
+C** CONVERT HEIGHT FROM KILOMETERS TO K-FEET
+C
+         FLD6(J)=STORMAIN(STM_RFH,K)*M_TO_FT
+C
+C** INCREMENT DATA ACCESS INDEX
+C
+         K = K+1
+C
+  150 CONTINUE
+C
+C** INTIALIZE THE INDEX INTO THE CHAR ARRAY
+C
+      IT=1
+C
+C** WRITE TEXT LINES
+C
+      WRITE(TXCHR(IT),900)  (STID(J), J=1,N2)
+      IT = IT + 1
+      WRITE(TXCHR(IT),901)  (AZ(J), RAN(J), J=1,N2)
+      IT = IT + 1
+      WRITE(TXCHR(IT),902)  (DIRSPD(J), J=1,N2)
+      IT = IT + 1
+      WRITE(TXCHR(IT),903)  (FLD3(J),FLD4(J), J=1,N2)
+      IT = IT + 1
+      WRITE(TXCHR(IT),904)  (FLD5(J),FLD6(J), J=1,N2)
+C
+C** FORMAT STATEMENTS
+C
+  900 FORMAT(1X,'STORM ID',6(8X,A2))
+  901 FORMAT(1X,'AZ/RAN  ',6(2X,I3,'/',I3,1X))
+  902 FORMAT(1X,'FCST MVT',6(2X,A8))
+  903 FORMAT(1X,'ERR/MEAN',6(1X,F4.1,'/',F4.1))
+  904 FORMAT(1X,'DBZM HGT',6(3X,I2,1X,F4.1))
+  905 FORMAT(I3,'/',I3)
+C
+C** RETURN TO CALLER ROUTINE
+C
+      RETURN
+      END

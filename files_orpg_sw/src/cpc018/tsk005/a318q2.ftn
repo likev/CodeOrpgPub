@@ -1,0 +1,253 @@
+C
+C RCS info
+C $Author: steves $
+C $Locker:  $
+C $Date: 2004/02/17 20:46:40 $
+C $Id: a318q2.ftn,v 1.8 2004/02/17 20:46:40 steves Exp $
+C $Revision: 1.8 $
+C $State: Exp $
+C
+      SUBROUTINE A318Q2__TVS_HEADER(NUMTVS,NUMETVS,BUF,INPTR)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A318Q2__TVS_HEADER
+*.
+*.  MODULE VERSION: 0013
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       03 15 85      0000      D.A.HUMPHREYS        PART 2, RPG BUILD 1
+*.       01 28 87      0001      ATARA WEINSTEIN      SPR # 70069
+*.       08 22 88      0002      VALERIE HOLDEN       SPR # 80248
+*.       01 31 91      0003      MEI   OU             SPR # 91259
+*.       12 03 91      0004      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0005      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0006      Toolset              SPR 91895
+*.       03/25/93      0007      Toolset              SPR NA93-06801
+*.       01/28/94      0008      Toolset              SPR NA94-01101
+*.       03/03/94      0009      Toolset              SPR NA94-05501
+*.       04/01/95      0010      Toolset              CCR NA95-11802
+*.       04/05/95      0011      C. Stephenson        CCR NA94-35301
+*.       12/23/96      0012      Toolset              CCR NA95-11807
+*.       05/01/97      0013      DAVE ZITTEL          CCR NA95-21503
+*.       03/16/99      0013      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A318Q2__TVS_HEADER(BUF,INPTR)
+*.
+*.  MODULE FUNCTION:
+*.
+*.     THIS MODULE LOADS THE HEADER BLOCK FIELDS OF THE TVS PRODUCT.
+*.
+*.  MODULES CALLED: A31218__BUF_VOL, A3CM25__GET_DATE_TIME 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT          TYPE        DESCRIPTION
+*.    -   -----          ----        -----------
+*.    G   SIRDAHGT       I*4         Site Adaptation - RDA Height.
+*.    G   SIRDALAT       I*4         Site Adaptation - RDA Latitude.
+*.    G   SIRDALON       I*4         Site Adaptation - RDA Longitude.
+*.    G   SIRPGID        I*4         Site Adaptation - RPG ID Number.
+*.    G   SUMMARY        I*4         Volume Scan Summary Table
+*.    G   DIV1OFF        I*4         (CONSTANT)Product header offset: First
+*.                                   divider.
+*.    G   GDPRDOFF       I*4         (CONSTANT)Product header offset:
+*.                                   generation date of product.
+*.    G   GTLSWOFF       I*4         (CONSTANT)Product header
+*.                                   offset:Generation time of product (LSW).
+*.    G   GTMSWOFF       I*4         (CONSTANT)Product header offset.
+*.                                   Generation time of product (MSW).
+*.    G   LNLSWOFF       I*4         (CONSTANT)Product header offset:
+*.                                   Longitude of radar (LSW).
+*.    G   LNMSWOFF       I*4         (CONSTANT)Product header offset:
+*.                                   Longitude of radar (MSW).
+*.    G   LTLSWOFF       I*4         (CONSTANT)Product header offset: Latitude
+*.                                   of radar (LSW).
+*.    G   LTMSWOFF       I*4         (CONSTANT)Product header offset: Latitude
+*.                                   of radar (MSW)
+*.    G   MESCDOFF       I*4         (CONSTANT)Product header offset: Message
+*.                                   code.
+*.    G   NBLKSOFF       I*4         (CONSTANT)Product header offset: Number
+*.                                   of blocks in product.
+*.    G   NMAPSOFF       I*4         (CONSTANT)Product header offset
+*.                                   descriptions: Number of maps.
+*.    G   OPRLSWOFF      I*4         (CONSTANT)Product header offset
+*.                                   descriptions: Offset to product length
+*.                                   (LSW)
+*.    G   PHEADLNG       I*4         (CONSTANT)Number of half words in product
+*.                                   header (its length).
+*.    G   PRDCODOFF      I*4         (CONSTANT)Product header offset
+*.                                   descriptions: Product code.
+*.    G   RADHGTOFF      I*4         (CONSTANT)Product header offset
+*.                                   descriptions: Height of radar.
+*.    G   SBON           I*2         (CONSTANT)Spot Blanking flag indicating
+*.                                   it is enabled in product
+*.    G   SCAN_DATE      I*4         (CONSTANT)Volume Scan Date index into
+*.                                   Scan Summary Table
+*.    G   SCAN_MODE      I*4         (CONSTANT)Weather Mode index into Scan
+*.                                   Summary Table
+*.    G   SCAN_SB        I*4         (CONSTANT)Spot Blanking Flag index into
+*.                                   Volume Scan Summary Table
+*.    G   SCAN_TIME      I*4         (CONSTANT)Volume Scan Time index into
+*.                                   Scan Summary Table
+*.    G   SCAN_VCP       I*4         (CONSTANT)Volume Coverage Pattern index
+*.                                   into Scan Summary Table
+*.    G   SRCIDOFF       I*4         (CONSTANT)Product header offset: Source
+*.                                   ID-Number.
+*.    G   VCPOFF         I*4         (CONSTANT)Product header offset:  Volume
+*.                                   coverage pattern.
+*.    G   VOL_SPOT_BLANK I*2         (CONSTANT)Spot Blank field in Scan
+*.                                   Summary table definition
+*.    G   VSDATOFF       I*4         (CONSTANT)Product header offset: Volume
+*.                                   scan date.
+*.    G   VSNUMOFF       I*4         (CONSTANT)Product header offset
+*.                                   descriptions: Volume scan number.
+*.    G   VSTLSWOFF      I*4         (CONSTANT)Product header offset: Volume
+*.                                   scan time (LSW).
+*.    G   VSTMSWOFF      I*4         (CONSTANT)Product header offset:  Volume
+*.                                   scan time (MSW).
+*.    G   WTMODOFF       I*4         (CONSTANT)Product header offset:  Weather
+*.                                   mode.
+*.    P   BUF            I*2         OUTPUT BUFFER FOR HEADER, DIMENSIONED TO
+*.                                   HEADER LENGTH
+*.    P   INPTR          I*4         POINTER TO VOLUME SCAN NUMBER
+*.    P   NUMETVS        I*4         Number of ETVSs detected by the TDA
+*.                                   algorithm.
+*.    P   NUMTVS         I*4         The number of TVSs found by the TDA
+*.                                   algorithm.
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    P   BUF     I*2         OUTPUT BUFFER FOR HEADER, DIMENSIONED TO HEADER
+*.                            LENGTH
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    P   INPTR             I*4         POINTER TO VOLUME SCAN NUMBER
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME        TYPE        DESCRIPTION
+*.    ----        ----        -----------
+*.    DATE        I*4         Current date.
+*.    DIVIDER     I*2         DIVIDER IN PRODUCT OUTPUT BUFFER
+*.    EMPTY       I*2         CONSTANT EQUAL TO 0.
+*.    HI_BYTE_OFF I*4         Multiply TDA product version number by 256 to
+*.                            store in high byte of halfword 54 in output
+*.                            buffer.
+*.    I           I*4         Do loop index.
+*.    LN          I*4         Temporary store for longitude.
+*.    LT          I*4         Temporary store for latitude.
+*.    NBLK        I*2         Number of blocks.
+*.    NUMETOFF    I*4         Offset to the location, in the TDA product
+*.                            output buffer, of the number of ETVSs found by
+*.                            the TDA algorithm.
+*.    NUMTVOFF    I*4         Offset to the location, in the TDA product
+*.                            output buffer, of the number of TVSs found by
+*.                            the TDA algorithm.
+*.    TIME        I*4         GENERATION TIME OF PRODUCT RETURNED FROM ICLOCK
+*.    TVSID       I*2         (Constant) TVS ID number.
+*.    TVS_VERS    I*4         Version number of TVS product
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD05
+*.    SITEADP
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  NONE
+*.
+*.  DEVIATION FROM STANDARDS:  NONE
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     THIS MODULE IS COMPILED USING THE COMP18.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     THIS MODULE IS LINKED USING THE LINK18.CSS
+*.
+*.  MISC:  NONE
+*.
+*.*******************************************************************
+$EJECT
+      IMPLICIT NONE
+
+      LOGICAL OS32BTESTS
+
+C        PARARETER FILE FOR PRODUCT HEADER
+C
+C
+$INCLUDE A309.INC/G,**A3PM00 (NEND NLIST)
+$INCLUDE            **A3PM01 (NEND NLIST)
+$INCLUDE            **A3PM06 (NEND NLIST)
+$INCLUDE            **A3CD05 (NEND NLIST)
+$INCLUDE A309ADPT.INC/G,**A3CD70CA (NEND NLIST)
+C
+C****************** L O C A L   D A T A **********************:
+C
+      INTEGER*2 BUF(*),EMPTY,TVSID,NBLK,DIVIDER
+      INTEGER*4 I,TIME,A31218__BUF_VOL,INPTR,DATE
+      INTEGER*4 NUMETOFF,NUMTVOFF,NUMTVS,NUMETVS
+      PARAMETER (TVSID=61,EMPTY=0,NBLK=5,DIVIDER=-1)
+      PARAMETER (NUMTVOFF = 47, NUMETOFF = 48 )
+      INTEGER TVS_VERS, HI_BYTE_OFF
+      PARAMETER (TVS_VERS = 1, HI_BYTE_OFF = 256)
+C
+C****************** E X E C U T A B L E  ********************
+C
+C   CLEAR HEADER FIELDS
+      DO 10 I=2,PHEADLNG
+         BUF(I)=EMPTY
+ 10   CONTINUE
+C   LOAD KNOWN HEADER FIELDS
+      BUF(MESCDOFF)=TVSID
+      BUF(SRCIDOFF)=SIRPGID
+      BUF(NBLKSOFF)=NBLK
+      BUF(DIV1OFF)=DIVIDER
+C   SET LAT,LONG
+      call RPG_set_product_int( BUF(LTMSWOFF), SIRDALAT )
+      call RPG_set_product_int( BUF(LNMSWOFF), SIRDALON )
+C   SET HEIGHT
+      BUF(RADHGTOFF)=SIRDAHGT
+      BUF(PRDCODOFF)=TVSID
+      BUF(VSNUMOFF)=A31218__BUF_VOL(INPTR)
+      BUF(WTMODOFF)=SUMMARY(SCAN_MODE,BUF(VSNUMOFF))
+      BUF(VSDATOFF)=SUMMARY(SCAN_DATE,BUF(VSNUMOFF))
+C   SET TIME
+      TIME=SUMMARY(SCAN_TIME,BUF(VSNUMOFF))
+      call RPG_set_product_int( BUF(VSTMSWOFF), TIME )
+C   SET DATE
+      CALL A3CM25__GET_DATE_TIME(DATE,TIME)
+      BUF(GDPRDOFF)=DATE
+      call RPG_set_product_int( BUF(GTMSWOFF), TIME )
+      call RPG_set_product_int( BUF(OPRMSWOFF), PHEADLNG )
+C   SET VOLUME COVERAGE PATTERN
+      BUF(VCPOFF)=SUMMARY(SCAN_VCP,BUF(VSNUMOFF))
+C
+C   SET SPOT BLANK STATUS IN THE LOW BYTE OF HALFWORD 54
+C
+      IF (OS32BTESTS(SUMMARY(SCAN_SB,BUF(VSNUMOFF)),VOL_SPOT_BLANK))
+     >    BUF(NMAPSOFF)= SBON
+C
+C**** SET TVS_VERS NUMBER OF PRODUCT IN HIGH SIDE OF HALFWORD 54
+C
+      BUF(NMAPSOFF) = BUF(NMAPSOFF) + TVS_VERS * HI_BYTE_OFF
+C
+C     SET NUMBER OF TVSs AND ETVSs
+C
+      BUF(NUMTVOFF) = NUMTVS
+      BUF(NUMETOFF) = NUMETVS
+      RETURN
+      END

@@ -1,0 +1,91 @@
+hci_rda.doc			    NOTES			hci_rda.doc
+
+
+This file contains information about the HCI RDA Alarms task.  It is intended
+to be used by those interested in how the software is designed rather than by
+a typical user.  More detailed information about data stores and events used
+by this task is presented.
+
+Design
+------
+
+*** NOTE NOTE NOTE NOTE *******
+For ORDA, two new tasks have been added. If the RDA configuration is legacy,
+then hci_rda calls hci_rda_legacy. If the RDA configuration is ORDA, then
+hci_rda calls hci_rda_orda. Task hci_rda simply determines the configuration
+and calls the appropriate executable. For each executable, the information
+below still applies.
+*******************************
+
+The RDA Alarms task provides new functionality not provided by the legacy UCP.
+In the legacy UCP, RDA alarm data were written to the system status log along
+with all other type messages.  In the ORPG, RDA alarm data are still written
+to the RPG system log but also to the ORPGDAT_RDA_ALARMS linear buffer.  A
+full description can be found in the man page  hci_rda(1).
+
+The RDA Alarms window can be resized.  Horizontal and vertical scrollbars are
+provided when the window is not large enough to display all of the data.
+
+A timer procedure is activated in 1 second intervals.  The window is updated
+after the RPG state changes or after new RDA alarm data are detected.  The
+RDA alarm messages are displayed in reverse chronological order.
+
+Testing
+-------
+
+To test the full thread, a fully operational RPG needs to be running and either
+a live RDA connected or the RDA simulator running.  The test tool "wb_stat" can
+be used to test the GUI response to various connect states.  The test tool
+"rda_alarm" can be used to set any of the RDA alarm codes.
+
+SOURCE FILES
+------------
+
+	hci_RDA_alarms.c
+			This module contains all of the code to build and
+			manage the RDA Alarms window.
+	hci_RDA_alarms_legacy.c
+			This module contains all of the code to build and
+			manage the RDA Alarms window if the RDA has a
+			legacy configuration.
+	hci_RDA_alarms_orda.c
+			This module contains all of the code to build and
+			manage the RDA Alarms window if the RDA has an
+			ORDA configuration.
+				
++++ PROC
+
+DATA IN
+
+	ORPGDAT_REDMGR_CHAN_MSGS.4
+	ORPGDAT_ADAPT.4
+	ORPGDAT_GSM_DATA.4
+	ORPGDAT_HCI_DATA.4
+	ORPGDAT_RPG_INFO.4
+	
+EVENTS OUT
+
+	ORPGEVT_HCI_COMMAND_ISSUED
+					
+APIs USED
+
+	orpg.3
+	
+		ORPGRED.3
+		ORPGSITE.3
+		ORPGMISC.3
+		ORPGADPT.3 
+		ORPGRDA.3
+		ORPGMGR.3
+
+	hci.3
+
+---
+
+SEE ALSO
+
+hci(1) hci_rda(1) rda_alarm(1) rda_simulator(1) wb_stat(1) hci(3) orpg(3)
+orpgred(3) orpgsite(3) orpgmisc(3) orpgadpt(3) orpgrda(3) orpgmgr(3)
+
+
+hci_rda.doc		 			                hci_rda.doc

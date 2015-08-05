@@ -1,0 +1,271 @@
+C
+C RCS info
+C $Author: ryans $
+C $Locker:  $
+C $Date: 2007/05/09 16:39:40 $
+C $Id: a3082i.ftn,v 1.8 2007/05/09 16:39:40 ryans Exp $
+C $Revision: 1.8 $
+C $State: Exp $
+C
+      SUBROUTINE A3082I__MESOCYCLONES(CAT_NUM_STORMS,CAT_FEAT,
+     $   COMB_ATT,NUM_FPOSITS,FORCST_POSITS,CAT_NUM_RCM,
+     $   CAT_MDAT,CAT_TVST,IROW,ICOL,NBYTES,RCMBUF)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3082I__MESOCYCLONES
+*.
+*.  MODULE VERSION: 0012
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       02 18 88      0000      VALERIE HOLDEN       SPR # 80002
+*.       02 06 89      0001      VALERIE HOLDEN       SPR # 90027
+*.       01 29 91      0002      VALERIE HOLDEN       SPR # 91249
+*.       12 03 91      0003      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0004      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/20/92      0005      Toolset              SPR 91895
+*.       03/25/93      0006      Toolset              SPR NA93-06801
+*.       01/28/94      0007      Toolset              SPR NA94-01101
+*.       03/03/94      0008      Toolset              SPR NA94-05501
+*.       04/11/96      0009      Toolset              CCR NA95-11802
+*.       12/23/96      0010      Toolset              CCR NA95-11807
+*.       03/16/99      0011      Toolset              CCR NA98-23803
+*.       11/10/05      0012      Brian Klein          CCR NA05-23001
+*.
+*.  CALLING SEQUENCE: CALL A3082I__MESOCYCLONES (CAT_NUM_STORMS,
+*.                    CAT_FEAT,COMB_ATT,NUM_FPOSITS,FORCST_POSITS,
+*.                    CAT_NUM_RCM,CAT_MDAT,CAT_TVST,IROW,
+*.                    ICOL,NBYTES,RCMBUF)
+*.
+*.  MODULE FUNCTION: ENCODES MESOCYCLONES (MDA FEATURES) FOR PART C
+*.                   NOTE:  AS OF CCR NA05-23001, ALL REFERENCES TO
+*.                   LEGACY MESOCYCLONE INFORMATION (I.E. MESOS AND
+*.                   SHEARS ARE UNUSED OR REPLACED BY REFERENCES TO
+*.                   MDA FEATURES.
+*.
+*.  MODULES CALLED: A30828__GRID_LETTERS, A3082G__GET_IJ, A3082K__STORE_LINE, 
+*.                  A3082Q__PROCESS_LINE 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT       TYPE        DESCRIPTION
+*.    -   -----       ----        -----------
+*.    C   CAT_AZ2D    I*4         (CONSTANT)Offset to 2D uncorrelated shear
+*.                                azimuth.
+*.    C   CAT_ELV2D   I*4         (CONSTANT)Offset to 2D uncorrelated shear
+*.                                elevation angie.
+*.    C   CAT_MESAZ   I*4         (CONSTANT)Offset into mesocyclone values
+*.                                table (CAT_MESOT) for azimuth.
+*.    C   CAT_MESEL   I*4         (CONSTANT)Offset into mesocyclone values
+*.                                table (CAT_MESOT) for elevation angle.
+*.    C   CAT_MESRN   I*4         (CONSTANT)Offset into mesocyclone values
+*.                                table (CAT_MESOT) for range.
+*.    C   CAT_RNG2D   I*4         (CONSTANT)Offset to 2D uncorrelated shear
+*.                                range.
+*.    C   NACOLS      I*4         (CONSTANT)Number of columns available for
+*.                                Radar Coded Message product.
+*.    C   RCM_2D      I*4         (CONSTANT)Offset for total number of 2D UNC.
+*.    C   RCM_MESO    I*4         (CONSTANT)Offset for total number of MESOs.
+*.    P   CAT_2DS     R*4         Table of 2D uncorrelated values.
+*.    P   CAT_MESOT   R*4         Mesocyclone table (Azimuth, Range,
+*.                                Elevation).
+*.    P   CAT_NUM_RCM I*4         TABLE OF TOTAL'S FOR MESO, TVS, 2D
+*.    P   ICOL        I*4         COLUMN NUMBER
+*.    P   IROW        I*4         ROW NUMBER
+*.    P   NBYTES      I*4         NUMBER OF BYTES
+*.    P   RCMBUF      I*2         RADAR-CODED-MESSAGE BUFFER
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    P   ICOL    I*4         COLUMN NUMBER
+*.    P   IROW    I*4         ROW NUMBER
+*.    P   NBYTES  I*4         NUMBER OF BYTES
+*.    P   RCMBUF  I*2         RADAR-CODED-MESSAGE BUFFER
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    P   ICOL              I*4         COLUMN NUMBER
+*.    P   IROW              I*4         ROW NUMBER
+*.    P   NBYTES            I*4         NUMBER OF BYTES
+*.    P   RCMBUF            I*2         RADAR-CODED-MESSAGE BUFFER
+*.
+*.  DATABASE/FILE REFERENCE: NONE
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME         TYPE        DESCRIPTION
+*.    ----         ----        -----------
+*.    AZIM         R*4         ARRAY OF AZIMUTHS OF STORM
+*.    BLANK        CHAR*1      ONE BLANK CHARACTER
+*.    COLON        CHAR*1      COLON CHARACTER
+*.    COMMA        CHAR*1      COMMA CHARACTER
+*.    ELEV         R*4         ARRAY OF ELEVATION ANGLES OF STORM
+*.    FLAG         I*4         FLAG FOR END OF LINE
+*.    GRID         CHAR*3      LFM GRID LOCATION
+*.    I            I*4         Index control variable.
+*.    IC           I*4         START POSITION FOR WRITING COMMA
+*.    ID_2DS       I*4         Counter of 2D uncorrelated shears within 230 Km
+*.                             range.
+*.    INC1         I*4         INCREMENTAL VALUE OF 1
+*.    INC5         I*4         VARIABLE TO INCREMENT BY 5
+*.    INC7         I*4         VARIABLE TO INCREMENT BY 7
+*.    INCREM       I*4         INCREMENTAL VALUE FOR COMMA START
+*.    IS           I*4         START POSITION FOR WRITING STORM DATA
+*.    ISM          I*4         END POSITION FOR WRITING STORM DATA
+*.    IVAL         I*4         I GRID COORDINATE
+*.    JVAL         I*4         J GRID COORDINATE
+*.    K            I*4         Loop control index variable.
+*.    L1_END       I*4         MAX NUMBER OF MESO ON LINE 1
+*.    L2_END       I*4         MAX NUMBER OF MESO ON LINE 2
+*.    L3_END       I*4         MAX NUMBER OF MESO ON LINE 3
+*.    L4_END       I*4         MAX NUMBER OF MESO ON LINE 4
+*.    L5_END       I*4         MAX NUMBER OF MESO ON LINE 5
+*.    LEND         I*4         END OF LINE INDICATOR
+*.    MAXSZ        I*4         Maximum size for arrays AZIM,RANGE and ELEV.
+*.    MCHAR        CHAR*1      M CHARACTER
+*.    MESO_ID      I*4         ARRAY OF ID NUMBERS
+*.    MESO_TOTAL   I*4         TOTAL # OF MESO'S AND 2D UNC. SHEARS
+*.    NUM_MESO     CHAR*5      Header for Total Number of Mesos
+*.    ONE          I*4         Program parameter value for one used as lower
+*.                             index in do loop.
+*.    RANGE        R*4         ARRAY OF RANGES OF STORM
+*.    RANGE_MAX    R*4         MAXIMUM RANGE VALUE = 230.0 KM
+*.    RCM_LINE     CHAR*70     RADAR CODED MESSAGE LINE
+*.    RZERO        R*4         Parameter value for real zero.
+*.    SET10        I*4         VARIABLE TO INITIALIZE TO 10
+*.    SET16        I*4         VARIABLE TO INITIALIZE TO 16
+*.    TOT_NUM_2D   I*4         TOTAL NUMBER OF 2D UNC SHEARS
+*.    TOT_NUM_MESO I*4         TOTAL NUMBER OF MESOCYCLONES
+*.    TWENTY_ONE   I*4         (Constant) Parameter equal to 21.
+*.    ZERO         I*4         Program parameter for 0.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS: NONE
+*.
+*.  DEVIATION FROM STANDARDS: NONE
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     THIS MODULE IS COMPILED USING COMP08.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     THIS MODULE IS LINKED USING LINK08.CSS
+*.
+*.  MISC: NONE
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+C*
+$INCLUDE A308BUF.INC/G,**A308P3 (NEND NLIST)
+$INCLUDE               **A308D3 (NEND NLIST)
+$INCLUDE A308.INC,**A308P2      (NEND NLIST)
+$INCLUDE mda_adapt.inc, **mda_adapt (NEND NLIST)
+C*
+      INTEGER*2    RCMBUF(*)
+      INTEGER*4    IROW,ICOL,NBYTES,I,K,LEND,IS,IC,ISM,IVAL,JVAL
+      INTEGER*4    FLAG,INC7,INC5,SET10,SET16,MAXSZ,KSAVE,ONE
+      INTEGER*4    ID_2DS,TWENTY_ONE,ZERO,INC1
+      INTEGER*4    L1_END,L2_END,L3_END,L4_END,L5_END
+      PARAMETER    (MAXSZ=40,ZERO=0,INC1=1,ONE=1)
+      INTEGER*4    TOT_NUM_MESO,TOT_NUM_2D,TOT_NUM_ALL,MESO_SR(MAXSZ)
+      INTEGER*4    MESO_TOTAL,INCREM
+      REAL         AZIM(MAXSZ),RANGE(MAXSZ),ELEV(MAXSZ)
+      REAL         RANGE_MAX,RZERO
+      PARAMETER    (FLAG=100,INC7=7,INC5=5,SET10=10,SET16=16)
+      PARAMETER    (RANGE_MAX=230.0,INCREM=7,TWENTY_ONE=21,RZERO=0.0)
+      PARAMETER    (L1_END=8,L2_END=18,L3_END=28,L4_END=38,L5_END=40)
+      CHARACTER*1  COLON,COMMA,BLANK,MCHAR
+      CHARACTER*3  GRID
+      CHARACTER*5  NUM_MESO
+      CHARACTER*70 RCM_LINE
+      CHARACTER*100 TEXT
+      DATA         COLON/':'/,COMMA/','/,BLANK/' '/,MCHAR/'M'/
+      DATA         NUM_MESO/'/NMES'/
+
+C*
+C*    CLEAR RCM_LINE TO BLANKS
+      DO 10 I = ONE,NACOLS
+ 10      RCM_LINE(I:I) = BLANK
+      TOT_NUM_MESO = CAT_NUM_RCM(RCM_MDA)
+C*
+C*    COLLECT DATA FOR MESO WITHIN 230 KM RANGE
+      I = ZERO
+
+      DO 51 K = ONE,TOT_NUM_MESO
+         IF ((CAT_MDAT(CAT_MDARN,K).GT.RANGE_MAX).OR.
+     $       (CAT_MDAT(CAT_MDARN,K).LT.RZERO) .OR.
+     $       (CAT_MDAT(CAT_MDASR,K) .LT. min_filter_rank)) THEN
+         ELSE
+            IF ( I .GE. MAXSZ ) THEN
+               WRITE(TEXT, 1111)
+ 1111          FORMAT (1X, 'MAX NUMBER MESOS EXCEEDED$')
+               CALL RPG_send_msg(TEXT)
+               GOTO 52
+            ENDIF
+
+            I = I + INC1
+C*
+C*    SAVE MDA STRENGTH RANK, AZIMUTH, RANGE AND ELEVATION INDEX
+            MESO_SR(I) = CAT_MDAT(CAT_MDASR,K)
+            AZIM(I)  = CAT_MDAT(CAT_MDAAZ,K)
+            RANGE(I) = CAT_MDAT(CAT_MDARN,K)
+            ELEV(I)  = CAT_MDAT(CAT_MDAEL,K)
+         ENDIF
+ 51   CONTINUE
+ 52   CONTINUE
+      MESO_TOTAL = I
+
+C*
+C*    WRITE TOTAL NUMBER OF MESOCYCLONES
+      WRITE(RCM_LINE,100) NUM_MESO,MESO_TOTAL,COLON
+ 100  FORMAT(A5,I2.2,A1)
+      IF (MESO_TOTAL.EQ.ZERO) CALL A3082K__STORE_LINE(IROW,ICOL,
+     $   NBYTES,RCM_LINE,RCMBUF)
+C*
+C*    INITIALIZE INDEX PARAMETERS FOR BUFFER WRITE
+      IS = SET10
+      IC = SET16
+      LEND = ZERO
+C
+C*    COLLECT DATA FOR ALL MESO'S AND 2D UNC. SHEARS
+      DO 200 K = ONE,MESO_TOTAL
+C*
+C*    GET LFM GRID LOCATION
+         CALL A3082G__GET_IJ(AZIM(K),RANGE(K),ELEV(K),IVAL,JVAL)
+         CALL A30828__GRID_LETTERS(IVAL,JVAL,GRID)
+         ISM = IS + INC5
+C*
+C*    WRITE MESO OR 2D UNC. IDENTIFIER NUMBER AND LFM LOCATION
+         WRITE(RCM_LINE(IS:ISM),105) MCHAR,MESO_SR(K),GRID
+ 105     FORMAT(A1,I2.2,A3)
+C*
+C*    CHECK IF MORE DATA FOLLOWS: ADD COMMA SEPARATOR
+         IF (MESO_TOTAL.GT.K) WRITE(RCM_LINE(IC:IC),106) COMMA
+ 106     FORMAT(A1)
+         IS = IS + INC7
+         IC = IC + INC7
+C*
+C*    CHECK FOR END OF LINE CONDITION
+         IF ((K.EQ.L1_END).OR.(K.EQ.L2_END).OR.(K.EQ.L3_END).OR.
+     $      (K.EQ.L4_END).OR.(K.EQ.L5_END)) LEND = FLAG
+C*
+C*    CHECK IF NO MORE DATA OR END OF LINE CONDITION EXISTS
+         IF ((MESO_TOTAL.EQ.K).OR.(LEND.EQ.FLAG)) THEN
+            CALL A3082Q__PROCESS_LINE(IROW,ICOL,NBYTES,IS,IC,
+     $         INCREM,LEND,RCM_LINE,RCMBUF)
+         ENDIF
+ 200  CONTINUE
+      END

@@ -1,0 +1,167 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/16 20:36:04 $
+C $Id: a31635.ftn,v 1.4 2002/12/16 20:36:04 christie Exp $
+C $Revision: 1.4 $
+C $State: Exp $
+C
+      SUBROUTINE A31635__STM_ID(ID_IDX,X_POS,Y_POS,BUFOUT)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A31635__STM_ID
+*.
+*.  MODULE VERSION: 0013
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       07 22 85      0000      M.JO STALEY          Part 2, RPG Build 1
+*.       06 02 86      0001      J GROMMONS           SPR # 60313
+*.       10 02 86      0002      J GROMMONS           SPR # 60346
+*.       02 22 91      0003      David M. Lynch       SPR # 91257
+*.       02 15 91      0003      JOHN DEPHILIP        SPR # 91762
+*.       12 03 91      0004      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0005      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0006      Toolset              SPR 91895
+*.       03/25/93      0007      Toolset              SPR NA93-06801
+*.       01/28/94      0008      Toolset              SPR NA94-01101
+*.       03/03/94      0009      Toolset              SPR NA94-05501
+*.       04/01/95      0010      Toolset              CCR NA95-11802
+*.       06/10/95      0011      STEVE SMITH          CCR NA94-26302
+*.       12/23/96      0012      Toolset              CCR NA95-11807
+*.       03/16/99      0013      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A31635__STM_ID(ID_INDX,X_POS,Y_POS,BUFOUT)
+*.
+*.  MODULE FUNCTION:
+*.
+*.     THIS MODULE BUILDS THE DISPLAY PACKET FOR THE STORM_ID.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT   TYPE        DESCRIPTION
+*.    -   -----   ----        -----------
+*.    C   OPTRIDX I*4         Output buffer index for Storm Track Information
+*.                            product.
+*.    P   ID_IDX  I*4         THE INDEX INTO THE STORM_ID TABLE
+*.    P   X_POS   R*4         THE X POSITION OF THE STORM (KM.)
+*.    P   Y_POS   R*4         THE Y POSITION OF THE STORM (KM.)
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    C   OPTRIDX I*4         Output buffer index for Storm Track Information
+*.                            product.
+*.    P   BUFOUT  I*2         THE OUTPUT BUFFER FOR PRODUCT
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME        TYPE        DESCRIPTION
+*.    ----        ----        -----------
+*.    CHARIDTABLE CHAR*2      Character table of storm IDs.
+*.    I           I*4         Loop index variable.
+*.    IX          I*4         Internal variable - used in position
+*.                            calculations.
+*.    IY          I*4         Internal variable - used in position
+*.                            calculations.
+*.    KMX4        R*4         QUARTER KM. SCALE FACTOR
+*.    LENG_PACKET I*4         LENGTH OF DISPLAY PACKET
+*.    OFF1        I*4         Constant respresenting offset 1.
+*.    OFF2        I*4         Constant representing offset 2.
+*.    OFF3        I*4         Constant representing offset 3.
+*.    OFF4        I*4         Constant representing offset 4.
+*.    OFF5        I*4         Constant representing offset 5.
+*.    PACKETCODE  I*4         DISPLAY PACKET FOR STORM_ID
+*.    TEMPC2      CHAR*2      TEMPORARY FOR CHARACTER
+*.    TEMPI2      I*2         TEMPORARY STORAGE
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A316C3
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP16.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK16.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+C
+$INCLUDE A316.INC/G, **A316C3 (NLIST NEND)
+C
+      INTEGER IX,IY,I
+      INTEGER ID_IDX,PACKETCODE,LENG_PACKET
+      PARAMETER(PACKETCODE=15,LENG_PACKET=6)
+      INTEGER*2 BUFOUT(*)
+      REAL X_POS,Y_POS
+      INTEGER*2 TEMPI2
+      CHARACTER*2 TEMPC2
+      EQUIVALENCE(TEMPI2,TEMPC2)
+C
+      INTEGER OFF1,OFF2,OFF3,OFF4,OFF5
+      REAL KMX4
+      PARAMETER(OFF1=1,OFF2=2,OFF3=3,OFF4=4,OFF5=5)
+      PARAMETER(KMX4=4.0)
+C
+$INCLUDE A309.INC/G,**A3CD08 (NLIST)
+$INCLUDE A309.INC/G,**A3CD08D (NEND NLIST)
+C
+C
+C **************** E X E C U T A B L E  *****************
+C
+C**  THE TEXT PACKET FOR STORM-ID HAS A SPECIAL PACKET CODE
+C**  IT IS 15.   THIS IS FOR THE PUPS TO RECOGNIZE IT AS A
+C**  STORM-ID .
+C
+      BUFOUT(OPTRIDX+OFF1)=PACKETCODE
+      BUFOUT(OPTRIDX+OFF2)=LENG_PACKET
+C
+C**  CONVERT POSITION TO QUARTER-KM (INTEGER)
+C
+      IX=NINT((X_POS)*KMX4)
+      IY=NINT((Y_POS)*KMX4)
+C
+C**  STORE POSITION IN OUTPUT BUFFER
+C
+      BUFOUT(OPTRIDX+OFF3)=IX
+      BUFOUT(OPTRIDX+OFF4)=IY
+C
+C**  STORE STORM-ID IN THE OUTPUT BUFFER
+C
+      TEMPC2=CHARIDTABLE(ID_IDX)
+      BUFOUT(OPTRIDX+OFF5)=TEMPI2
+C
+C**  UPDATE INDEX INTO OUTPUT BUFFER
+C
+      OPTRIDX=OPTRIDX+OFF5
+C
+C**  RETURN TO CALLER
+C
+      RETURN
+      END

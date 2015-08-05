@@ -1,0 +1,567 @@
+hci(1)                      ORPG SUM Manpage                          hci(1)
+
+NAME
+
+hci - RPG Control/Staus Task
+
+SYNOPSIS
+
+hci [options] 
+
+DESCRIPTION 
+
+The "hci" command invokes the RPG Control/Status task for the RPG.  This is 
+the primary task in the Human-Computer Interface (HCI) family of tasks.  It
+is a GUI based task which runs in an X Windows/Motif environment.  All other
+HCI family tasks can be invoked through this task.
+
+OPTIONS
+
+hci recognizes the following options:
+
+	-h	      print usage message and exit
+	
+	-iconic       Launch the task in an iconic state
+	
+	-l	      low bandwidth mode; compress data passed to/from
+		      RPG data stores.
+	
+	-m <name>     RPG computer name
+	
+	-name <title> Window title
+	
+	-s <rate>     Set the simulated baud rate
+		
+OVERVIEW
+
+The "hci" task should be the launching point for all primary RPG HCI family
+tasks.  It provides a graphical representation of the current state of the
+WSR-88D along with sets of pushbuttons and "hot spots" to activate various
+RPG functions and tasks.  As the user navigates the cursor over the RPG
+Control/Status window, the cursor changes shape as it passes over selectable
+and non-selectable objects.  The cursor changes shape to a hand whenever it
+is moved over a selectable object (a pushbutton or "hot spot") and a pointer
+as it moves over non-selectable objects.  The selectability of some objects
+will change dynamically based on the current RPG state.  A selectable object
+is activated (selected) by pressing the left mouse button with the cursor
+(hand shaped) over it.
+
+When invoked, the "hci" task displays a single window, hereafter referred
+to as the RPG Control/Status Window.  Below is a pictorial representation
+of the RPG Control/Status Window and its major objects.  Each objects is
+explained in more detail.
+
+==============================================================================
++---------------<Control/Status Region>----------------------<Applications>--+
+|                 <Current Date/Time>                      |                 |
+| R   <RDA State>                                          |                 |
+| D  +-----------+                                         |                 |
+| A  | <Radome>  |----------><VCP Info>                    |                 |
+|    +-----------+                                         |                 |
+| A   |         |            <Volume Info>                 |                 |
+| l   | <Tower> | <MLOS>                                   |                 |
+| a   |         |                                          |                 |
+| r   |  <TPS>  |       <RPG State>                        |                 |
+| m   |         |       <RPG Mode>                         |                 |
+| s   |   <RDA Ctl St>+-------------+    +---------------+ |                 |
+|   +-------------+   |RPG Container|    +USERS Container+ |                 |
+|   |RDA Container|   |             |    |               | |                 |
+| P |             |   |         <RPG/USERS Link>         | |                 |
+| o |       <RDA/RPG Link>          |    |               | |                 |
+| w |             |   |             |    +---------------+ |                 |
+| e +-------------+   +-------------+    +---------------+ |                 |
+| r                          ||          |<State/Control>| |                 |
+|                            ||          |               | |                 |
+|                     +--------------+   |               | |                 |
+|                     | ArchiveII LDM|   |               | |                 |
+|                     | Products     |   |               | |                 |
+|                     +--------------+   +---------------+ |                 |
+|                      <ArchivII LDM>                        |                 |
++----------------------------------------------------------+                 |
+| Feedback: [............................................] +-----------------+
+| Status:   [....................................................]           |
+| Alarms:   [....................................................] <Bld Info>|
++----------------------------------------------------------------------------+
+==============================================================================
+
+The RPG Control/Status Window is divided into two regions:  The "Control/Status"
+region and "Applications" region.
+
+The "Control/Status" region contains a graphical representation of the WSR-88D.
+It contains a set of objects representing 3 main WSR-88D components:  RDA, RPG,
+and User.  A timer procedure is invoked every half second and various RPG
+state information is read.  If changes are detected, a resize procedure is
+invoked which updates all objects in the RPG Control/Status window.  Most of
+the labels in the window use scalable fonts such that their sizes are based
+on the size of the window.
+ 
+The RPG Control/Status window can be resized by moving the cursor to one of
+the window corners, pressing the left mouse button, and dragging the mouse.
+There is a minimum window width and height allowed in order to preserve the
+integrity of the graphical objects displayed in the window.  When resizing
+the window, the width or height may be automatically adjusted to preserve a
+minimum width/height ratio..
+
+RDA Container
+-------------
+
+The RDA container is represented by a collection of graphical objects in the
+left third of the Control/Status region.  The focal point is a rectangular box
+with the label "RDA" at the top.  Inside are two buttons:  Control and Alarms.
+
+Selecting the Control button activates the RDA Control/Status Window from which
+the user can send various control commands to the RDA.  If the RDA is in local
+control, most of the buttons in this window are inactive; their appearance is
+fuzzy.  If the RDA is in remote control, or if it is neither in local or remote
+control, all of the buttons are active; their appearance is sharp.  Selected
+RDA status information is displayed in the bottom portion of the window.  If
+the RDA/RPG wideband connection has failed, status information is left blank.
+If the site is configured as FAA redundant or if spot blanking is installed,
+a lock button is displayed in the upper right corner of the window.  A valid
+password is required to enable/disable spot blanking and for redundant
+channel control.
+
+Selecting the Alarms button activates the RDA Alarms Window from which the user
+can review a history of RDA alarms.  An alarm entry consists of a date/time,
+the RDA device associated with the alarm, the type of alarm, the alarm code,
+and an readable description of the alarm (as defined in the RDA/RPG ICD).
+NOTE: The date/time stamp is generated at the RDA so it may not match the 
+date/time at the RPG!  A number of filters are provided for the user to control
+the types of RDA alarms which are displayed.  The user can filter by RDA
+device, description, and date/time.
+
+Power
+-----
+
+To the left of the RDA control box is a graphical representation of the RDA
+power source.  It can either be utility (a set of power poles) or auxiliary
+(a building with a fuel tank next to it).  If the power source is auxiliary,
+a request for new RDA performance data is sent at the beginning of each new
+volume scan so that the generator fuel level can be updated in the fuel tank
+graphic.  If the RDA/RPG wideband link is connected, the power source graphic
+can be selected in order to change the power source.  If the RDA/RPG wideband
+link is not connected, the power source graphic is blank and not selectable.
+
+Tower, Radome, TPS
+------------------
+
+Above the RDA control box is a graphic of the tower and radome.  If TPS is
+installed, the TPS status is displayed inside the tower graphic.  The TPS
+state can be either "OFF" (red) or "OK" (green).  The inside of the radome is
+used to display the azmuthal and elevation positions of the latest radar data
+available to the RPG algorithms.  The elevation angle  is displayed numerically
+at the center of the radome.  The azimuthal position is represented by a black
+ring which is drawn at the outer edge of the radome.  The azimuth position can
+be determined by locating the last drawn part of the ring and treating the
+radome as a compass (north at the top).  The ring is cleared at the start of a
+new elevation scan.
+
+VCP Info
+--------
+
+To the right of the radome are a set of black lines representing the elevation
+cuts in the currently active VCP.  The active cut is displayed as yellow.  The
+VCP number is displayed over the lines along with an indicator if a remote/local
+pattern (R/L) is being used and what the current weather mode is (A/B/M).  
+Selecting this label will activate the VCP Control task.  Refer to the man page
+hci_vcp(1) for more information about the VCP Control task. Beneath the VCP 
+info are the date and time of the start of the current volume scan along with
+the volume number.
+
+Current Date/Time
+-----------------
+
+At the top of the window (above the radome and VCP graphics) is a label
+displaying the RPG number and the current RPG system date/time.  It is
+updated every fourth timer interval (currently ~2 seconds).
+
+Volume Info
+-----------
+
+Beneath the VCP graphic is a label displaying the current volume number and
+its corresponding start date and time (RDA time).  It will change at the
+start of each new volume scan.
+
+RDA Alarms
+----------
+
+To the left of the radome and tower are 3-character labels indicating active
+RDA alarms by RDA device (up to 8 alarms in legacy RDA, 7 in ORDA).  An RDA
+status message contains an element consisting of a set of bits representing
+each RDA device.  If a bit is set, then it indicates the associated RDA device
+has an active alarm.  If no labels are displayed, then no RDA alarms are active.
+Selecting one of these labels activates the RDA Alarms window and filters only
+for the device corresponding to the label. Refer to man page hci_rda(1) for
+information about the RDA Alarms task.
+
+Archive Base Data
+-----------------
+
+Beneath the RPG container is a button labeled ArchiveII LDM Data.  Selecting
+this button activates the Archive II Status window.  i
+The Archive II window contains buttons to start/stop archive II.
+Archive II status can be one of the following:  "Not Active", "Active", "Unknown", "Error".
+
+RDA/RPG Link
+------------
+
+Between the RDA and RPG containers is a graphic indicating the state of the
+RDA/RPG interface.  If the interface is connected, a set of 3 horizontal bars
+are displayed connecting the RDA and RPG containers; one for each moment.  If
+a moment is enabled, the color of the bar is green.  If a moment is disabled
+the bar is white.  If data for a moment is currently being ingested, a black
+block is moved repeatedly between the RDA and RPG containers along the bar.
+
+If the RDA/RPG interface is disconnected, the bars are replaced with a label.
+If the RDA/RPG interface is not connected, the following states are defined:
+"Not Implemented", "Connect Pending", "Disconnect Pending", "Disconnect HCI",
+"Disconnect CM", "Disconnect SHUTDOWN", "Down", "Failure", and "Unknown".
+
+Moving the cursor over the RDA/RPG interface graphic causes the cursor to 
+change to a hand indicating the object is selectable.  Selecting it activates
+the RDA/RPG Interface Control/Status window.  Refer to the hci_rda_link(1) man
+page for more details.
+
+RDA Ctl State
+-------------
+
+Between the RDA tower and RPG container object is a line and label indicating 
+the RDA control state.  The label can be blank (meaning the RDA control state
+is unknown) or one of the following:
+
+	RDA     - Local control
+	RPG     - Remote control
+	EITHER  - Either has control
+	
+If the RDA/RPG wideband link is not connected, no line or label are displayed.
+
+MLOS
+----
+
+For sites supporting MLOS an additional button is displayed to the right of
+the RDA tower graphic.  Selecting this button activates the MLOS Status task.
+Refer to the man page hci_mlos(1) for more information in the MLOS Status task.
+
+RPG Container
+-------------
+
+The RPG container is represented by a control box with the label "RPG" at the
+top.  Inside are three or four buttons, depending on the site configuration.
+For non-RMS sites, the following buttons are defined:  "Control", "Products",
+and "Status".  For RMS sites, an "RMS" button is also defined.
+
+The RPG container will be displayed in red whenever an active RPG alarm is
+detected.  The "Status" button can be selected to determine which RPG alarm(s)
+is(are) active.  Refer to the man page for hci_status(1) for more information
+on RPG Status.
+
+Selecting the "Control" button activates the RPG Control window.  From it the
+user can shutdown/startup RPG tasks and change operational modes.  Refer to 
+the man page for hci_rpc(1) for more information on RPG Control.
+
+Selecting the "Products" button activates the RPG Products window.  The RPG
+Products window contains selections to modify Alert/Threshold adaptation data,
+Product Generation lists, Load Shed Products adaptation data, Selectable
+Product Parameters adaptation data, Algorithm adaptation data, and display the
+contents of the RPG Products Database.  Refer to the man page for hci_alt(1)
+for more information on modifying Alert/Threshold adaptation data, hci_prod(1)
+for information on modifying Product Generation lists, hci_prod_priority(1) for
+information on modifying Product Priorities, hci_spp(1) for information on
+modifying Selectable Product Parameters adaptation data, hci_adapt(1) for
+information on modifying Algorithm adaptation data, and hci_pstat(1) for
+information on displaying the contents of the RPG Products Database.
+
+For RMS sites, selecting the "RMS" button activates the RMS Messages window.
+If the RMS interface is down, the RMS button is displayed in red.  The RMS
+messages window contains selections to inhibit RMS and to send free text
+messages to the RMS.
+
+If any RPG alarms are set, one or more two character labels are displayed
+to the left of the RPG container.  These alarms are categorized as maintenance
+mandatory ("MM"), maintenance required ("MR"), and load shed ("LS").  Refer
+to the man page hci_status(1) for more information on these types of alarms.
+
+RPG State
+---------
+
+Above the RPG container is a color coded label representing the RPG state.
+The following RPG states and associated colors are defined:
+
+	OPERATE    (green)
+	TRANSITION (yellow)
+	SHUTDOWN   (red)
+	STANDBY    (red)
+	FAILED     (red)
+	POWERFAIL  (red)
+	UNKNOWN    (red)
+	
+The "TRANSITION" state will occur while the RPG is changing from one state to
+another (i.e., SHUTDOWN to OPERATE).
+
+RPG Mode
+--------
+
+Above the RPG container is a color coded label representing the RPG mode.
+The following RPG modes and associated colors are defined:
+
+	OPERATE    (green)
+	TEST (RDA) (yellow)
+	TEST (RPG) (yellow)
+	UNKNOWN    (red)
+	
+The "TEST (RDA)" mode will occur when the RPG is indirectly commanded to test
+mode as a result of the RDA going to maintenance mode.  The "TEST (RPG)" mode
+will occur when the RPG operator explicitly commands the RPG to test mode.
+
+RPG/USERS Link
+--------------
+
+Between the RPG and USERS containers is a graphic indicating the state of the
+narrowband interface.  If the RPG is in an OPERATE state, then a bar is
+displayed between the RPG and USERS containers.  If the RPG mode is OPERATE
+the bar is green with a black block moving along the bar.  If the RPG mode is
+TEST (RDA) or TEST (RPG), the bar is white and the data block red (not moving).
+If the RPG is not in an OPERATE state, no connection is displayed between the
+RPG and USERS containers.  
+
+If the RPG is in an Operate state, selecting the bar activates the Product
+Distribution Comms Status task.  Refer to the man page hci_nb(1) for more
+information about the Product distribution Comms Status task.
+
+If the site is configured as FAA redundant, the state of the comms relay box
+is displayed above the bar.  The possible comms relay states are: "Assigned",
+"Unassigned", and "Unknown".
+
+USERS Container
+---------------
+
+The USERS container is represented by a control box with the label "USERS" at
+the top.  Inside are three buttons:  "Comms", "Products", and "Status". 
+
+Selecting the "Comms" button activates the Product Distribution Comms Status
+window.  Refer to the man page hci_nb(1) for more information about the
+Product Distribution Comms Status task.
+
+Selecting the "Products" button activates the Product Distribution Control
+window.  Refer to the man page hci_pdc(1) for more information about the
+Product Distribution Control task.
+
+Selecting the "Status" button activates the PUP/RPGOP Status window.  Refer
+to the man page hci_pup_stat(1) for more information about the PUP/RPGOP
+Status task.
+
+State/Control
+-------------
+
+Beneath the USERS and to the right of the Archive Products containers is a
+block of color coded labels containing various state information.  Depending
+on the RPG state, moving the cursor over any state label in this block will 
+change the shape to a hand, indicating that the label is selectable.  The
+following state information are presented: "Precip Cat", "VAD Update",
+"PRF Mode", "Load Shed", "Audio Alarms", and "RDA Messages".
+
+The "Precip Status" item displays the current precipitation status as determined
+by the precipitation detection algorithm.  The possible states are:
+
+	ACCUM    - Accumulating precipitation
+	NO ACCUM - Not accumulating precipitation
+
+Selecting the precipitation status label activates the Precipitation Status
+window.  Refer to the man page hci_precip_status(1) for more information about
+the Precipitation Status task.
+
+The "VAD Update" item displays the current VAD update state.  The possible
+states are:
+
+	ON    - The environmental winds can be updated by the
+		VAD algorithm (green)
+	OFF   - The environmental winds cannot be updated by the
+		VAD algorithm (red)
+		
+Selecting the VAD state label toggles between the two states.  A warning popup
+window is displayed for verification.
+
+The "PRF Mode" item displays the current state of the PRF Mode flag.  The
+possible states are:
+
+	AUTO   - PRF is legacy automated PRF (green)
+	STORM  - Storm-based automated PRF (green)
+	STORM  - Storm-based automated PRF with manual override that tracks
+		 a single, user-selected storm (yellow)
+	MANUAL - Manually selected, sector-based PRF (yellow)
+		
+The "Load Shed" item displays the current load shed state.  The possible states
+are:
+
+	Normal  - The current utilization level for all load shed
+		 categories are below the warning thresholds (green).
+		
+	Warning - The current utilization level for at least one
+		 category is at or above its warning threshold (yellow).
+		 
+	Alarm	- The current utilization level for at least one
+		 category is at or above its alarm threshold (red).
+		 
+Selecting the load shed label activates the Load Shed Categories window.
+Refer to the man page hci_load(1) for more information about the Load Shed
+Categories task.
+
+The "RDA Messages" item displays the current state of the inhibit RDA messages
+flag.  The possible states are:
+
+	ENABLED  - RDA messages are enabled (green).
+	DISABLED - RDA messages are inhibited (red).
+	
+Selecting the inhibit RDA messages flag label toggles between the two states.
+If enabled, RDA alarm and status messages are displayed in the Status and 
+Alarms lines of the RPG Control/Status window.  If disabled, RDA alarm and 
+status messages are not displayed in the Status and Alarm lines of the RPG
+Control/Status window.
+
+Applications
+------------
+
+The Applications container contains a collection of icon buttons which are used
+to activate various ORPG functions.  The following functions are activated from
+this container:
+
+	Base Data Display
+	Clutter Regions
+	Bypass Map Editor
+	PRF Control
+	RDA Performance Data
+	Console Messages
+	Environmental Data
+	HCI Properties
+	
+All of these functions consist of independent tasks with the exception of the
+Console Messages function which is part of the RPG Control/Status task.  The
+Console messages window is automatically popped up upon receipt of an RDA 
+console or free text message.  The Console Messages window provides an
+interface to send messages to and display messages  sent from external users.
+The Console Messages window can be manually activated by selecting the
+"Console Messages" button.
+
+The "Base Data Display" button activates the Base Data display task.  It
+provides an interface to display dealiased radial data used as input to RPG
+algorithms.  Refer to the man page hci_basedata(1) for more information on the
+Base Data Display task.
+
+The "Clutter Regions" button activates the Clutter Suppression Regions Editor
+task.  It provides an interface to display/edit clutter suppression regions
+data which are used by the RDA.  Refer to the man page hci_ccz(1) for more
+information on the Clutter Regions Editor task.
+
+The "Bypass Map Editor" button activates the Clutter Bypass Map Editor task.
+It provides an interface to display/edit clutter bypass map data used by the
+RDA.  Refer to the man page hci_cbm(1) for more information on the Clutter
+Bypass Map Editor task.
+
+The "PRF Control" button activates the PRF Control (Modify Current VCP)
+task.  It provides an interface to display/edit current VCP data which can be
+downloaded to the RDA.  Refer to the man page hci_prf(1) for more information
+on the PRF Control (Modify Current VCP) task.
+
+The "RDA Performance Data" button activates the RDA Performance Data task.  It
+provides an interface to display RDA performance/maintenance data.  Refer to
+the man page hci_perf(1) for more information on the RDA Performance Data task.
+
+The "Environmental Data" button activates the Environmental Data Editor task.
+It provides an interface to display/edit environmental wind data, hail
+temperature heights, and default storm motion, used by various RPG algorithms.
+Refer to the man page hci_wind(1) for more information on the Environmental
+Data Editor task.
+
+The "HCI Properties" button activates the HCI Properties Manager task.  It
+provides an interface to display/edit various HCI specific data.  Refer to the
+man page hci_properties(1) for more information on the HCI Properties Manager
+task.
+
+Feedback-Status-Alarms
+----------------------
+
+At the bottom of the RPG Control/Status window are three single line blocks
+preceded by the labels "Feedback", "Status", and "Alarms".  These blocks
+contain descriptive English strings.
+
+The "Feedback" block contains a single descriptive string indicating an
+action performed by an HCI task.  Actions which cause a feedback string to be
+generated include: RDA control, RPG control, saving edits, restoring and
+updating data stores, requesting data, and downloading data.
+
+The "Status" block contains the latest non-alarm message written to the system
+]status log.  If no status messages have been written to the log in five
+minutes, the message "No System Status Change in last 5 minutes" is displayed
+(not written to system status log).  The background color for status messages
+are usually in the normal background color.  However, status messages which
+have been tagged internally as GL_ERROR will be displayed in yellow.  GL_ERROR
+type messages are usually generated by an RPG task when some invalid condition
+is detected but not considered severe.  If the "RDA Messages" state label is
+"DISABLED", no new RDA status messages will be displayed (they will still be
+written to the system status log).
+
+The "Alarms" block contains the latest alarm message written to the system
+status log.  The background color can be either red or green.  Red indicates
+an alarm activated message was written to the system log file.  Green indicates
+an alarm cleared message was written to the system log file.  If the "RDA 
+Messages" state label is "DISABLED", no new RDA alarm messages will be
+displayed (they will still be written to the system status log).
+
+Both status and alarm type messages are displayed with a date/time stamp 
+indicating when the message was generated at the RPG.
+
+Bld Info
+--------
+
+In the lower right corner of the RPG Control/Status window is a label which
+displays the build number and date for the task.  It is assumed that the
+task will be built the same time as all other ORPG tasks.  The date label
+is automatically generated when the build is made.  The build number is
+manually updated by the build master (macro RPG_BUILD_VERSION in the global
+header file orpg.h).  The build number contains a major and one digit minor
+number.
+
+
+FAA Configurations
+------------------
+
+FAA sites may be configured as redundant and/or RMS.  If RMS is configured, an
+additional button is added in the RPG container.  If the button is red, the RMS
+interface is down.  Selecting the RMS button activates the RMS Messages window.
+
+If the site is configured as FAA Redundant, additional control/status items are
+added to the RPG Control/Status window.  The State/Control block contains
+an additional item named "Adapt Times".  If the associated label is "MATCH"
+(green), the adaptation data update time field in the status message for the
+local and redundant channels match.  If the associated label is "MISMATCH" 
+(red), the update time field in the status message for the local and redundant
+channels do not match.  
+
+Channel control/status is added to the RDA Control/Status window for FAA 
+Redundant sites.  Refer to the man page hci_rdc(1) for more  information on RDA
+Control/Status.  Two new RPG alarms are added to the RPG Status window.  Refer
+to the man page hci_status(1) for more information on RPG Status.  The
+communications relay state information is added above the bar between the RPG
+and USERS containers.  The state can be one of the following:  "ASSIGNED", 
+"UNASSIGNED", or "UNKNOWN".  All HCI window titles contain the label "FAA:x" 
+where "x" is the channel number. The RPG Control/Status and RDA Control/Status
+windows also contain the RPG state.  The RPG state can be one of the following:
+"ACTIVE", "INACTIVE", or "UNKNOWN".
+
+-------------------------------------------------------------------------
+
+NOTE:  It is assumed that the hci command is to be run in a normal ORPG
+environment.  Various data stores (linear buffers) are expected to be properly
+initialized.
+
+SEE ALSO
+
+orpg(3) hci_adapt(1) hci_agent(1) hci_alt(1) hci_archive_III(1)
+hci_basedata(1) hci_cbm(1) hci_ccz(1) hci_load(1) hci_mlos(1) hci_nb(1)
+hci_pdc(1) hci_perf(1) hci_precip_status(1) hci_prf(1) hci_prod(1)
+hci_prod_priority(1) hci_properties(1) hci_pstat(1) hci_pup_stat(1)
+hci_rda(1) hci_rda_link(1) hci_rdc(1) hci_rpc(1) hci_spp(1) hci_status(1)
+hci_usr(1) hci_vcp(1) hci_wind(1)
+
+$Revision: 1.16 $
+hci(1)                      ORPG SUM Manpage                          hci(1)

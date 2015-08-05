@@ -1,0 +1,75 @@
+
+
+cm_uconx is the comm_manager for the PTI MPS600/800 communications server. One
+instance of cm_uconx must be started for each MPS server. Because the MPS
+server is not reliable, cm_uconx relies on cm_ping to terminate itself and
+restart a new instance in case the MPS becomes nonresponsive. cm_uconx also
+tries to reboot the MPS server in case of MPS failure. cm_uconx tries to make a
+hard MPS reboot via sending a SNMP command to the power control device. If the
+power control device is not available, it sends reboot command to MPS for a
+soft reboot.
+
+cm_uconx performs configuration on all ports when it is started. It receives
+and processes comm_manager requests from one of the RPG comms request data
+stores. It sends comm_manager responses and events to the RPG comms response
+data stores. It interacts through the MPS client side API with MPS:
+Enabing/disabling WAN, LAPB and X.25 streams. Transmitting and receiving user
+data. Listening and responding to link state changes.
+
+cm_uconx uses the following source files shared with other comm_managers:
+
+cmc_common.c: Basic common routines for all comm_managers.
+
+cmc_monitor.c: Interfacing with cm_ping for monitoring connection status to the
+comms servers.
+
+cmc_process_requests.c: Processing comm_manager requests and sending responses.
+
+cmc_read_request.c: Receiving comm_manager requests.
+
+cmc_rate.c: Routines for data rate estimation.
+
+cm_uconx has the following source modules in addition to the shared modules:
+
+cmu_conf_control.c: Routines for configuring MPS ports, enabling/disabling 
+ports, enabling/disabling LAPB, sending RESTART/restart confirmation packets.
+
+cmu_config.c: Reading configuration files.
+
+cmu_dnetd.c: Implementing the local NC commands that replace the PTI's original
+IPC based NC commands.
+
+cmu_dnetd_label.c: Additional routines used by cmu_dnetd.c.
+
+cmu_dnetd_mps.c: Additional routines used by cmu_dnetd.c.
+
+cmu_hdlc_abm.c: cm_uconx routines for the LAPB/ABM protocol.
+
+cmu_main.c: The main module.
+
+cmu_shared.c: Routines shared by protocols.
+
+cmu_x25_pvc.c: cm_uconx routines for the X.25/PVC protocol.
+
+
++++ PROC
+DATA IN
+	ORPGDAT_CM_REQUEST.4
+
+DATA OUT
+	ORPGDAT_CM_RESPONSE.4
+
+EVENTS IN
+	ORPGEVT_NB_COMM_REQ
+
+EVENTS OUT
+	ORPGEVT_NB_COMM_RESP
+
+APIs USED
+
+DOC ATCH
+	cm_uconx.doc
+
+MAN ATCH comm_manager.1
+---
+

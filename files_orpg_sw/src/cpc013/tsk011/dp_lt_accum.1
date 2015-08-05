@@ -1,0 +1,58 @@
+dp_lt_accum(1)                ORPG SUM Manpage                dp_lt_accum(1)
+
+NAME:
+        cpc013/tsk011 - Dual Pol Long Term Accumulation Algorithm
+
+DESCRIPTION:
+        Dual Pol Long Term (LT) Accumulation Algorithm - dp_lt_accum
+	ingests a scan-to-scan accumulation buffer, DP_S2S_ACCUM,
+        and outputs five long term accumulation grids: hourly
+        (bias applied and unbiased), storm total (bias applied),
+        hourly difference with PPS, and storm total difference with PPS.
+        All five long term grids are placed in the DP_LT_ACCUM buffer,
+        which is used by the dp_precip_4bit and dp_precip_8bit tasks to
+        build final products. All five long term accumulation grids are
+        in thousandths of inches.
+
+        To compute the hourly accumulations (bias applied and unbiased)
+        dp_lt_accum maintains a circular queue of accumulations. If the
+        new accum grid has precipitation, it is added to the back of the
+        queue, and accumulation buffers are subtracted from the front of
+        the queue to trim the accumulations to an hour. The first accumulation
+        grid may be interpolated to bring the accumulation to exactly an hour.
+
+        To compute the (bias applied) storm accumulation dp_lt_accum adds
+        the new accumulation grid to the running storm total.
+
+        To compute the hourly and storm (DP - PPS) difference grids, the PPS
+        HYADJSCN buffer is read and converted to Dual Pol resolution and units.
+        A circular queue, identical to the one used by the hourly accumulation,
+        is used to trim the hourly difference accumulation to exactly one hour.
+
+        All accumulation thresholds are algorithm adaptation data.
+
+        In case of abnormal termination, dp_lt_accum keeps a data store
+        backup of the hourly accumulation buffers at DP_HRLY_ACCUM.DAT and
+        DP_DIFF_ACCUM.DAT, and a data store backup of the storm accumulation
+        buffers at DP_STORM_BACKUP.DAT. The circular queues are backed up in
+        DP_HRLY_BACKUP.DAT
+
+TASK ID:
+       1311
+
+DATA IN:
+       DP_S2S_ACCUM (410)
+       HYADJSCN     (104)
+
+DATA OUT:
+       DP_LT_ACCUM (411)
+
+SEE ALSO:
+       dp_diff_accum(4)
+       dp_hrly_accum(4)
+       dp_hrly_backup(4)
+       dp_lt_accum(4)
+       dp_storm_backup(4)
+       task_table(4)
+
+$Revision: 1.1 $

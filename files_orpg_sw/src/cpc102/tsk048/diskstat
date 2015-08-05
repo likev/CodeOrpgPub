@@ -1,0 +1,128 @@
+#!/bin/sh
+
+# RCS info
+# $Author: ccalvert $
+# $Locker:  $
+# $Date: 2007/02/26 16:02:58 $
+# $Id: diskstat,v 1.4 2007/02/26 16:02:58 ccalvert Exp $
+# $Revision: 1.4 $
+# $State: Exp $
+
+
+TEMP_DIR=/tmp
+
+###########################################
+#Establish timestamped output file and Path
+###########################################
+
+date_string=`date`
+day=`echo $date_string | awk '{print $1}'`
+month=`echo $date_string | awk '{print $2}'`
+numb=`echo $date_string | awk '{print $3}'`
+time_string=`echo $date_string | awk '{print $4}'`
+zone=`echo $date_string | awk '{print $5}'`
+year=`echo $date_string | awk '{print $6}'`
+hour=`echo $time_string | awk -F: '{print $1}'`
+min=`echo $time_string | awk -F: '{print $2}'`
+sec=`echo $time_string | awk -F: '{print $3}'`
+
+exec 2> /dev/null
+
+trap 'echo " "' ERR
+
+mkdir $ORPGDIR/testing
+
+if [ "$1" = "s" ]
+then
+    Report_file="${ORPGDIR}/testing/diskstat_${month}${numb}_${hour}.rpt"
+    echo "What is the test being performed?  :"
+    read testtype
+    TESTTYPE=$testtype
+    echo "Test being performed is   :  $TESTTYPE" >> $Report_file
+    echo "Timestamped output file is:  $Report_file"
+fi
+
+echo "Software account username :  $USER" | tee -a $Report_file
+echo "Host is                   :   " | tee -a $Report_file
+
+hostname | tee -a $Report_file
+
+date | tee -a $Report_file
+
+###########################################
+#Check hard disk storage capacity
+###########################################
+
+echo "****************************" | tee -a $Report_file
+echo "System Disk resources and utilization:" |tee -a $Report_file
+
+
+# Use 'df' command to get stats of filesystems.
+# -l option is for local filesystems,
+# -k is to get stats in 1KB blocks.
+
+df -lk | grep % > $TEMP_DIR/Whole.tmp
+cat $TEMP_DIR/Whole.tmp | grep -v jaz > $TEMP_DIR/Clean.tmp
+cat $TEMP_DIR/Clean.tmp | grep -v osfeng > $TEMP_DIR/Cleaner.tmp
+cat $TEMP_DIR/Cleaner.tmp | grep -v cmosun > $TEMP_DIR/Disk.tmp
+
+
+# Read in status for each filesystem. Do
+# math to determine final numbers.
+
+totsize=0
+totused=0
+totavail=0
+totcap=0
+cap=0
+
+while read FILE KBYTES USED AVAIL CAP MOUNT
+do
+  # Skip header, if present 
+  if [ "$FILE" = "Filesystem" ]
+  then
+    continue
+  fi
+
+  cap=`echo $CAP | sed s/%//`
+  echo "$FILE  $cap % full    $MOUNT" | tee -a $Report_file
+  totsize=`expr $totsize + $KBYTES`
+  totused=`expr $totused + $USED`
+  totavail=`expr $totavail + $AVAIL`
+  totcap=`expr $totcap + $cap`
+done < $TEMP_DIR/Disk.tmp
+
+
+# Check capacity of jaz drive. This will need
+# to be modified for Linux.
+
+cat $TEMP_DIR/Whole.tmp | grep jaz | read FILE KBYTES USED AVAIL CAP MOUNT
+
+if [ "$CAP" = "" ]
+then
+  echo
+  echo "jaz drive is not mounted/available" | tee -a $Report_file
+  echo
+else
+  echo
+  echo "Jaz disk is  $CAP  full" | tee -a $Report_file
+  echo
+fi
+
+
+# Output final numbers
+
+echo "Total disk kbytes :  $totsize" | tee -a $Report_file
+echo "Total kbytes used :  $totused" | tee -a $Report_file
+echo "Total kbytes avail:  $totavail" | tee -a $Report_file
+echo "$totused $totsize" > $TEMP_DIR/Totcap.tmp
+awk '{ val=$1/$2; print "\nTotal disk usage:  ", val * 100 " %\n" }' $TEMP_DIR/Totcap.tmp | tee -a $Report_file
+
+
+# Cleanup temp files
+
+rm $TEMP_DIR/Disk.tmp 
+rm $TEMP_DIR/Totcap.tmp 
+rm $TEMP_DIR/Clean.tmp 
+rm $TEMP_DIR/Cleaner.tmp
+rm $TEMP_DIR/Whole.tmp

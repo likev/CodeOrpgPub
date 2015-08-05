@@ -1,0 +1,357 @@
+#
+#   Purpose:
+#
+#      This is the run-time task configuration file. It specifies startup 
+#      initialization commands, restart initialization commands, and 
+#      operational processes, Common_process_attributes and Cron_jobs.
+#
+#
+# RCS info
+# $Author: steves $
+# $Locker:  $
+# $Date: 2014/12/03 21:40:12 $
+# $Id: task_tables,v 1.56 2014/12/03 21:40:12 steves Exp $
+# $Revision: 1.56 $
+# $State: Exp $
+#
+
+# Commands that will be executed before any LB creaation
+# These command are generally used for installation things
+Install_cmds {
+     #  Install adaptation 
+	install_adapt -m STOP_ON_ERROR
+}
+
+# This following are lists of initialization commands for init, startup, 
+# restart and shutdown.  Initialization commands are executed in their 
+# specified order. Each command is not executed until the previous command is 
+# completed. If a command fails, to prevent subsequent commands from being 
+# executed, append "STOP_ON_ERROR" to the command line. 
+
+Init_cmds {
+
+    # NOTE:  ADAPTATION DATA MUST BE INITIALIZED BEFORE ANY
+    #        OTHER INITIALIZATION!!!
+
+    # Create and initialize the open rpg adaptation data.
+    echo "--->Initialize Adaptation Data" 
+    init_adapt_data -t init		STOP_ON_ERROR
+    hci_init_config			STOP_ON_ERROR
+
+    # Initialize the binary task attribute table.
+    echo "--->Initialize the Binary Task Attribute Table"
+    iti -t init			STOP_ON_ERROR
+
+    # Initialize Product Attribute Table
+    echo "--->Initialize Binary Product Attributes Table"
+    mnttsk_pat -t init		STOP_ON_ERROR
+
+    # Initialize product distribution 
+    echo "--->Initialize Product Distribution"
+    mnttsk_prod_dist -t init		STOP_ON_ERROR
+
+    # Initialize alert thresholds and alert request messages
+    echo "--->Initialize Alert Requests/Alert Thresholds"
+    init_alert_request -t init       STOP_ON_ERROR
+
+    # Initialize the hydromet files.
+    echo "--->Check HYDROMET Files."
+    create_hydro_files -t check
+    echo "--->Initialize HYDROMET Files."
+    create_hydro_files -t startup -p $(CFG_DIR)/	STOP_ON_ERROR
+}
+
+Startup_cmds {
+
+    # NOTE:  ADAPTATION DATA MUST BE INITIALIZED BEFORE ANY
+    #        OTHER INITIALIZATION!!!
+    #
+    # Create and initialize the open rpg adaptation data.
+    echo "--->Initialize Adaptation Data" 
+    init_adapt_data		STOP_ON_ERROR
+    mnttsk_vcp -t startup       STOP_ON_ERROR
+    hci_init_config		STOP_ON_ERROR
+
+    # NOTE:  THE TASK ATTRIBUTE TABLE MUST BE INITIALIZED BEFORE 
+    #        ANY OF THE CRITICAL DATASTORES
+    # Initialize the binary task attribute table.
+    echo "--->Initialize the Binary Task Attribute Table"
+    iti -v -t startup		STOP_ON_ERROR
+
+    # Initialize critical data stores 
+    echo "--->Initialize Critical Data Stores"
+    mnttsk_mngrpg -t startup	STOP_ON_ERROR
+
+    # Initialize the RDA Alarms Table
+    echo "--->Initialize RDA Alarms Table"
+    mnttsk_rda_alarms_tbl -t startup   STOP_ON_ERROR
+
+    # Initialize the ITCs
+    echo "--->Initialize the ITCs"
+    mnttsk_itcs -t startup	STOP_ON_ERROR
+
+    # Initialize the hydromet files.
+    echo "--->Check HYDROMET Files."
+    mnttsk_hydromet -t check
+    echo "--->Initialize HYDROMET Files."
+    mnttsk_hydromet -t startup -p $(CFG_DIR)/	STOP_ON_ERROR
+
+    # Initialize the GSM Messages 
+    echo "--->Initialize GSM"
+    mnttsk_gsm -t startup		STOP_ON_ERROR
+
+    # Initialize Product Attribute Table
+    echo "--->Initialize Binary Product Attributes Table"
+    mnttsk_pat -t startup		STOP_ON_ERROR
+
+    # Initialize product distribution 
+    echo "--->Initialize Product Distribution"
+    mnttsk_prod_dist -t startup		STOP_ON_ERROR
+
+    # Initialize routine request product generation
+    echo "--->Initialize Routine Request Product Generation"
+    mnttsk_prod_gen -t startup		STOP_ON_ERROR
+
+    # Initialize product generation tables
+    # NOTE:   MUST COME AFTER mnttsk_prod_dist ..... PAT Needs Initialization First
+    echo "--->Initialize Product Generation Tables"
+    mnttsk_pgt -t startup               STOP_ON_ERROR
+
+    # Initialize alert thresholds and alert request messages
+    echo "--->Initialize Alert Requests/Alert Thresholds"
+    init_alert_request -t startup       STOP_ON_ERROR
+
+    # Initialize the loadshed information.
+    echo "--->Initialize Loadshed Information"
+    mnttsk_loadshed -t startup		STOP_ON_ERROR
+
+    # Initialize Clutter data.
+    echo "--->Initialize Clutter"
+    mnttsk_clutter -t startup	STOP_ON_ERROR
+
+# DE-ACTIVATED FOR CODE  
+    # Initialize cm_ping.
+    #echo "--->Initialize cm_ping"
+    #cm_ping -a
+
+    # Initialize RDA Adaptation Data
+    echo "--->Initialize RDA Adaptation Data"
+    init_rda_adapt_data -t startup  
+
+    # Initialize DP ISDP Estimate
+    echo "--->Initialize ISDP Estimate"
+    mnttsk_dp_qpe -t startup
+
+}
+
+Restart_init_cmds {
+
+    # Initialize the binary VCP table.
+    echo "--->Initialize the Binary VCP Table"
+    mnttsk_vcp -t restart       STOP_ON_ERROR
+
+    # Initialize RPG State File
+    echo "--->Initialize RPG State File Shared Data"
+    mnttsk_mngrpg -t restart	STOP_ON_ERROR
+
+    # Initialize the RDA Alarms Table
+    echo "--->Initialize RDA Alarms Table"
+    mnttsk_rda_alarms_tbl -t restart   STOP_ON_ERROR
+
+    # Inititial Volume Status.
+    echo "--->Initialize Volume Status"
+    mnttsk_gsm -t restart		STOP_ON_ERROR
+
+    # Initialize Product Attribute Table
+    echo "--->Initialize Binary Product Attributes Table"
+    mnttsk_pat -t restart		STOP_ON_ERROR
+
+    # Initialize Product Distribution.
+    echo "--->Initialize Product Distribution"
+    mnttsk_prod_dist -t restart		STOP_ON_ERROR
+
+    # Initialize Routine Request Product Generation.
+    echo "--->Initialize Routine Request Product Generation"
+    mnttsk_prod_gen -t restart		STOP_ON_ERROR
+
+    # Initialize Product Generation Tables.
+    # NOTE:   MUST COME AFTER mnttsk_prod_dist ..... PAT Needs Initialization First
+    echo "--->Initialize Product Generation Tables"
+    mnttsk_pgt -t restart		STOP_ON_ERROR
+
+    # Initialize Clutter data.
+    echo "--->Initialize Clutter"
+    mnttsk_clutter -t restart	STOP_ON_ERROR
+
+    #Check Hydromet Files.
+    echo "--->Check HYDROMET Files"
+    mnttsk_hydromet -t check
+
+# DE-ACTIVATED FOR CODE  
+    # Initialize cm_ping.
+    #echo "--->Initialize cm_ping"
+    #cm_ping -a
+}
+
+Shutdown_cmds {
+
+  
+}
+
+Operational_processes {
+    
+# DE-ACTIVATED FOR CODE  
+   #cm_ping
+   cm_uconx.*
+   cm_tcp.*
+   owr_server
+
+   ps_onetime 
+   ps_routine 
+   p_server.*
+   rpgdbm
+   pbd 
+   control_rda 
+   wideband_agent
+   a_recomb
+   recomb
+   ldm_recomb
+   dpprep
+
+   hci_agent
+   rms_interface
+   mngred
+   mngdskerr
+
+# DE-ACTIVATED FOR CODE  
+   #convert_ldm
+   #levelII_stats_ICAO_ldmping
+   monitor_archive_II
+
+   update_alg_data
+   veldeal
+   clutprod
+   pcipdalg
+   prfbmap
+   prfselect
+   basrflct
+   basvlcty
+   basspect
+   cmprflct
+   itwsdbv
+   bref8bit
+   bvel8bit
+   superes8bit
+   vertxsct
+   cmprfcg
+   cmprfape
+   crapeprd
+   alerting
+   radcdmsg
+   combattr
+   basvgrid
+   viletalg
+   epre
+   prcprtac
+   prcpadju
+   ecotppro
+   hybrprod
+   vilprod
+   lcrflct
+   prcpprod
+   prcpuspt
+   lcrappg
+   lcrap
+   segmtalg
+   cpcntalg
+   trfrcalg
+   hailalg
+   srmrmrv
+   stmtrprd
+   hailprod
+   strucprod
+   vwindpro
+   mda1d
+   mda2d
+   mda3d
+   mdattnn
+   mdaprod
+   tda1d
+   tda2d3d
+   tda2d3dru
+   tdaruprod
+   tvsprod
+   vad
+   data_qual
+   hiresvil
+   superob_vel
+   recclalg
+   recclprods
+   user_sel_LRM
+   elev_prod
+   sr_elev_prod
+   hireseet
+   snowaccum
+   saaprods
+   saausers
+   status_prod
+   nexradMigfa
+   nexradAmda
+   ntda_alg
+   ntda_fp
+   dqa_elev
+   dp_elev_prod
+   qperate
+   dp_s2s_accum
+   dp_lt_accum
+   dp_precip_4bit
+   dp_precip_8bit
+   dp_dua_accum
+   dualpol4bit
+   dualpol8bit
+   hca
+   hhc8bit
+   mlda
+   mlprod
+   qia
+   icing_hazard
+   hail_hazard
+
+# Replay input data stream tasks follow
+   replay_basrflct
+   replay_basvlcty
+   replay_basspect
+   replay_vertxsct
+   replay_cmprfcg
+   replay_radcdmsg
+   replay_srmrmrv
+   replay_vad
+   replay_bref8bit
+   replay_bvel8bit
+   replay_user_sel_LRM
+   replay_dp_dua_accum
+
+}
+
+# process attributes applicable for all processes
+Common_process_attributes {
+    cpu_limit	50		# CPU limit in percent each process can use
+    mem_limit	60		# memory limit in MB each process can allocate
+    cpu_window  40		# time window for CPU utilization evaluation
+
+    save_log_command	"save_log"
+}
+
+Cron_jobs {
+# empty cron job for CODE
+    06:00 ;
+#   06:00   "rm -f $CFG_DIR/adapt/installed/*.Z > /dev/null 2>&1; save_adapt -D $CFG_DIR/adapt/installed > /dev/null 2>&1"
+}
+
+Permanent_files {
+    config_device.*
+    trap.log
+    owr_server.log
+    syslog_shadow.lb
+}
+

@@ -1,0 +1,806 @@
+C
+C RCS info
+C $Author: cm $
+C $Locker:  $
+C $Date: 2002/12/31 23:00:00
+C $Id: a313h.inc,v 1.21 2010/09/14 21:38:11 cm Exp $
+C $Revision: 1.21 $
+C $State: Exp $
+C
+*.********************************************************************
+*.
+*.           I N C L U D E    F I L E    P R O L O G U E
+*.
+*.  INCLUDE FILE NAME: A313H.INC
+*.
+*.  INCLUDE FILE VERSION: 0009
+*.
+*.  INCLUDE FILE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.  DATE         RV   SPR#          PROGRAMMER         NOTES
+*.  ---------    --   -----         ----------------   ---------------
+*.  06/01/90     00   90613         P. STALEY
+*.  07/11/90     01   90819         G. JUBINSKI
+*.  10/20/92     02   NA92-28001    BRAD SUTKER        A313HLFM
+*.  07/29/94     03   NW94-08401    Cheryl Stephenson  A3136C3,A3136CA
+*.  05/31/95     04   NA94-35301    R. RIERSON         (NA94-08102, NA94-15901)
+*.                                                     A3133C7, A3135H, A3136C1
+*.  07/26/95     04   NA95-13201    Richard Fulton     A3133CA
+*.  08/25/95     04   NA94-08459    Dennis Miller      A3133P2, A3133CA,
+*.                                                     A3133C8, A3134CA
+*.  10/10/95     04   NA94-33202    Dong-Jun Seo       A3136P
+*.  11/03/95     04   NA94-33201    Richard Fulton     A3136C4, A3136P, A3136P2
+*.  11/10/95     04   NA95-31205    Richard Fulton     A3136C3, A3136P1
+*.  01/31/02     05   NA01-27501    Dennis A. Miller   A3136P,  A3136P1, A3136P5,
+*.                                                     A3136C3, A3136C4, A3136C5,
+*.                                                     A3136CA, A3136C4, A3136C5,
+*.                                         (Removed)   A3136P2, A3136C1, A3136C2
+*.  07/31/02     06   NA02-11605    C. Pham, D. Miller 3136CA
+*.  06/30/03     07   NA02-06508    C. Pham, D. Miller A3133C7
+*.  01/13/05     08   NA04-33201    C. Pham, D. Miller A3133P2,  A313HGSP, A313HBAD,
+*.                                                     A313HADP, A313HGND, A313HHDR,
+*.                                         (Removed)   A3133P1,  A3133P3,  A3133P4,
+*.                                                     A3133C1,  A3133C3,  A3133C4,
+*.                                                     A3133C5,  A3133C6,  A3133CA,
+*.                                                     A3133D1,  A3133D2,  A3133D3,
+*.                                                     A3133D4,  A313HRAP
+*.  01/26/07     09   NA07-01702       Jihong Liu      A3136C5 
+*.********************************************************************
+**A3133P2
+*VERSION: 2
+C
+C** Parameters for converting between dBZ and its biased
+C** internal representation
+C
+      INTEGER MAX_BDBZ
+      PARAMETER(MAX_BDBZ=256)
+      INTEGER   BDBZ_INDX_OFFSET
+      PARAMETER(BDBZ_INDX_OFFSET=2)
+      REAL      BDBZ_CONST_OFFSET, BDBZ_CFTR
+      PARAMETER(BDBZ_CONST_OFFSET=32., BDBZ_CFTR=2.)
+      REAL RINIT
+      INTEGER IINIT, IBEG, INCRMENT
+      PARAMETER( RINIT=0., IINIT=0, IBEG=1, INCRMENT=1 )
+C
+C** PARAMETER FOR DIAGNOSTIC WRITES TO PRINT FILE
+C
+      INTEGER   PRTLU
+      PARAMETER (PRTLU=6)
+C
+/*
+C
+**A3133C7
+*VERSION: 0001
+C
+C** Named common for local copies of supplemental data
+C
+      INTEGER AVGDATE, AVGTIME, ZEROHYBRD, VOL_SB
+      INTEGER RAIN_DETEC_FLG, RESET_STP_FLG
+      INTEGER PRCP_BEGIN_FLG, REJ_BLKG_CNT
+      INTEGER REJ_CLTR_CNT, TOT_BINS_SMOOTH
+      INTEGER LAST_DATE_RAIN, LAST_TIME_RAIN
+      REAL    SUM_AREA,PCT_HYS_FILLED
+      REAL    HIGHEST_ELANG
+
+      COMMON /A3133C7/ AVGDATE, AVGTIME
+      COMMON /A3133C7/ ZEROHYBRD, RAIN_DETEC_FLG
+      COMMON /A3133C7/ RESET_STP_FLG, PRCP_BEGIN_FLG
+      COMMON /A3133C7/ LAST_DATE_RAIN, LAST_TIME_RAIN
+      COMMON /A3133C7/ REJ_BLKG_CNT, REJ_CLTR_CNT
+      COMMON /A3133C7/ TOT_BINS_SMOOTH, PCT_HYS_FILLED
+      COMMON /A3133C7/ HIGHEST_ELANG, SUM_AREA
+      COMMON /A3133C7/ VOL_SB
+C
+/*
+C
+**A3133C8
+*VERSION: 0
+C
+C**  Reflectivity index (0-256) conversion to
+C**  Equivalent Reflectivity (Z) lookup table
+C
+      DOUBLE PRECISION ZREFL(0:256)
+      COMMON /A3133C8/ ZREFL
+C
+/*
+C
+**A3134CA
+*VERSION: 0
+C
+C** Table for converting (indexed) Reflectivity to Precip Rate (mmx10/hr)
+C
+      INTEGER*2 RATE_TABLE(0:MAX_BDBZ)
+      COMMON /A3134CA/ RATE_TABLE
+C
+/*
+C
+**A313HGSP
+*VERSION: 1
+C
+C** A313HGSP.INC
+C** General sizing parameters local to RATE
+C
+C** Rate scan bin sizing parameters...
+C
+      INTEGER R_BIN_SIZE, R_MID_OFS
+      PARAMETER( R_BIN_SIZE=2, R_MID_OFS=1)
+C
+C** Rate header record sizing parameters...
+C
+      INTEGER RAZ_HDR_FLDS
+      PARAMETER ( RAZ_HDR_FLDS = 6 )
+C
+C** Constant value definitions...
+C
+      INTEGER INIT_VALUE
+      PARAMETER ( INIT_VALUE = 0 )
+C
+/*
+**A313HBAD
+*VERSION: 1
+C
+C** A313HBAD.INC
+C** Include file for bad scan array...
+C
+C** Bad scan array sizing parameters...
+C
+      INTEGER MAX_TSTAMPS, DT_AND_TM
+      PARAMETER ( MAX_TSTAMPS = 22, DT_AND_TM = 2 )
+C
+C** Positional parameters for bad scan array...
+C
+      INTEGER DATE, TIME
+      PARAMETER ( DATE = 1, TIME = 2 )
+C
+C** Constant values related to bad scan array...
+C
+      INTEGER SEC_PER_DAY, SEC_PER_HR
+      PARAMETER ( SEC_PER_DAY = 86400, SEC_PER_HR = 3600 )
+C
+C** Common area definition to contain time stamp array...
+C
+      INTEGER BAD_TSTAMP ( DT_AND_TM, MAX_TSTAMPS )
+C
+      COMMON /A313HBSC/ BAD_TSTAMP
+C
+/*
+**A313HLFP
+*VERSION: 0
+C
+C** A313HLFP.INC
+C** LFM related parameters...
+C
+C** LFM Flag value parameters...
+C
+      INTEGER BEYOND_RANGE, WITHIN_RANGE
+      PARAMETER (BEYOND_RANGE = -99, WITHIN_RANGE = 0)
+C
+/*
+**A313HLFM
+*VERSION: 0
+C
+C** A313HLFM.INC
+C** LFM common area definition...
+C
+      REAL BIN_AREA (MAX_RABINS), BIN_RANGE (MAX_RABINS)
+C
+      COMMON /A313HLFM/ BIN_AREA, BIN_RANGE
+C
+/*
+**A313HADP
+*VERSION: 1
+C
+C** A313HADP.INC
+C** Adaptation data common block
+C
+      REAL AD_CUTOFF_RNG, AD_C01, AD_C02, AD_C03
+      INTEGER AD_MINRAT, AD_MAXRAT
+C
+      COMMON /A313HADP/ AD_CUTOFF_RNG, AD_C01, AD_C02, AD_C03
+      COMMON /A313HADP/ AD_MINRAT, AD_MAXRAT
+C
+/*
+**A313HGND
+*VERSION: 1
+C
+C** A313HGND.INC
+C
+C** Reference Scan and Bad Scan definitions...
+C
+C** General Common Block definition
+C
+      INTEGER SCAN_TIME, REF_SC_TIME, SCAN_DATE, REF_SC_DATE
+      INTEGER NBR_BADSCNS, PTR_BADSCN, TIME_DIF
+      INTEGER FLAG_ZERO, REF_FLAG_ZERO, FLAG_BAD, REF_SC_GOOD
+      INTEGER FIRST_SCAN
+C
+      COMMON /A313HGEN/ FLAG_ZERO,REF_FLAG_ZERO,FLAG_BAD,REF_SC_GOOD
+      COMMON /A313HGEN/ SCAN_DATE,SCAN_TIME,REF_SC_DATE,REF_SC_TIME
+      COMMON /A313HGEN/ NBR_BADSCNS,PTR_BADSCN,TIME_DIF,FIRST_SCAN
+C
+/*
+**A313HHDR
+*VERSION: 1
+C
+C** Header record I/O buffer definition and positional
+C** parameters...
+C
+C** Positional parameters for rate header record...
+C
+      INTEGER HDR_RFLAGZ, HDR_RFSCDT, HDR_RFSCTM
+      INTEGER HDR_PTBDSC, HDR_NOBDSC, HDR_RFSCGD
+C
+      PARAMETER ( HDR_RFLAGZ = 1, HDR_RFSCDT = 2  )
+      PARAMETER ( HDR_RFSCTM = 3, HDR_PTBDSC = 4  )
+      PARAMETER ( HDR_NOBDSC = 5, HDR_RFSCGD = 6 )
+C
+C** Define the header record array...
+C
+      INTEGER RATE_HEADER ( RAZ_HDR_FLDS )
+C
+/*
+**A3135H
+* VERSION: 0002
+C*********** PRECIPITATION ACCUMULATION PARAMETER FILE ***********
+C
+C** SIZING PARAMETERS FOR PERIOD HEADERS AND HOURLY ARRAYS
+C** FIELDS ARE DEFINED AS FOLLOWS:
+C**
+C**   1) ACZ_PRD_FLDS:  TOTAL NUMBER OF FIELDS IN EACH HEADER
+C**                     OF THE PERIOD HEADER ARRAY
+C**
+C**   2) ACZ_HRLY_FLDS: TOTAL NUMBER OF FIELDS IN EACH HEADER
+C**                     OF THE HOURLY ARRAY
+C**
+C**   3) ACZ_TOT_PRDS:  TOTAL NUMBER OF HEADERS IN THE PERIOD
+C**                     HEADER ARRAY
+C**
+C**   4) ACZ_TOT_HOURS: TOTAL NUMBER OF HOURS IN THE HOURLY ARRAY
+C**
+C
+C
+         INTEGER ACZ_PRD_FLDS, ACZ_HRLY_FLDS, ACZ_TOT_PRDS
+         INTEGER ACZ_TOT_HOURS
+C
+         PARAMETER(ACZ_PRD_FLDS   =  9)
+         PARAMETER(ACZ_HRLY_FLDS  = 11)
+         PARAMETER(ACZ_TOT_PRDS   = 25)
+         PARAMETER(ACZ_TOT_HOURS  =  2)
+C
+C** OFFSET PARAMETERS FOR PERIOD HEADER ARRAY
+C**
+C**   1) P_BEG_DATE:    JULIAN DATE FOR BEGIN OF ACCUMULATION PERIOD
+C**   2) P_BEG_TIME:    BEGIN TIME OF ACCUMULATION PERIOD IN SECONDS
+C**   3) P_FLAG_ZERO:   SET - INDICATES NO RAIN FOR ACCUM PERIOD
+C**   4) P_FLAG_MISS:   SET - IF ACCUM PERIOD IS MISSING
+C**   5) P_END_DATE:    JULIAN DATE FOR END OF ACCUMULATION PERIOD
+C**   6) P_END_TIME:    END TIME OF ACCUMULATION PERIOD IN SECONDS
+C**   7) P_DELT_TIME:   TIME DIFFERENCE BETWEEN CURRENT AND PREVIOUS
+C**                       SCANS
+C**   8) P_FRAC:        FRACTIONAL PART OF THE PERIOD THAT LIES WITHIN
+C**                       THE HOUR [FROM 0 TO 1000]
+C**   9) P_SPOT_BLANK:  SET - INDICATED SPOT BLANKED FOR ACCUM PERIOD
+C
+         INTEGER P_BEG_DATE, P_BEG_TIME, P_FLAG_ZERO, P_FLAG_MISS
+         INTEGER P_END_DATE, P_END_TIME, P_DELT_TIME, P_FRAC
+         INTEGER P_SPOT_BLANK
+C
+         PARAMETER(P_BEG_DATE  = 1)
+         PARAMETER(P_BEG_TIME  = 2)
+         PARAMETER(P_FLAG_ZERO = 3)
+         PARAMETER(P_FLAG_MISS = 4)
+         PARAMETER(P_END_DATE  = 5)
+         PARAMETER(P_END_TIME  = 6)
+         PARAMETER(P_DELT_TIME = 7)
+         PARAMETER(P_FRAC      = 8)
+         PARAMETER(P_SPOT_BLANK = 9)
+C
+C** OFFSET PARAMETERS FOR HOURLY HEADERS ARRAY
+C**
+C**   1) H_BEG_DATE:    JULIAN DATE FOR BEGINNING OF THE HOUR
+C**   2) H_BEG_TIME:    BEGINNING OF HOUR IN SECONDS FROM MIDNIGHT
+C**   3) H_FLAG_NHRLY:  SET -  INDICATES NO HOURLY TOTALS
+C**   4) H_FLAG_ZERO:   SET -  INDICATES NO RAIN WITHIN HOUR
+C**   5) H_END_DATE:    JULIAN DATE FOR ENDING OF THE HOUR
+C**   6) H_END_TIME:    END OF HOUR IN SECONDS FROM MIDNIGHT
+C**   7) H_SCAN_TYPE:   DEFINES HOW HOUR ENDS
+C**   8) H_CURR_PRD:    CURRENT INDEX INTO PERIOD HEADER ARRAY
+C**   9) H_MAX_HRLY:
+C**  10) H_FLAG_CASE:   TYPE ACCUM - EXTRAPOLATE OR INTERPOLATE
+C**  11) H_SPOT_BLANK:  SET - INDICATES ONE OF THE PERIODS IN HOUR
+C**                     IS SPOT BLANKED
+C
+         INTEGER H_BEG_DATE, H_BEG_TIME, H_FLAG_NHRLY, H_FLAG_ZERO
+         INTEGER H_END_DATE, H_END_TIME, H_SCAN_TYPE, H_CURR_PRD
+         INTEGER H_MAX_HRLY, H_FLAG_CASE, H_SPOT_BLANK
+C
+         PARAMETER(H_BEG_DATE   = 1)
+         PARAMETER(H_BEG_TIME   = 2)
+         PARAMETER(H_FLAG_NHRLY = 3)
+         PARAMETER(H_FLAG_ZERO  = 4)
+         PARAMETER(H_END_DATE   = 5)
+         PARAMETER(H_END_TIME   = 6)
+         PARAMETER(H_SCAN_TYPE  = 7)
+         PARAMETER(H_CURR_PRD   = 8)
+         PARAMETER(H_MAX_HRLY   = 9)
+         PARAMETER(H_FLAG_CASE  =10)
+         PARAMETER(H_SPOT_BLANK =11)
+C
+C** DEFINITIONS FOR CURRENT AND PREVIOUS HOURLY HEADER
+C
+         INTEGER PREV_HOUR, CURR_HOUR
+C
+         PARAMETER(PREV_HOUR = 1)
+         PARAMETER(CURR_HOUR = 2)
+C
+C** VALUE DEFINITIONS TO BE USED IN CONCERT WITH P_FRAC OF
+C** PERIOD HEADER ARRAY
+C
+         INTEGER MAX_PER_CENT, MIN_PER_CENT
+C
+         PARAMETER(MAX_PER_CENT  = 1000)
+         PARAMETER(MIN_PER_CENT  =    0)
+C
+C** PARAMETERS FOR UPDATING SCAN DATA 115 X 360
+C
+         INTEGER FIRST_RADIAL, FIRST_BIN
+C
+         PARAMETER(FIRST_RADIAL = 1)
+         PARAMETER(FIRST_BIN    = 1)
+C
+C** HOURLY CONVERSION FACTORS [SECONDS PER HOUR; SECONDS PER MINUTE;
+C** SECONDS PER DAY; MINUTES PER HOUR; AND HOURS PER DAY]
+C
+         INTEGER SEC_P_HOUR, HOUR_P_DAY, SEC_P_MIN, MIN_P_HOUR
+         INTEGER SEC_P_DAY
+C
+         PARAMETER(SEC_P_HOUR   =  3600)
+         PARAMETER(SEC_P_MIN    =    60)
+         PARAMETER(MIN_P_HOUR   =    60)
+         PARAMETER(SEC_P_DAY    = 86400)
+         PARAMETER(HOUR_P_DAY   =    24)
+C
+C** FLAGS FOR ACCUMULATION METHOD EITHER EXTRAPOLATE OR INTERPOLATE
+C
+         INTEGER INTERP, EXTRAP
+C
+         PARAMETER(INTERP  = 0)
+         PARAMETER(EXTRAP  = 1)
+C
+C** FLAGS FOR TIME CONVERSIONS: HMS_SEC [HOUR, MIN, SEC TO SEC]
+C** AND SEC_HMS [SEC TO HOUR, MIN, SEC]
+C
+         INTEGER SEC_HMS, HMS_SEC
+C
+         PARAMETER(SEC_HMS = 0)
+         PARAMETER(HMS_SEC = 1)
+C
+C** VALUE DEFINITIONS FOR NUMBER OF NEW PERIODS ADDED
+C** DEPENDING ON WHETHER ACUMULATION METHOD IS FOR
+C** EXTRAPOLATION OR INTERPOLATION. IF INTERPOLATION, THEN
+C** ONLY ONE NEW PERIOD ADDED; ELSE FOR EXTRAPOLATION THREE
+C** NEW PERIODS ARE ADDED.
+C**
+C**   1) INTERPOLATION
+C**
+C**        A) N1 [23] ADDED
+C**
+C**   2) EXTRAPOLATION
+C**
+C**        A) N1 [23] ADDED FIRST
+C**        B) N2 [24] ADDED SECOND
+C**        C) N3 [25] ADDED THIRD
+C
+         INTEGER N1, N2, N3
+C
+         PARAMETER(N1 = 23)
+         PARAMETER(N2 = 24)
+         PARAMETER(N3 = 25)
+C
+C** VALUE DEFINITION FOR NUMBER OF PREVIOUS PERIODS KEPT ON
+C** DISK
+C**
+         INTEGER NUM_PREV_PRD
+C
+         PARAMETER(NUM_PREV_PRD  = 22)
+C
+C** FLAGS FOR METHOD OF ACCUMULATING HOURLY TOTALS EITHER
+C** BY ADDITION OR SUBTRACTION.
+C
+         INTEGER ADD_HRLY_FLG, SUB_HRLY_FLG
+C
+         PARAMETER(ADD_HRLY_FLG  = 0)
+         PARAMETER(SUB_HRLY_FLG  = 1)
+C
+C** OTHER NEEDED VALUES
+C
+         INTEGER INCR, DECR, NULL, IINIT, AVG_FACTOR
+C
+         PARAMETER(INCR        = 1)
+         PARAMETER(DECR        =-1)
+         PARAMETER(NULL        = 0)
+         PARAMETER(IINIT       = 0)
+         PARAMETER(AVG_FACTOR  = 2)
+C
+C** COMMON BLOCK DEFINITIONS
+C
+         COMMON /BLKA/ PERIOD_HEADER, HOUR_HEADER, CURRENT_INDEX,
+     $ CASE, METHOD, MAX_INTERP_TIM, GAGE_ACCUM_TIM, MIN_TIM_HRLY,
+     $ NEW_FRAC, MAX_HRLY_POSS, FRST_IN_OUTBUF,
+     $ MAX_PRCP_RATE, MAX_ACUM_HRLY, THRSH_HRLY_OUTLI,
+     $ MAX_DAY_NO, MIN_DAY_NO, TIME_LAST_PRCP, THRSH_RESTART,
+     $ SCN_FLAG, ACUMNAM, HBUF_EMPTY
+C
+C** PERIOD HEADER, HOURLY, ARRAY AND NEW FRACTION SIZE DEFINITIONS
+C
+         INTEGER PERIOD_HEADER(ACZ_PRD_FLDS, ACZ_TOT_PRDS)
+         INTEGER HOUR_HEADER(ACZ_HRLY_FLDS, ACZ_TOT_HOURS)
+         INTEGER NEW_FRAC(NUM_PREV_PRD)
+C
+C** FLAG DEFINITIONS AS FOLLOWS:
+C**
+C**   1) CASE - DEFINES METHOD FOR PERIOD ACCUMULATIONS AS:
+C**
+C**        A) CLEAR - METHOD IS INTERPOLATION
+C**        B) SET   - METHOD IS EXTRAPOLATION
+C**
+C**   2) METHOD - DEFINES THE METHOD FOR HOURLY ACCUMULATIONS AS:
+C**
+C**        A) CLEAR - METHOD IS TO ADD PERIOD ACCUMULATIONS
+C**        B) SET   - METHOD IS TO ADD NEW PERIODS AND SUBTRACT
+C**                   OUT OLD
+C**
+C**   3) SCN_FLAG - DEFINES RAIN STATE AS FOLLOWS:
+C**
+C**      A) CLEAR -  RAIN FOR CURRENT SCAN AND PAST HOUR
+C**      B) SET   -  NO RAIN FOR CURRENT SCAN AND PAST HOUR
+C
+         INTEGER CASE, METHOD, SCN_FLAG
+C
+C** ADAPTATION PARAMETERS CONVERTED TO MOST USEFUL UNITS OF
+C** MEASURE AS FOLLOWS:
+C**
+C**   1) MAX_INTERP_TIM  - MAXIMUM TIME ALLOWED FOR FOR INTERPOLATION
+C**                        IN SECONDS.
+C**
+C**   2) GAGE_ACCUM_TIM  - GAGE END ACCUMULATION [INTEGER MINUTES]
+C**
+C**   3) MIN_TIM_HRLY    - MINIMUM TIME REQUIRED IN HOUR IN ORDER TO
+C**                        ACCUMULATE HOURLY TOTALS
+C**
+C**   4) MAX_ACUM_HRLY   - MAXIMUM ACCUMULATION IN HOUR.
+C**
+C**   5) THRSH_HRLY_OUTLI- MAXIMUM ACCUMULATION ALLOWED IN HOUR.
+C**
+C**   6) THRSH_RESTART   - MAXIMUM TIME ALLOWED BETWEEN SCANS BEFORE
+C**                        BEFORE RESTART OF ACCUMULATIONS.
+C**
+C**   7) MAX_PRCP_RATE   - MAXIMUM PRECIPITATION RATE.
+C
+         INTEGER MAX_INTERP_TIM, GAGE_ACCUM_TIM, MIN_TIM_HRLY
+         INTEGER MAX_PRCP_RATE, MAX_ACUM_HRLY
+         INTEGER THRSH_HRLY_OUTLI, THRSH_RESTART
+C
+C** CURRENT INDEX WHICH POINTS TO CURRENT PERIOD IN PERIOD HEADER
+C** ARRAY
+C
+         INTEGER CURRENT_INDEX
+C
+C** OTHER VALUES NEEDED BY VARIOUS FUNCTIONS:
+C
+         INTEGER MAX_HRLY_POSS, FRST_IN_OUTBUF
+C
+         INTEGER MAX_DAY_NO, MIN_DAY_NO, TIME_LAST_PRCP
+C
+C** NAME FOR CHANGE NOTICE
+C
+         CHARACTER*24 ACUMNAM
+C
+C** LOGICAL UNIT FOR RATE/ACCUMULATION FILE
+C
+         INTEGER ACUMLU
+         PARAMETER(ACUMLU   = 11)
+C
+C** FLAG THAT DETERMINES WHETHER ANY VALUES HAVE BEEN COPPIED
+C** TO HOURLY BUFFER. SET INDICATES BUFFER IS EMPTY; WHEREAS,
+C** CLEAR INDICATES BUFFER HAS DATA. THE FLAG IS SET IN
+C** A31355__BUFFER_NEEDS AND CLEARED IN THREE PLACES: 1) IN
+C** A3135E__DETERMINE_HOURLY_ACUM AFTER HOURLY BUFFER IS READ
+C** IN FOR THE SUBTRACTION CASE; 2) IN A3135J__ADD_SCANS SINCE
+C** THIS WOULD INDICATE THAT DATA HAS BEEN COPPIED INTO OUTPUT
+C** BUFFER; AND 3) IN A3135H__SUBTRACT_SCANS FOR THE SAME REASON.
+C** IN A3135E__DETERMINE_HOURLY_ACUM AFTER ALL UPDATING HAS BEEN
+C** COMPLETED THE ZERO HOUR FLAG FOR THE CURRENT HOUR IS UPDATED
+C** WITH THIS VALUE.
+C**
+         INTEGER HBUF_EMPTY
+/*
+C
+**A3136P
+*VERSION: 1
+C
+      REAL   RINIT,NEGVAR, RNG_SCALING
+C
+      INTEGER IINIT
+      INTEGER SEC_IN_DAY, SEC_IN_HOUR, SEC_IN_MIN
+      INTEGER INCRMENT, IBEG
+C
+      PARAMETER ( IINIT=0, RINIT=0.0, NEGVAR=-10., RNG_SCALING=10. )
+      PARAMETER ( INCRMENT=1, IBEG=1 )
+      PARAMETER ( SEC_IN_DAY=86400, SEC_IN_HOUR=3600, SEC_IN_MIN=60 )
+C
+/*
+**A3136P1
+*VERSION: 0
+C
+C** PARAMETERS FOR READING AND WRITING FILE GASCNAM
+C
+      INTEGER GASCNLU
+      PARAMETER (GASCNLU=11)
+C
+      INTEGER BIBYTES, DTBYTES, SCNBYTES
+      PARAMETER (BIBYTES=44, DTBYTES=8)
+      PARAMETER (SCNBYTES=MAX_ACUBINS*MAX_AZMTHS*2)
+C
+C     ORPG Issue 9
+C     ORPG is using SCNBYTES-sized records for this direct-access
+C     file ...
+      INTEGER ORPG_SEC0_REC, ORPG_SEC1_REC, ORPG_SEC2_REC
+      PARAMETER (ORPG_SEC0_REC=1, ORPG_SEC1_REC=2, ORPG_SEC2_REC=3)
+C
+/*
+**A3136P5
+*VERSION: 0
+C
+C** Parameters for sizing Bias table-related arrays
+C
+      integer  n_datim_elems
+      parameter( n_datim_elems = 6 )
+C
+      integer  ix_yr, ix_mo, ix_da, ix_hr, ix_mn, ix_sc
+      parameter( ix_yr=1, ix_mo=2, ix_da=3, ix_hr=4, ix_mn=5, ix_sc=6 )
+C
+      integer  ix_mspan, ix_grsiz, ix_gagavg, ix_radavg, ix_bias
+      parameter( ix_mspan=1, ix_grsiz=2, ix_gagavg=3,
+     $            ix_radavg=4, ix_bias=5 )
+C
+C** Parameters pertaining to size of data packet
+C
+      integer  i2siz, i4siz, n_datim_tabls
+      parameter( i2siz=2, i4siz=4, n_datim_tabls=2 )
+C
+      integer  n_packet_flds, n_id_flds, n_tabl_dimens
+      parameter( n_packet_flds=4, n_id_flds=2, n_tabl_dimens=1 )
+C
+      integer  btabl_I2_hdr_siz
+      parameter( btabl_I2_hdr_siz = (n_packet_flds*i2siz
+     $                       + n_id_flds*i4siz
+     $                       + n_datim_elems*n_datim_tabls*i2siz
+     $                       + n_tabl_dimens*i2siz)/ 2) 
+C
+      integer  btabl_I2_tbl_siz
+      parameter( btabl_I2_tbl_siz = n_bias_flds*n_bias_lines*i2siz )
+C
+      integer  btablbytes
+      parameter( btablbytes = n_packet_flds*i2siz + n_id_flds*i4siz 
+     $                     + n_datim_elems*n_datim_tabls*i2siz
+     $                     + n_tabl_dimens*i2siz 
+     $                     + n_bias_flds*n_bias_lines*i4siz )
+C
+      integer btablsctrs
+      parameter( btablsctrs = btablbytes/256 + 1 )
+C
+C** Parameters for reading Bias Table packet file from disk
+C
+      INTEGER  BTABLU
+      PARAMETER (BTABLU=13)
+C
+C     ORPG Issue 11
+C     ORPG is using BTABLBYTES-sized records for this direct-access
+C     file ...
+      INTEGER ORPG_SEC0_BTABL_REC
+      PARAMETER (ORPG_SEC0_BTABL_REC=1)
+C
+/*
+**A3136C3
+*VERSION: 3
+C
+C** Dates & Times Bias Table generated in AWIPS; updated in ORPG;
+C** Dates & Times "Best" Bias extracted from table; determined as new
+C** value; plus Bias value itself and corresponding Sigma Inverse
+C** (effective no. gage-radar pairs) and memory span (hours)
+C
+      INTEGER TIMECUR, DATECUR
+      INTEGER TBUPDT, DBUPDT, TBTBL_UPD, DBTBL_UPD
+      INTEGER TBTBL_OBS, DBTBL_OBS, TBTBL_GEN, DBTBL_GEN
+      REAL    BIAS, GRPSIZ, MSPAN
+C
+      COMMON /A3136C3/ TBUPDT, DBUPDT, TBTBL_UPD, DBTBL_UPD
+      COMMON /A3136C3/ TBTBL_OBS, DBTBL_OBS, TBTBL_GEN, DBTBL_GEN
+      COMMON /A3136C3/ BIAS, GRPSIZ, MSPAN
+      COMMON /A3136C3/ TIMECUR, DATECUR
+C
+/*
+**A3136C4
+*VERSION: 1
+C
+C** File names used in this CPC
+C
+      CHARACTER*255 GDBNAM, GASCNAM, BTABLNAM
+C
+      COMMON /A3136C4/ GDBNAM, GASCNAM, BTABLNAM
+C
+/*
+**A3136C5
+*VERSION: 0
+C
+      INTEGER*2  BLOCK_DIVIDR, BLOCK_ID, VERSION_NUM, BLOCK_LEN
+C
+      CHARACTER*4 SOURCE_ID, RADAR_ID
+      INTEGER IEQV_SOURCE_ID
+      EQUIVALENCE( IEQV_SOURCE_ID, SOURCE_ID )
+C
+      INTEGER*2  OBS_DATE_TIME( n_datim_elems ),
+     $           GEN_DATE_TIME( n_datim_elems )
+C
+      INTEGER*2  NROWS, pad
+C
+      INTEGER  IBIAS_TABL( n_bias_flds, n_bias_lines )
+      INTEGER  IEQV_BIAS_TABL( n_bias_flds, n_bias_lines )
+C
+      REAL  RBIAS_TABL( n_bias_flds, n_bias_lines )
+C
+      EQUIVALENCE( RBIAS_TABL,IEQV_BIAS_TABL )
+C
+C**  Local common for data packet containing Bias Table (received from AWIPS)
+C
+      COMMON /A3136C5/ BLOCK_DIVIDR, BLOCK_ID, VERSION_NUM,
+     $                 BLOCK_LEN, SOURCE_ID, RADAR_ID,
+     $                 OBS_DATE_TIME, GEN_DATE_TIME,
+     $                 NROWS, pad, IBIAS_TABL, RBIAS_TABL
+C
+/*
+**A3136CA
+*VERSION: 1
+C
+C** Local adaptation parameters
+C
+      INTEGER TIM_GAG_ACC, TIM_BIAS_EST, LONGST_LAG, MIN_NPAIRS
+      REAL    RESET_BIAS
+C
+      COMMON /A3136CA/ TIM_GAG_ACC, TIM_BIAS_EST
+      COMMON /A3136CA/ RESET_BIAS
+      COMMON /A3136CA/ LONGST_LAG, MIN_NPAIRS
+C
+/*
+**A3136D1
+*VERSION: 0
+C
+C** DEFINITION FOR MESSAGE AND SUPPLEMENTAL DATA SECTIONS OF THE
+C** INPUT BUFFER
+C
+      INTEGER MESG_DATA(HYZ_MESG), SUPL_DATA(HYZ_SUPL)
+C
+/*
+**A3136D2
+*VERSION: 0
+C
+C** DEFINITION FOR THE HOURLY GAGE ACCUMULATION SCAN
+C
+      INTEGER*2 ACUMHRLY(MAX_ACUBINS, MAX_AZMTHS)
+C
+/*
+**A313HSSZ
+*VERSION: 0
+C
+C** Hydromet Shared I/O sizing parameters.
+C
+C** General sizing parameters...
+C
+      INTEGER ISTAR2_SZ, ISTAR4_SZ
+      PARAMETER (ISTAR2_SZ = 2, ISTAR4_SZ = 4)
+C
+      INTEGER BYTES_PER_SECT, ROUND_FACT
+      PARAMETER (BYTES_PER_SECT = 256, ROUND_FACT = BYTES_PER_SECT-1)
+C
+      INTEGER NBR_PLRSCNS, PBLKSIZ
+      PARAMETER (NBR_PLRSCNS = 15, PBLKSIZ = 5)
+C
+C** HYDROMET disk file sizing parameters...
+C
+C** Record sizing parameters, in bytes...
+C
+      INTEGER RATHDR_BYTES, PRDHDR_BYTES, HLYHDR_BYTES
+      INTEGER BADSCN_BYTES, PLRSCN_BYTES
+C
+      PARAMETER (RATHDR_BYTES = RAZ_HDR_FLDS * ISTAR4_SZ)
+      PARAMETER (PRDHDR_BYTES = ACZ_PRD_FLDS * NUM_PREV_PRD *
+     $                                                    ISTAR4_SZ)
+      PARAMETER (HLYHDR_BYTES = ACZ_HRLY_FLDS * ISTAR4_SZ)
+      PARAMETER (BADSCN_BYTES = MAX_TSTAMPS * DT_AND_TM * ISTAR4_SZ)
+      PARAMETER (PLRSCN_BYTES = MAX_RABINS * MAX_AZMTHS * ISTAR2_SZ)
+C
+C** Record sizing parameters, in sectors...
+C
+      INTEGER RATHDR_NSECTS, PRDHDR_NSECTS, HLYHDR_NSECTS
+      INTEGER BADSCN_NSECTS, PLRSCN_NSECTS
+C
+      PARAMETER (RATHDR_NSECTS = (RATHDR_BYTES + ROUND_FACT) /
+     $                                                 BYTES_PER_SECT)
+      PARAMETER (PRDHDR_NSECTS = (PRDHDR_BYTES + ROUND_FACT) /
+     $                                                 BYTES_PER_SECT)
+      PARAMETER (HLYHDR_NSECTS = (HLYHDR_BYTES + ROUND_FACT) /
+     $                                                 BYTES_PER_SECT)
+      PARAMETER (BADSCN_NSECTS = (BADSCN_BYTES + ROUND_FACT) /
+     $                                                 BYTES_PER_SECT)
+      PARAMETER (PLRSCN_NSECTS = (PLRSCN_BYTES + ROUND_FACT) /
+     $                                                 BYTES_PER_SECT)
+C
+C** HYDROMET File positional parameters (by sector, beginning at 0)...
+C
+      INTEGER RATHDR_SECT, PRDHDR_SECT, HLYHDR_SECT
+      INTEGER BADSCN_SECT, RATSCN_SECT
+C
+      PARAMETER (RATHDR_SECT = 0)
+      PARAMETER (PRDHDR_SECT = RATHDR_SECT + RATHDR_NSECTS)
+      PARAMETER (HLYHDR_SECT = PRDHDR_SECT + PRDHDR_NSECTS)
+      PARAMETER (BADSCN_SECT = HLYHDR_SECT + HLYHDR_NSECTS)
+      PARAMETER (RATSCN_SECT = BADSCN_SECT + BADSCN_NSECTS)
+C
+C** The size of the entire HYDROMET file...
+C
+      INTEGER TOTAL_NSECTS
+      PARAMETER (TOTAL_NSECTS = RATSCN_SECT + PLRSCN_NSECTS *
+     $                          NBR_PLRSCNS)
+C
+C     ORPG Issue 8
+C     ORPG is using PLRSCN_BYTES-sized records for this direct-access
+C     file ...
+      INTEGER ORPG_RATHDR_REC, ORPG_PRDHDR_REC, ORPG_HLYHDR_REC
+      INTEGER ORPG_BADSCN_REC, ORPG_RATSCN_REC
+      PARAMETER (ORPG_RATHDR_REC = 1)
+      PARAMETER (ORPG_PRDHDR_REC = 2)
+      PARAMETER (ORPG_HLYHDR_REC = 3)
+      PARAMETER (ORPG_BADSCN_REC = 4)
+      PARAMETER (ORPG_RATSCN_REC = 5)
+C
+/*
+**A313HSPR
+*VERSION: 1
+C
+C** Rate and accumulation I/O related parameters (general)...
+C
+C** Reference rate scan and hourly accum. scan index pointer
+C** parameters...
+C
+      INTEGER RATSCN, HLYSCN
+      PARAMETER (RATSCN = 0, HLYSCN = 23)
+C
+C** Header pointer flag values...
+C
+      INTEGER RATHDR, PRDHDR, HLYHDR
+      PARAMETER (RATHDR = 1, PRDHDR = 2, HLYHDR = 3)
+C
+C** SYSIO function codes (random-access, I/O wait)...
+C
+      INTEGER READ, WRITE
+      PARAMETER (READ = Y'5C', WRITE = Y'3C')
+C
+C** HYDROMET File logical unit number...
+C
+      INTEGER HMETLU
+      PARAMETER (HMETLU = 11)
+C
+C** Define HYDROMET filename...
+C
+      CHARACTER*12 HMETFN
+      PARAMETER ( HMETFN = 'HYDMET.DAT' )
+C
+C** Parameter for determining if I/O was successful...
+C
+      INTEGER IO_OK
+      PARAMETER ( IO_OK = 0 )
+C
+/*

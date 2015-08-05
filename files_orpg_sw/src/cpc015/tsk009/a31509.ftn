@@ -1,0 +1,292 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/16 19:40:13 $
+C $Id: a31509.ftn,v 1.3 2002/12/16 19:40:13 christie Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A31509__OUTPUT_ADAP(HAILADAP, HAIL_RADAP)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A31509__OUTPUT_ADAP
+*.
+*.  MODULE VERSION: 0002
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       06/20/95      0000      MARK FRESCH          CCR NA94-26301
+*.       12/23/96      0001      Toolset              CCR NA95-11807
+*.       03/16/99      0002      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: A31509__OUTPUT_ADAP( HAILADAP, HAIL_RADAP )
+*.
+*.  MODULE FUNCTION:
+*.
+*.  This module stores the local copy of hail adaptation data in the
+*.  output buffer (for display in the Hail Alphanumeric Product).
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT            TYPE        DESCRIPTION
+*.    -   -----            ----        -----------
+*.    G   HA_H0            I*4         (CONSTANT)Index to the 0 degree C
+*.                                     altitude in adaptation data
+*.    G   HA_H20           I*4         (CONSTANT)Index to the -20 degree C
+*.                                     altitude in adaptation data.
+*.    G   HA_HSC           I*4         (CONSTANT)Index to the 0 degree C
+*.                                     altitude in adaptation data.
+*.    G   HA_HSE           I*4         (CONSTANT)Index to the SHI Hail Size
+*.                                     Exponent in adaptation data.
+*.    G   HA_KE1           I*4         (CONSTANT)Index to the HKE Coefficient
+*.                                     #1 in adaptation data.
+*.    G   HA_KE2           I*4         (CONSTANT)Index to the HKE Coefficient
+*.                                     #2 in adaptation data.
+*.    G   HA_KE3           I*4         (CONSTANT)Index to the HKE Coefficient
+*.                                     #3 in adaptation data.
+*.    G   HA_MRP           I*4         (CONSTANT)Index to the Min.
+*.                                     Reflectivity POH in adaptation data.
+*.    G   HA_PO0           I*4         (CONSTANT)Index to the POH Height
+*.                                     Difference #10 in adaptation data.
+*.    G   HA_PO1           I*4         (CONSTANT)Index to the POH Height
+*.                                     Difference #1 in adaptation data.
+*.    G   HA_PO2           I*4         (CONSTANT)Index to the POH Height
+*.                                     Difference #2 in adaptation data.
+*.    G   HA_PO3           I*4         (CONSTANT)Index to the POH Height
+*.                                     Difference #3 in adaptation data.
+*.    G   HA_PO4           I*4         (CONSTANT)Index to the POH Height
+*.                                     Difference #4 in adaptation data.
+*.    G   HA_PO5           I*4         (CONSTANT)Index to the POH Height
+*.                                     Difference #5 in adaptation data.
+*.    G   HA_PO6           I*4         (CONSTANT)Index to the POH Height
+*.                                     Difference #6 in adaptation data.
+*.    G   HA_PO7           I*4         (CONSTANT)Index to the POH Height
+*.                                     Difference #7 in adaptation data.
+*.    G   HA_PO8           I*4         (CONSTANT)Index to the POH Height
+*.                                     Difference #8 in adaptation data.
+*.    G   HA_PO9           I*4         (CONSTANT)Index to the POH Height
+*.                                     Difference #9 in adaptation data.
+*.    G   HA_PSC           I*4         (CONSTANT)Index to the POSH Coefficient
+*.                                     in adaptation data.
+*.    G   HA_PSO           I*4         (CONSTANT)Index to the POSH Offset in
+*.                                     adaptation data.
+*.    G   HA_RHL           I*4         (CONSTANT)Index to the Threshold RCM
+*.                                     Probable Hail in adaptation data.
+*.    G   HA_RWL           I*4         (CONSTANT)Index to the Threshold HKE
+*.                                     Reflectivity Weighting Lower Limit in
+*.                                     adaptation data.
+*.    G   HA_RWU           I*4         (CONSTANT)Index to the Threshold HKE
+*.                                     Reflectivity Weighting Upper Limit in
+*.                                     adaptation data.
+*.    G   HA_SHL           I*4         (CONSTANT)Index to the Threshold RCM
+*.                                     Positive Hail in adaptation data.
+*.    G   HA_TDA           I*4         (CONSTANT)Index to the Day of the Temp
+*.                                     Altitude Date Stamp in adaptation data.
+*.    G   HA_THR           I*4         (CONSTANT)Index to the Hour of the Temp
+*.                                     Altitude Time Stamp in adaptation data.
+*.    G   HA_TMN           I*4         (CONSTANT)Index to the Minutes of the
+*.                                     Temp Altitude Time Stamp in adaptation
+*.                                     data.
+*.    G   HA_TMO           I*4         (CONSTANT)Index to the Month of the
+*.                                     Temp Altitude Date Stamp in adaptation
+*.                                     data.
+*.    G   HA_TYR           I*4         (CONSTANT)Index to the Year of the Temp
+*.                                     Altitude Date Stamp in adaptation data.
+*.    G   HA_WTC           I*4         (CONSTANT)Index to the Warning
+*.                                     Threshold Selection Coefficient in
+*.                                     adaptation data.
+*.    G   HA_WTO           I*4         (CONSTANT)Index to the Warning
+*.                                     Threshold Selection Offset in
+*.                                     adaptation data.
+*.    G   HA_XRG           I*4         (CONSTANT)Index to the Max. Hail
+*.                                     Processing Range in adaptation data.
+*.    C   HKE_COF1         R*4         The HKE Coefficient #1 in local common
+*.                                     adaptation data.
+*.    C   HKE_COF2         R*4         The HKE Coefficient #2 in local common
+*.                                     adaptation data.
+*.    C   HKE_COF3         R*4         The HKE Coefficient #3 in local common
+*.                                     adaptation data.
+*.    C   HS_COF           R*4         The SHI Hail Size Coefficient in local
+*.                                     common adaptation data.
+*.    C   HS_EXP           R*4         The SHI Hail Size Exponent in local
+*.                                     common adaptation data.
+*.    C   HT0_MSL          R*4         The height (MSL) of the 0 degrees C
+*.                                     isotherm in local commom adaptation
+*.                                     data.
+*.    C   HT20_MSL         R*4         The height (MSL) of the -20 degrees C
+*.                                     isotherm in local commom adaptation
+*.                                     data.
+*.    C   LL_HKE_REF       I*4         The Threshold HKE Reflectivity
+*.                                     Weighting Lower Limit in local
+*.                                     adaptation data.
+*.    C   MR_POH_TH        I*4         The Threshold Minimum Reflectivity POH
+*.                                     in local adaptation data.
+*.    C   MX_HL_RNG        I*4         The Maximum Hail Processing Range in
+*.                                     local adaptation data.
+*.    C   POHHDTH0         R*4         The POH Height Difference #0 Threshold
+*.                                     in local common adaptation data.
+*.    C   POHHDTH1         R*4         The POH Height Difference #1 Threshold
+*.                                     in local common.
+*.    C   POHHDTH2         R*4         The POH Height Difference #2 Threshold
+*.                                     in local common adaptation data.
+*.    C   POHHDTH3         R*4         The POH Height Difference #3 Threshold
+*.                                     in local common adaptation data.
+*.    C   POHHDTH4         R*4         The POH Height Difference #4 Threshold
+*.                                     in local common adaptation data.
+*.    C   POHHDTH5         R*4         1The POH Height Difference #5 Threshold
+*.                                     in local common adaptation data.
+*.    C   POHHDTH6         R*4         The POH Height Difference #6 Threshold
+*.                                     in local common adaptation data.
+*.    C   POHHDTH7         R*4         The POH Height Difference #7 Threshold
+*.                                     in local common adaptation data.
+*.    C   POHHDTH8         R*4         The POH Height Difference #8 Threshold
+*.                                     in local common adaptation data.
+*.    C   POHHDTH9         R*4         The POH Height Difference #9 Threshold
+*.                                     in local common adaptation data.
+*.    C   POSH_COF         R*4         The POSH Coefficient in local common
+*.                                     adaptation data.
+*.    C   POSH_OFS         I*4         The POSH Offset in local common
+*.                                     adaptation data.
+*.    C   RCM_PRBL         I*4         The Threshold RCM Probable Hail in
+*.                                     local adaptation data.
+*.    C   RCM_PSTV         I*4         The Threshold RCM Positive Hail in
+*.                                     local adaptation data.
+*.    C   TMP_ALT_DAY_STMP I*4         The Day (of the month) of the Temp
+*.                                     Altitude Time Stamp local in adaptation
+*.                                     data.
+*.    C   TMP_ALT_HR_STMP  I*4         The Hours of the Temp Altitude Time
+*.                                     Stamp in local adaptation data.
+*.    C   TMP_ALT_MIN_STMP I*4         The Minutes of the Temp Altitude Time
+*.                                     Stamp in local adaptation data.
+*.    C   TMP_ALT_MON_STMP I*4         The Month of the Temp Altitude Time
+*.                                     Stamp in local adaptation data.
+*.    C   TMP_ALT_YR_STMP  I*4         The YR of the Temp Altitude Time Stamp
+*.                                     in local adaptationdata.
+*.    C   UL_HKE_REF       I*4         The Threshold HKE Reflectivity
+*.                                     Weighting Upper Limit in local
+*.                                     adaptation data.
+*.    C   WT_COF           R*4         The Warning Threshold Selection Model
+*.                                     Coefficient in local common adaptation
+*.                                     data.
+*.    C   WT_OFS           R*4         The Warning Threshold Selection Model
+*.                                     Offset in local common adaptation data.
+*.
+*.    *   OUTPUT     TYPE        DESCRIPTION
+*.    -   ------     ----        -----------
+*.    P   HAILADAP   I*4         Array containing hail adaptation data in
+*.                               integer format.  adaptation parameter, see
+*.                               A315BUF.INC**A315PHAD
+*.    P   HAIL_RADAP R*4         Array containing hail adaptation data in real
+*.                               format. adaptation parameter, see
+*.                               A315BUF.INC**A315PHAD
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME  TYPE        DESCRIPTION
+*.    ----  ----        -----------
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A315CHH
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.     THIS MODULE IS COMPILED USING THE COMP15.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.     THIS MODULE IS LINKED USING THE LINK15.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+      IMPLICIT NONE
+C
+$INCLUDE A315BUF.INC/G, **A315P9H  (NLIST NEND)
+$INCLUDE                **A315PHAD (NLIST NEND)
+$INCLUDE                **A315CHH  (NLIST NEND)
+$INCLUDE                **A315D9   (NLIST NEND)
+C
+C** EXECUTABLE CODE
+C
+C** Copy adaptation data from local common to the output buffer
+C** INTEGER HAILADAP and REAL HAIL_RADAP are equivalenced
+C** Height of the 0 and -20 degree C isotherm in MSL
+C
+      HAIL_RADAP(HA_H0) = HT0_MSL
+      HAIL_RADAP(HA_H20) = HT20_MSL
+C
+C** Maximum Hail Processing Range
+C
+      HAILADAP(HA_XRG) = MX_HL_RNG
+C
+C** HKE adaptable parameters
+C
+      HAILADAP(HA_RWU) = UL_HKE_REF
+      HAILADAP(HA_RWL) = LL_HKE_REF
+      HAIL_RADAP(HA_KE1) = HKE_COF1
+      HAIL_RADAP(HA_KE2) = HKE_COF2
+      HAIL_RADAP(HA_KE3) = HKE_COF3
+C
+C** POSH adaptable parameters
+C
+      HAILADAP(HA_PSO) = POSH_OFS
+      HAIL_RADAP(HA_PSC) = POSH_COF
+      HAIL_RADAP(HA_WTC) = WT_COF
+      HAIL_RADAP(HA_WTO) = WT_OFS
+C
+C** Hail Size (MEHS) adaptable parameters
+C
+      HAIL_RADAP(HA_HSC) = HS_COF
+      HAIL_RADAP(HA_HSE) = HS_EXP
+C
+C** RCM adaptable parameters
+C
+      HAILADAP(HA_SHL) = RCM_PSTV
+      HAILADAP(HA_RHL) = RCM_PRBL
+C
+C** POH adaptable parameters
+C
+      HAILADAP(HA_MRP) = MR_POH_TH
+      HAIL_RADAP(HA_PO1) = POHHDTH1
+      HAIL_RADAP(HA_PO2) = POHHDTH2
+      HAIL_RADAP(HA_PO3) = POHHDTH3
+      HAIL_RADAP(HA_PO4) = POHHDTH4
+      HAIL_RADAP(HA_PO5) = POHHDTH5
+      HAIL_RADAP(HA_PO6) = POHHDTH6
+      HAIL_RADAP(HA_PO7) = POHHDTH7
+      HAIL_RADAP(HA_PO8) = POHHDTH8
+      HAIL_RADAP(HA_PO9) = POHHDTH9
+      HAIL_RADAP(HA_PO0) = POHHDTH0
+C
+C** Hail Temperature Altitude Time/Date Stamp
+C
+      HAILADAP(HA_THR) = TMP_ALT_HR_STMP
+      HAILADAP(HA_TMN) = TMP_ALT_MIN_STMP
+      HAILADAP(HA_TDA) = TMP_ALT_DAY_STMP
+      HAILADAP(HA_TMO) = TMP_ALT_MON_STMP
+      HAILADAP(HA_TYR) = TMP_ALT_YR_STMP
+C
+      RETURN
+      END

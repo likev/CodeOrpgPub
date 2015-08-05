@@ -1,0 +1,325 @@
+C 
+C RCS info 
+C $Author: nolitam $ 
+C $Locker:  $ 
+C $Date: 2002/11/27 15:24:11 $ 
+C $Id: a314q5.ftn,v 1.4 2002/11/27 15:24:11 nolitam Exp $ 
+C $Revision: 1.4 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A314Q5__LAYCOMP_PRODS (PBUFSIZ,NPRODS,SOPRX,
+     $  POPRX,LAY,LAYTYPE,LAYCODE,REFAV8,REFMX8,NCOL,NROW,NBUFS,
+     $  CDATE,CTIME,CALCON1,CALCON2,VOLNO,MAXMAX )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A314Q5__LAYCOMP_PRODS
+*.
+*.  MODULE VERSION: 0013
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       09 25 85      0000      Bradley Sutker       RPG Build 3
+*.       10 17 88      0001      VALERIE HOLDEN       SPR # 80266
+*.       04 18 90      0002      PAUL PISANI          SPR # 90697
+*.       09 18 90      0003      JOHN DEPHILIP        SPR # 90997
+*.       10 22 90      0004      MARK FRESCH          SPR # 90993
+*.       11 03 90      0004      MARK FRESCH          SPR # 91255
+*.       12 03 91      0005      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0006      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0007      Toolset              SPR 91895
+*.       03/25/93      0008      Toolset              SPR NA93-06801
+*.       01/28/94      0009      Toolset              SPR NA94-01101
+*.       03/03/94      0010      Toolset              SPR NA94-05501
+*.       04/11/96      0011      Toolset              CCR NA95-11802
+*.       12/23/96      0012      Toolset              CCR NA95-11807
+*.       03/16/99      0013      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A314Q5__LAYCOMP_PRODS(PBUFSIZ,NPRODS,SOPRX,
+*.                      POPRX,LAY,LAYTYPE,LAYCODE,REFAV8,REFMX8,NCOL,
+*.                      NROW,NBUFS,CDATE,CTIME,CALCON1,CALCON2,VOLNO,
+*.                      MAXMAX)
+*.
+*.  MODULE FUNCTION:
+*.
+*.     Finish-up product routine...compute average...call
+*.     product processing and formatting routines...release
+*.     product output buffers...release and destroy scratch
+*.     buffers.
+*.
+*.  MODULES CALLED: A31216__REL_OUTBUF, A314J5__COMP_AVG, A314S5__END_PROCESS, 
+*.                  A314T5__LAYCOMP_HDR, A3CM22__RASTER_RUN_LENGTH 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT       TYPE        DESCRIPTION
+*.    -   -----       ----        -----------
+*.    G   MEM         I*4         Array in RPG shared memory set aside for
+*.                                buffer sharing.
+*.    G   DESTROY     I*4         (CONSTANT)Mnemonic used as input to
+*.                                A31216__REL_OUTBUF. Indicates "do not pass
+*.                                data to other tasks".
+*.    G   FORWARD     I*4         (CONSTANT)Parameter to indicate that an
+*.                                output buffer is to be forwarded to
+*.                                successor tasks
+*.    G   RASTA_BEGIN I*4         (CONSTANT)Product buffer beginning index for
+*.                                storing raster run-length encoded data. To
+*.                                be used for raster products only.
+*.    C   LAYAVG      I*4         (CONSTANT)Flag signifying an "avg" type
+*.                                product.
+*.    C   LAYMAX      I*4         (CONSTANT)Flag signifying a maximum layer
+*.                                product.
+*.    C   MAXBUFS     I*4         (CONSTANT)The maximum number of scratch
+*.                                buffers required when the maximum number of
+*.                                products is requested.
+*.    C   MAXPRODS    I*4         (CONSTANT)The maximum number of products per
+*.                                volume.
+*.    P   CALCON1     I*2         The radar calibration constant (1).
+*.    P   CALCON2     I*2         The radar calibration constant (2).
+*.    P   CDATE       I*4         The current date.
+*.    P   CTIME       I*4         The current time.
+*.    P   LAY         I*4         An array containing maximum or average
+*.                                product flags.
+*.    P   LAYCODE     I*4         Array of product codes for Layer Composite
+*.                                Reflectivity products
+*.    P   LAYTYPE     I*4         An array containing maximum or average
+*.                                product flags.
+*.    P   MAXMAX      I*2         An array containing the layer
+*.                                maximum-maximum reflectivities, in dBz.
+*.    P   NBUFS       I*4         The number of buffers index.
+*.    P   NCOL        I*4         The number of Cartesian boxes in the column
+*.                                direction (E-W).
+*.    P   NPRODS      I*4         The total number of requested products.
+*.    P   NROW        I*4         The number of Cartesian boxes in the row
+*.                                direction (N-S).
+*.    P   PBUFSIZ     I*4         The maximum product output buffer size.
+*.    P   POPRX       I*4         An array containing the requested product
+*.                                output addresses.
+*.    P   REFAV8      I*4         The color code look-up table index.
+*.    P   REFMX8      I*4         The color code look-up table index.
+*.    P   SOPRX       I*4         An array containing the scratch buffer
+*.                                addresses.
+*.    P   VOLNO       I*4         The current volume number.
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    G   MEM     I*4         Array in RPG shared memory set aside for buffer
+*.                            sharing.
+*.    P   NBUFS   I*4         The number of buffers index.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    G   MEM               I*4         Array in RPG shared memory set aside
+*.                                      for buffer sharing.
+*.    P   CALCON1           I*2         The radar calibration constant (1).
+*.    P   CALCON2           I*2         The radar calibration constant (2).
+*.    P   CDATE             I*4         The current date.
+*.    P   CTIME             I*4         The current time.
+*.    P   LAY               I*4         An array containing maximum or average
+*.                                      product flags.
+*.    P   LAYCODE           I*4         Array of product codes for Layer
+*.                                      Composite Reflectivity products
+*.    P   NCOL              I*4         The number of Cartesian boxes in the
+*.                                      column direction (E-W).
+*.    P   NROW              I*4         The number of Cartesian boxes in the
+*.                                      row direction (N-S).
+*.    P   PBUFSIZ           I*4         The maximum product output buffer
+*.                                      size.
+*.    P   POPRX             I*4         An array containing the requested
+*.                                      product output addresses.
+*.    P   REFAV8            I*4         The color code look-up table index.
+*.    P   VOLNO             I*4         The current volume number.
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME    TYPE        DESCRIPTION
+*.    ----    ----        -----------
+*.    BIAS    R*4         Parameter used for converting Biased Reflectivity
+*.                        data to dBZ
+*.    BUFSTAT I*4         BUFFER STATUS FOR A3CM22 RLE CALL
+*.    HALVE   R*4         PROGRAM PARAMETER FOR 0.5
+*.    INC1    I*4         INCREMENTAL VALUE OF 1
+*.    INDEX   I*4         COLOR TABLE INDEX VALUE
+*.    ISTAR2S I*4         NUMBER OF I*2 WORDS USED FROM A3CM22
+*.    MAXLAY  I*2         The maximum reflectivity in the layer (max or avg),
+*.                        in dBz.
+*.    MINIMUM I*4         MIN. DETECTABLE REFLECTIVITY VALUE
+*.    MXPOPRX I*4         MAXIMUM OUTPUT INDEX SIZE
+*.    N       I*4         PROGRAM INDEX LOOP VARIABLE
+*.    NPERI2  I*4         NUMBER OF BYTES PER I*2 WORD
+*.    ONE     I*4         PROGRAM LOOP INDEX = 1
+*.    ROUND   R*4         PROGRAM PARAMETER FOR ROUNDING
+*.    SOPR1   I*4         1ST SCRATCH BUFFER POINTER
+*.    SOPR2   I*4         2ND SCRATCH BUFFER POINTER
+*.    ZERO    I*4         PROGRAM PARAMETER FOR 0
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD00
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK14.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C***********************************************************
+C*                                                         *
+C* LAYER COMPOSITE REFLECTIVITY: PROD FORMAT ROUTINE      *
+C*                                                         *
+C***********************************************************
+C
+      IMPLICIT NONE
+C
+C Include base radial data and parameter declaration files
+C
+$INCLUDE A309.INC/G,**A3PM00           (NLIST)
+$INCLUDE            **A3PM01           (NLIST)
+$INCLUDE            **A3PM02           (NLIST)
+$INCLUDE            **A3CD00           (NLIST)
+C
+C Include common parameter files
+C
+$INCLUDE A314.INC,**A314P5             (NLIST)
+C
+C Define parameters & variables needed for buffer_control routines.
+C
+      INTEGER  NCOL,NROW,NPERI2,ONE,INC1,ZERO,NBUFS,CDATE,CTIME
+      INTEGER  BUFSTAT,ISTAR2S,MXPOPRX,PBUFSIZ,VOLNO,INDEX,MINIMUM
+      INTEGER  NPRODS,N,SOPR1,SOPR2,REFMX8,REFAV8
+      INTEGER*2 MAXLAY,CALCON1,CALCON2,MAXMAX(MAXPRODS)
+      INTEGER LAYTYPE(MAXPRODS),LAY(MAXPRODS),POPRX(MAXPRODS)
+      INTEGER LAYCODE(MAXPRODS),SOPRX(MAXBUFS)
+      PARAMETER (INC1=1,ONE=1,ZERO=0,MINIMUM=-32)
+      REAL HALVE,ROUND,BIAS
+      DATA HALVE /0.5/
+      DATA ROUND /0.5/
+      DATA BIAS /33.0/
+      DATA NPERI2 /2/
+C
+X     TYPE *,'84 : A314Q5 START'
+C
+         NBUFS=ZERO
+         DO 555 N=ONE,NPRODS
+C
+C Add 1 to the number of scratch buffers...to get the
+C proper scratch input buffer
+C
+           NBUFS=NBUFS+INC1
+C
+C Get first scratch buffer pointer
+C
+           SOPR1=SOPRX(NBUFS)
+C
+C If this is an "average" product then....
+C
+           IF (LAYTYPE(N).EQ.LAYAVG) THEN
+X            TYPE *,'85 : A314Q5 AVERAGE PRODUCT TYPE'
+C
+C Get the extra scratch buffer (for the denominator to compute
+C the average)...by adding 1 more to the buffer index
+C
+             NBUFS=NBUFS+INC1
+             SOPR2=SOPRX(NBUFS)
+C
+C Set the color look-up table index to the proper value
+C
+             INDEX=REFAV8
+C
+C Call routine to compute the average value...and the
+C maximum average
+C
+             CALL A314J5__COMP_AVG (MEM(SOPR1),MEM(SOPR2),
+     $         NCOL,NROW,MAXLAY,REFAV8 )
+C
+C Call routine to release and destroy Scratch buffer
+C
+             CALL A31216__REL_OUTBUF ( SOPR2,DESTROY )
+C
+C Else..if the layer is a max layer type...get max data level
+C flag
+C
+           ELSE IF (LAYTYPE(N).EQ.LAYMAX) THEN
+X            TYPE *,'86 : A314Q5 MAXIMUM PRODUCT TYPE '
+C
+C Set the color look-up table index to the proper value
+C
+             INDEX=REFMX8
+C
+C Get the maximum-maximum value
+C
+X     TYPE *,'Q5 - MAXMAX = ',MAXMAX(N)
+             IF (MAXMAX(N).NE.ZERO) THEN
+X              TYPE *,'87 : A314Q5 MAX MAX VALUE NE ZERO'
+               MAXLAY=((MAXMAX(N)*HALVE)-BIAS)+ROUND
+C
+C Else..set max to zero
+C
+C
+             ELSE
+               MAXLAY = MINIMUM
+X     TYPE *,'Q5 - MINIMUM = ',MINIMUM
+             END IF
+           END IF
+C
+C Format product header
+C
+X       TYPE *,'89 : A314Q5 FORMAT PRODUCT HEADER'
+        CALL A314T5__LAYCOMP_HDR ( MAXLAY,MEM(POPRX(N)),
+     $    VOLNO,NCOL,NROW,LAYCODE(N),INDEX,CDATE,CTIME,
+     $    CALCON1,CALCON2,LAY(N),PBUFSIZ )
+C
+C Raster run length encode product
+C
+C Determine maximum output index...see if raster run length
+C overflows acceptable size
+C
+        MXPOPRX = PBUFSIZ * NPERI2
+C
+C Call routine to raster run length encode the product
+C
+C$INSERTC       ORPG Issue 4
+C$INSERT        CALL A3CM22__RASTER_RUN_LENGTH ( NROW,NCOL,BUFSTAT,MEM(SOPR1),
+C$DELETE
+        CALL A3CM22__RASTER_RUN ( NROW,NCOL,BUFSTAT,MEM(SOPR1),
+C$ENDDELETE
+     $    INDEX,MEM(POPRX(N)),RASTA_BEGIN,ISTAR2S,MXPOPRX )
+C
+C Call routine to finish product header
+C
+        CALL A314S5__END_PROCESS ( ISTAR2S,MEM(POPRX(N)),
+     $    MAXLAY,PBUFSIZ )
+C
+C Call routine to release and forward output buffer
+C
+        CALL A31216__REL_OUTBUF ( POPRX(N),FORWARD )
+C
+C Call routine to release and destroy Scratch buffer
+C
+        CALL A31216__REL_OUTBUF ( SOPR1,DESTROY )
+C
+ 555  CONTINUE
+C
+X     TYPE *,'90 : A314Q5 END'
+      RETURN
+      END

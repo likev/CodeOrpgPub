@@ -1,0 +1,265 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/16 20:36:26 $
+C $Id: a3164c.ftn,v 1.3 2002/12/16 20:36:26 christie Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A3164C__HAIL_SYMB(K,HAILSTATS,STID,BUFOUT)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3164C__HAIL_SYMB
+*.
+*.  MODULE VERSION: 0013
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       10 18 85      0000      JSGROMMONS
+*.       05 01 86      0001      JSGROMMONS           SPR#  60124
+*.       06 03 86      0002      JSGROMMONS           SPR#  60313
+*.       10 02 86      0003      J GROMMONS           SPR # 60346
+*.       11 06 90      0004      David M. Lynch       SPR # 91257
+*.       12 03 91      0005      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0006      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0007      Toolset              SPR 91895
+*.       03/25/93      0008      Toolset              SPR NA93-06801
+*.       01/28/94      0009      Toolset              SPR NA94-01101
+*.       03/03/94      0010      Toolset              SPR NA94-05501
+*.       04/24/95      0011      STEVE SMITH          CCR NA94-26301
+*.       12/23/96      0012      Toolset              CCR NA95-11807
+*.       03/16/99      0013      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:
+*.    CALL A3164C__HAIL_SYMB(K,HAILSTATS,STID,BUFOUT)
+*.
+*.  MODULE FUNCTION:
+*.     CONSTRUCT A SPECIAL SYMBOL PACKET FOR HAIL IN THE
+*.     OUTPUT BUFFER.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT     TYPE        DESCRIPTION
+*.    -   -----     ----        -----------
+*.    G   H_AZM     I*4         (CONSTANT)Index to the azimuth, the fifth
+*.                              position, in the HAILSTATS arrays.
+*.    G   H_MHS     I*4         (CONSTANT)Index to the MEHS, the third
+*.                              position, in the HAILSTATS arrays.
+*.    G   H_POH     I*4         (CONSTANT)Index to the POH, the first
+*.                              position, in the HAILSTATS arrays.
+*.    G   H_PSH     I*4         (CONSTANT)Index to the PSH, the second
+*.                              position, in the HAILSTATS arrays.
+*.    G   H_RNG     I*4         (CONSTANT)Index to the range, the fourth
+*.                              position, in the HAILSTATS arrays.
+*.    G   NHAL_MAX  I*4         (CONSTANT)A sizing parameter equal to the max.
+*.                              number of cells processed by the hail
+*.                              algorithm.
+*.    G   NHAL_STS  I*4         (CONSTANT)A sizing parameter equal to the
+*.                              number of hail attributes stored in the
+*.                              HAILSTATS array.
+*.    C   NDX       I*4         Working subscript for moving data.
+*.    C   SYMLNG    I*4         Length of symbology block.
+*.    P   HAILSTATS R*4         Array containing hail attribute information
+*.                              for all cells.
+*.    P   K         I*4         SUBSCRIPT FOR HAIL DATA
+*.    P   STID      CHAR*2      HAIL ID ARRAY FOR WRITING
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    C   NDX     I*4         Working subscript for moving data.
+*.    C   SYMLNG  I*4         Length of symbology block.
+*.    P   BUFOUT  I*2         OUTPUT BUFFER
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME              TYPE        DESCRIPTION
+*.    ----              ----        -----------
+*.    DTR               R*4         Degrees to radians conversion
+*.    HAILSIZE          R*4         Maximum expected hail size for the current
+*.                                  storm cell.
+*.    IX                I*4         X-POS as an integer.
+*.    IY                I*4         Y-POS as an integer.
+*.    LDATA1            I*2         CONSTANT 2
+*.    LDATA2            I*2         CONSTANT 3
+*.    LENG_PACKET1      I*2         CONSTANT 4
+*.    LENG_PACKET2      I*2         CONSTANT 5
+*.    MIN_REPORTED_SIZE R*4         The smallest expected hail size, if
+*.                                  greater than zero, to report on a product
+*.    NULL              I*4         Parameter value of zero.
+*.    OPTRIDX           I*4         POINTER TO OUTPUT BUFFER DATA
+*.    PACKETCODE        I*2         Packet code for Hail symbol
+*.    PCODE3            I*2         packet Code for Hail Storm ID
+*.    PROB_HAIL         I*4         Probability of hail for the storm cell
+*.    PROB_SEVERE       I*4         Probablity of Severe Hail for a storm cell
+*.    QKM               R*4         Scaling used to convert positions to
+*.                                  quarter-kilometer.
+*.    STIDX             I*2         Storm ID.
+*.    STIDY             CHAR*2      Storm ID.
+*.    X_POS             R*4         X POSITION
+*.    Y_POS             R*4         Y POSITION
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3164B
+*.    A3164D
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP16.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK16.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+      IMPLICIT NONE
+C
+C** LOCAL COMMON
+C
+$INCLUDE A315BUF.INC/G, **A315P9H (NLIST NEND)
+$INCLUDE A316.INC/G,**A3164P4 (NLIST)
+C
+C** LOCAL DEFINITIONS
+C
+      REAL HAILSTATS(NHAL_STS,NHAL_MAX)
+      INTEGER*4 K
+C
+      INTEGER*2  BUFOUT(*)
+      INTEGER*2  STIDX
+      INTEGER*2  PACKETCODE,LENG_PACKET1,LDATA1
+      INTEGER*2  PCODE3,LDATA2,LENG_PACKET2
+C
+      INTEGER*4  IX,IY,NULL
+      INTEGER*4  OPTRIDX
+C
+      REAL X_POS,Y_POS,QKM,DTR
+      REAL MIN_REPORTED_SIZE
+      PARAMETER (MIN_REPORTED_SIZE = 0.50, DTR = 0.017453292)
+C
+      CHARACTER*2  STID,STIDY
+C
+      EQUIVALENCE (STIDY,STIDX)
+C
+      PARAMETER(LENG_PACKET1=7,LDATA1=10,PCODE3=15,LDATA2=6)
+      PARAMETER(LENG_PACKET2=5,QKM=4.0,NULL=0)
+      PARAMETER(PACKETCODE = 19)
+C
+      INTEGER*4 PROB_HAIL, PROB_SEVERE
+      REAL      HAILSIZE
+C
+C **************** E X E C U T A B L E  *****************
+C
+      OPTRIDX = NDX - 1
+C
+C** STORE HAIL STATUS PACKET
+C
+C** UPDATE OUTPUT BUFFER INDEX FOR STORAGE
+C
+      BUFOUT(OPTRIDX+1)=PACKETCODE
+      BUFOUT(OPTRIDX+2)=LDATA1
+C
+C** EXTRACT AZIMUTH AND RANGE AND CONVERT TO X AND Y POSITION
+C
+      X_POS = HAILSTATS(H_RNG,K)*SIN(HAILSTATS(H_AZM,K)*DTR)
+      Y_POS = HAILSTATS(H_RNG,K)*COS(HAILSTATS(H_AZM,K)*DTR)
+C
+C** CONVERT POSITION TO QUARTER-KM (INTEGER)
+C
+      IX=NINT(X_POS*QKM)
+      IY=NINT(Y_POS*QKM)
+C
+C** STORE POSITION IN OUTPUT BUFFER
+C
+      BUFOUT(OPTRIDX+3)=IX
+      BUFOUT(OPTRIDX+4)=IY
+C
+C** EXTRACT POH, POSH, AND MAXIMUM HAIL SIZE
+C
+      PROB_HAIL = INT(HAILSTATS(H_POH,K))
+      PROB_SEVERE = INT(HAILSTATS(H_PSH,K))
+      HAILSIZE = HAILSTATS(H_MHS,K)
+C
+C** STORE PROBABILITY OF HAIL IN OUTPUT BUFFER
+C
+      BUFOUT(OPTRIDX+5)=PROB_HAIL
+C
+C** STORE PROBABILITY OF SEVERE HAIL
+C
+      BUFOUT(OPTRIDX+6)=PROB_SEVERE
+C
+C** STORE MAXIMUM HAIL SIZE. ROUND TO NEAREST INTEGER WITH THE
+C** THE EXCEPTION THAT N+0.5 ROUNDS TO N WHEN N < 1.
+C
+      IF (ABS(HAILSIZE) .GT. MIN_REPORTED_SIZE) THEN
+         BUFOUT(OPTRIDX+7)=NINT(ABS(HAILSIZE))
+      ELSE
+         BUFOUT(OPTRIDX+7)=INT(ABS(HAILSIZE))
+      END IF
+C
+C** UPDATE INDEX INTO OUTPUT BUFFER
+C
+      OPTRIDX=OPTRIDX+LENG_PACKET1
+C
+C** IF THE PROBABILTIY OF HAIL OR THE PROBABILITY OF SEVERE HAIL
+C** IS NON-ZERO, WRITE OUT THE STORM ID.
+C
+      IF (PROB_HAIL .GT. NULL .OR. PROB_SEVERE .GT. NULL) THEN
+C
+C** STORE HAIL STORM ID PACKET
+C** UPDATE OUTPUT BUFFER INDEX FOR STORAGE
+C
+         BUFOUT(OPTRIDX+1)=PCODE3
+         BUFOUT(OPTRIDX+2)=LDATA2
+C
+C** STORE POSITION IN OUTPUT BUFFER
+C
+         BUFOUT(OPTRIDX+3)=IX
+         BUFOUT(OPTRIDX+4)=IY
+         STIDY = STID
+         BUFOUT(OPTRIDX+5) = STIDX
+         OPTRIDX=OPTRIDX+LENG_PACKET2
+C
+C** UPDATE SYMBOLOGY BLOCK LENGTH. INCLUDE STORM ID PACKET LENGTH.
+C
+         SYMLNG = SYMLNG + LENG_PACKET1 + LENG_PACKET2
+      ELSE
+C
+C** UPDATE SYMBOLOGY BLOCK LENGTH BUT DO NOT INCLUDE STORM ID
+C** PACKET LENGTH
+C
+         SYMLNG = SYMLNG + LENG_PACKET1
+      END IF
+C
+C** UPDATE INDEX
+C
+      NDX = OPTRIDX + 1
+C
+C** RETURN TO CALLER ROUTINE
+C
+      RETURN
+      END

@@ -1,0 +1,136 @@
+hci_nb.doc			    NOTES			   hci_nb.doc
+
+
+This file contains information about the HCI Product Distribution Comms Status
+task.  It is intended to be used by those interested in how the software is
+designed rather than by a typical user.  More detailed information about data
+stores and events used by this task is presented.
+
+Design
+------
+
+The Product Distribution Comms Status task was created as a sub task in the HCI
+family of tasks.  A typical user would normally activate it by selecting the
+"Comms" pushbutton in the USERS container or by selecting the connection between
+the RPG and USERS containers in the RPG Control/Status window.  However, as 
+stand-alone application, it can be launched from the command line using the
+"hci_nb" command or by invoking a system call in any other application wishing
+to launch it.  This modular approach has a number of benefits which are
+described in the doc file for the hci task (hci.doc).
+
+The Product Distribution Comms Status task provides functionality provided by
+the "NARROWBAND CONTROL", "RECONFIGURATION CONTROL", "VIEW CONFIGURATION",
+"DIAL-IN PORT CONTROL EDIT SCREEN", and "AUTHORIZED DIAL-IN USERS SCREEN" menus
+in the legacy UCP.  A full description can be found in the man page hci_nb(1).
+
+There is a requirement to restrict editing of certain portions of the Product
+Distribution Comms Status window to the Agency level user.  Editable fields are
+desensitized until the window is unlocked with a valid password.
+
+The Product Distribution Comms Status window cannot be resized.
+
+An advisory lock is placed on the user profiles data store ORPGDAT_USER_PROFILES
+when the window is unlocked for editing.  If another instance of the task is
+running and the user attempts to unlock the window for editing, a warning popup
+is displayed indicating the data are being edited by another user.  When the
+window is locked, the advisory lock is removed.
+
+Other than the RPG Control/Status task, this task is probably the most
+complicated HCI familt task.  Status and adaptation data which are presented
+in the windows come from a variety of sources and edits, in many cases, need
+to be applied to multiple data sources.  The major data stores affected by this
+task are ORPGDAT_USER_PROFILES and ORPGDAT_PROD_INFO.
+
+Each dedicated and dial-in line must be defined in the "comms_link.conf" and
+"user_profiles" configuration files.  An entry for each line is displayed in
+the Product Distribution Lines container.  If new lines are added, the RPG
+should be shutdown and restarted.
+
+The dial-in users list has been broken up into pages to make the display and
+updates more efficient.  Items in the dial-in list are sorted by increasing
+user ID.  The sort is done AFTER edits are saved.
+
+The timer procedure is activated in 2 second intervals.  The contents of the
+Product Distribution Comms Status window are updated under the following
+conditions:
+
+	The comms relay state changes (FAA Redundant)
+	Line info has been updated
+	User status has changed
+	
+Testing
+-------
+
+To test the full thread, a fully operational RPG needs to be running with 
+multiple dedicated and dial-in lines so that different users and classes can be
+tested.
+
+SOURCE FILES
+------------
+
+	hci_nb_main.c
+			This module contains the main function and a number of
+			other functions dealing with input/output.
+	hci_nb_funcs.c
+			This module contains a number of functions for creating
+			window objects.
+	hci_nb_gui.c
+			This module contains the GUI specific code.
+	hci_nb_def.h
+			This header file contains macro and prototype
+			definitions.
+				
++++ PROC
+
+DATA IN
+
+	ORPGDAT_REDMGR_CHAN_MSGS.4
+	ORPGDAT_ADAPT.4
+	ORPGDAT_HCI_DATA.4
+	ORPGDAT_PROD_INFO.4
+	ORPGDAT_USER_PROFILES.4
+	ORPGDAT_BASELINE_USER_PROFILES.4
+	ORPGDAT_PROD_USER_STATUS.4
+	ORPGDAT_LOAD_SHED_CAT.4
+	ORPGDAT_CM_RESPONSE.4
+
+DATA OUT
+
+	ORPGDAT_USER_PROFILES.4
+	ORPGDAT_BASELINE_USER_PROFILES.4
+	ORPGDAT_PROD_INFO.4
+	ORPGDAT_BASELINE_PROD_INFO.4
+	ORPGDAT_LOAD_SHED_CAT.4
+	
+EVENTS IN
+
+	ORPGEVT_PROD_USER_STATUS
+	ORPGEVT_PD_LINE
+	
+EVENTS OUT
+
+	ORPGEVT_HCI_COMMAND_ISSUED
+	ORPGEVT_PD_LINE
+					
+APIs USED
+
+	orpg.3
+	
+		ORPGRED.3 
+		ORPGSITE.3
+		ORPGMISC.3
+		ORPGDBM.3
+		ORPGNBC.3
+		ORPGLOAD.3
+		ORPGEDLOCK.3
+
+	hci.3
+
+---
+	
+SEE ALSO
+
+hci(1) hci_nb(1) hci(3) orpg(3) orpgred(3) orpgsite(3) orpgmisc(3)
+orpgdbm(3) orpgnbc(3) orpgload(3) orpgedlock(3)
+
+hci_prod_priority.doc				          hci_prod_priority.doc

@@ -1,0 +1,316 @@
+
+NAME
+    CSU_set_server_addr, CSU_get_service, CSU_get_cid, CSU_send_request,
+    CSU_get_response, CSU_sv_main_loop, CSU_sv_init, CSU_sv_get_request,
+    CSU_sv_send_response, CSU_sv_send_msg, CSU_wait, CSU_close,
+    CSU_get_poll_fds, CSU_add_poll_fd, CSU_set_user_id, CSU_sv_user_id
+
+SYNOPSIS
+    #include <infr.h>
+
+    typedef struct {
+	int cid;			/* connection ID */
+	int sv_id;			/* server ID */
+	int conn_n;			/* connection number */
+	int seq;			/* request/response sequence number */
+	int user_id;			/* user id */
+    } CSU_client_t;
+    
+    int CSU_set_server_addr (char *s_name, char *sv_addr, int conn_n);
+    
+    int CSU_get_service (char *s_name, char *req, int req_len, 
+				    int wait_seconds, char **resp);
+    
+    int CSU_get_cid (char *s_name);
+    
+    int CSU_send_request (int cid, char *req, int req_len);
+    
+    int CSU_get_response (int cid, char **resp, int *resp_seq);
+    
+    int CSU_sv_main_loop (char *sv_addr, 
+		    int maxn_conns, int hk_seconds,
+		    int (*proc_req_func)(char *, int, char **), 
+		    int (*housekeep_func)(void));
+    
+    int CSU_sv_init (char *sv_addr, int maxn_conns);
+    
+    int CSU_sv_get_request (int cid, CSU_client_t **client, char **req);
+    
+    int CSU_sv_send_response (CSU_client_t *client, 
+					    int msg_len, char *msg);
+    
+    int CSU_sv_send_msg (int sv_id, int conn_n, int seq, 
+					    int msg_len, char *msg);
+    
+    int CSU_wait (int wait_ms, int *type);
+    
+    int CSU_close (int id);
+    
+    int CSU_get_poll_fds (int array_size, int *fds, int *poll_flag);
+    
+    int CSU_add_poll_fd (int fd, int poll_flag, 
+			    void (*cb_func)(int fd, int ready_flag));
+    
+    int CSU_set_user_id (int cid, int user_id, char *password);
+    
+    int CSU_sv_user_id (int sv_id, int user_id, char *password);
+
+
+DESCRIPTION
+
+    The CSU (client/server utility) library module is designed for building
+    client/server type of applications. It provides both client and server side
+    functions. On the client side, CSU sends service request messages to the
+    servers and receives server response messages from them. On the server
+    side, CSU receives requests, passes them to the server's processing
+    functions and sends the responses back to the clients. CSU does not use or
+    process the messages. CSU supports connections among multiple clients and
+    servers located on different hosts. Each server supports multiple
+    connections to clients. An application can implement multiple servers as
+    well as multiple clients. The request and response messages can be of
+    arbitrary sizes. Multiple requests and responses can be pending in the
+    queues of each connection.
+
+    CSU is implemented on top of the socket interface. The socket version is
+    efficient and portable. CSU makes building reliable and portable
+    client/server type of applications easier. It builds and maintains
+    connections, manages message based asynchronous read and write operations,
+    provides security support and handles OS and network exceptions. The
+    application developer does not need any knowledge of socket programming.
+    This makes the application more portable and behaves more uniformly in
+    exceptional conditions.
+
+    In a simple synchronous client application, one sends a request to the
+    server and waits until a response is received. To build such client
+    application, one calls CSU_set_server_addr to set the server address and
+    then calls CSU_get_service to get the service. To build a simple stateless
+    server application, where requests are processed sequentially and one
+    response is generated for each request, CSU_sv_main_loop is the only CSU
+    function needed.
+
+    In a more complex asynchronous client application, the server may need to
+    maintain states for each connected client and the connection has to be
+    maintained permanently. The client may need to send requests while previous
+    requests are still being processed. The server may need to send unsolicited
+    messages to the client.
+
+    In a typical asynchronous client application, CSU_set_server_addr is called
+    to set up the server address. CSU_send_request is used for sending one or
+    more requests. CSU_wait is then called to wait for response. When any
+    response is ready, CSU_get_response is used to read the response.
+
+    In a typical asynchronous server application, CSU_sv_init is called to set
+    up the server. CSU_wait is then called to wait for request. When any
+    request is ready, CSU_sv_get_request is used to read the request. The
+    response and any unsolicited messages can be sent to the client by calling
+    CSU_sv_send_response and CSU_sv_send_msg respectively.
+
+    CSU_get_poll_fds and CSU_add_poll_fd are useful in cases of asynchronous
+    event notification or X window application.
+
+    CSU_set_user_id and CSU_sv_user_id are used for implementing secure
+    client/server applications.
+
+    The following is a detailed description of the CSU functions.
+
+    CSU_set_server_addr is a client side function. Before requesting any
+    service, the client program must call this function to register any service
+    name "s_name" and its server address "sv_addr" and a connection number
+    "conn_n". The "sv_addr" argument must be of the form of "host:port" where
+    "host" is the server's host name and "port" is the port number used for the
+    service. Name based "sv_addr" can be supported through a name/host:port
+    look-up in the future. If "sv_addr" is NULL, CSU_set_server_addr removes
+    service name "s_name". The connection number can be of any non-negative
+    value. A connection number can only be used by a single client at any given
+    time for identifying the particular client connected to the server.
+    Multiple service names can be registered by calling CSU_set_server_addr
+    multiple times. Multiple services can have the same server address and
+    connection number. However, a service can not have two different addresses
+    or the same address but different connection numbers. Argument "conn_n" may
+    take value CSU_ANY_LINK, which indicates any unused connection number
+    detected at run time. CSU_set_server_addr returns the connection ID on
+    success. The connection ID can be used for calling CSU_send_request,
+    CSU_get_response and CSU_close.
+
+    A connection is defined by (sv_addr, conn_number). CSU starts to establish
+    the connection to a server when the client sends the first request, not
+    when CSU_set_server_addr is called. If the connection cannot be established
+    immediately, CSU will retry repeatedly. This allows the client to be
+    started before the server is started. When a connection is lost, e.g.
+    disconnected by the server or closed by CSU_close, all pending requests are
+    lost. The next request will cause the connection to be re-established.
+
+    CSU uses a unique service name to identify the server connection for that
+    service. One can also use the same connection for multiple services. To
+    support this, CSU accepts multiple service names for a given server
+    connection. When multiple services share the same connection, however, all
+    service requests on the connection are put in the same queue and processed
+    sequentially. The service names are not passed to the server. The
+    application must identify the service types of each message on the same
+    connection by message contents.
+
+    CSU_get_service is the client side function that obtains service "s_name'.
+    This is the synchronous client interface, which uses the assumption that
+    one and only one response is generated by the server for each request.
+    CSU_get_service sends request "req" of length "req_len" to the server. It
+    then waits at most "wait_seconds" seconds for the response. If a response
+    is received, it is returned in "resp" and CSU_get_service returns the
+    length of the response message. If CSU_get_service fails (e.g. timed-out),
+    the service request is discarded.
+
+    CSU_get_cid returns a connection ID for service "s_name". The connection ID
+    then can be used for the argument "cid" in other CSU client side function
+    calls.
+
+    CSU_send_request returns after putting request "req" of length "req_len"
+    bytes in the request queue associated with the server connection "cid". It
+    returns a request sequence number. CSU assigns a different sequence number
+    for each request and passes it to the server. CSU does not pose a limit on
+    number of pending requests. CSU will ship queued requests to the server as
+    soon as possible. In case of connection lost, all pending requests are
+    discarded. CSU does not use the sequence number. The server typically
+    passes it back as response number when sending the response for the
+    request. The returned request sequence number can be used by the client
+    application for identifying the response. request of size 0 is allowed.
+    Such a request will cause connection to the server to be established but no
+    message is sent. CSU_send_request returns CSU_LOST_CONN is the connection
+    is detected to be lost. The next call to CSU_send_request will cause new
+    connection to be established.
+
+    CSU_get_response reads the next response message from the server through
+    connection "cid". It returns the response message length on success.
+    "resp_seq" returns a response number from the server. The response number
+    can be used to carry additional info from the server. For example, it can
+    be the sequence number of the request the response is generated for. The
+    server may choose to use CSU_SERVER_MSG as the special response number for
+    unsolicited messages. CSU_get_response returns 0 immediately if there is no
+    response available or the current response has not been completely
+    received. CSU only stores a single incoming response message. CSU will read
+    next message when the current message is read by CSU_get_response. There is
+    no way to put back the message read by CSU_get_response. CSU_get_response
+    returns CSU_LOST_CONN or CSU_SERVER_DOWN (The server is not running by the
+    time we connect to it) if the respective condition is detected.
+    CSU_SERVER_DOWN condition does not stop connection effort. When
+    CSU_LOST_CONN is returned by this function or CSU_send_request, the
+    LOST_CONN status no longer exists (The next CSU_send_request call will
+    cause new connection to be established).
+
+    CSU_sv_main_loop is a server side function for creating a simple server
+    application, which implements a single server and does not support
+    unsolicited user messages. A simple server application calls this function
+    to start its services. This function never returns. CSU_sv_main_loop
+    initializes all necessary resources and then enters in its main loop. In
+    the main loop, CSU_sv_main_loop waits for any request. When there is a
+    request, it passes it to the user's processing function "proc_req_func". It
+    then sends back the response message returned from the function to the
+    client.
+
+    CSU_sv_main_loop accepts the following arguments:
+
+	sv_addr: This server's address.
+	maxn_conns: Maximum number of client connections.
+	hk_seconds: Housekeeping period in seconds.
+	proc_req_func: Function that processes user requests.
+	housekeep_func: Housekeeping function. If it is not NULL, it is called
+			every "hk_seconds" seconds.
+
+    The two user functions have the following interface:
+
+	int proc_req_func (char *req, int req_len, char **resp);
+	int housekeep_func (void);
+
+    proc_req_func accepts a request message "req" of length "req_len",
+    processes it and returns the response message in "resp". proc_req_func is
+    responsible for allocating the space for "resp". CSU_sv_main_loop frees
+    "resp" if it is not NULL and the size of the response message is greater
+    than zero. proc_req_func returns the length of the response message on
+    success or an negative error code on failure.
+
+    housekeep_func is called periodically such that the application can perform
+    certain housekeeping functions. The return value of housekeep_func is not
+    used for the moment.
+
+    CSU_sv_init initializes a server and makes it ready to receive client
+    connection requests. All arguments are the same as those for
+    CSU_sv_main_loop. CSU_sv_init returns a server ID which can be used for
+    identify the server. For example, it can be passed as the argument to
+    CSU_close. A server can have multiple connections each of which is
+    identified by a connection ID denoted by "cid". "cid" is returned from
+    CSU_wait and used as argument "cid" for CSU_sv_get_request. Field "sv_id"
+    of the "client" argument returned from CSU_sv_get_request carries the
+    server ID that serves that client.
+
+    CSU_sv_get_request reads the next request on connection "cid" and returns
+    in "req". The function return value is the length of the request message.
+    the function, on success, also returns the info about the request message
+    in argument "client". The info includes the server ID, the connection
+    number, the sequence number of the request message and the user ID. One
+    should not modify any field in "client" except the sequence number. This
+    "client" struct will be passed to CSU_sv_send_response when sending a
+    response back to the client later. CSU_sv_get_request returns CSU_LOST_CONN
+    if the condition is detected. CSU_sv_get_request returns 0 if no request is
+    ready.
+
+    CSU_sv_send_response sends a server response, "msg", of length "msg_len" to
+    the client of "client", which must be returned from CSU_sv_get_request. The
+    "seq" field in "client" is used as the response number. It can be set to a
+    desired value before calling CSU_sv_send_response. All other fields in
+    "client" should never be changed.
+
+    CSU_sv_send_msg sends an unsolicited message, "msg", of length "msg_len"
+    and sequence number "seq" to the client on connection number conn_n and
+    serverd by server "sv_id".
+
+    CSU_sv_send_response and CSU_sv_send_msg return, on success, the number of
+    pending messages in the connection's out-going queue. The return value may
+    be used by the user, for example, to make decision for disconnecting
+    certain "bad" clients that keep sending requests but do not read responses.
+    If the connection is congested, these two function puts the message in the
+    out-going queue for the connection and returns immediately. The message
+    will be sent to the client later as soon as possible. There is no limit on
+    the number of messages in the queue. The pending messages are discarded in
+    case the connection is lost or closed.
+
+    CSU_close closes a client connection or a server connection depending on
+    "cid". It will close a server if the argument is the server ID returned
+    from CSU_sv_init. When a server is closed, all clients served by the server
+    are disconnected.
+
+    CSU_wait blocks the execution until data are ready on one of the client
+    and/or server connections and returns the connection ID. It returns the
+    type of the data that is ready, REQUEST_READY or RESPONSE_READY, in "type"
+    if it is not NULL. CSU_wait returns 0, which is not a leagal connection ID,
+    if no data is ready. CSU_wait blocks at most "wait_ms" milli-seconds. It,
+    however, may return 0 before the time is expired.
+
+    CSU_get_poll_fds returns the list of fds CSU needs to poll in "fds" and the
+    corresponding polling flags (NET_POLL_INPUT, NET_POLL_OUTPUT or their OR)
+    in "poll_flag". The return value is the number of returned entries in
+    "fds". "arrays_size" is the size of the "fds" and "poll_flag" buffers. This
+    function is useful when the application is going to call "poll" itself.
+
+    CSU_add_poll_fd lets CSU to poll an additional fd, "fd", with poll flag
+    "poll_flag". CSU_add_poll_fd can be called repeatedly to add multiple fds to
+    poll. When any of the fds is ready, the callback function "cb_func" is
+    called with the fd and its ready_flag. CSU_add_poll_fd (fd, poll_flag,
+    NULL) removed "fd" from the list of fds to be polled.
+
+    CSU_set_user_id sets/resets a user ID and a password for a connection. The
+    user ID and password will be sent to the server when the connection is
+    built. If argument "password" is "" or NULL, the password will not be set
+    or updated. The default user ID is 0 and password is none. The user ID can
+    be used for identifying the user to the server. This and the next function
+    are needed only for secure client/server applications.
+
+    CSU_sv_user_id sets the user data base for each server. It can be called
+    multiple times to set multiple users.
+
+    The CSU functions return, if not otherwise described, a negative CSU error
+    code or other negative error code generated by their underline
+    infrastructure functions in any of their failure conditions.
+
+SEE ALSO
+    css(3)
+
+NOTES
+

@@ -1,0 +1,356 @@
+C 
+C RCS info 
+C $Author: steves $ 
+C $Locker:  $ 
+C $Date: 2009/02/24 19:02:04 $ 
+C $Id: a31483.ftn,v 1.3 2009/02/24 19:02:04 steves Exp $ 
+C $Revision: 1.3 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A31483__SET_RANGE_TABLE( IPTR, HEADER, L1BNDKM,
+     1                                    RADHGTKM, RNG_TAB,
+     2                                    COSINE_ELEV )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A31483__SET_RANGE_TABLE
+*.
+*.  MODULE VERSION: 0001
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       02/24/97      0000      Steve Smith          CCR NA96-17903
+*.       03/16/99      0001      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A31483__SET_RANGE_TABLE( IPTR, HEADER,
+*.                                                  L1BNDKM, RADHGTKM,
+*.                                                  RNG_TAB, COSINE_ELEV )
+*.
+*.  MODULE FUNCTION:
+*.
+*.  MODULES CALLED: A31218__BUF_VOL, A31219__BUF_ELEV, A3CM57__VCP_ELEV 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT             TYPE        DESCRIPTION
+*.    -   -----             ----        -----------
+*.    G   SUMMARY           I*4         Volume Scan Summary Table
+*.    G   GOODBEL           I*4         (CONSTANT)Radial status flag: Good
+*.                                      beginning of elevation cut.
+*.    G   GOODBVOL          I*4         (CONSTANT)Radial status flag: Good
+*.                                      beginning of volume scan.
+*.    G   M_TO_KM           R*4         (CONSTANT)Conversion factor from
+*.                                      meters to kilometers.
+*.    G   NDOFFSET          I*4         (CONSTANT)Offset to number of Doppler
+*.                                      bins in preprocessed radial header
+*.                                      (relative 1 from beginning) in
+*.                                      halfwords.
+*.    G   NSOFFSET          I*4         (CONSTANT)Offset to number of
+*.                                      surveillance bins in preprocessed
+*.                                      radial header (relative 1 from
+*.                                      beginning) in halfwords.
+*.    G   RGFSBOFF          I*4         (CONSTANT)Offset to range to first
+*.                                      surveillance bin (in bins) in
+*.                                      preprocessed radial header (relative 1
+*.                                      from beginning).
+*.    G   RSOFFSET          I*4         (CONSTANT)Offset to radial status in
+*.                                      preprocessed radial header (relative 1
+*.                                      from beginning).
+*.    G   SCAN_VCP          I*4         (CONSTANT)Volume Coverage Pattern
+*.                                      index into Scan Summary Table
+*.    G   SIOFFSET          I*4         (CONSTANT)Offset to surveillance range
+*.                                      sample interval (meters) in
+*.                                      preprocessed radial header (relative 1
+*.                                      from beginning).
+*.    C   ADALTLIM1_L       I*4         Local copy of ADALTLIM1 (Altitude
+*.                                      limit for OMIT_ALL region)
+*.    C   ADALTLIM2_L       I*4         Local copy of ADALTLIM2 (Altitude
+*.                                      limit for ACCEPT_IF region)
+*.    C   ADDISLIM1_L       I*4         Local copy of ADDISLIM1 (Distance
+*.                                      limit for OMIT_ALL region)
+*.    C   ADDISLIM2_L       I*4         Local copy of ADDISLIM2 (Distance
+*.                                      limit for ACCEPT_IF region)
+*.    C   ADDISLIM3_L       I*4         Local copy of ADDISLIM3 (Distance
+*.                                      limit for REJECT_IF region)
+*.    C   ADELVLIM1_L       R*4         Local copy of ADELVLIM1 (Elevation
+*.                                      angle limit for ACCEPT_IF region)
+*.    C   ADELVLIM2_L       R*4         Local copy of ADELVLIM2 (Elevation
+*.                                      angle limit for REJECT_IF region)
+*.    C   ACCEPT_ALL        I*4         (CONSTANT)Index into range table for
+*.                                      start & end range of ACCEPT_ALL region
+*.    C   ACCEPT_IF         I*4         (CONSTANT)Index into range table for
+*.                                      starting and ending range of the
+*.                                      ACCEPT_IF region
+*.    C   BEG_RNG           I*4         (CONSTANT)Index into range table for
+*.                                      regions for the starting range bins
+*.                                      index
+*.    C   END_RNG           I*4         (CONSTANT)Index into range table for
+*.                                      regions for the ending range bin index
+*.    C   MAX_PRODUCT_RANGE I*4         (CONSTANT)Maximum reflectivity bin
+*.                                      number to use for layer composite
+*.                                      reflectivity - AP removed polar grid
+*.                                      generation.
+*.    C   OMIT_ALL          I*4         (CONSTANT)Index into range table for
+*.                                      the OMIT_ALL region.
+*.    C   REJECT_IF         I*4         (CONSTANT)Index into range table for
+*.                                      REJECT_IF region.
+*.    P   COSINE_ELEV       R*4         Cosine of the current elevation
+*.    P   HEADER            I*2         Base data radial header
+*.    P   IPTR              I*4         Input buffer pointer
+*.    P   L1BNDKM           R*4         TOP OF 1ST LAYER, IN KM
+*.    P   RADHGTKM          R*4         Radar height in KM
+*.    P   RNG_TAB           I*4         A table of ranges for the different
+*.                                      regions
+*.
+*.    *   OUTPUT      TYPE        DESCRIPTION
+*.    -   ------      ----        -----------
+*.    C   MAX_DOPBIN  I*4         Maximum bin number of velocity/spectrum
+*.                                width along a radial.
+*.    P   COSINE_ELEV R*4         Cosine of the current elevation
+*.    P   RNG_TAB     I*4         A table of ranges for the different regions
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    P   IPTR              I*4         Input buffer pointer
+*.
+*.  DATABASE/FILE REFERENCE: NONE
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME          TYPE        DESCRIPTION
+*.    ----          ----        -----------
+*.    CSQRT         R*4         the square root portion of the quadratic
+*.                              equation in computing the slant range
+*.    DEGTORAD      R*4         The conversion factor for degrees to radians
+*.    ELEV_DEG      R*4         Elevation Angle in degrees
+*.    ELEV_INDEX    I*4         Current elevation index
+*.    HALFDEG       R*4         Parameter of 0.5 degrees
+*.    IR            R*4         Ellipticity factor for earths curve
+*.    L1BIN_END     R*4         Last bin number in layer
+*.    L1KM_END      R*4         SLANT RANGE TO THE LAST BIN IN THE LAYER IN KM
+*.    RADIAL_END    I*4         End range of the radial for this elevation
+*.    RADIAL_START  I*4         Start range of the radial for the current
+*.                              elevation
+*.    RE            R*4         Raduis of earth in km
+*.    SAMPLE_SIZE   R*4         REFLECTIVITY SAMPLE RANGE INTERVAL IN KM
+*.    SINE_ELEV     R*4         Sine of the elevation scan angle.
+*.    SINE_ELEV_SQR R*4         The square of the sine of the elevation angle.
+*.    SLCON         R*4         EARTH CURVATURE AND INDEX OF REFRACTION HEIGHT
+*.                              CORRECTION
+*.    SLRNG_LIMIT   I*4         Slant range limit
+*.    VCP_NUMBER    I*4         Volume Coverage Pattern Number
+*.    VOL_NUMBER    I*4         Volume Scan Number
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD05
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3148C1
+*.    A3148C3
+*.
+*.  ERROR CONDITIONS: NONE.
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP07.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK07.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+      IMPLICIT NONE
+C
+$INCLUDE A309.INC/G,   **A3PM00   (NLIST)
+$INCLUDE A309.INC/G,   **A3PM02   (NLIST)
+$INCLUDE A309.INC/G,   **A3PM06   (NLIST)
+$INCLUDE A309.INC/G,   **A3PM50   (NLIST)
+$INCLUDE A309.INC/G,   **A3CD05   (NLIST)
+$INCLUDE A304.INC/G,   **A304P4   (NLIST)
+$INCLUDE A314BUF.INC/G,**A3148P2  (NLIST)
+$INCLUDE A314BUF.INC/G,**A3148P3  (NLIST)
+$INCLUDE A314BUF.INC/G,**A3148C1  (NLIST)
+$INCLUDE A314BUF.INC/G,**A3148C3  (NLIST)
+$INCLUDE A309ADPT.INC/G, **A3CD70C7 (NLIST)
+$INCLUDE A309ADPT.INC/G, **A3CD70CA (NLIST)
+C
+C*** PASSED ARGUMENTS
+C
+      INTEGER*2 HEADER(*)
+      INTEGER*4 IPTR, RNG_TAB( END_RNG, ACCEPT_ALL )
+      REAL      L1BNDKM, RADHGTKM, COSINE_ELEV
+C
+C*** LOCAL DECLARATIONS:
+C
+      INTEGER*4 A31218__BUF_VOL
+      INTEGER*4 A31219__BUF_ELEV
+      INTEGER*4 A3CM57__VCP_ELEV
+
+      REAL      SAMPLE_SIZE, ELEV_DEG, SINE_ELEV
+      REAL      SINE_ELEV_SQR, CSQRT, L1KM_END, L1BIN_END
+      INTEGER*4 VCP_NUMBER, VOL_NUMBER, ELEV_INDEX
+      INTEGER*4 RADIAL_START, RADIAL_END, SLRNG_LIMIT
+C
+C*** PARAMETERIZED DATA:
+C
+      REAL      DEGTORAD, RE, SLCON, IR, HALFDEG
+      INTEGER*4 RADSTEP, WAVE_TYPE
+      PARAMETER ( DEGTORAD = 0.01745329, RE = 6371.0 )
+      PARAMETER ( IR = 1.21, SLCON = 2.0 / ( RE * IR ) )
+      PARAMETER ( HALFDEG = 0.5 )
+      PARAMETER ( RADSTEP = 1, WAVE_TYPE = 2 )
+C
+C** GET PROGRAMMED ELEVATION ANGLE FOR THIS CUT NUMBER.  ONLY
+C** NEED TO DO AT START OF VOLUME OR ELEVATION.
+C
+      IF( HEADER( RSOFFSET ) .EQ. GOODBVOL .OR.
+     >    HEADER( RSOFFSET ) .EQ. GOODBEL ) THEN
+
+         VOL_NUMBER = A31218__BUF_VOL( IPTR )
+         VCP_NUMBER = SUMMARY ( SCAN_VCP, VOL_NUMBER )
+         ELEV_INDEX = A31219__BUF_ELEV( IPTR )
+
+         ELEV_DEG = A3CM57__VCP_ELEV( ELEV_INDEX, VCP_NUMBER )/10.0
+
+      END IF
+C
+C** GET START, END RANGE AND REFLECTIVITY SAMPLE SIZE FOR THIS
+C** RADIAL.  IT IS ASSUMED THESE VALUES DO NOT CHANGE FOR THE
+C** ELEVATION IN QUESTION.
+C
+      SAMPLE_SIZE = FLOAT( HEADER( SIOFFSET ) ) * M_TO_KM
+      RADIAL_START = HEADER( RGFSBOFF )
+      RADIAL_END = RADIAL_START + HEADER( NSOFFSET ) - 1
+      RADIAL_END = MIN( RADIAL_END, MAX_PRODUCT_RANGE )
+C
+C** BASED ON THE LAYER TOP FROM ADAPTATION DATA, CALCULATE THE LAST
+C** BIN IN THIS LAYER.
+C
+      SINE_ELEV = SIN( ( ELEV_DEG - HALFDEG ) * DEGTORAD )
+      SINE_ELEV_SQR = SINE_ELEV * SINE_ELEV
+
+      CSQRT = SINE_ELEV_SQR + ( ( L1BNDKM - RADHGTKM ) * SLCON )
+      L1KM_END = ( RE * IR ) * ( -SINE_ELEV + SQRT(CSQRT) )
+      L1BIN_END = MIN( INT( L1KM_END / SAMPLE_SIZE ), RADIAL_END )
+C
+C** INITIALIZE SOME DATA FOR CALCULATING THE START AND END RANGES FOR
+C** OMIT_ALL, ACCEPT_IF, AND REJECT_IF REGIONS.
+C
+      SINE_ELEV = SIN( ELEV_DEG * DEGTORAD )
+      SINE_ELEV_SQR = SINE_ELEV * SINE_ELEV
+      COSINE_ELEV = COS( ELEV_DEG * DEGTORAD )
+C
+C** FIRST REGION IS OMIT_ALL:
+C
+      CSQRT = SINE_ELEV_SQR + ( ADALTLIM1_L * SLCON )
+      SLRNG_LIMIT = MIN0( INT( FLOAT(ADDISLIM1_L) / COSINE_ELEV ),
+     >                    INT(L1BIN_END) )
+
+      IF ( CSQRT .GT. 0.0 ) THEN
+
+         RNG_TAB( END_RNG, OMIT_ALL ) =
+     1                RE*IR*(-SINE_ELEV + SQRT(CSQRT) )
+         IF( RNG_TAB( END_RNG, OMIT_ALL ) .GT. SLRNG_LIMIT )
+     1       RNG_TAB( END_RNG, OMIT_ALL ) = SLRNG_LIMIT
+
+      ELSE
+
+         RNG_TAB( END_RNG, OMIT_ALL ) = SLRNG_LIMIT
+
+      ENDIF
+
+      RNG_TAB( BEG_RNG, OMIT_ALL ) = RADIAL_START
+C
+C** SECOND REGION IS ACCEPT_IF:
+C
+      IF( ELEV_DEG .LE. ADELVLIM1_L ) THEN
+C
+C**      ELEVATION ANGLE IS LESS THAN OR EQUAL TO ELEVATION
+C**      THRESHOLD.  THEREFORE, THERE IS AN ACCEPT_IF REGION.
+C
+         CSQRT = SINE_ELEV_SQR + ( ADALTLIM2_L * SLCON )
+         SLRNG_LIMIT = MIN0( INT( FLOAT(ADDISLIM2_L) / COSINE_ELEV),
+     >                       INT(L1BIN_END ) )
+
+         IF ( CSQRT .GT. 0.0 ) THEN
+
+            RNG_TAB( END_RNG, ACCEPT_IF ) =
+     1               RE*IR*(-SINE_ELEV + SQRT(CSQRT) )
+
+            IF( RNG_TAB( END_RNG, ACCEPT_IF ) .GT. SLRNG_LIMIT )
+     1          RNG_TAB( END_RNG, ACCEPT_IF ) = SLRNG_LIMIT
+
+         ELSE
+
+            RNG_TAB( END_RNG, ACCEPT_IF ) = SLRNG_LIMIT
+
+         ENDIF
+
+         RNG_TAB( BEG_RNG, ACCEPT_IF ) = RNG_TAB( END_RNG, OMIT_ALL )
+     1                                   + 1
+
+      ELSE
+C
+C**      FOR ELEVATION ANGLES ABOVE ADELVLIM1_L, THERE IS NOT ACCEPT_IF
+C**      REGION.
+C
+         RNG_TAB( BEG_RNG, ACCEPT_IF ) = RNG_TAB( END_RNG, OMIT_ALL )
+     1                                   + 1
+         RNG_TAB( END_RNG, ACCEPT_IF ) = RNG_TAB( END_RNG, OMIT_ALL )
+
+      END IF
+C
+C** THIRD REGION IS REJECT_IF:
+C
+      IF( ELEV_DEG .LE. ADELVLIM2_L ) THEN
+C
+C**      ELEVATION ANGLE IS LESS THAN OR EQUAL TO ELEVATION
+C**      THRESHOLD.  THEREFORE, THERE IS AN REJECT_IF REGION.
+C
+         SLRNG_LIMIT = MIN0( INT( FLOAT(ADDISLIM3_L) / COSINE_ELEV),
+     >                       INT(L1BIN_END) )
+         RNG_TAB( END_RNG, REJECT_IF ) = SLRNG_LIMIT
+
+         RNG_TAB( BEG_RNG, REJECT_IF ) = RNG_TAB( END_RNG, ACCEPT_IF )
+     1                                   + 1
+
+      ELSE
+C
+C**      THERE IS NOT REJECT_IF REGIONS DEFINED FOR THIS ELEVATION CUT.
+C
+         RNG_TAB( BEG_RNG, REJECT_IF ) = RNG_TAB( END_RNG, ACCEPT_IF )
+     1                                   + 1
+         RNG_TAB( END_RNG, REJECT_IF ) = RNG_TAB( END_RNG, ACCEPT_IF )
+
+      END IF
+C
+C** FOURTH REGION IS ACCEPT_ALL
+C
+      RNG_TAB( BEG_RNG, ACCEPT_ALL ) = RNG_TAB( END_RNG, REJECT_IF )
+     1                                 + 1
+      RNG_TAB( END_RNG, ACCEPT_ALL ) = L1BIN_END
+C
+C** CALCULATE THE MAXIMUM DOPPLER BIN NUMBER.
+C
+      MAX_DOPBIN = HEADER( NDOFFSET )
+
+      IF( MAX_DOPBIN .GT. MAX_PROC_BINS )
+     1    MAX_DOPBIN = MAX_PROC_BINS
+C
+C** RETURN TO CALLING ROUTINE
+C
+      RETURN
+      END

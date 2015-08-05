@@ -1,0 +1,389 @@
+C 
+C RCS info 
+C $Author: steves $ 
+C $Locker:  $ 
+C $Date: 2011/05/06 16:00:30 $ 
+C $Id: a314d3.ftn,v 1.9 2011/05/06 16:00:30 steves Exp $ 
+C $Revision: 1.9 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A314D3__ECHO_TOPS_HEADER(ETPAR,ET_BUF,IPTR,
+     1                                    ETINDX,CDATE,CTIME)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A314D3__ECHO_TOPS_HEADER
+*.
+*.  MODULE VERSION: 0013
+*.
+*.  MODULE LANGUAGE:  FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       04 15 85      0000      Ze'ev Rivlin
+*.       01 30 87      0001      Bradley Sutker       SPR # 70069
+*.       08 24 88      0002      STEVE ANDERSON       SPR # 80248
+*.       02 14 91      0003      BRADLEY SUTKER       SPR # 91255
+*.       12 03 91      0004      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0005      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0006      Toolset              SPR 91895
+*.       03/25/93      0007      Toolset              SPR NA93-06801
+*.       01/28/94      0008      Toolset              SPR NA94-01101
+*.       03/03/94      0009      Toolset              SPR NA94-05501
+*.       04/01/95      0010      Toolset              CCR NA95-11802
+*.       06/02/95      0011      R. RIERSON           CCR NA94-35301
+*.       12/23/96      0012      Toolset              CCR NA95-11807
+*.       03/16/99      0013      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:
+*.    CALL A314D3__ECHO_TOPS_HEADER(ETPAR,ET_BUF,IPTR,
+*.                                        ETINDX,CDATE,CTIME)
+*.  (Echo tops parameter array address, echo tops product
+*.  output buffer pointer, input buffer pointer)
+*.
+*.  MODULE FUNCTION:
+*.
+*.     This module sets all the header fields in the Echo Tops
+*.     Product, i.e. - everything in the product except for the
+*.     actual run-length encoding and the product length and any
+*.     other fields that can be determined only at the end.
+*.
+*.  MODULES CALLED: A31218__BUF_VOL 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT          TYPE        DESCRIPTION
+*.    -   -----          ----        -----------
+*.    G   SIRDAHGT       I*4         Site Adaptation - RDA Height.
+*.    G   SIRDALAT       I*4         Site Adaptation - RDA Latitude.
+*.    G   SIRDALON       I*4         Site Adaptation - RDA Longitude.
+*.    G   SIRPGID        I*4         Site Adaptation - RPG ID Number.
+*.    G   SUMMARY        I*4         Volume Scan Summary Table
+*.    G   THRESH         I*2         Adaptation Data for Color Data Table
+*.                                   Thresholds (color-level code, color table
+*.                                   number).
+*.    G   BLKOVRHD       I*4         (CONSTANT)SIZE OF OVERHEAD PORTION OF
+*.                                   PRODUCT SYMBOLOGY BLOCK, IN BYTES
+*.    G   BLOCKIDOFF     I*4         (CONSTANT)Product block ID offset.
+*.    G   DIV1OFF        I*4         (CONSTANT)Product header offset: First
+*.                                   divider.
+*.    G   DIV2OFF        I*4         (CONSTANT)Product block offset: Second
+*.                                   divider.
+*.    G   DL1OFF         I*4         (CONSTANT)Product header offset: data
+*.                                   level 1.
+*.    G   FLAGSOF1       I*4         (CONSTANT)Display header offset (for
+*.                                   raster formatted products): first
+*.                                   opcode/flags offset.
+*.    G   FLAGSOF2       I*4         (CONSTANT)Display header offset (for
+*.                                   raster formatted products):seconds
+*.                                   opcod/flags offset.
+*.    G   FLAGSOF3       I*4         (CONSTANT)Display header offset (for
+*.                                   raster formatted products):Third
+*.                                   opcode/flags offset.
+*.    G   GDPRDOFF       I*4         (CONSTANT)Product header offset:
+*.                                   generation date of product.
+*.    G   GTLSWOFF       I*4         (CONSTANT)Product header
+*.                                   offset:Generation time of product (LSW).
+*.    G   GTMSWOFF       I*4         (CONSTANT)Product header offset.
+*.                                   Generation time of product (MSW).
+*.    G   LNLSWOFF       I*4         (CONSTANT)Product header offset:
+*.                                   Longitude of radar (LSW).
+*.    G   LNMSWOFF       I*4         (CONSTANT)Product header offset:
+*.                                   Longitude of radar (MSW).
+*.    G   LTLSWOFF       I*4         (CONSTANT)Product header offset: Latitude
+*.                                   of radar (LSW).
+*.    G   LTMSWOFF       I*4         (CONSTANT)Product header offset: Latitude
+*.                                   of radar (MSW)
+*.    G   LYRDIVOFF      I*4         (CONSTANT)PRODUCT BLOCK OFFSET: LAYER
+*.                                   DIVIDER
+*.    G   MDL1OFF        I*4         (CONSTANT)Product header offset: Maximum
+*.                                   Data Level 1.
+*.    G   MESCDOFF       I*4         (CONSTANT)Product header offset: Message
+*.                                   code.
+*.    G   NBLKSOFF       I*4         (CONSTANT)Product header offset: Number
+*.                                   of blocks in product.
+*.    G   NCOL           I*4         (CONSTANT)Number of analysis box columns.
+*.    G   NETSIZ         I*4         (CONSTANT)Size of the ECHO TOPS
+*.                                   supplemental variable array.
+*.    G   NLYROFF        I*4         (CONSTANT)Product block offsets: Number
+*.                                   of layers.
+*.    G   NMAPSOFF       I*4         (CONSTANT)Product header offset
+*.                                   descriptions: Number of maps.
+*.    G   NROW           I*4         (CONSTANT)Number of analysis box rows.
+*.    G   NRWSOFF        I*4         (CONSTANT)Display header offset (For
+*.                                   raster formatted products): Number of
+*.                                   rows offset.
+*.    G   OMET           I*4         (CONSTANT)The pointer into the ECHO TOPS
+*.                                   supplemental variable array to height.
+*.    G   OPRLSWOFF      I*4         (CONSTANT)Product header offset
+*.                                   descriptions: Offset to product length
+*.                                   (LSW)
+*.    G   OPRMSWOFF      I*4         (CONSTANT)Product header offset
+*.                                   descriptions: Offset to product length
+*.                                   (MSW)
+*.    G   PACKDESC       I*4         (CONSTANT)Display header offset (For
+*.                                   raster formatted products): Packing
+*.                                   descriptor offset.
+*.    G   PHEADLNG       I*4         (CONSTANT)Number of half words in product
+*.                                   header (its length).
+*.    G   PRDCODOFF      I*4         (CONSTANT)Product header offset
+*.                                   descriptions: Product code.
+*.    G   RADHGTOFF      I*4         (CONSTANT)Product header offset
+*.                                   descriptions: Height of radar.
+*.    G   RASFLG1        I*4         (CONSTANT)Raster flag for first word in
+*.                                   raster header.
+*.    G   RASFLG2        I*4         (CONSTANT)Raster flag for second word in
+*.                                   raster header.
+*.    G   RASFLG3        I*4         (CONSTANT)Raster flag for third word in
+*.                                   raster header.
+*.    G   RASTER_HEADER  I*4         (CONSTANT)Number of half words in raster
+*.                                   packet header.
+*.    G   RAS_PACK_DES   I*4         (CONSTANT)Preset to raster packing
+*.                                   description.
+*.    G   SBON           I*2         (CONSTANT)Spot Blanking flag indicating
+*.                                   it is enabled in product
+*.    G   SCAN_DATE      I*4         (CONSTANT)Volume Scan Date index into
+*.                                   Scan Summary Table
+*.    G   SCAN_MODE      I*4         (CONSTANT)Weather Mode index into Scan
+*.                                   Summary Table
+*.    G   SCAN_SB        I*4         (CONSTANT)Spot Blanking Flag index into
+*.                                   Volume Scan Summary Table
+*.    G   SCAN_TIME      I*4         (CONSTANT)Volume Scan Time index into
+*.                                   Scan Summary Table
+*.    G   SCAN_VCP       I*4         (CONSTANT)Volume Coverage Pattern index
+*.                                   into Scan Summary Table
+*.    G   SRCIDOFF       I*4         (CONSTANT)Product header offset: Source
+*.                                   ID-Number.
+*.    G   VCPOFF         I*4         (CONSTANT)Product header offset:  Volume
+*.                                   coverage pattern.
+*.    G   VOL_SPOT_BLANK I*2         (CONSTANT)Spot Blank field in Scan
+*.                                   Summary table definition
+*.    G   VSDATOFF       I*4         (CONSTANT)Product header offset: Volume
+*.                                   scan date.
+*.    G   VSNUMOFF       I*4         (CONSTANT)Product header offset
+*.                                   descriptions: Volume scan number.
+*.    G   VSTLSWOFF      I*4         (CONSTANT)Product header offset: Volume
+*.                                   scan time (LSW).
+*.    G   VSTMSWOFF      I*4         (CONSTANT)Product header offset:  Volume
+*.                                   scan time (MSW).
+*.    G   WTMODOFF       I*4         (CONSTANT)Product header offset:  Weather
+*.                                   mode.
+*.    G   XSCFACINT      I*4         (CONSTANT)Display header offset (For
+*.                                   raster formatted products): X Scale
+*.                                   factor integer.
+*.    G   YSCFACINT      I*4         (CONSTANT)Display header offset (For
+*.                                   raster formatted products): Y Scale
+*.                                   factor integer.
+*.    P   CDATE          I*4         CURRENT JULIAN DATE
+*.    P   CTIME          I*4         SECONDS SINCE MIDNIGHT
+*.    P   ETINDX         I*4         Echo tops color thresh table index.
+*.    P   ETPAR          I*4         Echo Tops Parameter Array
+*.    P   IPTR           I*4         Input buffer pointer.
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    P   ET_BUF  I*2         Echo Tops Product Output Buffer
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    P   IPTR              I*4         Input buffer pointer.
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME              TYPE        DESCRIPTION
+*.    ----              ----        -----------
+*.    DIVIDER           I*2         Parameter used to seperate the blocks in
+*.                                  the product
+*.    ETSIZ             I*4         Echo Tops product SIZe in i*2 words - used
+*.                                  to dimension ET_BUF to 50% of worst case
+*.                                  size
+*.    ET_CODE           I*2         Message code for echo tops product.
+*.    IDX               I*4         Loop control variable.
+*.    INIT_VAL          I*2         parameter used to initialize header fields
+*.    LEVEL16           I*4         16; there are 16 data threshold values
+*.    MAX_ROUND         I*4         used to "ROUND" off the echo tops product
+*.                                  size to 50% of maximum size. It's equal to
+*.                                  2, and we divide by it when calculating
+*.                                  ETSIZ
+*.    NRLEW1            I*4         i*2 word to store Number of Run Length
+*.                                  Encoded Words for each row. used to
+*.                                  calculate ETSIZ.
+*.    NUMLYRS           I*2         NUMber of LaYeRS = 1 for echo tops product
+*.    NUM_BLOCKS        I*2         Number of blocks in echo tops product
+*.    PROD_CODE         I*2         Product CODE value assigned to BLOCK_ID to
+*.                                  signify product block.
+*.    RUNS_PERI2        I*4         number of RUNS PER I*2 word of echo tops
+*.                                  product buffer, = 2 since the run
+*.                                  information can be stored in 1 byte. used
+*.                                  to calculate ETSIZ
+*.    SCALE_FAC         I*2         scale factor
+*.    TOTAL_HEADER_INFO I*4         Total number of header fields in product,
+*.                                  i.e.- everything except the actual
+*.                                  run-length encoded data.
+*.    VOLNO             I*4         Volume scan number.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD05
+*.    COLRTBL
+*.    SITEADP
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK14.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+
+
+      IMPLICIT NONE
+
+C* Include predecessor task output buffer definition:
+$INCLUDE A313BUF.INC/G,**A313P0 (NEND NLIST)
+
+C* include product offsets:
+$INCLUDE A309.INC/G,**A3PM00 (NEND NLIST)
+$INCLUDE            **A3PM01 (NEND NLIST)
+$INCLUDE            **A3PM04 (NEND NLIST)
+$INCLUDE            **A3PM06 (NEND NLIST)
+$INCLUDE            **A3CD05 (NEND NLIST)
+C* include site adaptation data definitions:
+$INCLUDE A309ADPT.INC/G,**A3CD70CA (NEND NLIST)
+
+C* include color tables' definitions:
+$INCLUDE A309ADPT.INC/G,**A3CD70C5 (NEND NLIST)
+
+
+      INTEGER*4 RUNS_PERI2,NRLEW1,MAX_ROUND,IPTR,
+     1          A31218__BUF_VOL,CDATE,CTIME,VOLNO,
+     2          LEVEL16
+
+      PARAMETER(RUNS_PERI2=2,NRLEW1=1,MAX_ROUND=2)
+
+      INTEGER*4 ETSIZ,ETINDX,SAM,IDX,TOTAL_HEADER_INFO
+
+
+      PARAMETER(LEVEL16=16,SAM=2)
+      PARAMETER(TOTAL_HEADER_INFO=PHEADLNG+BLKOVRHD/2+RASTER_HEADER)
+
+      PARAMETER(ETSIZ=(NROW*(NCOL/RUNS_PERI2+NRLEW1))
+     1          / MAX_ROUND + TOTAL_HEADER_INFO)
+C ***** ABOVE:  calculating echo tops product length in I*2 words -
+C *****         assuming 50% of worst case length (all runs of size 1)
+
+
+      INTEGER*2 ET_BUF(ETSIZ),ET_CODE,NUM_BLOCKS,DIVIDER,
+     1          ALL_ONES,SCALE_FAC,INIT_VAL,PROD_CODE,NUMLYRS,
+     >          PARAM_30
+
+      PARAMETER(ET_CODE=41,NUM_BLOCKS=3,DIVIDER=-1,
+     1          ALL_ONES=X'FFFF',SCALE_FAC=4,
+     2          INIT_VAL=0,PROD_CODE=1,NUMLYRS=1)
+
+      INTEGER*4 ETPAR(NETSIZ)
+
+      LOGICAL OS32BTESTS
+
+
+
+C initialize product header to zeros:
+
+      DO 101 IDX=1,TOTAL_HEADER_INFO
+         ET_BUF(IDX) = INIT_VAL
+ 101  CONTINUE
+
+
+C* assign values to product header:
+
+
+C** get volume scan number:
+      VOLNO = A31218__BUF_VOL(IPTR)
+
+C** header block:
+      ET_BUF(MESCDOFF) = ET_CODE
+      ET_BUF(SRCIDOFF) = SIRPGID
+      ET_BUF(NBLKSOFF) = NUM_BLOCKS
+
+C** product description block:
+      ET_BUF(DIV1OFF) = DIVIDER
+      call RPG_set_product_int( ET_BUF(LTMSWOFF), SIRDALAT )
+      call RPG_set_product_int ( ET_BUF(LNMSWOFF), SIRDALON )
+      ET_BUF(RADHGTOFF) = SIRDAHGT
+      ET_BUF(PRDCODOFF) = ET_CODE
+      ET_BUF(WTMODOFF) = SUMMARY(SCAN_MODE,VOLNO)
+      ET_BUF(VSNUMOFF) = VOLNO
+      ET_BUF(VSDATOFF) = SUMMARY(SCAN_DATE,VOLNO)
+      call RPG_set_product_int( ET_BUF(VSTMSWOFF), 
+     1                          SUMMARY(SCAN_TIME,VOLNO) )
+
+C** Store the Volume Coverage Pattern:
+      ET_BUF(VCPOFF) = SUMMARY(SCAN_VCP,VOLNO)
+
+C*** store the generation date of product:
+      ET_BUF(GDPRDOFF) = CDATE
+
+C*** store the generation time of product:
+      call RPG_set_product_int( ET_BUF(GTMSWOFF), CTIME )
+C
+C**** SET SPOT BLANK STATUS
+C
+      IF (OS32BTESTS(SUMMARY(SCAN_SB,VOLNO),VOL_SPOT_BLANK))
+     >    ET_BUF(NMAPSOFF)= SBON
+C
+C**** top elevation if AVSET active
+C
+      CALL RPG_avset_last_elev(SUMMARY(SCAN_DATE,VOLNO), PARAM_30)
+      ET_BUF(EAZALOFF) = PARAM_30
+
+C*** to display color threshold values:
+      DO 102 IDX=1,LEVEL16
+         ET_BUF(DL1OFF+IDX-1) = THRESH(IDX,ETINDX)
+ 102  CONTINUE
+
+      IF( ETPAR(OMET) .GT. 0 ) THEN
+         ET_BUF(MDL1OFF) = ETPAR(OMET) - 1
+      ELSE
+         ET_BUF(MDL1OFF) = 0
+      ENDIF
+
+      call RPG_set_product_int( ET_BUF(OPRMSWOFF), PHEADLNG )
+
+
+C ** product symbology block:
+      ET_BUF(DIV2OFF) = DIVIDER
+      ET_BUF(BLOCKIDOFF) = PROD_CODE
+      ET_BUF(NLYROFF) = NUMLYRS
+      ET_BUF(LYRDIVOFF) = DIVIDER
+
+C *** raster data header:
+
+      ET_BUF(NRWSOFF) = NROW
+      ET_BUF(FLAGSOF1)=RASFLG1
+      ET_BUF(FLAGSOF2)=RASFLG2
+      ET_BUF(FLAGSOF3)=RASFLG3
+      ET_BUF(PACKDESC)=RAS_PACK_DES
+      ET_BUF(XSCFACINT)=SCALE_FAC
+      ET_BUF(YSCFACINT)=SCALE_FAC
+
+C return to buffer control routine:
+
+      RETURN
+      END

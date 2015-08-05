@@ -1,0 +1,346 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/17 18:26:36 $
+C $Id: a3187b.ftn,v 1.3 2002/12/17 18:26:36 christie Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A3187B__NYQUIST(VAD_DATA_AR,VAD_DATA_HTS,BPTR,VADBUF)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3187B__NYQUIST
+*.
+*.  MODULE VERSION: 0013
+*.
+*.  MODULE LANGUAGE:  FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       10 17 89      0000      BILL EIDSON          SPR # 80273
+*.       01 10 90      0001      STACY RONALD         SPR # 90303
+*.       07 30 90      0002      JO STALEY            SPR # 90870
+*.       11 07 90      0003      CHARLIE BAUMHER      SPR # 91259
+*.       10 22 91      0004      EDWARD WENDOWSKI     SPR # 92410
+*.       12 03 91      0005      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0006      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0007      Toolset              SPR 91895
+*.       03/25/93      0008      Toolset              SPR NA93-06801
+*.       01/28/94      0009      Toolset              SPR NA94-01101
+*.       03/03/94      0010      Toolset              SPR NA94-05501
+*.       04/11/96      0011      Toolset              CCR NA95-11802
+*.       12/23/96      0012      Toolset              CCR NA95-11807
+*.       03/16/99      0013      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A3187B__NYQUIST(VAD_DATA_AR,VAD_DATA_HTS,
+*.                                         BPTR,VADBUF)
+*.
+*.  MODULE FUNCTION:
+*.
+*.       THIS MODULE PLOTS A LINE FOR EACH NYQUIST VELOCITY REGION
+*.    DETECTED.  CURRENT SYSTEM LIMITATIONS ARE 3 POSSIBLE REGIONS
+*.    PER VOLUME COVERAGE PATTERN.
+*.
+*.  MODULES CALLED: A31875__COUNLV_PKT 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT        TYPE        DESCRIPTION
+*.    -   -----        ----        -----------
+*.    G   MPS_TO_KTS   R*4         (CONSTANT)SCALING FACTOR FOR METERS PER
+*.                                 SECOND TO KNOTS
+*.    G   VAD_ARL      I*4         (CONSTANT)Index into VAD Data Ambiguous
+*.                                 Range Table for the Actual Ambiguous Range
+*.                                 Limit.
+*.    G   VAD_ARP      I*4         (CONSTANT)Index into VAD Data height array
+*.                                 for the Ambiguous Range.
+*.    G   VAD_ART      I*4         (CONSTANT)Index into VAD Ambiguous Range
+*.                                 Table for the Actual Ambiguous Range.
+*.    C   HTIDX        I*4         Index into VAD altitude table of the
+*.                                 current requested height.
+*.    C   PPKT         R*4         Number of pixels per knot.
+*.    C   AZ0PIX       R*4         (CONSTANT)Zero degree azimuth position in
+*.                                 screen coordinates.
+*.    C   PPDEG        R*4         (CONSTANT)Number of pixels per degree.
+*.    C   VEL0PIX      R*4         (CONSTANT)Zero knots velocity position in
+*.                                 screen coordinates.
+*.    C   XMAX         R*4         (CONSTANT)Maximum screen coordinate of
+*.                                 X-axis.
+*.    C   XMIN         R*4         (CONSTANT)Minimum screen coordinate of
+*.                                 X-axis.
+*.    C   YMAX         R*4         (CONSTANT)Maximum screen coordinate of
+*.                                 Y-axis.
+*.    P   AZIMUTHS     R*4         Offset into AZPIX for azimuth pixel
+*.                                 coordinates.
+*.    P   BPTR         I*4         OUTPUT BUFFER POINTER
+*.    P   VADBUF       I*2         OUTPUT BUFFER SIZE (*)
+*.    P   VAD_DATA_AR  R*4         Array containing NYQUIST velocity region
+*.                                 data by height, size VAD_AR_PARAMS by
+*.                                 MAX_VAD_HTS.
+*.    P   VAD_DATA_HTS R*4         Table of height based VAD algorithm data.
+*.    P   VELOCTY      R*4         Used as an index for the VELPIX array.
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    P   BPTR    I*4         OUTPUT BUFFER POINTER
+*.    P   VADBUF  I*2         OUTPUT BUFFER SIZE (*)
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    P   BPTR              I*4         OUTPUT BUFFER POINTER
+*.    P   VADBUF            I*2         OUTPUT BUFFER SIZE (*)
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME    TYPE        DESCRIPTION
+*.    ----    ----        -----------
+*.    AZ1     R*4         EXTRACTED AZIMUTH VALUE
+*.    AZ2     R*4         SECOND EXTRACTED AZIMUTH VALUE
+*.    BASEAZ  R*4         SAVED INITIAL AZIMUTH VALUE
+*.    BY100   R*4         SCALE FACTOR OF 100
+*.    BYTEN   R*4         SCALE FACTOR
+*.    COLOR   I*4         COLOR PASSED TO A31875 TO PLOT VALUES.
+*.    NEW     L*4         LOGICAL VALUE INDICATING NEW VECTOR
+*.    NPTS    I*4         EXTRACTED NUMBER OF NYQUIST REGIONS TO DRAW
+*.    NYQUIST I*2         NYQUIST VELOCITY COLOR ON GRID.
+*.    POINT2  I*4         (Constant) Used as lower index in do loop.
+*.    PT      I*4         LOOP CONTROL VALUE
+*.    VEL1    R*4         EXTRACTED NYQUIST VELOCITY FOR THE CURRENT VELOCITY
+*.                        REGION
+*.    X1      R*4         Pixel coordinate of first extracted azimuth value.
+*.    X2      R*4         Pixel coordinate of second extracted azimuth value.
+*.    YN      R*4         NEGATIVE VELOCITY COORDINATE IN SCREEN COORDINATES
+*.    YP      R*4         POSITIVE VELOCITY COORDINATE
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A318C7
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  NONE
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP18.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK18.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+C
+C*** INCLUDE FILES DEFINING LOCAL AND GLOBAL COMMON DATA.
+C
+$INCLUDE A309.INC/G,**A3PM50 (NLIST)
+$INCLUDE A309ADPT.INC/G,**A3CD70C7 (NLIST)
+$INCLUDE A317BUF.INC/G,**A317VP (NLIST)
+$INCLUDE **A317VD (NLIST)
+$INCLUDE A318.INC,**A318C7 (NLIST)
+C
+C*** LOCAL DEFINITIONS FOR THIS MODULE.
+C
+      INTEGER BPTR, NPTS, PT, COLOR
+      REAL AMBIG, AZLIM, BYTEN, X1, X2, BASEAZ, VEL1, AZ1, AZ2
+      REAL AZPIX, VELPIX, AZIMUTHS, VELOCTY, YN, YP
+      REAL BY100
+      LOGICAL NEW
+      PARAMETER (BYTEN = 10.0,BY100 = 100.0)
+      INTEGER POINT2
+      PARAMETER(POINT2=2)
+      INTEGER*2 VADBUF(*)
+C
+X     LOGICAL PRINTED
+X     DATA PRINTED /.FALSE./
+C
+C*** STATEMENT FUNCTIONS CONVERTING REAL GEOMETERIC POINTS TO PIXEL
+C*** COORDINATES.
+C
+      AZPIX(AZIMUTHS) = AZ0PIX + AZIMUTHS*PPDEG
+      VELPIX(VELOCTY) = VEL0PIX - VELOCTY*PPKT*MPS_TO_KTS
+C
+X     IF (.NOT. PRINTED) THEN
+X     WRITE(14,*)'A3187B: VALUES IN CALCULATION LINE 202 '
+X     WRITE(14,*)'VELPIX(VELOCTY) = VEL0PIX-VELOCTY*PPKT*MPS_TO_KTS '
+X     WRITE(14,*)'VEL0PIX EQUALS ',VEL0PIX
+X     WRITE(14,*)'VELOCTY EQUALS ',VELOCTY
+X     WRITE(14,*)'PPKT EQUALS ',PPKT
+X     WRITE(14,*)'MPS_TO_KTS EQUALS ',MPS_TO_KTS
+X     WRITE(14,*)'A3187B: RESULTS OF CALCULATION ',VELPIX(VELOCTY)
+X     PRINTED = .TRUE.
+X     ENDIF
+C
+C* EXECUTABLE CODE FOLLOWS:
+C*
+X     TYPE *,'7B: ENTERED HERE....',BPTR
+C
+C* INITIALIZE THE NYQUIST VELOCITY COLOR AND VECTOR LINK FLAG.
+C
+      COLOR = NYQUIST
+      NEW = .TRUE.
+C
+C* EXTRACT FROM THE VADTMHGT BUFFER, THE NUMBER OF DIFFERENT NYQUIST
+C* VELOCITYS, THE AZIMUTHIAL STARTING EDGE, AND VALUE IN SCALED
+C* METERS PER SECONDS.
+C
+      NPTS = VAD_DATA_HTS(VAD_ARP,HTIDX)
+      AZ1 = VAD_DATA_AR(VAD_ARL,1,HTIDX)/BYTEN
+      VEL1= VAD_DATA_AR(VAD_ART,1,HTIDX) / BY100
+X     TYPE *,'7B: INITIAL VEL1 = ',VEL1
+C
+C* SAVE THE STARTING AZIMUTH ANGLE.
+C
+      BASEAZ = AZ1
+C
+C* BASED UPON NUMKBER OF DIFFERENT NYQUIST VELOCITIES, PROCESS FOR
+C* EITHER 1 OR MORE POINTS (UP TO 3)
+C
+      IF (NPTS .GT. 1) THEN
+C
+C* 2 OR MORE VELOCITIES PRESENT. THIS MEANS THE CURRENT OPERATIONAL
+C* VOLUME COVERAGE PATTERN HAS SECTORIZED PRF VALUES.  THIS IS TAKEN
+C* INTO ACCOUNT HERE.
+C
+       DO 1000 PT=POINT2, NPTS, 1
+C
+C*** FOR EACH NYQUIST VELOCITY REGION, WE MUST DRAW A POSITIVE AND
+C*** NEGATIVE LINE SEGMENT.  THEN, MOVE ONTO THE NEXT SEGMENT.
+C*** FINALLY DRAW LAST SEGMENT FROM LAST RECIVED TO BASE AZIMUTH
+C
+         AZ2   = VAD_DATA_AR(VAD_ARL,PT,HTIDX)/BYTEN
+         X1 = AZPIX( AZ1 )
+         X2 = AZPIX( AZ2 )
+         YP = VELPIX( VEL1 )
+         YN = VELPIX( -1.0*VEL1 )
+X        TYPE *,'7B: YN = ',YN,' WITHIN DO 1000 LOOP '
+C
+C*** ONLY DISPLAY THE NYQUIST IF IT LIES WITHIN THE VELOCITY DOMAIN
+C
+         IF (YN .LT. YMAX) THEN
+X          TYPE *,'7B: YN LT YMAX WITHIN 1000 LOOP '
+C
+C*** WHEN AZ2 > AZ1 THEN THE LINE SEGMENT IS A NORMAL LINE BETWEEN
+C*** POSTIVE ADVANCING AZIMUTHS.
+C
+           IF (AZ2 .GT. AZ1) THEN
+C$DELETE
+             CALL A31875__COUNLV(NEW,X1,YP,X2,YP,COLOR,BPTR,VADBUF)
+             CALL A31875__COUNLV(NEW,X1,YN,X2,YN,COLOR,BPTR,VADBUF)
+           ELSE
+C
+C*** OTHERWISE, THE LINE SEGMENT WRAPS AROUND THE 360/0 DEGREE MARK
+C
+             CALL A31875__COUNLV(NEW,X1,YP,XMAX,YP,COLOR,BPTR,VADBUF)
+             CALL A31875__COUNLV(NEW,X1,YN,XMAX,YN,COLOR,BPTR,VADBUF)
+             CALL A31875__COUNLV(NEW,XMIN,YP,X2,YP,COLOR,BPTR,VADBUF)
+             CALL A31875__COUNLV(NEW,XMIN,YN,X2,YN,COLOR,BPTR,VADBUF)
+C$ENDDELETE
+C$INSERT             CALL A31875__COUNLV_PKT(NEW,X1,YP,X2,YP,COLOR,BPTR,
+C$INSERT     +                               VADBUF)
+C$INSERT             CALL A31875__COUNLV_PKT(NEW,X1,YN,X2,YN,COLOR,BPTR,
+C$INSERT     +                               VADBUF)
+C$INSERT           ELSE
+C
+C*** OTHERWISE, THE LINE SEGMENT WRAPS AROUND THE 360/0 DEGREE MARK
+C
+C$INSERT             CALL A31875__COUNLV_PKT(NEW,X1,YP,XMAX,YP,COLOR,BPTR,
+C$INSERT     +                               VADBUF)
+C$INSERT             CALL A31875__COUNLV_PKT(NEW,X1,YN,XMAX,YN,COLOR,BPTR,
+C$INSERT     +                               VADBUF)
+C$INSERT             CALL A31875__COUNLV_PKT(NEW,XMIN,YP,X2,YP,COLOR,BPTR,
+C$INSERT     +                               VADBUF)
+C$INSERT             CALL A31875__COUNLV_PKT(NEW,XMIN,YN,X2,YN,COLOR,BPTR,
+C$INSERT     +                               VADBUF)
+           ENDIF
+C
+         END IF
+C
+C*** SET UP FOR NEXT NYQUIST REGION
+C
+         AZ1 = AZ2
+         VEL1= VAD_DATA_AR(VAD_ART, PT, HTIDX) / BY100
+X        TYPE *,'7B: VEL1 WITHIN 1000 LOOP = ',VEL1
+ 1000  CONTINUE
+C
+X      TYPE *,'7B: DID 1000 LOOP ',PT-POINT2,' TIMES '
+      ENDIF
+C
+C*** SET UP VALUES FOR LAST OR ONLY 1 REGION
+C
+      X1 = AZPIX( AZ1 )
+      X2 = AZPIX( BASEAZ )
+      YP = VELPIX( VEL1 )
+      YN = VELPIX( -1.0*VEL1 )
+X     TYPE *,'7B: YN = ',YN
+C
+C*** ONLY DISPLAY THE NYQUIST IF IT LIES WITHIN THE VELOCITY DOMAIN
+C
+      IF (YN .LT. YMAX) THEN
+X       TYPE *,'7B: YN LT YMAX '
+C
+C*** IF BASE AZIMUTH IS DIFFERENT THAN THE CURRENT AZ1 VALUE, THEN
+C*** COMPLETE THE LAST REGION, MAKING SURE TO OVERLAP 0/360 IF NEEDED
+C
+        IF (BASEAZ .NE. AZ1) THEN
+           IF (AZ1 .LT. BASEAZ) THEN
+C$DELETE
+             CALL A31875__COUNLV(NEW,X1,YP,X2,YP,COLOR,BPTR,VADBUF)
+             CALL A31875__COUNLV(NEW,X1,YN,X2,YN,COLOR,BPTR,VADBUF)
+           ELSE
+             CALL A31875__COUNLV(NEW,X1,YP,XMAX,YP,COLOR,BPTR,VADBUF)
+             CALL A31875__COUNLV(NEW,X1,YN,XMAX,YN,COLOR,BPTR,VADBUF)
+             CALL A31875__COUNLV(NEW,XMIN,YP,X2,YP,COLOR,BPTR,VADBUF)
+             CALL A31875__COUNLV(NEW,XMIN,YN,X2,YN,COLOR,BPTR,VADBUF)
+C$ENDDELETE
+C$INSERT             CALL A31875__COUNLV_PKT(NEW,X1,YP,X2,YP,COLOR,BPTR,
+C$INSERT     +                               VADBUF)
+C$INSERT             CALL A31875__COUNLV_PKT(NEW,X1,YN,X2,YN,COLOR,BPTR,
+C$INSERT     +                               VADBUF)
+C$INSERT           ELSE
+C$INSERT             CALL A31875__COUNLV_PKT(NEW,X1,YP,XMAX,YP,COLOR,BPTR,
+C$INSERT     +                               VADBUF)
+C$INSERT             CALL A31875__COUNLV_PKT(NEW,X1,YN,XMAX,YN,COLOR,BPTR,
+C$INSERT     +                               VADBUF)
+C$INSERT             CALL A31875__COUNLV_PKT(NEW,XMIN,YP,X2,YP,COLOR,BPTR,
+C$INSERT     +                               VADBUF)
+C$INSERT             CALL A31875__COUNLV_PKT(NEW,XMIN,YN,X2,YN,COLOR,BPTR,
+C$INSERT     +                               VADBUF)
+           ENDIF
+        ELSEIF (NPTS .EQ. 1) THEN
+C
+C*** ONLY 1 VELOCITY REGION, DRAW LINES FROM POINT TO END AZIMUTH,
+C*** AND FROM START AZIMUTH TO POINT.
+C
+C$DELETE
+           CALL A31875__COUNLV(NEW,X1,YP,XMAX,YP,COLOR,BPTR,VADBUF)
+           CALL A31875__COUNLV(NEW,X1,YN,XMAX,YN,COLOR,BPTR,VADBUF)
+           CALL A31875__COUNLV(NEW,XMIN,YP,X1,YP,COLOR,BPTR,VADBUF)
+           CALL A31875__COUNLV(NEW,XMIN,YN,X1,YN,COLOR,BPTR,VADBUF)
+C$ENDDELETE
+C$INSERT           CALL A31875__COUNLV_PKT(NEW,X1,YP,XMAX,YP,COLOR,BPTR,
+C$INSERT     +                             VADBUF)
+C$INSERT           CALL A31875__COUNLV_PKT(NEW,X1,YN,XMAX,YN,COLOR,BPTR,
+C$INSERT     +                             VADBUF)
+C$INSERT           CALL A31875__COUNLV_PKT(NEW,XMIN,YP,X1,YP,COLOR,BPTR,
+C$INSERT     +                             VADBUF)
+C$INSERT           CALL A31875__COUNLV_PKT(NEW,XMIN,YN,X1,YN,COLOR,BPTR,
+C$INSERT     +                             VADBUF)
+        ENDIF
+      ENDIF
+X     TYPE *,'7B: EXIT HERE....',BPTR
+      RETURN
+      END

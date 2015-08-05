@@ -1,0 +1,314 @@
+C 
+C RCS info 
+C $Author: nolitam $ 
+C $Locker:  $ 
+C $Date: 2002/11/27 15:17:09 $ 
+C $Id: a31472.ftn,v 1.6 2002/11/27 15:17:09 nolitam Exp $ 
+C $Revision: 1.6 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A31472__INIT_USDB
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A31472__INIT_USDB
+*.
+*.  MODULE VERSION: 0003
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   -----------------    --------------------
+*.       12/08/95      0000      ELLIOTT P. FRIEND    CCR NA94-08462
+*.       12/23/96      0001      Toolset              CCR NA95-11807
+*.       03/16/99      0002      Toolset              CCR NA98-23803
+*.       01/31/02      0003      Dennis A. Miller     CCR NA01-27501
+*.
+*.  CALLING SEQUENCE: CALL A31472__INIT_USDB
+*.
+*.  MODULE FUNCTION:  INITIALIZES THE DISK FILE
+*.
+*.  MODULES CALLED: A31478__USDB_IO
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT           TYPE        DESCRIPTION
+*.    -   -----           ----        -----------
+*.    G   FLAG_SET        I*4         (CONSTANT)Parameter for a set flag.
+*.    C   USDB_FIL_STAT   I*4         Status of read or write operation on the
+*.                                    USDB file
+*.    C   USDB_HRLY_RECNO I*2         An array of the record numbers for the
+*.                                    unadjusted hourly accumulations
+*.    C   USDB_SCTR_OFFS  I*4         An array of starting sectors for the
+*.                                    different USDB records
+*.    C   USDB_START_DIR  I*4         Starting address of USDB directory
+*.                                    common block
+*.    C   MAX_USDB_HRS    I*4         (CONSTANT)(CONSTANT)Maximum number of
+*.                                    hours in the User Selectable Data Base
+*.    C   NUM_HDR_BYTES   I*4         (CONSTANT)(CONSTANT)Number of bytes for
+*.                                    the USDB header record
+*.    C   USDB_HDR_RECNO  I*4         (CONSTANT)(CONSTANT)User Selectable Data
+*.                                    Base header record number
+*.    C   WRITKODE        I*4         (CONSTANT)I/O code indicating write to
+*.                                    disk I/O operation should be performed.
+*.
+*.    *   OUTPUT               TYPE        DESCRIPTION
+*.    -   ------               ----        -----------
+*.    G   LAST_DATE_HRDB       I*2         The date of the latest hour that
+*.                                         was added to the USP 30 HR
+*.                                         Precipitation database.
+*.    G   LAST_TIME_HRDB       I*2         The time of the latest hour that
+*.                                         was added to the USP 30 HR
+*.                                         Precipitation database.
+*.    C   DATE_GCPROD          I*2
+*.    C   FLAG_NO_GCPROD       L*4         Flag indicating if there is a
+*.                                         Generation and Distribution Control
+*.                                         product in the USDB
+*.    C   TIME_GCPROD          I*2         Time of the Generation and
+*.                                         Distribution Control product in the
+*.                                         USDB, if -2 there is no product
+*.                                         been created yet
+*.    C   TIME_SPAN_GCPROD     I*2
+*.    C   USDB_ADJU_RECNO      I*2         An array of the record numbers for
+*.                                         the adjusted hourly accumulations
+*.    C   USDB_CUR_BIAS        R*4         An array of the the calculated BIAS
+*.                                         for the hourly accumulation
+*.    C   USDB_CUR_GRPSIZ      R*4         An array of the (effective) no.
+*.                                         G-R Pairs associated with the Bias
+*.                                         for the hourly accumulation
+*.    C   USDB_CUR_MSPAN       R*4         An array of the Memory Span
+*.                                         associated with the Bias for the
+*.                                         hourly accumulation
+*.    C   USDB_FLG_ADJUST      I*4         Not Used
+*.    C   USDB_FLG_NO_HRLY     I*4         An array of the flags indicating if
+*.                                         the hourly accumulation has been
+*.                                         flagged as a bad hourly
+*.                                         accumulation
+*.    C   USDB_FLG_ZERO_HRLY   I*4         An array of the flags indicating if
+*.                                         the hourly accumulation has zero
+*.                                         accumulation
+*.    C   USDB_HRLY_EDATE      I*2         An array of the end date for the
+*.                                         hourly accumulation
+*.    C   USDB_HRLY_ETIME      I*2         An array of the end hour for the
+*.                                         hourly accumulation
+*.    C   USDB_HRLY_RECNO      I*2         An array of the record numbers for
+*.                                         the unadjusted hourly accumulations
+*.    C   USDB_HRLY_SCAN_TYPE  I*4         An array of the scan type for the
+*.                                         hourly accumulations
+*.    C   USDB_HRS_OLD         I*2         An array of indexs for the hourly
+*.                                         accumulation
+*.    C   USDB_LAST_DATA_RECNO I*2         Last record number updated in USDB
+*.    C   USDB_LAST_DATE       I*2         Last date the USDB was updated
+*.    C   USDB_LAST_TIME       I*2         Last time the USDB was updated
+*.    C   USDB_SB_STATUS_HRLY  I*4         An array of the flags indicating if
+*.                                         the hourly accumulation is spot
+*.                                         blanked
+*.    C   USDB_SCTR_OFFS       I*4         An array of starting sectors for
+*.                                         the different USDB records
+*.    C   USDB_START_DIR       I*4         Starting address of USDB directory
+*.                                         common block
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    C   USDB_START_DIR    I*4         Starting address of USDB directory
+*.                                      common block
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME            TYPE        DESCRIPTION
+*.    ----            ----        -----------
+*.    DFLT_24H_SCTR   I*4         (CONSTANT)Starting sector of the USDB
+*.                                default Generation & Distribution Control
+*.                                product
+*.    I               I*4         LOOP COUNTER
+*.    IOSTAT          I*4         I/O status returned from A31478 on directory
+*.                                record write
+*.    MAX_USDB_RECS   I*4         (CONSTANT)Maximum number of records in the
+*.                                User Selectable Data Base
+*.    NULL            I*4         Integer parameter for Null (i.e., 0)
+*.    NUM_HDR_SCTRS   I*4         (CONSTANT)Number of sectrs for the USDB
+*.                                header record
+*.    NUM_POLAR_SCTRS I*4         (CONSTANT)Number of polar sectors to read or
+*.                                write
+*.    RNULL           I*4         Real parameter for Null (i.e., 0.)
+*.    USDB_HDR_SCTR   I*4         (CONSTANT)Starting sector of the USDB header
+*.    USDB_NO_DATA    I*4         (CONSTANT)Flag value indicating there is no
+*.                                data for that entry
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD07
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3147C8
+*.    A3147C9
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK14.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+ 
+ 
+C
+C** 'X' IN COLUMN-1 INDICATES CONDITIONALLY COMPILED DEBUG CODE...
+C
+      IMPLICIT NONE
+C
+$INCLUDE A309ADPT.INC/G,**A3CD70CA (NEND NLIST)
+$INCLUDE                **A3CD70C8 (NLIST)
+$INCLUDE                **A3CD70C4 (NLIST)
+$INCLUDE A309.INC/G,**A3PM00 (NEND NLIST)
+$INCLUDE            **A3CD07 (NEND NLIST)
+$INCLUDE A3146.INC/G,**A3146P1 (NEND NLIST)
+$INCLUDE             **A3146C2 (NLIST)
+$INCLUDE A3147.INC/G,**A3147P9 (NEND NLIST)
+$INCLUDE             **A3147C8 (NEND NLIST)
+$INCLUDE             **A3147C9 (NEND NLIST)
+$INCLUDE A313HBUF.INC/G,**A313HYPP (NEND NLIST)
+C
+C ******************* L O C A L   D A T A  *************************
+C
+      INTEGER I, IOSTAT, NULL
+      REAL RNULL
+      PARAMETER (NULL=0, RNULL=0.)
+C
+C******************** E X E C U T A B L E  *************************
+C
+X      WRITE(6,*)'A31472: STARTING A31472'
+C
+C** Initialize hourly scan disk file indices
+C
+C** Record 1 is for the HDR_REC, the last record is for the DFLT_24H_REC
+C
+      USDB_SCTR_OFFS(1) = USDB_HDR_SCTR
+      USDB_SCTR_OFFS(2) = USDB_SCTR_OFFS(1) + NUM_HDR_SCTRS
+ 
+      DO 10 I=3,MAX_USDB_RECS-1
+        USDB_SCTR_OFFS(I) = USDB_SCTR_OFFS(I-1) + NUM_POLAR_SCTRS
+10    CONTINUE
+      USDB_SCTR_OFFS(MAX_USDB_RECS) = DFLT_24H_SCTR
+X      WRITE(6,*)'72:SECTOR OFFSETS INITIALLY'
+X      WRITE(6,11)(USDB_SCTR_OFFS(I),I=1,MAX_USDB_RECS)
+X11    FORMAT(1X,3(16(I6,',')/),14(I6,','))
+C
+C** Initialize the other things in the directory record
+C
+      DO 100 I=1,MAX_USDB_HRS
+C
+C** Initialize the control pointers of the accumulations
+C
+        USDB_HRS_OLD(I)        = MAX_USDB_HRS - I + 1
+ 
+        USDB_HRLY_RECNO(I)     = USDB_HDR_RECNO + I
+ 
+        USDB_ADJU_RECNO(I)     = USDB_HRLY_RECNO(I) + MAX_USDB_HRS
+C
+C** Initialize times for each of the clock hour accumumations
+C
+        USDB_HRLY_EDATE(I)     = USDB_NO_DATA
+        USDB_HRLY_ETIME(I)     = USDB_NO_DATA
+C
+C** Set flags for each of the clock hourly accumulation scans
+C
+        USDB_FLG_ZERO_HRLY(I)  = FLAG_SET
+        USDB_FLG_NO_HRLY(I)    = FLAG_SET
+        USDB_HRLY_SCAN_TYPE(I) = NULL
+ 
+        USDB_SB_STATUS_HRLY(I) = NULL
+C
+C** Initialize hourly bias values
+C
+        USDB_CUR_BIAS(I)       = RNULL
+        USDB_CUR_GRPSIZ(I)     = RNULL
+        USDB_CUR_MSPAN(I)      = RNULL
+ 
+        USDB_FLG_ADJUST(I)     = NULL
+100    CONTINUE
+C
+X      WRITE(6,*)'USDB_HRS_OLD'
+X      WRITE(6,12)(USDB_HRS_OLD(I),I=1,MAX_USDB_HRS)
+X12    FORMAT(1X,30(I3,','))
+X      WRITE(6,*)'USDB_HRLY_RECNO'
+X      WRITE(6,12)(USDB_HRLY_RECNO(I),I=1,MAX_USDB_HRS)
+X      WRITE(6,*)'USDB_ADJU_RECNO'
+X      WRITE(6,12)(USDB_ADJU_RECNO(I),I=1,MAX_USDB_HRS)
+X      WRITE(6,*)'USDB_HRLY_EDATE'
+X      WRITE(6,12)(USDB_HRLY_EDATE(I),I=1,MAX_USDB_HRS)
+X      WRITE(6,*)'USDB_HRLY_ETIME'
+X      WRITE(6,12)(USDB_HRLY_ETIME(I),I=1,MAX_USDB_HRS)
+X      WRITE(6,*)'USDB_FLG_ZERO_HRLY'
+X      WRITE(6,12)(USDB_FLG_ZERO_HRLY(I),I=1,MAX_USDB_HRS)
+X      WRITE(6,*)'USDB_FLG_NO_HRLY'
+X      WRITE(6,12)(USDB_FLG_NO_HRLY(I),I=1,MAX_USDB_HRS)
+X      WRITE(6,*)'USDB_HRLY_SCAN_TYPE'
+X      WRITE(6,12)(USDB_HRLY_SCAN_TYPE(I),I=1,MAX_USDB_HRS)
+X      WRITE(6,*)'USDB_SB_STATUS_HRLY'
+X      WRITE(6,12)(USDB_SB_STATUS_HRLY(I),I=1,MAX_USDB_HRS)
+X      WRITE(6,*)'USDB_CUR_BIAS'
+X      WRITE(6,13)(USDB_CUR_BIAS(I),I=1,MAX_USDB_HRS)
+X      WRITE(6,*)'USDB_CUR_GRPSIZ'
+X      WRITE(6,13)(USDB_CUR_GRPSIZ(I),I=1,MAX_USDB_HRS)
+X      WRITE(6,*)'USDB_CUR_MSPAN'
+X      WRITE(6,13)(USDB_CUR_MSPAN(I),I=1,MAX_USDB_HRS)
+X13    FORMAT(1X,30(F4.2))
+X      WRITE(6,*)'USDB_FLG_ADJUST'
+X      WRITE(6,12)(USDB_FLG_ADJUST(I),I=1,MAX_USDB_HRS)
+C**  Initialize LAST_DATE_HRDB and LAST_TIME_HRDB stored in GLOBAL IMAGE (A3CD07)
+C
+        LAST_DATE_HRDB         = USDB_NO_DATA
+        LAST_TIME_HRDB         = USDB_NO_DATA
+C
+X       WRITE(6,*)'LAST DATE = ',LAST_DATE_HRDB,' LAST TIME = ',
+X    &     LAST_TIME_HRDB
+C**  Initialize corresponding misc. items in USDB HDR_REC
+C
+        USDB_LAST_DATE         = USDB_NO_DATA
+        USDB_LAST_TIME         = USDB_NO_DATA
+X       WRITE(6,*)'HDR LAST DATE = ',USDB_LAST_DATE,' HDR LAST TIME ='
+X    &   ,USDB_LAST_TIME
+ 
+        USDB_LAST_DATA_RECNO   = USDB_NO_DATA
+X       WRITE(6,*)'LAST REC =',USDB_LAST_DATA_RECNO
+C
+        DATE_GCPROD            = USDB_NO_DATA
+        TIME_GCPROD            = USDB_NO_DATA
+        TIME_SPAN_GCPROD       = USDB_NO_DATA
+        FLAG_NO_GCPROD         = .TRUE.
+X       WRITE(6,*)'GC DATE = ',DATE_GCPROD,' TIME = ',TIME_GCPROD,
+X    &   'TIMESPAN = ',TIME_SPAN_GCPROD,' NO PROD = ',
+X    &   FLAG_NO_GCPROD
+ 
+C
+X     WRITE(6,*)'A31472: INITIALIZED DIRECTORY RECORD'
+C
+C** Write the directory to disk
+C
+X     WRITE(6,*)'A31472: CALL A31478 TO WRITE TO REC#1 ON DISK'
+C
+      CALL A31478__USDB_IO(WRITKODE, USDB_HDR_RECNO, NUM_HDR_BYTES,
+     $                                              USDB_START_DIR)
+      IOSTAT = USDB_FIL_STAT
+C
+X     WRITE(6,*)'A31472: BACK FROM A31478... STATUS=',IOSTAT
+C
+      RETURN
+      END

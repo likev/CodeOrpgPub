@@ -1,0 +1,316 @@
+
+C RCS info
+C $Author: steves $
+C $Locker:  $
+C $Date: 2003/08/06 15:29:43 $
+C $Id: a315d5.ftn,v 1.4 2003/08/06 15:29:43 steves Exp $
+C $Revision: 1.4 $
+C $State: Exp $
+C
+      SUBROUTINE A315D5__CALC_CELL_ATTR( )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A315D5__CALC_CELL_ATTR
+*.
+*.  MODULE VERSION: 0002
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       06 29 95      0000      STEVE SMITH          CCR NA94-26302
+*.       12/23/96      0001      Toolset              CCR NA95-11807
+*.       03/16/99      0002      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A315D5__CALC_CELL_ATTR( )
+*.
+*.  MODULE FUNCTION:
+*.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT    TYPE        DESCRIPTION
+*.    -   -----    ----        -----------
+*.    C   CELLCOMP R*4         Array of potential storm cell characteristics.
+*.    C   NBR_COMP I*4         Number of components that comprise each
+*.                             potential storm cell.
+*.    C   NBR_STMS I*4         Counter for the number of storm cells
+*.                             constructed from components before calls to
+*.                             merge or delete modules.
+*.    C   CCM_LCB  I*4         (CONSTANT)Location in the CELLCOMP array of the
+*.                             elevation index which is passed to STRMCELL
+*.                             array to flag components at the lowest
+*.                             elevation.
+*.    C   CCM_LCT  I*4         (CONSTANT)Location in the CELLCOMP array of the
+*.                             elevation index which is flagged negative if
+*.                             component comes from highest scan.
+*.    C   CCM_MRF  I*4         (CONSTANT)Location in the CELLCOMP array of a
+*.                             component's maximum reflectivity (dBZ).
+*.    C   CCM_MWA  I*4         (CONSTANT)Location in the CELLCOMP array of a
+*.                             component's mass-weighted area (kg/km).
+*.    C   CCM_PVIL I*4         (CONSTANT)Location in the CELLCOMP array of the
+*.                             cell-based partial VIL computation (kg/km**3).
+*.    C   CCM_XCN  I*4         (CONSTANT)Location in the CELLCOMP array of the
+*.                             mass-weighted X-coordinate (km) of a
+*.                             component's centroid.
+*.    C   CCM_YCN  I*4         (CONSTANT)Location in the CELLCOMP array of the
+*.                             mass-weighted Y coordinate (km) of a
+*.                             component's centroid.
+*.    C   CCM_ZCN  I*4         (CONSTANT)Location in the CELLCOMP array of the
+*.                             azimuth (radians) of a component's centroid.
+*.    C   STC_BAS  I*4         (CONSTANT)Location in the STRMCELL array of the
+*.                             height (km ARL) of the the lowest centroid of
+*.                             any component associated with a storm cell.
+*.    C   STC_LCB  I*4         (CONSTANT)A pointer to the elevation index of
+*.                             the base component of a cell in the STRMCELL
+*.                             array.  The index will be set to negative if
+*.                             the component is on the lowes
+*.    C   STC_LCT  I*4         (CONSTANT)Location in the STRMCELL array of the
+*.                             highest elevation index for any component
+*.                             associated with a storm cell.
+*.    C   STC_MRF  I*4         (CONSTANT)Location in the STRMCELL array of the
+*.                             storm cell's maximum reflectivity (dBZ).
+*.    C   STC_MWA  I*4         (CONSTANT)Location in the STRMCELL array of
+*.                             mass-weighted area of a storm cell.
+*.    C   STC_MZH  I*4         (CONSTANT)Location in the STRMCELL array of the
+*.                             height (km ARL) of the component contributing
+*.                             the maximum reflectivity to a storm cell.
+*.    C   STC_TOP  I*4         (CONSTANT)Location in the STRMCELL array of the
+*.                             height (km ARL) of the highest centroid of any
+*.                             component associated with a storm cell.
+*.    C   STC_VIL  I*4         (CONSTANT)Location in the STRMCELL array of the
+*.                             storm cell's VIL
+*.    C   STC_XCN  I*4         (CONSTANT)Location in the STRMCELL array of the
+*.                             mass-weighted X-coordinate (km) of a storm
+*.                             cell's 3-D centroid.
+*.    C   STC_YCN  I*4         (CONSTANT)Location in the STRMCELL array of the
+*.                             mass-weighted Y coordinate (km) of a storm
+*.                             cell's 3-D centroid.
+*.    C   STC_ZCN  I*4         (CONSTANT)Location in the STRMCELL array of the
+*.                             mass-weighted Z coordinate (km ARL) of a storm
+*.                             cell's 3-D centroid.
+*.
+*.    *   OUTPUT   TYPE        DESCRIPTION
+*.    -   ------   ----        -----------
+*.    C   STRMCELL R*4         Array of storm cell characteristics of all
+*.                             storm cells built from components.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME      TYPE        DESCRIPTION
+*.    ----      ----        -----------
+*.    BCMP_HGT  R*4         Bottom Componet Height
+*.    CELLMASS  R*4         Sum of componets masses
+*.    CMP_DPTH  R*4         Componet Depth
+*.    CMP_NDX   I*4         Do loop variable for number of cell componets
+*.    COMPMASS  R*4         Componet's partial mass
+*.    HLF_FCTR  R*4         Real parameter value of 0.5
+*.    LARGE_NEG R*4         Large real negative number used for initialization
+*.    LCB       R*4         Lowest elevation index of the componet in the
+*.                          storm cell
+*.    LCT       R*4         Highest elevation of the componet in the storm
+*.                          cell
+*.    MAXZ      R*4         Maximum reflectivity of a cell
+*.    MAXZ_HGT  R*4         Height (km ARL) of the component contributing the
+*.                          maximum reflectivity to a storm cell.
+*.    STM_NDX   I*4         Do loop variable for the number of storm cells
+*.    TCMP_HGT  R*4         Height (km ARL) of the highest centroid of any
+*.                          component associated with a storm cell.
+*.    VIL_SUM   R*4         Summation of the componets partial VIL which is
+*.                          equal to the storm cell's VIL
+*.    XCENT     R*4         X-coordinate (km) of a storm cell's 3-D centroid
+*.    YCENT     R*4         The mass-weighted Y coordinate (km) of a storm
+*.                          cell's 3-d centroid
+*.    ZCENT     R*4         The mass-weighted Z coordinate (km ARL) of a storm
+*.                          cell's 3-d centroid
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A315CNCC
+*.    A315CUCC
+*.    A315CVCC
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:
+*.
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     Compiled using COMP15.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     Linked using LINK15.CSS
+*.
+*.  MISC:  None
+*.
+C********************************************************************
+C
+C       STORM CELL CENTROIDS: CALCULATE CELL ATTRIBUTES ROUTINE
+C
+C********************************************************************
+C
+      IMPLICIT NONE
+C
+C**Attach output parameter-definition file (of "STORM_CENTROIDS")
+$INCLUDE A315BUF.INC/G,**A315P5C (NLIST)
+C
+C**Attach internal common area (CNCC)
+$INCLUDE A315.INC/G,**A315CNCC (NLIST)
+C
+C**Attach internal common area (CUCC)
+$INCLUDE A315.INC/G,**A315CUPC (NLIST)
+$INCLUDE            **A315CUCC (NLIST)
+C
+C**Attach internal common area (CVCC)
+$INCLUDE A315.INC/G,**A315CVPC (NLIST)
+$INCLUDE            **A315CVCC (NLIST)
+C
+C********************** DATA DECLARATIONS ***************************
+C
+      INTEGER  STM_NDX, CMP_NDX
+C
+      REAL     XCENT, YCENT, ZCENT, VIL_SUM, LARGE_NEG, MAXZ
+      REAL     MAXZ_HGT, CELLMASS, BCMP_HGT, TCMP_HGT, CMP_DPTH
+      REAL     COMPMASS, HLF_FCTR
+      REAL     LCB, LCT
+C
+      PARAMETER ( HLF_FCTR = 0.5, LARGE_NEG = -100.0 )
+C
+C****************** BEGIN MAIN PROCESSING SECTION *******************
+C
+C** DO FOR ALL Storm Cells.
+C
+      DO 110 STM_NDX = 1, NBR_STMS
+C
+C** Initialize some variables.
+C
+         CELLMASS = 0.0
+         YCENT = 0.0
+         XCENT = 0.0
+         ZCENT = 0.0
+         VIL_SUM = 0.0
+         MAXZ = LARGE_NEG
+         MAXZ_HGT = 0.0
+         LCT = 0.0
+         LCB = 0.0
+         TCMP_HGT = 0.0
+         BCMP_HGT = 0.0
+C
+C** DO FOR ALL Cell Components.
+C
+         DO 100 CMP_NDX = 1, NBR_COMP( STM_NDX )
+C
+C** Compute depth of each component. Also extract top or bottom
+C** component height depending on where the component is.
+C
+            IF ( CMP_NDX .EQ. 1 ) THEN
+               BCMP_HGT = CELLCOMP( CCM_ZCN, CMP_NDX, STM_NDX )
+               LCB = CELLCOMP( CCM_LCB, 1, STM_NDX )
+C
+               TCMP_HGT = CELLCOMP( CCM_ZCN, CMP_NDX, STM_NDX )
+               LCT = CELLCOMP( CCM_LCT, 1, STM_NDX )
+C
+C** When computing the depth of the lowest component in the cell,
+C** account for the lowest component being on the lowest elevation
+C** scan by taking the height from the midpoint between the two
+C** lowest elevation scans down to the ground...
+C
+               IF (LCB .EQ. 1) THEN
+                 CMP_DPTH = (CELLCOMP( CCM_ZCN, CMP_NDX+1, STM_NDX )
+     >             + CELLCOMP(CCM_ZCN, CMP_NDX, STM_NDX)) * HLF_FCTR
+               ELSE
+C
+C** Otherwise, take the height difference of the 2 lowest components
+C
+                 CMP_DPTH = ABS(CELLCOMP( CCM_ZCN, CMP_NDX+1, STM_NDX )
+     >             - CELLCOMP(CCM_ZCN, CMP_NDX, STM_NDX))
+               END IF
+C
+C** The component is the top of the cell
+C
+            ELSE IF ( CMP_NDX .EQ. NBR_COMP( STM_NDX ) ) THEN
+               CMP_DPTH = ABS(CELLCOMP( CCM_ZCN, CMP_NDX, STM_NDX )
+     >                  - CELLCOMP( CCM_ZCN, CMP_NDX-1, STM_NDX ))
+C
+               LCT = CELLCOMP( CCM_LCT, CMP_NDX, STM_NDX )
+C
+C** The component is an intermediate component
+C
+            ELSE
+               CMP_DPTH = ABS((CELLCOMP(CCM_ZCN,CMP_NDX+1,STM_NDX ) -
+     >             CELLCOMP( CCM_ZCN, CMP_NDX-1, STM_NDX)))*HLF_FCTR
+            END IF
+C
+C...UPDATE THE STORM TOP INFORMATION
+C
+            IF(CELLCOMP(CCM_ZCN,CMP_NDX,STM_NDX).GT.TCMP_HGT)THEN
+               TCMP_HGT = CELLCOMP( CCM_ZCN, CMP_NDX, STM_NDX )
+            END IF
+C
+C...UPDATE THE STORM BASE INFORMATION
+C
+            IF(CELLCOMP(CCM_ZCN,CMP_NDX,STM_NDX).LT.BCMP_HGT)THEN
+               BCMP_HGT = CELLCOMP( CCM_ZCN, CMP_NDX, STM_NDX )
+            END IF
+C
+C** Compute partial mass for each component and sum for cell mass.
+C
+            COMPMASS = CMP_DPTH*CELLCOMP( CCM_MWA, CMP_NDX, STM_NDX )
+            CELLMASS = CELLMASS + COMPMASS
+C
+C** Compute x, y, and z centroids.
+C
+            XCENT = XCENT + CELLCOMP( CCM_XCN, CMP_NDX, STM_NDX )
+     >            * COMPMASS
+            YCENT = YCENT + CELLCOMP( CCM_YCN, CMP_NDX, STM_NDX )
+     >            * COMPMASS
+            ZCENT = ZCENT + CELLCOMP( CCM_ZCN, CMP_NDX, STM_NDX )
+     >            * COMPMASS
+C
+C** Find the maximum reflectivity of any cell (if two cells have
+C** the same, choose the higher altitude).
+C
+            IF (CELLCOMP( CCM_MRF, CMP_NDX, STM_NDX ) .GE. MAXZ) THEN
+               MAXZ = CELLCOMP( CCM_MRF, CMP_NDX, STM_NDX )
+               MAXZ_HGT = CELLCOMP( CCM_ZCN, CMP_NDX, STM_NDX )
+            END IF
+            VIL_SUM = VIL_SUM+CELLCOMP( CCM_PVIL, CMP_NDX, STM_NDX )
+ 100     CONTINUE
+C
+C** Save the cell 3D attributes in a storm cell array.
+C
+         STRMCELL( STC_XCN, STM_NDX ) = XCENT / CELLMASS
+         STRMCELL( STC_YCN, STM_NDX ) = YCENT / CELLMASS
+         STRMCELL( STC_ZCN, STM_NDX ) = ZCENT / CELLMASS
+         STRMCELL( STC_MWA, STM_NDX ) = CELLMASS
+         STRMCELL( STC_MRF, STM_NDX ) = MAXZ
+         STRMCELL( STC_MZH, STM_NDX ) = MAXZ_HGT
+         STRMCELL( STC_VIL, STM_NDX ) = VIL_SUM
+         STRMCELL( STC_BAS, STM_NDX ) = BCMP_HGT
+         STRMCELL( STC_TOP, STM_NDX ) = TCMP_HGT
+         IF( LCB .EQ. 1 )LCB = -1.0
+         STRMCELL( STC_LCB, STM_NDX ) = LCB
+         STRMCELL( STC_LCT, STM_NDX ) = LCT
+ 110  CONTINUE
+C
+C************** END OF PROCESSING FOR SUBROUTINE ********************
+C
+      RETURN
+      END

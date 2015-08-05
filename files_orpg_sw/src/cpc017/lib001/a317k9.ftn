@@ -1,0 +1,193 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/17 16:06:32 $
+C $Id: a317k9.ftn,v 1.2 2002/12/17 16:06:32 christie Exp $
+C $Revision: 1.2 $
+C $State: Exp $
+C
+      SUBROUTINE A317K9__FIND_WEAKEST(TVSTYPE, IDX, REPL_IDX,SAV_FLG)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A317K9__FIND_WEAKEST
+*.
+*.  MODULE VERSION: 0001
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       07/22/97      0000      DAVE ZITTEL          CCR NA95-21503
+*.       03/16/99      0001      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A317K9__FIND_WEAKEST(TVSTYPE, IDX,
+*.                                  REPL_IDX, SAV_FLG)
+*.
+*.  MODULE FUNCTION:
+*.
+*.  This module is called when the number of TVSs or ETVSs exceeds
+*.  adaptable parameter threshold counts.  It looks for a TVS/ETVS
+*.  whose low-level delta velocity or maximum delta velocity is less
+*.  than the most recently identified TVS/ETVS.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT    TYPE        DESCRIPTION
+*.    -   -----    ----        -----------
+*.    G   TV_LDV   I*4         (CONSTANT)INDEX INTO TVS_MAIN TO THE TVS
+*.                             FEATURE LOW-LEVEL DELTA VELOCITY (IN M/S)
+*.    G   TV_MDV   I*4         (CONSTANT)INDEX INTO TVS_MAIN TO THE TVS
+*.                             FEATURE MAXIMUM DELTA VELOCITY (IN M/S)
+*.    G   TV_TYP   I*4         (CONSTANT)INDEX INTO TVS_MAIN TO THE TVS
+*.                             FEATURE TYPE (TVS=1 OR ETVS=2)
+*.    C   ETVCOUNT I*4         Counter for number of ETVSs detected
+*.    C   FEAT3D   R*4         Array containing three-dimensional feature
+*.                             attributes
+*.    C   TVS3D    R*4         Array of attributes of three-dimensional
+*.                             features that are either TVSs or ETVSs.
+*.    C   TVSCOUNT I*4         Counter for number of TVSs detected.
+*.    C   F3D_LDV  I*4         (CONSTANT)Position of the base low-level delta
+*.                             velocity attribute (m/s) of a three-dimensional
+*.                             feature in the array FEAT3D
+*.    C   F3D_MDV  I*4         (CONSTANT)Position of the maximum delta
+*.                             velocity attribute (m/s) of a three-dimensional
+*.                             feature in the array FEAT3D
+*.    P   IDX      I*4         Passed index for a candidate TVS/ETVS in array
+*.                             FEAT3D to replace a TVS/ETVS with a weaker
+*.                             low-level delta velocity in array TVS3D
+*.    P   TVSTYPE  I*4         Variable to indicate if feature is a TVS or an
+*.                             ETVS.
+*.
+*.    *   OUTPUT   TYPE        DESCRIPTION
+*.    -   ------   ----        -----------
+*.    P   REPL_IDX I*4         Passed index pointing to position in array
+*.                             TVS3D of a TVS or ETVS being replaced by a
+*.                             TVS/ETVS with a stronger low-level delta
+*.                             velocity.
+*.    P   SAV_FLG  L*4         Passed flag indicating TVS/ETVS feature in
+*.                             array is to replace a TVS/ETVS feature in array
+*.                             TVS3D.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME      TYPE        DESCRIPTION
+*.    ----      ----        -----------
+*.    ITVX      I*4         Do loop index pointing to a TVS/ETVS in array
+*.                          TVS3D
+*.    LARG_NUM  R*4         Initial comparison value used for finding the
+*.                          smallest values of delta velocities already stored
+*.                          in TVS3D array
+*.    LDV_IDX   I*4         Temporary variable to hold the index to the TVS or
+*.                          ETVS in array TVS3D with the weakest low-level
+*.                          delta velocity
+*.    LDV_LEAST R*4         Variable to temporarily hold the smallest value of
+*.                          low-level delta velocity of any 3d feature in the
+*.                          array TVS3D
+*.    MDV_LEAST R*4         Smallest maximum delta velocity for a feature
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A317C3DB
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     Compiled using COMP17.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     Linked using LINK17.CSS
+*.
+*.  MISC:  None
+*.
+C********************************************************************
+C
+C         TDA routine to find the weakest TVS or ETVS.
+C
+C********************************************************************
+C
+      IMPLICIT NONE
+C
+C**Attach local TDA_3D Common and parameter file:
+$INCLUDE A317BUF.INC/G, **A317TP9 (NLIST)
+$INCLUDE A317.INC/G, **A317P3DB (NLIST)
+$INCLUDE A317.INC/G, **A317C3DB (NLIST)
+C
+C********************** LOCAL DECLARATIONS **************************
+C
+      REAL LARG_NUM, MDV_LEAST, LDV_LEAST
+      INTEGER MDV_IDX, LDV_IDX, IDX, REPL_IDX, TVSTYPE, ITVX
+      LOGICAL SAV_FLG
+      PARAMETER (LARG_NUM = 999.0)
+C
+C******************* BEGIN MAIN PROCESSING SECTION ******************
+C
+C
+C***  Initialize the test values for smallest low-level delta velocity
+C***  and smallest maximum delta velocity to a large number.
+C
+      MDV_LEAST = LARG_NUM
+      LDV_LEAST = LARG_NUM
+      LDV_IDX = 1
+C
+C***  First find the indexes of the feature with the weakest low
+C***  level delta velocity.
+C
+      DO 10 ITVX = 1, TVSCOUNT + ETVCOUNT
+C
+C***  Find the smallest low-level and Maximum delta velocity for only
+C***  the feature type passed (either TVS or ETVS).
+C
+        IF(TVSTYPE .EQ. TVS3D(TV_TYP, ITVX )) THEN
+          IF(TVS3D(TV_LDV,ITVX) .LT. LDV_LEAST ) THEN
+C
+C***  Save the new LLDV if smaller and the TVS3D index.
+C
+            LDV_LEAST = TVS3D(TV_LDV,ITVX)
+            LDV_IDX = ITVX
+C
+C***  Save the maximum delta velocity for this feature
+C
+            MDV_LEAST = TVS3D(TV_MDV,ITVX)
+          ENDIF
+        ENDIF
+ 10   CONTINUE
+C
+C*** Now compare the values of low-level delta velocity and maximum
+C*** delta velocity with the values in FEAT3D.
+C
+      IF(FEAT3D(F3D_LDV,IDX) .GT. LDV_LEAST)THEN
+        REPL_IDX = LDV_IDX
+        SAV_FLG = .TRUE.
+      ELSEIF(FEAT3D(F3D_LDV, IDX) .EQ. LDV_LEAST) THEN
+        IF(FEAT3D(F3D_MDV, IDX) .GT. MDV_LEAST) THEN
+          REPL_IDX = LDV_IDX
+          SAV_FLG = .TRUE.
+        ENDIF
+      ELSE
+        SAV_FLG = .FALSE.
+      ENDIF
+C
+C************** END OF PROCESSING FOR SUBROUTINE ********************
+C
+      RETURN
+      END

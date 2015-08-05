@@ -1,0 +1,226 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/17 15:47:58 $
+C $Id: a317i9.ftn,v 1.2 2002/12/17 15:47:58 christie Exp $
+C $Revision: 1.2 $
+C $State: Exp $
+C
+      SUBROUTINE A317I9__INIT_TDA3D(  )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A317I9__INIT_TDA3D
+*.
+*.  MODULE VERSION: 0001
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       07/22/97      0000      DAVE ZITTEL          CCR NA95-21503
+*.       03/16/99      0001      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A317I9__INIT_TDA3D(  )
+*.
+*.  MODULE FUNCTION:
+*.
+*.  This module clears TVS and ETVS counters, and various arrays.  It
+*.  also acquires the volume date and time for passing to the TVS
+*.  product.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT      TYPE        DESCRIPTION
+*.    -   -----      ----        -----------
+*.    G   TVFEAT_CHR I*4         (CONSTANT)# OF TVS FEATURE ATTRIBUTES IN
+*.                               TVS_MAIN AND OTHER ARRAYS
+*.    G   TVFEAT_MAX I*4         (CONSTANT)MAXIMUM # OF TVS FEATURES IN
+*.                               TVS_MAIN AND OTHER ARRAYS
+*.    C   NVOELV     I*4         (CONSTANT)MAXIMUM # OF ELEVATION SCANS IN A
+*.                               VOLUME SCAN
+*.    C   NVOMAX     I*4         (CONSTANT)MAXIMUM # OF 2D FEATURES ON ANY
+*.                               ELEVATION SCAN
+*.    C   P3D_EL     I*4         (CONSTANT)Position in the CORTABL array of
+*.                               the elevation index attribute for linking to
+*.                               VOLCOMP array.
+*.    C   P3D_ID     I*4         (CONSTANT)Position in the CORTABL array of
+*.                               the feature number attribute for linking to
+*.                               VOLCOMP array.
+*.
+*.    *   OUTPUT   TYPE        DESCRIPTION
+*.    -   ------   ----        -----------
+*.    C   CORTABL  I*4         Correlation table of indexes into array VOLCOMP
+*.                             showing showing vertical association of
+*.                             two-dimensional features
+*.    C   DVTABL   I*4         Array of two-dimensional features sorted by
+*.                             maximum delta velocity on an elevation basis
+*.    C   ETVCOUNT I*4         Counter for number of ETVSs detected
+*.    C   ETV_BFLG L*4         Flag indicating that more than ADPMNET ETVSs
+*.                             were detected.
+*.    C   FEAT3D   R*4         Array containing three-dimensional feature
+*.                             attributes
+*.    C   NBR_COMP I*4         Array of number of components for each
+*.                             potential three-dimensional feature.
+*.    C   NBR_P3DF I*4         Counter for number of potential
+*.                             three-dimensional features.
+*.    C   NUM3D    I*4         Counter for number of three-dimensional
+*.                             features having the required number (ADPMFPD)
+*.                             of two-dimensional features.
+*.    C   TVORDER  I*4         TVS/ETVS rank-order array; first TVSs then
+*.                             ETVSs.  Each sorted by max low-level delta
+*.                             velocity in descending order.
+*.    C   TVS3D    R*4         Array of attributes of three-dimensional
+*.                             features that are either TVSs or ETVSs.
+*.    C   TVSCOUNT I*4         Counter for number of TVSs detected.
+*.    C   TVS_BFLG L*4         Flag indicating that more than ADPMNT TVSs were
+*.                             detected.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME      TYPE        DESCRIPTION
+*.    ----      ----        -----------
+*.    IATTR     I*4         Attribute do loop index for initializing arrays
+*.                          FEAT3D and TVS3D to zero
+*.    IEL       I*4         Elevation do loop index for initializing arrays
+*.                          CORTABL and DVTABL to zero
+*.    II        I*4         Feature number do loop index for initializing
+*.                          arrays to zero
+*.    MAX_N3DF  I*4         Maximum number of three-dimensional features
+*.                          allowed.
+*.    N2D       I*4         Do loop index
+*.    NBR_FATTR I*4         Number of three-dimensional feature attributes.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A317C3DA
+*.    A317C3DB
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     Compiled using COMP17.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     Linked using LINK17.CSS
+*.
+*.  MISC:  None
+*.
+C********************************************************************
+C
+C         TDA3D ARRAY INITIALIZING ROUTINE
+C
+C********************************************************************
+C
+      IMPLICIT NONE
+C
+C**Attach local STORMS Adaptation Data parameter file:
+$INCLUDE A317BUF.INC/G, **A317TP9 (NLIST NEND)
+$INCLUDE A317.INC/G, **A317TP2 (NLIST NEND)
+$INCLUDE A317.INC/G, **A317C3DA (NLIST NEND)
+$INCLUDE A317.INC/G, **A317P3DB (NLIST NEND)
+$INCLUDE A317.INC/G, **A317C3DB (NLIST NEND)
+$INCLUDE A309.INC/G, **A3PM06 (NLIST NEND)
+C
+C********************** DATA DECLARATIONS ***************************
+C
+      INTEGER II, IATTR, IEL, N2D
+C
+C******************* BEGIN MAIN PROCESSING SECTION ******************
+C
+C***  Set count of number of TVSs and ETVSs to zero
+C
+      TVSCOUNT = 0
+      ETVCOUNT = 0
+C
+C***  Set count of number of 3D features and potential 3D features to
+C***  zero.
+C
+      NUM3D = 0
+      NBR_P3DF = 0
+C
+C***  TVS_BFLG and ETV_BFLG indicate if the number of TVSs/ETVSs
+C***  that are found exceeds the adaptable parameter thresholds for
+C***  each.  These flags are initially set FALSE.
+C
+      TVS_BFLG = .FALSE.
+      ETV_BFLG = .FALSE.
+C
+C***  Clear various arrays
+C
+      DO 10 IEL = 1, NVOELV
+        DO 20 N2D = 1, NVOMAX
+C
+C***  Clear CORTABL array.  This array holds the elevation number
+C***  and position of vertically correlated 2D features in array
+C***  VOLCOMP.
+C
+          CORTABL(P3D_ID, N2D, IEL) = 0
+          CORTABL(P3D_EL, N2D, IEL) = 0
+C
+C***  Clear DVTABL array.  This array contains the order of 2D
+C***  features sorted by their delta velocities from max to min for
+C***  each elevation.
+C
+          DVTABL( N2D, IEL ) = 0
+C
+C***  NBR_COMP array contains the number of 2D features that are
+C***  correlated for each 3D feature.
+C
+          IF(IEL .EQ. 1) NBR_COMP( N2D ) = 0
+ 20     CONTINUE
+ 10   CONTINUE
+C
+C*** CLEAR OUT ARRAY FOR 3D FEATURE ATTRIBUTES
+C
+      DO 30 II = 1, MAX_N3DF
+        DO 40 IATTR = 1, NBR_FATTR
+C
+C***  Clear FEAT3D array.  FEAT3D holds derived characteristics of
+C***  of potential TVSs or ETVSs.
+C
+          FEAT3D( IATTR, II ) = 0.0
+ 40     CONTINUE
+ 30   CONTINUE
+C
+C***  Clear out TVORDER and TVS3D arrays
+C
+      DO 50 II = 1, TVFEAT_MAX
+        DO 60 IATTR = 1, TVFEAT_CHR
+C
+C***  Clear TVS3D array.  This array contains 3D features that are
+C***  either TVSs or ETVSs.
+C
+          TVS3D( IATTR, II) = 0.0
+ 60     CONTINUE
+C
+C***  Clear TVORDER array.  This array contains the TVSs/ETVSs order
+C***  sorted by TVSs and ETVSs.  They are further sorted by max
+C***  delta velocity.
+C
+        TVORDER( II ) = 0
+ 50   CONTINUE
+C
+C************** END OF PROCESSING FOR SUBROUTINE ********************
+C
+      RETURN
+      END

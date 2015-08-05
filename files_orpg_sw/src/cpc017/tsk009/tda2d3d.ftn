@@ -1,0 +1,49 @@
+
+C***********************************************************************
+C
+C	Description: This module contains the main function for the 
+C	TDA 2D/3D Processor.
+C
+C***********************************************************************
+C
+C RCS info
+C $Author: steves $
+C $Locker:  $
+C $Date: 2011/02/24 15:22:13 $
+C $Id: tda2d3d.ftn,v 1.6 2011/02/24 15:22:13 steves Exp $
+C $Revision: 1.6 $
+C $State: Exp $
+C
+
+      IMPLICIT NONE
+$INCLUDE rpg_port.inc,**rpg_port ;
+$INCLUDE a309.inc,**A3PM00 ;
+
+$INCLUDE itc.inc,**PVECS09
+$INCLUDE itc.inc,**A317LOCK
+$INCLUDE itc.inc,**A317CTAD
+
+        integer param;
+
+	;** register for inputs and outputs
+	call RPG_in_data (TDA1DATR, ELEVATION_DATA) 
+        call RPG_out_data (TVSATTR, VOLUME_DATA, INT_PROD)
+
+        ;** register itcs.
+        call RPG_itc_in (PVECS09_ID, PVECS09_FIRST, PVECS09_LAST (2),
+     1                   TDA1DATR)
+        call RPG_itc_in (A317CTAD_ID, A317CTAD_FIRST, A317CTAD_LAST (2),
+     1                   TDA1DATR)
+        call RPG_itc_in (A317LOCK_ID, A317LOCK_FIRST, A317LOCK_LAST (2),
+     1                   TDA1DATR)
+
+        ;** initialize the support environment
+	call RPG_task_init (VOLUME_BASED) 
+		
+	;** The main loop, which will never end
+10	call RPG_wait_act(WAIT_DRIVING_INPUT)
+        call A317A9__TDA2D3D_BUF_CONTROL( param );
+	goto 10
+	end
+
+

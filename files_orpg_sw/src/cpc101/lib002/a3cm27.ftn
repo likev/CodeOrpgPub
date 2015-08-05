@@ -1,0 +1,154 @@
+C 
+C RCS info 
+C $Author: ccalvert $ 
+C $Locker:  $ 
+C $Date: 2004/06/30 20:15:55 $ 
+C $Id: a3cm27.ftn,v 1.6 2004/06/30 20:15:55 ccalvert Exp $ 
+C $Revision: 1.6 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A3CM27__PADFRONT(STARTIX,BSTEP,OUTBUF,OIDX,
+     *                    PADCNT,STRTDECR)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3CM27__PADFRONT
+*.
+*.  MODULE VERSION: 0008
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       03 24 86      0000      DENNIS MILLER
+*.       10 02 86      0001      J GROMMONS           SPR # 60346
+*.       11 08 90      0002      J WHEELER            SPR # 91250
+*.       12/10/91      0003      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0004      Toolset              SPR 91895
+*.       03/25/93      0005      Toolset              SPR NA93-06801
+*.       03/03/94      0006      Toolset              SPR NA94-05501
+*.       12/23/96      0007      Toolset              CCR NA95-11807
+*.       03/16/99      0008      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:
+*.
+*.     CALL A3CM27__PADFRONT(STARTIX,BSTEP,OUTBUF,OIDX,
+*.                       PADCNT,STRTDECR)
+*.
+*.  MODULE FUNCTION:
+*.
+*.     PAD THE START OF THE RUNS WITH FOFO IF THERE ARE MISSING
+*.     DATA BINS BEFORE THE START OF GOOD DATA
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT    TYPE        DESCRIPTION
+*.    -   -----    ----        -----------
+*.    P   BSTEP    I*4         NO OF WORDS PER ENTRY IN BUFFER
+*.    P   OIDX     I*4         OUTPUT BUFFER POINTER
+*.    P   PADCNT   I*4         NUMBER OF PADDED RUNS
+*.    P   STARTIX  I*4         POINTER TO BEGINNING OF STORM BUFFER
+*.    P   STRTDECR I*4         NO BINS TO SUBTRACT FROM START BIN AFTER
+*.                             PADDING WITH RUNS OF 0
+*.
+*.    *   OUTPUT   TYPE        DESCRIPTION
+*.    -   ------   ----        -----------
+*.    P   OUTBUF   I*2         Output buffer
+*.    P   PADCNT   I*4         NUMBER OF PADDED RUNS
+*.    P   STRTDECR I*4         NO BINS TO SUBTRACT FROM START BIN AFTER
+*.                             PADDING WITH RUNS OF 0
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME     TYPE        DESCRIPTION
+*.    ----     ----        -----------
+*.    F0F0     I*2         Pad value for missing data
+*.    F0_BINS  I*4         Number of odd bins.
+*.    F0_RUNS  I*4         Number of odd runs padded.
+*.    I        I*4         LOOP COUNTER
+*.    MAXODDS  I*4         ODD_RUN table dimension.
+*.    ODD_BINS I*4         NO OF ODD BINS
+*.    PADD_RUN I*4         ODD RUN VALUE
+*.    TODD_RUN I*2         ODD RUN TABLE
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.        THIS MODULE IS COMPILED USING THE COMP09.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.        THIS MODULE IS LINKED USING THE LINK09.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+      INTEGER STARTIX,OIDX,PADCNT,STRTDECR,MAXODDS,BSTEP
+      PARAMETER(MAXODDS=29)
+      INTEGER F0_BINS,F0_RUNS,ODD_BINS,PADD_RUN,I
+      INTEGER*2 OUTBUF(*) ,F0F0
+C.....ORPG Razor Issue #171
+      INTEGER*2 TODD_RUN(MAXODDS)
+      DATA F0F0/X'F0F0'/
+      DATA(TODD_RUN(I),I=1,16)    /X'1000',X'1010',X'2010',X'3010',
+     *                             X'4010',X'5010',X'6010',X'7010',
+     *                             X'8010',X'9010',X'A010',X'B010',
+     *                             X'C010',X'D010',X'E010',X'F010'/
+      DATA(TODD_RUN(I),I=17,29)   /X'F020',X'F030',X'F040',X'F050',
+     *                             X'F060',X'F070',X'F080',X'F090',
+     *                             X'F0A0',X'F0B0',X'F0C0',X'F0D0',
+     *                             X'F0E0'/
+C
+C****************************** E X E C U T A B L E ****************************
+C
+      STRTDECR=0
+      PADCNT=0
+C.....CALCULATE NUMBER OF RUNS OF 30 AND THE ODD BINS
+C.....OF MISSING DATA.
+      IF(STARTIX.NE.1)THEN
+        F0_BINS=STARTIX-1
+C.......CALCULATE NUMBER OF GROUPS DEPENDING UPON BINSTEP
+        STRTDECR=MOD(F0_BINS,BSTEP)
+        F0_BINS=F0_BINS/BSTEP
+        F0_RUNS=F0_BINS/30
+        ODD_BINS=MOD(F0_BINS,30)
+        PADD_RUN=0
+        IF(ODD_BINS.GT.0)THEN
+          IF(ODD_BINS.EQ.1)THEN
+C.........SET FLAG FOR CALLER TO DECREMENT STARTING BIN BY 1
+C.........TO MAKE AN EVEN NUMBER OF RUNS OF 30 OF MISSING DATA
+            STRTDECR=STRTDECR+ODD_BINS*BSTEP
+          ELSE
+            PADD_RUN = TODD_RUN(ODD_BINS)
+          ENDIF
+        ENDIF
+        DO 10 I=1,F0_RUNS
+          OUTBUF(OIDX+I-1) = F0F0
+10      CONTINUE
+        PADCNT=F0_RUNS
+        IF(PADD_RUN.NE.0)THEN
+C.......STORE ODD RUNS AND INCREMENT COUNT
+          OUTBUF(OIDX+F0_RUNS)= PADD_RUN
+          PADCNT=PADCNT+1
+        ENDIF
+      ENDIF
+      END

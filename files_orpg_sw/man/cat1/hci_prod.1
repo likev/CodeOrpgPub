@@ -1,0 +1,162 @@
+hci_prod(1)                   ORPG SUM Man page                     hci_prod(1)
+
+NAME
+
+hci_prod
+
+SYNOPSIS
+
+hci_prod [options]
+
+DESCRIPTION
+
+The "hci_prod" command invokes the RPG Product Generation Table Editor task for
+the RPG.  It is a GUI based task which runs in an X Windows/Motif environment.
+It is part of the Human-Computer Interface (HCI) family of tasks, typically
+launched from the RPG Control/Status task (refer to man page hci(1)).  However,
+it can be run as a stand-alone application from the command line.
+
+OPTIONS
+
+hci_prod recognizes the following options:
+
+	-h	      print usage message and exit
+	
+	-l	      low bandwidth mode; compress data passed to/from
+		      ORPG data stores.
+
+	-iconic	      start in an iconic state
+	
+	-m <name>     RPG computer name
+	
+	-name <title> Window title
+	
+	-s <rate>     Set the simulated baud rate
+
+OVERVIEW
+
+The RPG Product Generation Table Editor task provides a graphical user 
+interface to display and edit current and default product generation lists.
+When activated, the RPG Product Generation Table Editor window is displayed.
+It contains a set of control buttons and a scrolled table of all products that
+are defined by the RPG.
+
+Selecting the "Close" button exits the task.  If any unsaved edits are detected
+a warning popup window is first displayed to give the user one last change to
+save the edits.
+
+The "Save" and "Undo" buttons are desensitized until edits are detected.
+Selecting "Save" writes the edit buffer to one of the product generation list
+data stores.  A warning popup window is first displayed for verification.
+Selecting "Undo" discards all unsaved edits and causes the edit buffer to be
+reread.
+
+The "Current", "Precip (A)", "Clear Air (B)", and "Maintenance" radio buttons
+at the top of the window control which product generation list is displayed.
+If one of the default tables is selected ("Precip (A)", "Clear Air (B)", or
+"Maintenance"), a lock icon is displayed in the upper right corner of the
+window since these lists are password protected.  To edit any of the default
+tables the user must first select a password level and enter a valid password.
+By default the "Current" radio button is set indicating that the current
+product generation list is displayed.
+
+When the current product generation list is active, a set of radio buttons are
+available for replacing the current product generation list with one of the
+default product generation lists.  These buttons are not displayed when one of
+the default product generation lists are active.
+
+A number of filter options are available for controlling the product generation
+list display.  A search edit box is available for entering in a search pattern.
+Only products with the search pattern (case insensitive) in their descriptions
+are displayed.  Three additional options are provided for the user to control
+the order the products are displayed in the table.  The "Product Code" radio
+button is set by default.  When this button is set, products are displayed in
+order of increasing product code.  Note:  Products with product codes less than
+16 are not displayed in the list except for the ROC level user, where all
+products are displayed.  The "Product MNE" sort button sorts the products by
+mnemonic.  The "Description" sort button sorts the products alphabetically by
+description.
+
+If one of the default product generation lists are being edited, the "Restore"
+and "Update" buttons are displayed.  Selecting the "Restore" button replaces
+the current default product generation list with its baseline copy.  A warning
+popup window is first displayed for verification.  Selecting the "Update"
+button replaces the baseline default product generation list with the current
+copy.  A warning popup window is first displayed for verification.
+
+The product generation list table consists of one entry per product that is
+defined in the product attributes table.  For non ROC level users only products
+with product codes of 16 or larger are displayed.  An entry consists of an
+uneditable mnemonic, product code, and description and editable generation
+interval, archive interval, storage interval, product database retention time,
+and elevation/cut (for elevation based products).  Table entries with a 
+generation interval of zero are not defined in the product generation list.
+
+There are several ways to add a product to the selected generation list.
+The first way is to change the generation interval to 1.  The other fields
+are set to the following default values: archive interval 0, storage interval
+1, retention time 30, and elevation/cuts -1 (if the product is elevation based).
+
+The second way to add a product to the selected generation list is to change
+the archive interval to a non-zero value.  If the archive interval is set
+to a positive integer, it represents the frequency (in volumes) in which the
+product is archived.  The other fields are set to the following default
+values: generation interval 1, storage interval 1, retention time 1, and
+elevation/cuts -1 (if product is elevation based).  If the archive interval is
+set to a negative integer, it represents a cuts value (the lowest X cuts will
+be archive for each volume scan).  The other fields are set to the following
+default values: generation interval 1, storage interval 1, retention time 30,
+and elevation cuts to the archive value (if the product is elevation based).
+
+The third way to add a product to the selected generation list is to change
+the elevation/cuts value (only if the product is elevation based).  A negative
+integer is interpreted as a cuts value.  A positive or floating point value
+is interpreted as an elevation.  The other fields are set to the following
+default values: generation interval 1, archive interval 0, storage interval 1,
+and retention time 30.
+
+To delete a product from the selected generation list change the generation
+interval to "0".  All other entry elements are set to "0".
+
+The archive interval can be interpreted as either a frequency or a cuts value.
+If the value is positive, it is interpreted as a frequency.  The product will
+only be archived at that frequency.  If the value is negative (for elevation
+based products only), it is interpreted as a cuts value.  In this case the
+elevation/cuts field must be defined as a cuts value equal to or larger than
+the archive cuts value.
+
+The storage interval can be set to either 0 (not stored) or 1 (stored every
+volume scan).  This field can only be defined when the generation interval
+is 1.
+
+The retention time can only be changed when the storage interval is 1.  The
+value must fall within the range 30 to 360 minutes.
+
+The elevation/cuts field only applies to elevation based products.  If the
+value is positive or a floating point value, it is treated as an elevation
+angle.  If the archive interval is defined as a cuts value, the elevation/cuts
+field must be negative and have an absolute value equal to or greater than
+the absolute value of the archive cuts value.  If the archive interval is
+defined as a frequency, the elevation/cuts value can represent ether an
+elevation angle or a cuts value.
+
+When an entry for a product is selected, the border around all of the entry
+fields is changed to white.  If a selected entry has additional parameters
+defined, these parameters are displayed below the list.  If the window is
+unlocked for editing, these parameters are editable.
+
+When the current product generation list is edited and saved, changes will not
+take effect until the next volume scan.
+
+NOTES
+
+In FAA redundant configurations, the label "(FAA:x)" is appended to the window
+title ("x" is the RDA channel number).  Refer to the header files "orpgpat.h",
+"orpgpgt.h", and "prod_distri_info.h" for more information on internal
+formats.
+
+SEE ALSO
+
+orpg(3) hci(1) orpgpat(3) orpgpgt(3) product_tables(4)
+
+				$Revision: 1.6 $

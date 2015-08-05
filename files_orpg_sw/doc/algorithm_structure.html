@@ -1,0 +1,389 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<html>
+   <head>
+      <meta name="generator" content="HTML Tidy, see www.w3.org">
+      <title>
+         Vol 3. Doc 1. Sec III - WSR-88D Algorithm Structure &amp; Sample
+         Algorithms
+      </title>
+   </head>
+   <body text="Black" bgcolor="#EEEEEE" link="Blue" vlink="#551A8B" alink=
+   "Red">
+      <h2>
+         Vol 3. Document 1 -<br>
+          The WSR-88D Algorithm API
+      </h2>
+      <h2>
+         Section&nbsp;III&nbsp;WSR-88D Algorithm Structure &amp; Sample
+         Algorithms
+      </h2>
+      <h3>
+         Part A. Introduction
+      </h3>
+      <p>
+         For an algorithm to function correctly in an operational WSR-88D ORPG,
+         the API must be used correctly which includes following a basic
+         logical structure. The previous section covered rules for using the
+         individual API services. This section places this guidance in the
+         context of a logical structure of an algorithm and provides sample
+         algorithms that follow that structure. Part B provides guidance for
+         initialization of data driven algorithms and event driven algorithms
+         and inter dependencies on the type of algorithm loop control. Part C
+         provides guidance for basic algorithms that product one output
+         product. This section covers the logic after passing the control loop
+         in data driven algorithms or prior to returning from event handlers in
+         event driven algorithms. Part C provides additional guidance for
+         algorithms producing more than one product, and Part D. covers
+         algorithms that use input parameters contained in a request message.
+      </p>
+      <br>
+       
+      <hr>
+      <h3>
+         Part B. Algorithm Initialization and Control Loop
+      </h3>
+      <p>
+         This portion of the document is a summary of basic rules for using the
+         algorithm registration and initialization routines and determining
+         which form of the algorithm control loop function to use. Complete
+         guidance for using individual API service calls is contained in
+         Section II of this document.
+      </p>
+      <h3>
+         <i>Rules for Data Driven Algorithms</i>
+      </h3>
+      <p>
+         Virtually all of the existing WSR-88D algorithms are dependent on the
+         flow of internal WSR-88D data and generally produce elevation or
+         volume based output. There are a few types of internal message
+         products that are produced on demand but their input data is either
+         elevation based or volume based. &nbsp;
+      </p>
+      <ul>
+         <li>
+            Data driven algorithms use either <tt><b>RPGC_wait_act</b></tt> or
+            <tt><b>RPGC_wait_for_any_data</b></tt> form of the control loop
+            function.&nbsp;
+         </li>
+         <li>
+            Data driven algorithms must be registered for at least one product
+            input and one output product.&nbsp; Data driven algorithm may also
+            register for "external" events.
+         </li>
+         <li>
+            There are two classes of data driven algorithms 
+            <ul>
+               <li>
+                  Algorithms with a driving input. These algorithms block until
+                  a specific input is available (the first input if more than
+                  one is registered) and use <tt><b>RPGC_wait_act</b></tt> for
+                  blocking. Each data input is accomplished with an individual
+                  calls to <tt><b>RPGC_get_inbuf</b></tt>
+               </li>
+               <li>
+                  Algorithms with no driving input. These algorithms block
+                  until any one of several inputs is available and use
+                  <tt><b>RPGC_wait_for_any_data</b></tt> for blocking. The
+                  available input is read with a call to
+                  <tt><b>RPGC_get_inbuf_any</b></tt>.
+               </li>
+            </ul>
+         </li>
+         <li>
+            The task initialization function, <tt><b>RPGC_task_init</b></tt>,
+            must follow all registrations for input / output data and
+            adaptation data.
+         </li>
+         <li>
+            The task timing type registered by <tt><b>RPGC_task_init</b></tt>
+            is normally <tt><b>ELEVATION_BASED</b></tt> if output products are
+            <tt><b>ELEVATION_DATA</b></tt> and <tt><b>VOLUME_BASED</b></tt> if
+            output products are <tt><b>VOLUME_DATA</b></tt>. Task timing cannot
+            be <tt><b>EVENT_BASED</b></tt> for data driven algorithms.
+         </li>
+         <li>
+            If the input data is <tt><b>RADIAL_DATA</b></tt>, currently only
+            base data, it is the only product data input to the algorithm.
+         </li>
+         <li>
+            With multiple data inputs, they are generally all
+            <tt><b>ELEVATION_DATA</b></tt> or <tt><b>VOLUME_DATA</b></tt>
+         </li>
+         <li>
+            &nbsp;
+         </li>
+      </ul>
+      <h3>
+         <i>Rules for Event Driven Algorithms</i>
+      </h3>
+      <p>
+         There is actually no reason to use an event driven algorithm to create
+         products based upon WSR-88D data. This guidance is provided for
+         special applications not synchronized with the internal data flow of
+         WSR-88D data.&nbsp;
+      </p>
+      <table width="90%" cellpadding="5" align="center" bgcolor="Maroon">
+         <tr>
+            <td bgcolor="White">
+               <b><font color="#990000">Note</font></b>:&nbsp; The API supplied
+               with the current version of the ORPG (Beta Open Build 1 version
+               1.19) contains logic errors that prevent event driven algorithms
+               in ANSI-C from functioning. The fixes have been identified and
+               will be included with future releases of the ORPG.
+            </td>
+         </tr>
+      </table>
+      <ul>
+         <li>
+            Event driven algorithms use the <tt><b>RPGC_wait_for_event</b></tt>
+            form of the control loop function.
+         </li>
+         <li>
+            Event driven algorithms must be registered for at least one event.
+         </li>
+         <li>
+            There are two classes of event driven algorithms 
+            <ul>
+               <li>
+                  Event driven algorithms that also register for product data
+                  inputs must use a task timing compatible with the input data,
+                  for example <tt><b>VOLUME_BASED</b></tt>.
+               </li>
+               <li>
+                  Event driven algorithms that are not registered for product
+                  data input must use a task timing of
+                  <tt><b>EVENT_BASED</b></tt>.
+               </li>
+            </ul>
+         </li>
+         <li>
+            The task initialization function, <tt><b>RPGC_task_init</b></tt>,
+            must follow all registrations for input / output data and
+            adaptation data. If the task type is <tt><b>EVENT_BASED</b></tt>,
+            at least one of the event registrations must precede the task
+            initialization.
+         </li>
+         <li>
+            Event driven algorithms must use the
+            <tt><b>RPGC_get_inbuf_any</b></tt> to read the available data
+            input. More than one data input can be registered but the algorithm
+            can read only one available input using the API.
+         </li>
+         <li>
+            &nbsp;
+         </li>
+      </ul>
+      <br>
+       
+      <hr>
+      <h3>
+         Part C. Basic Algorithms producing one Product
+      </h3>
+      <h3>
+         <i>Rules for the Structure of Basic Algorithms</i>
+      </h3>
+      <p>
+         The following rules for the basic logical structure of an algorithm
+         must be followed to function correctly in an operational WSR-88D ORPG.
+         These rules are not published but are derived from the structure of
+         legacy FORTRAN algorithms and from the documentation for the porting
+         library (librpg). These rules are depicted via a flow chart contained
+         in this <img src="pdf_small.gif" border="0" alt="" width="16" height=
+         "16"> PDF&nbsp;<a href="algorithm_flow.pdf" target=
+         "algorithm_data_flow">document</a>. There is one flow chart for an
+         elevation based product and one for a volume based product. Many of
+         the named activities in these flow charts correspond to specific API
+         services. The flow chart for the elevation product can be compared to
+         the source code of the digital reflectivity sample algorithm. Comment
+         labels have been placed in the source code as an aid in relating the
+         source code to the flow chart.
+      </p>
+      <p>
+         It should be noted that a task may run and produce a valid product
+         even though some of these rules are not followed. However, the
+         algorithm would not be correctly integrated into the ORPG. Not
+         properly structuring an algorithm (following these guidelines) could
+         result in unexplained behaviour. For example an algorithm task that
+         crashed upon a commanded volume restart.
+      </p>
+      <p>
+         Additional rules for using the API services are described in Section
+         II of this guide titled, <em>Getting Started with the Algorithm
+         API</em>, which should be read before studying the sample algorithms.
+      </p>
+      <h4>
+         Returning to the beginning of the control loop.
+      </h4>
+      <ul>
+         <li>
+            Data driven algorithms must always return to the beginning of the
+            control loop (either <tt><b>RPGC_wait_act</b></tt> or
+            <tt><b>RPGC_wait_for_any_data</b></tt>) upon successful product
+            output and when output is not successful (product abort).
+         </li>
+         <li>
+            With event driven algorithms, the same principles apply. The two
+            legacy event driven algorithms have all of the algorithm logic in
+            the event handler function. In this case the event handler function
+            must return upon successful product output and when the output is
+            not successful (product abort) and the algorithm control loop
+            function <tt><b>RPGC_wait_for_event</b></tt> is placed in a
+            continuous loop.
+         </li>
+      </ul>
+      <h4>
+         Release all acquired buffers.
+      </h4>
+      <ul>
+         <li>
+            Before returning to the control loop (or returning from the event
+            handler), all input buffers successfully obtained must be released
+            with <tt><b>RPGC_rel_inbuf</b></tt> and all output buffers
+            successfully obtained must be released with
+            <tt><b>RPGC_rel_outbuf</b></tt>. <b><font color=
+            "#990000">Note</font></b>: Attempting to release a buffer (either
+            input or output) that was not obtained will cause the algorithm
+            task to be terminated.
+         </li>
+         <li>
+            With successful product construction
+            <tt><b>RPGC_rel_outbuf</b></tt> is called with the
+            <tt><b>FORWARD</b></tt> flag and when product construction is not
+            complete the <tt><b>DESTROY</b></tt> flag is used. In addition, in
+            the case of incomplete product construction one of the abort
+            functions must be called.
+         </li>
+      </ul>
+      <h4>
+         Call required abort services
+      </h4>
+      <ul>
+         <li>
+            If needed moments are not available, call
+            <tt><b>RPGC_abort_because( PROD_DISABLED_MOMENT )</b></tt>.
+         </li>
+         <li>
+            If unable to successfully get an input buffer, call
+            <tt><b>RPGC_abort( )</b></tt>
+         </li>
+         <li>
+            If unable to successfully get an output buffer because of lack of
+            memory (<tt><b>opstat</b></tt> = = <tt><b>NO_MEM</b></tt>), abort
+            using <tt><b>RPGC_abort_because( PROD_MEM_SHED )</b></tt>. If
+            unable to successfully get an output buffer for any other reason,
+            abort using <tt><b>RPGC_abort( )</b></tt>.
+         </li>
+         <li>
+            With algorithms producing more than one final product,
+            <tt><b>RPGC_abort_datatype_because( &lt;datatype&gt;,
+            &lt;reason&gt; )</b></tt> is called for those products not being
+            produced.
+         </li>
+      </ul>
+      <h4>
+         Resource Cleanup
+      </h4>
+      <ul>
+         <li>
+            All resources / allocated memory must be freed prior to returning
+            to the beginning of the control loop (or returning from the event
+            handler).
+         </li>
+      </ul>
+      <br>
+       
+      <h3>
+         <i>Sample ANSI-C Algorithms</i>
+      </h3>
+      <p>
+         There are two purposes for these algorithms.
+      </p>
+      <ul>
+         <li>
+            They provide a sample of algorithm structure and demonstrate use of
+            the API. In addition, they can be used as templates upon which to
+            build more complex algorithms.
+         </li>
+         <li>
+            They test the API. Since there are no operational algorithms using
+            the ANSI-C API, a broad population of algorithm types should be
+            written in C in order to validate the C API.
+         </li>
+      </ul>
+      <p>
+         These algorithms are still being tested. Since the rules for using the
+         <em>WSR-88D Algorithm API</em> are not fully understood, these
+         algorithms may not meet all operational requirements.
+      </p>
+      <h4>
+         Digital Reflectivity Algorithm - Elevation Product
+      </h4>
+      <p>
+         The CODE software includes a sample digital reflectivity algorithm.
+         This is a basic algorithm that ingests base data and produces an
+         elevation-based final product. No science is accomplished; the
+         algorithm reads base reflectivity data and creates a graphic product
+         using digital data array packet type. The base reflectivity data are
+         in full resolution. This sample algorithm demonstrates the assembly of
+         an ICD product with one layer consisting of a digital data array
+         packet type. The digital reflectivity algorithm can be set to stop
+         after processing a designated number of elevations of data. The source
+         code for this algorithm is located in
+         <tt><b>$HOME/src/cpc505/tsk001</b></tt>. The <a href=
+         "digital_reflectivity.html">top level file</a> is provided here for
+         convenience. This algorithm complies with all of the guidance in Part
+         A and can be used a guide to algorithm structure.
+      </p>
+      <h4>
+         Radial Reflectivity Algorithm - Elevation Product, 16 level RLE
+      </h4>
+      <p>
+         The CODE software includes a sample radial reflectivity algorithm.
+         This is a basic algorithm that ingests base data and produces an
+         elevation-based final product. With exception of the product code
+         (message code), this product is identical to the 16-level base
+         reflectivity product (BREF19). This sample algorithm demonstrates the
+         assembly of an ICD product with one layer consisting of a radial run
+         length encoded packets. Included with the source code are reusable
+         modules that have been ported from the original FORTRAN: run length
+         encoding module, pad front module, pad back module and the isbyte
+         module. The source code for this algorithm is located in
+         <tt><b>$HOME/src/cpc505/tsk002</b></tt>. The <a href=
+         "radial_reflectivity.html">top level file</a> is provided here for
+         convenience. This algorithm does not comply with all of the guidance
+         in Part A.
+      </p>
+      <p>
+         NOTE: Recently, the ORPG added support the color table index for the
+         ANSI-C version of the adaptation data services. This sample algorithm
+         does not yet use this feature.
+      </p>
+      <br>
+       
+      <hr>
+      <h3>
+         Part D. Algorithms Producing More Than One Product
+      </h3>
+      <p>
+         <em><font face="sans-serif" color="Red">FUTURE EDITION OF
+         CODE</font></em>&nbsp;
+      </p>
+      <p>
+         &nbsp;
+      </p>
+      <br>
+       
+      <hr>
+      <h3>
+         Part E. Algorithms Using Product Dependent Parameters
+      </h3>
+      <p>
+         <em><font face="sans-serif" color="Red">FUTURE EDITION OF
+         CODE</font></em>&nbsp;
+      </p>
+      <p>
+         &nbsp;
+      </p>
+   </body>
+</html>
+

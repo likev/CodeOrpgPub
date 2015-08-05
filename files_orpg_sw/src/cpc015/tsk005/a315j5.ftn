@@ -1,0 +1,210 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/16 19:40:47 $
+C $Id: a315j5.ftn,v 1.3 2002/12/16 19:40:47 christie Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A315J5__COMB_CELL_ATTR( STM_NDX, STINX )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A315J5__COMB_CELL_ATTR
+*.
+*.  MODULE VERSION: 0002
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       06 28 95      0000      STEVE SMITH          CCR NA94-26302
+*.       12/23/96      0001      Toolset              CCR NA95-11807
+*.       03/16/99      0002      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A315J5__COMB_CELL_ATTR( STM_NDX, STINX )
+*.
+*.  MODULE FUNCTION:
+*.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT    TYPE        DESCRIPTION
+*.    -   -----    ----        -----------
+*.    C   STRMCELL R*4         Array of storm cell characteristics of all
+*.                             storm cells built from components.
+*.    C   STC_BAS  I*4         (CONSTANT)Location in the STRMCELL array of the
+*.                             height (km ARL) of the the lowest centroid of
+*.                             any component associated with a storm cell.
+*.    C   STC_LCB  I*4         (CONSTANT)A pointer to the elevation index of
+*.                             the base component of a cell in the STRMCELL
+*.                             array.  The index will be set to negative if
+*.                             the component is on the lowes
+*.    C   STC_LCT  I*4         (CONSTANT)Location in the STRMCELL array of the
+*.                             highest elevation index for any component
+*.                             associated with a storm cell.
+*.    C   STC_MRF  I*4         (CONSTANT)Location in the STRMCELL array of the
+*.                             storm cell's maximum reflectivity (dBZ).
+*.    C   STC_MWA  I*4         (CONSTANT)Location in the STRMCELL array of
+*.                             mass-weighted area of a storm cell.
+*.    C   STC_MZH  I*4         (CONSTANT)Location in the STRMCELL array of the
+*.                             height (km ARL) of the component contributing
+*.                             the maximum reflectivity to a storm cell.
+*.    C   STC_TOP  I*4         (CONSTANT)Location in the STRMCELL array of the
+*.                             height (km ARL) of the highest centroid of any
+*.                             component associated with a storm cell.
+*.    C   STC_VIL  I*4         (CONSTANT)Location in the STRMCELL array of the
+*.                             storm cell's VIL
+*.    C   STC_XCN  I*4         (CONSTANT)Location in the STRMCELL array of the
+*.                             mass-weighted X-coordinate (km) of a storm
+*.                             cell's 3-D centroid.
+*.    C   STC_YCN  I*4         (CONSTANT)Location in the STRMCELL array of the
+*.                             mass-weighted Y coordinate (km) of a storm
+*.                             cell's 3-D centroid.
+*.    C   STC_ZCN  I*4         (CONSTANT)Location in the STRMCELL array of the
+*.                             mass-weighted Z coordinate (km ARL) of a storm
+*.                             cell's 3-D centroid.
+*.    P   STINX    I*4         Storm Cell Index of second storm cell which
+*.                             will be merged with first storm cell
+*.    P   STM_NDX  I*4         Index to storm cell in STRMCELL array
+*.
+*.    *   OUTPUT   TYPE        DESCRIPTION
+*.    -   ------   ----        -----------
+*.    C   STRMCELL R*4         Array of storm cell characteristics of all
+*.                             storm cells built from components.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME     TYPE        DESCRIPTION
+*.    ----     ----        -----------
+*.    COMBMASS R*4         Combined mass of two storm cells being merged
+*.    MASS1    R*4         Mass-weighted area of storm cell 1 being merged
+*.                         with storm cell 2.
+*.    MASS2    R*4         Mass-weighthed area of storm cell 2 being merged
+*.                         with storm cell 1.
+*.    XCENT1   R*4         The X coordinate(km) of the first storm cell 3-d
+*.                         centroid to be merged.
+*.    XCENT2   R*4         The X coordinate(km) of the second of a storm
+*.                         cell's 3-D centroid to be merged
+*.    YCENT1   R*4         The Y coordinate (km) of a storm cell's 3-D
+*.                         centroid
+*.    YCENT2   R*4         The Y coordinate (km) of the second storm cell's
+*.                         3-D centroid to be merged
+*.    ZCENT1   R*4         The Z coordinate (km ARL) of the first storm cell's
+*.                         3-D centroidto be merged
+*.    ZCENT2   R*4         The Z coordinate (km ARL) of the second storm
+*.                         cell's 3-D centroid to be merged
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A315CVCC
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:
+*.
+*.
+*.  DEVIATIONS FROM STANDARD:  None
+*.
+*.  DEVIATION FROM STANDARDS: NONE.
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     Compiled using COMP15.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     Linked using LINK15.CSS
+*.
+*.  MISC:  None
+*.
+C********************************************************************
+C
+C         STORM CELL CENTROIDS: COMBINE CELL ATTRIBUTES ROUTINE
+C
+C********************************************************************
+C
+      IMPLICIT NONE
+C
+C**Attach output parameter-definition file (of "STORM_CENTROIDS")
+$INCLUDE A315BUF.INC/G,**A315P5C (NLIST)
+C
+C**Attach internal common area (CVCC)
+$INCLUDE A315.INC/G,**A315CVPC (NLIST)
+$INCLUDE            **A315CVCC (NLIST)
+C
+C*********************** DATA DECLARATIONS **************************
+C
+      INTEGER  STM_NDX, STINX
+C
+      REAL     MASS1, MASS2, COMBMASS, XCENT1, XCENT2, YCENT1, YCENT2
+      REAL     ZCENT1, ZCENT2
+C
+C****************** BEGIN MAIN PROCESSING SECTION *******************
+C
+C** IF (STORM CELLS were Merged) THEN
+C
+      MASS1 = STRMCELL( STC_MWA, STM_NDX )
+      MASS2 = STRMCELL( STC_MWA, STINX )
+C
+C** COMPUTE (MASS(Storm Cell))
+C
+      COMBMASS = MASS1 + MASS2
+      XCENT1 = STRMCELL( STC_XCN, STM_NDX ) * MASS1
+      XCENT2 = STRMCELL( STC_XCN, STINX ) * MASS2
+C
+C** COMPUTE (X-POSITION(Storm Cell))
+C
+      STRMCELL( STC_XCN, STM_NDX ) = ( XCENT1+XCENT2 ) / COMBMASS
+      YCENT1 = STRMCELL( STC_YCN, STM_NDX ) * MASS1
+      YCENT2 = STRMCELL( STC_YCN, STINX ) * MASS2
+C
+C** COMPUTE (Y-POSITION(Storm Cell))
+C
+      STRMCELL( STC_YCN, STM_NDX ) = ( YCENT1+YCENT2 ) / COMBMASS
+      ZCENT1 = STRMCELL( STC_ZCN, STM_NDX ) * MASS1
+      ZCENT2 = STRMCELL( STC_ZCN, STINX ) * MASS2
+      STRMCELL( STC_ZCN, STM_NDX ) = ( ZCENT1+ZCENT2 ) / COMBMASS
+      STRMCELL( STC_MWA, STM_NDX ) = COMBMASS
+      STRMCELL( STC_MWA, STINX ) = 0.0
+C
+C** Add VILs together.
+C
+      STRMCELL( STC_VIL, STM_NDX ) = STRMCELL( STC_VIL, STM_NDX )
+     >                             + STRMCELL( STC_VIL, STINX )
+C
+C** Find maximum reflectivity and maximum reflectivity height.
+C
+      IF (STRMCELL(STC_MRF,STINX).GE.STRMCELL(STC_MRF,STM_NDX)) THEN
+         STRMCELL( STC_MRF, STM_NDX ) = STRMCELL( STC_MRF, STINX )
+         STRMCELL( STC_MZH, STM_NDX ) = STRMCELL( STC_MZH, STINX )
+      END IF
+C
+C** Find merged storm cell base and top.
+C
+      IF (STRMCELL(STC_TOP,STINX).GT.STRMCELL(STC_TOP,STM_NDX)) THEN
+         STRMCELL( STC_TOP, STM_NDX ) = STRMCELL( STC_TOP, STINX )
+         STRMCELL( STC_LCT, STM_NDX ) = STRMCELL( STC_LCT, STINX )
+      END IF
+      IF (STRMCELL(STC_BAS,STINX).LT.STRMCELL(STC_BAS,STM_NDX)) THEN
+         STRMCELL( STC_BAS, STM_NDX ) = STRMCELL( STC_BAS, STINX )
+         STRMCELL( STC_LCB, STM_NDX ) = STRMCELL( STC_LCB, STINX )
+      END IF
+C
+C************** END OF PROCESSING FOR SUBROUTINE ********************
+C
+      RETURN
+      END

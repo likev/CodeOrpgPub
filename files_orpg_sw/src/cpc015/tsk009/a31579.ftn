@@ -1,0 +1,190 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/16 19:40:20 $
+C $Id: a31579.ftn,v 1.3 2002/12/16 19:40:20 christie Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A31579__STOR_TREND(STORMIDTYP,STORMID,NUMSTORM)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A31579__STOR_TREND
+*.
+*.  MODULE VERSION: 0002
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       06/20/95      0000      MARK FRESCH          CCR NA94-26301
+*.       12/23/96      0001      Toolset              CCR NA95-11807
+*.       03/16/99      0002      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: A31579__TREND( STORMIDTYP, STORMID, NUMSTORM )
+*.
+*.  MODULE FUNCTION:
+*.
+*.  This module stores the POSH and POH for each cell to the cell
+*.  trend data array for the latest volume scan.
+*.
+*.  MODULES CALLED: ILBYTE 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT            TYPE        DESCRIPTION
+*.    -   -----            ----        -----------
+*.    G   CELL_TREND_INDEX I*2         Array containing indexes for trend data
+*.                                     in the array CELL_TREND_DATA for each
+*.                                     storm cell. Each position in
+*.                                     CELL_TREND_INDEX corresponds to a Storm
+*.                                     ID.
+*.    G   H_POH            I*4         (CONSTANT)Index to the POH, the first
+*.                                     position, in the HAILSTATS arrays.
+*.    G   H_PSH            I*4         (CONSTANT)Index to the PSH, the second
+*.                                     position, in the HAILSTATS arrays.
+*.    G   NSTF_IDT         I*4         (CONSTANT)The number of attributes for
+*.                                     each storm cell in the array STORMIDTYP
+*.                                     which contains Storm ID, storm type,
+*.                                     and number of volumes tracked.
+*.    G   NSTF_MAX         I*4         (CONSTANT)The maximum number of storm
+*.                                     cells the array STORMIDTYP may hold.
+*.                                     The array provides the storm cell Id
+*.                                     attribute.
+*.    G   NVOLOFF          I*4         (CONSTANT)ffset pointer into the
+*.                                     CELL_TREND_DATA array for the number of
+*.                                     volumes a storm cells been tracked
+*.                                     packed as left byte
+*.    G   POHOFF           I*4         (CONSTANT)Offset to the POH for a
+*.                                     particular cell at a particular volume
+*.                                     scan in the cell trend array.
+*.    G   POSHOFF          I*4         (CONSTANT)Offset to the POSH for a
+*.                                     particular cell at a particular volume
+*.                                     scan in the cell trend array.
+*.    G   STF_ID           I*4         (CONSTANT)Offset to the cell ID index
+*.                                     in the STORMIDTYP part of the
+*.                                     tracking/forecast output buffer.
+*.    C   CELL_TREND_DATA  I*2         Array of 8 storm cell attributes for up
+*.                                     to 13 volumes and up to 100 storm
+*.                                     cells.
+*.                                     (NSTF_HKT+(NSTF_NTV*NSTF_NTF))*NSTF_MAX=
+*.                                     (1+(10*8))*100=8100
+*.    C   HAILTEMP         R*4         Array used for local storage of hail
+*.                                     attributes, except cell IDs.
+*.    C   NHAILS           I*4         The number of cells processed by the
+*.                                     hail algorithm.
+*.    P   STORMIDTYP       I*4         An array for containing cell continuity
+*.                                     information (e.g. cell ID) from the
+*.                                     tracking/forecast output buffer.
+*.
+*.    *   OUTPUT          TYPE        DESCRIPTION
+*.    -   ------          ----        -----------
+*.    C   CELL_TREND_DATA I*2         Array of 8 storm cell attributes for up
+*.                                    to 13 volumes and up to 100 storm cells.
+*.                                    (NSTF_HKT+(NSTF_NTV*NSTF_NTF))*NSTF_MAX=(
+*.                                    1+(10*8))*100=8100
+*.    P   NUMSTORM        I*4         Number of storms
+*.    P   STORMID         I*4         Array of Storm Cell IDs
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    C   CELL_TREND_DATA   I*2         Array of 8 storm cell attributes for
+*.                                      up to 13 volumes and up to 100 storm
+*.                                      cells.
+*.                                      (NSTF_HKT+(NSTF_NTV*NSTF_NTF))*NSTF_MAX
+*.                                      =(1+(10*8))*100=8100
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME   TYPE        DESCRIPTION
+*.    ----   ----        -----------
+*.    CELL   I*4         A DO LOOP index used to process/index by cell.
+*.    HIGH   I*4         A pointer to the upper half word in the cell trend
+*.                       data array using the ILBYTE function.
+*.    INDEX  I*4         An index into a particular cell (and volume scan) of
+*.                       the cell trend data array.
+*.    LABEL  I*4         Storm cell label
+*.    VOLPTR I*4         An offset of an index into a particular cell pointing
+*.                       to the beginning of data for the current volume in
+*.                       the cell trend data array.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A315TRND
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A315CIH
+*.    A315TRND
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.     THIS MODULE IS COMPILED USING THE COMP15.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.     THIS MODULE IS LINKED USING THE LINK15.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+      IMPLICIT NONE
+C
+$INCLUDE A315BUF.INC/G, **A315P7F  (NLIST NEND)
+$INCLUDE                **A315P8T  (NLIST NEND)
+$INCLUDE                **A315P9H  (NLIST NEND)
+$INCLUDE                **A315PTRD (NLIST NEND)
+$INCLUDE                **A315CTRD (NLIST NEND)
+$INCLUDE                **A315D8   (NLIST NEND)
+$INCLUDE A315.INC/G,    **A315CIH  (NLIST NEND)
+C
+C**  Local variables.
+C
+      INTEGER STORMIDTYP(NSTF_IDT, NSTF_MAX), CELL
+      INTEGER LABEL, INDEX, VOLPTR, HIGH
+C
+      PARAMETER (HIGH = 1)
+C
+C** EXECUTABLE CODE
+C
+      NUMSTORM = NHAILS
+C
+C**  DO FOR ALL STORM CELLS
+C
+      DO 100 CELL = 1,NHAILS
+C
+C** Store the storm cell ID
+C
+         STORMID(CELL) = STORMIDTYP(STF_ID, CELL)
+C
+C**  Get storm cell label (i.e., ID) and storm cell trend data index
+C
+         LABEL = STORMIDTYP( STF_ID, CELL )
+         INDEX = CELL_TREND_INDEX( LABEL )
+C
+C**  Extract volume pointer from trend data.
+C
+         CALL ILBYTE(VOLPTR,CELL_TREND_DATA(INDEX+NVOLOFF),HIGH)
+C
+C**  Save storm cell trend data at the cell trend data index and
+C**  volume pointer.
+C
+         CELL_TREND_DATA( INDEX+VOLPTR+POHOFF ) =
+     >        HAILTEMP( H_POH, CELL )
+         CELL_TREND_DATA( INDEX+VOLPTR+POSHOFF ) =
+     >        HAILTEMP( H_PSH, CELL )
+ 100  CONTINUE
+C
+      RETURN
+      END

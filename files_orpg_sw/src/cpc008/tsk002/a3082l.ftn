@@ -1,0 +1,316 @@
+C
+C RCS info
+C $Author: steves $
+C $Locker:  $
+C $Date: 2007/03/02 22:38:50 $
+C $Id: a3082l.ftn,v 1.9 2007/03/02 22:38:50 steves Exp $
+C $Revision: 1.9 $
+C $State: Exp $
+C
+      SUBROUTINE A3082L__RCM_DRIVER(OPTR,OPTR_SC,VOLN,CDATE,CTIME)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3082L__RCM_DRIVER
+*.
+*.  MODULE VERSION: 0015
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       07 22 88      0000      VALERIE HOLDEN       SPR # 80002
+*.       02 06 89      0001      VALERIE HOLDEN       SPR # 90027
+*.       05 08 89      0002      VALERIE HOLDEN       SPR # 80273
+*.       05 07 90      0003      PAUL PISANI          SPR # 90697
+*.       02 22 91      0004      VALERIE HOLDEN       SPR # 91249
+*.       03 06 91      0004      BAYARD JOHNSTON      SPR # 91225
+*.       12 03 91      0005      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0006      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/20/92      0007      Toolset              SPR 91895
+*.       03/25/93      0008      Toolset              SPR NA93-06801
+*.       01/28/94      0009      Toolset              SPR NA94-01101
+*.       03/03/94      0010      Toolset              SPR NA94-05501
+*.       04/01/95      0011      Toolset              CCR NA95-11802
+*.       09/20/95      0012      Mike Istok           CCR NA94-32101
+*.       12/23/96      0013      Toolset              CCR NA95-11807
+*.       03/16/99      0014      Toolset              CCR NA98-23803
+*.       11/10/05      0015      Brian Klein          CCR NA05-23001
+*.
+*.  CALLING SEQUENCE: CALL A3082L__RCM_DRIVER(OPTR,OPTR_SC,VOLN,
+*.                                            CDATE,CTIME)
+*.
+*.  MODULE FUNCTION: MAIN PROCESSING ROUTINE OF THE RADAR CODED
+*.                   MESSAGE TASK.  IT IS CALLED BY THE BUFFER
+*.                   CONTROL ROUTINE AND MANAGES THE REMAINDER OF
+*.                   THE GENERATION OF THE OUTPUT BUFFER.
+*.
+*.  MODULES CALLED: A30822__RCM_GRID, A30823__RCM_CONTROL, A30824__HEADER, 
+*.                  A30829__CNVTIME, A3082C__MAX_ECHOTOP, 
+*.                  A3082D__CENTROIDS_PARTA, A3082E__PARTBC_HEADER, 
+*.                  A3082F__VAD_WINDS, A3082H__TVS, A3082I__MESOCYCLONES, 
+*.                  A3082J__CENTROIDS_PARTC, A3082M__COMM_LINE, 
+*.                  A3082N__HEADER_INTER, A3082V__BUFFER_NOTAVAIL, 
+*.                  A3CM38__JULIAN2DATE 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT      TYPE        DESCRIPTION
+*.    -   -----      ----        -----------
+*.    G   MEM        I*4         Array in RPG shared memory set aside for
+*.                               buffer sharing.
+*.    G   SUMMARY    I*4         Volume Scan Summary Table
+*.    G   CATT       I*4         (CONSTANT)Combined attributes table offset.
+*.    G   CFEA       I*4         (CONSTANT)Combined attributes features
+*.                               offset.
+*.    G   CNFP       I*4         (CONSTANT)Offset in combined attributes table
+*.                               to number of forecast positions.
+*.    G   CNFST      I*4         (CONSTANT)Offset in combined attributes table
+*.                               to number of forecast storms.
+*.    G   CNS        I*4         (CONSTANT)Offset in combined attributes table
+*.                               to the number of storms
+*.    G   HYO_HYBRID I*4         (CONSTANT)Offset to Hybrid Scan array in
+*.                               Hybrid Scan output buffer.
+*.    G   OBIT       I*4         (CONSTANT)Offset to the maximum ECHO TOP/LAST
+*.                               elevation identifier bit map.
+*.    G   OSET       I*4         (CONSTANT)OFFSET TO ARRAY OF ECHO TOPS
+*.                               AUXILIARY PARAMETERS
+*.    G   OVET       I*4         (CONSTANT)Offset to the array of ECHO TOPS
+*.                               values.
+*.    G   PGRID      I*4         (CONSTANT)Offset to grid portion of polar
+*.                               grid buffer. From top of polar grid buffer
+*.    G   SCAN_DATE  I*4         (CONSTANT)Volume Scan Date index into Scan
+*.                               Summary Table
+*.    G   SCAN_TIME  I*4         (CONSTANT)Volume Scan Time index into Scan
+*.                               Summary Table
+*.    G   VPCV       I*4         (CONSTANT)Offset in VADTMHGT Table for
+*.                               current volume scan.
+*.    G   VPDA       I*4         (CONSTANT)Offset in VADTMHGT Table for
+*.                               height, RMS, direction and speed.
+*.    G   VPDT       I*4         (CONSTANT)Offset to the date of the current
+*.                               volume scan in output buffer VADTMHGT.
+*.    G   VPND       I*4         (CONSTANT)Offset to VAD missing data value in
+*.                               output buffer VADTMHGT.
+*.    G   VPTI       I*4         (CONSTANT)Offset to the times in output
+*.                               buffer VADTMHGT.
+*.    C   TIBF       I*4         Table of input buffer pointers into shared
+*.                               memory.
+*.    C   VB         I*4         Valid buffer array that contains volume
+*.                               number.
+*.    C   CA         I*4         (CONSTANT)Index into Combined Attributes
+*.                               input buffer.
+*.    C   CN2DS      I*4         (CONSTANT)Offset into RPG shared buffer
+*.                               memory table (MEM), with a bias of TIBF (CA),
+*.                               FOR 2D Uncorrelated shears.
+*.    C   CNMES      I*4         (CONSTANT)Offset into RPG shared buffers
+*.                               memory table (MEM), with a bias of TIBF (CA),
+*.                               for mesocyclone attributes.
+*.    C   CNRCM      I*4         (CONSTANT)Offset into RPG shared buffer
+*.                               memory table (MEM), with a bias of TIBF (CA),
+*.                               for RCM data.
+*.    C   CNTVS      I*4         (CONSTANT)Offset into RPG shared buffer
+*.                               memory table (MEM), with bias of TIBF (CA),
+*.                               for TVs attributes.
+*.    C   ET         I*4         (CONSTANT)Echo Tops input buffer identifier.
+*.    C   HY         I*4         (CONSTANT)Identifies Hybrid Scan Input Buffer
+*.    C   PG         I*4         (CONSTANT)Polar grid input buffer identifier.
+*.    C   VW         I*4         (CONSTANT)VAD Winds input buffer identifier.
+*.    P   CDATE      I*4         CURRENT DATE
+*.    P   CTIME      I*4         CURRENT TIME
+*.    P   OPTR       I*4         OUTPUT BUFFER POINTER
+*.    P   OPTR_SC    I*4         OUTPUT SCRATCH BUFFER POINTER
+*.    P   VOLN       I*4         VOLUME NUMBER
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    G   MEM     I*4         Array in RPG shared memory set aside for buffer
+*.                            sharing.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    G   MEM               I*4         Array in RPG shared memory set aside
+*.                                      for buffer sharing.
+*.    P   CDATE             I*4         CURRENT DATE
+*.    P   CTIME             I*4         CURRENT TIME
+*.    P   VOLN              I*4         VOLUME NUMBER
+*.
+*.  DATABASE/FILE REFERENCE:  NONE
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME       TYPE        DESCRIPTION
+*.    ----       ----        -----------
+*.    B_HEADER   I*4         PART B HEADER FLAG
+*.    CABUF      I*4         VALID BUFFER INDEX FOR COMBINED ATTRIB
+*.    CAFLAGA    I*4         COMBINED ATTRIB FLAG-PART A
+*.    CAFLAGC    I*4         COMBINED ATTRIB FLAG-PART C
+*.    C_HEADER   I*4         PART C HEADER FLAG
+*.    DATES      I*4         DATE FROM VOLUME SCAN
+*.    ETBUF      I*4         VALID BUFFER INDEX FOR ECHO TOPS
+*.    ETFLAG     I*4         ECHO TOPS FLAG
+*.    HMTIME     I*4         HOURS AND MINUTES OF TIME DATA
+*.    I2DATE     I*2         I*2 WORD TO STORE DATE
+*.    ICOL       I*4         COLUMN NUMBER
+*.    IROW       I*4         ROW NUMBER
+*.    PROD_BYTES I*4         NUMBER OF BYTES IN PRODUCT
+*.    SPLIT_DATE I*2         DATE IN THREE I*2 WORDS
+*.    TIME       I*4         TIME FROM VOLUME SCAN
+*.    VWBUF      I*4         VALID BUFFER INDEX FOR VAD WINDS
+*.    YES        I*4         YES FLAG FOR VALID BUFFER RETRIEVAL
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD00
+*.    A3CD05
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A308P2
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     THIS MODULE IS COMPILED USING COMP08.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     THIS MODULE IS LINKED USING LINK08.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+C*
+$INCLUDE A309.INC/G,**A3PM00    (NEND NLIST)
+$INCLUDE            **A3PM06    (NEND NLIST)
+$INCLUDE            **A3CD00    (NEND NLIST)
+$INCLUDE            **A3CD05    (NEND NLIST)
+$INCLUDE A309ADPT.INC/G,**A3CD70C7 (NEND NLIST)
+$INCLUDE A307BUF.INC/G,**A307P4 (NEND NLIST)
+$INCLUDE A308BUF.INC/G,**A308P3 (NEND NLIST)
+$INCLUDE A313BUF.INC/G,**A313P0 (NEND NLIST)
+$INCLUDE A317BUF.INC/G,**A317VP (NEND NLIST)
+$INCLUDE A308.INC,**A308P2      (NEND NLIST)
+$INCLUDE A313HBUF.INC/G,**A313HYPP (NEND NLIST)
+C*
+      INTEGER*2     SPLIT_DATE(3),I2DATE
+      INTEGER*4     HMTIME,DATES,TIME,VOLN,CDATE,CTIME,YES,NO
+      INTEGER*4     OPTR,OPTR_SC,PROD_BYTES,IROW,ICOL
+      INTEGER*4     ETFLAG,CAFLAGA,CAFLAGC
+      INTEGER*4     CABUF,ETBUF,VWBUF,B_HEADER,C_HEADER
+      PARAMETER     (NO=0,YES=1,CABUF=4,ETBUF=5,VWBUF=6,CAFLAGC=3)
+      PARAMETER     (B_HEADER=1,C_HEADER=2,ETFLAG=1,CAFLAGA=2)
+
+C*
+C*    GET DATE AND TIME FROM VOLUME SCAN
+C*
+      DATES = SUMMARY(SCAN_DATE,VOLN)
+      I2DATE = DATES
+      TIME = SUMMARY(SCAN_TIME,VOLN)
+      CALL A30829__CNVTIME(TIME,HMTIME)
+      CALL A3CM38__JULIAN2DATE(I2DATE,SPLIT_DATE)
+C*
+C*    BUILD RCM GRID
+C*
+      CALL A30822__RCM_GRID(MEM(TIBF(PG)+PGRID),MEM(OPTR_SC),
+     $  MEM(TIBF(HY)+HYO_HYBRID))
+C*
+C*    FILL INTERMEDIATE GRAPHIC PRODUCT HEADER
+C*
+      CALL A3082N__HEADER_INTER(MEM(TIBF(CA)+CNS),MEM(TIBF(CA)+CFEA),
+     $   MEM(TIBF(CA)+CATT),MEM(TIBF(CA)+CNFP),MEM(TIBF(CA)+CNFST),
+     $   MEM(TIBF(CA)+CNTVS),MEM(OPTR),CDATE,CTIME,VOLN,PROD_BYTES,
+     $   MEM(OPTR_SC))
+C*
+C*    SET UP COMMUNICATIONS HEADER LINE FOR RADAR CODED MESSAGE
+C*
+      CALL A3082M__COMM_LINE(IROW,ICOL,PROD_BYTES,MEM(OPTR))
+C*
+      CALL A30823__RCM_CONTROL(SPLIT_DATE,HMTIME,IROW,ICOL,
+     $   VOLN,PROD_BYTES,MEM(OPTR_SC),MEM(OPTR))
+C*
+C*    IF ECHO TOPS BUFFER IS AVAILABLE, BUILD ECHO TOPS
+C*
+      IF (VB(ETBUF).EQ.YES) THEN
+         CALL A3082C__MAX_ECHOTOP(MEM(TIBF(ET)+OSET),
+     $   MEM(TIBF(ET)+OBIT),MEM(TIBF(ET)+OVET),IROW,ICOL,PROD_BYTES,
+     $   MEM(OPTR))
+      ELSE
+         CALL A3082V__BUFFER_NOTAVAIL(ETFLAG,PROD_BYTES,IROW,ICOL,
+     $      MEM(OPTR))
+      ENDIF
+C*
+C*    IF COMBINED ATTRIBUTES BUFFER IS AVAILABLE, BUILD CENTROIDS
+C*
+      IF (VB(CABUF).EQ.YES) THEN
+         CALL A3082D__CENTROIDS_PARTA(MEM(TIBF(CA)+CNS),
+     $   MEM(TIBF(CA)+CFEA),MEM(TIBF(CA)+CATT),MEM(TIBF(CA)+CNFP),
+     $   MEM(TIBF(CA)+CNFST),MEM(TIBF(CA)+CNTVS),IROW,ICOL,
+     $   PROD_BYTES,MEM(OPTR))
+      ELSE
+         CALL A3082V__BUFFER_NOTAVAIL(CAFLAGA,PROD_BYTES,IROW,ICOL,
+     $      MEM(OPTR))
+      ENDIF
+C*
+C*    CALL A3082E TO ENCODE PART B INDICATOR LINE
+C*
+      CALL A3082E__PARTBC_HEADER(B_HEADER,SPLIT_DATE,HMTIME,IROW,ICOL,
+     $   PROD_BYTES,MEM(OPTR))
+C*
+C*    IF VAD WINDS BUFFER IS AVAILABLE, BUILD VAD WINDS
+C*
+C*
+      IF (VB(VWBUF).EQ.YES) THEN
+         CALL A3082F__VAD_WINDS(MEM(TIBF(VW)+VPDT),
+     $      MEM(TIBF(VW)+VPCV),MEM(TIBF(VW)+VPTI),MEM(TIBF(VW)+VPND),
+     $      MEM(TIBF(VW)+VPDA),IROW,ICOL,PROD_BYTES,MEM(OPTR))
+      ENDIF
+C*
+C*    CALL A3082E TO ENCODE PART C INDICATOR LINE
+C*
+      CALL A3082E__PARTBC_HEADER(C_HEADER,SPLIT_DATE,HMTIME,IROW,ICOL,
+     $   PROD_BYTES,MEM(OPTR))
+C*
+C*    IF COMBINED ATTRIBUTES BUFFER IS AVAILABLE
+C*
+      IF (VB(CABUF).EQ.YES) THEN
+C*
+C*    BUILD TVS
+C*
+         CALL A3082H__TVS(MEM(TIBF(CA)+CNS),MEM(TIBF(CA)+CFEA),
+     $      MEM(TIBF(CA)+CATT),MEM(TIBF(CA)+CNFP),
+     $      MEM(TIBF(CA)+CNFST),MEM(TIBF(CA)+CNRCM),
+     $      MEM(TIBF(CA)+CNTVS),IROW,ICOL,PROD_BYTES,MEM(OPTR))
+C*
+C*    BUILD MESOCYCLONES
+C*
+         CALL A3082I__MESOCYCLONES(MEM(TIBF(CA)+CNS),
+     $      MEM(TIBF(CA)+CFEA),MEM(TIBF(CA)+CATT),MEM(TIBF(CA)+CNFP),
+     $      MEM(TIBF(CA)+CNFST),MEM(TIBF(CA)+CNRCM),
+     $      MEM(TIBF(CA)+CNMDA),MEM(TIBF(CA)+CNTVS),IROW,ICOL,
+     $      PROD_BYTES,MEM(OPTR))
+C*
+C*    BUILD CENTROIDS FOR PART C
+C*
+         CALL A3082J__CENTROIDS_PARTC(MEM(TIBF(CA)+CNS),
+     $      MEM(TIBF(CA)+CFEA),MEM(TIBF(CA)+CATT),MEM(TIBF(CA)+CNFP),
+     $      MEM(TIBF(CA)+CNFST),MEM(TIBF(CA)+CNTVS),IROW,ICOL,
+     $      PROD_BYTES,MEM(OPTR))
+      ELSE
+         CALL A3082V__BUFFER_NOTAVAIL(CAFLAGC,PROD_BYTES,IROW,ICOL,
+     $      MEM(OPTR))
+      ENDIF
+C*
+C*    FILL PRODUCT HEADER
+C*
+      CALL A30824__HEADER(MEM(OPTR),CDATE,CTIME,VOLN,PROD_BYTES)
+C*
+      RETURN
+      END

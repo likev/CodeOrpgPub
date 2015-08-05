@@ -1,0 +1,343 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/16 19:40:50 $
+C $Id: a315k4.ftn,v 1.3 2002/12/16 19:40:50 christie Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A315K4__SAVE_VOLM_COMP( AVG_ELEV, TOT_NCOMP,
+     >                                   ELEV_STAT, VOLMCOMP )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A315K4__SAVE_VOLM_COMP
+*.
+*.  MODULE VERSION: 0016
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       03 24 86      0000      DENNIS MILLER        BUILD 2
+*.       05 07 86      0001      DENNIS MILLER        SPR # 304
+*.       07 10 86      0002      DENNIS MILLER        SPR # 60313
+*.       07 10 86      0002      DENNIS MILLER        SPR # 60367
+*.       02 26 87      0003      DENNIS MILLER        SPR # 70106
+*.       10 18 88      0004      DAVID M. LYNCH       SPR # 80378
+*.       03 23 90      0005      PAUL U. PISANI       SPR # 90697
+*.       02 15 91      0006      JOHN DEPHILIP        SPR # 91762
+*.       04 01 91      0006      DENNIS MILLER        SPR # 91256
+*.       02 13 91      0006      DENNIS MILLER        SPR # 91713
+*.       12 03 91      0007      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0008      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0009      Toolset              SPR 91895
+*.       03/25/93      0010      Toolset              SPR NA93-06801
+*.       01/28/94      0011      Toolset              SPR NA94-01101
+*.       03/03/94      0012      Toolset              SPR NA94-05501
+*.       04/01/95      0013      Toolset              CCR NA95-11802
+*.       06/28/95      0014      STEVE SMITH          CCR NA94-26302
+*.       12/23/96      0015      Toolset              CCR NA95-11807
+*.       03/16/99      0016      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: A315K4__SAVE_COMP( AVG_ELEV, TOT_NCOMP,
+*.                                       ELEV_STAT, VOLMCOMP )
+*.
+*.  MODULE FUNCTION:
+*.
+*.    This routine saves components determined to be valid to the
+*.  output buffer.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT        TYPE        DESCRIPTION
+*.    -   -----        ----        -----------
+*.    C   COSPHI       R*4         Cosine of the elevation angle.
+*.    C   ELVCOMP      R*4         Stores attributes of component with highest
+*.                                 reflectivity level that lies within a
+*.                                 component at lower reflectivity levels.
+*.    C   LEV          I*4         Counter indicating the number of the
+*.                                 elevation being processed.
+*.    C   MASSRANK     I*4         Rank of components by mass-weighted area in
+*.                                 descending order.
+*.    C   NBR_STM_COMP I*4         Counter for the number of storm cell
+*.                                 components per elevation scan after
+*.                                 omitting redundant components at lower
+*.                                 reflectivity thresholds.
+*.    C   SINPHI       R*4         Sine of the elevation angle.
+*.    C   SLRANG2      R*4         Square of the slant range to a component's
+*.                                 centroid.
+*.    C   SLRANGE      R*4         Length of path a radar beam follows to a
+*.                                 component's centroid or slant range to the
+*.                                 centroid.
+*.    C   DLTAR1       R*4         (CONSTANT)Length in km of a range bin.
+*.    C   EL_LAST      I*4         (CONSTANT)Elevation status parameter for
+*.                                 determining that the highest elevation scan
+*.                                 has been processed.
+*.    C   FEA_ARA      I*4         (CONSTANT)Location of a component's area in
+*.                                 CMPFEAT array.
+*.    C   FEA_AZM      I*4         (CONSTANT)Location in the CMPFEAT array of
+*.                                 the azimuth (radians) of a component's
+*.                                 centroid.
+*.    C   FEA_FBN      I*4         (CONSTANT)Location in the CMPFEAT array of
+*.                                 the beginning bin of a component's segment
+*.                                 that starts closest to the radar.
+*.    C   FEA_FZA      I*4         (CONSTANT)Location of the first azimuth in
+*.                                 radians (most counter-clockwise) segment of
+*.                                 a component in the CMPFEAT array.
+*.    C   FEA_LBN      I*4         (CONSTANT)Location in the CMPFEAT array of
+*.                                 the ending bin of a component's segment
+*.                                 that ends farthest from the radar.
+*.    C   FEA_LZA      I*4         (CONSTANT)Location of the last azimuth in
+*.                                 radians (most clockwise) segment of a
+*.                                 component in the CMPFEAT array.
+*.    C   FEA_MRF      I*4         (CONSTANT)Location of a component's maximum
+*.                                 reflectivity in CMPFEAT array.
+*.    C   FEA_MWA      I*4         (CONSTANT)Location of component's
+*.                                 mass-weighted area in CMPFEAT array.
+*.    C   FEA_RNG      I*4         (CONSTANT)Location in the CMPFEAT array of
+*.                                 the range (km) to a component's centroid.
+*.    C   FEA_RTH      I*4         (CONSTANT)Location of a component's
+*.                                 reflectivity threshold in CMPFEAT array.
+*.    C   FEA_XCN      I*4         (CONSTANT)Location of a component's
+*.                                 centroid's X coordinate in CMPFEAT array.
+*.    C   FEA_YCN      I*4         (CONSTANT)Location of a component's
+*.                                 centroid's Y coordinate in CMPFEAT array.
+*.    C   NVOCHR       I*4         (CONSTANT)Number of components'
+*.                                 characteristics (16) stored in array
+*.                                 VOLCOMP.
+*.    C   TWOIRRE      R*4         (CONSTANT)Constant derived from taking the
+*.                                 inverse of the quantity two times effective
+*.                                 earth radius.
+*.    C   VCM_ACH      I*4         (CONSTANT)Location in the VOLCOMP array of
+*.                                 the cell association flag of a component.
+*.                                 Flag value set to 0 in Components.
+*.    C   VCM_ARA      I*4         (CONSTANT)Location in the VOLCOMP array of
+*.                                 a component's area (km**2).
+*.    C   VCM_BAZ      I*4         (CONSTANT)Location in the VOLCOMP array of
+*.                                 the azimuth (radians) of the first (most
+*.                                 counter-clockwise) segment in a component.
+*.    C   VCM_BRG      I*4         (CONSTANT)Location in the VOLCOMP array of
+*.                                 the range to the bin closest to the radar
+*.                                 of all the segments' starting bins in a
+*.                                 component.
+*.    C   VCM_CAZ      I*4         (CONSTANT)Location in the VOLCOMP array of
+*.                                 the azimuth (radians) of a component's
+*.                                 centroid.
+*.    C   VCM_CRG      I*4         (CONSTANT)Location in the VOLCOMP array of
+*.                                 the range (km) to a component's centroid.
+*.    C   VCM_EAZ      I*4         (CONSTANT)Location in the VOLCOMP array of
+*.                                 the azimuth (radians) of the last (most
+*.                                 clockwise) segment in a component.
+*.    C   VCM_ELV      I*4         (CONSTANT)Location in the VOLCOMP array of
+*.                                 the average elevation (degrees) of the scan
+*.                                 from which a component was built.
+*.    C   VCM_ERG      I*4         (CONSTANT)Location in the VOLCOMP array of
+*.                                 the range to the bin farthest from the
+*.                                 radar of all the segments' ending bins in a
+*.                                 component.
+*.    C   VCM_LCT      I*4         (CONSTANT)Location in the VOLCOMP array of
+*.                                 the elevation number, LEV, which is set to
+*.                                 -LEV if component comes from highest scan.
+*.    C   VCM_MRF      I*4         (CONSTANT)Location in the VOLCOMP array of
+*.                                 a component's maximum reflectivity.
+*.    C   VCM_MWA      I*4         (CONSTANT)Location in the VOLCOMP array of
+*.                                 a component's mass-weighted area (kg/km).
+*.    C   VCM_RTH      I*4         (CONSTANT)Location in the VOLCOMP array of
+*.                                 a component's reflectivity threshold.
+*.    C   VCM_XCN      I*4         (CONSTANT)Location in the VOLCOMP array of
+*.                                 the mass-weighted X-coordinate (km) of a
+*.                                 component's centroid.
+*.    C   VCM_YCN      I*4         (CONSTANT)Location in the VOLCOMP array of
+*.                                 the mass-weighted Y coordinate (km) of a
+*.                                 component's centroid.
+*.    C   VCM_ZCN      I*4         (CONSTANT)Location in the VOLCOMP array of
+*.                                 the height (ARL) of a component's centroid.
+*.    P   AVG_ELEV     R*4         Average elevation angle
+*.    P   ELEV_STAT    I*4         Elevation status
+*.    P   TOT_NCOMP    I*4         Total number of componets for this volume
+*.                                 scan
+*.
+*.    *   OUTPUT    TYPE        DESCRIPTION
+*.    -   ------    ----        -----------
+*.    C   NVCOMP    I*4         Number of components per elevation passed on
+*.                              to Centroids.
+*.    C   SLRANG2   R*4         Square of the slant range to a component's
+*.                              centroid.
+*.    C   SLRANGE   R*4         Length of path a radar beam follows to a
+*.                              component's centroid or slant range to the
+*.                              centroid.
+*.    P   TOT_NCOMP I*4         Total number of componets for this volume scan
+*.    P   VOLMCOMP  R*4         Array of characteristics of components stored
+*.                              for an elevation for a volume scan
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME     TYPE        DESCRIPTION
+*.    ----     ----        -----------
+*.    CMP_NDX  I*4         Do loop variable for number of cell componets
+*.    HLF_FCTR R*4         Real parameter value of 0.5
+*.    MR_NDX   I*4         Mass rank index of componet
+*.    NVOMAX   I*4         Maximum number of components (120) that can be
+*.                         stored in array VOLCOMP.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A315CNCC
+*.    A315CQCC
+*.    A315CRCC
+*.    A315CSCC
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.     Compiled using COMP15.CSS
+*.
+*.  COMPILATION INSTRUCTIONS: NONE.
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     Linked using LINK15.CSS
+*.
+*.  MISC:  None
+*.
+C********************************************************************
+C
+C               STORM COMPONENTS: SAVE_COMP  SUBROUTINE
+C
+C********************************************************************
+C
+      IMPLICIT NONE
+C
+C**Attach internal common area (CNCC)
+$INCLUDE A315BUF.INC/G, **A315P5C (NLIST)
+$INCLUDE A315.INC/G,**A315CNCC (NLIST)
+C
+C**Attach internal common area (CPCC)
+$INCLUDE A315.INC/G,**A315CPPC (NLIST)
+$INCLUDE            **A315CPCC (NLIST)
+C
+C**Attach internal common area (CQCC)
+$INCLUDE A315.INC/G,**A315CQPC (NLIST)
+$INCLUDE            **A315CQCC (NLIST)
+C
+C**Attach internal common area (CRCC)
+$INCLUDE A315.INC/G, **A315CRPC (NLIST)
+$INCLUDE             **A315CRCC (NLIST)
+C
+C**Attach parameter definition (CSPC)
+$INCLUDE A315.INC/G, **A315CSCC (NLIST)
+C
+C*********************** DATA DECLARATIONS **************************
+C
+C** Passed variables:
+C
+      INTEGER  ELEV_STAT, TOT_NCOMP
+C
+      REAL     AVG_ELEV, VOLMCOMP( NVOCHR, NVOMAX )
+C
+C** Internal variables:
+C
+      INTEGER  CMP_NDX, MR_NDX
+C
+      REAL     HLF_FCTR
+C
+      PARAMETER (HLF_FCTR = 0.5)
+C********************** DATA INITIALIZATIONS ************************
+C
+C******************* BEGIN MAIN PROCESSING SECTION ******************
+C
+C** Store attributes of the building-Component which was determined
+C** to be saved in the output buffer, in appropriate slot.
+C
+      DO 100 CMP_NDX = 1, NBR_STM_COMP
+C
+C** Size & horizontal position:
+C
+         MR_NDX = MASSRANK( CMP_NDX )
+         VOLMCOMP( VCM_XCN, CMP_NDX ) = ELVCOMP( FEA_XCN, MR_NDX )
+         VOLMCOMP( VCM_YCN, CMP_NDX ) = ELVCOMP( FEA_YCN, MR_NDX )
+         VOLMCOMP( VCM_MWA, CMP_NDX ) = ELVCOMP( FEA_MWA, MR_NDX )
+C
+C** Height above ground level:
+C
+         SLRANGE = ELVCOMP( FEA_RNG, MR_NDX )/COSPHI
+         SLRANG2 = SLRANGE*SLRANGE
+         VOLMCOMP( VCM_ZCN, CMP_NDX ) = SLRANGE*SINPHI +
+     >                                  SLRANG2*TWOIRRE
+C
+C** Center range and azimuth:
+C
+         VOLMCOMP( VCM_CRG, CMP_NDX ) = ELVCOMP( FEA_RNG, MR_NDX )
+         VOLMCOMP( VCM_CAZ, CMP_NDX ) = ELVCOMP( FEA_AZM, MR_NDX )
+C
+C** Maximum reflectivity:
+C
+         VOLMCOMP( VCM_MRF, CMP_NDX ) = ELVCOMP( FEA_MRF, MR_NDX )
+C
+C** Elevation angle:
+C
+         VOLMCOMP( VCM_ELV, CMP_NDX ) = AVG_ELEV
+C
+C** Association flag:
+C
+         VOLMCOMP( VCM_ACH, CMP_NDX ) = 0.0
+C
+C** Area:
+C
+         VOLMCOMP( VCM_ARA, CMP_NDX ) = ELVCOMP( FEA_ARA, MR_NDX )
+C
+C** Beginning and ending azimuth angles:
+C
+         VOLMCOMP( VCM_BAZ, CMP_NDX ) = ELVCOMP( FEA_FZA, MR_NDX )
+         VOLMCOMP( VCM_EAZ, CMP_NDX ) = ELVCOMP( FEA_LZA, MR_NDX )
+C
+C** Beginning and ending range:
+C
+         VOLMCOMP( VCM_BRG, CMP_NDX ) = ELVCOMP( FEA_FBN, MR_NDX )
+     >                               * DLTAR1 - HLF_FCTR
+         VOLMCOMP( VCM_ERG, CMP_NDX ) = ELVCOMP( FEA_LBN, MR_NDX )
+     >                               * DLTAR1 - HLF_FCTR
+C
+C** Reflectivity threshold:
+C
+         VOLMCOMP( VCM_RTH, CMP_NDX ) = ELVCOMP( FEA_RTH, MR_NDX )
+C
+C** Component top elevation scan:
+C
+         VOLMCOMP( VCM_LCT, CMP_NDX ) = LEV
+C
+C** If last cut in VCP, mark it:
+C
+         IF (ELEV_STAT .EQ. EL_LAST ) THEN
+            VOLMCOMP( VCM_LCT, CMP_NDX ) = -LEV
+         END IF
+C
+ 100  CONTINUE
+C
+C** Store the number of components this elevation, and the total
+C** number of components this volume.
+C
+      NVCOMP( LEV ) = NBR_STM_COMP
+      TOT_NCOMP = TOT_NCOMP + NBR_STM_COMP
+C
+C**************** END OF PROCESSING FOR SUBROUTINE ******************
+C
+      RETURN
+      END

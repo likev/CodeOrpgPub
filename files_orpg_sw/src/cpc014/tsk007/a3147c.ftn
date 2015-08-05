@@ -1,0 +1,671 @@
+C 
+C RCS info 
+C $Author: cmn $ 
+C $Locker:  $ 
+C $Date: 2004/12/27 14:10:43 $ 
+C $Id: a3147c.ftn,v 1.5 2004/12/27 14:10:43 cmn Exp $ 
+C $Revision: 1.5 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A3147C__BUILD_PRODUCT
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3147C__BUILD_PRODUCT
+*.
+*.  MODULE VERSION: 0003
+*.
+*.  MODULE LANGUAGE:  FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.        10/19/95      0000     Cheryl Stephenson     CCR NA94-08462
+*.       12/23/96      0001      Toolset              CCR NA95-11807
+*.       06/18/97      0002      Cheryl Stephenson    CCR NA97-17501
+*.       03/16/99      0003      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A3147C__BUILD_PRODUCT
+*.
+*.  MODULE FUNCTION:  This module generates the USP products.  It checks
+*.  how many customized USP products are requested.  If only one product
+*.  is requested, it calls A3147X to determine if that one request matches
+*.  the Generation and Control product and it is the one saved in the
+*.  User Selectable Data base.  If there are more than one request
+*.  it calls A3147B to optimize the requests. Then it will call A3147X
+*.  to check if one of the request matches the Generation and Control
+*.  product and it is the one saved in the User Selectable Data base.
+*.  If the product is not in the database or is too old, then it will
+*.  be generated.
+*.  To generate the USP products, a scratch buffer is gotten to perform
+*.  summation of the hourly accumulation arrays.  If it is not a duplicate
+*.  or the Generation and Control product read off disk, a output buffer is
+*.  acquired.  If there are enough hours to build the product, then A3147H
+*.  called to sum the hourly accumulations.  Then A3147J is called to build
+*.  the graphic attribute table.  Then the first part of the product
+*.  header is filled in.  A check is made to see if this is the Generatation
+*.  and Control product and if it is, it is written to disk.  Then the
+*.  second part of the product header is filled in and the product buffer
+*.  is released.
+*.  If there are not enough hourly accumulations, A3147D is called to build
+*.  a Null USP product.  The product buffer will then be release.
+*.  If for some reason a buffer can not be acquired, A3CM54 is called for
+*.  memory loadshedding and its cleanup.
+*.
+*.
+*.  MODULES CALLED: A31145__ABORT_ME, A31168__ABORT_ME_BECAUSE,
+*.                  A31215__GET_OUTBUF, A31216__REL_OUTBUF, A31478__USDB_IO,
+*.                  A3147B__OPTIMIZE, A3147D__USP_NULL, A3147E__PROD_HDR_PT1,
+*.                  A3147H__SUMMATION, A3147I__CHECK_MINIMUM,
+*.                  A3147J__USP_GRAPHIC, A3147L__INIT, A3147S__PROD_HDR_PT2,
+*.                  A3147X__GC_PRODUCT, A3CM25__GET_DATE_TIME,
+*.                  A3CM54__CUST_PROD_MEMSHED
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT           TYPE        DESCRIPTION
+*.    -   -----           ----        -----------
+*.    G   MEM             I*4         Array in RPG shared memory set aside for
+*.                                    buffer sharing.
+*.    G   DESTROY         I*4         (CONSTANT)Mnemonic used as input to
+*.                                    A31216__REL_OUTBUF. Indicates "do not
+*.                                    pass data to other tasks".
+*.    G   FORWARD         I*4         (CONSTANT)Parameter to
+*.                                    indicate that an output buffer is to be
+*.                                    forwarded to successor tasks
+*.    G   NORMAL          I*4         (CONSTANT)Parameter which
+*.                                    indicates normal completion of requested
+*.                                    operation to acquire input or output
+*.                                    buffer
+*.    G   NO_MEM          I*4         (CONSTANT)Parameter which
+*.                                    indicates no memory available on attempt
+*.                                    to acquire output buffer
+*.    G   SCRATCH         I*4         (CONSTANT)DATA BUFFER TYPE FOR TASK
+*.                                    SCRATCH DATA BUFFERS
+*.    C   AVAIL_HRS       I*2         An array of the available hours in the
+*.                                    User Selectable Data Base
+*.    C   BEG_INDX        I*2         Index into USDB_HRS_OLD for the
+*.                                    beginning hour of the USP product
+*.    C   CA              I*2         Array of customized USP requests
+*.    C   ENDHOUR         I*2         Ending hour of USP product
+*.    C   END_DATE        I*2         Modified Julian date indicating the end
+*.                                    date of the data in the User Selectable
+*.                                    Database
+*.    C   END_INDX        I*2         Index into USDB_HRS_OLD for the end hour
+*.                                    of USP product
+*.    C   GC_RDFLAG       L*4         Flag indicating whether the Generation
+*.                                    and Control USP was read from the User
+*.                                    Selectable Data Base
+*.    C   NDX             I*4         Working subscript for moving data into
+*.                                    output buffer
+*.    C   NREQ            I*4         Number of customized USP products
+*.                                    requested
+*.    C   SCN_DATE        I*4         Hybrid Scan Date
+*.    C   SCN_TIME        I*4         Hybrid Scan Time
+*.    C   START_TIME      I*2         The start hour of the data in the User
+*.                                    Selectable Database
+*.    C   TIMESPAN        I*2         Duration of USP product
+*.    C   USDB_FIL_STAT   I*4         Status of read or write operation on the
+*.                                    USDB file
+*.    C   USDB_HRLY_EDATE I*2         An array of the end date for the hourly
+*.                                    accumulation
+*.    C   USDB_HRS_OLD    I*2         An array of indexs for the hourly
+*.                                    accumulation
+*.    C   BAD_FILE        I*4         (CONSTANT)Error code for when
+*.                                    unable to read or write to the User
+*.                                    Selectable data base
+*.    C   BEG_POS         I*4         (CONSTANT)Index in the
+*.                                    Customizing array for the beginning
+*.                                    index in the User Selectable
+*.    C   CCOPYNO         I*4         (CONSTANT)Index in Cutomizing
+*.                                    array for volume scan index
+*.    C   CUSTIDX         I*4         (CONSTANT)Index in the
+*.                                    Customizing array for the second index
+*.                                    to PGENCUT in case the USP is load shed
+*.    C   DFLT_24H_RECNO  I*4         (CONSTANT)Record number for
+*.                                    the default Generation and Distribution
+*.                                    Control Product in the User Selectable
+*.                                    Data Base
+*.    C   DUP_FLAG        I*2         (CONSTANT)Flag value
+*.                                    indicating product is a duplicate
+*.    C   DUP_POS         I*4         (CONSTANT)Index into
+*.                                    Customizing array to indicate whether
+*.                                    this particular USP product is a
+*.                                    duplicate of another USP product
+*.    C   END_HOUR        I*4         (CONSTANT)INDEX INTO
+*.                                    CUSTOMIZING ARRAY FOR END HOUR OF THE
+*.                                    USP PRODUCT
+*.    C   END_POS         I*4         (CONSTANT)Index in the
+*.                                    Customizing array for the ending index
+*.                                    in the User Selectable
+*.    C   GOOD            I*4         (CONSTANT)Status flag value.
+*.    C   HRS_24          I*2         (CONSTANT)Number of hours in a
+*.                                    day
+*.    C   HRS_POS         I*4         (CONSTANT)Index into
+*.                                    Customizing array to for the number of
+*.                                    hours available for this particular USP
+*.                                    product
+*.    C   HYUSPACC        I*4         Data Buffer Type: USP product
+*.                                    buffer
+*.    C   INCRMENT        I*4         (CONSTANT)Variable used to increment by
+*.                                    1.
+*.    C   INIT_VAL        I*2         (CONSTANT)Value indicating
+*.                                    date/time are initial value
+*.    C   IPROD_I4SIZE    I*4         (CONSTANT)Product buffer size requested
+*.                                    (in words) from call to A31215 to get
+*.                                    product buffer.
+*.    C   KPOLAR_WORDS    I*4         (CONSTANT)Scratch buffer size for polar
+*.                                    grid.
+*.    C   NULL_POS        I*4         (CONSTANT)Index into
+*.                                    Customizing array to indicate that this
+*.                                    particular USP is a Null product
+*.    C   NUM_POLAR_BYTES I*4         (CONSTANT)Number of polar
+*.                                    bytes to read or write
+*.                                    KBINS*KRADS*2=82,800
+*.    C   ONE_HR          I*2         (CONSTANT)Value of 1 hour
+*.    C   OVER_POS        I*4         (CONSTANT)Index in the
+*.                                    Customizing array for the index in the
+*.                                    User Selectable
+*.    C   TIME_SPAN       I*4         (CONSTANT)INDEX INTO
+*.                                    CUSTOMIZING ARRAY FOR TIME SPAN OF THE
+*.                                    USP PRODUCT
+*.    C   WRITKODE        I*4         (CONSTANT)I/O code indicating write to
+*.                                    disk I/O operation should be performed.
+*.
+*.    *   OUTPUT           TYPE        DESCRIPTION
+*.    -   ------           ----        -----------
+*.    G   MEM              I*4         Array in RPG shared memory set aside
+*.                                     for buffer sharing.
+*.    C   ADJ_BEG_INDX     I*2         Adjusted beginning index for
+*.                                     optmization on handling customized
+*.                                     request
+*.    C   ADJ_END_INDX     I*2         Adjusted end index for optimization on
+*.                                     handling customized requests
+*.    C   BEG_INDX         I*2         Index into USDB_HRS_OLD for the
+*.                                     beginning hour of the USP product
+*.    C   CA               I*2         Array of customized USP requests
+*.    C   DATE_GCPROD      I*2         Date of the USP product that
+*.                                     match the request from the
+*.                                     Generation, Control and
+*.                                     Distribution list.
+*.    C   ENDHOUR          I*2         Ending hour of USP product
+*.    C   END_DATE         I*2         Modified Julian date indicating the end
+*.                                     date of the data in the User Selectable
+*.                                     Database
+*.    C   END_INDX         I*2         Index into USDB_HRS_OLD for the end
+*.                                     hour of USP product
+*.    C   FLAG_NO_GCPROD   L*4         Flag indicating if there is a
+*.                                     Generation and Distribution Control
+*.                                     product in the USDB
+*.    C   NULL_PROD        L*4         Flag indicating whether the product
+*.                                     contains data or will a ASCII message
+*.                                     explaining why there is no data
+*.    C   NUM_HOURS        I*2         Number of hours included in a
+*.                                     particular USP product
+*.    C   START_DATE       I*2         Modified Julian date indicating the
+*.                                     start date of the data in the User
+*.                                     Selectable Database
+*.    C   START_TIME       I*2         The start hour of the data in the User
+*.                                     Selectable Database
+*.    C   TIMESPAN         I*2         Duration of USP product
+*.    C   TIME_GCPROD      I*2         Time of the Generation and Distribution
+*.                                     Control product in the USDB, if -2
+*.                                     there is no product been created yet
+*.    C   TIME_SPAN_GCPROD I*2         Time Span for the USP product
+*.                                     on the GCDL list
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    G   MEM               I*4         Array in RPG shared memory set aside
+*.                                      for buffer sharing.
+*.    C   CA                I*2         Array of customized USP requests
+*.    C   NDX               I*4         Working subscript for moving data into
+*.                                      output buffer
+*.
+*.  DATABASE/FILE REFERENCE: NONE.
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME      TYPE        DESCRIPTION
+*.    ----      ----        -----------
+*.    CDATE     I*4         Current Julian Date
+*.    CLEAR_SUM L*4         Flag indicating whether to clear the summation
+*.                          buffer or not
+*.    CTIME     I*4         Current time in seconds
+*.    I         I*4         LOOP COUNTER
+*.    OPSTAT    I*4         Status of call to A31215 to get an output buffer
+*.    OPTR      I*4         Output buffer pointer for USP product buffer
+*.    REC       I*2         Record number
+*.    REQ       I*4         Request Number of the Generation & Control USP
+*.                          product
+*.    RQ        I*4         Do loop index
+*.    STATUS    I*4         Return status from call to A3147H
+*.    SUM_PTR   I*4         Buffer pointer for the summation buffer
+*.    SUM_STAT  I*4         Status of call to A31215 to get summation
+*.                          (scratch) buffer
+*.    ZERO      I*4         PARAMETER VALUE '0'
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD00
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3147C1
+*.    A3147C2
+*.    A3147C3
+*.    A3147C4
+*.    A3147C6
+*.    A3147C7
+*.    A3147C8
+*.    A3147C9
+*.
+*.  ERROR CONDITIONS: NONE.
+*.
+*.  ASSUMPTIONS/RESTRICTIONS: NONE.
+*.
+*.  DEVIATION FROM STANDARDS: NONE.
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK14.CSS
+*.
+*.  MISC: NONE.
+*.
+*.********************************************************************
+      IMPLICIT NONE
+C
+C* GLOBAL DECLARATIONS:
+C
+$INCLUDE A309ADPT.INC/G,**A3CD70PA  (NLIST)
+$INCLUDE                **A3CD70P6 (NLIST)
+$INCLUDE                **A3CD70P8 (NLIST)
+$INCLUDE A309.INC/G,**A3PM00 (NLIST)
+$INCLUDE            **A3PM01 (NLIST)
+$INCLUDE            **A3PM04 (NLIST)
+$INCLUDE            **A3PM06 (NLIST)
+$INCLUDE            **A3PM07 (NLIST)
+$INCLUDE            **A3CD00 (NLIST)
+$INCLUDE            **A3CD05 (NLIST)
+$INCLUDE            **A3CD07 (NLIST)
+$INCLUDE A3146.INC/G,**A3146P1    (NLIST)
+$INCLUDE             **A3146P2    (NLIST)
+$INCLUDE A3147.INC/G,**A3147P1    (NLIST)
+$INCLUDE             **A3147P2    (NLIST)
+$INCLUDE             **A3147P3    (NLIST)
+$INCLUDE             **A3147P4    (NLIST)
+$INCLUDE             **A3147P9    (NLIST)
+$INCLUDE             **A3147C1    (NLIST)
+$INCLUDE             **A3147C2    (NLIST)
+$INCLUDE             **A3147C3    (NLIST)
+$INCLUDE             **A3147C4    (NLIST)
+$INCLUDE             **A3147C6    (NLIST)
+$INCLUDE             **A3147C7    (NLIST)
+$INCLUDE             **A3147C8    (NLIST)
+$INCLUDE             **A3147C9    (NLIST)
+C
+C----- LOCAL DATA ---------------
+C
+      INTEGER ZERO, SET
+      PARAMETER (ZERO = 0,SET = 1)
+      INTEGER*4 OPTR, OPSTAT, SUM_PTR, SUM_STAT
+      INTEGER*4 CDATE,CTIME, REQ, RQ, STATUS
+      INTEGER*4 I
+      INTEGER*2 REC
+      INTEGER IDX, SECS_IN_HOUR
+      PARAMETER (SECS_IN_HOUR = 3600)
+      LOGICAL CLEAR_SUM
+
+C------------------------- EXECUTABLE ---------------------------
+C
+C  Initilization
+C
+      SUM_STAT      = ZERO
+      STATUS = ZERO
+      CLEAR_SUM = .TRUE.
+C
+      DO 5 I =1,NREQ
+        CA(NULL_POS,I) = ZERO
+        CA(HRS_POS,I)  = ZERO
+        CA(BEG_POS,I)  = ZERO
+        CA(END_POS,I)  = ZERO
+        CA(OVER_POS,I) = ZERO
+5     CONTINUE
+C
+C  Check if only one request.
+C
+      IF (NREQ .EQ. 1)THEN
+C
+C  If the end hour is the default (-1), then
+C  store latest Time
+C
+         IF (CA(END_HOUR,1) .EQ. -1)THEN
+            CA(END_HOUR,1) = LAST_TIME_HRDB
+C
+C  If the database is just initialize
+C
+            IF (LAST_TIME_HRDB .EQ. INIT_VAL)THEN
+C
+C  Then use the volume scan hour
+C
+               CA(END_HOUR,1) = SUMMARY(SCAN_TIME,VOLN)/SECS_IN_HOUR
+            ENDIF
+         ENDIF
+C
+C  See if only request is the Generation and Control
+C  request and if it is on disk.
+C
+         CALL A3147X__GC_PRODUCT(REQ)
+C
+C  If product read from disk, then done with only product
+C  request.
+C
+         IF(GC_RDFLAG)THEN
+           GO TO 1001
+         ELSE
+C
+C  If only one product, and not on disk or
+C  not G&C product, call A3147I to determine
+C  if enough hours.
+C
+           CALL A3147I__CHECK_MINIMUM(NREQ)
+         ENDIF
+      ELSE
+C
+C  If more than one request
+         CALL A3147B__OPTIMIZE
+C
+C  See if which request is the Generation and Control
+C  request and if it is on disk.
+C
+         CALL A3147X__GC_PRODUCT(REQ)
+      ENDIF
+C
+C  Get buffer to do summation
+C
+      CALL A31215__GET_OUTBUF(SCRATCH, KPOLAR_WORDS, SUM_PTR,
+     $                SUM_STAT)
+      IF (SUM_STAT .EQ. NORMAL) THEN
+C
+C  Build NREQ USP products.
+C
+        DO 1000 RQ=1, NREQ, 1
+            TIMESPAN = CA(TIME_SPAN,RQ)
+            ENDHOUR  = CA(END_HOUR,RQ)
+            NUM_HOURS = CA(HRS_POS,RQ)
+            END_INDX = CA(END_POS,RQ)
+            BEG_INDX = CA(BEG_POS,RQ)
+C
+C  Check if we have already satisfied this requirement
+C
+           IF (RQ .EQ. REQ .AND.GC_RDFLAG )GO TO 999
+C
+C  Check if it is a duplicate request that has been satisfied
+C
+           IF(CA(DUP_POS,RQ) .EQ. DUP_FLAG)GO TO 999
+C
+C  Get product buffer
+C
+           CALL A31215__GET_OUTBUF(HYUSPACC,IPROD_I4SIZE,OPTR,OPSTAT)
+           IF (OPSTAT .EQ. NORMAL)THEN
+C
+C  Clear scratch buffer for sums if it is a new buffer
+C
+            IF(CA(OVER_POS,RQ) .EQ. ZERO)THEN
+               CLEAR_SUM = .TRUE.
+               DO 100 I=SUM_PTR,SUM_PTR+KPOLAR_WORDS-INCRMENT
+                  MEM(I) = ZERO
+  100          CONTINUE
+            ELSE
+C
+C  Set flag false so BIAS and BIAS ERR are not reset
+C  in A3147H
+C
+                CLEAR_SUM = .FALSE.
+            ENDIF
+C
+C  Call A3147L__INIT to initialize pointers for product
+C
+            CALL A3147L__INIT(MEM(OPTR),OPTR)
+C
+C  If minimum number of hours,
+C
+            IF (CA(NULL_POS,RQ) .EQ. ZERO) THEN
+C
+C  Save Start time, Start date, End Time and
+C  End Date for product header
+C
+            START_TIME = AVAIL_HRS(BEG_INDX)
+            REC = USDB_HRS_OLD(BEG_INDX)
+            START_DATE = USDB_HRLY_EDATE(REC)
+            REC = USDB_HRS_OLD(END_INDX)
+            END_DATE   = USDB_HRLY_EDATE(REC)
+C
+C  If the available hour is an initial value,
+C  then need to fudge the start time and date.
+C
+            IF(START_TIME .EQ. INIT_VAL)THEN
+C
+C  If timespan is greater than the end hour, will cross
+C  over midnight.
+C
+              IF(TIMESPAN .GT. ENDHOUR)THEN
+                 START_TIME = ENDHOUR-TIMESPAN+HRS_24+ONE_HR
+                 START_DATE = END_DATE - 1
+              ELSE
+                 START_TIME = ENDHOUR - TIMESPAN + ONE_HR
+                 START_DATE = END_DATE
+              ENDIF
+            ENDIF
+C
+C  Need to adjust the start time for the product header so
+C  what is displayed is the start of the start time
+            IF(START_TIME .EQ. ZERO)THEN
+C
+C Need to handle cross over midnight
+C
+               START_TIME = START_TIME - ONE_HR + HRS_24
+               IF( START_DATE .EQ. END_DATE )
+     $            START_DATE = END_DATE -1 
+            ELSE
+               START_TIME = START_TIME - ONE_HR
+            ENDIF
+C
+C  If there is an overlap,
+C
+                IF(CA(OVER_POS,RQ) .GT. ZERO)THEN
+C
+C  Check if the end hour is the same on the previous request
+C
+                  IF(END_INDX .EQ. CA(END_POS,RQ-1))THEN
+C
+C  Adjust the end index appropriately, the begin will not change
+C
+                    ADJ_END_INDX = CA(BEG_POS,RQ-1) +1
+                    ADJ_BEG_INDX = BEG_INDX
+C
+C  Call A3147H to do summation and store in product buffer
+C
+                    CALL A3147H__SUMMATION(MEM(OPTR),MEM(SUM_PTR),
+     &               CLEAR_SUM,STATUS)
+C
+C  Check if the start index is the same on the previous request
+C
+                  ELSEIF(BEG_INDX .EQ. CA(BEG_POS,RQ-1))THEN
+C
+C  Adjust the begin index appropriately, the end will not change
+C
+                    ADJ_END_INDX = END_INDX
+                    ADJ_BEG_INDX = CA(END_POS,RQ-1) -1
+C
+C  Call A3147H to do summation and store in product buffer
+C
+                    CALL A3147H__SUMMATION(MEM(OPTR),MEM(SUM_PTR),
+     &                CLEAR_SUM,STATUS)
+                  ELSE
+C
+C  Need to do summations in two parts
+C  Set adjusted begin to previous end index minus one
+C  to do that portion of the summation
+C
+                    ADJ_END_INDX = END_INDX
+                    ADJ_BEG_INDX= CA(END_POS,RQ-1) - 1
+C
+C  Call A3147H to do summation and store in product buffer
+C
+                    CALL A3147H__SUMMATION(MEM(OPTR),MEM(SUM_PTR),
+     &                 CLEAR_SUM,STATUS)
+C
+C  Now set an adjusted end index to the begin index of the
+C  previous plis one to do the rest of the summation
+C
+                    ADJ_BEG_INDX = BEG_INDX
+                    ADJ_END_INDX = CA(BEG_POS,RQ-1) + 1
+C
+C  Call A3147H to do summation and store in product buffer
+C
+                    CALL A3147H__SUMMATION(MEM(OPTR),MEM(SUM_PTR),
+     &                CLEAR_SUM,STATUS)
+                  ENDIF
+                ELSE
+                  ADJ_END_INDX = END_INDX
+                  ADJ_BEG_INDX = BEG_INDX
+C
+C  Call A3147H to do summation and store in product buffer
+C
+                  CALL A3147H__SUMMATION(MEM(OPTR),MEM(SUM_PTR),
+     &             CLEAR_SUM,STATUS)
+                ENDIF
+                IF(STATUS .EQ. GOOD)THEN
+C
+C  Format Graphic Attribute Table
+C
+                  CALL A3147J__USP_GRAPHIC(MEM(OPTR))
+C
+C  Call routine to build part one of the product header
+C
+                  NULL_PROD = .FALSE.
+                  CALL A3147E__PROD_HDR_PT1(MEM(OPTR),NDX,CA(1,RQ))
+C
+C  If this request is the same as the Generation and Distribution request
+C  write it to disk.
+C
+                  IF(RQ .EQ. REQ)THEN
+                     CALL A31478__USDB_IO(WRITKODE,DFLT_24H_RECNO,
+     $                                   NUM_POLAR_BYTES,MEM(OPTR))
+C
+C  If status of write is good, update flag indicating
+C  product is on disk and date/time of the product
+C
+                    IF(USDB_FIL_STAT .EQ. GOOD)THEN
+                      FLAG_NO_GCPROD = .FALSE.
+                      DATE_GCPROD = SCN_DATE
+                      CTIME = (SCN_TIME/3600)
+                      TIME_GCPROD = CTIME
+                      TIME_SPAN_GCPROD = CA(TIME_SPAN,RQ)
+                    ENDIF
+                  ENDIF
+C
+C  Get the Generation time and date of this request from the system
+C  clock.
+C
+                  CALL A3CM25__GET_DATE_TIME(CDATE,CTIME)
+C
+C  Do second part of product header.
+C
+                  CALL A3147S__PROD_HDR_PT2(MEM(OPTR),CDATE,
+     $                CTIME,CA(1,REQ))
+C
+C  Release the product buffer and forward it to Storage
+C
+                  CALL A31216__REL_OUTBUF(OPTR,FORWARD)
+                ELSEIF(STATUS  .EQ. BAD_FILE)THEN
+C
+C  If the reason the product could not be build is because there
+C  was an error reading the hourly accumulations from the
+C  database build a Null product with that reason code.
+C
+                  CA(NULL_POS,RQ) = BAD_FILE
+                  CALL A3147D__USP_NULL(MEM(OPTR),CA(1,RQ))
+C
+C  Release the product buffer and forward it to Storage
+C
+                  CALL A31216__REL_OUTBUF(OPTR,FORWARD)
+                ELSEIF(STATUS .EQ. NO_MEM)THEN
+C
+C  One of the scratch buffers not available for summumation.
+C  Buffer management was unable to allocate the scratch buffer. Call
+C  A3CM54 to clean up for this missing request so PUP user is
+c  informed of the missing product.  This also indicates a memory
+C  load shed condition is in effect.
+C
+                  CALL A3CM54__CUST_PROD_MEMSHED
+     +              (CA(CUSTIDX,RQ),CA(CCOPYNO,RQ),OPSTAT)
+C
+C  If the next request is a duplicate of this request, need
+C  to call A3CM54 for it also
+C
+                  IF(CA(DUP_POS,RQ+1).EQ .DUP_FLAG)THEN
+                     CALL A3CM54__CUST_PROD_MEMSHED
+     +              (CA(CUSTIDX,RQ+1),CA(CCOPYNO,RQ+1),OPSTAT)
+                  ENDIF
+                ELSE
+C
+C  Else serious problem with acquiring scratch buffers.
+C  This indicates a system problem has occured. Call
+C  A31145__ABORT_ME to end this run and to clean up the
+C  Buffer Management routing path and Distribution
+C  control path.
+C
+                  CALL A31145__ABORT_ME
+                ENDIF
+            ELSE
+C
+C  Not enough minimum hours.
+C
+                CALL A3147D__USP_NULL(MEM(OPTR),CA(1,RQ))
+C
+C  Release the product buffer and forward it to Storage
+C
+                CALL A31216__REL_OUTBUF(OPTR,FORWARD)
+            ENDIF
+           ELSE
+C
+C  Output product buffer not available. Buffer management was unable
+C  to allocate the output product memory for this request.  Call
+C  A3CM54 to clean up for this missing request so PUP user is
+c  informed of the missing product.  This also indicates a memory
+C  load shed condition is in effect.
+C
+             CALL A3CM54__CUST_PROD_MEMSHED
+     +              (CA(CUSTIDX,RQ),CA(CCOPYNO,RQ),OPSTAT)
+C
+C  If the next request is a duplicate of this request, need
+C  to call A3CM54 for it also
+C
+             IF(CA(DUP_POS,RQ+1) .EQ. DUP_FLAG)THEN
+                CALL A3CM54__CUST_PROD_MEMSHED
+     +            (CA(CUSTIDX,RQ+1),CA(CCOPYNO,RQ+1),OPSTAT)
+             ENDIF
+           ENDIF
+999     CONTINUE
+1000    CONTINUE
+C
+C  Release Summation buffer
+C
+         CALL A31216__REL_OUTBUF(SUM_PTR,DESTROY)
+      ELSE
+C
+C  If can not get a scratch buffer to do summation
+C  can't do anything, so abort because
+C
+        CALL A31168__ABORT_ME_BECAUSE(STATUS)
+      ENDIF
+1001  CONTINUE
+      RETURN
+      END

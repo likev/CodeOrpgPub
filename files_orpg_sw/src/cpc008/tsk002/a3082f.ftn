@@ -1,0 +1,320 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/05 16:29:25 $
+C $Id: a3082f.ftn,v 1.3 2002/12/05 16:29:25 christie Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A3082F__VAD_WINDS(VAD_DATE,VAD_CVOL,VAD_TIME,
+     $   VAD_MISS,VAD_DATA_HTS,IROW,ICOL,NBYTES,RCMBUF)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3082F__VAD_WINDS
+*.
+*.  MODULE VERSION: 0012
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       02 25 88      0000      VALERIE HOLDEN       SPR # 80002
+*.       05 08 89      0001      VALERIE HOLDEN       SPR # 80273
+*.       07 24 89      0001      JOHN BRACE           SPR # 90403
+*.       05 07 90      0002      PAUL PISANI          SPR # 90697
+*.       02 22 91      0003      VALERIE HOLDEN       SPR # 91249
+*.       03 06 91      0003      BAYARD JOHNSTON      SPR # 91225
+*.       12 03 91      0004      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0005      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/20/92      0006      Toolset              SPR 91895
+*.       03/25/93      0007      Toolset              SPR NA93-06801
+*.       01/28/94      0008      Toolset              SPR NA94-01101
+*.       03/03/94      0009      Toolset              SPR NA94-05501
+*.       04/11/96      0010      Toolset              CCR NA95-11802
+*.       12/23/96      0011      Toolset              CCR NA95-11807
+*.       03/16/99      0012      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A3082F__VAD_WINDS(VAD_DATE,VAD_CVOL,
+*.                    VAD_TIME,VAD_MISS,VAD_DATA_HTS,IROW,ICOL,NBYTES,
+*.                    RCMBUF)
+*.
+*.  MODULE FUNCTION: ENCODES VAD WINDS FOR PART B
+*.
+*.  MODULES CALLED: A3082K__STORE_LINE, A3082Q__PROCESS_LINE, 
+*.                  A3082T__VAD_CONVERT, A3CM70__REPORT_ERROR 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT        TYPE        DESCRIPTION
+*.    -   -----        ----        -----------
+*.    G   VAD_AHTS     I*4         VAD height selection table.
+*.    G   VAD_RCM_HGTS I*4         RCM height selection table.
+*.    G   MAXVHGTS     I*4         (CONSTANT)Maximum RCM height selections.
+*.    G   MAX_VAD_HTS  I*4         (CONSTANT)Total user selected VAD heights.
+*.    G   VAD_HTG      I*4         (CONSTANT)Row position in height base data
+*.                                 (VAD_DATA_HTS) of the altitude used.
+*.    G   VAD_HWD      I*4         (CONSTANT)Row position in height based data
+*.                                 (VAD_DATA_HTS) of horizontal wind
+*.                                 direction.
+*.    G   VAD_RMS      I*4         (CONSTANT)Row position in height base date
+*.                                 (VAD_DATA_HTS) of confidence level.
+*.    G   VAD_SHW      I*4         (CONSTANT)Row position in height based data
+*.                                 (VAD_DATA_HTS) of horizontal wind speed.
+*.    C   NACOLS       I*4         (CONSTANT)Number of columns available for
+*.                                 Radar Coded Message product.
+*.    P   ICOL         I*4         COLUMN NUMBER
+*.    P   IROW         I*4         ROW NUMBER
+*.    P   NBYTES       I*4         NUMBER OF BYTES
+*.    P   RCMBUF       I*2         RADAR-CODED-MESSAGE BUFFER
+*.    P   VAD_DATA_HTS R*4         Table of height based VAD algorithm data.
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    P   ICOL    I*4         COLUMN NUMBER
+*.    P   IROW    I*4         ROW NUMBER
+*.    P   NBYTES  I*4         NUMBER OF BYTES
+*.    P   RCMBUF  I*2         RADAR-CODED-MESSAGE BUFFER
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    P   ICOL              I*4         COLUMN NUMBER
+*.    P   IROW              I*4         ROW NUMBER
+*.    P   NBYTES            I*4         NUMBER OF BYTES
+*.    P   RCMBUF            I*2         RADAR-CODED-MESSAGE BUFFER
+*.
+*.  DATABASE/FILE REFERENCE: NONE
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME      TYPE        DESCRIPTION
+*.    ----      ----        -----------
+*.    BLANK     CHAR*1      ONE BLANK CHARACTER
+*.    COMMA     CHAR*1      COMMA CHARACTER
+*.    CONFVAL   CHAR*1      CONFIDENCE VALUE FOR PART B
+*.    ENDB      CHAR*6      END OF PART B INDENTIFER
+*.    ERR_MESS  CHAR*29     ERROR MESSAGE TEXT
+*.    ERR_PHR   CHAR*64     ERROR PHRASE TO BE DISPLAYED
+*.    FALS      L*4         Variable for FALSE condition
+*.    FLAG      I*4         FLAG FOR END OF LINE
+*.    FOUND     L*4         MATCHING ELEMENTS FLAG
+*.    GOOD_DATA I*4         TOTAL NUMBER ITEMS GOOD DATA
+*.    HEIGHT    R*4         HEIGHT OF VAD (METERS)
+*.    I         I*4         Index control variable.
+*.    IC        I*4         START POSITION FOR WRITING COMMA
+*.    IDIR      I*4         VAD DIRECTION (DEGREES)
+*.    IHEIGHT   I*4         HEIGHT OF VAD (HUNDREDS OF FEET)
+*.    INC1      I*4         INCREMENTAL VALUE OF 1
+*.    INC11     I*4         VARIABLE TO INCREMENT BY 11
+*.    INC9      I*4         VARIABLE TO INCREMENT BY 9
+*.    INCREM    I*4         INCREMENTAL VALUE FOR COMMA POSITION
+*.    INDLIST   I*4         LIST OF INDICES POINTING TO GOOD DATA
+*.    INIT1     I*4         INITIALIZED VALUE OF 1
+*.    IS        I*4         START POSITION FOR WRITING STORM DATA
+*.    ISM       I*4         END POSITION FOR WRITING STORM DATA
+*.    ISPD      I*4         VAD SPEED (KNOTS)
+*.    K         I*4         Loop control index variable.
+*.    L1_END    I*4         MAX NUMBER OF VAD WINDS ON LINE 1
+*.    L2_END    I*4         MAX NUMBER OF VAD WINDS ON LINE 2
+*.    L3_END    I*4         MAX NUMBER OF VAD WINDS ON LINE 3
+*.    LEND      I*4         END OF LINE INDICATOR
+*.    NODATA    R*4         PARAMETER WHICH INDICATES NO DATA AVAILABLE
+*.    ONE       I*4         Program parameter value for one used as lower
+*.                          index in do loop.
+*.    RCM_LINE  CHAR*70     RADAR CODED MESSAGE LINE
+*.    RCONF     R*4         RMS VALUE FOR VAD
+*.    SAVEPTR   I*4         POINTER INTO INDLIST
+*.    SIZE      I*4         Maximum size of data arrays.
+*.    TRU       L*4         CONSTANT = .TRUE.
+*.    VDIR      R*4         VAD DIRECTION (DEGREES)
+*.    VSPD      R*4         VAD SPEED (M/S)
+*.    ZERO      I*4         Program parameter for 0.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    PRODSEL
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS: NONE
+*.
+*.  DEVIATION FROM STANDARDS:  NONE
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.      THIS MODULE IS COMPILED USING COMP08.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     THIS MODULE IS LINKED USING LINK08.CSS
+*.
+*.  MISC: NONE
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+C*
+$INCLUDE A309ADPT.INC/G,**A3CD70C7 (NEND NLIST)
+$INCLUDE A317BUF.INC/G,**A317VP (NEND NLIST)
+$INCLUDE               **A317VD (NEND NLIST)
+$INCLUDE A308.INC,**A308P2      (NEND NLIST)
+C*
+      INTEGER*2    RCMBUF(*)
+      INTEGER*4    IROW,ICOL,NBYTES,I,K,LEND,IS,IC,ISM,IHEIGHT,ZERO
+      INTEGER*4    FLAG,INC11,INC9,IDIR,ISPD,INCREM,ONE
+      INTEGER*4    GOOD_DATA,SIZE,INIT1,INC1,L1_END,L2_END,L3_END
+      INTEGER*4    SAVEPTR,INDLIST(MAXVHGTS)
+      PARAMETER    (SIZE=19,ZERO=0,INIT1=1,INC1=1,ONE=1)
+      REAL         HEIGHT(SIZE),RCONF(SIZE),VDIR(SIZE),VSPD(SIZE)
+      REAL         NODATA
+      PARAMETER    (INCREM=11,L1_END=6,L2_END=12)
+      PARAMETER    (FLAG=100,INC11=11,INC9=9,NODATA=-666.0,L3_END=18)
+      LOGICAL      FOUND,FALS,TRU
+      DATA         FALS/.FALSE./,TRU/.TRUE./
+      CHARACTER*1  COMMA,BLANK,CONFVAL
+      CHARACTER*6  ENDB
+      CHARACTER*70 RCM_LINE
+      CHARACTER*29 ERR_MESS
+      CHARACTER*64 ERR_PHR
+      DATA         ERR_MESS/'HEIGHT MISMATCH AT LOCATION: '/
+      DATA         COMMA/','/,BLANK/' '/,ENDB/'/ENDBB'/
+C*
+C*    CLEAR RCM_LINE TO BLANKS
+C*
+      DO 10 I = ONE,NACOLS
+ 10      RCM_LINE(I:I) = BLANK
+C*
+C*    INITIALIZE INDEX PARAMETERS FOR BUFFER WRITE
+C*
+      IS = INIT1
+      IC = INC11
+      LEND    = ZERO
+      SAVEPTR = ZERO
+C*
+C*    CHECK IF RCM HEIGHTS ARE A SUBSET OF USER
+C*    SELECTED HEIGHTS
+C*
+      DO 50 I = ONE,MAXVHGTS
+         FOUND = FALS
+C*
+C*    IF HEIGHT VALUE IS ZERO THEN EMPTY SO SKIP
+C*
+         IF (VAD_RCM_HGTS(I).NE.ZERO) THEN
+            DO 60 K = ONE,MAX_VAD_HTS
+C*
+C*    IF MATCHING HEIGHTS ARE FOUND SAVE INDEX OF
+C*    VAD_AHTS IN INDEX ARRAY TO USE LATER
+C*
+               IF (VAD_RCM_HGTS(I).EQ.VAD_AHTS(K)) THEN
+                  SAVEPTR = SAVEPTR + INC1
+                  INDLIST(SAVEPTR) = K
+X                 TYPE *,'VAD_RCM_HGTS = ',VAD_RCM_HGTS(I)
+X                 TYPE *,'VAD_AHTS = ',VAD_AHTS(K)
+X                 TYPE *,'INDEX NUMBER = ',K
+                  FOUND = TRU
+               ENDIF
+ 60         CONTINUE
+C*
+C*    IF MATCHING HEIGHTS ARE NOT FOUND
+C*    WRITE ERROR MESSAGE
+C*
+            IF ( .NOT. FOUND) THEN
+C*
+C*    CONSTRUCT ERROR MESSAGE
+C*
+               WRITE(ERR_PHR,20)ERR_MESS,I
+ 20            FORMAT(A29,I2)
+C*
+C*    SEND MESSAGE
+C*
+               CALL A3CM70__REPORT_ERROR(ERR_PHR)
+            ENDIF
+         ENDIF
+ 50   CONTINUE
+C*
+C*    COLLECT GOOD DATA FOR VAD WINDS
+C*
+      I = ZERO
+      DO 101 K = ONE,SAVEPTR
+         IF (VAD_DATA_HTS(VAD_HTG,INDLIST(K)).EQ.NODATA.OR.
+     $       VAD_DATA_HTS(VAD_RMS,INDLIST(K)).EQ.NODATA.OR.
+     $       VAD_DATA_HTS(VAD_HWD,INDLIST(K)).EQ.NODATA.OR.
+     $       VAD_DATA_HTS(VAD_SHW,INDLIST(K)).EQ.NODATA) THEN
+         ELSE
+C*
+C*    INCREMENT POINTER AND SAVE DATA IF GOOD DATA EXISTS
+C*
+            I = I + INC1
+C*
+C*    SAVE HEIGHT
+C*
+            HEIGHT(I) = VAD_DATA_HTS(VAD_HTG,INDLIST(K))
+X           TYPE *,'VAD_DATA_HTS = ',HEIGHT(I)
+X           TYPE *,'INDEX = ',INDLIST(K)
+C*
+C*    SAVE CONFIDENCE LEVEL
+C*
+            RCONF(I)  = VAD_DATA_HTS(VAD_RMS,INDLIST(K))
+C*
+C*    SAVE DIRECTION
+C*
+            VDIR(I)   = VAD_DATA_HTS(VAD_HWD,INDLIST(K))
+C*
+C*    SAVE SPEED
+C*
+            VSPD(I)   = VAD_DATA_HTS(VAD_SHW,INDLIST(K))
+         ENDIF
+ 101  CONTINUE
+C*
+C*    SET UPPER INDEX FOR CONVERT LOOP EQUAL TO LAST INDEX
+C*    THAT WAS COLLECTED ABOVE
+C*
+      GOOD_DATA = I
+C
+C*    COLLECT DATA FOR EACH VAD WIND
+C*
+      DO 200 K = ONE,GOOD_DATA
+         CALL A3082T__VAD_CONVERT(HEIGHT(K),RCONF(K),VDIR(K),VSPD(K),
+     $      IHEIGHT,CONFVAL,IDIR,ISPD)
+         ISM = IS + INC9
+C*
+C*    WRITE VAD HEIGHT, CONFIDENCE LEVEL, DIRECTION AND SPEED
+C*
+         WRITE(RCM_LINE(IS:ISM),105) IHEIGHT,CONFVAL,IDIR,ISPD
+ 105     FORMAT(I3.3,A1,I3.3,I3.3)
+C*
+C*    CHECK IF MORE VAD DATA FOLLOWS: ADD COMMA SEPARATOR
+C*
+         IF(GOOD_DATA.GT.K) WRITE(RCM_LINE(IC:IC),106) COMMA
+ 106     FORMAT(A1)
+         IS = IS + INC11
+         IC = IC + INC11
+C*
+C*    CHECK FOR END OF LINE CONDITION
+C*
+         IF ((K.EQ.L1_END).OR.(K.EQ.L2_END).OR.(K.EQ.L3_END))
+     $      LEND = FLAG
+C*
+C*    CHECK IF NO MORE VAD DATA OR END OF LINE CONDITION EXISTS
+C*
+         IF ((GOOD_DATA.EQ.K).OR.(LEND.EQ.FLAG)) THEN
+            CALL A3082Q__PROCESS_LINE(IROW,ICOL,NBYTES,IS,IC,
+     $         INCREM,LEND,RCM_LINE,RCMBUF)
+         ENDIF
+ 200  CONTINUE
+C*
+C*    ENCODE END OF PART B IDENTIFIER
+C*
+      WRITE(RCM_LINE,107) ENDB
+ 107  FORMAT(A6)
+C*
+C*    STORE LINE INTO RADAR CODED MESSAGE PRODUCT BUFFER
+C*
+      CALL A3082K__STORE_LINE(IROW,ICOL,NBYTES,RCM_LINE,RCMBUF)
+      RETURN
+      END

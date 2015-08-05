@@ -1,0 +1,163 @@
+C 
+C RCS info 
+C $Author: nolitam $ 
+C $Locker:  $ 
+C $Date: 2002/11/27 15:14:50 $ 
+C $Id: a3149b.ftn,v 1.4 2002/11/27 15:14:50 nolitam Exp $ 
+C $Revision: 1.4 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A3149B__GET_BUFFERS( PBUFSIZ, BUFSIZ, SOPR, POPR,
+     1                                SUCCESSFUL )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3149B__GET_BUFFERS
+*.
+*.  MODULE VERSION: 0001
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       03/03/97      0000      Steven D. Smith      CCR NA96-17804
+*.       03/16/99      0001      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A3149B__GET_BUFFERS( PBUFSIZ, BUFSIZ,
+*.                                              SOPR, POPR,
+*.                                              SUCCESSFUL )
+*.
+*.  MODULE FUNCTION:
+*.
+*.     OBTAIN OUTPUT AND SCRATCH BUFFER FOR LAYER COMPOSITE
+*.     REFLECTIVITY AP REMOVED
+*.
+*.  MODULES CALLED: A31168__ABORT_ME_BECAUSE, A31215__GET_OUTBUF, 
+*.                  A31216__REL_OUTBUF 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT         TYPE        DESCRIPTION
+*.    -   -----         ----        -----------
+*.    G   DESTROY       I*4         (CONSTANT)Mnemonic used as input to
+*.                                  A31216__REL_OUTBUF. Indicates "do not pass
+*.                                  data to other tasks".
+*.    G   NORMAL        I*4         (CONSTANT)Parameter which indicates normal
+*.                                  completion of requested operation to
+*.                                  acquire input or output buffer
+*.    G   NO_MEM        I*4         (CONSTANT)Parameter which indicates no
+*.                                  memory available on attempt to acquire
+*.                                  output buffer
+*.    G   PROD_MEM_SHED I*4         (CONSTANT)(CONSTANT)Parameter which
+*.                                  indicates that product aborted due to
+*.                                  memory load shedding
+*.    G   SCRATCH       I*4         (CONSTANT)DATA BUFFER TYPE FOR TASK
+*.                                  SCRATCH DATA BUFFERS
+*.    P   BUFSIZ        I*4         Size of scratch buffer in words
+*.    P   PBUFSIZ       I*4         Product output buffer size
+*.    P   POPR          I*4         Product output buffer pointer
+*.    P   SOPR          I*4         Scratch Buffer Pointer
+*.
+*.    *   OUTPUT     TYPE        DESCRIPTION
+*.    -   ------     ----        -----------
+*.    P   POPR       I*4         Product output buffer pointer
+*.    P   SOPR       I*4         Scratch Buffer Pointer
+*.    P   SUCCESSFUL L*4         Flag indicating whether the scratch buffers
+*.                               were successfully obtained.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    P   BUFSIZ            I*4         Size of scratch buffer in words
+*.    P   PBUFSIZ           I*4         Product output buffer size
+*.    P   POPR              I*4         Product output buffer pointer
+*.    P   SOPR              I*4         Scratch Buffer Pointer
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME     TYPE        DESCRIPTION
+*.    ----     ----        -----------
+*.    OSTAT    I*4         Status of output buffer request
+*.    RMXAPLYR I*4         Data Buffer Type for APR product
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK14.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+$INCLUDE A309.INC/G,**A3PM00 (NEND NLIST)
+$INCLUDE            **A3PM07 (NEND NLIST)
+$INCLUDE A314.INC/G,**A314P5   (NEND NLIST)
+$INCLUDE A314.INC/G,**A314C5   (NEND NLIST)
+C
+C Passed Arguements
+C
+      INTEGER*4    PBUFSIZ, OSTAT, POPR, BUFSIZ, SOPR
+      LOGICAL      SUCCESSFUL
+C
+C Initialize the success of the operation
+C
+      SUCCESSFUL = .TRUE.
+C
+C Get output buffer
+C
+      CALL A31215__GET_OUTBUF(RMXAPLYR,PBUFSIZ,POPR,OSTAT)
+      IF (OSTAT.EQ.NORMAL) THEN
+C
+C Get output scratch buffer
+C
+         CALL A31215__GET_OUTBUF(SCRATCH,BUFSIZ,SOPR,OSTAT)
+         IF (OSTAT .NE. NORMAL) THEN
+
+            SUCCESSFUL = .FALSE.
+C
+C No scratch buffer available, delete product buffer
+C
+            CALL A31216__REL_OUTBUF(POPR,DESTROY)
+            IF (OSTAT.EQ.NO_MEM) THEN
+C
+C Abort task for product because of no memory
+C
+               CALL A31168__ABORT_ME_BECAUSE(PROD_MEM_SHED)
+
+            ENDIF
+         ENDIF
+      ELSE
+
+         SUCCESSFUL = .FALSE.
+C
+C No memory status returned...abort
+C
+         IF (OSTAT.EQ.NO_MEM) THEN
+C
+C Abort task because of no memory
+C
+            CALL A31168__ABORT_ME_BECAUSE(PROD_MEM_SHED)
+
+         ENDIF
+      ENDIF
+
+      RETURN
+      END

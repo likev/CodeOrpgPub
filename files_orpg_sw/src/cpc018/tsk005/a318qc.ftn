@@ -1,0 +1,362 @@
+C
+C RCS info
+C $Author: ccalvert $
+C $Locker:  $
+C $Date: 2010/05/24 20:42:00 $
+C $Id: a318qc.ftn,v 1.4 2010/05/24 20:42:00 ccalvert Exp $
+C $Revision: 1.4 $
+C $State: Exp $
+C
+      SUBROUTINE A318QC__TVS_CORSTR(STORMOTION,NTOTPRED,STORMIDTYP,
+     1   TVSATTR,ADPSAD)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A318QC__TVS_CORSTR
+*.
+*.  MODULE VERSION: 0013
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY: NONE
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       04/14/97      0000      DAVID ZITTEL         CCR NA95-21503
+*.       03/16/99      0013      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:
+*.  MODULE FUNCTION:
+*.        THIS MODULE CORRELATES TVSs AND ETVSs TO STORMS
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT      TYPE        DESCRIPTION
+*.    -   -----      ----        -----------
+*.    G   TVFEAT_CHR I*4         (CONSTANT)# OF TVS FEATURE ATTRIBUTES IN
+*.                               TVS_MAIN AND OTHER ARRAYS
+*.    G   TVFEAT_MAX I*4         (CONSTANT)MAXIMUM # OF TVS FEATURES IN
+*.                               TVS_MAIN AND OTHER ARRAYS
+*.    G   TV_AZM     I*4         (CONSTANT)INDEX INTO TVS_MAIN TO THE TVS
+*.                               FEATURE AZIMUTH (IN DEGREES)
+*.    G   TV_BEL     I*4         (CONSTANT)Parameter for TVS feature base
+*.                               elevation
+*.    G   TV_RAN     I*4         (CONSTANT)INDEX INTO TVS_MAIN TO THE TVS
+*.                               FEATURE RANGE (IN KM)
+*.    C   FEATCNT    I*4         Number of TVSs + ETVSs detected by the
+*.                               Tornado Detection Algorithm.
+*.    P   ADPSAD     R*4         Passed adaptable threshold distance for
+*.                               correlating storm cells to TVS/ETVS features.
+*.    P   NTOTPRED   I*4         Passed value of the number of storms
+*.                               identified by the SCIT algorithm.
+*.    P   STORMIDTYP I*4         Array of storm cell tracking attributes.
+*.    P   STORMOTION R*4         2-D array of storm cell motion attributes.
+*.    P   TVSATTR    R*4         Array of TVS and ETVS attributes.
+*.
+*.    *   OUTPUT     TYPE        DESCRIPTION
+*.    -   ------     ----        -----------
+*.    C   TVS_LAB_XP R*4         X Cartesian coordinate relative to the radar
+*.                               of a storm cell label for an associated TVS
+*.                               or an ETVS feature.
+*.    C   TVS_LAB_YP R*4         Y Cartesian coordinate relative to the radar
+*.                               of a storm cell label for an associated TVS
+*.                               or an ETVS feature.
+*.    C   TVS_STM_ID I*2         Array to hold the integer equivalent of the
+*.                               two-character label of a storm cell
+*.                               associated with a TVS or an ETVS.
+*.    C   TVS_XP     R*4         X Cartesian coordinate relative to the radar
+*.                               of a TVS or an ETVS feature.
+*.    C   TVS_YP     R*4         Y Cartesian coordinate relative to the radar
+*.                               of a TVS or an ETVS feature.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME        TYPE        DESCRIPTION
+*.    ----        ----        -----------
+*.    CHARIDTABLE CHAR*2      Character table of storm IDs.
+*.    CLEAR       I*4         Parameter used to zero-out (clear) a variable.
+*.    DEGRAD      R*4         Units conversion from degrees to radians.
+*.    DISTSQRD    R*4         Square of the distance between a storm cell and
+*.                            a TVS/ETVS feature.
+*.    DISTX       R*4         Horizontal distance between a storm cell and a
+*.                            TVS/ETVS feature in X Cartesian coordinate.
+*.    DISTY       R*4         Horizontal distance between a storm cell and a
+*.                            TVS/ETVS feature in Y Cartesian coordinate.
+*.    I           I*4         Loop index variable.
+*.    J           I*4         Do loop index
+*.    LARGE_NUM   R*4         Parameter used to set an initial minimum
+*.                            distance squared between a storm and TVS/ETVS
+*.                            feature
+*.    MIN         R*4         Minimum horizontal distance squared between a
+*.                            storm cell and a TVS/ETVS feature.
+*.    MNDISQRD    R*4         Square of the threshold storm cell association
+*.                            distance ADPSAD
+*.    NSID        I*4         Largest storm cell number expected.
+*.    NSTF_IDT    I*4         The number of attributes for each storm cell in
+*.                            the array STORMIDTYP which contains the storm
+*.                            cell Id attribute.
+*.    NSTF_MAX    I*4         The maximum number of storm cells the array
+*.                            STORMIDTYP may hold.  The array provides the
+*.                            storm cell Id attribute.
+*.    NSTF_MOT    I*4         The number of storm motion attributes for each
+*.                            storm cell in the array STORMOTION. (First
+*.                            dimension)
+*.    ONE         I*4         Parameter value of one.
+*.    PHI         R*4         Elevation of TVS/ETVS feature in radians.
+*.    QMARKS      CHAR*2      Two questionmarks
+*.    SID         I*2         Integer half-word equivalence of an ASCII
+*.                            two-character storm cell label.
+*.    STF_ID      I*4         Index pointing to the position of the storm cell
+*.                            Id in the array STORMIDTYP.
+*.    STF_X0      I*4         Index pointing to the position of the storm cell
+*.                            X coordinate in the array STORMOTION.
+*.    STF_Y0      I*4         Index pointing to the position of the storm cell
+*.                            Y coordinate in the array STORMOTION.
+*.    TEMPX       R*4         Variable to hold the X Cartesian coordinate of
+*.                            the current storm cell closest to a TVS or ETVS
+*.                            feature.
+*.    TEMPY       R*4         Variable to hold the Y Cartesian coordinate of
+*.                            the current storm cell closest to a TVS or ETVS
+*.                            feature.
+*.    TEMP_ID     I*4         Variable to hold the number of the current
+*.                            closest storm cell.
+*.    THETA       R*4         Azimuth of TVS/ETVS feature in radians.
+*.    TWOQMRKS    I*2         Integer (half-word) equivalence of two ASCII
+*.                            questionmarks (??).
+*.    X           R*4         X Cartesian coordinate of a TVS or ETVS on a
+*.                            plane tangent to an imaginary surface at the
+*.                            radar's height.
+*.    Y           R*4         Y Cartesian coordinate of a TVS or ETVS on a
+*.                            plane tangent to an imaginary surface at the
+*.                            radar's height.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A318TVS
+*.    TVSINDEX
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  NONE
+*.
+*.  DEVIATION FROM STANDARDS:  NONE
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     THIS MODULE IS COMPILED USING THE COMP18.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     THIS MODULE IS LINKED USING THE LINK18.CSS
+*.
+*.  MISC:  NONE
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+C
+C
+$INCLUDE A315BUF.INC/9003,**A315P7F (NEND NLIST)
+$INCLUDE A317BUF.INC/G,**A317TP9 (NLIST)
+$INCLUDE A318.INC/G,**A318TVS (NEND NLIST)
+$INCLUDE A318.INC/G,**A318TVS1 (NEND NLIST)
+C
+C  --------------- STORM ID TABLE SOURCE INCLUDE------------------
+$INCLUDE A309.INC/9003,**A3CD08 (NLIST)
+#IFDEF LINUX
+C  NOTHING
+#ELSE
+$INCLUDE A309.INC/G,**A3CD08D (NEND NLIST)
+#ENDIF
+C
+C
+C  STORM MOTION DEFINITIONS
+      INTEGER*4 NTOTPRED,STORMIDTYP(NSTF_IDT,NSTF_MAX)
+      REAL STORMOTION(NSTF_MOT,NSTF_MAX)
+C
+C  TVS ALGORITM DEFINITIONS
+      REAL TEMPX,TEMPY
+      REAL TVSATTR(TVFEAT_CHR,TVFEAT_MAX)
+      REAL THETA, PHI, DEGRAD
+C
+C  ----------------------- L O C A L   D A T A --------------------
+C
+c added on 10/20/2009
+      real WTVSATTR(TVFEAT_CHR,TVFEAT_MAX)
+      real WTVS_XP(FEATMX),WTVS_YP(FEATMX),WTVS_LAB_XP(FEATMX)
+      real WTVS_LAB_YP(FEATMX)
+      integer*2 WTVS_STM_ID(FEATMX)
+      integer*4 WFEATCNT
+
+      INTEGER*4 NSID
+      REAL ADPSAD
+      INTEGER*4 CLEAR, ONE
+      PARAMETER (CLEAR = 0, ONE = 1)
+      REAL  LARGE_NUM, MNDISQRD, DISTSQRD
+      PARAMETER  (NSID=260,LARGE_NUM=99999.)
+      PARAMETER (DEGRAD = 0.01745329)
+      INTEGER*2 TWOQMRKS
+      CHARACTER*2  QMARKS
+      EQUIVALENCE (TWOQMRKS, QMARKS)
+      DATA QMARKS/'??'/
+C
+      integer*4 numTvs, numETvs 
+C
+      INTEGER*2 SID(NSID)
+      INTEGER*4 I,J,TEMP_ID
+      REAL X,Y,DIS,DISTX,DISTY,MIN
+      EQUIVALENCE (SID(1),CHARIDTABLE(1))
+#IFDEF LINUX
+$INCLUDE A309.INC/G,**A3CD08D (NEND NLIST)
+#ENDIF
+C
+C  ---------------------- E X E C U T A B L E ---------------------
+C
+C  INITIALIZE NTOTPRED
+      TEMP_ID = ONE
+      TEMPX = CLEAR
+      TEMPY = CLEAR
+      MNDISQRD = ADPSAD * ADPSAD
+C
+C  INITIALIZE TVS_STORM_ID TO QUESTION MARKS
+C
+      numTvs = 0
+      numETvs = 0
+
+      DO 100 I = 1,FEATCNT
+        TVS_STM_ID(I) = TWOQMRKS
+ 100  CONTINUE
+C
+C     IF( (FEATCNT.NE.CLEAR).AND.(NTOTPRED.NE.CLEAR) )THEN
+      IF (FEATCNT.GT.CLEAR) THEN
+C
+C  DO FOR ALL TORNADO VORTEX SIGNATURES
+C
+        DO 20 I=1,FEATCNT
+C
+C  CONVERT TO RADIANS
+C
+          THETA = TVSATTR(TV_AZM,I) * DEGRAD
+          PHI = TVSATTR(TV_BEL,I) * DEGRAD
+C
+C  CONVERT TO CARTESIAN
+C
+          X=TVSATTR(TV_RAN,I)*SIN(THETA)*COS(PHI)
+          Y=TVSATTR(TV_RAN,I)*COS(THETA)*COS(PHI)
+C
+C  SAVE THE X,Y COORDINATES FOR THE TVS
+C
+          TVS_XP(I) = X
+          TVS_YP(I) = Y
+          TVS_LAB_XP(I) = X
+          TVS_LAB_YP(I) = Y
+C
+C  INITIALIZE MIN
+C
+          MIN=LARGE_NUM
+C
+C  DO FOR ALL STORMS
+C
+          IF(NTOTPRED.GT.CLEAR)THEN
+            DO 10 J=1,NTOTPRED
+C
+C  CALCULATE DISTANCE SQUARED BETWEEN TVS AND STORMS
+C  NOTE:  USING DISTANCE SQUARED IS FASTER THAN COMPUTING SQUARE ROOT
+C         AND PRODUCES THE SAME STORM ASSOCIATION
+C
+              DISTX=STORMOTION(STF_X0,J) - X
+              DISTY=STORMOTION(STF_Y0,J) - Y
+              DISTSQRD = DISTX * DISTX + DISTY * DISTY
+C
+C  DETERMINE CLOSEST STORM ASSOCIATED TO TVS
+C
+              IF (DISTSQRD.LT.MIN) THEN
+                MIN=DISTSQRD
+                TEMP_ID = STORMIDTYP(STF_ID,J)
+C
+C  SAVE CLOSEST STORM X,Y COORDINATES FOR LABEL
+C
+                TEMPX = STORMOTION(STF_X0,J)
+                TEMPY = STORMOTION(STF_Y0,J)
+              ENDIF
+ 10         CONTINUE
+          ENDIF
+C
+C   SET TVS  STORM ID TO ASCII
+C
+          IF(MIN .LE. MNDISQRD) THEN
+            TVS_STM_ID(I)=SID(TEMP_ID)
+C
+C  IF THE TVS IS WITHIN MIN DISTANCE THEN SAVE STORM X,Y COORDINATES
+C
+            TVS_LAB_XP(I)=TEMPX
+            TVS_LAB_YP(I)=TEMPY
+            if(I .le. ITVS) then
+             numTvs = numTvs +1
+            else
+             numETvs = numETvs +1
+            endif
+c Copy the following array
+           WTVS_STM_ID(numTvs+numETvs) = TVS_STM_ID(I)
+           WTVS_LAB_XP(numTvs+numETvs) = TVS_LAB_XP(I)
+           WTVS_LAB_YP(numTvs+numETvs) = TVS_LAB_YP(I)
+           WTVS_XP(numTvs+numETvs) = TVS_XP(I)
+           WTVS_YP(numTvs+numETvs) = TVS_YP(I)
+   
+           WTVSATTR(TV_TYP,numTvs+numETvs) = TVSATTR(TV_TYP,I)
+           WTVSATTR(TV_AZM,numTvs+numETvs) = TVSATTR(TV_AZM,I)
+           WTVSATTR(TV_RAN,numTvs+numETvs) = TVSATTR(TV_RAN,I)
+           WTVSATTR(TV_LDV,numTvs+numETvs) = TVSATTR(TV_LDV,I)
+           WTVSATTR(TV_ADV,numTvs+numETvs) = TVSATTR(TV_ADV,I)
+           WTVSATTR(TV_MDV,numTvs+numETvs) = TVSATTR(TV_MDV,I)
+           WTVSATTR(TV_MVH,numTvs+numETvs) = TVSATTR(TV_MVH,I)
+           WTVSATTR(TV_DEP,numTvs+numETvs) = TVSATTR(TV_DEP,I)
+           WTVSATTR(TV_BAS,numTvs+numETvs) = TVSATTR(TV_BAS,I)
+           WTVSATTR(TV_BEL,numTvs+numETvs) = TVSATTR(TV_BEL,I)
+           WTVSATTR(TV_TOP,numTvs+numETvs) = TVSATTR(TV_TOP,I)
+           WTVSATTR(TV_SHR,numTvs+numETvs) = TVSATTR(TV_SHR,I)
+           WTVSATTR(TV_SRH,numTvs+numETvs) = TVSATTR(TV_SRH,I)
+
+          ENDIF
+ 20     CONTINUE
+      ENDIF
+c added on 10/20/2009 to remove TVS 20KM away from storm
+      WFEATCNT = numTvs+numETvs
+      if (FEATCNT .gt. WFEATCNT) then
+       FEATCNT = WFEATCNT 
+       ITVS = numTvs 
+       IETVS = numETvs
+       do 30 I = 1, WFEATCNT
+           TVS_STM_ID(I) = WTVS_STM_ID(I)
+           TVS_LAB_XP(I) = WTVS_LAB_XP(I)
+           TVS_LAB_YP(I) = WTVS_LAB_YP(I)
+           TVS_XP(I) = WTVS_XP(I)
+           TVS_YP(I) = WTVS_YP(I)
+
+           TVSATTR(TV_TYP,I) = WTVSATTR(TV_TYP,I)
+           TVSATTR(TV_AZM,I) = WTVSATTR(TV_AZM,I)
+           TVSATTR(TV_RAN,I) = WTVSATTR(TV_RAN,I)
+           TVSATTR(TV_LDV,I) = WTVSATTR(TV_LDV,I)
+           TVSATTR(TV_ADV,I) = WTVSATTR(TV_ADV,I)
+           TVSATTR(TV_MDV,I) = WTVSATTR(TV_MDV,I)
+           TVSATTR(TV_MVH,I) = WTVSATTR(TV_MVH,I)
+           TVSATTR(TV_DEP,I) = WTVSATTR(TV_DEP,I)
+           TVSATTR(TV_BAS,I) = WTVSATTR(TV_BAS,I)
+           TVSATTR(TV_BEL,I) = WTVSATTR(TV_BEL,I)
+           TVSATTR(TV_TOP,I) = WTVSATTR(TV_TOP,I)
+           TVSATTR(TV_SHR,I) = WTVSATTR(TV_SHR,I)
+           TVSATTR(TV_SRH,i) = WTVSATTR(TV_SRH,I)
+ 30    continue 
+      endif
+
+      RETURN
+      END

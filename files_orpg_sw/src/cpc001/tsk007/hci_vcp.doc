@@ -1,0 +1,117 @@
+hci_vcp.doc			NOTES				hci_vcp.doc
+
+
+This file contains information about the HCI VCP Control task.  It is intended
+to be used by those interested in how the software is designed rather than by a
+typical user.  More detailed information about data stores and events used by
+this task is presented.
+
+Design
+------
+
+The VCP COntrol task was created as a sub task in the HCI family of tasks.  A
+typical user would normally activate it by selecting the "VCP" pushbutton to
+the right of the radome object in the RPG Control/Status window.  However, as a
+stand-alone application, it can be launched from the command line using the
+"hci_vcp" command or by invoking a system call in any other application wishing
+to launch it.  This modular approach has a number of benefits which are
+described in the doc file for the hci task (hci.doc).
+
+The VCP Control task includes the VCP data functionality provided by the legacy
+UCP "Volume Coverage Pattern" menu and the VCP components in the "RDA Control"
+menu.  A full description can be found in the man page hci_vcp(1).
+
+The Control VCP window cannot be resized.  The Modify VCP Adaptation Data
+window cannot be resized by the user.  It is automatically resized to fit the
+number of cuts contained in the selected VCP. 
+
+There is a requirement to restrict editing VCP adaptation data to the URC level
+user.  A valid password must be entered before any editing can be performed.
+
+An advisory lock is placed on the data message corresponding to the VCP
+adaptation data message (RDACNT) in the ORPGDAT_ADAPTATION linear buffer when
+the window is unlocked for editing.  If another instance of the task is running
+and unlocked, a warning popup is displayed advising the user that the message
+is currently being edited by another user.  When the  window is locked, the
+advisory lock is removed.
+
+The currently active VCP is displayed with a white background.  The information
+that determines the VCP and whether it is a local or remote pattern is found
+in the latest RDA Status message.
+
+The timer procedure is activated in 1 second intervals.  The VCP Control window
+is update under the following conditions:
+
+	New RDA Status data available
+	New RPG Status data available
+	Auto PRF flag changed
+
+Testing
+-------
+
+To test this function fully, a live RDA is needed.  However, the RDA simulator
+can be used to test the GUI behavior (i.e., change to local or remote patterns,
+restart VCP or cut).  The rda status and wideband status test tools, rdastat
+and wb_stat, can be used to change RDA and wideband status in order to test
+button sensitivity under various conditions.  For example, the wb_stat tool
+can be used to change the RDA/RPG wideband state to/from connected.  If the
+wideband is not connected, all VCP control buttons should be desensitized with
+the exception of modifying VCP adaptation data.  The same is true if the
+wideband is connected but the RDA is in local control.
+
+SOURCE FILES
+------------
+
+	hci_vcp_control.c
+			This module contains all of the code to build and
+			display the VCP Control window.
+			
+	hci_modify_vcp_adaptation_data.c
+			This module contains all of the code to build and
+			display the Modify VCP Adaptation Data window.
+				
++++ PROC
+
+DATA IN
+
+	ORPGDAT_ADAPTATION.4
+	ORPGDAT_BASELINE_ADAPTATION.4
+	ORPGDAT_REDMGR_CHAN_MSGS.4
+	ORPGDAT_ADAPT.4
+	ORPGDAT_HCI_DATA.4
+	ORPGDAT_RPG_INFO.4
+	ORPGDAT_GSM_DATA.4
+	
+DATA OUT
+
+	ORPGDAT_ADAPTATION.4
+	ORPGDAT_BASELINE_ADAPTATION.4
+	ORPGDAT_RDA_COMMAND.4
+
+		
+EVENTS OUT
+
+	ORPGEVT_HCI_COMMAND_ISSUED
+	
+APIs USED
+
+	orpg.3
+	
+		ORPGRED.3
+		ORPGSITE.3
+		ORPGRDA.3
+		ORPGEDLOCK.3
+		ORPGMISC.3
+		ORPGINFO.3
+
+	hci.3
+
+---
+
+SEE ALSO
+
+hci(1) hci_vcp(1) rda_simulator(1) rdastat(1) wb_stat(1) hci(3) orpg(3)
+orpgred(3) orpgsite(3) orpgrda(3) orpgmisc(3) orpgedlock(3) orpginfo(3)
+
+
+hci_vcp.doc							hci_vcp.doc

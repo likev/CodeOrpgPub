@@ -1,0 +1,1405 @@
+XCOMM RCS info 
+XCOMM $Author: steves $ 
+XCOMM $Locker:  $ 
+XCOMM $Date: 2006/01/20 23:20:08 $ 
+XCOMM $Id: a317.inc,v 1.5 2006/01/20 23:20:08 steves Exp $ 
+XCOMM $Revision: 1.5 $ 
+XCOMM $State: Exp $ 
+*.********************************************************************
+*.
+*.           I N C L U D E    F I L E    P R O L O G U E
+*.
+*.  INCLUDE FILE NAME: A317.INC
+*.
+*.  INCLUDE FILE VERSION: 05
+*.
+*.  INCLUDE FILE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.  DATE         RV   SPR#             PROGRAMMER         NOTES
+*.  ---------    --   -----          ---------------   --------------
+*.  06/01/90     00   80549            P. STALEY
+*.  07/11/90     01   90819            G. JUBINSKI
+*.  11/05/92     02 NA92-30901         P. PISANI
+*.  04/07/94     03 92119-001A00       STEVE SMITH
+*.  07/19/95     04 NA94-35301         CHERYL STEPHENSON
+*.  06/23/97     05 NA95-21503         STEVE D SMITH
+*.
+*.********************************************************************
+C
+C
+**A317PT1
+*VERSION:0
+C****************************************************************
+C*                                                              *
+C*           PARAMETER FILE FOR MESOCYCLONE 2-D                 *
+C*                    OUTPUT BUFFER (REV. 0)                    *
+C*                                                              *
+C****************************************************************
+C
+C *** OFFSET PARAMETERS FOR TASK HEADER DATA:
+C
+      INTEGER*4 VOLS,VOLT,ELT,ELA
+      PARAMETER (VOLS = 0,VOLT = 1,ELT = 2,ELA = 3)
+C
+C *** OFFSETS FOR POTENTIAL MESOCYCLONE FEATURE ATTRIBUTES:
+C
+C --- ARRAY SIZE = PMAX ---
+C
+      INTEGER*4 PMAX
+      PARAMETER (PMAX =  50)
+C
+C --- POTENTIAL MESOCYCLONE ATTRIBUTE OFFSETS ---
+C
+      INTEGER*4 NPM,VPM,PMC,PMP,PMFC,PMFP,PMN,PMT,
+     1          PMCA,PMCR,PMA,PMR,PMS,PMRS,PMMRS
+      PARAMETER (NPM=4,VPM=5,PMC=6,PMP=7,PMFC=8,PMFP=9,
+     1           PMN = PMFP+1, PMT = PMN+1*PMAX,
+     1           PMCA = PMN+2*PMAX,PMCR = PMN+3*PMAX,
+     2           PMA = PMN+4*PMAX,PMR = PMN+5*PMAX,
+     3           PMS = PMN+6*PMAX,PMRS = PMN+7*PMAX,
+     4           PMMRS = PMN+8*PMAX)
+/*
+C
+**A317P1
+*VERSION:1
+C****************************************************************
+C*                                                              *
+C*           PARAMETER FILE FOR MESOCYCLONE 2-D                 *
+C*                    OUTPUT BUFFER (REV. 1)                    *
+C*                                                              *
+C****************************************************************
+C
+C *** OFFSET PARAMETERS FOR TASK HEADER DATA:
+C
+      INTEGER*4 VOLS,VOLT,ELT,ELA,NPM,VPM,NPTV
+      PARAMETER (VOLS = 0,VOLT = 1,ELT = 2,ELA = 3,
+     1           NPM = 4,VPM = 5,NPTV = 6)
+C
+C *** OFFSETS FOR POTENTIAL MESOCYCLONE FEATURE ATTRIBUTES:
+C
+C --- ARRAY SIZE = PMAX ---
+C
+      INTEGER*4 PMAX
+      PARAMETER (PMAX =  50)
+C
+C --- POTENTIAL MESOCYCLONE ATTRIBUTE OFFSETS ---
+C
+      INTEGER*4 PMN,PMT,PMCA,PMCR,PMA,PMR,PMS,PMMS,PMRS,
+     2          PMRS_RANGE,PMRS_BEGAZ,PMRS_ENDAZ,
+     3          PMBR,PMER,PMBAZ,PMEAZ,PMMRS
+      PARAMETER (PMN = NPTV+1, PMT = PMN+1*PMAX,
+     1           PMCA = PMN+2*PMAX,PMCR = PMN+3*PMAX,
+     2           PMA = PMN+4*PMAX,PMR = PMN+5*PMAX,
+     3           PMS = PMN+6*PMAX,PMMS = PMN+7*PMAX,PMRS = PMN+8*PMAX,
+     4           PMRS_RANGE=PMN+9*PMAX,PMRS_BEGAZ=PMN+10*PMAX,
+     5           PMRS_ENDAZ=PMN+11*PMAX,PMBR=PMN+12*PMAX,
+     6    PMER=PMN+13*PMAX,PMBAZ=PMN+14*PMAX,PMEAZ=PMN+15*PMAX)
+      PARAMETER (PMMRS = PMN+16*PMAX)
+
+C
+C *** BUFFER SIZE PARAMETER:
+C
+      INTEGER*4 BUFSIZ
+C
+      PARAMETER (BUFSIZ = PMMRS+PMAX)
+/*
+**A317PA
+*VERSION:0
+C
+C***  ARRAY PARAMETERS:  (FOR MESOCYCLONE.)
+C
+        INTEGER*4 A399P1_PVMAXSIZE,A399P2_FMAXSIZE,A399P3_RMAXSIZE,
+     1            A399P4_PMMAXSIZE,A399P5_MMAXSIZE,A399P6_BUFSIZE
+        PARAMETER (A399P1_PVMAXSIZE=3000,A399P2_FMAXSIZE=500,
+     1             A399P3_RMAXSIZE=920,A399P4_PMMAXSIZE=50,
+     2             A399P5_MMAXSIZE=20,A399P6_BUFSIZE=2048)
+C
+/*
+**A317PB
+*VERSION: 2
+C
+C***  PARAMETERS AND CONSTANTS FOR MESO 2D TASK:
+C
+        INTEGER*4  YES,NO,BADSTAT,STATUS,CLEAR,CLOCKWISE,
+     1             COUNTERCLOCKWISE,VELPTR,ELPTR,ELNUMBER,DOPSPACE,
+     2             NUMDOP,STARTARRAY,AZNUMBER,BADTCY,INCTCY,DECTCY,
+     3             NOTDONESCAN,SECTORSCAN,FULL360SCAN,SKIPSCAN,NOTCY,
+     4             INCR1,ENDLINK,FLINKED,FIRSTONE,AZPTR,DOPRANGE,
+     5             UNCORSHEAR,THREEDSHEAR,MESOCYCLONE,SELFCHECK,
+     6             PMLNKF,NEWELEV,NEWVOL,ENDELEV,PENDEL,ENDVOL,PENDVOL
+        INTEGER*4  BADDATA,MODE1,MODE2,STABLEAZN,ALLBINS,NODATA
+        REAL       FULLCIRCLE,SKIPKM,LOWAZ,HIAZ,LOWAZ5,HALFCIRCLE,
+     1             SHORTPV,QUARTERCIRCLE,KILO,HALF,FLAGZERO,TWOPT,
+     2             RAD100KM,MPSECCV,KMPSECCV,NULL,MISSING,BIAS,
+     3             PI,AZDIF
+        PARAMETER  (YES=1,NO=0,BADSTAT=128,STATUS=7,CLEAR=0,
+     1             CLOCKWISE=1,COUNTERCLOCKWISE=-1,VELPTR=19,
+     2             ELPTR=8,ELNUMBER=9,DOPSPACE=13,NUMDOP=15,
+     3             STARTARRAY=1,AZNUMBER=6,BADTCY=99,INCTCY=1,NOTCY=0,
+     4             DECTCY=-1,NOTDONESCAN=0,SECTORSCAN=2,FULL360SCAN=1,
+     5             SKIPSCAN=-1,INCR1=1,ENDLINK=0,FLINKED=-1,
+     6             FIRSTONE=1,AZPTR=5,DOPRANGE=11,UNCORSHEAR=3)
+        PARAMETER (THREEDSHEAR=2,MESOCYCLONE=1,SELFCHECK=272,
+     1             MODE1=1,MODE2=2,ALLBINS=920,NODATA=256)
+        PARAMETER  (FULLCIRCLE=360.0,SKIPKM=10.0,LOWAZ=0.0,HIAZ=355.0,
+     1             LOWAZ5=5.0,HALFCIRCLE=180.0,SHORTPV=1.2,
+     2             QUARTERCIRCLE=90.0,KILO=1000.0,HALF=0.5,
+     3             FLAGZERO=0.0,TWOPT=2.0,BIAS=128.0,RAD100KM=100.0,
+     4             MPSECCV=3.6,KMPSECCV=3600.0,NULL=0.0,MISSING=999.,
+     5             PMLNKF=-1,NEWVOL=1,NEWELEV=2,ENDELEV=3,ENDVOL=4,
+     6             PENDEL=5,PENDVOL=6)
+        PARAMETER (STABLEAZN=50,PI=3.14159,BADDATA=1,AZDIF=0.60)
+/*
+C
+**A317PC
+*VERSION:1
+C
+C *** PARAMETER FILE FOR MESO 3D TASK:
+C
+      INTEGER*4 MAXF,MINMES,M3DNUM,MESOT,SHEAR3D,UNCORSHR,
+     1          CLEAR,NEWVOL,ENDVOL,YES,NO,CONSOLE
+C
+      REAL LARGENUM
+C
+      PARAMETER (MAXF=150,MINMES=2,M3DNUM=2,MESOT=1,
+     1           SHEAR3D=2,UNCORSHR=3,CLEAR=0,NEWVOL=1,ENDVOL=4,
+     2           YES=1,NO=0,CONSOLE=2,LARGENUM=1000.)
+/*
+C
+**A317D1
+*VERSION:1
+C *************************************************************
+C *                                                           *
+C *            DEFINITION FILE FOR MESOCYCLONE 2-D            *
+C *                        OUTPUT BUFFER                      *
+C *                                                           *
+C *************************************************************
+C
+C*** TASK HEADER DATA ***
+C
+      INTEGER*4 VTIME,ELTIM,VOLSTAT,NUMPM,VOLPM
+C
+      REAL ELANG
+C
+C*** POTENTIAL MESOCYCLONE FEATURE ATTRIBUTE PARAMETERS
+C
+      INTEGER*4 PMNUM(PMAX),PMMESOT(PMAX)
+C
+      REAL PMFCA(PMAX),PMFCR(PMAX),PMAD(PMAX),
+     1     PMRD(PMAX),PMAS(PMAX),PMMAXS(PMAX),
+     2     PMMAXTS_RANGE(PMAX),PMMAXTS_BEGAZ(PMAX),
+     3     PMMAXTS_ENDAZ(PMAX),EPMBR(PMAX),EPMER(PMAX),
+     4     EPMBAZ(PMAX),EPMEAZ(PMAX),
+     5     PMSPDR(PMAX),PMMAXSR(PMAX)
+/*
+**A317CA
+*VERSION:0
+C
+C***  MESOCYCLONE OUTPUT BUFFERS:
+C
+        INTEGER*4 MES13,OBI13
+        PARAMETER (MES13=10,OBI13=2)
+C
+        REAL MESOTOP  (MES13,OBI13)  ;***  MESOCYCLONE TOP.
+        REAL MESOBASE (MES13,OBI13)  ;***  MESOCYCLONE BASE.
+        REAL MESOX    (MES13,OBI13)  ;***  X-POSITION.
+        REAL MESOY    (MES13,OBI13)  ;***  Y-POSITION.
+        REAL MESODIAM (MES13,OBI13)  ;***  MESO DIAMETER.
+        INTEGER*4  MESOINDX (OBI13)  ;***  NUMBER OF MESOS.
+C
+$TCOM/A317CA/
+C
+        COMMON /A317CA/ MESOTOP,MESOBASE,MESOX,MESOY,
+     1                  MESODIAM,MESOINDX
+C
+/*
+**A317CB
+*VERSION:0
+C
+C***  MESOCYCLONE PARAMETERS:
+C
+        REAL  LMT,HST,LST,HMT,MINDR,MAXDR,FHMAX,OVERLAP,
+     1        MAXDIFF,RADIALKM,CRITERION,FARMIN,FARMAX,RANGETHR
+        REAL MESCUR(14)
+C
+        EQUIVALENCE   (MESCUR(1),LMT)
+        EQUIVALENCE   (MESCUR(2),HMT)
+        EQUIVALENCE   (MESCUR(3),LST)
+        EQUIVALENCE   (MESCUR(4),HST)
+        EQUIVALENCE   (MESCUR(5),RADIALKM)
+        EQUIVALENCE   (MESCUR(6),OVERLAP)
+        EQUIVALENCE   (MESCUR(7),CRITERION)
+        EQUIVALENCE   (MESCUR(8),MINDR)
+        EQUIVALENCE   (MESCUR(9),MAXDR)
+        EQUIVALENCE   (MESCUR(10),FHMAX)
+        EQUIVALENCE   (MESCUR(11),MAXDIFF)
+        EQUIVALENCE   (MESCUR(12),FARMIN)
+        EQUIVALENCE   (MESCUR(13),FARMAX)
+        EQUIVALENCE   (MESCUR(14),RANGETHR)
+C
+$TCOM/A317CB/
+C
+        COMMON /A317CB/ MESCUR
+C
+/*
+**A317CC
+*VERSION:0
+C
+C***  RANGE POINTER TABLE:  (FOR MESOCYCLONE.)
+C
+        INTEGER*4 RSTART(A399P3_RMAXSIZE),REND(A399P3_RMAXSIZE)
+C
+$TCOM/A317CC/
+C
+        COMMON /A317CC/ RSTART,REND
+C
+/*
+**A317CD
+*VERSION:0
+C
+C***  PATTERN VECTOR TABLE:  (FOR MESOCYCLONE.)
+C
+        INTEGER*4 PVLINK(A399P1_PVMAXSIZE),PVFEAT(A399P1_PVMAXSIZE),
+     1            PVRLINK(A399P1_PVMAXSIZE),PVBV(A399P1_PVMAXSIZE),
+     2            PVEV(A399P1_PVMAXSIZE)
+        REAL PVBAZM(A399P1_PVMAXSIZE),PVEAZM(A399P1_PVMAXSIZE),
+     1            PVM(A399P1_PVMAXSIZE),PVS(A399P1_PVMAXSIZE),
+     2            PVSL(A399P1_PVMAXSIZE),PVCENT(A399P1_PVMAXSIZE)
+        LOGICAL*1 PVCROSS(A399P1_PVMAXSIZE)
+C
+$TCOM/A317CD/
+C
+        COMMON /A317CD/ PVLINK,PVFEAT,PVRLINK,PVBAZM,PVEAZM,
+     1            PVBV,PVEV,PVM,PVS,PVSL,PVCENT,PVCROSS
+C
+/*
+**A317CE
+*VERSION:0
+C
+C***  FEATURE POINTER TABLE:  (FOR MESOCYCLONE.)
+C
+        INTEGER*4 FSTART(A399P2_FMAXSIZE),FEND(A399P2_FMAXSIZE),
+     1            FNUMPV(A399P2_FMAXSIZE)
+        LOGICAL*1 FCROSS(A399P2_FMAXSIZE)
+C
+$TCOM/A317CE/
+C
+        COMMON /A317CE/ FSTART,FEND,FNUMPV,FCROSS
+C
+/*
+**A317CF
+*VERSION:0
+C
+C***  POTENTIAL MESOCYCLONE TABLE:  (FOR MESOCYCLONE.)
+C
+        INTEGER*4 PMMESO(A399P4_PMMAXSIZE),PMLINK(A399P4_PMMAXSIZE),
+     1            PMMNUM(A399P4_PMMAXSIZE)
+        REAL PMELEV(A399P4_PMMAXSIZE),PMFCA(A399P4_PMMAXSIZE),
+     1            PMFCR(A399P4_PMMAXSIZE),
+     2            PMAD(A399P4_PMMAXSIZE),PMRD(A399P4_PMMAXSIZE),
+     3            PMDR(A399P4_PMMAXSIZE),
+     4            PMFH(A399P4_PMMAXSIZE),PMAS(A399P4_PMMAXSIZE),
+     5            PMDAA(A399P4_PMMAXSIZE),PMROD(A399P4_PMMAXSIZE)
+        REAL PMSRTMAX(A399P4_PMMAXSIZE),PMSPRMAX(A399P4_PMMAXSIZE),
+     1            PMSPRAVG(A399P4_PMMAXSIZE)
+C
+$TCOM/A317CF/
+C
+        COMMON /A317CF/ PMMESO,PMLINK,PMMNUM,PMELEV,PMFCA,PMFCR,
+     1            PMAD,PMRD,PMDR,PMFH,PMAS,PMDAA,PMROD,PMSRTMAX,
+     2            PMSPRMAX,PMSPRAVG
+C
+/*
+**A317CG
+*VERSION:0
+C
+C***  MESOCYCLONE AND 3D SHEAR TABLE:
+C
+        INTEGER*4 MSTART(A399P5_MMAXSIZE),MEND(A399P5_MMAXSIZE),
+     1            MNUMMESO(A399P5_MMAXSIZE),MNUMFEAT(A399P5_MMAXSIZE),
+     2            MTYPE(A399P5_MMAXSIZE)
+        REAL MMPX(A399P5_MMAXSIZE),MMPY(A399P5_MMAXSIZE),
+     1            MMESOBASE(A399P5_MMAXSIZE),MMESOTOP(A399P5_MMAXSIZE),
+     2            MMESOHMSR(A399P5_MMAXSIZE),MMESOHASR(A399P5_MMAXSIZE)
+C
+$TCOM/A317CG/
+C
+        COMMON /A317CG/ MSTART,MEND,MNUMMESO,MNUMFEAT,MTYPE,
+     1                  MMPX,MMPY,MMESOBASE,MMESOTOP,MMESOHMSR,MMESOHASR
+C
+/*
+**A317CH
+*VERSION:0
+C
+C***  FIRST RADIAL AND ASSOCIATED DATA:  (FOR MESOCYCLONE.)
+C
+        INTEGER*4 FIRSTRAD(A399P3_RMAXSIZE),FIRSTEV(A399P3_RMAXSIZE),
+     1            FIRSTIME
+        REAL  FIRSTENDAZ(A399P3_RMAXSIZE),FIRSTAZ,FIRSTEL
+        INTEGER*4 FIRSTTCY(A399P3_RMAXSIZE),FIRSTELNUM,
+     1            PREVSTB,PREVNBS,FIRSTBIN,FIRSTEBN,FBIN,OFBIN,
+     2            STBMAX,PSTBMAX,LASTBIN,OLASTBIN
+C
+$TCOM/A317CH/
+C
+        COMMON /A317CH/ FIRSTRAD,FIRSTEV,FIRSTENDAZ,FIRSTAZ,
+     1            FIRSTEL,FIRSTTCY,FIRSTELNUM,FIRSTIME,
+     2            PREVSTB,PREVNBS,FIRSTBIN,FIRSTEBN,FBIN,OFBIN,
+     3            STBMAX,PSTBMAX,LASTBIN,OLASTBIN
+C
+/*
+**A317CI
+*VERSION:0
+C
+C***  RADIAL BUFFERS FOR TWO RADIALS OF VELOCITY DATA:
+C
+        INTEGER*2 XAZM,XELEV,XVOLNUM,
+     1            XAZNUM,XELNUM,XDRANGE,XVEL1,XRADSTAT,TWOGOOD
+C
+$TCOM/A317CI/
+C
+        COMMON /A317CI/ XAZM,XELEV,XAZNUM,XELNUM,XVOLNUM,
+     1                   XDRANGE,XVEL1,XRADSTAT,TWOGOOD
+C
+/*
+**A317CJ
+*VERSION:0
+C
+C***  CURRENT TENDENCIES, PLUS BEGINNING VELOCITIES AND
+C***  AZIMUTH ANGLES FOR POTENTIAL PATTERN VECTORS:
+C
+        INTEGER*4 TCY(A399P3_RMAXSIZE),BV(A399P3_RMAXSIZE)
+        REAL BAZM(A399P3_RMAXSIZE)
+C
+$TCOM/A317CJ/
+C
+        COMMON /A317CJ/ TCY,BV,BAZM
+C
+/*
+**A317CK
+*VERSION:0
+C
+C***  TIMING DATA: (FOR TEST PURPOSES ONLY.)
+C
+        INTEGER*4  TIMEMAX
+        PARAMETER (TIMEMAX=5)
+        INTEGER*4 INIT(TIMEMAX),PV(TIMEMAX),FEAT(TIMEMAX),
+     1            MESO(TIMEMAX),TIMELOOP(TIMEMAX),
+     2            TCYTIME(TIMEMAX),M3D(TIMEMAX)
+        CHARACTER*8 TIMETYPE(TIMEMAX)
+        DATA TIMETYPE /'CPUTIME','OSTIME','WAITTIME',
+     1                 'ROLLTIME','ELAPSED'/
+C
+$TCOM/A317CK/
+C
+        COMMON /A317CK/ INIT,PV,FEAT,MESO,TIMELOOP,TIMETYPE,
+     1                  TCYTIME,M3D
+C
+/*
+**A317CL
+*VERSION:0
+C
+        INTEGER*4 STARTIX(4),ENDIX(4),STARTIME,ENDTIME
+C
+$TCOM/A317CL/
+C
+        COMMON /A317CL/ STARTIX,ENDIX,STARTIME,ENDTIME
+C
+/*
+**A317CM
+*VERSION: 1
+C
+C***  PARAMETERS FOR UPDATE:  (CURRENT AZIMUTH, CURRENT ELEVATION,
+C***  CURRENT RANGE, ANTENNA DIRECTION AZIMUTHALLY, DATA TYPE,
+C***  BUFFER POINTER, INDICES, ETC.)
+C
+        REAL CURRAZ,CURREL,RANGE,RESVOL,HRESVOL
+        INTEGER*4 AZDIREC,WHICH1,FULLSCAN,BAZNUM,
+     1            EAZNUM,NUMBINS,ENDBIN,STARTBIN,MAXELBIN,MINELBIN,
+     2            SKIPBINS
+C
+$TCOM/A317CM/
+C
+        COMMON /A317CM/ CURRAZ,CURREL,RANGE,AZDIREC,WHICH1,FULLSCAN,
+     1                  BAZNUM,EAZNUM,RESVOL,HRESVOL,
+     2                  NUMBINS,ENDBIN,STARTBIN,MAXELBIN,MINELBIN,
+     3                  SKIPBINS
+C
+/*
+**A317CN
+*VERSION: 1
+C
+C***  CONSTANTS:
+C
+        INTEGER*4 RADIALD
+        REAL TPI360,THPI8,PI180,RADE,
+     1                    ELEVMAX,SMALLNUM,LARGENUM,
+     2                    VSCALE,MSCALE,SSCALE,ANGLESCALE,
+     3                    T360TPI,HEIGHTLIMIT,MAXDIFF1,OVERLAP1,
+     4                    LMT1,HMT1,LST1,HST1,HCORF,SINELEV
+C
+$TCOM/A317CN/
+C
+        COMMON /A317CN/ RADIALD,SMALLNUM,LARGENUM,
+     1                    TPI360,THPI8,PI180,
+     3                    RADE,ELEVMAX,VSCALE,MSCALE,SSCALE,
+     4                    ANGLESCALE,T360TPI,HEIGHTLIMIT,
+     5                    MAXDIFF1,OVERLAP1,
+     6                    LMT1,HMT1,LST1,HST1,HCORF,SINELEV
+C
+/*
+**A317CO
+*VERSION: 2
+C
+C***  TEMPORARY HOLDERS:
+C
+        INTEGER*4 CURRV,OLDV,PCROSS
+        REAL OLDAZ,OLDAZDR,AZDIFF
+C
+$TCOM/A317CO/
+C
+        COMMON /A317CO/ CURRV,OLDV,OLDAZ,OLDAZDR,AZDIFF,PCROSS
+C
+/*
+**A317CP
+*VERSION:0
+C
+C***  COUNTERS AND FLAGS FOR MESO 2D TASK:
+C
+        INTEGER*4 PVCOUNT,POTENTIALS,IAZCOUNT,FEATMAX,
+     1            FEATCNT,MESOCNT,PREVELEV,CURRELEV,
+     2            NEXTPM,MESOMAX,MESO3DCNT,SHEAR3DCNT,CURRFOUND,
+     3            PREVFOUND,DO1,NELPM,NVOLPM
+        INTEGER*4 CURRINDX,PREVINDX,GOVOLUME,OUTINDX
+        INTEGER*4 BADRAD,OFULLFLAG,FIRSTPRINT,
+     1            ABRT,MODE,BADDAT
+        REAL LASTAZTEMP,MODECNV
+C
+$TCOM/A317CP/
+C
+        COMMON /A317CP/ PVCOUNT,POTENTIALS,IAZCOUNT,FEATMAX,
+     1                    FEATCNT,MESOCNT,PREVELEV,CURRELEV,
+     2                    NEXTPM,MESOMAX,MESO3DCNT,SHEAR3DCNT,
+     3                    CURRFOUND,PREVFOUND,DO1,NELPM,NVOLPM,
+     4                    CURRINDX,PREVINDX,LASTAZTEMP,GOVOLUME,
+     5                    OUTINDX,BADRAD,OFULLFLAG,ABRT,
+     6                    FIRSTPRINT,MODECNV,MODE,BADDAT
+/*
+**A317CQ
+*VERSION:0
+C
+C***  PARAMETERS TO CONTROL INTERMEDIATE PRINTOUTS:
+C
+        INTEGER*4 PRTPV,PRTFEAT,PRTELEV,PRTALL,PRTMSGS,PRTLAST
+C
+$TCOM/A317CQ/
+C
+        COMMON /A317CQ/ PRTPV,PRTFEAT,PRTELEV,PRTALL,PRTMSGS,
+     1                    PRTLAST
+C
+/*
+**A317CR
+*VERSION:1
+C
+C***  COMPUTED VALUES FOR MESOCYCLONE FEATURES :
+C
+        REAL  ESL,BSL,FCAP,FCRP,AD,AM,RD,DR,FH,AS,DAA,ROD,SRTMAX,
+     1        SPRMAX,SPRAVG,MTSRANGE,MTSAZMIN,MTSAZMAX
+C
+$TCOM/A317CR/
+C
+        COMMON /A317CR/ ESL,BSL,FCAP,FCRP,AD,RD,DR,FH,AS,
+     1                  DAA,ROD,SRTMAX,SPRMAX,SPRAVG,
+     2                  MTSRANGE,MTSAZMIN,MTSAZMAX,AM
+C
+/*
+**A317CU
+*VERSION:0
+C
+C *** FEATURE BOUNDARIES:
+C
+      REAL FAZMIN,FAZMAX,FRMIN,FRMAX,FAZBEG,FAZEND,FRBEG,FREND
+C
+$TCOM/A317CU/
+C
+      COMMON/A317CU/FAZMIN,FAZMAX,FRMIN,FRMAX,FAZBEG,FAZEND,
+     1              FRBEG,FREND
+/*
+**A317CV
+*VERSION: 002
+C *** LOCAL TASK COMMON FOR 2D FEATURE ATTRIBUTE TABLE:
+C
+      INTEGER*4 FNUM(MAXF),FMESOT(MAXF),F3DNUM(MAXF)
+C
+      REAL FFCA(MAXF),FFCR(MAXF),FFAD(MAXF),FFRD(MAXF),FFAS(MAXF),
+     1     FFMS(MAXF),FSPDR(MAXF),FMAXSR(MAXF),FFEL(MAXF),
+     2     FFMXTS_RANGE(MAXF),FFMXTS_BEGAZ(MAXF),FFMXTS_ENDAZ(MAXF),
+     3     FPMBR(MAXF),FPMER(MAXF),FPMBAZ(MAXF),FPMEAZ(MAXF)
+C
+$TCOM /A317CV/
+      COMMON /A317CV/ FNUM,FMESOT,FFCA,FFCR,FFAD,FFRD,FFAS,
+     1                FFMS,FSPDR,FMAXSR,FFEL,
+     3                FFMXTS_RANGE,FFMXTS_BEGAZ,FFMXTS_ENDAZ,
+     4                FPMBR,FPMER,FPMBAZ,FPMEAZ,F3DNUM
+/*
+**A317CW
+*VERSION: 002
+C
+C *** LOCAL TASK COMMON FOR COUNTERS,CONSTANTS, AND VARIABLES
+C *** IN MESO 3D PROCESSOR:
+C
+C
+C ------- COUNTERS AND FLAGS:
+C
+      INTEGER*4 NUMFCEL,NUMFPEL,NUMFPEL1,VOLNUM,ELEVTIM,MESOMAX,
+     1          NUMELEV,MESNUM,ABORT,SHR3DCNT,NMESO(FMAX),
+     2          TNUM(FMAX),L_I,L_J,L_K,NUMF(3)
+C
+C ------- CONSTANTS:
+C
+      REAL INR,RADE,TPI360
+C
+C ------- VARIABLES:
+C
+      REAL SINELEV,HCORF,PREEL,EL
+C
+$TCOM /A317CW/
+C
+      COMMON /A317CW/ NUMFCEL,NUMFPEL,NUMFPEL1,VOLNUM,ELEVTIM,MESOMAX,
+     1                NUMELEV,MESNUM,ABORT,SHR3DCNT,
+     2                INR,RADE,TPI360,SINELEV,HCORF,PREEL,EL,NMESO,
+     3                TNUM,L_I,L_J,L_K,NUMF
+/*
+**A317CX
+*VERSION:0
+C
+C *** TEMPORARY DEFINITION OF INTERNAL ADAPTATION TASK COMMON:
+C
+      INTEGER*4 IMXNFEAT,IMXNMES,INPVTHR
+C
+      REAL IHMTHR,ILMTHR,IHSTHR,ILSTHR,IMRTHR,IFMRTHR,
+     1     INRTHR,IFNRTHR,IRNGTHR,IDISTHR,IAZTHR,IAZTHR1,IFHTHR
+$TCOM /A317CX/
+      COMMON /A317CX/ IMXNFEAT,IMXNMES,INPVTHR,IHMTHR,ILMTHR,IHSTHR,
+     1                ILSTHR,IMRTHR,IFMRTHR,INRTHR,IFNRTHR,IRNGTHR,
+     2                IDISTHR,IAZTHR,IAZTHR1,IFHTHR
+/*
+**A317CY
+*VERSION: 1
+C
+C *** LOCAL TASK COMMON FOR 3D FEATURE ATTRIBUTE TABLE:
+C
+      INTEGER*4 MNUMFEAT(FMAX),MNUMMESO(FMAX)
+C
+C
+$TCOM /A317CY/
+C
+      COMMON /A317CY/ MNUMFEAT,MNUMMESO
+/*
+**A317VI
+*VERSION:0002
+C********************************************************************
+C**                       COMMON AREA "VAD"                        **
+C**                       INTERNAL TO ALGORITHM                    **
+C********************************************************************
+      INTEGER NAZIMS,NRADIALS,IRBIN,IVBIN,CELV,TNRADIALS
+      PARAMETER (NAZIMS=400)
+      REAL SUM_ELV,SUM_REF
+      REAL AZM( NAZIMS ), VE( NAZIMS )
+      REAL DEC_LAST,SVW_LAST
+      LOGICAL AZTST
+      COMMON /A317VI/CELV,IRBIN,IVBIN,AZTST,NRADIALS,SUM_ELV,
+     $            SUM_REF,AZM,VE,DEC_LAST,SVW_LAST,TNRADIALS
+/*
+**A317VP
+*VERSION:1
+C**************************************************************
+C*                   VAD OUTPUT                              **
+C*                   PARAMETERS                              **
+C*                     A317VP                                **
+C**************************************************************
+C
+C* Dimensional parameters
+C
+C* NHED = The number of 4-byte header words.
+C* NVOL = The maximum number of vad data volume scans saved at any
+C*        one time.
+C* NELV = The maximum number of elevations scans per volume scan.
+C* NVAD = The total number of 4-byte words in the vad output buffer.
+C
+      INTEGER NHED,NVOL,NVAD
+      PARAMETER (NHED=3,NVOL=11)
+C
+C* Offset parameters
+C
+C* PDT = Pointer to the date of the data.
+C* PND = Pointer to the missing data value.
+C* PCV = Pointer to the current volume scan.
+C* PTI = Pointer to an array of times.
+C* PHT = Pointer to an array of heights.
+C* PNP = Pointer to an array of number of points used to least squares
+C*       fit.
+C* PRM = Pointer to an array of RMS values.
+C* PDR = Pointer to an array of wind directions.
+C* PSP = Pointer to an array of wind sppeds.
+C* PVD = POINTER TO ARRAY OF VELOCITY DATA POINTS BY AZIMUTH ANGLE
+C* PRD = POINTER TO ARRAY OF REFLECTIVITY DATA POINTS BY AZIMUTH ANGLE
+C* PAZ = POINTER TO ARRAY OF AZIMUTH ANGLES BY GOOD RADIAL POINTS
+C* PC1 = POINTER TO ARRAY OF COEFFICIANTS 1
+C* PC2 = POINTER TO ARRAY OF COEFFICIANTS 2
+C* PC3 = POINTER TO ARRAY OF COEFFICIANTS 3
+C
+      INTEGER PDT,PND,PCV,PTI,PNH,PHT,PNP,PRM,PDR,PSP
+      INTEGER PVD, PRD, PAZ, PC1, PC2, PC3, PAP, PAR
+      PARAMETER (PDT=0,PND=1,PCV=2,PTI=NHED)
+      PARAMETER (PNH = PTI + NVOL)
+      PARAMETER (PHT = PNH + NVOL)
+      PARAMETER (PNP = PHT + NVOL * MAX_VAD_HTS )
+      PARAMETER (PRM = PNP + NVOL * MAX_VAD_HTS )
+      PARAMETER (PDR = PRM + NVOL * MAX_VAD_HTS )
+      PARAMETER (PSP = PDR + NVOL * MAX_VAD_HTS )
+      PARAMETER (PVD = PSP + NVOL * MAX_VAD_HTS )
+      PARAMETER (PRD = PVD + NAZIMS * MAX_VAD_HTS )
+      PARAMETER (PAZ = PRD + NAZIMS * MAX_VAD_HTS )
+      PARAMETER (PC1 = PAZ + NAZIMS * MAX_VAD_HTS )
+      PARAMETER (PC2 = PC1 + MAX_VAD_HTS )
+      PARAMETER (PC3 = PC2 + MAX_VAD_HTS )
+      PARAMETER (PAP = PC3 + MAX_VAD_HTS )
+      PARAMETER (PAR = PAP + MAX_VAD_HTS )
+      PARAMETER (NVAD = PAR + MAX_NUM_AMBRNG * MAX_VAD_HTS )
+C
+/*
+**A317VD
+*VERSION:1
+C**************************************************************
+C*                   VAD OUTPUT                              **
+C*                DEFINITION FILE                            **
+C*                     A317VD                                **
+C**************************************************************
+C
+C* Array and variable definitions.
+C
+C* DATE           = The date of the current volume scan, JULIAN DAYS.
+C* MISSING        = The missing data value.
+C* CVOL           = The volume scan number of the current volume scan
+C*                  within the vad data arrays.
+C* TIME(NVOL)= The time of each of the volume scans, hhmmss.
+C* HTG(NELV) = The height of the vad data values for all of the
+C*                  saved volume and elevation scans, in meters.
+C* NPT(NELV) = The number of points that were used to perform
+C*                  the least squares fitting.
+C* RMS(NELV) = The rms values for each of the saved volume and
+C*                  elevation scans, m/s.
+C* HWD(NELV) = The horizontal wind direction values for each of
+C*                  the saved volume and elevation scans, degrees.
+C* SHW(NELV) = The horizontal wind speed values for each of the
+C*                  saved volume and elevation scans, in m/s.
+C* SVW(NELV) = The vertical wind speed values for each of the
+C*                  saved volume and elevation scans, in m/s.
+C* DIV(NELV) = The divergence values for each of the saved volume
+C*                  and elevation scans, in 1/s.
+C
+      INTEGER DATE,CVOL,TIME(NVOL),NPT(MAX_VAD_ELVS)
+      REAL MISSING,HTG(MAX_VAD_ELVS),RMS(MAX_VAD_ELVS),
+     $     SHW(MAX_VAD_ELVS),SVW(MAX_VAD_ELVS),DIV(MAX_VAD_ELVS),
+     $     HWD(MAX_VAD_ELVS)
+      COMMON /A317VD/ HTG, RMS, SHW, SVW, DIV, HWD, MISSING
+      COMMON /A317VD/ DATE, TIME, CVOL
+/*
+**A317VE
+*VERSION:0
+      INTEGER NRADS(MAX_VAD_HTS), ELCN(MAX_VAD_HTS), VNHTS(NVOL)
+      REAL VHTG(NVOL,MAX_VAD_HTS)
+      REAL VRMS(NVOL,MAX_VAD_HTS)
+      INTEGER VNPT(NVOL,MAX_VAD_HTS)
+      REAL VHWD(NVOL,MAX_VAD_HTS)
+      REAL VSHW(NVOL,MAX_VAD_HTS)
+      REAL SLRN(MAX_VAD_HTS), HAZM(NAZIMS,MAX_VAD_HTS)
+      REAL HVEL(NAZIMS,MAX_VAD_HTS)
+      INTEGER HREF(NAZIMS, MAX_VAD_HTS)
+      REAL HCF1(MAX_VAD_HTS),HCF2(MAX_VAD_HTS),HCF3(MAX_VAD_HTS)
+      INTEGER VELBIN(MAX_VAD_HTS), REFBIN(MAX_VAD_HTS)
+      INTEGER CEMINHT, CEMAXHT, HT
+      INTEGER AMBIG_RANGE(MAX_NUM_AMBRNG, MAX_VAD_HTS)
+      INTEGER AMBIG_AZLIM(MAX_NUM_AMBRNG, MAX_VAD_HTS)
+      INTEGER AMBIG_RANGE_PTR(MAX_VAD_HTS)
+*
+      COMMON /A317VE/ NRADS, ELCN, SLRN
+      COMMON /A317VE/ VELBIN, REFBIN
+      COMMON /A317VE/ CEMINHT, CEMAXHT
+      COMMON /A317VE/ AMBIG_RANGE, AMBIG_RANGE_PTR, AMBIG_AZLIM
+      COMMON /A317VE/ HCF1, HCF2, HCF3, HVEL, HREF, HAZM
+      COMMON /A317VE/ VHTG, VRMS, VNPT, VHWD, VSHW, VNHTS
+/*
+**A317VA
+*VERSION:1
+C* ADAPTABLE PARAMETERS
+      REAL VAD_RNG,AZM_BEG,AZM_END,TH_RMS,TSMY,RH,IR
+      INTEGER FIT_TESTS,WMODE, MINPTS
+      PARAMETER (IR=1.21)
+      COMMON/A317VA/WMODE,VAD_RNG,AZM_BEG,AZM_END,FIT_TESTS,TH_RMS,
+     $              TSMY,RH, MINPTS
+/*
+**A317VT
+*VERSION:0
+      DATA (DEN(I),I=1,35)/0.135E+01,0.132E+01,0.128E+01,0.125E+01,
+     B 0.122E+01,0.120E+01,0.117E+01,0.114E+01,0.111E+01,0.108E+01,
+     C           0.106E+01,0.103E+01,0.101E+01,0.982E+00,0.957E+00,
+     D           0.933E+00,0.909E+00,0.886E+00,0.863E+00,0.841E+00,
+     E           0.819E+00,0.798E+00,0.777E+00,0.757E+00,0.736E+00,
+     F           0.717E+00,0.697E+00,0.679E+00,0.660E+00,0.642E+00,
+     G           0.624E+00,0.607E+00,0.590E+00,0.573E+00,0.557E+00/
+      DATA (DEN(I),I=36,70)/0.541E+00,0.526E+00,0.511E+00,0.496E+00,
+     B  0.481E+01,0.467E+00,0.453E+00,0.440E+00,0.426E+00,0.414E+00,
+     C            0.401E+00,0.389E+00,0.377E+00,0.365E+00,0.337E+00,
+     D            0.312E+00,0.288E+00,0.267E+00,0.246E+00,0.228E+00,
+     E            0.211E+00,0.195E+00,0.180E+00,0.166E+00,0.154E+00,
+     F            0.142E+00,0.132E+00,0.122E+00,0.112E+00,0.104E+00,
+     G            0.962E-01,0.889E-01,0.821E-01,0.757E-01,0.699E-01/
+      DATA (DDEN(I),I=1,35)/-.126E-03,-.124E-03,-.122E-03,-.120E-03,
+     B  -.118E-03,-.115E-03,-.113E-03,-.111E-03,-.109E-03,-.107E-03,
+     C            -.105E-03,-.103E-03,-.101E-03,-.993E-04,-.973E-04,
+     D            -.954E-04,-.935E-04,-.917E-04,-.899E-04,-.881E-04,
+     E            -.863E-04,-.846E-04,-.829E-04,-.812E-04,-.795E-04,
+     F            -.779E-04,-.763E-04,-.747E-04,-.731E-04,-.716E-04,
+     G            -.701E-04,-.686E-04,-.671E-04,-.657E-04,-.642E-04/
+      DATA (DDEN(I),I=36,70)/-.628E-04,-.614E-04,-.601E-04,-.587E-04,
+     B   -.574E-04,-.561E-04,-.548E-04,-.535E-04,-.523E-04,-.511E-04,
+     C             -.499E-04,-.487E-04,-.475E-04,-.521E-04,-.529E-04,
+     D             -.490E-04,-.453E-04,-.419E-04,-.387E-04,-.358E-04,
+     E             -.331E-04,-.306E-04,-.283E-04,-.261E-04,-.242E-04,
+     F             -.223E-04,-.206E-04,-.191E-04,-.176E-04,-.163E-04,
+     G             -.151E-04,-.141E-04,-.132E-04,-.122E-04,-.112E-04/
+/*
+**A3183I
+*VERSION:01
+      REAL LEFT_PIX,BOT_PIX,GRID_INC,MINHT,MAXHT,HTINC,SPHT,PPMTR
+      REAL SPTI,PPVOL,HCHSZ,VCHSZ,AMINHT,AGRDINC,NPIXHT,NPIXTI,RVO
+      REAL TB_SPACE,LR_SPACE,FTOM
+      INTEGER*4 MDVOL,ANALT,FULL_SCREEN, YPOSITION( MAX_VAD_HTS )
+      PARAMETER (HCHSZ=7.0,VCHSZ=9.0,LEFT_PIX=52.0,BOT_PIX=32.0)
+      PARAMETER (ANALT=31,MDVOL=11,AMINHT=0,AGRDINC=2000)
+      PARAMETER (FULL_SCREEN=512,TB_SPACE=30.0,LR_SPACE=38.33)
+      PARAMETER (NPIXHT=FULL_SCREEN-BOT_PIX-2*TB_SPACE)
+      PARAMETER (NPIXTI=FULL_SCREEN-LEFT_PIX-2*LR_SPACE)
+      PARAMETER (RVO=MDVOL-1,SPTI=LEFT_PIX+LR_SPACE,PPVOL=NPIXTI/RVO)
+      PARAMETER (SPHT=FULL_SCREEN-BOT_PIX-TB_SPACE-1,FTOM=1/3.28084)
+      PARAMETER (MINHT=AMINHT*FTOM,GRID_INC=AGRDINC*FTOM)
+      COMMON/A318CI/MAXHT,HTINC,PPMTR,YPOSITION
+/*
+**A317C4
+*VERSION:0
+C**************************************************
+C*                  A317C4                        *
+C*             TURBULENCE COMMON                  *
+C*                PARAMETERS                      *
+C**************************************************
+C
+C
+C Define Variables:
+C
+      INTEGER MINTRNG
+      REAL TRS,RSST
+C
+      PARAMETER (TRS=40.0,RSST=0.250)
+      PARAMETER (MINTRNG=TRS/RSST+1)
+C
+      REAL KOL,TOS,BWDEG,PFUNC1(MINTRNG),PFUNC2(MINTRNG)
+      REAL PFUNC3(0:N_MAXVAL),PFUNC4(0:N_MAXVAL)
+C
+C Common Statement
+C
+      COMMON /A317C4/ KOL,TOS,BWDEG,PFUNC1,PFUNC2,PFUNC3,PFUNC4
+/*
+**A317EA
+*VERSION:0000
+*************************************************************
+*                                                           *
+*                 VAD - ENVIRONMENTAL WIND TABLE            *
+*               SUPPLEMENTAL DATA DEFINITION FILE           *
+*                                                           *
+*************************************************************
+*                                                           *
+*    HTG_EWT(NELVEWT) = The height of the VAD data value    *
+*                       for the supplemental VADs used in   *
+*                       the environmental winds table, in m.*
+*                                                           *
+*    NPT_EWT(NELVEWT) = The number of points used to perform*
+*                       the least-squares fitting.          *
+*                                                           *
+*    RMS_EWT(NELVEWT) = The RMS values from the least-      *
+*                       squares fitting, in m/s.            *
+*                                                           *
+*    HWD_EWT(NELVEWT) = The horizontal wind directions for  *
+*                       the supplemental VADs, in degrees.  *
+*                                                           *
+*    SHW_EWT(NELVEWT) = The horizontal wind speeds for the  *
+*                       supplemental VADs, in m/s.          *
+*                                                           *
+*    NELVEWT          = Number of supplemental elevation    *
+*                       scans.                              *
+*                                                           *
+*************************************************************
+*
+      INTEGER NELVEWT
+      PARAMETER ( NELVEWT = 2 )
+      INTEGER NPT_EWT(NELVEWT)
+      REAL HTG_EWT(NELVEWT), RMS_EWT(NELVEWT), HWD_EWT(NELVEWT)
+      REAL SHW_EWT(NELVEWT)
+/*
+**A317EI
+*VERSION:0000
+*************************************************************
+*                                                           *
+*                  COMMON AREA FOR VAD                      *
+*         INTERNAL TO ALGORITHM - USED FOR SUPPLEMENTAL     *
+*              VADS IN ENVIRONMENTAL WINDS TABLE            *
+*                                                           *
+*************************************************************
+      INTEGER NRADIALS_EWT, NAZIMS_EWT, IRBIN_EWT, IVBIN_EWT
+      INTEGER TNRADIALS_EWT
+      PARAMETER ( NAZIMS_EWT = 400 )
+      REAL SUM_ELV_EWT, AZM_EWT(NAZIMS_EWT), VE_EWT(NAZIMS_EWT)
+      REAL SCALE_RNG_EWT, VAD_RNG_EWT
+      PARAMETER( SCALE_RNG_EWT = 0.35 )
+*
+      COMMON/A317EC/ IRBIN_EWT, IVBIN_EWT, NRADIALS_EWT
+      COMMON/A317EC/ SUM_ELV_EWT, AZM_EWT, VE_EWT, TNRADIALS_EWT
+      COMMON/A317EC/ VAD_RNG_EWT
+/*
+**A317C5
+*VERSION:0
+C**************************************************
+C*                  A317C5                        *
+C*             BLOCKDATA  COMMON                  *
+C*                PARAMETERS                      *
+C**************************************************
+C
+C
+C Define Variables:
+C
+      INTEGER FORTY,TFFV
+      PARAMETER (FORTY=40,TFFV=255)
+C
+      REAL DPMOD(FORTY),DAMOD(TFFV,FORTY),DPFUNC(TFFV)
+C
+C Common Statement
+C
+      COMMON /A317C5/ DPMOD,DAMOD,DPFUNC
+/*
+**A3176P1
+*VERSION:0
+      INTEGER I_NULL, INIT, HUNDRED, MINUS_INC, INC, FIRST, SECOND
+      INTEGER FLAG_SET, FLAG_CLEAR, POSS, GOOD
+C
+      REAL R_NULL
+C
+      REAL PI, HALF_PI, TWO_PI, DEG_TO_RAD, QUARTER_PI, HALF, QUARTER,
+     $ DOUBLE, OFFSET, B_T_FLAG
+C
+      PARAMETER (POSS = 1)
+      PARAMETER (GOOD = 2)
+      PARAMETER (I_NULL = 0)
+      PARAMETER (R_NULL = 0.0)
+      PARAMETER (DOUBLE = 2.0)
+      PARAMETER (HALF = 0.5)
+      PARAMETER (QUARTER = 0.25)
+      PARAMETER (PI = 3.141593)
+      PARAMETER (HALF_PI = HALF*PI)
+      PARAMETER (QUARTER_PI = QUARTER*PI)
+      PARAMETER (TWO_PI  = DOUBLE * PI)
+      PARAMETER (DEG_TO_RAD = PI/180.)
+      PARAMETER (INIT = 1)
+      PARAMETER (HUNDRED = 100)
+      PARAMETER (MINUS_INC = -1)
+      PARAMETER (INC       = 1)
+      PARAMETER (OFFSET = 2.0)
+      PARAMETER (B_T_FLAG = 0.0)
+      PARAMETER (FIRST = 1)
+      PARAMETER (SECOND = 2)
+      PARAMETER (FLAG_SET = 1)
+      PARAMETER (FLAG_CLEAR = 0)
+C
+C** ARRAY DIMENSIONS
+C
+      INTEGER SAMP_MAX, NSAVE
+C
+      PARAMETER (SAMP_MAX = 660)
+      PARAMETER (NSAVE = 3)
+C
+/*
+**A3176CA
+*VERSION: 0
+C
+C**  COMMON FOR COMBINED SHEAR LOCAL COPIES OF ADAPTATION DATA
+C
+*********************************************************************
+*
+*.    GRID_RES      R*4     RESOLUTION (KM) OF CARTESIAN OUTPUT GRID
+*.    LEFT_X        R*4     DISTANCE (KM) TO LEFT SIDE OF OUTPUT GRID
+*.    SIZE_X        R*4     DISTANCE (KM) FROM LEFT TO RIGHT SIDES
+*.                          OF OUTPUT GRID
+*.    UPPER_Y       R*4     DISTANCE (KM) FROM CENTER TO TOP OF OUTPUT
+*.                          GRID
+*.    SIZE_Y        R*4     DISTANCE (KM) FROM TOP TO BOTTOM OF OUTPUT
+*.                          GRID
+*.    FLAG_COMSHR   R*4     VALUE TO MARK NON 'GOOD' PARAMETERS
+*.    MAX_SAMP      I*4     MAXIMUM NUMBER OF VOLUME SAMPLES IN RADIAL
+*.    NUM_FILT      I*4     NUMBER OF SHEAR VALUES ACCUMULATED TO
+*.                          PRODUCE A MEAN FILTER VALUE
+*.    CONTIG_SAMP   I*4     NUMBER OF CONTIGUOUS SAMPLE VOLUMES TO
+*.                          FILTER DOPPLER VELOCITIES AND SPACE
+*.                          BETWEEN RADIAL VOLUMES FOR DIFFERENCING
+*.    RADIAL_RES    R*4     RESOLUTION OF DOPPLER VELOCITIES ALONG
+*.                          A RADIAL
+*.    N_THRESHOLD   R*4     THRESHOLD PERCENTAGE OF POSSIBLE SHEARS
+*.                          ACCUMULATED IN A CARTESIAN GRID BOX
+*.    C_THRESHOLD   R*4     THRESHOLD FOR VALID COMBINED SHEARS
+*.    HALF_CONTIG   I*4     HALF OF THE CONTIGUOUS VOLUME SAMPLES
+*.
+********************************************************************
+      INTEGER NUM_FILT, HALF_CONTIG, MAX_SAMP, CONTIG_SAMP, EL_ANG
+C
+      REAL GRID_RES, LEFT_X, SIZE_X, UPPER_Y, SIZE_Y, FLAG_COMSHR,
+     $             N_THRESHOLD, C_THRESHOLD, LOWER_Y, RIGHT_X
+C
+      COMMON /A3176CA/ GRID_RES, LEFT_X, LOWER_Y, SIZE_X, SIZE_Y,
+     $      FLAG_COMSHR, MAX_SAMP, NUM_FILT, CONTIG_SAMP, N_THRESHOLD,
+     $      C_THRESHOLD, EL_ANG, HALF_CONTIG, UPPER_Y, RIGHT_X
+C
+/*
+**A3176CB
+*VERSION: 0
+C
+C**  COMBINED SHEAR COMMON FOR RADIAL PARAMETERS
+C
+**********************************************************************
+*
+*.   NUM_COMSHR     I*4    NUMBER OF VALID COMBINED SHEAR BOXES
+*.                         WITHIN THE OUTPUT GRID
+*.
+*.   MAX_COMSHR     R*4    MAXIMUM COMBINED SHEAR VALUE IN OUTPUT GRID
+*    RAD_POS        I*4    RADIAL POSITION FLAG: 0-BEG, 1-INT, 2-END
+*.   RANGE          R*4    DISTANCE FROM CENTER TO EACH VOLUME SAMPLE
+*.   AZ             R*4    AZIMUTHAL ANGLE OF RADIAL
+*.   PHI            R*4    ELEVATION ANGLE
+*.   COSPHI         R*4    COSINE OF ELEVATION ANGLE
+*.   SINAZ          R*4    SINE OF AZIMUTHAL ANGLE
+*.   COSAZ          R*4    COSINE OF AZIMUTHAL ANGLE
+*.
+**********************************************************************
+C
+      INTEGER FIRST_RAD, CURR_RAD, PREV_RAD, VOL_MIN
+C
+      PARAMETER ( FIRST_RAD = 1, VOL_MIN = 1 )
+C
+      INTEGER RAD_POS, FBIN_VEL(NSAVE), LBIN_VEL(NSAVE)
+      INTEGER VOL_MAX(NSAVE)
+      INTEGER MAX_I, MAX_J, ELEV_INDEX
+      INTEGER CART_MAP_CONST, CART_MAP_XOFF, CART_MAP_YOFF
+C
+      LOGICAL GOOD_RAD
+C
+      REAL AZ(NSAVE)
+      REAL RANGE(SAMP_MAX)
+      REAL COSPHI, PHI, SINAZ, COSAZ, VEL_MISSING, MAX_COMSHR
+      REAL VBIN_RES, CMC_COSPHI
+C
+      COMMON /A3176CB/ RAD_POS, GOOD_RAD, CURR_RAD, PREV_RAD
+      COMMON /A3176CB/ CART_MAP_CONST, CART_MAP_XOFF, CART_MAP_YOFF
+      COMMON /A3176CB/ CMC_COSPHI, MAX_I, MAX_J, MAX_COMSHR
+      COMMON /A3176CB/ COSPHI, SINAZ, COSAZ, VEL_MISSING, VBIN_RES
+      COMMON /A3176CB/ FBIN_VEL, LBIN_VEL, VOL_MAX, AZ, RANGE
+      COMMON /A3176CB/ ELEV_INDEX
+/*
+**A3176CC
+      REAL VEL_MED(SAMP_MAX,NSAVE)
+      COMMON /A3176CC/ VEL_MED
+/*
+**A317C3T
+*VERSION: 0000
+C******************* TDA1D OUTPUT BUFFER *******************
+C************************** (A317C3T.CMN) ***************************
+C
+C** Dimensional Parameters:
+C
+C**  -- For TDA  Attributes table:
+C
+C
+      LOGICAL TDAHIFLG, TDABUFFLG, BUFF_FULL
+      INTEGER TDABFPTR, TDACTPTR, TDAAZPTR
+     $     ,  TDABF_LO, TDABF_HI, RADCOUNT
+     $     ,  TDCNT_LO, TDCNT_HI, AZMBUF_LO, AZMBUF_HI
+     $     ,  RFTDASUM, MXTDACNT, PVCOUNT, MAX_DOP_BIN
+      REAL    SUM_ELEV, DBINSIZE, DBRNGSTART, PROG_ELEVANG
+
+      INTEGER*2   IPRLOR(PREFSIZE), IPRLOV(PVELSIZE)
+C
+C**  Parameter declarations
+C
+      PARAMETER ( TDABF_LO = 0, TDABF_HI = N1D_MAX )
+      PARAMETER ( TDCNT_LO = 0, TDCNT_HI = NRAD_ELEV )
+      PARAMETER ( AZMBUF_LO = 0, AZMBUF_HI = NRAD_ELEV )
+C
+C** Named Common:
+C
+      COMMON /A317C3T/ TDAHIFLG, TDABUFFLG, TDABFPTR
+     $       , TDACTPTR, TDAAZPTR, RADCOUNT, SUM_ELEV
+     $       , RFTDASUM, MXTDACNT, PVCOUNT, BUFF_FULL
+     $       , IPRLOR, IPRLOV, DBINSIZE, DBRNGSTART
+     $       , PROG_ELEVANG, MAX_DOP_BIN
+/*
+**A317CCT
+*VERSION: 0000
+C**************** TDA1D SHARED COMMON ************************
+C************************ (A317CCT.CMN) *****************************
+C
+      LOGICAL ABORT, GOOD_RAD
+      LOGICAL REF_FLAG, VEL_FLAG, WID_FLAG
+      INTEGER RAD_STAT, OUTACT
+C
+C** Named Common:
+C
+      COMMON /A317CCT/  ABORT, GOOD_RAD, REF_FLAG, VEL_FLAG
+     $                ,WID_FLAG, RAD_STAT, OUTACT
+/*
+**A317CDT
+*VERSION: 0000
+C**************** TDA1D DERIVED ADAPTATION DATA ******************
+C************************ (A317CDT.CMN) *****************************
+C
+C** Dimensional Parameters for TDALWTBL and TDA1D Adaptable Params.
+C
+      INTEGER NLIQ, NRTH
+      PARAMETER ( NLIQ = 256, NRTH = 7 )
+C
+C** Threshholds derived directly from Adaptation Data:
+C
+      INTEGER   REFTHRBIAS( NRTH ), TDALEN( NRTH ), MAXTDANO,
+     $          ADPLASTB, ADPMNZ
+      INTEGER   REF_MIN_NDX, REF_MAX_NDX
+C
+C** Factors for converting Reflectivity from dBz to Biased values:
+C
+      REAL  MULTFACT, ADDFACT, OFFACT
+      PARAMETER ( ADDFACT = 32.0, MULTFACT = 2.0, OFFACT = 2.0 )
+C
+C** Factors for partitioning TDAMAIN buffer between reflectivity thresh.
+C
+      REAL SUM_BUFTH, BTDA_THR( NRTH )
+C
+C** Named Common:
+C
+      COMMON /A317CDT/ TDALEN, MAXTDANO, ADPLASTB, REFTHRBIAS,
+     $                 REF_MIN_NDX, REF_MAX_NDX, SUM_BUFTH, BTDA_THR
+C
+      COMMON /A317CDM/ ADPMNZ
+/*
+**A317CGT
+C********************* TDA1D INTERNAL COMMON *********************
+C************************* (A317CGT.CMN) ****************************
+C
+C** Definitions of counters and per-radial variables & tables:
+C
+      INTEGER FSURBIN, NSURBIN, LSURBIN
+      INTEGER BTDACNTX, BAZM_NDX, RADTIME
+      INTEGER RADTDCNT, REF_BASE_NDX, NUMBINS, NUMVELBINS
+      INTEGER BADPRFL, BADPVEL, BIN_OFFSET
+      REAL     DELTANG, SINAZ, COSAZ, RNGFCTR
+      REAL     RADELEV, RADAZIM, VMULFCT
+C
+C** Named Common:
+C
+      COMMON /A317CGT/ RADTIME, RADAZIM, DELTANG, RADELEV,
+     $  SINAZ, COSAZ, FSURBIN, NSURBIN, LSURBIN, RNGFCTR, NUMBINS,
+     $    BTDACNTX, BAZM_NDX, RADTDCNT, REF_BASE_NDX, NUMVELBINS,
+     $    BADPRFL, BADPVEL, VMULFCT, BIN_OFFSET
+/*
+**A317TD1
+*VERSION: 0000
+C
+C********** TDA PV BUFFER DECLARATIONS FOR 2D/3D PROCESSING ********
+C
+C** Shared Image (lock & key) declarations
+C
+      LOGICAL TDA_BUF_UNAVAIL
+      INTEGER KEY
+C
+C** TDA1DATR Input Buffer declarations
+C
+      LOGICAL TDAHIFLG
+      INTEGER TDABFPTR, TDARIPTR, TDAAZPTR
+      INTEGER RADCOUNT, PVCOUNT, DBINSIZE
+      REAL AVG_ELEV
+      INTEGER ELV_TIME, ELEVSTAT
+/*
+**A317TDNE
+*VERSION: 0
+C************* 2D/3D ELEVATION & TDA #'s COMMON ********************
+C
+C** Definitions of per-elevation tables, etc.
+C
+      LOGICAL  NEWVOL
+C
+      INTEGER  EL_LAST, NELV_MAX, LEV
+      INTEGER  BEG_VOL_TIME, BEG_VOL_DATE
+      PARAMETER (EL_LAST = 1, NELV_MAX = 20)
+      REAL TWOIRRE
+      PARAMETER (TWOIRRE = 1.0/(2.0*1.21*6371.0))
+C
+      REAL  ELEVTABL(NELV_MAX), BINSIZ, AVE_DELAZ
+C
+C** Named Common:
+C
+      COMMON /A317TDNE/  NEWVOL, LEV, ELEVTABL
+      COMMON /A317TDNE/  BEG_VOL_TIME, BEG_VOL_DATE
+      COMMON /A317TDNE/  BINSIZ, AVE_DELAZ
+/*
+**A317TCP
+*VERSION: 0
+C**************** INTERNAL PARAMETERS FOR BUILDING *****************
+C********** POTENTIAL 2D FEATURES FROM PATTERN VECTORS *************
+C
+C** Additional attribute pointers into the RAD_PV array - the
+C** other attribute pointers are in A317BUF.INC, **A317P3T.
+C
+      INTEGER PV_ID, PV_INX
+      PARAMETER (PV_ID = PV_BIN - 1)
+      PARAMETER (PV_INX = PV_BIN + 1)
+C
+C** Flagging parameters:
+C
+      INTEGER  FLG_UNC, FLG_COR, FLG_FIN
+      PARAMETER (FLG_UNC=0, FLG_COR=1, FLG_FIN=-1)
+C
+C** MAX_2D_AZ_DIST is the most number of radials that can be
+C** processed during the 2D Feature building.
+C
+      INTEGER MAX_2D_AZ_DIST, MAX_RADPV_ATR, MAX_PV_RAD
+      INTEGER MAX_TOT_RADS
+      PARAMETER ( MAX_2D_AZ_DIST=4 )
+      PARAMETER ( MAX_RADPV_ATR = PV_INX)
+      PARAMETER ( MAX_PV_RAD = 120 )
+      PARAMETER ( MAX_TOT_RADS = (MAX_2D_AZ_DIST * 2) + 1 )
+C
+      INTEGER NUM_VD_TH
+      PARAMETER (NUM_VD_TH = 6)
+/*
+**A317TCA
+*VERSION: 1
+C****************** INTERNAL COMMON FOR BUILDING *******************
+C********** POTENTIAL 2D FEATURES FROM PATTERN VECTORS *************
+C
+C** Variable Definitions:
+C
+      INTEGER AZC, AZT, PREV_PTR
+      INTEGER RADFLAG(MAX_TOT_RADS, MAX_PV_RAD)
+      INTEGER BAZM_NDX, EAZM_NDX, EPV_NXC, BPV_NXC
+      INTEGER VD_INDX, LABP, LABC, JXC
+      INTEGER AZCOUNT, FIRSTAZ
+      INTEGER NRPV_TH(MAX_TOT_RADS)
+C
+      REAL RAD_PV(MAX_RADPV_ATR, MAX_PV_RAD, MAX_TOT_RADS)
+      REAL PVAD(MAX_TOT_RADS)
+      REAL HALF_PVAD(MAX_TOT_RADS)
+      REAL PVEAZ(MAX_TOT_RADS)
+      REAL PVBAZ(MAX_TOT_RADS)
+C
+      LOGICAL PV_ZERO_CROSS, RAD_ZERO_CROSS, NO_ROOM_2D
+C
+C** Named Common:
+C
+      COMMON /A317TCA/  AZC, AZT, VD_INDX, RADFLAG
+      COMMON /A317TCA/  LABP, LABC, JXC, AZCOUNT, PREV_PTR
+      COMMON /A317TCA/  BAZM_NDX, EAZM_NDX, RAD_PV, NRPV_TH
+      COMMON /A317TCA/  BPV_NXC, EPV_NXC, NO_ROOM_2D
+      COMMON /A317TCA/  RAD_ZERO_CROSS, PV_ZERO_CROSS
+      COMMON /A317TCA/  FIRSTAZ, PVAD, HALF_PVAD, PVEAZ, PVBAZ
+/*
+**A317TVA
+C*********** Vector Azimuth Difference information ************
+C** Must include A317BUF.INC, **A317P3T before this
+C
+C** Pointers into VECT_ATTR
+C* - VAD - offset to the Pattern Vector Azimuth Difference
+C* - END_AZ - offset to the Pattern Vector Ending Azimuth
+C
+      INTEGER VAD, END_AZ
+      PARAMETER (VAD = 1, END_AZ = 2)
+C
+C** OFFSET is equal to TDABFPTR, since VECT_ATTR doesn't
+C** contain two halves, it is used to correct pointers into TDAMAIN
+C** for use as a pointer into VECT_ATTR.
+C
+      INTEGER OFFSET
+      REAL VECT_ATTR(END_AZ,N1D_MAX)
+C
+      COMMON /A317TVA/ VECT_ATTR, OFFSET
+/*
+**A317CDAD
+C**********TDA 2D & 3D DERIVED ADAPTATION DATA*************
+C
+C** Array & Variable definitions:
+C
+      INTEGER  NUM_PREV_RADS, NUM_BIN_2D_TH, MIN_VD_TH_INDX
+      INTEGER N_PREV_2
+C
+      REAL     VD_TH(NUM_VD_TH), CIRTH1_SQ, CIRTH2_SQ
+      REAL     WT_SLOPE, WT_INTCPT
+C
+C** Named Common:
+C
+      COMMON /A317CDAD/  NUM_PREV_RADS, NUM_BIN_2D_TH
+      COMMON /A317CDAD/  MIN_VD_TH_INDX, N_PREV_2
+      COMMON /A317CDAD/  VD_TH, CIRTH1_SQ, CIRTH2_SQ
+      COMMON /A317CDAD/  WT_SLOPE, WT_INTCPT
+/*
+**A317P2DP
+*VERSION: 0
+C****** 2D Feature Sizing Parameters and Attribute Pointers *******
+C************************ (A3172DP) ****************************
+C** This include block must be preceded by A309.INC, **A3PM50
+C
+C** Compute some commonly used constants
+C
+      REAL PI_DEG, TWOPI_DEG
+      PARAMETER (PI_DEG = PI_CONST / ONE_RADIAN)
+      PARAMETER (TWOPI_DEG = PI_DEG * 2.0)
+C
+C** Dimensional Parameters:
+C
+C
+      INTEGER  NUM_P2D_ATR, MAX_2D_FEAT, NIDHDR, NUM_ID_TOT
+      INTEGER  NUM_PVIND_ATR
+C******************************************************************
+C
+C**  NUM_P2D_ATR - Maximum # of Potential 2D Feature attributes
+C**  MAX_2D_FEAT - Maximum # of 2D Features per volume scan or the
+C**                maximum # of Potential 2D Features per elevation
+C**  NIDHDR      - Size of the circular list header in full words;
+C**                this header space is required for the circ. list.
+C**  NUM_ID_TOT  - Size of the entire circular list in full words.
+C**  NUM_PVIND_ATR  - # of attributes in P2DF_PV_INDX.
+C
+C*******************************************************************
+C
+      PARAMETER (NUM_P2D_ATR=22, MAX_2D_FEAT=800 )
+      PARAMETER (NIDHDR=2, NUM_ID_TOT=NIDHDR+MAX_2D_FEAT)
+      PARAMETER (NUM_PVIND_ATR = 3)
+C
+C** Positional Parameters:
+C
+      INTEGER  TERM_NATE, INDX_PVM, PTR_NEX, PTR_LAS
+      INTEGER BEG_PTR, END_PTR
+      PARAMETER (TERM_NATE = -1, BEG_PTR = 1, END_PTR = 2)
+      PARAMETER ( INDX_PVM = 1, PTR_LAS = 2 , PTR_NEX = 3 )
+C
+      INTEGER  P2D_BAZ, P2D_EAZ, P2D_XCN, P2D_YCN, P2D_BRG,
+     >         P2D_ERG, P2D_NPV, P2D_FID, P2D_MDV, P2D_SHR,
+     >         P2D_MOM, P2D_SRG, P2D_MAZ, P2D_DAZ, P2D_RNG, P2D_AZM,
+     >         P2D_ELV, P2D_HGT, P2D_RDI, P2D_ADI, P2D_ARA, P2D_ZCR
+      PARAMETER (P2D_BAZ=1, P2D_EAZ=2, P2D_XCN=3, P2D_YCN=4,
+     >           P2D_BRG=5, P2D_ERG=6, P2D_NPV=7, P2D_FID=8,
+     >           P2D_MDV=9, P2D_SHR=10, P2D_MOM=11, P2D_SRG=12,
+     >           P2D_MAZ=13, P2D_DAZ=14, P2D_RNG=15, P2D_AZM=16,
+     >           P2D_ELV=17, P2D_HGT=18, P2D_RDI=19, P2D_ADI=20,
+     >           P2D_ARA=21, P2D_ZCR=22)
+/*
+**A317P2DC
+C************** POTENTIAL 2D FEATURES INTERNAL COMMON ***************
+C
+C** Array & Variable definitions:
+C
+      INTEGER  IDSTACK( NUM_ID_TOT ), LAB_TABL( MAX_2D_FEAT )
+      INTEGER  P2DF_RNG_RNK( MAX_2D_FEAT ), NEW_P2DF_CNT
+      INTEGER  P2DF_PV_INDX( NUM_PVIND_ATR, N1D_MAX )
+      INTEGER  P2DF_PTR(MAX_2D_FEAT), P2DF_INDX(NUM_VD_TH, END_PTR)
+      REAL     P2DFEAT( NUM_P2D_ATR, MAX_2D_FEAT )
+      REAL     ELV_2DF( NUM_P2D_ATR, MAX_2D_FEAT )
+C
+C** Named Common:
+C
+      COMMON /A315P2DC/  IDSTACK, P2DFEAT, ELV_2DF
+      COMMON /A315P2DC/  P2DF_RNG_RNK, P2DF_PV_INDX, P2DF_PTR
+      COMMON /A315P2DC/  LAB_TABL, NEW_P2DF_CNT, P2DF_INDX
+/*
+**A317TP2
+*VERSION: 0
+C************** 2D FEATURES PARAMETERS & OFFSETS *****************
+C
+C** Dimensional Parameters:
+C
+      INTEGER  NVOCHR, NVOMAX, NVOELV
+      PARAMETER (NVOCHR=12, NVOMAX=170, NVOELV=20 )
+C
+C** Positional Parameters:
+C
+      INTEGER    VCM_CAZ, VCM_CRG, VCM_ZCN, VCM_XCN, VCM_YCN,
+     >           VCM_BAZ, VCM_EAZ, VCM_BRG, VCM_ERG, VCM_DVE,
+     >           VCM_SHR, VCM_ACH
+C
+      PARAMETER (VCM_CAZ = 1, VCM_CRG = 2, VCM_ZCN = 3, VCM_XCN = 4,
+     >           VCM_YCN = 5, VCM_BAZ = 6, VCM_EAZ = 7, VCM_BRG = 8,
+     >           VCM_ERG = 9, VCM_DVE =10, VCM_SHR =11, VCM_ACH =12)
+/*
+**A317TC2
+C************** 2D FEATURES INTERNAL COMMON **********************
+C
+C** Array & Variable definitions:
+C
+      INTEGER VOL_2DF_CNT( NVOELV ), TOT_2DF
+      REAL     VOLCOMP( NVOCHR, NVOMAX, NVOELV )
+C
+C** Named Common:
+C
+      COMMON /A317TC2/  VOLCOMP, VOL_2DF_CNT, TOT_2DF
+/*
+**A317C3DA
+C***************** 3D FEATURES INTERNAL COMMON *********************
+C
+C**  ARRAY AND VARIABLE DEFINITIONS
+C
+      INTEGER TAB_ATTR
+      PARAMETER (TAB_ATTR = 2)
+      INTEGER DVTABL( NVOMAX, NVOELV )
+      INTEGER CORTABL( TAB_ATTR, NVOMAX, NVOELV)
+      INTEGER NBR_COMP( NVOMAX )
+      INTEGER P3D_EL, P3D_ID, NBR_P3DF
+      PARAMETER (P3D_ID = 1, P3D_EL = 2)
+      COMMON /A317C3DA/ DVTABL, CORTABL, NBR_COMP, NBR_P3DF
+/*
+**A317P3DB
+C**************** TDA3D PARAMETERS ****************************
+C
+C**  PARAMETER DEFINITIONS FOR 3D FEATURES
+C
+      INTEGER MAX_N3DF,NBR_FATTR
+      PARAMETER (MAX_N3DF = 50, NBR_FATTR = 12)
+C
+C***  POINTERS FOR FEAT3D ARRAY
+C
+      INTEGER F3D_BEL, F3D_BAZ, F3D_BRN, F3D_LDV, F3D_MDV
+      INTEGER F3D_ADV, F3D_HDV, F3D_MSH, F3D_HSH, F3D_BAS
+      INTEGER F3D_TOP, F3D_DEP
+C
+      PARAMETER (F3D_BEL = 1, F3D_BAZ = 2, F3D_BRN = 3, F3D_LDV= 4)
+      PARAMETER (F3D_MDV = 5, F3D_ADV = 6, F3D_HDV = 7, F3D_MSH = 8)
+      PARAMETER (F3D_HSH = 9, F3D_BAS =10, F3D_TOP =11, F3D_DEP =12)
+/*
+**A317C3DB
+C**************************** TDA3D INTERNAL COMMON *****************
+C
+C**  DIMENSION PARAMETERS FOR FEAT3D, TVSMAIN
+C
+C********************************************************************
+C
+      INTEGER NUM3D, TVSCOUNT, ETVCOUNT, NBRTVS
+      LOGICAL TVS_BFLG,ETV_BFLG
+      REAL FEAT3D(NBR_FATTR,MAX_N3DF), TVS3D(TVFEAT_CHR,TVFEAT_MAX)
+      INTEGER TVORDER( TVFEAT_MAX )
+C
+      COMMON /A317C3DB/FEAT3D,TVS3D, NUM3D, TVSCOUNT, ETVCOUNT
+      COMMON /A317C3DB/TVORDER,TVS_BFLG,ETV_BFLG, NBRTVS
+/*

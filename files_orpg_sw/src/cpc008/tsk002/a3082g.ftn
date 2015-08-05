@@ -1,0 +1,278 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/05 16:29:58 $
+C $Id: a3082g.ftn,v 1.3 2002/12/05 16:29:58 christie Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A3082G__GET_IJ(AZIM,RANGE,ELEV,LFM_I,LFM_J)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3082G__GET_IJ
+*.
+*.  MODULE VERSION: 0012
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       03 22 88      0000      VALERIE HOLDEN       SPR# 80002
+*.       01 23 89      0001      VALERIE HOLDEN       SPR# 90027
+*.       01 29 91      0002      VALERIE HOLDEN       SPR# 91249
+*.       12 03 91      0003      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0004      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/20/92      0005      Toolset              SPR 91895
+*.       10 23 92      0006      VALERIE HOLDEN       CCR NA92-28001
+*.       03/25/93      0007      Toolset              SPR NA93-06801
+*.       01/28/94      0008      Toolset              SPR NA94-01101
+*.       03/03/94      0009      Toolset              SPR NA94-05501
+*.       04/11/96      0010      Toolset              CCR NA95-11802
+*.       12/23/96      0011      Toolset              CCR NA95-11807
+*.       03/16/99      0012      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A3082G__GET_IJ (AZIM,RANGE,ELEV,LFM_I,LFM_J)
+*.
+*.  MODULE FUNCTION: DETERMINES THE LFM GRID COORDINATES OF A GIVEN
+*.                   SLANT RANGE, AZIMUTH ANGLE, AND ELEVATION ANGLE.
+*.                   EQUATIONS IMPLEMENTED ARE SPECIFIED IN CPCI-03
+*.                   B5 SECTION 10.6 - 3.0.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT      TYPE        DESCRIPTION
+*.    -   -----      ----        -----------
+*.    G   SIRDALAT   I*4         Site Adaptation - RDA Latitude.
+*.    G   SIRDALON   I*4         Site Adaptation - RDA Longitude.
+*.    G   CONST      R*8         (CONSTANT)CONSTANT (135.0) AS USED IN B5
+*.                               SECTION 30.6 - 3.4.1 (SIN_S) AND 4.1 (RG_IJ)
+*.    G   IP         R*8         (CONSTANT)GLOBAL GRID I COORDINATE OF NORTH
+*.                               POLE IN UNITS OF 1/4 LFM GRID BOXES
+*.    G   JP         R*8         (CONSTANT)GLOBAL GRID J COORDINATE OF NORTH
+*.                               POLE IN UNITS OF 1/4 LFM GRID BOXES
+*.    G   LFM16_IDX  I*4         (CONSTANT)INDEX TO 1/16 LFM CONVERSION TABLE
+*.    G   LFMMX_IDX  I*4         (CONSTANT)MAXIMUM NUMBER OF LFM GRID SIZES
+*.                               (1/4, 1/16 AND 1/40) THAT THE LFM CONVERSION
+*.                               MODULES ARE DESIGNED FOR
+*.    G   PRIME      R*8         (CONSTANT)PRIME MERIDIAN LONGITUDE (NEGATIVE)
+*.    G   R2KO       R*8         (CONSTANT)CONSTANT 2RKo AS USED IN B5 SECTION
+*.                               30.6 - 3.2
+*.    G   RE_PROJ    R*8         (CONSTANT)EARTH RADIUS CONSTANT USED TO
+*.                               CONVERT X/Y TO LAT/LONG (DIFFERENT FROM 6371
+*.                               TO ACCOUNT FOR REFRACTION)
+*.    G   RE_PROJ_SQ R*8         (CONSTANT)SQUARE OF THE EARTH RADIUS CONSTANT
+*.    P   AZIM       R*4         AZIMUTH ANGLE
+*.    P   ELEV       R*4         ELEVATION ANGLE
+*.    P   RANGE      R*4         RANGE OF STORM
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    P   LFM_I   I*4         I GRID COORDINATE
+*.    P   LFM_J   I*4         J GRID COORDINATE
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME             TYPE        DESCRIPTION
+*.    ----             ----        -----------
+*.    B                R*8         BEARING (I.E., AZIMUTH) ANGLE
+*.    COS_B            R*8         COSINE OF A GIVEN BEARING ANGLE
+*.    COS_DLAMDA       R*8         COSINE OF DELTA LAMDA (DELTA LONGITUDE)
+*.    COS_L            R*8         COSINE OF LATITUDE (L) FOR A GIVEN
+*.                                 RANGE/BEARING CELL
+*.    COS_LAMDAS_PRIME R*8         COSINE OF THE ANGLE (SITE LAMDA MINUS THE
+*.                                 PRIME MERIDIAN)
+*.    COS_LS           R*8         COSINE OF THE SITE LATITUDE (L)
+*.    COS_S            R*8         COSINE OF ANGLE S AS DEFINED IN B5 SECTION
+*.                                 30.6 - 3.4.1
+*.    DTR              R*8         DEGREES-TO-RADIANS CONVERSION FACTOR
+*.    ELEVT            R*4         TEMPORARY ELEV ANGLE CALCULATION
+*.    FIRST_TIME       L*4         VARIABLE INDICATING (IF TRUE) THAT THE
+*.                                 MODULE IS CALLED FOR THE FIRST TIME SINCE
+*.                                 TASK LOADING
+*.    GI               R*8         GLOBAL GRID I COORDINATE OF A GIVEN RANGE
+*.                                 AND BEARING CELL IN UNITS OF 1/4 LFM BOXES
+*.                                 (POSITIVE TO RIGHT)
+*.    GIS              R*8         GLOBAL GRID I COORDINATE OF THE RADAR SITE
+*.                                 IN UNITS OF 1/4 LFM BOXES (POSITIVE TO THE
+*.                                 RIGHT)
+*.    GJ               R*8         GLOBAL GRID J COORDINATE OF THE RADAR SITE
+*.                                 IN UNITS OF 1/4 LFM BOXES (POSITIVE DOWN)
+*.    GJS              R*8         GRID J COORDINATE OF THE RADAR SITE IN
+*.                                 UNITS OF 1/4 LFM BOXES (POSITIVE TO THE
+*.                                 RIGHT)
+*.    IKA              I*4         INTEGER VERSION OF CONSTANT KA(m) AS
+*.                                 DEFINED IN B5 SECTION 30.6 - 3.4.1.2
+*.    IS               I*4         GRID BOX I COORDINATE OF BOX 0,0
+*.    JS               I*4         GRID BOX J COORDINATE OF BOX 0,0
+*.    KA               R*8         FLOATING POINT VERSION OF CONSTANT KA(m) AS
+*.                                 DEFINED IN B5 SECTION 30.6 - 3.4.1.2
+*.    LAMDAS           R*8         FLOATING POINT SITE LONGITUDE VALUE
+*.    LS               R*8         FLOATING POINT SITE LATITUDE VALUE
+*.    OFFSET           I*4         OFFSET NUMBER OF LFM xxx GRID BOXES USED TO
+*.                                 COMPUTE GRID BOX NUMBER FOR BOX 0,0 OF
+*.                                 LOCAL GRID.
+*.    ONE              R*8         CONSTANT REPRESENTING THE VALUE 1
+*.    PRE_GXS          R*8         PART OF THE EQUATION COMMON TO THE
+*.                                 CALCULATIONS FOR GIS AND GJS AS DEFINED IN
+*.                                 B5 SECTION 30.6 - 3.2
+*.    R                R*8         RANGE TO A GIVEN BEARING ANGLE
+*.    RL               R*8         VARIABLE AS DEFINED IN B5 SECTION
+*.                                 30.6-3.4.1
+*.    SIN_B            R*8         SINE OF A GIVEN BEARING ANGLE
+*.    SIN_DLAMDA       R*8         SINE OF DELTA LAMDA (I.E., DELTA LONGITUDE)
+*.    SIN_L            R*8         SINE OF LATITUDE (L) FOR A GIVEN
+*.                                 RANGE/BEARING CELL
+*.    SIN_LAMDAS_PRIME R*8         SINE OF THE ANGLE (SITE LAMDA MINUS THE
+*.                                 PRIME MERIDIAN)
+*.    SIN_LS           R*8         SINE OF THE SITE LATITUDE (L)
+*.    SIN_S            R*8         SINE OF ANGLE S AS DEFINED IN B5 SECTION
+*.                                 30.6 - 3.4.1
+*.    THOUSAND         R*4         PROGRAM PARAMETER FOR 1000
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    SITEADP
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     THIS MODULE IS COMPILED USING COMP08.CSS
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     THIS MODULE IS LINKED USING LINK08.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+C
+$INCLUDE A309ADPT.INC/G,**A3CD70CA (NEND NLIST)
+$INCLUDE A3146.INC/G,**A3146LFX (NLIST)
+C
+      DOUBLE PRECISION PRE_GXS,GIS,GJS,DTR,LS,LAMDAS,ONE
+      DOUBLE PRECISION GI,GJ,RL,COS_DLAMDA,SIN_DLAMDA,SIN_S,COS_S
+      DOUBLE PRECISION SIN_LS,COS_LS,SIN_L,COS_L,SIN_B,COS_B
+      DOUBLE PRECISION B,R,COS_LAMDAS_PRIME,SIN_LAMDAS_PRIME
+C
+      REAL AZIM,RANGE,ELEV,ELEVT,THOUSAND
+C
+      INTEGER IS(LFMMX_IDX),JS(LFMMX_IDX),LFM_I,LFM_J
+      PARAMETER (ONE=1.0,DTR=0.01745329,THOUSAND=1000.)
+C
+      DATA COS_LS/0.0/,SIN_LS/0.0/
+      DATA SIN_LAMDAS_PRIME/0.0/,COS_LAMDAS_PRIME/0.0/
+C
+      LOGICAL FIRST_TIME/.TRUE./
+C
+X     TYPE *,'2G:01 ***STARTING A3082G***'
+C
+C   CHECK IF THIS IS FIRST TIME MODULE HAS BEEN CALLED SINCE TASK
+C   WAS LOADED
+C
+X     TYPE *,'2G:02 FIRST_TIME=',FIRST_TIME
+      IF (FIRST_TIME) THEN
+         FIRST_TIME=.FALSE.
+C
+C   COMPUTE SITE LATITUDE (LS) AND LONGITUDE (LAMDAS) BASED VALUES
+C
+         LS = SIRDALAT / THOUSAND
+         LAMDAS = SIRDALON / THOUSAND
+         COS_LAMDAS_PRIME=DCOS((LAMDAS+PRIME)*DTR)
+         SIN_LAMDAS_PRIME=DSIN((LAMDAS+PRIME)*DTR)
+         SIN_LS=DSIN(LS*DTR)
+         COS_LS=DCOS(LS*DTR)
+X        TYPE *,'2G:03 FIRST_TIME=',FIRST_TIME
+X        TYPE *,'2G:04 LS,LAMDAS=',LS,LAMDAS
+X        TYPE *,'2G:05 COS_LAMDAS_PRIME,SIN_LAMDAS_PRIME=',
+     $     COS_LAMDAS_PRIME,SIN_LAMDAS_PRIME
+X        TYPE *,'2G:06 SIN_LS,COS_LS=',SIN_LS,COS_LS
+C
+C** COMPUTE COMMON PART OF THE GIS AND GJS EQUATIONS
+C
+         PRE_GXS=R2KO*COS_LS/(ONE+SIN_LS)
+C
+C** COMPUTE REGERENCE GRID BOX COORDINATES
+C
+         GIS=PRE_GXS*SIN_LAMDAS_PRIME+IP
+         GJS=PRE_GXS*COS_LAMDAS_PRIME+JP
+X        TYPE *,'2G:07 PRE_GXS=',PRE_GXS
+X        TYPE *,'2G:08 GIS,GJS=',GIS,GJS
+C
+C** COMPUTE GRID BOX NUMBERS FOR BOX 0,0 OF LOCAL GRIDS
+C
+         IS(LFM16_IDX)=IKA(LFM16_IDX)*DINT(GIS)-OFFSET(LFM16_IDX)
+         JS(LFM16_IDX)=IKA(LFM16_IDX)*DINT(GJS)-OFFSET(LFM16_IDX)
+X        TYPE *,'2G:09 IS,JS=',IS,JS
+      END IF
+
+C
+C   SAVE LOCAL COPY OF ELEVATION (ELEVT), RANGE (R) AND AZIMUTH (B)
+C
+      ELEVT = ELEV * DTR
+      R = RANGE * COS(ELEVT)
+      B = AZIM
+X     TYPE *,'2G:10 ELEVT,R,B=',ELEVT,R,B
+C
+C   CALCULATE SINE AND COSINE OF A GIVEN BEARING ANGLE
+C
+      SIN_B=DSIN(B*DTR)
+      COS_B=DCOS(B*DTR)
+X     TYPE *,'2G:11 SIN_B,COS_B=',SIN_B,COS_B
+C
+C   CALCULATE SINE AND COSINE OF ANGLE S
+C
+      SIN_S=(R/RE_PROJ)*(ONE-(CONST*R/RE_PROJ_SQ))
+      COS_S=DSQRT(ONE-SIN_S*SIN_S)
+X     TYPE *,'2G:12 SIN_S,COS_S=',SIN_S,COS_S
+C
+C   CALCULATE SINE AND COSINE OF LATITUDE (L) FOR A GIVEN RANGE
+C   BEARING CELL
+C
+      SIN_L=SIN_LS*COS_S+COS_LS*SIN_S*COS_B
+      COS_L=DSQRT(ONE-SIN_L*SIN_L)
+X     TYPE *,'2G:13 SIN_L,COS_L=',SIN_L,COS_L
+C
+C   CALCULATE SINE AND COSINE OF DELTA LAMDA (I.E. DELTA LONGITUDE)
+C
+      SIN_DLAMDA=SIN_S*SIN_B/COS_L
+      COS_DLAMDA=DSQRT(ONE-SIN_DLAMDA*SIN_DLAMDA)
+      RL=R2KO*COS_L/(ONE+SIN_L)
+X     TYPE *,'2G:14 SIN_DLAMDA,COS_DLAMDA=',SIN_DLAMDA,COS_DLAMDA
+X     TYPE *,'2G:15 RL=',RL
+C
+C   CALCULATE GI,GJ COORDINATE FOR A GIVEN RANGE AND AZIMUTH IN
+C   1/4 LFM BOX UNITS
+C
+      GI=RL*(SIN_DLAMDA*COS_LAMDAS_PRIME+
+     $             COS_DLAMDA*SIN_LAMDAS_PRIME)+IP
+      GJ=RL*(COS_DLAMDA*COS_LAMDAS_PRIME-
+     $             SIN_DLAMDA*SIN_LAMDAS_PRIME)+JP
+X     TYPE *,'2G:16 GI,GJ=',GI,GJ
+C
+C   CALCULATE LFM_I,LFM_J COORDINATES
+C
+      LFM_I=DINT(GI*KA(LFM16_IDX))-IS(LFM16_IDX)
+      LFM_J=DINT(GJ*KA(LFM16_IDX))-JS(LFM16_IDX)
+X     TYPE *,'2G:17 LFM_I,LFM_J=',LFM_I,LFM_J
+X     TYPE *,'2G:18 ***END A3082G***'
+      RETURN
+      END

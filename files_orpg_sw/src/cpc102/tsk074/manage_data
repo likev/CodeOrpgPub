@@ -1,0 +1,445 @@
+#!/bin/sh
+
+# RCS info
+# $Author: ccalvert $
+# $Locker:  $
+# $Date: 2013/03/22 17:16:30 $
+# $Id: manage_data,v 1.1 2013/03/22 17:16:30 ccalvert Exp $
+# $Revision: 1.1 $
+# $State: Exp $
+
+ACTION_FLAG=REMOVE
+CASE_NAME=
+NCDC_HAS=
+RPG_ICAO=
+START_STRING=
+STOP_STRING=
+REMOVE_CASE_DATA_FLAG=NO
+REMOVE_ENTIRE_CASE_FLAG=NO
+PRINT_DEFAULTS_FLAG=NO
+DEBUG_FLAG=NO
+DESCRIPTION_FILE=DESCRIPTION.txt
+
+#########################################################
+# ECHO_ERROR: Echo error message and exit.
+#########################################################
+
+echo_error ()
+{
+  echo
+  echo
+  echo "IN SCRIPT: $0"
+  echo "ERROR: $1"
+  echo "Stopping script"
+  echo "Use -h option for help"
+  echo
+  echo
+  exit 1
+}
+
+#########################################################
+# ECHO_DEBUG: Echo debug messages.
+#########################################################
+
+echo_debug ()
+{
+  if [ $DEBUG_FLAG = YES ]
+  then
+    echo "DEBUG: $1"
+  fi
+}
+
+#########################################################
+# PRINT_USAGE: Display "help" to screen.
+#########################################################
+
+print_usage ()
+{
+  echo
+  echo "Usage: `basename $0` [Options]"
+  echo
+  echo "Options:"
+  echo
+  echo "-h - help"
+  echo "-d - Print defaults after processing command line"
+  echo "-x - Turn debugging statements on"
+  echo "-l - List cases"
+  echo
+  echo " To create a new case:"
+  echo
+  echo "-C - Case name (no spaces)"
+  echo
+  echo "    ...and ONE of the following:"
+  echo
+  echo "    -N - NCDC HAS number (download from NCDC)"
+  echo "    -i - RPG ICAO (from level-II spool)"
+  echo
+  echo "        For level-II spool (-i), the following options are REQUIRED"
+  echo
+  echo "        -s - Start time string (UTC) format: yyyymmddHHMM"
+  echo "        -S - Stop time string (UTC) format: yyyymmddHHMM"
+  echo
+  echo "To remove a pre-existing case:"
+  echo
+  echo "-C - Case name (no spaces)"
+  echo
+  echo "    ...and ONE of the following:"
+  echo
+  echo "    -v - Remove case level-II data only"
+  echo "    -V - Remove entire case"
+  echo
+}
+#########################################################
+# PARSE_CMDLINE: Parse command line arguments.
+#########################################################
+
+parse_cmdline ()
+{
+  while getopts hdxlC:N:i:s:S:vV option
+  do
+    case $option in
+      h) print_usage; exit 0;;
+      d) PRINT_DEFAULTS_FLAG=YES;;
+      x) DEBUG_FLAG=YES;;
+      l) list_case_directories; exit 0;;
+      C) CASE_NAME=$OPTARG;;
+      N) NCDC_HAS=$OPTARG;;
+      i) RPG_ICAO=`echo $OPTARG | tr '[:lower:]' '[:upper:]'`;;
+      s) START_STRING=$OPTARG;;
+      S) STOP_STRING=$OPTARG;;
+      v) REMOVE_CASE_DATA_FLAG=YES;;
+      V) REMOVE_ENTIRE_CASE_FLAG=YES;;
+     \?) echo_error "Invalid input flag"
+    esac
+  done
+
+  echo_debug "CASE_NAME:               $CASE_NAME"
+  echo_debug "NCDC_HAS:                $NCDC_HAS"
+  echo_debug "RPG_ICAO:                $RPG_ICAO"
+  echo_debug "START_STRING:            $START_STRING"
+  echo_debug "STOP_STRING:             $STOP_STRING"
+  echo_debug "REMOVE_CASE_DATA_FLAG:   $REMOVE_CASE_DATA_FLAG"
+  echo_debug "REMOVE_ENTIRE_CASE_FLAG: $REMOVE_ENTIRE_CASE_FLAG"
+  echo_debug "PRINT_DEFAULTS_FLAG:     $PRINT_DEFAULTS_FLAG"
+  echo_debug "DEBUG_FLAG:              $DEBUG_FLAG"
+
+  # Print defaults if needed
+  if [ $PRINT_DEFAULTS_FLAG = YES ]
+  then
+    print_defaults
+    exit 0
+  fi
+
+  # Ensure NCDC/level-II spool are not both used
+  if [ -n "$NCDC_HAS" -a -n "$RPG_ICAO" ]
+  then
+    echo_error "Options -N and -i are mutually exclusive"
+  fi
+
+  # Make sure playback environment is set
+  check_playback_env
+
+  # Make sure case name is defined
+  if [ -z "$CASE_NAME" ]
+  then
+    echo_error "Option -d is required"
+  fi
+  CASE_DIR=$PLAYBACK_CASE_DIR/$CASE_NAME
+  CASE_DATA_DIR=$CASE_DIR/data
+  CASE_MISC_DIR=$CASE_DIR/misc
+  CASE_DESCRIPTION_FILE=$CASE_MISC_DIR/$DESCRIPTION_FILE
+
+  # Validate options
+  if [ -n "$NCDC_HAS" ]
+  then
+    ACTION_FLAG=NCDC
+    if ! echo $NCDC_HAS | egrep -q '^[0-9]+$'
+    then
+      echo_error "Option -N has invalid format"
+    fi
+  elif [ -n "$RPG_ICAO" ]
+  then
+    ACTION_FLAG=ROC
+    if [ ! -d "$PLAYBACK_ROC_LEVEL_II_PATH" ]
+    then
+      echo_error "Directory $PLAYBACK_ROC_LEVEL_II_PATH doesn't exist"
+    elif ! echo $RPG_ICAO | egrep -q '^[A-Z]{3}[A-Z0-9]$'
+    then
+      echo_error "Option -i has invalid format"
+    elif [ -z "$START_STRING" ]
+    then
+      echo_error "Option -s is required"
+    elif ! echo $START_STRING | egrep -q '^[0-9]{12}$'
+    then
+      echo_error "Option -s has invalid format"
+    elif [ -z "$STOP_STRING" ]
+    then
+      echo_error "Option -S is required"
+    elif ! echo $STOP_STRING | egrep -q '^[0-9]{12}$'
+    then
+      echo_erro "Option -S has invalid format"
+    fi
+  else
+    # User is removing case, so make sure it exists.
+    if [ ! -d $CASE_DIR ]
+    then
+      echo_error "Directory $CASE_DIR not found"
+    fi
+  fi
+}
+
+#########################################################
+# CHECK_PLAYBACK_ENV: Make sure playback environment is set
+#########################################################
+
+check_playback_env ()
+{
+  if [ -z "$PLAYBACK_HOME" ]
+  then
+    echo_error "\$PLAYBACK_HOME not defined"
+  elif [ ! -d "$PLAYBACK_HOME" ]
+  then
+    echo_error "Directory $PLAYBACK_HOME does not exist"
+  elif [ -z "$PLAYBACK_CASE_DIR" ]
+  then
+    echo_error "\$PLAYBACK_CASE_DIR not defined"
+  elif ! mkdir -p $PLAYBACK_CASE_DIR > /dev/null
+  then
+    echo_error "Could not create $PLAYBACK_CASE_DIR"
+  elif [ ! -d "$PLAYBACK_CASE_DIR" ]
+  then
+    echo_error "Directory $PLAYBACK_CASE_DIR does not exist"
+  elif [ -z "$PLAYBACK_ROC_LEVEL_II_PATH" ]
+  then
+    echo_error "\$PLAYBACK_ROC_LEVEL_II_PATH not defined"
+  fi
+}
+
+#########################################################
+# PRINT_DEFAULTS: Print default values used by script
+#########################################################
+
+print_defaults ()
+{
+  echo
+  echo "CASE_NAME:                  $CASE_NAME"
+  echo "NCDC_HAS:                   $NCDC_HAS"
+  echo "RPG_ICAO:                   $RPG_ICAO"
+  echo "START_STRING:               $START_STRING"
+  echo "STOP_STRING:                $STOP_STRING"
+  echo "REMOVE_CASE_DATA_FLAG:      $REMOVE_CASE_DATA_FLAG"
+  echo "REMOVE_ENTIRE_CASE_FLAG:    $REMOVE_ENTIRE_CASE_FLAG"
+  echo "PRINT_DEFAULTS_FLAG:        $PRINT_DEFAULTS_FLAG"
+  echo "DEBUG_FLAG:                 $DEBUG_FLAG"
+  echo "PLAYBACK_ROC_LEVEL_II_PATH: $PLAYBACK_ROC_LEVEL_II_PATH"
+  echo
+}
+
+#########################################################
+# LIST_CASE_DIRECTORIES: List any existing cases
+#########################################################
+
+list_case_directories ()
+{
+  check_playback_env
+  echo
+  for casedir in `ls $PLAYBACK_CASE_DIR`
+  do
+    echo "CASE: $casedir"
+  done
+  echo
+}
+
+#########################################################
+# CREATE_CASE_DIR: Create case directory in $PLAYBACK_CASE_DIR
+#########################################################
+
+create_case_dir ()
+{
+  if ! mkdir -p $CASE_DIR > /dev/null
+  then
+    echo_error "Could not create $CASE_DIR"
+  elif ! mkdir -p $CASE_DATA_DIR > /dev/null
+  then
+    echo_error "Could not create $CASE_DATA_DIR"
+  elif ! mkdir -p $CASE_MISC_DIR > /dev/null
+  then
+    echo_error "Could not create $CASE_MISC_DIR"
+  elif ! chmod 777 $CASE_MISC_DIR > /dev/null
+  then
+    echo_error "Could not chmod $CASE_MISC_DIR"
+  fi
+}
+
+#########################################################
+# NEW_CASE_NCDC: Download data from NCDC for new case.
+#########################################################
+
+new_case_NCDC ()
+{
+  create_case_dir
+
+  if ! which wget > /dev/null 2>&1
+  then
+    echo_error "wget application not found"
+  fi
+
+  cmd="wget ftp://ftp3.ncdc.noaa.gov/pub/has/HAS${NCDC_HAS}/* -o $CASE_MISC_DIR/download.log -P $CASE_DATA_DIR"
+
+  echo > $CASE_DESCRIPTION_FILE
+  echo $RPG_ICAO >> $CASE_DESCRIPTION_FILE
+  echo $cmd >> $CASE_DESCRIPTION_FILE
+  echo >> $CASE_DESCRIPTION_FILE
+
+  $cmd
+
+  if ! ls $CASE_DATA_DIR | egrep -q '[a-zA-Z0-9]'
+  then
+    echo_error "No files downloaded from NCDC to $CASE_DATA_DIR"
+  fi
+}
+
+#########################################################
+# NEW_CASE_ROC: Copy data from ROC spool.
+#########################################################
+
+new_case_ROC ()
+{
+  create_case_dir
+
+  echo > $CASE_DESCRIPTION_FILE
+  echo $RPG_ICAO >> $CASE_DESCRIPTION_FILE
+  echo "Start: $START_STRING Stop: $STOP_STRING" >> $CASE_DESCRIPTION_FILE
+  echo >> $CASE_DESCRIPTION_FILE
+
+  # Extract date/time from start string
+  start_yyyy=`echo ${START_STRING:0:4}`
+  start_mm=`echo ${START_STRING:4:2}`
+  start_dd=`echo ${START_STRING:6:2}`
+  start_hr=`echo ${START_STRING:8:2}`
+  start_min=`echo ${START_STRING:10:2}`
+  echo_debug "start_yyyy: $start_yyyy"
+  echo_debug "start_mm:   $start_mm"
+  echo_debug "start_dd:   $start_dd"
+  echo_debug "start_hr:   $start_hr"
+  echo_debug "start_min:  $start_min"
+
+  # Extract date/time from stop string
+  stop_yyyy=`echo ${STOP_STRING:0:4}`
+  stop_mm=`echo ${STOP_STRING:4:2}`
+  stop_dd=`echo ${STOP_STRING:6:2}`
+  stop_hr=`echo ${STOP_STRING:8:2}`
+  stop_min=`echo ${STOP_STRING:10:2}`
+  echo_debug "stop_yyyy: $stop_yyyy"
+  echo_debug "stop_mm:   $stop_mm"
+  echo_debug "stop_dd:   $stop_dd"
+  echo_debug "stop_hr:   $stop_hr"
+  echo_debug "stop_min:  $stop_min"
+
+  # Set search range epochs
+  start_time_string=`date -u --date="${start_yyyy}${start_mm}${start_dd} ${start_hr}:${start_min}:00"`
+  echo_debug "start_time_string: $start_time_string"
+  start_epoch=`date -u --date="$start_time_string" +%s`
+  echo_debug "Range start time: $start_time_string (epoch: $start_epoch)"
+  stop_time_string=`date -u --date="${stop_yyyy}${stop_mm}${stop_dd} ${stop_hr}:${stop_min}:00"`
+  echo_debug "stop_time_string: $stop_time_string"
+  stop_epoch=`date -u --date="$stop_time_string" +%s`
+  echo_debug "Range stop time: $stop_time_string (epoch: $stop_epoch)"
+
+  search_epoch=`date -u --date="${start_yyyy}${start_mm}${start_dd} 00:00:00" +%s`
+  echo_debug "search_epoch: $search_epoch"
+
+  until [ $search_epoch -gt $stop_epoch ]
+  do
+    echo_debug "search_epoch: $search_epoch"
+    search_yyyy=`date -u -d@$search_epoch +%Y`
+    search_mm=`date -u -d@$search_epoch +%m`
+    search_dd=`date -u -d@$search_epoch +%d`
+    echo_debug "search_yyyy: $search_yyyy search_mm: $search_mm search_dd: $search_dd"
+
+    search_dir=$PLAYBACK_ROC_LEVEL_II_PATH/$RPG_ICAO/${RPG_ICAO}.${search_yyyy}.${search_mm}/${search_dd}
+    echo_debug "search_dir $search_dir"
+
+    if [ ! -d $search_dir ]
+    then
+      echo "Directory $search_dir not found"
+    fi
+
+    for l2file in `ls $search_dir`
+    do
+      file_timestring="`echo ${l2file:4:8}`"
+      file_timestring="$file_timestring `echo ${l2file:12:2}`:"
+      file_timestring="$file_timestring `echo ${l2file:14:2}`:"
+      file_timestring="$file_timestring `echo ${l2file:16:2}`"
+      echo_debug "l2file: $l2file file_timestring: $file_timestring"
+
+      if [ -z "$file_timestring" ]
+      then
+        echo "Could not decipher time string from $l2file"
+      else
+        file_epoch=`date -u --date="$file_timestring" +%s`
+        echo_debug "file_epoch: $file_epoch"
+        if [ $file_epoch -ge $start_epoch -a $file_epoch -le $stop_epoch ]
+        then
+          echo_debug "CMD: cp $search_dir/$l2file $CASE_DATA_DIR"
+          if ! cp $search_dir/$l2file $CASE_DATA_DIR > /dev/null
+          then
+            echo "Failed to copy $PLAYBACK_ROC_LEVEL_II_PATH/$l2file to $CASE_DATA_DIR"
+          fi
+        fi
+      fi
+    done
+    search_epoch=`expr $search_epoch + 86400`
+    echo_debug "search_epoch: $search_epoch"
+  done
+
+  if ! ls $CASE_DATA_DIR | egrep -q '[a-zA-Z0-9]'
+  then
+    echo_error "No files downloaded from ROC spool"
+  fi
+}
+
+#########################################################
+# REMOVE_CASE: Remove previously created case.
+#########################################################
+
+remove_case ()
+{
+  if [ $REMOVE_ENTIRE_CASE_FLAG = YES ]
+  then
+    echo_debug "CMD: rm -rf $CASE_DIR > /dev/null"
+    if ! rm -rf $CASE_DIR > /dev/null
+    then
+      echo_error "Failed to remove $CASE_DIR"
+    fi
+  else
+    echo_debug "CMD: rm -rf $CASE_DATA_DIR > /dev/null"
+    if ! rm -rf $CASE_DATA_DIR > /dev/null
+    then
+      echo_error "Failed to remove $CASE_DATA_DIR"
+    fi
+  fi
+}
+
+####################################################################
+#
+# MAIN BODY OF SCRIPT
+#
+####################################################################
+
+# Read the command line options
+parse_cmdline $*
+
+# Take appropriate action
+if [ $ACTION_FLAG = NCDC ]
+then
+  new_case_NCDC
+elif [ $ACTION_FLAG = ROC ]
+then
+  new_case_ROC
+else
+  remove_case
+fi
+
+echo
+

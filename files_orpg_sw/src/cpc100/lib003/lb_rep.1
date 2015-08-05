@@ -1,0 +1,125 @@
+
+NAME
+    lb_rep - Replicates LB messages in specified LBs.
+
+SYNOPSIS
+    lb_rep [-rnsptcCl] [conf_file_name]
+
+DESCRIPTION
+
+    LB_rep copies messages from a set of source LBs to their respective
+    destination LBs. It performs both static replication, copying existing
+    messages, and dynamic replication, copying new messages when they are
+    generated or modified. LB_rep, by default, performs dynamic replication
+    without static replication. To stop lb_rep, one needs to send a signal to
+    it. Messages in one source LB can be replicated in more than one
+    destination LB and messages in multiple source LBs can be replicated in one
+    destination LB.
+
+    The source and destination LB names are specified on the command line via
+    the -r option. Multiple -r options can be used for replicating multiple
+    replication paths. Remote LB names must have the host name (or IP) part
+    such as "apple:/tmp/src_lb.lb".
+
+    lb_rep identifies the LBs by their names. Thus one should consistently use
+    the same name for each LB. For instance, one should use either
+    "local_host:my_lb" or "my_lb", but not both, for the LB "my_lb" where
+    "local_host" is the name of the local host. Similarly one should not use
+    both "host:my_lb" and "host_alias:my_lb" for an LB name where "host_alias"
+    is an alias of host name "host".
+
+    For message queue type of LB, lb_rep polls the source LBs to read any new
+    messages and write them to the destination LBs. For remote source LBs, the
+    polling can generate additional network traffic. If there is only one LB to
+    replicate, lb_rep performs polling on the remote side for improved
+    efficiency. For DB type of LB, LB event notification is used.
+
+    The replication is one-way, which means that a change in a source LB will
+    be replicated in its destination LBs while any changes in destination LBs
+    are ignored.
+
+    For message queue type of LB, multiple messages can be optionally packed
+    and compressed on the remote reading side for better bandwidth efficiency.
+    See options -C and -p.
+
+    lb_rep can optionally perform byte swapping on messages that are
+    replicated. To use this feature, one needs to specify a type (struct name)
+    in the third field of the replication path (-r) option. The -t option must
+    also be used to specify the byte swapping function name and the library
+    file that contains the function.
+
+    If the source LB or the destination LB does not exist or is not accessible,
+    the specified replication for that path is suspended. lb_rep will retry to
+    connect to them. Once both are connected, replication resumes. If a fatal
+    error is encountered, lb_rep terminates.
+
+    lb_rep log messages go to the LE log file. The log can also be optionally
+    redirected to the STDERR port. See option -l.
+
+    lb_rep relies on message ids in replication. If an LB contains more than
+    one message of the same id, the replication result is not defined.
+
+    The LB tag field for each message is not replicated.
+
+
+OPTIONS
+    -r	src_lb_name,dest_lb_name,type
+	Specifies a pair of source and destination LB names. Multiple -r
+	options are acceptable. Character "," can be replaced by "-" if there
+	is no character "-" in the file names. "type" is optional. It is the
+	type (struct name) of the message to be replicated. If not specified,
+	no byte swapping is preformed.
+
+    -n	max_static_msg_number
+	Specifies the maximum number of messages statically replicated. The 
+	default is 0. This applies to sequential LB. For DB LB, if 
+	max_static_msg_number is non-zero, all messages are statically 
+	replicated.
+
+    -s	Terminates after static replication.
+
+    -p	poll_ms
+	Specifies the polling time interval in milli-seconds for dynamic 
+	replication. The default is 1000 ms (1 second).
+
+    -C  compress_method
+	Specifies a compression method. 0 for GZIP and 1 for BZIP2. If this
+	option is specified, for any replication path with source LB located on
+	a remote host and destination LB located on the local host, all
+	messages (up to 10) to be replicated in the source LB are packed,
+	compressed, shipped to the local host, uncompressed, unpacked and
+	written to the destination LB. Note that the number of messages packed
+	depends on the -p option.
+
+    -t  lib_file:func_name
+	Specified the byte swapping function and the library file name where
+	the function is to find.
+
+    -l  LE_label
+	Specified a label string used in LE messages. This is useful if
+	multiple instances of lb_rep share the same LE file. If "LE_label" is
+	"stderr", all log messages go to the STDERR port instead of the LE log
+	file.
+
+
+EXAMPLES
+    Example 1: lb_rep -r lb1-lb2
+	Copies all new messages from LB "lb1" to LB "lb2" as they are 
+	generated (dynamic replication).
+
+    Example 2: lb_rep -n 100 -r lb1-lb2 -r lb3-lb4
+	Copies up to 100 messages (static replication) first and then continues
+	dynamic replication. Here two LBs are replicated.
+
+    Example 3: lb_rep -n 100 -s -r lb1-lb2
+	Copies up to 100 messages (static replication) first and then 
+	terminates.
+   
+EXIT STATUS
+    0:		Terminated normally. 
+
+    non-zero:	Terminated because an error was detected.
+
+SEE ALSO
+    lb_create(1), lb_cat(1), lb_rm(1), lb_nt(1), lb_info(1), lb(3)
+

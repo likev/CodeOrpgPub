@@ -1,0 +1,290 @@
+C
+C RCS info
+C $Author: steves $
+C $Locker:  $
+C $Date: 2003/05/12 17:28:44 $
+C $Id: a30821.ftn,v 1.5 2003/05/12 17:28:44 steves Exp $
+C $Revision: 1.5 $
+C $State: Exp $
+C
+      SUBROUTINE A30821__BUFFER_CONTROL(PARAM)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A30821__BUFFER_CONTROL
+*.
+*.  MODULE VERSION: 0017
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       01 06 86      0000      M. Jo Staley         rpg build 2
+*.       04 28 86      0001      MJO STALEY           SPR # 304
+*.       04 28 86      0001      MIKE ISTOK           SPR # 60124
+*.       09 22 86      0002      MIKE ISTOK           SPR # 60424
+*.       07 22 88      0003      VALERIE HOLDEN       SPR # 80002
+*.       10 11 88      0004      STEVE D SMITH        SPR # 80338
+*.       10 27 89      0005      STAN MANOSKI         SPR # 90403
+*.       05 07 90      0006      PAUL PISANI          SPR # 90697
+*.       02 22 91      0007      VALERIE HOLDEN       SPR # 91249
+*.       03 05 91      0007      BAYARD JOHNSTON      SPR # 91225
+*.       12 03 91      0008      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0009      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/20/92      0010      Toolset              SPR 91895
+*.       03/25/93      0011      Toolset              SPR NA93-06801
+*.       01/28/94      0012      Toolset              SPR NA94-01101
+*.       03/03/94      0013      Toolset              SPR NA94-05501
+*.       04/01/95      0014      Toolset              CCR NA95-11802
+*.       09/28/95      0015      Mike Istok           CCR NA94-32101
+*.       12/23/96      0016      Toolset              CCR NA95-11807
+*.       03/16/99      0017      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A30821__BUFFER_CONTROL(PARAM)
+*.
+*.  MODULE FUNCTION:
+*.
+*.     THIS SUBROUTINE IS THE BUFFER CONTROL ROUTINE FOR THE
+*.     RADAR CODED MESSAGE TASK.  THIS TASK PROCESSES INPUT
+*.     FROM THE COMPOSITE REFLECTIVITY POLAR GRID, COMBINED
+*.     ATTRIBUTES, ECHO TOP, AND VAD WINDS.
+*.
+*.  MODULES CALLED: A3082L__RCM_DRIVER, A3082U__GET_BUFFERS, A31145__ABORT_ME, 
+*.                  A31168__ABORT_ME_BECAUSE, A31212__REL_INBUF, 
+*.                  A31215__GET_OUTBUF, A31216__REL_OUTBUF, A31218__BUF_VOL, 
+*.                  A3CM25__GET_DATE_TIME 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT         TYPE        DESCRIPTION
+*.    -   -----         ----        -----------
+*.    G   DESTROY       I*4         (CONSTANT)Mnemonic used as input to
+*.                                  A31216__REL_OUTBUF. Indicates "do not pass
+*.                                  data to other tasks".
+*.    G   FORWARD       I*4         (CONSTANT)Parameter to indicate that an
+*.                                  output buffer is to be forwarded to
+*.                                  successor tasks
+*.    G   NORMAL        I*4         (CONSTANT)Parameter which indicates normal
+*.                                  completion of requested operation to
+*.                                  acquire input or output buffer
+*.    G   NO_MEM        I*4         (CONSTANT)Parameter which indicates no
+*.                                  memory available on attempt to acquire
+*.                                  output buffer
+*.    G   PROD_MEM_SHED I*4         (CONSTANT)(CONSTANT)Parameter which
+*.                                  indicates that product aborted due to
+*.                                  memory load shedding
+*.    C   TIBF          I*4         Table of input buffer pointers into shared
+*.                                  memory.
+*.    C   VB            I*4         Valid buffer array that contains volume
+*.                                  number.
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    C   TIBF    I*4         Table of input buffer pointers into shared
+*.                            memory.
+*.    C   VB      I*4         Valid buffer array that contains volume number.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    C   TIBF              I*4         Table of input buffer pointers into
+*.                                      shared memory.
+*.
+*.  DATABASE/FILE REFERENCE:  NONE
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME       TYPE        DESCRIPTION
+*.    ----       ----        -----------
+*.    ABORT      L*4         Flag used to determine if the current volume was
+*.                           aborted.
+*.    CABUF      I*4         VALID BUFFER INDEX FOR COMBINED ATTRIB
+*.    CDATE      I*4         CURRENT DATE
+*.    CTIME      I*4         CURRENT TIME
+*.    ETBUF      I*4         VALID BUFFER INDEX FOR ECHO TOPS
+*.    GIBUF      I*4         Number of input and output buffers.
+*.    HI_VOLNUM  I*4         HIGHEST VOLUME NUMBER = 80
+*.    HYBUF      I*4         Index in VAlid buffer array for Hybrid Scan
+*.                           Buffer
+*.    I          I*4         INDEX CONTROL VARIABLE
+*.    INC2       I*4         INCREMENTAL VALUE OF 2
+*.    LOW_VOLNUM I*4         LOWEST VOLUME NUMBER = 1
+*.    NIBUF      I*4         Number of input buffers.
+*.    NO         I*4         NO FLAG FOR VALID BUFFER RETRIEVAL
+*.    NOMEM      I*4         FLAG FOR NO SCRATCH MEMORY
+*.    OFF        I*4         OFF FLAG FOR INPUT POINTERS
+*.    ONE        I*4         Parameter value of one.
+*.    OPSTAT     I*4         STATUS FLAG FOR INBUF AND OUTBUF
+*.    OPTR       I*4         OUTPUT BUFFER POINTER
+*.    OPTR_SC    I*4         OUTPUT SCRATCH BUFFER POINTER
+*.    PGBUF      I*4         VALID BUFFER INDEX FOR POLAR GRID
+*.    RADARMSG   I*4         Data Buffer Type: Radar Coded Message.
+*.    RADBUF     I*4         VALID BUFFER INDEX FOR RCM
+*.    RMSG_SIZ   I*4         RADAR CODED MESSAGE BUFFER SIZE
+*.    SCRBUF     I*4         VALID BUFFER INDEX FOR SCRATCH
+*.    VOLN       I*4         VOLUME NUMBER
+*.    VWBUF      I*4         VALID BUFFER INDEX FOR VAD WINDS
+*.    YES        I*4         YES FLAG FOR VALID BUFFER RETRIEVAL
+*.    ZERO       I*4         Parameter value of 0.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A308P2
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     THIS MODULE IS COMPILED USING COMP08.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     THIS MODULE IS LINKED USING LINK08.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+C*
+$INCLUDE A309.INC/G,**A3PM00 (NEND NLIST)
+$INCLUDE A309.INC/G,**A3PM07 (NEND NLIST)
+$INCLUDE A309.INC/G,**A3CD00 (NEND NLIST)
+$INCLUDE A308.INC,**A308P2   (NEND NLIST)
+C*
+      INTEGER*4     OFF,ON,I,PARAM,YES,NO,OPSTAT,A31218__BUF_VOL
+      INTEGER*4     RMSG_SIZ,OPTR,OPTR_SC,VOLN,CDATE,CTIME,STATUS
+      INTEGER*4     LOW_VOLNUM,HI_VOLNUM,ZERO,INC2,ONE,NOMEM
+      INTEGER*4     SCRBUF,PGBUF,CABUF,ETBUF,VWBUF,RADBUF,HYBUF
+      PARAMETER     (OFF=0,ON=1,NO=0,YES=1,LOW_VOLNUM=1,HI_VOLNUM=80)
+      PARAMETER     (RMSG_SIZ=3750,ZERO=0,RADBUF=1,INC2=2,ONE=1)
+      PARAMETER     (SCRBUF=2,PGBUF=3,CABUF=4,ETBUF=5,VWBUF=6,HYBUF=7)
+      PARAMETER     (NOMEM = -1)
+      LOGICAL*4     ABORT
+C*
+C*    INITIALIZE INPUT BUFFER POINTERS
+C*
+      DO 10 I = ONE,NIBUF
+ 10     TIBF(I) = OFF
+C*
+C*    SET FLAG TO "NO" FOR VALID BUFFER RETRIEVAL
+C*
+      DO 20 I = ONE,GIBUF
+ 20      VB(I) = NO
+      ABORT = .FALSE.
+C*
+C*    GET OUTPUT BUFFER FOR RADAR CODED MESSAGE
+C*
+C*    NOTE: If we ever resurrect Pre-edit RCM, uncomment out the
+C*          next line and comment out the following line.
+C*    CALL A31215__GET_OUTBUF(RADARMSG,RMSG_SIZ,OPTR,OPSTAT)
+      CALL A31215__GET_OUTBUF(POSEDRCM,RMSG_SIZ,OPTR,OPSTAT)
+      IF (OPSTAT.EQ.NORMAL) THEN
+         VB(RADBUF) = YES
+X        TYPE *,'RADARMSG BUFFER RECEIVED'
+C*
+C*    CALL A3082U TO GET OUTBUT SCRATCH BUFFER AND INPUT BUFFERS
+C*    NECESSARY TO PROCESS RADAR CODED MESSAGE
+C*
+         CALL A3082U__GET_BUFFERS(OPTR_SC)
+C*
+C*    IF SCRATCH AND POLAR GRID NOT AVAILABLE DON'T PROCESS RCM
+C*
+         IF (VB(SCRBUF).EQ.YES.AND.VB(PGBUF).EQ.YES.AND.VB(HYBUF)
+     $      .EQ.YES) THEN
+            DO 30 I = ONE,NIBUF
+               VOLN = A31218__BUF_VOL(TIBF(I))
+C*
+C*     BREAK OUT OF DO LOOP SINCE FOUND GOOD VOLUME NUMBER IN RANGE
+C*
+               IF (VOLN.GE.LOW_VOLNUM.AND.VOLN.LE.HI_VOLNUM) GO TO 40
+ 30         CONTINUE
+ 40         IF (VOLN.LE.ZERO.OR.VOLN.GT.HI_VOLNUM) THEN
+               ABORT = .TRUE.
+C*
+C*    BREAK OUT OF DO LOOP FOR ABORT PROCESSING
+C*
+               GO TO 50
+            ENDIF
+C*
+C*    GET CURRENT DATE AND TIME, CALL MAIN RCM DRIVER
+C*
+            CALL A3CM25__GET_DATE_TIME(CDATE,CTIME)
+X           TYPE *,'CALL RCM DRIVER'
+            CALL A3082L__RCM_DRIVER(OPTR,OPTR_SC,VOLN,CDATE,CTIME)
+C*
+C*    RELEASE INPUT BUFFERS
+C*
+            DO 45 I = PGBUF,GIBUF
+               IF (VB(I).EQ.YES) CALL A31212__REL_INBUF(TIBF(I-INC2))
+ 45         CONTINUE
+            IF (VB(SCRBUF).EQ.YES) CALL A31216__REL_OUTBUF(OPTR_SC,
+     $                                                     DESTROY)
+C*
+C*    RELEASE OUTPUT BUFFER: DESTORY IF ALL INPUT BUFFERS ARE NOT
+C*    AVAILABLE, OTHERWISE FORWARD
+C*
+            IF (VB(PGBUF).EQ.NO.AND.VB(CABUF).EQ.NO.AND.VB(ETBUF)
+     $         .EQ.NO.AND.VB(VWBUF).EQ.NO.AND.VB(HYBUF).EQ.NO) THEN
+               ABORT = .TRUE.
+            ELSE
+C*
+C*    Strip off the graphical portion of the product (i.e., automatically
+C*    turn it into the post-edit uneditted version.  
+C*
+               call rcm_strip_off_graphic( MEM(OPTR), STATUS )
+               if( status .ne. 0 ) then
+                  ABORT = .TRUE.
+               else 
+                  CALL A31216__REL_OUTBUF(OPTR,FORWARD)
+               end if
+            ENDIF
+         ELSE
+C$INSERTC*
+C$INSERTC*    ADDED FOR REHOST.  RCM SHOULD RELEASE ANY INPUT
+C$INSERTC*    BUFFERS ALREADY ACQUIRED!!
+C$INSERTC*
+C$INSERT            DO 46 I = PGBUF,GIBUF
+C$INSERT               IF (VB(I).EQ.YES) THEN
+C$INSERT                  CALL A31212__REL_INBUF(TIBF(I-INC2))
+C$INSERT                  VB(I) = NO
+C$INSERT               ENDIF
+C$INSERT 46         CONTINUE
+            ABORT = .TRUE.
+         ENDIF
+      ELSE
+C*
+C*    IF STATUS INDICATES NO MEMORY TAKE ABORT EXIT DUE TO LOAD
+C*    SHEDDING OTHERWISE REGULAR ABORT
+C*
+         IF (OPSTAT .EQ. NO_MEM) THEN
+           CALL A31168__ABORT_ME_BECAUSE(PROD_MEM_SHED)
+         ELSE
+           CALL A31145__ABORT_ME
+         END IF
+      ENDIF
+C*
+C*    IF ABORT PROCESSING AND IF SCRATCH BUFFERS ACQUIRED RELEASE
+C*    THEM FOR DESTRUCTION. IF SCRATCH BUFFER COULD NOT BE ACQUIRED
+C*    BECAUSE OF NO MEMORY ABORT DUE TO LOAD SHEDDING; OTHERWISE TAKE
+C*    NORMAL ABORT.
+C*
+ 50   IF (ABORT) THEN
+         IF (VB(SCRBUF).EQ.YES) CALL A31216__REL_OUTBUF(OPTR_SC,
+     $      DESTROY)
+         CALL A31216__REL_OUTBUF(OPTR,DESTROY)
+         IF (VB(SCRBUF) .EQ. NOMEM) THEN
+           CALL A31168__ABORT_ME_BECAUSE(PROD_MEM_SHED)
+         ELSE
+           CALL A31145__ABORT_ME
+         END IF
+      ENDIF
+      RETURN
+      END

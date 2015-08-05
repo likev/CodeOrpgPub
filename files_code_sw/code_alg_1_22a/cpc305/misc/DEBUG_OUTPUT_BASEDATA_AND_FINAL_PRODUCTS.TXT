@@ -1,0 +1,145 @@
+
+/* Prints out first 12 data bins of selected radials     */
+/* rad_data is the pointer to the beginning of data bins */
+
+/*DEBUG*/
+/* if ( (count <= 2) || (count >= 364) ) {                          */
+/*   fprintf(stderr,"DEBUG - early bins in radial %d\n", count + 1);*/
+/*   fprintf(stderr,"byte array: ");                                */
+/*   for( i = 0; i < 11; i++)                                       */
+/*     fprintf(stderr," %d", rad_data[i]);                          */
+/*   fprintf(stderr,"\n");                                          */
+/*   fprintf(stderr,"short array: ");                               */
+/*   for( i = 0; i < 11; i++)                                       */
+/*     fprintf(stderr," %d", surv_data[i]);                         */
+/*     fprintf(stderr,"\n");                                        */
+/* }                                                                */
+/*END DEBUG*/
+
+
+      /* test section: this optional block has been used to double check*/
+      /* the integrity of the new radial memory block                   */
+      if (DEBUG) {
+          if ( (count <= 4) || (count >= 362) ) {
+               Base_data_header *hdr=(Base_data_header*)radial[count];
+               fprintf(stderr,"  Radial Check:\n");
+               fprintf(stderr,"    Azimuth=%f\n",hdr->azimuth);
+               fprintf(stderr,"    Start Angle=%hd\n",hdr->start_angle);
+               fprintf(stderr,"    Angle Delta=%hd\n",hdr->delta_angle);
+         } 
+      } /* end DEBUG */
+
+
+
+/* DEBUGS BASEDATA READ AND CONVERSION FUNCTIONS ---------------------------- */
+
+/* surv_data obtained fromRPGC_get_surv_data( (void *)basedataPtr,            */
+/*                                  &index_first_bin, &index_last_bin);       */
+
+/* surv_data3 obtained from RPGC_get_radar_data( (void *)basedataPtr,         */
+/*                                           RPGC_DREF, my_gen_moment );      */
+
+/* surv_values obtained from RPGCS_radar_data_conversion( (void *)surv_data3, */
+/*                              my_gen_moment, -999.0, -888.0, &surv_values); */
+
+* BEGIN DEBUG ===================================================== */
+/*  if( (count==0) || (count==100) || (count==360) ) {                          */
+/*  fprintf(stderr,                                                             */
+/*       "DEBUG - RADIAL %d: range to first bin is %d,  num bins is %d\n",      */
+/*                         count, bdh->surv_range - 1,                          */
+/*                         bdh->n_surv_bins );                                  */
+/*  fprintf(stderr,                                                             */
+/*       "DEBUG - funct parameters    first bin is %d,  last bin is %d\n",      */
+/*                         index_first_bin, index_last_bin);                    */
+/*  }                                                                           */
+/*                                                                              */
+/*  if( ((count<=2) || (count==100)) && (surv_data!=NULL) ) {                   */
+/*  fprintf(stderr,"Radial %3d: 1   2   3   4   5   6   7   8   9  10"          */
+/*                 "  11  12  13  14  15  16  17  18  19  20\n", count);        */
+/*  fprintf(stderr,"          %3d %3d %3d %3d %3d %3d %3d %3d %3d %3d"          */
+/*                 " %3d %3d %3d %3d %3d %3d %3d %3d %3d %3d \n",               */
+/*       surv_data[0], surv_data[1], surv_data[2], surv_data[3],                */
+/*       surv_data[4], surv_data[5], surv_data[6], surv_data[7],                */
+/*       surv_data[8], surv_data[9], surv_data[10], surv_data[11],              */
+/*       surv_data[12], surv_data[13], surv_data[14], surv_data[15],            */
+/*       surv_data[16], surv_data[17], surv_data[18], surv_data[19]);           */
+/*  }                                                                           */
+/*                                                                              */
+/*                                                                              */
+/*  if( (count==0) || (count==100) || (count==360) ) {                          */
+/*  fprintf(stderr,                                                             */
+/*      "DEBUG first gate range is %d, number of gates is %d\n",                */
+/*         my_gen_moment->first_gate_range, my_gen_moment->no_of_gates);        */
+/*  }                                                                           */
+/*                                                                              */
+/*  if( ((count<=2) || (count==100)) && (surv_data3!=NULL) ) {                  */
+/*  fprintf(stderr,"Radial %3d: 1   2   3   4   5   6   7   8   9  10"          */
+/*                 "  11  12  13  14  15  16  17  18  19  20\n", count);        */
+/*  fprintf(stderr,"          %3d %3d %3d %3d %3d %3d %3d %3d %3d %3d"          */
+/*                 " %3d %3d %3d %3d %3d %3d %3d %3d %3d %3d \n",               */
+/*       surv_data3[0], surv_data3[1], surv_data3[2], surv_data3[3],            */
+/*       surv_data3[4], surv_data3[5], surv_data3[6], surv_data3[7],            */
+/*       surv_data3[8], surv_data3[9], surv_data3[10], surv_data3[11],          */
+/*       surv_data3[12], surv_data3[13], surv_data3[14], surv_data3[15],        */
+/*       surv_data3[16], surv_data3[17], surv_data3[18], surv_data3[19]);       */
+/*  }                                                                           */
+/*                                                                              */
+/*  if( ((count<=2) || (count==100)) && (decode_res!=-1) ) {                    */
+/*  fprintf(stderr,"Decoded Values:\n");                                        */
+/*  fprintf(stderr,                                                             */
+/*          "  %3.2f %3.2f %3.2f %3.2f %3.2f %3.2f %3.2f %3.2f %3.2f %3.2f \n"  */
+/*          "  %3.2f %3.2f %3.2f %3.2f %3.2f %3.2f %3.2f %3.2f %3.2f %3.2f \n", */
+/*         surv_values[0], surv_values[1], surv_values[2], surv_values[3],      */
+/*         surv_values[4], surv_values[5], surv_values[6], surv_values[7],      */
+/*         surv_values[8], surv_values[9], surv_values[10], surv_values[11],    */
+/*         surv_values[12], surv_values[13], surv_values[14], surv_values[15],  */
+/*         surv_values[16], surv_values[17], surv_values[18], surv_values[19]); */
+/*  }                                                                           */
+/*  END DEBUG ======================================================== */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* After Assembly of a final product, this prints out portions of the */
+/* MHB, PDB, symbology header, first layer header, and parts of the   */
+/* first packet, in this case packet 16.                              */
+
+         if (DEBUG) {
+            short_buf = (short *) out_buffer;
+            fprintf(stderr,"DEBUG OUTPUT: Print Msg Code offset 0 %d\n", 
+                                                                  short_buf[0]);
+            fprintf(stderr,"DEBUG OUTPUT: Print source id offset 6 %d\n",
+                                                                  short_buf[6]);
+            fprintf(stderr,"DEBUG OUTPUT: Print num blocks offset 8 %d\n",
+                                                                  short_buf[8]);
+            fprintf(stderr,"DEBUG OUTPUT: Print Beginning of Sym Block\n");
+            fprintf(stderr,"Sym Divider at offset 60 is %d\n", short_buf[60]);
+            fprintf(stderr,"Sym ID at offset 61 is %d\n", short_buf[61]);
+            RPGC_get_product_int( (void *) &short_buf[62], &len);
+            fprintf(stderr,"Block Length at offset 62 is %d\n", len);
+            fprintf(stderr,"Number of Layers at offset 64 is %d\n",short_buf[64]);
+            fprintf(stderr,"Layer Divider at offset 65 is %d\n", short_buf[65]);
+            RPGC_get_product_int( (void *) &short_buf[66], &len);
+            fprintf(stderr,"Layer Length at offset 66 is %d\n", len);
+            fprintf(stderr,"1st Packet ID at offset 68 is %d\n", 
+                                                  (unsigned short) short_buf[68]);
+            fprintf(stderr,"First Bin at offset 69 is %d\n", short_buf[69]);
+            fprintf(stderr,"Num Bins at offset 70 is %d\n", short_buf[70]);
+            fprintf(stderr,"I Center at offset 71 is %d\n", short_buf[71]);
+            fprintf(stderr,"J Center at offset 72 is %d\n", short_buf[72]);
+            fprintf(stderr,"Scale at offset 73 is %d\n", short_buf[73]);
+            fprintf(stderr,"Num Radials at offset 74 is %d\n", short_buf[74]);
+         } /* end if DEBUG */

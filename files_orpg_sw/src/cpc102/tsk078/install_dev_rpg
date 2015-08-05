@@ -1,0 +1,578 @@
+#!/bin/sh
+
+# RCS info
+# $Author: steves $
+# $Locker:  $
+# $Date: 2014/03/13 15:54:00 $
+# $Id: install_dev_rpg,v 1.2 2014/03/13 15:54:00 steves Exp $
+# $Revision: 1.2 $
+# $State: Exp $
+
+#################################################################
+#################################################################
+#
+# Define functions
+#
+#################################################################
+#################################################################
+
+#################################################################
+# ECHO_ERROR: Echo error message and exit.
+#################################################################
+
+echo_error ()
+{
+  echo
+  echo
+  echo "ERROR: " $1
+  echo "Stopping script."
+  echo "Use -h option for help"
+  echo
+  exit 1
+}
+
+#################################################################
+# YES_OR_NO: Make sure input is y,Y,n, or N.
+#################################################################
+
+yes_or_no()
+{
+  case $2 in
+    y|Y|n|N);;
+    *) echo_error "$1 is: \"$2\", it should be \"Y\" or \"N\"";;
+  esac
+}
+
+#################################################################
+# DISPLAY_PARAMETERS: Display the current user preferences.
+#################################################################
+
+display_parameters()
+{
+  echo
+  echo
+  echo "#################################"
+  echo "#"
+  echo "# CURRENT PARAMETERS"
+  echo "#"
+  echo "#################################"
+  echo
+  echo "USER:				$NEWUSER"
+  echo "GROUP:				$NEWGROUP"
+  echo "HOME_DIRECTORY:			$USER_HOME_DIR"
+  echo "ORPG_DATA_DIRECTORY:		$ORPG_DIR"
+  echo "TAR_FILE_PATH:			$PATH_TO_TAR_FILES"
+  echo
+  echo
+}
+
+#################################################################
+# DETERMINE_OS: Determine the system's OS.
+#################################################################
+
+determine_OS()
+{
+  myos=`uname`
+  if [ "$myos" = "Linux" ]
+  then
+    ARCH=lnux_x86
+  else
+    echo_error "COULD NOT DETECT OS. Should be Linux"
+  fi
+}
+
+#################################################################
+# CHECK_ROOT_ID: Make sure user has root privileges.
+#################################################################
+
+check_root_id()
+{
+  user_id=`ps -f | awk '{if ($2 == "'$$'")print $1}' | tail -1`
+  if [ "$user_id" != "root" ]
+  then
+    echo_error "YOU MUST RUN THIS SCRIPT WITH ROOT PRIVILEGES (su)"
+  fi
+}
+
+#################################################################
+# SHOW_HELP_MENU: Display the help menu.
+#################################################################
+
+show_help_menu()
+{
+  echo
+  echo "OPTIONS FOR INSTALL_RPG:"
+  echo
+  echo "no option	Installs RPG software using script defaults"
+  echo
+  echo "-d		Prints script default parameters to screen"
+  echo
+  echo "-f filename	Reads parameters from filename (absolute path). Any"
+  echo "		parameters not defined in file filename will retain"
+  echo "		default values shown using the -d flag. The easiest"
+  echo "		way to create the file is to run the script with the"
+  echo "		-d flag and pipe the output to some text file. Change"
+  echo "		the values in the text file and then call the script"
+  echo "		with the -f flag and the text file's path/name."
+  echo
+  echo "-i		Interactive mode. User inputs all parameters"
+  echo
+  echo "-p		Supress PDGUI installation"
+  echo
+  echo "-h		Help"
+  echo
+  echo
+  echo "NOTE: This script assumes the account to install into has already been"
+  echo "      created. It also assume the group name/id is valid. The user"
+  echo "      running this script must have write privileges in the account"
+  echo "      the RPG software is being installed into."
+  echo
+  echo "NOTE: This script requires the presence of the RPG software build"
+  echo "      tarball (set PATH_TO_TAR_FILES variable accordingly). The"
+  echo "      tools/adaptation data tarballs are optional."
+  echo
+  echo "NOTE: On a SUN OS, the size of shared memory segments may need to be"
+  echo "      modified. If this is the case, this script will need to be run"
+  echo "      with root privileges (su). This is not an issue with Linux."
+  echo
+  exit 0
+}
+
+#################################################################
+# READ_INPUT_FILE: Read/parse input file for user preferences.
+#################################################################
+
+read_input_file()
+{
+  ###############################################
+  # Make sure input file exists and is readable.
+  ###############################################
+
+  if [ ! -f $INPUTFILE ]
+  then
+    echo_error "INPUTFILE: $INPUTFILE doesn't exist."
+  fi
+
+  if [ ! -r $INPUTFILE ]
+  then
+    echo_error "INPUTFILE: $INPUTFILE isn't readable."
+  fi
+
+  ##################################
+  # Read user name
+  ##################################
+
+  temp=`sed '/^#/d' $INPUTFILE | awk '/^ *USER:/{print $2}'`
+  if [ "$temp" != "" ]
+  then
+    NEWUSER=$temp
+  else
+    echo
+    echo "No USER: in $INPUTFILE. Using $NEWUSER."
+    echo
+  fi
+
+  ##################################
+  # Read group name
+  ##################################
+
+  temp=`sed '/^#/d' $INPUTFILE | awk '/^ *GROUP:/{print $2}'`
+  if [ "$temp" != "" ]
+  then
+    NEWGROUP=$temp
+  else
+    echo
+    echo "No GROUP: in $INPUTFILE. Using $NEWGROUP."
+    echo
+  fi
+
+  ##################################
+  # Read user's home directory
+  ##################################
+
+  temp=`sed '/^#/d' $INPUTFILE | awk '/^ *HOME_DIRECTORY:/{print $2}'`
+  if [ "$temp" != "" ]
+  then
+    USER_HOME_DIR=$temp
+  else
+    echo
+    echo "No HOME_DIRECTORY: in $INPUTFILE. Using $USER_HOME_DIR."
+    echo
+  fi
+
+  ##################################
+  # Set the data directory name
+  ##################################
+
+  temp=`sed '/^#/d' $INPUTFILE | awk '/^ *ORPG_DATA_DIRECTORY:/{print $2}'`
+  if [ "$temp" != "" ]
+  then
+    ORPG_DIR=$temp
+  else
+    echo
+    echo "No ORPG_DATA_DIRECTORY: in $INPUTFILE. Using $ORPG_DIR."
+    echo
+  fi
+
+  ##################################
+  # Path to installation tar files
+  ##################################
+
+  temp=`sed '/^#/d' $INPUTFILE | awk '/^ *TAR_FILE_PATH:/{print $2}'`
+  if [ "$temp" != "" ]
+  then
+    PATH_TO_TAR_FILES=$temp
+  else
+    echo
+    echo "No TAR_FILE_PATH: in $INPUTFILE. Using $PATH_TO_TAR_FILES."
+    echo
+  fi
+}
+
+#################################################################
+# INTERACTIVE_INPUT: Prompt user for preferences. 
+#################################################################
+
+interactive_input()
+{
+  ##################################
+  # Input user name
+  ##################################
+
+  echo
+  echo "What user name should this user have?"
+  read ans
+  NEWUSER=$ans
+
+  ##################################
+  # Input group name
+  ##################################
+
+  echo 
+  echo "What group should this user be in?"
+  read ans
+  NEWGROUP=$ans
+
+  ##################################
+  # Input user's home directory
+  ##################################
+
+  echo 
+  echo "What is user's home directory?"
+  read ans
+  USER_HOME_DIR=$ans
+
+  ##################################
+  # Set the data directory name
+  ##################################
+
+  echo
+  echo "Enter complete path name to the data directory."
+  read ans
+  ORPG_DIR=$ans
+
+  ##################################
+  # Path to installation tar files
+  ##################################
+
+  echo
+  echo "Enter full path of directory containing build tar files"
+  read ans
+  PATH_TO_TAR_FILES=$ans
+}
+
+#################################################################
+# FINAL_PROMPT: Final chance for user to bail before install.
+#################################################################
+
+final_prompt()
+{
+  #################################################################
+  # Give user last chance to bail. If the user hits the "Enter" key,
+  # the script will start the installation. If the user enters Cntrl-C,
+  # the script will end. Anything else will make the script exit
+  # with error.
+  #################################################################
+
+  echo
+  echo "To start script, hit return."
+  echo
+  echo "If above inputs are wrong, type Ctrl-C and start over"
+  echo
+  echo
+  read ans
+  if [ "$ans" != "" ]
+  then
+    echo_error "INVALID INPUT. INPUT SHOULD BE CNTRL-C OR ENTER KEY."
+  fi
+}
+
+#################################################################
+# EXTRACT_SOFTWARE: Extract software from tarballs.
+#################################################################
+
+extract_software()
+{
+  #######################################################
+  # Make sure directory that contains tarball exists.
+  #######################################################
+
+  if [ ! -d $PATH_TO_TAR_FILES ]
+  then
+    echo_error "DIRECTORY: $PATH_TO_TAR_FILES DOESN'T EXIST"
+  fi
+
+  cd $USER_HOME_DIR
+
+  ###################################################
+  # Create the data directory (if it doesn't exist).
+  ###################################################
+
+  if [ -d $ORPG_DIR ]
+  then
+    rm -fr $ORPG_DIR/* # Directory exists, clean it out.
+  else
+     mkdir $ORPG_DIR
+  fi
+
+  ##########################################
+  # Find latest RPG build tarball and extract.
+  # Could be *.Z (<=bld8) or *.bz2 (>=bld 9).
+  ##########################################
+
+  tarfile=`ls -rdt $PATH_TO_TAR_FILES/orpg_bld*.tar.* | tail -1 `
+  if [ "$tarfile" = "" ]
+  then
+    echo_error "NO RPG BUILD TAR FILE FOUND IN $PATH_TO_TAR_FILES"
+  elif [ -r $tarfile ]
+  then
+    echo 
+    echo "UNPACKING RPG BUILD FROM FILE $tarfile"
+    echo
+    echo $tarfile | egrep '\.bz2$'
+    if [ $? -eq 0 ]
+    then
+      bzip2 -dc $tarfile | tar xvf -
+    else
+      gzip -dc $tarfile | tar xvf -
+    fi
+  else
+    echo_error "RPG BUILD TAR FILE: $tarfile ISN'T READABLE"
+  fi
+
+  ########################################################
+  # Find latest RPG tool tarball (.bz2 only) and extract.
+  ########################################################
+
+  tarfile=`echo $tarfile | sed 's/orpg_bld/orpg_toolsbld/'`
+  tarfile=`echo $tarfile | sed 's/\.Z$/\.bz2/'`
+  if [ ! -f $tarfile ]
+  then
+    echo 
+    echo "NO RPG TOOLS TAR FILE FOUND IN $PATH_TO_TAR_FILES."
+    echo "NO RPG TOOLS INSTALLED."
+    echo 
+  elif [ -r $tarfile ]
+  then
+    echo 
+    echo "UNPACKING RPG TOOLS FROM FILE $tarfile"
+    echo 
+    bzip2 -dc $tarfile | tar xvf -
+    cp -R $USER_HOME_DIR/tools/bin/* $USER_HOME_DIR/bin
+    cp -R $USER_HOME_DIR/tools/cfg/* $USER_HOME_DIR/cfg
+    cp -R $USER_HOME_DIR/tools/data/* $USER_HOME_DIR/data
+    cp -R $USER_HOME_DIR/tools/cvg* $USER_HOME_DIR
+  else
+    echo_error "RPG TOOLS TAR FILE: $tarfile ISN'T READABLE"
+  fi
+
+  ###################################################################
+  # Find latest RPG adaptation data tarball (.bz2 only) and extract.
+  ###################################################################
+
+  tarfile=`echo $tarfile | sed 's/orpg_toolsbld/orpg_adaptation/'`
+  if [ ! -f $tarfile ]
+  then
+    echo 
+    echo "NO RPG ADAPTATION DATA TAR FILE FOUND IN $PATH_TO_TAR_FILES."
+    echo "NO RPG ADAPTATION DATA INSTALLED."
+    echo 
+  elif [ -r $tarfile ]
+  then
+    echo 
+    echo "UNPACKING RPG ADAPTATION DATA FROM FILE $tarfile"
+    echo 
+    cd $USER_HOME_DIR/cfg
+    bzip2 -dc $tarfile | tar xvf -
+  else
+    echo_error "RPG ADAPTATION DATA TAR FILE: $tarfile ISN'T READABLE"
+  fi
+
+}
+
+#################################################################
+# SET_PERMISSIONS: Set directory/file permissions.
+#################################################################
+
+set_permissions()
+{
+  #######################################################
+  # Set ownership of all files so the user is the owner.
+  #######################################################
+
+  cd $USER_HOME_DIR
+  chown -Rh $NEWUSER:$NEWGROUP . > /dev/null 2>&1
+}
+
+#################################################################
+# SET_RSSD_CONF_FILE: Set .rssd.conf file.
+#################################################################
+
+set_rssd_conf_file()
+{
+  r_file="$USER_HOME_DIR/.rssd.conf"
+  client_entry="localhost"
+  echo "Client: $client_entry" > $r_file
+  echo "Path: $ORPG_DIR" >> $r_file
+  echo "Path: ${USER_HOME_DIR}/save_logs" >> $r_file
+  chown $NEWUSER:$NEWGROUP $r_file
+  chmod 664 $r_file
+}
+
+#################################################################
+# SET_SHELL_ENVIRONMENT: Set shell environmental files.
+#################################################################
+
+set_shell_environment()
+{
+  cd $USER_HOME_DIR
+
+  ##################################
+  # Setup .cshrc file.
+  ##################################
+
+  rm -f /tmp/$$tmp
+  cat .cshrc | awk '
+               {
+                 if ($1=="setenv" && $2=="ORPGDIR")
+                 {
+                   printf "setenv ORPGDIR '$ORPG_DIR' \n"
+                 }
+                 else{print $0}
+               }' > /tmp/$$tmp
+  echo "" >> /tmp/$$tmp
+  echo "# FROM INSTALL RPG SCRIPT" >> /tmp/$$tmp
+  echo "" >> /tmp/$$tmp
+  echo "setenv ORPG_NONOPERATIONAL" >> /tmp/$$tmp
+  echo "setenv ARCH $ARCH" >> /tmp/$$tmp
+  echo "" >> /tmp/$$tmp
+  echo 'setenv LD_LIBRARY_PATH $HOME/lib/lnux_x86' >> /tmp/$$tmp
+  echo 'setenv PATH ${PATH}:$HOME/bin:$HOME/bin/lnux_x86:/usr/local/java/bin:$ORDA_HOME/scripts:/sbin:/usr/sbin:/bin:/usr/bin:/usr/local/bin' >> /tmp/$$tmp
+  echo 'setenv MANPATH $HOME/man:/usr/local/man:/usr/share/man' >> /tmp/$$tmp
+  echo "" >> /tmp/$$tmp
+  echo "if ( -f $USER_HOME_DIR/.cshrc_add ) then" >> /tmp/$$tmp
+  echo "  source $USER_HOME_DIR/.cshrc_add" >> /tmp/$$tmp
+  echo "endif" >> /tmp/$$tmp
+  echo "" >> /tmp/$$tmp
+  mv /tmp/$$tmp .cshrc
+
+  ##################################
+  # Setup .bash_profile file.
+  ##################################
+
+  rm -f /tmp/$$tmp
+  cd $USER_HOME_DIR
+  cat .bash_profile | awk '
+                 {
+                   if ($2 ~/^ORPGDIR=/)
+                   {
+                     printf "export ORPGDIR='$ORPG_DIR' \n"
+                   }
+                   else {print $0}
+                 }' > /tmp/$$tmp
+  echo "" >> /tmp/$$tmp
+  echo "# FROM INSTALL RPG SCRIPT" >> /tmp/$$tmp
+  echo "" >> /tmp/$$tmp
+  echo "export ORPG_NONOPERATIONAL=" >> /tmp/$$tmp
+  echo "export ARCH=$ARCH" >> /tmp/$$tmp
+  echo "" >> /tmp/$$tmp
+  echo 'export LD_LIBRARY_PATH=$HOME/lib/lnux_x86' >> /tmp/$$tmp
+  echo 'export PATH=$PATH:/sbin:/usr/sbin:/bin:/usr/bin:/usr/local/bin:$HOME/bin:$HOME/bin/lnux_x86:/usr/local/java/bin' >> /tmp/$$tmp
+  echo 'export MANPATH=$HOME/man:/usr/local/man:/usr/share/man' >> /tmp/$$tmp
+  echo "" >> /tmp/$$tmp
+  echo "if [ -f $USER_HOME_DIR/.bash_profile_add ]" >> /tmp/$$tmp
+  echo "then" >> /tmp/$$tmp
+  echo "  . $USER_HOME_DIR/.bash_profile_add" >> /tmp/$$tmp
+  echo "fi" >> /tmp/$$tmp
+  echo "" >> /tmp/$$tmp
+  mv /tmp/$$tmp .bash_profile
+}
+
+#################################################################
+#################################################################
+#
+# End of function definitions.
+# Start of main script.
+#
+#################################################################
+#################################################################
+
+##################################
+# Initialize defaults.
+##################################
+
+NEWUSER=`ps -f | awk '{if ($2 == "'$$'")print $1}' | tail -1`
+NEWGROUP="rpg"
+USER_HOME_DIR=$HOME
+ORPG_DIR=$USER_HOME_DIR/data
+PATH_TO_TAR_FILES=$USER_HOME_DIR
+USER_INPUT="DEFAULT"
+PDGUI_INSTALL="YES"
+
+###################################################
+# Decode argument list. If there are no arguments,
+# use defautls listed above.
+###################################################
+
+while getopts df:iph c
+do
+  case $c in  
+    d)	display_parameters; exit 0;; # Show current parameters.
+    f)  USER_INPUT="FILE"; INPUTFILE="$OPTARG";; # read inputs from file
+    i)	USER_INPUT="INTERACTIVE";; # Completely interactive.
+    p)	PDGUI_INSTALL="NO";; # Do not install PDGUI
+    h)	show_help_menu;; # Display help menu.
+    \?)	echo_error "Bad input, invalid flag passed.";;
+  esac
+done
+
+determine_OS # Which OS are we using?
+
+if [ $USER_INPUT = "FILE" ]
+then
+  read_input_file # Read/parse file for preferences.
+elif [ $USER_INPUT = "INTERACTIVE" ]
+then
+  interactive_input # Prompt user for preferences.
+fi
+
+display_parameters # Show user current preferences.
+final_prompt # Give user last chance to bail.
+
+extract_software # Extract software from tar file.
+set_permissions # Set directory/file permissions
+set_rssd_conf_file # Setup .rssd.conf file
+set_shell_environment # Modify .cshrc/.bash_profile
+
+echo
+echo "*******************************"
+echo
+echo "Installation of RPG software complete."
+echo
+echo "To set necessary environmental variables:"
+echo "If using csh, 'source .cshrc'"
+echo "If using bash, '. .bash_profile'"
+echo
+echo "*******************************"
+echo
+

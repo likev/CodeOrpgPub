@@ -1,0 +1,314 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/03 14:17:40 $
+C $Id: a30782.ftn,v 1.3 2002/12/03 14:17:40 christie Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A30782__AZIMUTH_SRCH(BUFF, REQTAB, TOTALREQ, BUFFTAB)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A30782__AZIMUTH_SRCH
+*.
+*.  MODULE VERSION: 0015
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       06 09 85      0001      BOB BENEDICT         PART 2, RPG BUILD 1
+*.       08 04 86      0002      MIKE ISTOK           SPR # 60332
+*.       04 14 87      0003      JO STALEY            SPR # 70119
+*.       04 29 88      0003      STEVEN SMITH         SPR # 80061
+*.       08 22 88      0004      VALERIE HOLDEN       SPR # 80248
+*.       09 12 88      0005      CHARLIE BAUMHER      SPR # 80271
+*.       11 03 90      0006      MARK FRESCH          SPR # 91248
+*.       12 03 91      0007      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0008      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/20/92      0009      Toolset              SPR 91895
+*.       03/25/93      0010      Toolset              SPR NA93-06801
+*.       01/28/94      0011      Toolset              SPR NA94-01101
+*.       03/03/94      0012      Toolset              SPR NA94-05501
+*.       04/11/96      0013      Toolset              CCR NA95-11802
+*.       12/23/96      0014      Toolset              CCR NA95-11807
+*.       03/16/99      0015      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:
+*.  CALL A30782__AZIMUTH_SRCH(BUFF,REQTAB,TOTALREQ,BUFFTAB)
+*.
+*.  MODULE FUNCTION:
+*.   THIS VERTICAL CROSS SECTION ROUTINE TAKES IN A RADIAL OF DATA
+*.  AND DETERMINES FOR THE GIVEN PLANE IF THE INCOMING RADIAL
+*.  IS BETWEEN POINTS P1 AND P2. IF A  "MATCH" IS FOUND,THEN CALL
+*.  THE CARTESIAN MAP ROUTINE TO MAP THE DATA TO THE GRID FOR
+*.  THIS PRODUCT.
+*.
+*.  MODULES CALLED: A30783__CART_MAP, A3078D__HDR_INFO, A3078E__NORTH_HEMI, 
+*.                  A3078F__SOUTH_HEMI, A3078J__ORIG_CROSS 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT      TYPE        DESCRIPTION
+*.    -   -----      ----        -----------
+*.    G   MEM        I*4         Array in RPG shared memory set aside for
+*.                               buffer sharing.
+*.    G   REFO       I*4         (CONSTANT)Offset to base radial reflectivity
+*.                               data in input buffer (relative O from
+*.                               'MEM(PTR)').
+*.    G   SPWO       I*4         (CONSTANT)Offset to base radial spectrum
+*.                               width data in input buffer (relative O from
+*.                               'MEM(PTR)').
+*.    G   VELO       I*4         (CONSTANT)Offset to base radial velocity data
+*.                               in input buffer.
+*.    C   GRID_XCOLS I*4         Contains the number of Columns calculated for
+*.                               each product.
+*.    C   GRID_YROWS I*4         Contains the number of rows calculated for
+*.                               each product.
+*.    C   HEMI       I*4         Hemispherical orientation of P1-P2 plane.
+*.    C   INC1       I*4         (CONSTANT)Constant, used as an incrementor
+*.                               value.
+*.    C   NORTH_HEMI I*4         (CONSTANT)Flag for north hemispherical line.
+*.    C   ONE        I*4         (CONSTANT)Constant value of one.
+*.    C   PCODE      I*4         (CONSTANT)Constant used as an index to
+*.                               requested product code from the request table
+*.                               (REQTAB) buffer.
+*.    C   REFLPROD16 I*4         (CONSTANT)Product code for Cross Section
+*.                               (Reflectivity) 16 data levels.
+*.    C   REFLPROD8  I*4         (CONSTANT)Product code for Cross Section
+*.                               (Reflectivity) 8 data levels
+*.    C   REQCOLS    I*4         (CONSTANT)Maximum number of request columns
+*.                               in the request table.
+*.    C   REQROWS    I*4         (CONSTANT)Number of request rows (parameters)
+*.                               in the request table.
+*.    C   SOUTH_HEMI I*4         (CONSTANT)Flag for South Hemispherical Line.
+*.    C   VELOCITY   I*4         (CONSTANT)Moment constant for velocity.
+*.    C   VELOPROD16 I*4         (CONSTANT)Velocity PCODE data level 16.
+*.    C   VELOPROD8  I*4         (CONSTANT)Velocity PCODE data level 8.
+*.    P   BUFF       I*2         BASE RADIAL INPUT BUFFER
+*.    P   BUFFTAB    I*4         TABLE OF OUTPUT BUFFR PTRS
+*.    P   REQTAB     I*2         TABLE OF PRODUCT REQUESTS
+*.    P   TOTALREQ   I*4         NUMBER OF PRODUCTS REQUESTED
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    G   MEM     I*4         Array in RPG shared memory set aside for buffer
+*.                            sharing.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    G   MEM               I*4         Array in RPG shared memory set aside
+*.                                      for buffer sharing.
+*.    C   GRID_XCOLS        I*4         Contains the number of Columns
+*.                                      calculated for each product.
+*.    C   GRID_YROWS        I*4         Contains the number of rows calculated
+*.                                      for each product.
+*.    P   BUFF              I*2         BASE RADIAL INPUT BUFFER
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME           TYPE        DESCRIPTION
+*.    ----           ----        -----------
+*.    BFPTR          I*4         POINTER TO BASE RADIAL BINS
+*.    BGOOD_BIN      I*4         FIRST GOOD BIN FOR A REQUEST
+*.    BR_BIN         I*4         FIRST GOOD REFLECTIVITY BIN
+*.    BV_BIN         I*4         FIRST GOOD VELOCITY BIN
+*.    C1KM_BIN       R*4         CONSTANT OF 1 KM PER BIN
+*.    CPT25KM_BIN    R*4         CONSTANT OF .25 KM PER BIN
+*.    EGOOD_BIN      I*4         LAST GOOD BIN FOR A REQUEST
+*.    ER_BIN         I*4         LAST GOOD REFLECTIVITY BIN
+*.    EV_BIN         I*4         LAST GOOD VELOCITY BIN
+*.    HL             R*4         DIST FROM P1 TO LEFT_AZ ALONG THE P1P2 LINE
+*.    HR             R*4         DIST FROM P1 TO RIGHT_AZ ALONG THE P1P2 LINE
+*.    I              I*4         PRODUCT NUMBER PROCESSING
+*.    MATCH          L*4         INCOMING AZ MATCHES P1P2 RANGE
+*.    MOMENT         I*4         MOMENT(1=REF,2=VEL,3=SPT.WDTH)
+*.    NUM_BYTES      I*4         NUMBER OF BYTES
+*.    RADAZM         R*4         AZIMUTH OF THIS BASE RADIAL
+*.    RADELV         R*4         ELEVATION OF THIS BASE RADIAL
+*.    REFLECTIVITY   I*4         Indicates reflectivity moment constant.
+*.    RESOLUTION     R*4         RESOLUTION OF RADIAL DATA
+*.    SLANT_LEFT     R*4         RANGE FROM RADAR TO LEFT_AZ
+*.    SLANT_RIGHT    R*4         RANGE FROM RADAR TO RIGHT_AZ
+*.    SLOPE          R*4         SLOPE OF THE RADIAL BEAM THRU THE PLANE P1P2
+*.                               LINE.
+*.    SPECTRUM_WIDTH I*4         Spectum width moment constant.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD00
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3078CA
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS: NONE
+*.
+*.  DEVIATION FROM STANDARDS: NONE
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP07.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK07.CSS
+*.
+*.  MISC: NONE
+*.
+*.*******************************************************************
+C*
+C*
+C***************************************************************
+C*
+C*                A 3 0 7 8 2 __ AZIMUTH_SRCH
+C*
+C*   VERTICAL CROSS SECTION ROUTINE TO CHECK EACH BASE RADIAL
+C*   REQUESTED BY THE PUP.
+C*
+C***************************************************************
+C*
+C*
+      IMPLICIT NONE
+C*
+C*  INCLUDE COMMON PARAMETER FILE
+C*
+$INCLUDE A309.INC/G,**A3CD00 (     NLIST)
+$INCLUDE A304.INC/G,**A304P4 (     NLIST)
+$INCLUDE A307.INC,**A30788   (     NLIST)
+$INCLUDE          **A3078CA  (     NLIST)
+C*
+C***************************************************************
+C*  LOCAL DECLARATIONS
+C*
+      INTEGER*2    REQTAB(REQROWS,REQCOLS)
+      INTEGER*2    BUFF(*)
+      INTEGER*4    I
+      INTEGER*4    MOMENT
+C
+      INTEGER*4    BFPTR
+      INTEGER*4    NUM_BYTES
+      INTEGER*4    TOTALREQ
+      INTEGER*4    BUFFTAB(TOTALREQ)
+      INTEGER*4    BR_BIN, ER_BIN, BV_BIN, EV_BIN
+      INTEGER*4    BGOOD_BIN, EGOOD_BIN
+C
+      REAL*4       RADAZM, RADELV
+      REAL*4       RESOLUTION
+      REAL*4       SLANT_LEFT, SLANT_RIGHT
+      REAL*4       HL, HR, SLOPE
+      REAL*4       C1KM_BIN
+      REAL*4       CPT25KM_BIN
+C
+      LOGICAL      MATCH
+C*
+C***************************************************************
+C*  LOCAL PARAMETER  DECLARATIONS
+C*
+      PARAMETER   ( NUM_BYTES = 2 )
+      PARAMETER   ( C1KM_BIN    = 1.00 )
+      PARAMETER   ( CPT25KM_BIN = 0.25 )
+C*
+C*********************************************************************
+C*  GET AZ, ELEV, AND EXTENT OF GOOD BINS FROM RADIAL HEADER
+C*
+      CALL A3078D__HDR_INFO(BUFF, RADAZM, RADELV, BR_BIN, ER_BIN,
+     $                      BV_BIN, EV_BIN )
+C*
+C*********************************************************************
+C*  CHECK EACH CROSS SECTION PRODUCT REQUEST FOR A MATCHING AZIMUTH
+C*  WITH THIS BASE RADIAL (+/- TOLERANCE).
+C*
+C*
+      DO 200 I = ONE, TOTALREQ
+C*
+C*********************************************************************
+C*  CALL THE APPROPRIATE ROUTINE BASED ON THE HEMISPHERICAL
+C*  ORIENTATION OF THE PLANE ( N.H. / S.H. / ORIGIN_CROSS ) TO
+C*  DETERMINE IF THE INCOMING RADIAL IS WITHIN THE PLANE CREATED
+C*  BY POINTS P1 AND P2.
+C*
+        MATCH = .FALSE.
+        IF ( HEMI(I) .EQ. NORTH_HEMI ) THEN
+          CALL A3078E__NORTH_HEMI(RADAZM,I,MATCH,HL,HR,
+     $                            SLANT_LEFT,SLANT_RIGHT,SLOPE )
+        ELSE IF ( HEMI(I) .EQ. SOUTH_HEMI ) THEN
+          CALL A3078F__SOUTH_HEMI(RADAZM,I,MATCH,HL,HR,
+     $                            SLANT_LEFT,SLANT_RIGHT,SLOPE )
+        ELSE
+          CALL A3078J__ORIG_CROSS(RADAZM,I,MATCH,HL,HR,
+     $                            SLANT_LEFT,SLANT_RIGHT,SLOPE )
+        ENDIF
+C
+        IF ( MATCH ) THEN
+C
+C*
+C*********************************************************************
+C*  BASED ON PRODUCT REQUEST - DECIDE WHICH BUFFER TO PASS
+C*  ON: BASE REFLECTIVITY, BASE VELOCITY, OR BASE SPECTRUM WIDTH.
+C*
+X         TYPE *,'82: MATCH FOUND SET UP FOR 83 '
+C
+            IF ( REQTAB(PCODE,I) .EQ. REFLPROD16  .OR.
+     $             REQTAB(PCODE,I) .EQ. REFLPROD8 ) THEN
+C
+C*  REFLECTIVITY CASE
+C
+              BFPTR = ( REFO * NUM_BYTES ) + INC1
+              MOMENT = REFLECTIVITY
+              RESOLUTION = C1KM_BIN
+              BGOOD_BIN = BR_BIN
+              EGOOD_BIN = ER_BIN
+X             TYPE *,'82: REF 8/16 ',BFPTR,MOMENT,RESOLUTION
+C
+            ELSE
+C
+C*  USE VELOCITY GOOD BINS
+C
+              BGOOD_BIN = BV_BIN
+              EGOOD_BIN = EV_BIN
+C
+              IF ( REQTAB(PCODE,I) .EQ. VELOPROD16  .OR.
+     $               REQTAB(PCODE,I) .EQ. VELOPROD8 ) THEN
+C
+C*  USE VELOCITY DATA
+C
+                BFPTR = ( VELO * NUM_BYTES ) + INC1
+                MOMENT = VELOCITY
+X               TYPE *,'82: VEL 8/16 ',BFPTR,MOMENT
+C
+              ELSE
+C
+C*  USE SPECTRUM WIDTH DATA
+C
+                BFPTR = ( SPWO * NUM_BYTES ) + INC1
+                MOMENT = SPECTRUM_WIDTH
+X               TYPE *,'82: SPW 8 ',BFPTR,MOMENT
+              END IF
+C
+C*  SET DOPPLER RANGE RESOLUTION
+C
+              RESOLUTION = CPT25KM_BIN
+X             TYPE *,'82: VEL/SPW RESOLUTION = ',RESOLUTION
+            END IF
+C*
+C*********************************************************************
+C*  CALL THE CARTESIAN MAP ROUTINE TO MAP THIS RADIALS DATA.
+C*
+            CALL A30783__CART_MAP( MEM(BUFFTAB(I)), GRID_YROWS(I),
+     $         GRID_XCOLS(I), BUFF(BFPTR), RADELV, HL, HR, SLANT_LEFT,
+     $            SLOPE, RESOLUTION, MOMENT, BGOOD_BIN, EGOOD_BIN )
+C
+        ENDIF
+C
+200   CONTINUE
+      RETURN
+      END

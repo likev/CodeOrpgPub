@@ -1,0 +1,310 @@
+#!/bin/sh
+#
+# RCS info
+# $Author: cmn $
+# $Locker:  $
+# $Date: 2008/09/12 19:56:58 $
+# $Id: loopall,v 1.2 2008/09/12 19:56:58 cmn Exp $
+# $Revision: 1.2 $
+# $State: Exp $
+#
+# File name:            loopall
+# Author:               Chris Gilbert
+# Creation Date:	09/06/00
+#
+# Purpose: Provide a user interface script to assist
+#          in running htest loopback tests on the PTI
+#          MPS800 box.
+#
+#set -x      #Debug option
+
+ESC="`echo X | tr X '\033'`"  # Define the escape character
+BOLD=$ESC[1m      # bold text attributes
+NORMAL=$ESC[0m    # normal text attributes
+
+
+#**************************************************************************
+# Beginning of Functions
+#**************************************************************************
+
+get_box_selection () {
+
+clear
+
+while :       # Endless loop
+do
+
+   #  Give user a menu with choices to select.
+
+   echo "Choose which MPS800 to test:"
+   echo
+   echo "  1 - 1A"
+   echo "  2 - 1B"
+   echo "  3 - 1C"
+   echo "  4 - 2A"
+   echo "  5 - 2B"
+   echo "  6 - 2C"
+   echo "  q - quit"
+   echo
+   echo
+
+   read SELECTION
+
+   case "$SELECTION" in
+
+      "q")
+         echo "quitting..." 
+         exit 1    
+         ;;
+
+      "1")
+         BOX=mps1a  
+         break
+         ;;
+
+      "2")
+         BOX=mps1b  
+         break
+         ;;
+
+      "3")
+         BOX=mps1c  
+         break
+         ;;
+
+
+      "4")
+         BOX=mps2a  
+         break
+         ;;
+
+      "5")
+         BOX=mps2b  
+         break
+         ;;
+
+      "6")
+         BOX=mps2c  
+         break
+         ;;
+
+      *)
+         echo "ERROR: Incorrect selection"
+         exit 1
+         ;;
+   esac
+
+   echo
+
+done
+
+}
+
+#**************************************************************************
+
+get_clock_selection () {
+
+clear
+
+while :       # Endless loop
+do
+
+   #  Give user a menu with choices to select.
+
+   echo "Choose external or internal clocking:"
+   echo
+   echo "  1 - Internal (5600 baud)"
+   echo "  2 - External (Need special Y loopback cable)"
+   echo "  q - quit"
+   echo
+   echo
+
+   read SELECTION
+
+   case "$SELECTION" in
+
+      "q")
+         echo "quitting..." 
+         exit 1    
+         ;;
+
+      "1")
+         CLOCK=56000  
+         break
+         ;;
+
+      "2")
+         CLOCK=-1     
+         break
+         ;;
+
+      *)
+         echo "ERROR: Incorrect selection"
+         exit 1
+   esac
+
+   echo
+
+done
+
+}
+
+#**************************************************************************
+
+loopback_test () {
+
+PORT1=$1
+PORT2=$2
+
+#
+# Set a trap prompt in case an interrupt occurs.
+#
+
+trap 'echo;echo ${BOLD}ERROR: testing on ports ${PORT1} and ${PORT2} failed.${NORMAL} ;exit 1' 1 2 3 9 15 
+
+#
+# rm the OUTFILE just in case it exists.
+#
+rm ${OUTFILE} > /dev/null 2>&1
+
+#
+# Run the PTI hdlc test program.
+#
+htest -f 128 -b $CLOCK -s $BOX ${PORT1} ${PORT2} ${XMITFILE} ${OUTFILE} |tee -ia ${LOGFILE} 
+   
+#
+# See if there is any difference between the transmitted
+# and received files. No difference equals success.
+#
+diff ${XMITFILE} ${OUTFILE} > /dev/null 2>&1
+if [ $? -ne 0 ]; then
+     echo "${BOLD}ERROR: transferred data doesn't match. Test failed between port ${PORT1} and ${PORT2}.${NORMAL}" | tee -ia ${RESULTS}
+else
+    echo "${BOLD}SUCCESS: transferred test data successfully between ports ${PORT1} and ${PORT2}.${NORMAL}" | tee -ia ${RESULTS}
+fi
+
+#
+# rm the OUTFILE just in case it exists.
+#
+rm ${OUTFILE} > /dev/null 2>&1
+
+
+#
+# Run the PTI hdlc test AGAIN but in the other direction.
+#
+htest -f 128 -b $CLOCK -s $BOX ${PORT2} ${PORT1} ${XMITFILE} ${OUTFILE} |tee -ia ${LOGFILE} 
+   
+
+#
+# See if there is any difference between the transmitted
+# and received files. No difference equals success.
+#
+diff ${XMITFILE} ${OUTFILE} > /dev/null 2>&1
+if [ $? -ne 0 ]; then
+    echo "${BOLD}ERROR: transferred data doesn't match. Test failed between port ${PORT2} and ${PORT1}.${NORMAL}" | tee -ia ${RESULTS}
+else
+    echo "${BOLD}SUCCESS: transferred test data successfully between ports ${PORT2} and ${PORT1}.${NORMAL}" | tee -ia ${RESULTS}
+fi
+
+#
+# rm the OUTFILE just in case it exists.
+#
+rm ${OUTFILE} > /dev/null 2>&1
+}
+
+#**************************************************************************
+ready_prompt() {
+
+clear
+
+# Prompt and confirm the user is ready.
+
+echo
+echo
+echo "Note: Cables should be installed on pairs 0 & 1, 2 & 3,"
+echo "4 & 5, and 6 & 7.  Are you ready to test? (y/n/q)"
+echo
+read PROMPT
+echo
+
+if [ "$PROMPT" = "n" -o "$PROMPT" = "N" -o   \
+     "$PROMPT" = "No" -o "$PROMPT" = "no" -o \
+     "$PROMPT" = "NO" ]
+then
+   echo "Run test again when you're ready..."
+   exit 1
+fi
+
+if [ "$PROMPT" = "q" ]
+then
+   exit 1
+fi
+
+
+} 
+
+#*******************************************************************************
+# End of Functions
+#*******************************************************************************
+
+#*******************************************************************************
+# Main Body of Script
+#*******************************************************************************
+
+# Prompt user for needed test info
+
+get_box_selection 
+
+get_clock_selection 
+
+ready_prompt
+
+#
+# Get an unique id for our filenames. PIDs only start
+# over when the system is rebooted and then the /tmp
+# directory is cleaned.
+#
+clear &
+PID=$!
+
+LOGFILE=/tmp/looplog.${PID}
+OUTFILE=/tmp/dataout.${PID}
+RESULTS=/tmp/result.${PID}
+XMITFILE=$HOME/bin/loopall
+
+rm ${LOGFILE} > /dev/null 2<&1
+rm ${OUTFILE} > /dev/null 2<&1
+rm ${RESULTS} > /dev/null 2<&1
+
+echo "Note: If test hangs for a long time do a CONTROL-C to exit. Testing..."
+sleep 1
+
+#
+# Run the test on all eight ports.
+#
+loopback_test 0 1
+
+loopback_test 2 3
+
+loopback_test 4 5
+
+loopback_test 6 7
+
+echo
+echo
+echo
+echo
+echo
+
+#
+# Print out test results
+#
+echo "${BOLD}***********************Test Summary on ${BOX}*************************${NORMAL}"
+cat ${RESULTS}
+
+echo "${BOLD}Finished testing. Statistics are saved in the ${LOGFILE} file.${NORMAL}"
+echo "${BOLD}*********************************************************************${NORMAL}"
+
+
+
+

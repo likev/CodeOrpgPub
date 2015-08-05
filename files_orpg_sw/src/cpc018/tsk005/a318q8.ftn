@@ -1,0 +1,247 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/17 18:34:25 $
+C $Id: a318q8.ftn,v 1.4 2002/12/17 18:34:25 christie Exp $
+C $Revision: 1.4 $
+C $State: Exp $
+C
+      SUBROUTINE A318Q8__TVS_PAGE(BUF)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A318Q8__TVS_PAGE
+*.
+*.  MODULE VERSION: 0020
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       03 15 85      0000      D.A.HUMPHREYS        PART 2, RPG BUILD 1
+*.       06 03 86      0001      JS GROMMONS          SPR#  60124
+*.       06 03 86      0001      JS GROMMONS          SPR#  60216
+*.       09 05 86      0002      MJSTALEY             SPR#  60382
+*.       03 20 87      0003      MJSTALEY             SPR#  70146
+*.       08 22 88      0004      VALERIE HOLDEN       SPR#  80248
+*.       11 08 88      0005      CHI CHAN             SPR#  80613
+*.       04 13 90      0006      JOHN DEPHILIP        SPR#  90303
+*.       06 08 90      0007      PAUL U. PISANI       SPR#  90775 [QAR 1201]
+*.       11 06 90      0008      MEI   OU             SPR#  91259
+*.       12 03 91      0009      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0010      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0011      Toolset              SPR 91895
+*.       03/25/93      0012      Toolset              SPR NA93-06801
+*.       01/28/94      0013      Toolset              SPR NA94-01101
+*.       03/03/94      0014      Toolset              SPR NA94-05501
+*.       04/01/94      0015      Steve Smith          CCR 93146-002A00
+*.       04/01/95      0016      Toolset              CCR NA95-11802
+*.       09/04/95      0017      STEVE SMITH          CCR NA94-26302
+*.       12/23/96      0018      Toolset              CCR NA95-11807
+*.       05/15/97      0019      DAVE ZITTEL          CCR NA95-21503
+*.       03/16/99      0020      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A318Q8__TVS_PAGE(BUF)
+*.
+*.  MODULE FUNCTION: WRITE A TABULAR TVS PAGE TO PRODUCT BUFFER
+*.
+*.  MODULES CALLED: A3CM38__JULIAN2DATE 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT     TYPE        DESCRIPTION
+*.    -   -----     ----        -----------
+*.    G   SIRPGID   I*4         Site Adaptation - RPG ID Number.
+*.    G   SUMMARY   I*4         Volume Scan Summary Table
+*.    G   SCAN_DATE I*4         (CONSTANT)Volume Scan Date index into Scan
+*.                              Summary Table
+*.    G   SCAN_TIME I*4         (CONSTANT)Volume Scan Time index into Scan
+*.                              Summary Table
+*.    C   BFLGETVS  L*4         Flag indicating the number of ETVSs that TDA
+*.                              identified was greater than the adaptable
+*.                              threshold number specified.
+*.    C   BFLGTVS   L*4         Flag indicating the number of TVSs that TDA
+*.                              identified was greater than the adaptable
+*.                              threshold number specified.
+*.    C   DT_VOLNO  I*4         Volume scan number
+*.    C   IETVS     I*4         Number of Elevated TVS (ETVS) features
+*.                              identified by the Tornado Detection Algorithm.
+*.    C   ITVS      I*4         Number of TVS features detected identified by
+*.                              the Tornado Detection Algorithm.
+*.    C   TVSIDX    I*4         TVS product output buffer index for pointing
+*.                              to next location in array BUF.
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    C   NUMLINE I*4         Line number on current page.
+*.    C   TVSIDX  I*4         TVS product output buffer index for pointing to
+*.                            next location in array BUF.
+*.    P   BUF     I*2         DUMMY OUTPUT BUFFER FOR STORING I*2 DATA INTO
+*.                            I*4 MEMORY
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME         TYPE        DESCRIPTION
+*.    ----         ----        -----------
+*.    BLANK        CHAR*1      Spacebar character that is a placeholder
+*.                             modifier for the number of TVSs/ETVSs displayed
+*.                             on the TDA alphanumeric product.
+*.    CHARNUM      I*2         CURRENT CHARACTER NUMBER
+*.    EIGHT        I*4         Constant Used to initialize current line number
+*.                             (VNMLINE).
+*.    ETVQUALFR    CHAR*1      Character variable used to modify the number of
+*.                             Elevated TVSs displayed on the TDA alphanumeric
+*.                             product.
+*.    GREATER_THAN CHAR*1      Character used to show the number of TVSs/ETVSs
+*.                             detected by the TDA exceeds the adaptable
+*.                             parameter thresholds.
+*.    I            I*4         Do loop index.
+*.    J            I*4         Do loop index for the number of columns
+*.    NCOLS        I*4         COLUMN CONSTANT
+*.    NROWS        I*4         ROW CONSTANT
+*.    R2DATE       I*2         JULIAN DATE ARRAY
+*.    RDATE        I*4         DATE ARRAY
+*.    RTIME        I*4         TIME ARRAY
+*.    SECPHR       I*4         SEC PER HOUR CONSTANT
+*.    SECPMIN      I*4         SEC PER MIN CONSTANT
+*.    TB           CHAR*80     TABULAR BUFFER IN CHARACTER FORMAT
+*.    TBUF         I*2         TABULAR BUFFER
+*.    TVQUALFR     CHAR*1      Character variable used to modify the number of
+*.                             TVSs displayed on the TDA alphanumeric product
+*.    V2DATE       I*2         Volume Scan date to be converted
+*.    VDATE        I*4         Volume Scan Date from the SUMMARY array
+*.    VTIME        I*4         Volume Scan Time in MSEC
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD05
+*.    SITEADP
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    TAB
+*.    TVSINDEX
+*.    XTIME
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  NONE
+*.
+*.  DEVIATION FROM STANDARDS:  NONE
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     THIS MODULE IS COMPILED USING THE COMP18.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     THIS MODULE IS LINKED USING THE LINK18.CSS
+*.
+*.  MISC:  NONE
+*.
+*.*******************************************************************
+$EJECT
+      IMPLICIT NONE
+$INCLUDE A309.INC/G,**A3PM00       (NEND NLIST)
+$INCLUDE A309.INC/G,**A3PM01       (NEND NLIST)
+$INCLUDE A309.INC/G,**A3PM06       (NEND NLIST)
+$INCLUDE A309.INC/G,**A3CD05       (NEND NLIST)
+$INCLUDE A309ADPT.INC/G,**A3CD70CA (NEND NLIST)
+$INCLUDE A317BUF.INC/G,**A317TP9 (NLIST)
+$INCLUDE A318.INC/G,**A318TVS (NEND NLIST)
+$INCLUDE A318.INC/G,**A318TVS1 (NEND NLIST)
+      INTEGER*4 MAXPAGE,MAXLINE,NUMPAGE,NUMLINE
+      COMMON /TAB/MAXPAGE,MAXLINE,NUMPAGE,NUMLINE
+C  LOCAL DECLARATIONS
+      INTEGER*2  V2DATE,R2DATE(3)
+      INTEGER*4  SECPHR,SECPMIN,RTIME(3),RDATE(3),VTIME,VDATE
+      INTEGER*4  EIGHT, ZERO
+      CHARACTER*1 BLANK,GREATER_THAN, TVQUALFR, ETVQUALFR
+      PARAMETER (BLANK = ' ', GREATER_THAN = '>', ZERO = 0)
+      PARAMETER  (SECPHR=3600,SECPMIN=60)
+      PARAMETER  (EIGHT=8)
+C
+      INTEGER*4  DT_VOLNO
+      COMMON/XTIME/DT_VOLNO
+C
+      INTEGER*4  NROWS,NCOLS
+      PARAMETER  (NROWS=40,NCOLS=7)
+C
+      INTEGER*2 BUF(*),CHARNUM
+      INTEGER*2 TBUF(NROWS,NCOLS)
+      INTEGER*4 RDAID,I,J
+      CHARACTER*80 TB(NCOLS)
+      EQUIVALENCE (TBUF(1,1),TB(1))
+      PARAMETER (CHARNUM=80,RDAID=0)
+C
+C  EXECUTABLE CODE
+C
+C  GET VOLUME DATE AND TIME
+      VDATE=SUMMARY(SCAN_DATE,DT_VOLNO)
+      VTIME=SUMMARY(SCAN_TIME,DT_VOLNO)
+      V2DATE = VDATE
+      CALL A3CM38__JULIAN2DATE(V2DATE,R2DATE)
+C  GET REPORT DATE
+      RDATE(1) = R2DATE(2)
+      RDATE(2) = R2DATE(1)
+      RDATE(3) = R2DATE(3)
+C  GET REPORT TIME
+      RTIME(1) = VTIME/SECPHR
+      RTIME(2) = (VTIME - RTIME(1)*SECPHR)/SECPMIN
+      RTIME(3) = VTIME - RTIME(1)*SECPHR - RTIME(2)*SECPMIN
+C
+C  WRITE TO INTERNAL FILE LINES 1-7 OF PAGE HEADER
+C
+      TVQUALFR = BLANK
+      ETVQUALFR = BLANK
+      IF(BFLGTVS) THEN
+         TVQUALFR = GREATER_THAN
+      ENDIF
+C
+      IF(BFLGETVS) THEN
+         ETVQUALFR = GREATER_THAN
+      ENDIF
+C
+      WRITE(TB(1),1)
+ 1    FORMAT(80X)
+      WRITE(TB(2),2)
+ 2    FORMAT(28X,'Tornado Vortex Signature',28X)
+      WRITE(TB(3),3) SIRPGID,RDATE(1),RDATE(2),RDATE(3),RTIME(1),
+     > RTIME(2),RTIME(3),TVQUALFR,ITVS,ETVQUALFR, IETVS
+ 3    FORMAT(6X,'Radar Id ',I3,3X,'Date/Time  ',I2.2,':',I2.2,':',
+     >  I2.2,'/',I2.2,':',I2.2,':',I2.2,'   Number of TVS/ETVS ',
+     >  1X,A1,I2,'/',A1,I2,1X)
+      WRITE(TB(4),4)
+ 4    FORMAT(80X)
+      WRITE(TB(5),5)
+ 5    FORMAT(1X,'Feat  Storm   AZ/RAN  AVGDV  LLDV  MXDV/Hgt   Depth'
+     >  ,4X,'Base/Top   MXSHR/Hgt')
+C   LINES 6,7
+      WRITE(TB(6),6)
+ 6    FORMAT(1X,'Type',4X,'ID',3X,'(deg,nm)  (kt)  (kt)  (kt,kft)',3X
+     >    ,'(kft)',5X,'(kft)',5X,'(E-3/s,kft)')
+      WRITE(TB(7),7)
+ 7    FORMAT(80X)
+C  STORE LINES 1-7 OF TVS PAGE HEADER
+      BUF(TVSIDX)=CHARNUM
+      DO 20 J=1,NCOLS
+       DO 10 I=1,NROWS
+        TVSIDX=TVSIDX+1
+C       STORE DATA
+        BUF(TVSIDX)=TBUF(I,J)
+ 10    CONTINUE
+       TVSIDX=TVSIDX+1
+       BUF(TVSIDX)=CHARNUM
+ 20   CONTINUE
+C  INITIALIZE NUMLINE
+      NUMLINE=EIGHT
+      RETURN
+      END

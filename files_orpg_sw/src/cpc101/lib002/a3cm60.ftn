@@ -1,0 +1,258 @@
+C 
+C RCS info 
+C $Author: nolitam $ 
+C $Locker:  $ 
+C $Date: 2002/12/11 20:00:56 $ 
+C $Id: a3cm60.ftn,v 1.3 2002/12/11 20:00:56 nolitam Exp $ 
+C $Revision: 1.3 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A3CM60__INVERT_MATRIX(A, N, DET, L, M)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3CM60__INVERT_MATRIX
+*.
+*.  MODULE VERSION: 0006
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       10 13 88      0000      P. Jendrowski        SPR # 80383
+*.       11 08 90      0001      J. WHEELER           SPR # 91250
+*.       12/10/91      0002      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0003      Toolset              SPR 91895
+*.       03/25/93      0004      Toolset              SPR NA93-06801
+*.       03/03/94      0005      Toolset              SPR NA94-05501
+*.       12/23/96      0006      Toolset              CCR NA95-11807
+*.
+*.  CALLING SEQUENCE: CALL A3CM60__INVERT_MATRIX(A,N,DET,L,M)
+*.
+*.  MODULE FUNCTION:
+*.
+*.      This subroutine inverts a general NxN matrix using the
+*.      standard Gauss-Jordan method.  The matrix is checked if it
+*.      is singular.  DET is returned as zero if the matrix is
+*.      singular (no inverse exists) or 1. if it is invertable.  The
+*.      matrix is processed in vector form (1-d array representation
+*.      of a 2-d array).
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT  TYPE        DESCRIPTION
+*.    -   -----  ----        -----------
+*.    P   A      R*8         NxN martix in vector form
+*.    P   L      I*4         Work vectors of length N.
+*.    P   M      I*4         Work vector of length N
+*.    P   N      I*4         Order of the matrix
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    P   A       R*8         NxN martix in vector form
+*.    P   DET     R*8         Determinant of the matrix
+*.    P   L       I*4         Work vectors of length N.
+*.    P   M       I*4         Work vector of length N
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE: none
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME  TYPE        DESCRIPTION
+*.    ----  ----        -----------
+*.    BIGA  R*8         Pivot value
+*.    HOLD  R*8         Temporary variable used for swapping values
+*.    I     I*4         LOOP COUNTER
+*.    IINIT I*4         Parameter for integer zero
+*.    IJ    I*4         Array index
+*.    IK    I*4         Array index
+*.    IZ    I*4         Array index
+*.    J     I*4         Do loop counter
+*.    JI    I*4         Array index
+*.    JK    I*4         Array index
+*.    JP    I*4         Array index
+*.    JQ    I*4         Array index
+*.    JR    I*4         Array index
+*.    K     I*4
+*.    KI    I*4         Array index
+*.    KJ    I*4         Array index
+*.    KK    I*4         Array index
+*.    NK    I*4         Array index
+*.    RINIT R*8         Parameter for real zero
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS: NONE
+*.
+*.  DEVIATION FROM STANDARDS: none
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.        THIS MODULE IS COMPILED USING THE COMP09.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.        THIS MODULE IS LINKED USING THE LINK09.CSS
+*.
+*.  MISC: none
+*.
+*.*******************************************************************
+C
+C
+      IMPLICIT NONE
+C
+      INTEGER I,J,K,IJ,JK,KJ,IK,KK,NK,JP,IZ,JQ,JR,JI,KI
+      INTEGER N,L(N),M(N)
+      INTEGER IINIT
+      REAL*8 RINIT
+      PARAMETER ( IINIT=0, RINIT=0.0 )
+      REAL*8 A(N*N), DET, BIGA, HOLD
+C
+C** SEARCH FOR LARGEST ELEMENT
+C
+      DET=1.
+      NK=-N
+      DO 90 K=1,N
+        NK=NK + N
+        L(K)=K
+        M(K)=K
+        KK=NK + K
+        BIGA=A(KK)
+        DO 20 J=K,N
+          IZ=N*(J - 1)
+          DO 10 I=K,N
+            IJ=IZ + I
+            IF (DABS(BIGA).LT.DABS(A(IJ))) THEN
+              BIGA=A(IJ)
+              L(K)=I
+              M(K)=J
+            END IF
+  10      CONTINUE
+  20    CONTINUE
+C
+C** INTERCHANGE ROWS
+C
+        IF (L(K).GT.K) THEN
+          KI=K - N
+          DO 30 I=1,N
+            KI=KI + N
+            HOLD=-A(KI)
+            JI=KI - K + L(K)
+            A(KI)=A(JI)
+            A(JI)=HOLD
+  30      CONTINUE
+        END IF
+C
+C** INTERCHANGE COLUMNS
+C
+        IF (M(K).GT.K) THEN
+          JP=N*( M(K) - 1 )
+          DO 40 J=1,N
+            JK=NK + J
+            JI=JP + J
+            HOLD=-A(JK)
+            A(JK)=A(JI)
+            A(JI)=HOLD
+  40      CONTINUE
+        END IF
+C
+C** IF BIGA IS EQUAL TO 0., THEN STOP PROCESSING BECAUSE MATRIX IS
+C** SINGULAR (NO INVERSE EXISTS)
+C
+        IF (BIGA.EQ.RINIT) THEN
+          DET=0.0
+C
+C** JUMP OUT OF DO LOOP AND RETURN
+C
+          GO TO 150
+        END IF
+C
+C** DIVIDE COLUMN BY MINUS PIVOT (VALUE OF PIVOT ELEMENT IS CONTAINED
+C** IN BIGA)
+C
+        DO 50 I=1,N
+          IF (I.NE.K) A(NK + I)=A(NK + I)/(-BIGA)
+  50    CONTINUE
+C
+C** REDUCE MATRIX
+C
+        DO 70 I=1,N
+          IK=NK + I
+          HOLD=A(IK)
+          IJ=I - N
+          DO 60 J=1,N
+            IJ=IJ + N
+            IF (I.NE.K .AND. J.NE.K)
+     $        A(IJ)=HOLD*A(IJ - I + K) + A(IJ)
+  60      CONTINUE
+  70    CONTINUE
+C
+C** DIVIDE ROW BY PIVOT
+C
+        KJ=K - N
+        DO 80 J=1,N
+          KJ=KJ + N
+          IF (J.NE.K) A(KJ)=A(KJ)/BIGA
+  80    CONTINUE
+C
+C** ADD THIS NEXT STATEMENT TO CALCULATE THE DETERMINANT
+C
+C       DET=DET*BIGA
+C
+C** REPLACE PIVOT BY RECIPROCAL
+C
+        A(KK)=1./BIGA
+  90  CONTINUE
+C
+C** FINAL ROW AND COLUMN INTERCHANGE
+C
+      K=N
+C
+C** DO WHILE K IS GREATER THAN ZERO
+C
+ 100  CONTINUE
+        K=K-1
+        IF (K.GT.IINIT) THEN
+          IF (L(K).GT.K) THEN
+            JQ=N*(K-1)
+            JR=N*(L(K)-1)
+            DO 110 J=1,N
+              JK=JQ + J
+              HOLD=A(JK)
+              JI=JR + J
+              A(JK)=-A(JI)
+              A(JI)=HOLD
+ 110        CONTINUE
+          END IF
+C
+          IF (M(K).GT.K) THEN
+            KI=K - N
+            DO 130 I=1,N
+              KI=KI + N
+              HOLD=A(KI)
+              JI=KI - K + M(K)
+              A(KI)=-A(JI)
+              A(JI)=HOLD
+ 130        CONTINUE
+          END IF
+C
+C** SIMULATE DO WHILE STRUCTURE
+C
+        GO TO 100
+C
+      END IF
+C
+ 150  CONTINUE
+      RETURN
+      END

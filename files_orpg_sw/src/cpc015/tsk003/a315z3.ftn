@@ -1,0 +1,407 @@
+C
+C RCS info
+C $Author: cheryls $
+C $Locker:  $
+C $Date: 2005/07/07 22:04:14 $
+C $Id: a315z3.ftn,v 1.5 2005/07/07 22:04:14 cheryls Exp $
+C $Revision: 1.5 $
+C $State: Exp $
+C
+      SUBROUTINE A315Z3__REFLEC_ATTR( BDPBREF, BDPBREF_un )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A315Z3__REFLEC_ATTR
+*.
+*.  MODULE VERSION: 0016
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       08 16 85      0000      DENNIS MILLER        BUILD 2
+*.       05 07 86      0001      DENNIS MILLER        SPR # 304
+*.       07 10 86      0002      DENNIS MILLER        SPR # 60313
+*.       07 10 86      0002      DENNIS MILLER        SPR # 60367
+*.       08 31 88      0003      DAVID M. LYNCH       SPR # 80308
+*.       06 06 89      0003      DAVID M. LYNCH       SPR # 90298
+*.       05 09 90      0004      STACY RONALD         SPR # 90712
+*.       11 06 90      0005      DENNIS MILLER        SPR # 91256
+*.       11 19 91      0006      PJ YELSHIN           SPR # 92505
+*.       12 03 91      0007      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0008      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0009      Toolset              SPR 91895
+*.       03/25/93      0010      Toolset              SPR NA93-06801
+*.       01/28/94      0011      Toolset              SPR NA94-01101
+*.       03/03/94      0012      Toolset              SPR NA94-05501
+*.       04/01/95      0013      Toolset              CCR NA95-11802
+*.       06/26/95      0014      DAVID ZITTEL         CCR NA94-26302
+*.       12/23/96      0015      Toolset              CCR NA95-11807
+*.       03/16/99      0016      Toolset              CCR NA98-23803
+*.       12/31/04      0003      Yukuan Song          CCR NA04-08301
+*.
+*.  CALLING SEQUENCE: CALL A315Z3__REFLEC_ATTR( BDPBREF )
+*.
+*.  MODULE FUNCTION:
+*.
+*.  This routine computes reflectivity-derived Segment fields for
+*.  runs of contiguous sample bins previously determined to be valid
+*.  Segments.  Among the fields determined are liquid water concentra-
+*.  tions of individual sample bins, mass-weighted segment length and
+*.  segment length-squared, projected X & Y center positions, segment
+*.  "length" or partial area, and maximimum average reflectivity(dBZ)
+*.  about the mean of "ADPNAVGB" bins for each segment.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT        TYPE        DESCRIPTION
+*.    -   -----        ----        -----------
+*.    G   REF          R*4         The conversion table for reflectivity.
+*.                                 This table converts from halfword integer
+*.                                 to real meteorological data.
+*.    G   SEGINDX      I*2         Array of indices to the 1st & last segments
+*.                                 for radials in the SEGMAIN array.  One half
+*.                                 is updated each elevation.
+*.    G   SEGMAIN      R*4         The segment attributes array in the segment
+*.                                 data shared image.  One half is updated
+*.                                 each elevation scan.
+*.    G   PREFSIZE     I*4         (CONSTANT)Size of preprocessed base radial
+*.                                 reflectivity data.
+*.    C   ADPNAVGB     I*4         Reflectivity Averaging Factor stored in
+*.                                 segments local common.
+*.    C   AVERAGE      I*2         A look-up table of averaged maximum
+*.                                 reflectivity values in biased units for
+*.                                 segments.
+*.    C   BAZM_NDX     I*4         Index to the segments of the 1st radial for
+*.                                 a ref. th. in the segment shared image for
+*.                                 an elevation.
+*.    C   COSAZ        R*4         The cosine of the radial s azimuth angle.
+*.    C   OFFSET       I*2         The offset into the AVERAGE
+*.                                 (reflectivities) table to the beginning of
+*.                                 each bin count section.
+*.    C   REF_BASE_NDX I*4         The index of the lowest reflectivity
+*.                                 threshold.
+*.    C   RNGFCTR      R*4         Half the length (in km) of a range bin.
+*.    C   SEGCOUNT     I*4         Incremental segment count for the elevation
+*.                                 scan offset by the SEGBFPTR (0 or 6000).
+*.    C   SINAZ        R*4         The cosine of the radial s azimuth angle.
+*.    C   STMLWTBL     R*4         A table of liquid water equivalent values
+*.                                 for all (bias) reflectivity values to
+*.                                 determine mass.
+*.    C   SEG_FBN      I*4         (CONSTANT)Index to the beginning range bin
+*.                                 in the segments attribute array in the
+*.                                 shared data image.
+*.    C   SEG_LBN      I*4         (CONSTANT)Index to ending range bin in
+*.                                 segments attribute array in the shared data
+*.                                 image.
+*.    C   SEG_LEN      I*4         (CONSTANT)Index to segments length in the
+*.                                 segments attribute array in the shared data
+*.                                 array.
+*.    C   SEG_MRF      I*4         (CONSTANT)Index to Maximum Reflectivity
+*.                                 Factors in segments attribute array.
+*.    C   SEG_MWL      I*4         (CONSTANT)Index to Mass Weighted Length in
+*.                                 segments attribute array in the shared data
+*.                                 image
+*.    C   SEG_XCN      I*4         (CONSTANT)Index of the x-componet in the
+*.                                 segments attribute array of the shared data
+*.                                 image.
+*.    C   SEG_YCN      I*4         (CONSTANT)Index to the y-componet in the
+*.                                 segments attribute array in the shared data
+*.                                 image.
+*.    P   BDPBREF      I*2         Preprocessed base reflectivity data.
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    G   SEGMAIN R*4         The segment attributes array in the segment data
+*.                            shared image.  One half is updated each
+*.                            elevation scan.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME        TYPE        DESCRIPTION
+*.    ----        ----        -----------
+*.    BINCEN      R*4         Slant range of sample volume center from radar
+*.                            position(scaled to index no. of bin).
+*.    BINCNT      I*4         Bin count in averageing interval
+*.    BIN_NDX     I*4         Do loop index for number of bins
+*.    FRSTBIN     I*4         First good surveillance bin (number) in a
+*.                            segment
+*.    FST_AVG_BIN I*4         The first bin in the current segment that will
+*.                            be averaged over
+*.    HLF_FCTR    R*4         Real parameter value of 0.5
+*.    IRAVG       I*4         Averaged refelctivity value
+*.    IRINDX      I*4         Sample volume's reflectivity
+*.    IRINIT      I*4         Large negative number used for initializing
+*.                            maximum reflectivity
+*.    IRMAX       I*4         Maximum reflectivity
+*.    IRSUM       I*4         Sum of the reflectivities over the sample volume
+*.    K           I*4         Do loop index
+*.    LASTBIN     I*4         Last good surveillance bin (number) in a segment
+*.    LST_AVG_BIN I*4         The last bin in the current segment that will be
+*.                            averaged over
+*.    MWLENSQ     R*4         MASS WEIGHTED LENGTH SQUARED(Segment)
+*.    MWLENTH     R*4         MASS WEIGHTED LENGTH(Segment)
+*.    ONE         I*4         Parameter value of one.
+*.    REALZERO    R*4         Parameter value of real zero.
+*.    SEG_FRST    I*4         Start indice of saved segmnet in the current
+*.                            radial.
+*.    SEG_LAST    I*4         Ending indice of saved segment in the current
+*.                            radial.
+*.    SEG_NDX     I*4         Do loop variable for number of segments
+*.    TWO         I*4         :Program parameter value of 2.
+*.    ZERO        I*4         PARAMETER VALUE '0'
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD99
+*.    SGMTS09
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A315A3
+*.    A315C3
+*.    A315CD
+*.    A315CG
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:
+*.
+*.     Slant ranges are taken to be the distance from the radar to
+*.   the center of bins in all calculations of Segment fields.
+*.
+*.     Partial computation of the X & Y centroids and 2-D areas of
+*.   Components is performed here, on a Segment basis.
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     Compiled using COMP15.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     Linked using LINK15.CSS
+*.
+*.  MISC:  None
+*.
+C********************************************************************
+C
+C               STORM SEGMENTS: REFLECTIVITY FIELDS  ROUTINE
+C
+C********************************************************************
+C
+      IMPLICIT NONE
+C
+C**Attach input parameter-definition file (from "UNPACK_RADIAL_DATA")
+$INCLUDE A304.INC/G,**A304P4 (NLIST)
+C
+C**Attach tables of biased values of REFLEC, VELOC & SPEC WIDTH.
+$INCLUDE A309.INC/G,**A3CD99 (NLIST)
+C
+C**Attach pointers for segment buffer A3CD09
+$INCLUDE A315BUF.INC/G,**A315P3S (NLIST)
+C
+C**Attach segments buffer A3CD09DZ
+$INCLUDE A309.INC/G,**A3CD09DZ (NLIST)
+C
+C**Attach segments pointers
+$INCLUDE A315.INC/G,**A315C3S (NLIST)
+C
+C**Attach average value loop-up table
+$INCLUDE **A315A3S (NLIST)
+C
+C**Attach derived STORMS Adaptation Data definitions (CD)
+$INCLUDE **A315CDS (NLIST)
+C
+C**Attach internal common block (CG)
+$INCLUDE **A315CGS (NLIST)
+C
+C********************** DATA DECLARATIONS ***************************
+C
+C** Input Buffer:
+C
+      INTEGER*2  BDPBREF( PREFSIZE )
+      INTEGER*2  BDPBREF_un( PREFSIZE )
+C
+C** Other local variables:
+C
+      INTEGER  SEG_FRST, BIN_NDX, IRINDX, IRINIT, IRMAX
+      INTEGER  FRSTBIN, LASTBIN, IRSUM, BINCNT, IRAVG, K
+      INTEGER  ZERO, ONE, TWO, SEG_LAST, SEG_NDX
+      INTEGER  FST_AVG_BIN, LST_AVG_BIN
+C
+      REAL MWLENTH, MWLENSQ, BINCEN
+      REAL HLF_FCTR, REALZERO
+C
+C******************** DATA INITIALIZATIONS **************************
+C
+      PARAMETER ( ZERO = 0, ONE = 1, TWO = 2, REALZERO = 0.0 )
+      PARAMETER (HLF_FCTR = 0.5)
+      DATA  IRINIT /-99/
+C
+C******************* BEGIN MAIN PROCESSING SECTION ******************
+C
+C** Get starting and ending indices of saved segments in current
+C** radial.
+C
+      SEG_FRST = SEGINDX( ONE, REF_BASE_NDX, BAZM_NDX )
+      SEG_LAST = SEGCOUNT
+C
+C** If there are segments on this radial....
+C
+      IF( SEG_FRST .GT. ZERO ) THEN
+C
+C** DO FOR ALL (THRESHOLDS(Reflectivity))
+C
+C** DO FOR ALL (CELL SEGMENTS for this THRESHOLD(Reflectivity))
+C
+         DO 500 SEG_NDX = SEG_FRST, SEG_LAST
+C
+C** Initialize Segment fields.
+C
+            MWLENTH = REALZERO
+            MWLENSQ = REALZERO
+            IRMAX = IRINIT
+C
+C** Process all Surveillance-sample volumes in current Segment.
+C
+            FST_AVG_BIN = SEGMAIN( SEG_FBN, SEG_NDX )
+            LST_AVG_BIN = SEGMAIN( SEG_LBN, SEG_NDX )
+            DO 40 BIN_NDX = FST_AVG_BIN, LST_AVG_BIN
+C
+C** Determine slant range of sample volume center from radar position
+C** (scaled to index no. of bin).
+C
+               BINCEN = FLOAT(BIN_NDX) - RNGFCTR
+C
+C** Determine Liquid Water Concentration from sample volume's
+C** reflectivity, and its contribution to mass-weighted fields.
+C
+               IRINDX  = BDPBREF( BIN_NDX )
+C
+C** COMPUTE (MASS WEIGHTED LENGTH(Segment)):
+C
+C** NOTE: (MASS WEIGHTED LENGTH(Segment) is scaled by the reciprocal
+C**        of the sample volume length).
+C
+               MWLENTH = MWLENTH + STMLWTBL( IRINDX ) * BINCEN
+C
+C** COMPUTE (MASS WEIGHTED LENGTH SQUARED(Segment)):
+C
+C** NOTE: (MASS WEIGHTED LENGTH SQUARED(Segment) is scaled by the
+C**        reciprocal of the sample volume length squared).
+C
+               MWLENSQ = MWLENSQ + STMLWTBL( IRINDX ) * BINCEN*BINCEN
+C
+C** Determine average biased reflectivity over a predetermined number
+C** of sample volumes centered about the present sample volume.
+C
+C** Determine starting and ending sample volumes for averaging.
+C
+               FRSTBIN = BIN_NDX - (ADPNAVGB / TWO)
+               LASTBIN = FRSTBIN + ADPNAVGB - ONE
+               IF ( FRSTBIN .LT. FST_AVG_BIN ) FRSTBIN = FST_AVG_BIN
+               IF ( LASTBIN .GT. LST_AVG_BIN ) LASTBIN = LST_AVG_BIN
+C
+C** Initialize total reflectivity and number of sample volumes in
+C** averaging interval.
+C
+               IRSUM = ZERO
+               BINCNT = ZERO
+               IRAVG = ZERO
+C
+C** Do For All sample volumes in averaging interval.
+C
+
+
+               DO 350 K = FRSTBIN , LASTBIN
+C**Here we use unfiltered reflectivity to calculate the max reflectivity
+C**The invalid data will be skipped
+                if ( BDPBREF_un(K) .GT. 1) then
+c                 IRSUM = IRSUM + BDPBREF(K)
+                  IRSUM = IRSUM + BDPBREF_un(K)
+                  BINCNT = BINCNT + ONE
+                endif
+ 350           CONTINUE
+C**Goto next bin if BINCNT is zero
+	       if (BINCNT .EQ. 0) GOTO 40
+C
+C** Calculate average biased reflectivity over valid sample volumes
+C** of interval (ADPNAVGB) rounding up to nearest integer.
+C
+C** NOTE:  The average values are precomputed and reside in array
+C**        AVERAGE.  The OFFSET array is indexed by the BINCNT.
+C**        AVERAGE is indexed by OFFSET and IRSUM.  The values in
+C**        AVERAGE are computed as follows:
+C**
+C**        AVERAGE( OFFSET(BINCNT) + IRSUM ) =
+C**               NINT( FLOAT(IRSUM)/FLOAT(BINCNT) )
+C
+               IRAVG = AVERAGE( OFFSET( BINCNT ) + IRSUM )
+C
+C** Compare (indexed) reflectivity of current sample volume with
+C** previous maximum value and reset maximum if new averaged value is
+C** greater.
+C
+C** COMPUTE (maximum REFLECTIVITY FACTOR(Segment)):
+C
+               IF ( IRAVG.GT.IRMAX )  IRMAX = IRAVG
+C
+ 40         CONTINUE
+C**make sure IRMAX is above 0 dBz
+        if(IRMAX .LT. 66) then
+          IRMAX = 66
+        endif
+C
+C** Fill Segment-attribute table (in output buffer).
+C
+C** WRITE (MASS WEIGHTED LENGTH(Segment):
+C
+            SEGMAIN( SEG_MWL,SEG_NDX ) = MWLENTH
+C
+C** WRITE (MASS WEIGHTED LENGTH SQUARED(Segment)):
+C
+C** Note: (The MASS WEIGHTED LENGTH SQUARED(Segment) is broken
+C**        into components for use in the centroid coordinates
+C**        computation).
+C
+            SEGMAIN( SEG_XCN,SEG_NDX ) = MWLENSQ * SINAZ
+            SEGMAIN( SEG_YCN,SEG_NDX ) = MWLENSQ * COSAZ
+C
+C** Determine Segment Partial Area.
+C
+            SEGMAIN( SEG_LEN,SEG_NDX ) = SEGMAIN( SEG_LEN,SEG_NDX )
+     >   * (SEGMAIN( SEG_LBN,SEG_NDX ) + SEGMAIN( SEG_FBN,SEG_NDX )
+     >   - (2.0 * RNGFCTR)  ) * HLF_FCTR
+C
+C** Derive maximum reflectivity (dBZ) from highest biased value.
+C
+C** WRITE (maximum REFLECTIVITY FACTOR(Segment)):
+C
+            SEGMAIN( SEG_MRF,SEG_NDX ) = REF( IRMAX )
+c       if (SEGMAIN( SEG_MRF,SEG_NDX ) .EQ. 57) then
+c	write(0,*) SEGMAIN(SEG_FBN, SEG_NDX ),
+c    >SEGMAIN(SEG_LBN, SEG_NDX ),
+c    >SEGMAIN(SEG_LEN, SEG_NDX ), 
+c    >SEGMAIN( SEG_MWL,SEG_NDX ),
+c    >SEGMAIN( SEG_XCN,SEG_NDX ),SEGMAIN( SEG_YCN,SEG_NDX ),
+c    >SEGMAIN( SEG_LEN,SEG_NDX ),SEGMAIN( SEG_MRF,SEG_NDX )
+c       endif
+
+ 500     CONTINUE
+      ENDIF
+C
+C**************** END OF PROCESSING FOR SUBROUTINE ******************
+C
+      RETURN
+      END

@@ -1,0 +1,189 @@
+C 
+C RCS info 
+C $Author: ryans $ 
+C $Locker:  $ 
+C $Date: 2006/02/09 19:38:22 $ 
+C $Id: a31362.ftn,v 1.7 2006/02/09 19:38:22 ryans Exp $ 
+C $Revision: 1.7 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A31362__INIT_ADPT(ACUM_ADPT, ADJ_ADPT)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A31362__INIT_ADPT
+*.
+*.  MODULE VERSION: 0014
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       10 24 88      0000      Paul Jendrowski      SPR # 80383
+*.       05 16 90      0000      JOHN DEPHILIP        SPR # 90697
+*.       02 22 91      0001      PAUL JENDROWSKI      SPR # 91254
+*.       02 15 91      0001      JOHN DEPHILIP        SPR # 91762
+*.       12 03 91      0002      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0003      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0004      Toolset              SPR 91895
+*.       03/25/93      0005      Toolset              SPR NA93-06801
+*.       01/28/94      0006      Toolset              SPR NA94-01101
+*.       03/03/94      0007      Toolset              SPR NA94-05501
+*.       07/29/94      0008      Cheryl Stephenson    CCR NW-94-084-01
+*.       12/12/95      0009      Richard Fulton       CCR NA95-31205
+*.       12/23/96      0010      Toolset              CCR NA95-11807
+*.       03/16/99      0011      Toolset              CCR NA98-23803
+*.       01/31/02      0012      Dennis A. Miller     CCR NA01-27501
+*.       12/09/03      0013      CHRIS CALVERT        CCR NA03-30002
+*.       10/26/05      0014      Cham Pham            CCR NA05-14301
+*.
+*.  CALLING SEQUENCE: CALL A31362__INIT_ADPT( ACUM_ADPT, ADJ_ADPT )
+*.
+*.  MODULE FUNCTION:
+*.
+*.      This module copies adaptation data pertaining to the Bias
+*.      Adjustment algorithm from the input buffer to local common
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT        TYPE     DESCRIPTION
+*.    -   -----        ----     -----------
+*.    C   ASIZ_ACUM    I*4      (CONSTANT)Size of accumulation adapt. array
+*.    C   ASIZ_ADJU    I*4      (CONSTANT)Size of adjustment adapt. array
+*.    C   END_TIMGAG   I*4      (CONSTANT)Offset to "ENTIMGAG": Minutes in
+*.                              hour at which hourly gage accum. scan ends
+*.    C   LNGST_LAG    I*4      (CONSTANT)Offset to "LONGSTLAG": Longest
+*.                              allowable lag allowing for use of Bias Table
+*.    C   THR_NPAIRS   I*4      (CONSTANT)Offset to "MINNPAIRS": Min. no.
+*.                              G-R Pairs for selection of Bias from table
+*.    C   RES_BIAS     I*4      (CONSTANT)Offset to "RESETBI":  Reset value
+*.                              of Bias.
+*.    C   SEC_IN_HOUR  I*4      (CONSTANT)Number of seconds in hour.
+*.    C   SEC_IN_MIN   I*4      (CONSTANT)Number of seconds in minute.
+*.    C   TIM_BIEST    I*4      (CONSTANT)Offset to "TIMBIEST": Minutes in
+*.                              the hour when the bias should be updated
+*.    P   ACUM_ADPT    R*4      Array of Accumulation adaptation data
+*.    P   ADJ_ADPT     R*4      Array of adjustment adaptation data
+*.
+*.    *   OUTPUT         TYPE     DESCRIPTION
+*.    -   ------         ----     -----------
+*.    C   LONGST_LAG     I*4      Longest time lag (hours) since last Bias
+*.                                Table ingest allowing for use of table
+*.    C   MIN_NPAIRS     I*4      Min. no. (effective) G-R Pairs for a timespan
+*.                                in Bias Table allowing selection of Bias
+*.                                from that table row
+*.    C   RESET_BIAS     R*4      Reset value for bias accumulation.
+*.    C   TIM_BIAS_EST   I*4      Minutes in the hour when bias estimation
+*.                                procedure should be done.
+*.    C   TIM_GAG_ACC    I*4      Minutes in the hour of the gage
+*.                                accumulation scan.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE: None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME      TYPE        DESCRIPTION
+*.    ----      ----        -----------
+*.    DEBUG     I*4         Controls debug output in this file (1-On; 0-Off)
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3136CA
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3136CA
+*.
+*.  ERROR CONDITIONS: None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS: None
+*.
+*.  DEVIATION FROM STANDARDS: None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     THIS MODULE IS COMPILED USING COMP13.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     THIS MODULE IS LINKED USING LINK13.CSS
+*.
+*.  MISC: None
+*.
+*.*******************************************************************
+C
+      IMPLICIT NONE
+C
+$INCLUDE A313HBUF.INC/G,**A313HYPP (NLIST)
+$INCLUDE A313H.INC/G,**A3136P (NLIST)
+$INCLUDE **A3136CA (NLIST)
+C
+      REAL ACUM_ADPT(ASIZ_ACUM), ADJ_ADPT(ASIZ_ADJU)
+      INTEGER DEBUG
+      PARAMETER (DEBUG = 0)
+C
+C*********************************************************************
+C
+C Eliminated the Diagnostic messages by bypassing them with 
+C "if debug .... endif" logic. 
+C
+      IF (DEBUG .EQ. 1) THEN
+        WRITE(6,1)
+   1    FORMAT(' ***** ENTER A31362')
+      END IF
+C
+C** Convert time parameters to seconds since midnight
+C
+      TIM_GAG_ACC  = ACUM_ADPT( END_TIMGAG )*SEC_IN_MIN
+      TIM_BIAS_EST = ADJ_ADPT( TIM_BIEST )*SEC_IN_MIN
+C
+C** Add 1 hour to the Bias Estimation Time if the end of a clock
+C** hour occurs between the Gage Accumulation Time and the Bias Time
+C
+      IF (TIM_GAG_ACC.GE.TIM_BIAS_EST)
+     $                   TIM_BIAS_EST=TIM_BIAS_EST + SEC_IN_HOUR
+C
+C** Copy parameters for the bias calculation
+C
+      RESET_BIAS  = ADJ_ADPT( RES_BIAS )
+      LONGST_LAG  = ADJ_ADPT( LNGST_LAG )
+      MIN_NPAIRS  = ADJ_ADPT( THR_NPAIRS )
+C
+C++ Special: retrieve new adaptable parameters for Bias Table
+C++ directly from global Adaptation Data file
+C++
+C++         longst_lag = longstlag
+c++         min_npairs = minnpairs
+C++
+C
+C Eliminated the Diagnostic messages by bypassing them with 
+C "if debug .... endif" logic. 
+C
+      IF (DEBUG .EQ. 1) THEN
+        WRITE(6,1000) 
+        WRITE(6,1002) ACUM_ADPT(END_TIMGAG), TIM_GAG_ACC
+        WRITE(6,1003) ADJ_ADPT(TIM_BIEST),  TIM_BIAS_EST
+        WRITE(6,1008) ADJ_ADPT(RES_BIAS),  RESET_BIAS
+        WRITE(6,1018) ADJ_ADPT(LNGST_LAG), LONGST_LAG
+        WRITE(6,1019) ADJ_ADPT(THR_NPAIRS), MIN_NPAIRS
+C
+ 1000 FORMAT(' DESCRIPTION           ADAPTATION     INTERNAL',/' ',
+     $         20X,' VALUE UNITS    VALUE UNITS')
+ 1002 FORMAT(' END TIME GAGE ACCUM.',F6.1,' MIN   ',I8,' SECONDS')
+ 1003 FORMAT(' TIME BIAS ESTIMATION',F6.1,' MIN   ',I8,' SECONDS')
+ 1008 FORMAT(' RESET BIAS          ',F6.2,'       ',F8.2         )
+ 1018 FORMAT(' LONGEST ALLOW. LAG  ',F6.1,' MIN   ',I8,' MINUTES')
+ 1019 FORMAT(' MIN EFFEC G-R PAIRS ',F6.1,'       ',F8.1         )
+        WRITE(6,99)
+  99  FORMAT(' ***** EXIT A31362')
+      END IF
+C
+      RETURN
+      END

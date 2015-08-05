@@ -1,0 +1,235 @@
+C 
+C RCS info 
+C $Author: steves $ 
+C $Locker:  $ 
+C $Date: 2004/01/21 23:02:08 $ 
+C $Id: a3148h.ftn,v 1.3 2004/01/21 23:02:08 steves Exp $ 
+C $Revision: 1.3 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A3148H__OMIT_ALL( REF_DATA, POLGRID_CR, POLGRID_PR )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3148H__OMIT_ALL
+*.
+*.  MODULE VERSION: 0001
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       02/24/97      0000      Steve Smith          CCR NA96-17903
+*.       03/16/99      0001      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A3148H__OMIT_ALL( REF_DATA, POLGRID_CR,
+*.                                           POLGRID_PR )
+*.  MODULE FUNCTION:
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT            TYPE        DESCRIPTION
+*.    -   -----            ----        -----------
+*.    G   RDBLTH           I*4         (CONSTANT)Flag value indicating sample
+*.                                     bin Below Threshold
+*.    C   ADMINDBZ_L       I*4         Local copy of ADMINDBZ (Mimimum dBZ
+*.                                     threshold below which reflectivity is
+*.                                     not considered clutter)
+*.    C   DELTABIN         I*4         Scaling parameter used for radial to
+*.                                     polar grid mapping.
+*.    C   LAST_RAD         I*4         Index into polar grid of the last
+*.                                     radial of the elevation sweep
+*.    C   PREV_RAD         I*4         Index into polar grid of the previous
+*.                                     radial processed.
+*.    C   REGION_END_BIN   I*4         Bin number for the end of the current
+*.                                     processing region.
+*.    C   REGION_START_BIN I*4         Bin number for the start of the current
+*.                                     processing region.
+*.    C   START_RBIN       I*4         Start bin number of the layer composite
+*.                                     reflectivity polar grid - AP removed
+*.                                     for current region.
+*.    C   CLUTTER_FLAG     I*4         (CONSTANT)Value assigned to
+*.                                     reflectivity if it is classified as
+*.                                     clutter
+*.    C   MISSING_FLAG     I*4         (CONSTANT)Value used to indicate bin
+*.                                     value in layer composite reflectivity
+*.                                     -AP removed polar grid is missing.
+*.    P   POLGRID_CR       I*2         Current radial in polar grid that is
+*.                                     reflectivity is being checked.
+*.    P   POLGRID_PR       I*2         Previous radial in polar grid from
+*.                                     which reflectivithecked
+*.    P   REF_DATA         I*2         Base reflectivity radial
+*.
+*.    *   OUTPUT     TYPE        DESCRIPTION
+*.    -   ------     ----        -----------
+*.    P   POLGRID_CR I*2         Current radial in polar grid that is
+*.                               reflectivity is being checked.
+*.    P   POLGRID_PR I*2         Previous radial in polar grid from which
+*.                               reflectivithecked
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE: NONE
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME            TYPE        DESCRIPTION
+*.    ----            ----        -----------
+*.    BELOW_THRESHOLD I*4         FLAG VALUE INDICATING BELOW THRESHOLD
+*.    I               I*4         Do loop index
+*.    IB              I*2         Index into POLGRID_CR - equivalenced to IBIN
+*.                                (the region start bin)
+*.    IBIN            I*4         Start polar grid bin in this region
+*.                                (equivalenced to array IB)
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3148C1
+*.    A3148C3
+*.
+*.  ERROR CONDITIONS: NONE.
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP07.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK07.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+      IMPLICIT NONE
+C
+$INCLUDE A309.INC/G,   **A3PM02   (NLIST)
+$INCLUDE A304.INC/G,   **A304P4   (NLIST)
+$INCLUDE A314BUF.INC/G,**A3148P2  (NLIST)
+$INCLUDE A314BUF.INC/G,**A3148P3  (NLIST)
+$INCLUDE A314BUF.INC/G,**A3148C1  (NLIST)
+$INCLUDE               **A3148C3  (NLIST)
+C
+C***  PASSED ARGUEMENTS
+C
+      INTEGER*2 REF_DATA(*)
+      INTEGER*2 POLGRID_CR(*), POLGRID_PR(*)
+C
+C*** LOCAL DECLARATIONS:
+C
+      INTEGER*4 I
+C
+      INTEGER*4 IBIN, IB
+
+      INTEGER*4 BELOW_THRESHOLD
+      PARAMETER( BELOW_THRESHOLD = RDBLTH )
+C
+C
+C********************************************************************
+C** EXECUTABLE CODE
+C
+C....................................................................
+C
+C**   THE ALGORITHM FOR THE OMIT_ALL REGION IS AS FOLLOWS:
+C
+C**      The OMIT_ALL region is a region within which reflectivity
+C**      data is considered as representing clutter if the
+C**      reflectivity is above an adaptive threshold.
+C
+C....................................................................
+C
+C**   INITIALIZE THIS REGIONS START POLAR GRID BIN
+C
+      IBIN = START_RBIN
+C
+C**   BUILD LAYER COMPOSITE REFLECTIVITY WITH AP REMOVED FOR THE
+C**   OMIT_ALL REGION
+C
+      DO 40 I = REGION_START_BIN, REGION_END_BIN
+C
+         call RPG_set_mssw_to_uint( IBIN, IB )
+C
+C**      ONLY PROCESS REFLECTIVITY IF ABOVE THRESHOLD
+C
+         IF( REF_DATA( I ) .GT. BELOW_THRESHOLD ) THEN
+
+            IF( REF_DATA( I ) .LE. ADMINDBZ_L ) THEN
+C
+C**            REFLECTIVITY IS BELOW MINIMUM REFLECTIVITY THRESHOLD
+C**            AND ABOVE SNR THRESHOLD. JUST TREAT AS IF IT WERE NOT
+C**            CLUTTER.
+C
+               IF( POLGRID_CR( IB ) .LT. REF_DATA( I ) )
+     1             POLGRID_CR( IB ) = REF_DATA( I )
+
+            ELSE
+C
+C**            MARK AS CLUTTER.
+C
+               IF( POLGRID_CR( IB ) .EQ. MISSING_FLAG )
+     1             POLGRID_CR( IB ) = CLUTTER_FLAG
+
+            END IF
+
+         END IF
+C
+C**      INCREMENT BIN COORDINATE
+C
+         IBIN = IBIN + DELTABIN
+
+ 40   CONTINUE
+C
+C**   CHECK IF PREVIOUS AZIMUTH SLOT WAS MISSED BECAUSE RADIALS ARE
+C**   MORE THAN 1 DEGREE APART
+C
+      IF ( PREV_RAD .NE. LAST_RAD ) THEN
+C
+C**      INITIALIZE START BIN FOR REFLECTIVITY.
+C
+         IBIN = START_RBIN
+C
+C**      DO FOR ALL REFLECTIVITY BINS IN THE OMIT_ALL REGION ...
+C
+         DO 45 I = REGION_START_BIN, REGION_END_BIN
+C
+            call RPG_set_mssw_to_uint( IBIN, IB )
+
+            IF( REF_DATA( I ) .GT. BELOW_THRESHOLD ) THEN
+
+               IF( REF_DATA( I ) .LE. ADMINDBZ_L ) THEN
+C
+C**               REFLECTIVITY IS BELOW MINIMUM REFLECTIVITY THRESHOLD
+C**               AND ABOVE SNR THRESHOLD. JUST TREAT AS IF IT WERE NOT
+C**               CLUTTER.
+C
+                  IF( POLGRID_PR( IB ) .LT. REF_DATA( I ) )
+     1                POLGRID_PR( IB ) = REF_DATA( I )
+
+               END IF
+
+            END IF
+C
+C**         INCREMENT BIN COORDINATE
+C
+            IBIN = IBIN + DELTABIN
+
+ 45      CONTINUE
+
+      END IF
+C
+C**   RETURN TO BUFFER CONTROL ROUTINE
+C
+      RETURN
+      END

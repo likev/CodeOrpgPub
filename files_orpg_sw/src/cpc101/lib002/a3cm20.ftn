@@ -1,0 +1,251 @@
+C 
+C RCS info 
+C $Author: ccalvert $ 
+C $Locker:  $ 
+C $Date: 2004/06/30 20:15:53 $ 
+C $Id: a3cm20.ftn,v 1.6 2004/06/30 20:15:53 ccalvert Exp $ 
+C $Revision: 1.6 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A3CM20__INTERPOLATE_EWTAB
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3CM20__INTERPOLATE_EWTAB
+*.
+*.  MODULE VERSION: 0010
+*.
+*.
+*.  MODULE LANGUAGE:  FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       07 28 87      0000      W.B. EIDSON          SPR# 70466
+*.       02 16 90      0001      W.B. EIDSON          SPR # 90612
+*.       08 23 90      0002      M.L. ECKERLE         SPR # 90936
+*.       09 24 90      0002      M.L. ECKERLE         SPR # 90995
+*.       11 09 90      0003      T. LYNCH             SPR # 91250
+*.       12 03 91      0004      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0005      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0006      Toolset              SPR 91895
+*.       03/25/93      0007      Toolset              SPR NA93-06801
+*.       03/03/94      0008      Toolset              SPR NA94-05501
+*.       05/10/94      0009      STEVE SMITH          CCR NW-93-300-04
+*.       03/16/99      0010      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A3CM20__INTERPOLATE_EWTAB
+*.
+*.  MODULE FUNCTION:
+*.
+*.          THIS MODULE PERFORMS THE FUNCTION OF INTERPOLATING
+*.    THE GAPS IN THE EWTAB TABLE OF THE ENVIROMENTAL WINDS FUNCTION
+*.
+*.  MODULES CALLED: A3CM25__GET_DATE_TIME 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT     TYPE        DESCRIPTION
+*.    -   -----     ----        -----------
+*.    G   EWTAB     R*4         Environmental Winds Table (Wind Direction
+*.                              [deg], Wind Speed [meters/sec], Height
+*.                              [Kilofeet]).
+*.    G   ECOMP     I*2         (CONSTANT)East/West component Index into
+*.                              environmental winds table.
+*.    G   LEN_EWTAB I*2         (CONSTANT)Number of items in environmental
+*.                              winds table.
+*.    G   MTTABLE   R*4         (CONSTANT)Parameter indicating table is empty.
+*.    G   NCOMP     I*2         (CONSTANT)North/South Component Index into
+*.                              NEWINDTAB.
+*.    G   WNDDIR    I*2         (CONSTANT)Wind Direction Index into wind
+*.                              vector table (EWTAB).
+*.    G   WNDSPD    I*2         (CONSTANT)Wind Speed Index into wind vector
+*.                              table (EWTAB).
+*.
+*.    *   OUTPUT     TYPE        DESCRIPTION
+*.    -   ------     ----        -----------
+*.    G   EWTAB      R*4         Environmental Winds Table (Wind Direction
+*.                               [deg], Wind Speed [meters/sec], Height
+*.                               [Kilofeet]).
+*.    G   NEWNDTAB   I*2         Environmental Wind Table in Component Form.
+*.    G   SOUND_TIME I*4         Last recorded sounding time.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME        TYPE        DESCRIPTION
+*.    ----        ----        -----------
+*.    CURR_TIME   I*4         Current time.  Seconds since midnight.
+*.    DTR         R*4         Degrees to radians conversion.
+*.    E1          R*4         Eastern wind vector points #1
+*.    E2          R*4         Eastern wind vector points #2
+*.    EM          R*4         Eastern slope verse height between components.
+*.    H           I*2         Do loop index.
+*.    IDX         I*2         Do loop index.
+*.    JDATE       I*4         Julian date in days since 010170.
+*.    LASTIDX     I*2         Index of last element processed.
+*.    MIN_PER_DAY I*4         Conversion from days to minutes.
+*.    N1          R*4         Northern wind vector point #1
+*.    N2          R*4         Northern wind vector point #2.
+*.    NM          R*4         Northern slope vs. height between components.
+*.    NPTS        I*2         Internal variable used to calculate number OF
+*.                            points to produce data for loop.
+*.    PI          R*4         (Constant) The standard mathematical constant,
+*.                            PI.
+*.    PI3OVER2    R*4         Parameter value equal to PI/2.0.
+*.    PIDEG       R*4         PI in degrees.
+*.    PIOVER2     R*4         PI divided by 2.
+*.    PTR         I*2         Index of current point being processed.
+*.    RPTR        R*4         Real equivalent of PTR.
+*.    RTD         R*4         Conversion factor:  Radians to Degrees.
+*.    SEC_PER_MIN I*4         Seconds per minute.
+*.    SQRD        I*4         Squaring parameter.
+*.    TEC         R*4         New value for eastern wind vector components.
+*.    TNC         R*4         New value for northern wind vector components.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD97
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP09.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK09.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+$INCLUDE A309.INC/G,**A3CD97 (NLIST )
+*
+*********** LOCAL DECLARATIONS AND PARAMETERS
+*
+      INTEGER*2 IDX, NPTS, H, LASTIDX, PTR
+      INTEGER SQRD
+      INTEGER  MIN_PER_DAY, SEC_PER_MIN
+      INTEGER CURR_TIME, JDATE
+      REAL PI, RTD, DTR, PIDEG, RPTR
+      REAL E1, E2, N1, N2, NM, EM, TNC, TEC
+      REAL PIOVER2, PI3OVER2
+      PARAMETER (PI = 3.14159)
+      PARAMETER (PIDEG = 180.0)
+      PARAMETER (PIOVER2 = PIDEG / 2.0)
+      PARAMETER (PI3OVER2 = 3.0 * PIDEG / 2.0)
+      PARAMETER (RTD = PIDEG/PI)
+      PARAMETER (DTR = PI/PIDEG)
+      PARAMETER (SQRD = 2)
+      PARAMETER (MIN_PER_DAY = 1440)
+      PARAMETER (SEC_PER_MIN = 60)
+
+*
+****  INITIALIZE
+*
+      LASTIDX = 0
+      NPTS =0
+      N1 = 0.0
+      E1 = 0.0
+C
+C***  CALL A3CM25 TO GET THE CURRENT JULIAN DATE AND TIME
+C***  AND TO GENERATE A TIME STAMP FOR THE SOUNDING INFORMATION
+C
+      CALL A3CM25__GET_DATE_TIME(JDATE,CURR_TIME)
+C
+C***  CONVERT THE JULIAN DATE AND TIME INTO MINUTES SINCE 010170
+C
+      SOUND_TIME = ((JDATE-1)*MIN_PER_DAY) + (CURR_TIME/SEC_PER_MIN)
+C
+*
+****  LOOP THROUGH ALL ELEMENTS IN THE TABLE
+*
+      DO 100 IDX=1, LEN_EWTAB
+*
+******** PROCESS ONLY WHEN CURRENT ELEMENT IS NOT THE CHECK VALUE.
+*
+         IF (EWTAB(IDX,WNDDIR) .NE. MTTABLE) THEN
+*
+*********** CALCULATE THE NORTH AND EAST COMPONENTS OF THE WIND
+*********** VECTOR, AS METEROLOGIST WANT IT.
+*
+            N2 = (-1)*EWTAB(IDX,WNDSPD)*COS(EWTAB(IDX,WNDDIR)*DTR)
+            E2 = (-1)*EWTAB(IDX,WNDSPD)*SIN(EWTAB(IDX,WNDDIR)*DTR)
+            NEWNDTAB( NCOMP,IDX ) = NINT( N2 )
+            NEWNDTAB( ECOMP,IDX ) = NINT( E2 )
+            IF (LASTIDX .EQ. 0) THEN
+*
+************** INDEX OF ACTUAL WIND DIRECTION IS THE FIRST FOUND
+*
+               LASTIDX = IDX
+            ELSE
+*
+* **********      INTERPOLATE BETWEEN HEIGHTS DETERMINED ********
+*
+               NPTS = IDX - LASTIDX - 1
+               IF (NPTS .GT. 0) THEN
+*
+***************** CALCULATE COMPONENTS OF THIS HEIGHT AND PREVIOUS
+*
+                  E1 = EWTAB(LASTIDX,WNDSPD)*SIN(EWTAB(LASTIDX,WNDDIR)
+     +               * DTR) * (-1)
+                  N1 = EWTAB(LASTIDX,WNDSPD)*COS(EWTAB(LASTIDX,WNDDIR)
+     +               * DTR) * (-1)
+*
+***************** CALCULATE SLOPES VERSUS HEIGHT BETWEEN COMPONENTS
+*
+                  EM = (E2 - E1)/(IDX - LASTIDX)
+                  NM = (N2 - N1)/(IDX - LASTIDX)
+*
+***************** DO FOR ALL POINTS TO PRODUCE
+*
+                  DO 101 PTR=1, NPTS, 1
+                     H = PTR + LASTIDX
+                     RPTR = 0.0 + PTR
+*
+******************** CALCULATE NEW COMPONENTS FROM SLOPE
+*
+                     TNC = N1 + NM*RPTR
+                     TEC = E1 + EM*RPTR
+                     NEWNDTAB( NCOMP,H ) = NINT( TNC )
+                     NEWNDTAB( ECOMP,H ) = NINT( TEC )
+*
+******************** CALCULATE NEW SPEED AND DIRECTION FROM COMPONENTS
+*
+                     EWTAB( H,WNDSPD )= SQRT(TNC**SQRD + TEC**SQRD)
+                     IF (TEC .LT. 0) THEN
+                        EWTAB(H,WNDDIR)=PIOVER2-ATAN(TNC/TEC)*RTD
+                     ELSEIF (TEC .GT. 0) THEN
+                        EWTAB( H,WNDDIR )=PI3OVER2-ATAN(TNC/TEC)*RTD
+                     ELSE
+                        IF (TNC .LT. 0) THEN
+                           EWTAB( H,WNDDIR ) = 0.0
+                        ELSE
+                           EWTAB( H,WNDDIR ) = PIDEG
+                        ENDIF
+                     ENDIF
+ 101              CONTINUE
+               ENDIF
+*
+************** SAVE THE CURRENT INDEX AS LAST BUILT
+*
+               LASTIDX = IDX
+            ENDIF
+         ENDIF
+ 100  CONTINUE
+      RETURN
+      END

@@ -1,0 +1,393 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/17 18:26:27 $
+C $Id: a31872.ftn,v 1.3 2002/12/17 18:26:27 christie Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A31872__VAD2_DRIVER(VAD_DATA_HTS,VAD_DATA_AZM,
+     +VAD_DATA_AR,VADBUF)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A31872__VAD2_DRIVER
+*.
+*.  MODULE VERSION: 0013
+*.
+*.  MODULE LANGUAGE:  FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       10 20 89      0000      BILL EIDSON          SPR # 80273
+*.       09 18 90      0001      MIKE ISTOK           SPR # 90928
+*.       02 22 91      0002      CHARLIE BAUMHER      SPR # 91259
+*.       12 20 90      0002      B. JOHNSTON          SPR # 91564
+*.       08 13 91      0003      D. ERICKSON          SPR # 92022
+*.       10 22 91      0004      EDWARD WENDOWSKI     SPR # 92410
+*.       12 03 91      0005      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0006      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0007      Toolset              SPR 91895
+*.       03/25/93      0008      Toolset              SPR NA93-06801
+*.       01/28/94      0009      Toolset              SPR NA94-01101
+*.       03/03/94      0010      Toolset              SPR NA94-05501
+*.       04/11/96      0011      Toolset              CCR NA95-11802
+*.       12/23/96      0012      Toolset              CCR NA95-11807
+*.       03/16/99      0013      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A31872__VAD2_DRIVER( VAD_DATA_HTS,
+*.                   VAD_DATA_AZM, VAD_DATA_AR, VADBUF)
+*.
+*.  MODULE FUNCTION:
+*.
+*.          THIS MODULE IS THE MAIN DRIVER FOR PRODUCING THE VAD
+*.       VERSION 2 PRODUCT.  THE ROUTINE FIRST POSITIONS THE OUTPUT
+*.       BUFFER POINTER TO THE BEGINNING OF THE SYMBOLOGY DATA BLOCK.
+*.       A SEARCH IS DONE ON THE ACTUAL DATA POINTS TO DETERMINE THE
+*.       WIDTH OF THE DATA.  USING THE WIDTH, THE GRID IS DRAWN AND
+*.       SCALE FACTORS ARE CALCULATED.  THE NEXT STEP IS TO ANNOTATE
+*.       THE GRID AXIS.  THE NYQUIST VELOCITY REGIONS ARE THEN DRAWN
+*.       ONTO THE GRID.  IF AT THE ALTITUDE SELECTED, ALL OF THE
+*.       FOURIER COEFFICIENTS ARE AVAILABLE, THEN A SINE WAVE IS
+*.       OUTPUT.  OTHERWISE, A MESSAGE INDICTATING A LACK OF THESE
+*.       COEFFICIENTS IS OUTPUT.  THEN, THE ACTUAL DATA POINTS ARE
+*.       PLOTTED.  THE LAST STEP IS TO BUILD A PRODUCT HEADER
+*.       ONTO THE OUTPUT BUFFER.
+*.
+*.  MODULES CALLED: A31873__VAD2_GRID, A31874__VAD2_AXIS_LBL, A31878__HEADER, 
+*.                  A31879__VAD2_POINTS, A3187A__FIT_WAVE, A3187B__NYQUIST, 
+*.                  A3187G__GEN_COCHR_PKCTS, A3CM25__GET_DATE_TIME 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT        TYPE        DESCRIPTION
+*.    -   -----        ----        -----------
+*.    G   BLKOVRHD     I*4         (CONSTANT)SIZE OF OVERHEAD PORTION OF
+*.                                 PRODUCT SYMBOLOGY BLOCK, IN BYTES
+*.    G   MPS_TO_KTS   R*4         (CONSTANT)SCALING FACTOR FOR METERS PER
+*.                                 SECOND TO KNOTS
+*.    G   PHBYTES      I*4         (CONSTANT)Number of bytes in product
+*.                                 header.
+*.    G   VAD_CF1      I*4         (CONSTANT)Row position in height based data
+*.                                 (VAD_DATA_HTS) of the first fourier
+*.                                 coefficient.
+*.    G   VAD_CF2      I*4         (CONSTANT)Row position in height based data
+*.                                 (VAD_DATA_HTS) of the second fourier
+*.                                 coefficient.
+*.    G   VAD_CF3      I*4         (CONSTANT)Row position in height based data
+*.                                 (VAD_DATA_HTS) of the third fourier
+*.                                 coefficient.
+*.    G   VAD_NRADS    I*4         (CONSTANT)Row position in height based data
+*.                                 (VAD_DATA_HTS) of the number of Radials in
+*.                                 sample.
+*.    G   VAD_VEL      I*4         (CONSTANT)Row position in buffer of azimuth
+*.                                 based data (VAD_DATA_AZM). of the velocity.
+*.    C   CF1          R*4         Fourier coefficient #1, extracted from the
+*.                                 height based data for use in drawing a sine
+*.                                 wave.
+*.    C   CF2          R*4         Fourier coefficient #2, extracted from the
+*.                                 height based data for use in drawing a sine
+*.                                 wave.
+*.    C   CF3          R*4         Fourier coeficient #3, extracted from the
+*.                                 height based data for use in drawing a sine
+*.                                 wave.
+*.    C   HTIDX        I*4         Index into VAD altitude table of the
+*.                                 current requested height.
+*.    C   HWD          R*4         Horizontal wind direction.
+*.    C   MISSING      R*4         The missing data value for current run
+*.                                 (e.g. velocity; elevation angle).
+*.    C   SHW          R*4         Speed of horizontal wind (of LSF curve).
+*.    C   LABELS       I*2         (CONSTANT)Color value to use for message.
+*.    P   VADBUF       I*2         OUTPUT BUFFER SIZE (*)
+*.    P   VAD_DATA_AR  R*4         Array containing NYQUIST velocity region
+*.                                 data by height, size VAD_AR_PARAMS by
+*.                                 MAX_VAD_HTS.
+*.    P   VAD_DATA_AZM R*4         Array containing azimuthial based VAD
+*.                                 algorithm data size, VAD_AZ_PRARAMS by
+*.                                 MAX_VAD_HTS.
+*.    P   VAD_DATA_HTS R*4         Table of height based VAD algorithm data.
+*.
+*.    *   OUTPUT    TYPE        DESCRIPTION
+*.    -   ------    ----        -----------
+*.    C   CF1       R*4         Fourier coefficient #1, extracted from the
+*.                              height based data for use in drawing a sine
+*.                              wave.
+*.    C   CF2       R*4         Fourier coefficient #2, extracted from the
+*.                              height based data for use in drawing a sine
+*.                              wave.
+*.    C   CF3       R*4         Fourier coeficient #3, extracted from the
+*.                              height based data for use in drawing a sine
+*.                              wave.
+*.    C   MAX_VELOC R*4         Maximum velocity in current sample.
+*.    C   MIN_VELOC R*4         Minimum velocity in current sample.
+*.    P   VADBUF    I*2         OUTPUT BUFFER SIZE (*)
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    P   VADBUF            I*2         OUTPUT BUFFER SIZE (*)
+*.    P   VAD_DATA_AR       R*4         Array containing NYQUIST velocity
+*.                                      region data by height, size
+*.                                      VAD_AR_PARAMS by MAX_VAD_HTS.
+*.    P   VAD_DATA_AZM      R*4         Array containing azimuthial based VAD
+*.                                      algorithm data size, VAD_AZ_PRARAMS by
+*.                                      MAX_VAD_HTS.
+*.    P   VAD_DATA_HTS      R*4         Table of height based VAD algorithm
+*.                                      data.
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME        TYPE        DESCRIPTION
+*.    ----        ----        -----------
+*.    A_ONE       I*4         A1 TERM (OFFSET) FOR LSF EQUATION PER NTR
+*.    BPHW        I*4         CONVERSION FACTOR, BYTES PER HALFWORD
+*.    BPTR        I*4         OUTPUT BUFFER POINTER
+*.    CDATE       I*4         CONTAINS CURRENT DATE
+*.    CTIME       I*4         CONTAINS CURRENT TIME
+*.    DELTA       I*4         DELTA TERM (DIRECTION) FOR LSF EQUATION PER NTR
+*.    EQUATION    CHAR*32     INTERNAL BUFFER TO CONSTRUCT EQUATION
+*.    I           I*4         LOOP COUNTER
+*.    LENPSD      I*4         LENGTH OF THE OUTPUT PRODUCT DATA IN BYTES.
+*.    MAXSTPT     R*4         INITIAL VALUE OF MAXIMUM VALUE FOR SEARCH
+*.    MAXVEL      R*4         VALUE USED TO HOLD MAXIMUM VELOCITY DURING
+*.                            SEARCH
+*.    MAX_GD_VEL  R*4         DEFAULT MAXIMUM VELOCITY VALUE
+*.    MESSAGE     CHAR*32     MESSAGE TO BE DISPLAYED INDICATING MISSING
+*.                            FOURIER COEFFICIANTS
+*.    MESSAGE_LEN I*2         ACTUAL LENGTH OF THE MESSAGE
+*.    MESX        R*4         Position on grid to plot message text.
+*.    MESY        R*4         Position on grid to plot message text.
+*.    MINSTPT     R*4         INITIAL VALUE OF MINIMUM VALUE FOR SEARCH
+*.    MINVEL      R*4         VALUE USED TO SAVE MINIMUM VELOCITY DURING
+*.                            SEARCH
+*.    MIN_GD_VEL  R*4         DEFAULT MINIMUM VELOCITY VALUE
+*.    NINTY_DG    I*4         PARAMETER NAME FOR "NINTY DEGREES"
+*.    OFFPSD      I*4         POINTER INTO OUTPUT BUFFER INDICATING THE
+*.                            BEGINNING OF THE PRODUCT SYMBOLOGY DATA BLOCK.
+*.    PHRASE      CHAR*32     VALUE USED FOR EQUIVALENCE OF MESSAGE DATA
+*.    PHRASEI2    I*2         VALUE EQUIVALENCED TO PHRASE, USED TO BUILD
+*.                            CHARACTER DATA OUTPUT
+*.    PHRASE_LEN  I*2         PHRASE LENGTH IN IN HALFWORDS WHICH IS PASSED TO
+*.                            A3187G.
+*.    TWOPI_DG    I*4         PARAMETER NAME FOR "360 DEGREES"
+*.    V           I*4         V TERM (SPEED) FOR LSF EQUATION PER NTR
+*.    VELDAT      R*4         VALUE USED TO HOLD THE EXTRACTED VELOCITY VALUE
+*.                            FROM THE AZIMUTH DATA
+*.    ZERO_DG     I*4         PARAMETER NAME FOR "ZERO DEGREES"
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A318C7
+*.
+*.  ERROR CONDITIONS:  NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  NONE
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP18.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK18.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+C
+C* GLOBAL DECLARATIONS:
+C
+$INCLUDE A309ADPT.INC/G,**A3CD70C7 (NLIST)
+$INCLUDE A309.INC/G,**A3PM01 (NLIST)
+$INCLUDE            **A3PM50 (NLIST)
+$INCLUDE A317BUF.INC/G,**A317VP (NLIST)
+$INCLUDE **A317VD (NLIST)
+$INCLUDE A318.INC,**A318C7 (NLIST)
+C
+C* LOCAL DECLARATIONS:
+C
+      INTEGER I, BPTR, BPHW, CDATE, CTIME, LENPSD, OFFPSD
+      INTEGER*2 VADBUF(*), PHRASEI2(16), PHRASE_LEN, MESSAGE_LEN
+C
+      CHARACTER*32 PHRASE, MESSAGE, EQUATION
+      PARAMETER (MESSAGE = 'CURVE COEFFICIENTS UNDETERMINED.')
+C
+      REAL MINVEL, MAXVEL, MINSTPT, MAXSTPT, VELDAT, MESX, MESY
+      REAL MIN_GD_VEL, MAX_GD_VEL
+      INTEGER*4 A_ONE,V,DELTA,NINTY_DG,ZERO_DG,TWOPI_DG
+C
+      PARAMETER (NINTY_DG=90,ZERO_DG=0,TWOPI_DG=360)
+      PARAMETER (MINSTPT = 9999.0, MAXSTPT = -9999.0)
+      PARAMETER (MIN_GD_VEL = -80.0, MAX_GD_VEL = 80.0)
+      PARAMETER (PHRASE_LEN = 32, BPHW = 2)
+      PARAMETER (MESX =  75.0, MESY = 495.0)
+C
+X     LOGICAL PRINTED
+X     DATA PRINTED /.FALSE./
+C
+      EQUIVALENCE (PHRASEI2(1), PHRASE)
+C*
+C********************************************************************
+C* SET UP THE POINTER INTO THE OUTPUT BUFFER WHICH IS USED TO PLACE
+C* EACH DATA TYPE. START IT AT 1ST HALFWORD OF THE PRODUCT SYMBOLOGY
+C* BLOCK DATA LAYER.  SAVE, THE PRODUCT DATA LAYER OFFSET FOR LATER
+C* USE IN CALCULATING DATA LENGTH.
+C*
+X     TYPE *,'72: ENTERED HERE '
+C
+      BPTR = (PHBYTES + BLKOVRHD) / BPHW
+      OFFPSD = BPTR
+C*
+C********************************************************************
+C* SET THE SEARCH VALUES FOR MAX AND MIN VELOCITY.
+C*
+      MINVEL = MINSTPT
+      MAXVEL = MAXSTPT
+C*
+C********************************************************************
+C*  SEARCH FOR THE MAXIMUM AND MINIMUM VELOCITY DATA VALUES.
+C*
+      DO 10 I = 1, VAD_DATA_HTS(VAD_NRADS,HTIDX)
+         VELDAT = VAD_DATA_AZM(VAD_VEL,I,HTIDX)
+         IF (VELDAT .NE. MISSING) THEN
+            IF (VELDAT .GT. MAXVEL) MAXVEL = VELDAT
+            IF (VELDAT .LT. MINVEL) MINVEL = VELDAT
+         ENDIF
+ 10   CONTINUE
+C*
+C********************************************************************
+C*  CONVERT MAX AND MIN VELOCITY TO KNOTS OR IF NOT FOUND, THEN
+C*  ASSIGN DEFAULT SETTING.
+C*
+      IF ( MINVEL .EQ. MINSTPT .OR. MAXVEL .EQ. MAXSTPT ) THEN
+         MIN_VELOC = MIN_GD_VEL
+         MAX_VELOC = MAX_GD_VEL
+      ELSE
+         MIN_VELOC = MINVEL*MPS_TO_KTS
+         MAX_VELOC = MAXVEL*MPS_TO_KTS
+C
+X     IF (.NOT. PRINTED) THEN
+X     WRITE(14,*)'A31872: VALUES IN CALCULATION LINE 335 '
+X     WRITE(14,*)'MIN_VELOC = MINVEL * MPS_TO_KTS '
+X     WRITE(14,*)'MINVEL EQUALS ',MINVEL
+X     WRITE(14,*)'MPS_TO_KTS EQUALS ',MPS_TO_KTS
+X     WRITE(14,*)'MAX_VELOC = MAXVEL * MPS_TO_KTS '
+X     WRITE(14,*)'MAXVEL EQUALS ',MAXVEL
+X     WRITE(14,*)'A31872: RESULTS OF CALCULATION 1 ',MIN_VELOC
+X     WRITE(14,*)'A31872: RESULTS OF CALCULATION 2 ',MAX_VELOC
+X     PRINTED = .TRUE.
+X     ENDIF
+C
+      ENDIF
+C*
+C********************************************************************
+C*  BUILD THE BACKGROUND GRID
+C*
+      CALL A31873__VAD2_GRID( BPTR, VADBUF )
+C*
+C********************************************************************
+C*  LABEL THE AXIS
+C*
+      CALL A31874__VAD2_AXIS_LBL(BPTR, VADBUF)
+C*
+C********************************************************************
+C*  PLOT THE NYQUIST VELOCITY
+C*
+      CALL A3187B__NYQUIST(VAD_DATA_AR, VAD_DATA_HTS, BPTR, VADBUF)
+C*
+C********************************************************************
+C*  PLOT THE FIT CURVE BY EXTRACTING THE COEFFICIENTS FROM OUTPUT
+C*  BUFFER. THEN IF THEY ARE OK VALUES USE THEM TO DRAW A SIGN WAVE
+C*
+      CF1 = VAD_DATA_HTS(VAD_CF1, HTIDX)
+      CF2 = VAD_DATA_HTS(VAD_CF2, HTIDX)
+      CF3 = VAD_DATA_HTS(VAD_CF3, HTIDX)
+X     TYPE *,'72: CF1, CF2, CF3 = ',CF1,CF2,CF3
+C*
+C********************************************************************
+C*  CHECK FOR MISSING COEFFICIENTS
+C*
+      IF (CF1.EQ.MISSING .OR. CF2.EQ.MISSING .OR. CF3.EQ.MISSING)THEN
+         PHRASE = MESSAGE
+      ELSE
+         CALL A3187A__FIT_WAVE(VAD_DATA_HTS,BPTR,VADBUF)
+X        TYPE *,'72: CALLED A3187A '
+C*
+C********************************************************************
+C*  CONSTRUCT LSF EQUATION CHARACTER BUFFER
+C*
+         A_ONE = NINT( CF1 * MPS_TO_KTS )
+         V = NINT( SHW * MPS_TO_KTS )
+C
+X     IF (.NOT. PRINTED) THEN
+X     WRITE(14,*)'A31872: VALUES IN CALCULATION LINE 388 '
+X     WRITE(14,*)'A_ONE = NINT( CF1 * MPS_TO_KTS ) '
+X     WRITE(14,*)'CF1 EQUALS ',CF1
+X     WRITE(14,*)'MPS_TO_KTS EQUALS ',MPS_TO_KTS
+X     WRITE(14,*)'V = NINT( SHW * MPS_TO_KTS ) '
+X     WRITE(14,*)'SHW EQUALS ',SHW
+X     WRITE(14,*)'A31872: RESULTS OF CALCULATION 3 ',A_ONE
+X     WRITE(14,*)'A31872: RESULTS OF CALCULATION 4 ',V
+X     PRINTED = .TRUE.
+X     ENDIF
+C
+         DELTA = - NINT(HWD) - NINTY_DG
+X        TYPE *,'72: A_ONE, V, DELTA = ',A_ONE,V,DELTA
+C*
+C********************************************************************
+C* DO UNTIL (SIMULATED WITH GO TO 8) DELTA IS WITHIN 0 TO 359 DEGREES
+C*
+ 8       IF ( DELTA .LT. ZERO_DG ) THEN
+            DELTA = DELTA + TWOPI_DG
+X           TYPE *,'72: DELTA + TWOPI_DG = ',DELTA
+            GO TO 8
+         ELSE IF ( DELTA .GE. TWOPI_DG ) THEN
+            DELTA = DELTA - TWOPI_DG
+X           TYPE *,'72: DELTA - TWOPI_DG = ',DELTA
+            GO TO 8
+         END IF
+C
+         WRITE(EQUATION,100) A_ONE,V,DELTA
+ 100     FORMAT('FIT = ',I3,' + ',I3,' SIN( AZ + ',I3,' ) ')
+         PHRASE = EQUATION
+X        TYPE *,'72: PHRASE = ',PHRASE
+      ENDIF
+*
+C********************************************************************
+C*  CALL A3187G TO PUT EITHER MESSAGE OR EQUATION INTO OUTPUT BUFFER
+C*
+      MESSAGE_LEN = PHRASE_LEN
+C$DELETE
+      CALL A3187G__GEN_COCHR_PCKTS(MESX, MESY, LABELS, PHRASEI2,
+     +        MESSAGE_LEN, BPTR, VADBUF)
+C$ENDDELETE
+C$INSERT      CALL A3187G__GEN_COCHR_PKCTS(MESX, MESY, LABELS, PHRASEI2,
+C$INSERT     +        MESSAGE_LEN, BPTR, VADBUF)
+X     TYPE *,'72: CALLED A3187G '
+C*
+C********************************************************************
+C*  PLOT THE DATA POINTS DISCOVERED BY VAD ALGORITHM
+C*
+      CALL A31879__VAD2_POINTS(VAD_DATA_HTS,VAD_DATA_AZM,BPTR,VADBUF)
+C*
+C********************************************************************
+C*  GET THE GENERATION TIME AND DATE AND BUILD THE PRODUCT HEADER
+C*
+      CALL A3CM25__GET_DATE_TIME(CDATE, CTIME)
+      LENPSD = (BPTR - OFFPSD) * BPHW
+      CALL A31878__HEADER(VADBUF,CDATE,CTIME,BPTR,LENPSD)
+C*
+C********************************************************************
+X     TYPE *,'72: EXIT HERE.....'
+      RETURN
+      END

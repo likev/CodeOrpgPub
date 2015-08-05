@@ -1,0 +1,223 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/04 14:30:26 $
+C $Id: a3078j.ftn,v 1.3 2002/12/04 14:30:26 christie Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A3078J__ORIG_CROSS (RADAZM,I, MATCH,HL,HR,
+     $                               SLANT_LEFT,SLANT_RIGHT,SLOPE)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3078J__ORIG_CROSS
+*.
+*.  MODULE VERSION: 0011
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       04 13 89      0000      CHARLIE BAUMHER      SPR # 80271
+*.       05 09 90      0001      PAUL PISANI          SPR # 90317
+*.       11 03 90      0002      MARK FRESCH          SPR # 91248
+*.       12 03 91      0003      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0004      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/20/92      0005      Toolset              SPR 91895
+*.       03/25/93      0006      Toolset              SPR NA93-06801
+*.       01/28/94      0007      Toolset              SPR NA94-01101
+*.       03/03/94      0008      Toolset              SPR NA94-05501
+*.       04/11/96      0009      Toolset              CCR NA95-11802
+*.       12/23/96      0010      Toolset              CCR NA95-11807
+*.       03/16/99      0011      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:
+*.  CALL A3078J__ORIG_CROSS(RADAZM,I, MATCH,HL,HR,
+*.                          SLANT_LEFT,SLANT_RIGHT,SLOPE)
+*.
+*.  MODULE FUNCTION:
+*.   THIS VERTICAL CROSS SECTION ROUTINE TAKES IN A RADIAL OF DATA
+*.  AND DETERMINES IF IT MATCHES P1-AZIMUTH OR P2-AZIMUTH. IF
+*.  A MATCH IS FOUND, IT THEN SETS UP THE INPUTS FOR THE
+*.  ROUTINE TO MAP THE DATA TO THE GRID DEFINED FOR THE PRODUCT.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT       TYPE        DESCRIPTION
+*.    -   -----       ----        -----------
+*.    C   ORIG_PTS    R*4         Table of cross-setion end points for each
+*.                                request.
+*.    C   P1P2_LENG   R*4         Length of P1-P2 plane.
+*.    C   P1_AZZ      I*4         (CONSTANT)Constant used as an index into the
+*.                                buffer ORIG_PTS for P1's Azimuth.
+*.    C   P1_RAN      I*4         (CONSTANT)Constant used as an index into the
+*.                                buffer ORIG_PTS for P1's Range.
+*.    C   P2_AZZ      I*4         (CONSTANT)Constant used as an index into the
+*.                                buffer ORIG_PTS for P2's Azimuth.
+*.    C   P2_RAN      I*4         (CONSTANT)Constant used as an index into the
+*.                                buffer ORIG_PTS for P2's Range.
+*.    C   ZERO        I*4         (CONSTANT)Program parameter for 0.
+*.    P   HL          R*4         DIST FROM P2 TO LEFT_AZ ALONG THE P1P2 LINE
+*.    P   HR          R*4         DIST FROM P2 TO RIGHT_AZ ALONG THE P1P2 LINE
+*.    P   I           I*4         product requested index.
+*.    P   MATCH       L*4         RADIAL MATCHES P1 / P2 AZIMUTH
+*.    P   RADAZM      R*4         AZIMUTH OF THIS BASE RADIAL
+*.    P   SLANT_LEFT  R*4         RANGE FROM RADAR TO LEFT_AZ
+*.    P   SLANT_RIGHT R*4         RANGE FROM RADAR TO RIGHT_AZ
+*.
+*.    *   OUTPUT      TYPE        DESCRIPTION
+*.    -   ------      ----        -----------
+*.    P   HL          R*4         DIST FROM P2 TO LEFT_AZ ALONG THE P1P2 LINE
+*.    P   HR          R*4         DIST FROM P2 TO RIGHT_AZ ALONG THE P1P2 LINE
+*.    P   MATCH       L*4         RADIAL MATCHES P1 / P2 AZIMUTH
+*.    P   SLANT_LEFT  R*4         RANGE FROM RADAR TO LEFT_AZ
+*.    P   SLANT_RIGHT R*4         RANGE FROM RADAR TO RIGHT_AZ
+*.    P   SLOPE       R*4         SLOPE OF RADIAL THRU P1P2 PLANE
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME      TYPE        DESCRIPTION
+*.    ----      ----        -----------
+*.    P1_MATCH  L*4         RADIAL MATCHES P1_AZIMUTH
+*.    P2_MATCH  L*4         RADIAL MATCHES P2_AZIMUTH
+*.    TOLERANCE R*4         RANGE FOR MATCHING AZIMUTHS.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3078CA
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS: NONE
+*.
+*.  DEVIATION FROM STANDARDS: NONE
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP07.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK07.CSS
+*.
+*.  MISC: NONE
+*.
+*.*******************************************************************
+C*
+C*
+C***************************************************************
+C*
+C*                A 3 0 7 8 J __ ORIG_CROSS
+C*
+C*   VERTICAL CROSS SECTION ROUTINE TO CHECK EACH BASE RADIAL
+C*   REQUESTED BY THE PUP.
+C*
+C***************************************************************
+C*
+C*  MODULE   A3078J__ORIG_CROSS (RADAZM,I, MATCH,HL,HR,
+C*                                  SLANT_LEFT,SLANT_RIGHT,SLOPE)
+C*
+      IMPLICIT NONE
+C*
+C*  INCLUDE COMMON PARAMETER FILE
+C*
+$INCLUDE A307.INC,**A30788   (     NLIST)
+$INCLUDE          **A3078CA  (     NLIST)
+C*
+C***************************************************************
+C*  LOCAL DECLARATIONS
+C*
+      INTEGER*4    I
+C
+      REAL*4       RADAZM, TOLERANCE
+      REAL*4       SLANT_LEFT, SLANT_RIGHT
+      REAL*4       HL, HR, SLOPE
+C
+      LOGICAL      MATCH, P1_MATCH, P2_MATCH
+C*
+C***************************************************************
+C*  LOCAL PARAMETER  DECLARATIONS
+C*
+      PARAMETER   ( TOLERANCE = .5 )
+C*
+C*
+C*********************************************************************
+C*  CHECK IF THE INCOMING AZIMUTH IS EQUAL TO P1_AZ +/- TOLERANCE
+C*   OR EQUAL TO P2_AZ  +/- TOLERANCE.
+C*
+      MATCH = .FALSE.
+      P1_MATCH = .FALSE.
+      P2_MATCH = .FALSE.
+C
+        IF (( RADAZM  .GE. ORIG_PTS(P1_AZZ,I) - TOLERANCE ) .AND.
+     $      ( RADAZM  .LE. ORIG_PTS(P1_AZZ,I) + TOLERANCE )) THEN
+          MATCH = .TRUE.
+          P1_MATCH = .TRUE.
+C*
+C* NOT WITHIN P1 TOLERANCE SO CHECK IF WITHIN P2 TOLERANCE
+C*
+        ELSE
+          IF (( RADAZM  .GE. ORIG_PTS(P2_AZZ,I) - TOLERANCE ) .AND.
+     $        ( RADAZM  .LE. ORIG_PTS(P2_AZZ,I) + TOLERANCE )) THEN
+            MATCH = .TRUE.
+            P2_MATCH = .TRUE.
+          ENDIF
+C
+        ENDIF
+C
+C*
+C* DETERMINE IF MATCH FOUND FOR THIS RADIAL AGAINST ONE OF
+C* THE END POINTS
+C*
+      IF ( MATCH ) THEN
+C*
+C*********************************************************************
+C*
+C*
+X       TYPE *,'8J: MATCHING INCOMING AZIMUTH = ',RADAZM,
+     $         'PRODUCT NUMBER IS ',I
+C*
+C* SEE IF RADIAL MATCHES P1 END POINT AND IF SO SET UP INPUT
+C* TO MAP DATA TO GRID FOR PRODUCT
+C*
+        IF ( P1_MATCH ) THEN
+          SLANT_LEFT  = ORIG_PTS(P1_RAN,I)
+          HL          = ZERO
+          SLANT_RIGHT = ZERO
+          HR          =  ORIG_PTS(P1_RAN,I)
+        ENDIF
+C*
+C* SEE IF RADIAL MATCHES P2 ENDPOINT AND IF SO SET UP INPUT
+C* TO MAP DATA FOR THE GRID DEFINED FOR THE PRODUCT
+C*
+        IF ( P2_MATCH ) THEN
+          SLANT_LEFT  = ZERO
+          HL          = ORIG_PTS(P1_RAN,I)
+          SLANT_RIGHT = ORIG_PTS(P2_RAN,I)
+          HR          =  P1P2_LENG(I)
+        ENDIF
+C
+C* DEFINE SLOPE OF INTERSECTION OF RADIAL LINE P1P2
+C*
+        SLOPE = (SLANT_RIGHT - SLANT_LEFT) / (HR - HL)
+C
+X       TYPE *,'8J: SLANT_LEFT, SLANT_RIGHT = ',SLANT_LEFT,SLANT_RIGHT
+X       TYPE *,'8J: HL, HR, SLOPE = ',HL,HR,SLOPE
+C
+      ENDIF
+      RETURN
+      END

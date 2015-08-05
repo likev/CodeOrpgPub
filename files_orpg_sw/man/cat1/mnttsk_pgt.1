@@ -1,0 +1,68 @@
+mnttsk_pgt(1)		RPG		mnttsk_pgt(1)
+
+NAME
+
+   mnttsk_pgt - Initialization Task For Product Generation Table(s)
+
+SYNOPSIS
+   mnttsk_pgt [-t mode] [-C] [-A] [-B] [-M] [-a] [-h]
+
+DESCRIPTION
+
+   This process performs product generation table (PGT) initialization 
+   depending on the startup mode and command line options.  
+
+   If the startup mode is "startup" or "restart", this process performs 
+   the following actions:
+
+      1)  In turn, the LB messages PD_CURRENT_PROD_MSG_ID ID,
+          PD_DEFAULT_A_PROD_MSG_ID, PD_DEFAULT_B_PROD_MSG_ID and 
+          PD_DEFAULT_M_PROD_MSG_ID are read from LB ID ORPGDAT_PROD_INFO. 
+          If any message does not exist, the message is initialized.  If
+          initialization fails, this process exits with a non-zero exit 
+          code.
+       
+      2)  Initialization requires parsing the Default_prod_gen section of
+          ASCII configuration file "product_tables" which are the default
+          product generation table definitions.  Initialization of the 
+          product generation tables requires that the product attribute table
+          already exist.   The product attribute table resides as message ID
+          PD_PROD_ATTR_MSG_ID in LB ID ORPGDAT_PROD_INFO.  Initialization of
+          product attribute message is performed by maintenance task
+          mnttsk_prod_dist.  The initialized product generation table (other
+          than "current" ) is written to the appropriate message ID in LB ID 
+          ORPGDAT_PROD_INFO.
+
+          After a product generation table other than the "current" table has 
+          been initialized and written to ORPGDAT_PROD_INFO, the table is copied
+          to LB ID ORPGDAT_BASELINE_PROD_INFO.
+
+          If the product generation table initialized is the "current" table, 
+          then the default weather mode for startup is read from site adaptation
+          data and the appropriate "default" table is copied to the "current" table
+          message ID PD_CURRENT_PROD_MSG_ID in LB ID ORPGDAT_PROD_INFO.
+
+   If the startup mode is "clear", then the initialization is performed as 
+   described above for the specified table.
+
+
+   Options
+	-t mode		startup mode.  Determines which initialization actions to
+                        be performed.  Supported startup modes are "startup", 
+                        "restart", and "clear".  By default, the mode is "restart".  
+
+        -C              Current product generation table.
+
+        -A              Default weather mode A product generation table.
+
+        -B              Default weather mode B product generation table.
+
+        -M              Default maintenance mode product generation table.
+
+	-h		Provides command line help.
+
+
+SEE ALSO
+	mnttsk_prod_dist(1), ORPGDAT_PROD_INFO(4), and product_tables(4).
+	
+				$Revision: 1.3 $

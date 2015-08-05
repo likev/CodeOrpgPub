@@ -1,0 +1,126 @@
+
+NAME
+    NET_write_socket, NET_read_socket, NET_find_local_ip_address,
+    NET_get_ip_by_name, NET_get_name_by_ip, NET_set_TCP_NODELAY,
+    NET_set_SO_REUSEADDR, NET_set_non_block, NET_set_linger_off,
+    NET_set_linger_on, NET_set_keepalive_on
+
+SYNOPSIS
+    #include <infr.h> or #include <net.h>
+    
+    int NET_write_socket (int fd, char *data, int len);
+    
+    int NET_read_socket (int fd, char *data, int len);
+    
+    int NET_find_local_ip_address (unsigned int **add);
+    
+    unsigned int NET_get_ip_by_name (char *hname);
+    
+    int NET_get_name_by_ip (unsigned int addr, char* name_buf, 
+						int name_buf_len);
+    
+    int NET_set_TCP_NODELAY (int fd);
+    
+    int NET_set_SO_REUSEADDR (int fd);
+    
+    int NET_set_non_block (int fd);
+    
+    int NET_set_linger_off (int fd);
+    
+    int NET_set_linger_on (int fd);
+    
+    int NET_set_keepalive_on (int fd);
+
+    char *NET_string_IP (unsigned int ip, int nbo, char *buf);
+
+    void NET_select_local_ip_address (char *ip);
+
+DESCRIPTION
+    The NET module contains a set of internet and socket related functions.
+    These functions are described below. Other libinfr modules may depend on
+    this module. See net.h for error return values.
+
+    NET_write_socket writes "len" bytes of "data" to socket "fd", which is in
+    non-blocking mode. It does not block and returns if the socket is not
+    available for write. It does not trap SIGPIPE. It is the caller's
+    responsibility to trap the signal. Otherwise, the application may terminate
+    due to a broken socket.
+
+    NET_write_socket returns the number of bytes actually sent or one of error
+    numbers: NET_SOCKET_DISCONNECTED, NET_WRITE_FAILED.
+
+    NET_read_socket reads "len" bytes from socket "fd" into "data", "fd" is in
+    non-blocking mode. It does not block and returns if the data is not
+    available.
+
+    NET_read_socket returns the number of bytes actually sent or one of error
+    numbers: NET_SOCKET_DISCONNECTED, NET_READ_FAILED.
+
+    NET_get_ip_by_name returns the IP address in network byte order of host
+    "hname". "hname" can be of the form "127.24.56.99". The function returns
+    INADDR_NONE on failure. If "hname" is NULL or an empty string, local IP
+    address is returned.
+
+    NET_find_local_ip_address returns the number of local IP addresses and a
+    pointer, by "add", to the list of the local IP addresses (in network byte
+    order). The first address is used by the rssd. It returns -1 if underline
+    system calls failed. The caller should never try to modify anything in the
+    returned array "add". If the local host has more than one network
+    interfaces (IP addresses), one can call NET_select_local_ip_address to
+    select one of them for rssd. If one does not select, the one that
+    corresponds to the machine name (os.nodename) is used. If the machine name
+    does not have an IP address, the first local IP is used. If the host does
+    not have any network interface, the loopback IP address is used. If the
+    loopback address is not found, 1 is used for the local address.
+
+    NET_select_local_ip_address set the local address for rssd to "ip" which
+    can be a host name or IP address such as 127.15.57.63. If "ip" is not a
+    valid IP or host name, or the corresponding IP is not local, the setting is
+    ignored. One must call this function before calling any of the remote
+    access functions (e.g. EN, RMT, RSS functions). This function is needed
+    only when there are more than one local network IP addresses and the
+    non-default one must be chosen for rssd. Refer to
+    NET_find_local_ip_address.
+
+    NET_get_name_by_ip returns the host name in "name_buf" of size
+    "name_buf_len" corresponding to the IP address "addr" (in the network byte
+    order). The function always returns 1. The name returned is truncated if
+    the name buffer is too small to hold the name. If "addr" is the local IP
+    and the local host does not have any network connection (See
+    NET_find_local_ip_address), the local hostname, if exists or "local_host"
+    is returned. Otherwise, if "addr" does not have a host name, the ASCII form
+    IP address is returned as the host name.
+
+    NET_set_TCP_NODELAY disables buffering of short data in TCP level by
+    setting the SOL_TCP's TCP_NODELAY option for socket "fd".
+
+    NET_set_SO_REUSEADDR sets the SO_REUSEADDR feature by setting the 
+    SOL_SOCKET's SO_REUSEADDR option for socket "fd".
+
+    NET_set_non_block sets the non-blocking mode for socket "fd".
+
+    NET_set_linger_off disables the socket linger feature by resetting the 
+    SOL_SOCKET's SO_LINGER option for socket "fd".
+
+    NET_set_linger_on enables the socket linger feature by setting the 
+    SOL_SOCKET's SO_LINGER option for socket "fd".
+
+    NET_set_keepalive_on turns on the KEEPALIVE feature by setting the
+    SOL_SOCKET's SO_KEEPALIVE option for socket "fd".
+
+    NET_string_IP returns the IP address in string form in "buf" for "ip".
+    "nbo" must be 1 if "ip" is in the network byte order. Otherwise, "nbo" must
+    be 0. The caller provided buffer "buf" must be large enough to hold the
+    address (e.g. 127.25.68.7). NET_string_IP returns "buf".
+
+SEE ALSO
+    infr(3)
+
+NOTES
+    Some of the other shared or non-portable network related functions used in
+    libinfr may need to be moved to this module. Some of the libinfr functions
+    still call local functions that are identical to functions here. Those 
+    need to be updated.
+
+
+

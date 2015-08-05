@@ -1,0 +1,240 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/17 15:47:46 $
+C $Id: a317h8.ftn,v 1.2 2002/12/17 15:47:46 christie Exp $
+C $Revision: 1.2 $
+C $State: Exp $
+C
+      SUBROUTINE A317H8__BUILD_P2D( P2D_FEAT )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A317H8__BUILD_P2D
+*.
+*.  MODULE VERSION: 0001
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       05/29/97      0000      MARK FRESCH          CCR NA95-21503
+*.       03/16/99      0001      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A317H8__BUILD_P2D( P2D_FEAT )
+*.
+*.  MODULE FUNCTION:
+*.
+*.  Builds upon an existing potential 2D features by adding to
+*.  it the attributes of the newly correlated pattern vector.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT          TYPE        DESCRIPTION
+*.    -   -----          ----        -----------
+*.    G   TDAMAIN        R*4         An array that holds pattern attributes.
+*.    C   AZC            I*4         A INDEX TO THE CURRENT RADIAL IN RAD_PV
+*.                                   AND OTHER ASSOCIATED ARRAYS
+*.    C   JXC            I*4         INDEX INTO TDAMAIN (& OTHER ARRAYS) TO A
+*.                                   PATTERN VECTOR
+*.    C   LABP           I*4         ID # OF THE POTENTIAL 2D FEATURE IN A
+*.                                   "PREVIOUS" RADIAL
+*.    C   OFFSET         I*4         EQUAL TO TDABFPTR - OFFSET USED TO
+*.                                   CORRECT PATTERN VECTOR POINTERS IN THE
+*.                                   VECT_ATTR ARRAY FROM TWO SIDED TDAMAIN
+*.                                   ARRAY
+*.    C   P2DF_PTR       I*4         POINTER TO THE FIRST PATTERN VECTOR OF A
+*.                                   P2DF IN THE LINKED LIST
+*.    C   P2DF_PV_INDX   I*4         LINKED LIST OF PAT. VECTS BELONGING TO
+*.                                   P2DFs CONTAINING THE INDICES INTO TDAMAIN
+*.                                   OF THE LAST, CURRENT, AND NEXT PATTERN
+*.                                   VECTORS IN THE P2DF
+*.    C   PVAD           R*4         VECTOR AZIMUTH DIFFERENCE FOR THE ABOVE
+*.                                   THRESHOLD PATTERN VECTORS IN THE
+*.                                   "CURRENT" AND "PREVIOUS" RADIALS
+*.    C   PVEAZ          R*4         ENDING AZIMUTH FOR THE ABOVE THRESHOLD
+*.                                   PATTERN VECTORS IN THE "CURRENT" AND
+*.                                   "PREVIOUS" RADIALS
+*.    C   PV_ZERO_CROSS  L*4         FLAG INDICATING WHETHER A PATTERN VECTOR
+*.                                   SPANS ZERO DEGREES
+*.    C   RAD_ZERO_CROSS L*4         FLAG INDICATING WHETHER THE VECTOR
+*.                                   AZIMUTH DISTANCE (TWO PATTERN VECTORS)
+*.                                   SPANS ZERO DEGREES
+*.    C   END_AZ         I*4         (CONSTANT)INDEX TO THE ENDING AZIMUTH IN
+*.                                   THE VECT_ATTR ARRAY
+*.    C   INDX_PVM       I*4         (CONSTANT)INDEX INTO P2DF_PV_INDX TO THE
+*.                                   PATTERN VECTOR POINTER INTO TDAMAIN
+*.    C   NUM_P2D_ATR    I*4         (CONSTANT)NUMBER OF POTENTIAL 2D FEATURE
+*.                                   ATTRIBUTES IN P2DFEAT AND OTHER ARRAYS
+*.    C   P2D_BRG        I*4         (CONSTANT)INDEX INTO P2DFEAT TO THE
+*.                                   BEGINNING RANGE OF A POTENTIAL 2D FEATURE
+*.                                   INITIALLY IN BINS CONVERTED TO KM IN
+*.                                   A317U8
+*.    C   P2D_EAZ        I*4         (CONSTANT)INDEX INTO P2DFEAT TO THE
+*.                                   ENDING AZIMUTH OF A POTENTIAL 2D FEATURE
+*.                                   IN DEGREES
+*.    C   P2D_ERG        I*4         (CONSTANT)INDEX INTO P2DFEAT TO THE
+*.                                   ENDING RANGE OF A POTENTIAL 2D FEATURE
+*.                                   INITIALLY IN BINS CONVERTED TO KM IN
+*.                                   A317U8
+*.    C   P2D_NPV        I*4         (CONSTANT)INDEX INTO P2DFEAT TO THE # OF
+*.                                   PATTERN VECTORS IN A POTENTIAL 2D FEATURE
+*.    C   P2D_ZCR        I*4         (CONSTANT)INDEX INTO P2DFEAT TO THE ZERO
+*.                                   CROSS FLAG OF A POTENTIAL 2D FEATURE
+*.    C   PTR_LAS        I*4         (CONSTANT)INDEX INTO P2DF_PV_INDX TO THE
+*.                                   PREVIOUS PATTERN VECTOR IN THE LINKED
+*.                                   LIST FOR EACH POTENTIAL 2D FEATURE
+*.    C   PTR_NEX        I*4         (CONSTANT)INDEX INTO P2DF_PV_INDX TO THE
+*.                                   NEXT PATTERN VECTOR IN THE LINKED LIST
+*.                                   FOR EACH POTENTIAL 2D FEATURE
+*.    C   PV_BIN         I*4         (CONSTANT)Index in TDAMAIN to pattern
+*.                                   vector bin numbers
+*.    C   TERM_NATE      I*4         (CONSTANT)FLAG VALUE IN P2DF_PV_INDX
+*.                                   INDICATING THE END OF THE PATTERN VECTOR
+*.                                   LINKED LIST FOR EACH POTENTIAL 2D FEATURE
+*.    C   VAD            I*4         (CONSTANT)INDEX TO THE VECTOR AZIMUTH
+*.                                   DIFFERENCE IN THE VECT_ATTR ARRAY
+*.    P   P2D_FEAT       R*4         An array of attributes for a potential 2D
+*.                                   feature
+*.
+*.    *   OUTPUT       TYPE        DESCRIPTION
+*.    -   ------       ----        -----------
+*.    C   P2DF_PV_INDX I*4         LINKED LIST OF PAT. VECTS BELONGING TO
+*.                                 P2DFs CONTAINING THE INDICES INTO TDAMAIN
+*.                                 OF THE LAST, CURRENT, AND NEXT PATTERN
+*.                                 VECTORS IN THE P2DF
+*.    C   VECT_ATTR    R*4         CONTAINS THE VECTOR AZIMUTH DIFFERENCE AND
+*.                                 ENDING AZIMUTH OF PATTERN VECTORS
+*.                                 CORRELATED TO POTENTIAL 2D FEATURES
+*.    P   P2D_FEAT     R*4         An array of attributes for a potential 2D
+*.                                 feature
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME  TYPE        DESCRIPTION
+*.    ----  ----        -----------
+*.    PV_IX I*4         Pattern vector index
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    PVECS09
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A315P2DC
+*.    A317TCA
+*.    A317TVA
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     Compiled using COMP17.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     Linked using LINK17.CSS
+*.
+*.  MISC:  None
+*.
+C********************************************************************
+C
+C            TDA 2D PROCESSING: BUILD P2D SUBROUTINE
+C
+C********************************************************************
+C
+      IMPLICIT NONE
+C
+$INCLUDE A317BUF.INC/G, **A317P3T  (NLIST)
+C
+$INCLUDE A309.INC/G,**A3PM50 (NLIST)
+$INCLUDE            **A3CD09BL (NLIST)
+C
+$INCLUDE A317.INC/G, **A317TCP (NLIST)
+$INCLUDE             **A317TCA (NLIST)
+$INCLUDE             **A317TVA (NLIST)
+C
+$INCLUDE             **A317P2DP (NLIST)
+$INCLUDE             **A317P2DC (NLIST)
+C
+C*********************** DATA DECLARATIONS **************************
+C
+      INTEGER PV_IX
+      REAL P2D_FEAT( NUM_P2D_ATR )
+C
+C****************** BEGIN MAIN PROCESSING SECTION *******************
+C
+C
+C** Loop through the pattern vector index linked list to find
+C** the next open spot in the array for this potential 2D feature.
+C
+      PV_IX = P2DF_PTR (LABP)
+ 100  IF ( P2DF_PV_INDX(PTR_NEX, PV_IX-OFFSET) .NE. TERM_NATE ) THEN
+C
+C** The end of the linked list for each pot. 2D feature = TERM_NATE.
+C
+         PV_IX = P2DF_PV_INDX(PTR_NEX, PV_IX-OFFSET)
+         GO TO 100
+      END IF
+C
+C** Now that the next available spot in the linked list (for this
+C** pot. 2D feature) has been found.  For the last pattern vector
+C** save the pointer to this pattern vector. For this pattern vector,
+C** save the pointers to the last and current pattern vectors.
+C
+      P2DF_PV_INDX (PTR_NEX, PV_IX - OFFSET) = JXC
+      P2DF_PV_INDX (INDX_PVM, JXC - OFFSET ) = JXC
+      P2DF_PV_INDX (PTR_LAS, JXC - OFFSET ) = PV_IX
+C
+C** Continue building fields of new pot. 2D feature from corres-
+C** ponding attributes of the new pattern vector.  Here only the
+C** Ending Azimuth, Beginning & Ending Ranges,
+C** number of pattern vectors, and zero-cross are computed.  Other
+C** attributes will be computed later.
+C
+      P2D_FEAT( P2D_NPV ) = P2D_FEAT( P2D_NPV ) + 1.0
+C
+C** Since pattern vectors are added on in increasing azimuth,
+C** this pattern vector must be on the most clockwise radial, and,
+C** therefore, the Ending Azimuth.
+C
+      P2D_FEAT( P2D_EAZ ) = PVEAZ(AZC)
+C
+C** The ranges will be converted from bin number to km when needed.
+C** And there will be probably less features due to thresholding.
+C
+      IF (TDAMAIN( PV_BIN, JXC) .LT. P2D_FEAT(P2D_BRG))
+     >   P2D_FEAT( P2D_BRG ) = TDAMAIN( PV_BIN, JXC )
+C
+      IF (TDAMAIN( PV_BIN, JXC) .GT. P2D_FEAT(P2D_ERG))
+     >   P2D_FEAT( P2D_ERG ) = TDAMAIN( PV_BIN, JXC )
+C
+C** If the current pattern vector being added to the feature or
+C** the radials of the feature cross zero, then save it.
+C
+      IF (RAD_ZERO_CROSS .OR. PV_ZERO_CROSS)
+     >   P2D_FEAT( P2D_ZCR ) = 1.0
+C
+C** Save the Vector Azimuth Differenence and Ending Azimuths
+C
+      VECT_ATTR(VAD,JXC-OFFSET) = PVAD(AZC)
+      VECT_ATTR(END_AZ,JXC-OFFSET) = PVEAZ(AZC)
+C
+C**************** END OF PROCESSING FOR SUBROUTINE ******************
+C
+      RETURN
+      END

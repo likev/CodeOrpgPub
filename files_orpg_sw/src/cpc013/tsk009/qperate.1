@@ -1,0 +1,61 @@
+qperate(1)                ORPG SUM Manpage                qperate(1)
+
+NAME:
+        cpc013/tsk009 - Quantitative Precipitation Estimation  Rate Algorithm
+
+DESCRIPTION:
+        Quantitative Precipitation Estimation (QPE) Rate Algorithm - qperate
+	uses elevations of Dual Pol moments and hydroclass data,
+        DP_MOMENTS_ELEV, along with terrain-based blockage and exclusion
+        zones, to produce a Hybrid Scan rate product, QPERATE. QPERATE is used
+        by the downstream Dual Pol algorithms to calculate precipitation
+        accumulations.
+
+        Qperate also produces a Hybrid Scan hydroclass product, QPEHHC,
+        which presents the hydroclasses used to compute the QPERATE,
+        and a Digital Instantaneous Precipitation Rate product, DPRPROD,
+        which is the rates in final product format. Qperate differs from the
+        PPS in that Clutter and AP likelihood are encoded in the hydroclass.
+
+	The algorithm works on the premise that the lowest unblocked, not in
+        an exclusion zone, sample (azimuth, radial) bin that does not have a
+        hydroclass of ground clutter or unknown can be used to calculate a
+        rate. Starting at the lowest elevation, a given sample bin is tested
+        against a blockage threshold, to see if it is contained within an
+        exclusion zone, and then to see if its hydoclass is ground clutter
+        or unknown.
+
+        If these tests are passed, a rainfall rate based on the hydroclass is
+        calculated using the Dual Pol moments. Unlike the PPS, averaging of
+        adjacent bins is not done. If a rate cannot be calculated, the sample
+        bin is added to a linked list of unfilled bins for processing at the
+        next higher elevation.
+
+        At the end of each elevation scan, the percentage of filled bins is
+        compared to a full Hybrid Scan threshold and, if exceeded (or if the
+        next-to-highest elevation has been processed), the Hybrid Scan is
+        considered complete and the QPERATE buffer is released for use by the
+        downstream tasks. All thresholds are algorithm adaptation data.
+ 	
+        For the convenience of the downstream accumulation tasks, qperate
+        also maintains the start time of precipitation, the last time of
+        precipitation, and whether a storm is active.
+
+TASK ID:
+       1309
+
+DATA IN:
+       DP_MOMENTS_ELEV (406)
+
+DATA OUT:
+       QPERATE (311)
+       QPEHHC  (312)
+       DPRPROD (176)
+
+SEE ALSO:
+       dprprod(4)
+       qpehhc(4)
+       qperate(4)
+       task_table(4)
+
+$Revision: 1.1 $

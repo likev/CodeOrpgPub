@@ -1,0 +1,129 @@
+C
+C RCS info
+C $Author: ccalvert $
+C $Locker:  $
+C $Date: 2003/12/09 20:58:32 $
+C $Id: prcgagsc.ftn,v 1.12 2003/12/09 20:58:32 ccalvert Exp $
+C $Revision: 1.12 $
+C $State: Exp $
+C
+      SUBROUTINE PRCPADJU_GAGE_SCAN
+C**********************************************************************
+C
+C	Module:	prcgagsn.ftn
+C
+C	Description: This module reads the latest gage accumulation
+C	from disk for the open RPG Precipitation Adjustment Algorithm
+C
+C**********************************************************************
+
+	IMPLICIT NONE
+
+C adaptation common blocks
+$INCLUDE A309ADPT.INC/G,**A3CD70P6 (NEND NLIST)
+$INCLUDE                **A3CD70_HYDROMET_ADJ (NEND NLIST)
+$INCLUDE                **A3CD70CA (NLIST)
+$INCLUDE                **A3CD70C8 (NLIST)
+$INCLUDE                **A3CD70C4 (NLIST)
+$INCLUDE A309.INC/G,**A3PM00		;HYACCSCN HYADJSCN CPC10MSG
+$INCLUDE **A3PM06                       ; BYTES_PER_SECTOR
+$INCLUDE **A3CD07 (NLIST)
+$INCLUDE A313HBUF.INC/G,**A313HYPP (NLIST)
+$INCLUDE A313H.INC/G, **A3136P     (NLIST)
+$INCLUDE **A3136P1                 (NLIST)
+$INCLUDE **A3136C3                 (NLIST)
+$INCLUDE **A3136C4                 (NLIST)
+C
+C	These equivalences accomodate the ORPG ANSI Fortran-compliant WRITE
+C	statements that replace the legacy RPG SYSIO calls ...
+
+	INTEGER BIAS_DATA(BIBYTES/4)
+	EQUIVALENCE (BIAS_DATA(1),TBUPDT)
+	INTEGER ACSCN_DT_DATA(DTBYTES/4)
+	EQUIVALENCE (ACSCN_DT_DATA(1),TBUPDT)
+
+        LOGICAL FILE_EXIST
+        INTEGER OSTAT
+        INTEGER OPEN_STAT
+
+        character*100 text
+        integer status
+
+	INTEGER ORPGNDX
+C
+C** Get full filename
+C
+        CALL A3CM04__FULL_NAME(GAS_FN, HYDRO_ACCT, GASCNAM)
+
+        OPEN_STAT = IINIT
+        OSTAT = IINIT
+C
+C** Check if the file already exists
+C
+        INQUIRE(FILE=GASCNAM,EXIST=FILE_EXIST)
+C
+        OPEN (UNIT=GASCNLU, ACCESS='DIRECT', FILE=GASCNAM,
+     $         IOSTAT=OPEN_STAT, RECL=SCNBYTES, STATUS='UNKNOWN')
+
+        IF (.NOT.FILE_EXIST .AND. OPEN_STAT.EQ.IINIT) THEN
+C
+C** File did not previously exist so initialize bias date and times
+C
+C** Note: Variables TBUPDT, DBUPDT, TBTBL_UPD, DBTBL_UPD,
+C**       TBTBL_OBS, DBTBL_OBS, TBTBL_GEN and DBTBL_GEN were already
+C**       initialized in BLOCK DATA A313C3__DECLARE_BIAS_TIMES.
+C
+           BIAS = RESETBI
+           GRPSIZ = RINIT
+           MSPAN  = RINIT
+C
+C** Initialize record on disk
+C
+C--        type *,'prcgagsc: Fields in A3136C3 before write to GASCNLU:'
+X          type *,'prcgagsc: Fields in A3136C3 upon initialization:'
+C
+X          WRITE(6,11) DBUPDT, TBUPDT, DBTBL_UPD, TBTBL_UPD
+X11        FORMAT(' A3136T: DATE & TIME LAST BIAS VALUE UPDATE:',2I6,
+X    $            ', DATE & TIME BIAS TABLE UPDATE:',2I6)
+X          WRITE(6,12) DBTBL_OBS, TBTBL_OBS, DBTBL_GEN, TBTBL_GEN
+X12        FORMAT(' A3136T: DATE & TIME BIAS TABLE OBSERVATION:',2I6,
+X    $            ', DATE & TIME BIAS TABLE GENERATATION:',2I6)
+X          WRITE(6,13) BIAS, GRPSIZ, MSPAN
+X13        FORMAT(' A3136T: BIAS=',F6.3,'  GRPSIZ=',F10.3,
+X    $                   '  MSPAN=',F10.3)
+X          WRITE(6,15) DATECUR, TIMECUR
+X15        FORMAT(' A3136T: CURRENT VOLUME SCAN DATE AND TIME:',2I6)
+C
+           WRITE(UNIT=GASCNLU, IOSTAT=OSTAT, REC=ORPG_SEC0_REC)
+     $            (BIAS_DATA(ORPGNDX), ORPGNDX=1,(BIBYTES/4))
+           IF (OSTAT.EQ.IINIT) THEN
+C
+C** Initialize gage accumulation scan time in file
+C
+            WRITE(UNIT=GASCNLU, IOSTAT=OSTAT, REC=ORPG_SEC1_REC)
+     $              (ACSCN_DT_DATA(ORPGNDX), ORPGNDX=1,(DTBYTES/4))
+
+           END IF
+        END IF
+
+        IF (OPEN_STAT .NE. IINIT .OR. OSTAT .NE. IINIT) THEN
+C
+C** Abort processing because file could not be openned
+C
+           call rpg_clear_msg( 100, text, status )
+
+           if( OPEN_STAT .NE. IINIT ) then
+              write(text, 100) GASCNAM, OPEN_STAT
+ 100          format( 1x, A60, ' Failed Open (',I4,')$' )
+           else if (OSTAT .NE. IINIT ) then
+              write(text, 101) GASCNAM, OSTAT
+ 101          format( 1x, A60, ' Failed Write (',I4,')$' )
+           end if
+
+           call rpg_send_msg( text )
+           CALL A31137__HARI_KIRI
+ 
+        END IF
+       
+        RETURN
+        END

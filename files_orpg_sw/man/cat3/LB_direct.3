@@ -1,0 +1,65 @@
+LB_direct(3) 		   ORPG SDD Manpage   		LB_direct(3)
+
+NAME
+LB_direct - return pointer to given message of a Linear Buffer (LB) file
+
+SYNOPSIS
+#include <lb.h>
+int LB_direct (int lbd, char **ptr, LB_id_t id) 
+
+DESCRIPTION
+LB_direct returns, in "ptr", the pointer to the message of message 
+id "id". If the message does not exist, it fails and returns 
+an error code. If there are multiple messages in the LB with the 
+same "id", the latest one is returned.
+
+This function can only be used for an LB of type LB_DIRECT. The
+message pointed to by "ptr" can be corrupted, due to an automatic 
+message expiration, at any time after LB_direct returns. The area 
+pointed to by "ptr" is read-only, except that the LB is 
+LB_UNPROTECTED, and the size of the accessible 
+area is determined by the return value (message length). No proper 
+alignment is guaranteed. If alignment is an issue, one should 
+always use message lengths that divide the minimum alignment length 
+when messages are written to the LB. LB_DIRECT type LB does not
+support LB_MUST_READ.
+
+If "id" is LB_NEXT, LB_read returns the message pointed 
+by the read-pointer (the next message in sequential reading). If 
+the next message is not yet available, the function returns 
+LB_TO_COME, which is 0. If the message is expired, it returns 
+LB_EXPIRED.
+
+If LB_direct is succeeded or it is failed due to LB_EXPIRED, the 
+read pointer will be set to pointing to the next message.
+
+If LB_UNPROTECTED is set, the area pointed to by "ptr" is also 
+writable. In this case, the area can be used as a conventional
+shared memory area.
+
+On success, LB_direct returns the length of the returned message. On 
+failure, it returns LB_TO_COME as described earlier or a negative 
+value indicating one of the following error conditions:
+
+	LB_BAD_ACCESS:		The LB is not created as LB_DIRECT.
+	LB_NOT_FOUND:		The message of "id" was not found.
+	LB_BAD_ARGUMENT:	One of the arguments does not make 
+				sense.
+	LB_BAD_DESCRIPTOR:	Unopened or closed LB descriptor is 
+				used.
+	LB_INTERNAL_ERROR:	An internal inconsistency is found. 
+				The LB is damaged due to unknown reason.
+	LB_EXPIRED:		The message is expired.
+	LB_PARITY_ERROR:	The user's LB data structure (not the 
+				LB) is corrupted by 
+				the caller due to a memory leak.
+	LB_SHMDT_FAILED:	Failed in shmdt system call.
+	LB_LOCK_FAILED:		Failed in a lock system call.
+	LB_MMAP_FAILED:		Failed in mmap system call.
+	LB_MPROTECT_FAILED:	Failed in mprotect system call.
+
+
+SEE ALSO
+LB_clear(3), LB_close(3), LB_list(3), LB_mark(3), LB_open(3),
+LB_previous_msgid(3), LB_read(3), LB_remove(3), LB_seek(3), LB_size(3),
+LB_stat(3), LB_write(3), lb(3), lb_create(1), lb_info(1), lb_rm(1)

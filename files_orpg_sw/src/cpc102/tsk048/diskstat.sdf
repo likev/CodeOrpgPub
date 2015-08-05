@@ -1,0 +1,241 @@
+# RCS info
+# $Author: ccalvert $
+# $Locker:  $
+# $Date: 2005/06/02 19:31:45 $
+# $Id: diskstat.sdf,v 1.2 2005/06/02 19:31:45 ccalvert Exp $
+# $Revision: 1.2 $
+# $State: Exp $
+
+
+Software Development File for "diskstat"
+
+Entry Data:  06/20/00
+Name:  Diane Crow
+Reason for SDF Entry:  Initial
+
+Software Development Activity:
+[X]  Requirements Analysis
+[X]  Design
+[X]  Implementation
+[X]  Unit Test
+[X]  Integration Test
+
+Name of SU's:  diskstat, totcap.awk
+
+Author(s):  Diane Crow
+
+Description:  A Korn shell script tool for monitoring the disk storage 
+requirements for all RPG processes and data files.
+
+Inputs:  None
+
+Outputs:  Selectable timestamped log file
+
+Reuse:  50% reused from a similar tool for RPG software version prior to code 
+redesign.  A major portion of the RPG software underwent redesign, rendering 
+most of the test tools obsolete.  New test tools had to be developed to work on 
+this new code.
+
+Trouble Report Information:  
+
+Considerations/Rationale:  Provides a means of obtaining a snapshot of disk 
+storage for the RPG software and supporting data files.
+
+Constraints:  Must be run from a Unix command line.
+
+References:
+
+Schedule:  Refer to ORPG Master Schedule
+
+Status:  100% complete. 
+
+		### Design and Coding Notes  ###
+		
+Design Notes:
+
+
+
+- Description of Script(s):
+
+diskstat - executable script is located in /export/home/tools/toolsets 
+directory.
+
+This script does the following for any system that runs the RPG software -
+
+Executes the Unix utility "df -k" and processes its output to filter out 
+external file systems (ie:  osfeng, cmosun, jaz) and isolate the total disk 
+kilobytes, total kilobytes used and total kilobytes available for the hard disk 
+file systems.
+Executes the awk script "totcap.awk" from the /export/home/tools directory, 
+which calculates the percentage of disk used, directing output to the 
+timestamped output log file.
+Executes the Unix utility "df -k" and processes its output to report  
+individually on each file system of the hard disk, excluding any file systems 
+that are external to the hard drive of the CPU being tested(ie:  osfeng, 
+cmosun). 
+Executes the Unix utility "df -k" and processes its output to report on the 
+status of the external JAZ drive and/or any additional external storage devices.
+All data obtained through the processing is written to the timestamped output 
+log file.
+
+In addition, when used with "s" option, creates a directory for storing output log files, if
+one does not already exist and creates a timestamped output log file at the time
+the script is initially executed.  Records the type of test that the tool is 
+being used with.  Records the version of the software that the tool is being used with.
+
+
+totcap.awk - executable script is located in /export/home/tools/toolsets 
+directory.
+
+This script does the following for the "diskstat" script -
+
+Executed by "diskstat" using input provided by "diskstat".
+Calculates the total percentage of disk space in use, allowing for floating 
+point math.
+Contains print statement for printing results of calculation to the screen.
+
+		### Testing ###
+		
+Test Requirements:  To evaluate the hard disk storage capacity on demand without 
+interfering with the normal execution of the RPG software under a variety of 
+operating conditions.
+
+Objective:  Execute diskstat in a normal manner.
+
+Environment:  Need a Sun Ultra 5 for MSCF or BDDS installations with correct 
+hardware, SunOS and RPG software build already installed (See Tech Manuals for 
+details).  Need a Sun Ultra 10 for an ORPG installation with correct hardware, 
+SunOS and RPG software build already installed (See Tech Manuals for details).
+
+Methodology:  Unit testing of a "Normal" execution.
+
+Test cases:  Show the normal execution (Average Unit Test) of the script on any 
+RPG system.
+
+		### Test Procedure 1 ###
+
+Test Case Name or Id:  Average Unit Test of an MSCF
+
+Environment:  Need a Sun Ultra 5 for an MSCF with correct hardware and SunOS 
+already installed (See Tech Manuals for details).
+
+Inputs (Screen Capture):
+
+diskstat
+
+Expected Results:  After execution, the script will print the 
+output to the screen.  Once the script finishes, the 
+terminal window will return to the command line.
+
+Sample screen output:
+
+Current software build    :  v1.109
+Host is                   :  rpg1-osfdod
+Tue Aug 29 22:54:34 GMT 2000
+****************************
+System Disk resources and utilization:
+/proc  0 % full    /proc
+/dev/dsk/c0t0d0s0  63 % full    /
+/dev/dsk/c0t0d0s6  78 % full    /usr
+fd  0 % full    /dev/fd
+/dev/dsk/c0t0d0s7  1 % full    /export/home
+swap  2 % full    /tmp
+
+
+jaz drive is not mounted/available
+
+Total kbytes    :   4113784
+Total kbytes used :   727707
+Total kbytes avail:   3250893
+
+Total disk usage:   17.6898 %
+
+
+diskstat s
+
+Expected Results:  On execution of the script, the user will be prompted to 
+enter the name of test being performed (ie:  Full Load, DT&E, etc.) After
+execution, the script will print the output to the screen and to a 
+timestamped log file.  Once the script finishes, the terminal window will 
+return to the command line.
+
+What is the test being performed?  :Full Load
+
+Sample log file output:
+
+Current software build    :  v1.109
+Host is                   :  rpg1-osfdod
+Test being performed is:  Full Load
+Tue Jun 20 17:29:20 CDT 2000
+****************************
+System Disk resources and utilization:
+/proc  0 % full    /proc
+/dev/dsk/c0t0d0s0  63 % full    /
+/dev/dsk/c0t0d0s6  78 % full    /usr
+fd  0 % full    /dev/fd
+/dev/dsk/c0t0d0s7  1 % full    /export/home
+swap  2 % full    /tmp
+
+jaz drive is not mounted/available
+Total kbytes used :   727712
+Total kbytes avail:   3250848
+
+Total disk usage:   17.6898 %
+
+
+Step-by-step for diskstat:
+
+Step 1:  Type at the command line:  'diskstat'
+Step 2:  Allow it to run until the command line is returned.
+
+Evaluation Criteria:  Output should resemble sample screen output above.
+
+		### Unit Test Results ###
+		
+Test Case:  Normal test using test procedure on an MSCF.
+Pass/Fail:
+Date:
+
+Test Case:  Normal test using test procedure on an RPG with a Jaz drive.
+Pass/Fail:
+Date:
+
+Test Case:  Normal test using test procedure on a BDDS.
+Pass/Fail:
+Date:
+
+Test Case:  Normal test using test procedure on stand-alone RPG with tape drive.
+Pass/Fail:
+Date:
+
+Step-by-step for diskstat s :
+
+Step 1:  Type at the command line:  'diskstat s'
+Step 2:  At the prompt, type a name for the test being performed.
+Step 3:  Allow it to run until the command line is returned.
+Step 4:  Verify the contents of the output log file.
+
+Evaluation Criteria:  Determine if screen-printed output matches the contents of 
+the output log file.
+
+		### Unit Test Results ###
+		
+Test Case:  Normal test using test procedure on an MSCF.
+Pass/Fail:  Pass
+Date:       01/10/01
+
+Test Case:  Normal test using test procedure on an RPG with a Jaz drive.
+Pass/Fail:  Pass
+Date:       01/10/01
+
+Test Case:  Normal test using test procedure on a BDDS.
+Pass/Fail:  Pass
+Date:       01/10/01
+
+Test Case:  Normal test using test procedure on stand-alone RPG with tape drive.
+Pass/Fail:  Pass
+Date:       01/10/01
+
+		### Miscellaneous ###
+		
+

@@ -1,0 +1,334 @@
+C 
+C RCS info 
+C $Author: nolitam $ 
+C $Locker:  $ 
+C $Date: 2002/11/27 15:16:53 $ 
+C $Id: a3146a.ftn,v 1.3 2002/11/27 15:16:53 nolitam Exp $ 
+C $Revision: 1.3 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A3146A__INIT_POLAR_TO_CARTESIAN (TEST_GRID)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3146A__INIT_POLAR_TO_CARTESIAN
+*.
+*.  MODULE VERSION: 0011
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       06 13 89      0000      P.A.JENDROWSKI       SPR# 90348
+*.       03 27 90      0001      DAVE HOZLOCK         SPR# 90697
+*.       11 04 90      0002      PAUL JENDROWSKI      SPR# 91255
+*.       12 03 91      0003      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0004      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0005      Toolset              SPR 91895
+*.       03/25/93      0006      Toolset              SPR NA93-06801
+*.       01/28/94      0007      Toolset              SPR NA94-01101
+*.       03/03/94      0008      Toolset              SPR NA94-05501
+*.       04/11/96      0009      Toolset              CCR NA95-11802
+*.       12/23/96      0010      Toolset              CCR NA95-11807
+*.       03/16/99      0011      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A3146A__INIT_POLAR_TO_CARTESIAN (TEST_GRID)
+*.
+*.  MODULE FUNCTION:
+*.
+*.     This routine constructs the arrays used in the polar to
+*.     Cartesian conversion process. Two arrays are created which
+*.     contain the Cartesian coordinates which correspond to polar
+*.     coordinates. The first, ZONE1_CARTGRID, contains the grid
+*.     coordinates for those polar values less than 115 km from the
+*.     polar center. The seconds, ZONE2_CARTGRID, contains coordinates
+*.     for polar values greater than 115 km from the center; for each
+*.     of these polar values, two Cartesian coordinates are generated.
+*.     A third array, INNER_HOLES, contains the Cartesian coordinates
+*.     of those grid boxes into which no polar value was mapped.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT          TYPE        DESCRIPTION
+*.    -   -----          ----        -----------
+*.    C   INNER_COUNT    I*4         Number of actual hole coordinates in
+*.                                   inner_holes.
+*.    C   AZ_IN_KQUAD    I*4         (CONSTANT)Number of degrees in one
+*.                                   quarter of the polar grid.
+*.    C   IBEG           I*4         (CONSTANT)Parameter used as loop control
+*.                                   variable (initial value).
+*.    C   INCRMENT       I*4         (CONSTANT)Parameter used to increment by
+*.                                   one.
+*.    C   KBINS          I*4         (CONSTANT)Numbr of 2 Km. Bins in the
+*.                                   232Km polar grid.
+*.    C   KGRID_CENTER   I*4         (CONSTANT)Center point of 232 X 232
+*.                                   cartesian grid.
+*.    C   KNOSPLIT_RANGE I*4         (CONSTANT)Range of 2KM polar bins for
+*.                                   which azimuth need not be split to obtain
+*.                                   good mapping (few holes) from polar to
+*.                                   cartesian.
+*.    C   KSPLIT_RANGE   I*4         (CONSTANT)Bin number to start performing
+*.                                   beam splitting procedure for mapping
+*.                                   polar points
+*.    C   N_ZONES        I*4         (CONSTANT)Number of beam splitting zones.
+*.    P   TEST_GRID      I*2         Cartesian grid which is used to determine
+*.                                   where the 'holes' are in the polar to
+*.                                   Cartesian conversion process
+*.
+*.    *   OUTPUT             TYPE        DESCRIPTION
+*.    -   ------             ----        -----------
+*.    C   INNER_COUNT        I*4         Number of actual hole coordinates in
+*.                                       inner_holes.
+*.    C   INNER_HOLES        I*4         Array of cartesian grip boxes into
+*.                                       which no polar coordinates were
+*.                                       mapped. (Polar coord. within 230 KM
+*.                                       radius)
+*.    C   POLAR_CART_INIT_OK L*4         Flag indicating if polar to cartesian
+*.                                       initialization has been completed
+*.                                       successfully.
+*.    C   ZONE1_CARTGRID     I*4         Cartesian coord. corresponding to
+*.                                       polar for 1 quadrant out to a bin
+*.                                       range of 57 (114 km).
+*.    C   ZONE2_CARTGRID     I*4         Cartesian coord. corresponding to
+*.                                       polar for 1 quadrant for a bin range
+*.                                       of 58-115 (116-230 km). Three
+*.                                       dimesions because each polar yields 2
+*.                                       cart.
+*.    P   TEST_GRID          I*2         Cartesian grid which is used to
+*.                                       determine where the 'holes' are in
+*.                                       the polar to Cartesian conversion
+*.                                       process
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME                 TYPE        DESCRIPTION
+*.    ----                 ----        -----------
+*.    ANGLE_SHIFT          R*4         Parameterized +/-1/4 degree in radians
+*.    AZIMUTH              I*4         Polar angle from 1 to 90
+*.    BINDX                I*4         Bin index (of 2KM bins)) from 1 to 115
+*.    CLEAR                I*4         Parameter value of cleared flag
+*.    COS_MIDPT            R*4         Cosine of the AZIMUTH
+*.    COS_QUARTR           R*4         Cosine of angle +/- .25 degrees
+*.    DELTA_XY             I*2         Array of size 2 for equivalencing to
+*.                                     full word (XY_DELTA)
+*.    HALF                 R*4         Angular adjustment to get beam center
+*.    HOLEX                I*2         X coordinates of a 'hole' in polar to
+*.                                     Cartesian mapping. Equivalenced to
+*.                                     HOLEXY. X coordinate of a hole
+*.    HOLEXY               I*4         X,Y packed coordinate of a hole
+*.    HOLEY                I*2         Y coordinate of a 'hole' in polar to
+*.                                     Cartesian mapping. Equivalenced to
+*.                                     HOLEXY. Y coordinate of a hole
+*.    KBIN_CENTER_OFFSET   R*4         Offset to the center of a 2 Km polar
+*.                                     bin.
+*.    KGRID_BOX_SIZE       R*4         Length of one Cartesian grid box, in
+*.                                     KM.
+*.    KPOLAR_BIN_SIZE      R*4         Length of one polar bin, in KM.
+*.    KRADIAN              R*4         Number of radians in one degree of arc.
+*.                                     1 degree = pi/180 radians.
+*.    KSQUARED_GRID_CENTER I*4         Square of the cartesian grid center.
+*.    RADIAN_AZIMUTH       R*4         Azimuth in radians
+*.    RANGE                R*4         Array of ranges in km for each bin
+*.    SET                  I*4         Value used in TEST_GRID to indicate
+*.                                     grid location is filled during mapping
+*.    SHIFT_MINUS          R*4         Parameter for subtracting 1/4 radian
+*.                                     from azimuth for beam splitting
+*.    SHIFT_PLUS           R*4         Parameter for adding 1/4 radian to
+*.                                     azimuth for beam splitting.
+*.    SIN_MIDPT            R*4         Sine of the AZIMUTH
+*.    SIN_QUARTR           R*4         Sine of azimuth + or - 1/4 degree
+*.    SPLIT                I*4         Index of beam split (1 or 2)
+*.    X                    I*4         Grid index for X direction
+*.    XB_DELTA             I*2         X offsets from Cartesian grid center.
+*.                                     EQUIVALENCED to XY_DELTA.
+*.    XDIR                 I*4         Positional parameter for X coordinate
+*.    XYSIZE               I*4         Size for DELTA_XY, XY_HOLE arrays
+*.    XY_DELTA             I*4         Packed X,Y coordinates for mapping
+*.    XY_HOLE              I*2         Array of X,Y hole coordinate
+*.    Y                    I*4         Grid Y direction index
+*.    YB_DELTA             I*2         Y offsets from Cartesian grid center.
+*.                                     EQUIVALENCED to XY_DELTA.
+*.    YDIR                 I*4         Positional parameter for Y coordinate
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3146C1
+*.    A3146D1
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS: NONE
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK14.CSS
+*.
+*.  MISC:
+*.
+*.      This routine assumes cartesian coordinates centered at (0,0)
+*.      for one quadrant (90 degrees) of the grid.
+*.      The tables generated are x,y grid displacements for the first
+*.      quadrant.  The x,y coordinates are packed in I*4 words with
+*.      most significant half word the x coordinate.  In mapping to
+*.      the other quadrants, care must be taken to use propper
+*.      center offsets and reversing of x and y coordinates in quad-
+*.      rants 2 and 4.
+*.
+*.*******************************************************************
+C
+C
+C...'X' IN COLUMN-1 INDICATES CONDITIONALLY COMPILED DEBUG CODE...
+C
+      IMPLICIT NONE
+C
+$INCLUDE A3146.INC,**A3146P1 (NEND NLIST)
+$INCLUDE           **A3146C1 (NEND NLIST)
+$INCLUDE           **A3146D1 (NEND NLIST)
+C
+C
+      INTEGER AZIMUTH, BINDX, SPLIT, CLEAR, SET
+C
+      REAL RADIAN_AZIMUTH, SIN_MIDPT, COS_MIDPT, HALF
+      REAL SIN_QUARTR(N_ZONES), COS_QUARTR(N_ZONES), RANGE(KBINS)
+      REAL ANGLE_SHIFT(N_ZONES), SHIFT_MINUS, SHIFT_PLUS
+      PARAMETER (SHIFT_MINUS= -KRADIAN/4., SHIFT_PLUS=KRADIAN/4.,
+     +            HALF=0.5, CLEAR=0, SET=1 )
+      DATA ANGLE_SHIFT  /SHIFT_MINUS, SHIFT_PLUS/
+      INTEGER XDIR, YDIR, XYSIZE
+      PARAMETER (XDIR=1, YDIR=2, XYSIZE=2)
+C
+      INTEGER*2 XB_DELTA, YB_DELTA, HOLEX, HOLEY
+      INTEGER*2 DELTA_XY(XYSIZE),  XY_HOLE(XYSIZE)
+      INTEGER   XY_DELTA,     HOLEXY, X,Y
+C
+      EQUIVALENCE (XB_DELTA,DELTA_XY(XDIR)),(YB_DELTA,DELTA_XY(YDIR))
+      EQUIVALENCE  (XY_DELTA, DELTA_XY(XDIR))
+      EQUIVALENCE  (HOLEX, XY_HOLE(XDIR)), (HOLEY, XY_HOLE(YDIR))
+      EQUIVALENCE  (HOLEXY, XY_HOLE(XDIR))
+C
+      INTEGER*2 TEST_GRID (KGRID_CENTER, KGRID_CENTER)
+C
+C--------------------------
+C
+C  INITIALIZE THE GRID WHICH WILL BE USED TO LOCATE THE HOLES
+C  IN THE CONVERSION TABLE.
+C
+      DO 50 Y = IBEG, KGRID_CENTER
+         DO 25 X = IBEG, KGRID_CENTER
+           TEST_GRID (X,Y) = CLEAR
+  25     CONTINUE
+  50  CONTINUE
+C
+C  DETERMINE THE RANGE OF THE BINS ALONG A POLAR RADIAL
+C
+      DO 75 X=IBEG,KBINS
+         RANGE(X) = X*KPOLAR_BIN_SIZE - KBIN_CENTER_OFFSET
+  75  CONTINUE
+C
+C  COMPUTE THE CARTESIAN GRID COORDINATES FOR ONE QUADRANT
+C  OF THE POLAR COORDINATES. THE CORRESPONDING CARTESIAN
+C  COORDINATES FOR THE OTHER THREE QUADRANTS ARE JUST ROTATED
+C  VALUES OF THE QUADRANT FOR WHICH THE VALUES ARE BEING
+C  COMPUTED.
+C
+      DO 100 AZIMUTH = IBEG,AZ_IN_KQUAD
+        RADIAN_AZIMUTH = (AZIMUTH - HALF) * KRADIAN
+C
+C  CONVERT THE AZIMUTH TO RADIANS; THIS IS DONE BECAUSE THE FORTRAN
+C  SINE AND COSINE ROUTINES REQUIRE RADIANS AS INPUT.
+C
+        SIN_MIDPT = SIN (RADIAN_AZIMUTH)
+        COS_MIDPT = COS (RADIAN_AZIMUTH)
+C
+C  COMPUTE THE CARTESIAN COORDINATES FOR THE INNERMOST HALF
+C  OF THE RANGE (114 KM) OF THE POLAR COORDINATES. AT THIS
+C  RANGE, THE GRANULARITY OF THE GRID IS SUCH THAT BEAM ANGLE
+C  SPLITTING IS NOT NECESSARY.
+C
+C
+        DO 150 BINDX = IBEG,KNOSPLIT_RANGE
+           XB_DELTA = SIN_MIDPT*RANGE(BINDX)/KGRID_BOX_SIZE + INCRMENT
+           YB_DELTA = COS_MIDPT*RANGE(BINDX)/KGRID_BOX_SIZE + INCRMENT
+           TEST_GRID(XB_DELTA, YB_DELTA) = SET
+           ZONE1_CARTGRID (BINDX, AZIMUTH) = XY_DELTA
+  150   CONTINUE
+C
+C  COMPUTE THE CARTESIAN COORDINATES FOR THE OUTERMOST HALF
+C  OF THE RANGE (116-230 KM) OF THE POLAR COORDINATES. AT THIS
+C  RANGE, THE GRANULARITY OF THE GRID IS SUCH THAT THE BEAM
+C  ANGLE MUST BE SPLIT IN HALF. THIS IS DONE BY ADDING AND
+C  SUBTRACTING 1/4 DEGREE TO THE ANGLE FOR WHICH THE COORDINATES
+C  ARE BEING CALCULATED.
+C
+         DO 210 SPLIT = IBEG, N_ZONES
+           SIN_QUARTR(SPLIT) = SIN(RADIAN_AZIMUTH + ANGLE_SHIFT(SPLIT))
+           COS_QUARTR(SPLIT) = COS(RADIAN_AZIMUTH + ANGLE_SHIFT(SPLIT))
+  210   CONTINUE
+C
+C** DO FOR ALL BINS FROM SPLIT RANGE TO MAX RANGE
+C
+        DO 250 BINDX = KSPLIT_RANGE, KBINS
+          DO 260 SPLIT = IBEG, N_ZONES
+            XB_DELTA = SIN_QUARTR(SPLIT)*RANGE(BINDX)/KGRID_BOX_SIZE
+     $                                      + INCRMENT
+            YB_DELTA = COS_QUARTR(SPLIT)*RANGE(BINDX)/KGRID_BOX_SIZE
+     $                                      + INCRMENT
+            TEST_GRID (XB_DELTA, YB_DELTA) = SET
+            ZONE2_CARTGRID (BINDX, AZIMUTH, SPLIT) = XY_DELTA
+  260     CONTINUE
+  250   CONTINUE
+  100 CONTINUE
+C
+C      CALL PLOTSCAN(KGRID_CENTER,KGRID_CENTER,IBEG,TEST_GRID)
+C
+C  FIND ALL THE HOLES IN THE CARTESIAN GRID WITHIN THE
+C  RADIUS OF THE CORRESPONDING POLAR GRID, AND STORE
+C  THE LOCATION OF EACH HOLE.
+C
+      INNER_COUNT = CLEAR
+      DO 300 HOLEY = IBEG, KGRID_CENTER
+        DO 350 HOLEX = IBEG, KGRID_CENTER
+C
+C  POINT IS A HOLE IF IT IS ZERO, AND IT IS WITHIN RANGE
+C
+          IF (TEST_GRID (HOLEX,HOLEY) .EQ. CLEAR) THEN
+            IF ((HOLEX*HOLEX + HOLEY*HOLEY).LE.KSQUARED_GRID_CENTER)
+     $                                               THEN
+              INNER_COUNT = INNER_COUNT + SET
+              INNER_HOLES (INNER_COUNT) = HOLEXY
+C
+X             TEST_GRID(HOLEX,HOLEY) = SET
+X             WRITE(6,299) HOLEX,HOLEY,INNER_COUNT
+X299          FORMAT(' HOLE AT X=',I3,'  Y=',I3,'   COUNT=',I6)
+C
+            ENDIF
+          ENDIF
+  350   CONTINUE
+  300 CONTINUE
+C
+C  SET FLAG TO INDICATE CARTESIAN CONVERSION IS INITIALIZED
+C
+      POLAR_CART_INIT_OK = .TRUE.
+C
+X      CALL PLOTSCAN(KGRID_CENTER,KGRID_CENTER,IBEG,TEST_GRID)
+C
+      RETURN
+      END

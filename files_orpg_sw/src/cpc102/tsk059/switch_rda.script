@@ -1,0 +1,656 @@
+#!/bin/sh
+
+# RCS info
+# $Author: ccalvert $
+# $Locker:  $
+# $Date: 2007/06/01 15:13:30 $
+# $Id: switch_rda.script,v 1.25 2007/06/01 15:13:30 ccalvert Exp $
+# $Revision: 1.25 $
+# $State: Exp $
+
+
+##################################
+##################################
+#
+# Define functions
+#
+##################################
+##################################
+
+###########################################
+# ECHO_ERROR: Echo error message and exit.
+###########################################
+
+echo_error ()
+{
+  echo
+  echo
+  echo "IN SCRIPT: $0"
+  echo "ERROR: $1"
+  echo "Stopping script."
+  echo "Use -h option for help."
+  echo
+  echo
+  exit 1
+}
+
+###########################################
+# PRINT_USAGE: Display "help" to screen.
+###########################################
+
+print_usage ()
+{
+   echo
+   echo
+   echo "Options for switch_rda:"
+   echo
+   echo "-h             Help menu"
+   echo
+   echo "orda           Select feed type live ORDA"
+   echo
+   echo "wbs            Select feed type wbs "
+   echo
+   echo "rdasim_legacy  Select feed type rda simulator (legacy)"
+   echo
+   echo "rdasim_orda    Select feed type rda simulator (ORDA)"
+   echo
+   echo "play_a2        Select feed type play_a2"
+   echo
+   echo "lb_rep         Select feed type lb_rep" 
+   echo
+   echo "wbs_local      Select feed type wbs local machine" 
+   echo
+   echo
+}
+
+##################################
+# START_MRPG: Starts mrpg.
+##################################
+
+start_mrpg()
+{
+   ##################################
+   # Start mrpg
+   ##################################
+
+   echo ""
+   echo "Re-starting rpg load."
+   echo ""
+   echo ""
+   mrpg startup
+}
+
+##################################
+# EDIT_TCP_CONF: Edits $tcp_config_file
+#      for cm_tcp feed types.
+##################################
+
+edit_tcp_conf()
+{
+   ##################################
+   # Get client to put in $tcp_config_file
+   ##################################
+
+   client_address=$1
+
+   ##################################
+   # If the $tcp_config_file doesn't
+   # exist or isn't readable, let user
+   # know.
+   ##################################
+
+   if [ ! -f $tcp_config_file -o ! -r $tcp_config_file ]
+   then
+      echo_error "File: $tcp_config_file doesn't exist or isn't readable"
+   fi
+
+   ##################################
+   # Build new record/line for $tcp_config_file
+   ##################################
+
+   new_tcp_line="    0   client  10010   $client_address    DED       passwd"
+
+   ##################################
+   # Modify $tcp_config_file by creating
+   # $temp_file with new record/line
+   # and copying $temp_file to $tcp_config_file.
+   ##################################
+
+   awk '{if ($0 ~ /^ *0 *client/){print new_record}else {print $0}}' new_record="$new_tcp_line" $tcp_config_file > $temp_file
+
+   if [ $? -ne 0 ]
+   then
+      echo_error "Problem modifying $tcp_config_file"
+   fi
+
+   cp $temp_file $tcp_config_file
+   rm $temp_file
+}
+
+##################################
+# EDIT_COMMS_LINK_CONF: Edits $comms_link_config_file.
+##################################
+
+edit_comms_link_conf()
+{
+  env | grep ORPG_NONOPERATIONAL > /dev/null 2>&1
+
+  ##################################
+  # Only do this in a development
+  # environment.
+  ##################################
+
+  if [ $? -eq 0 ]
+  then
+    ##################################
+    # Get new comms manager to put in
+    # $comms_link_config_file
+    ##################################
+
+    new_comms_mgr=$1
+
+    if [ -f $comms_link_config_file ]
+    then
+      awk '{ if( $1 == "0" && $2 == "0" && $3 == "0" && $4 == "0" && $5 == "0" && $8!=cm){ $8=cm; print "   "$1"   "$2"   "$3"   "$4"   "$5"  "$6"  "$7" "$8"     "$9"  "$10"   "$11"   "$12"   "$13; }else{ print $0; }}' cm=$new_comms_mgr $comms_link_config_file > $temp_file
+      cp -f $temp_file $comms_link_config_file
+      rm -f $temp_file
+    fi
+  fi
+}
+
+##################################
+# START_WBS: Starts start_wbs.
+##################################
+
+start_wbs()
+{
+   ##################################
+   # start_wbs isn't automatically
+   # started when the rpg software
+   # starts. Therefore, the executable
+   # has to be explicitly called here.
+   # Prompt user whether start_wbs
+   # should automatically start, and if
+   # so, what command line arguments
+   # should be passed.
+   ##################################
+
+   command_line=""
+
+   while true
+   do
+      echo ""
+      echo "Do you want to start $start_wbs_script automatically (Y/N)? [N]"
+      echo ""
+      read ans
+
+      if [ "$ans" = "" ]
+      then
+         ans="N"
+      fi
+
+      if [ $ans = "Y" -o $ans = "y" ]
+      then
+         autostart="Y"
+         echo ""
+         echo "What command line options do you want to pass? (\"Enter\" for none)"
+         echo ""
+         read command_line 
+         break
+      elif [ $ans = "N" -o $ans = "n" ]
+      then
+         autostart="N"
+         break
+      else
+         echo ""
+         echo "Bad input, your choices are \"Y\" or \"N\""
+         echo ""
+      fi
+   done
+
+ 
+   if [ $autostart = "Y" ]
+   then 
+      echo ""
+      echo "Executing $HOME/bin/$start_wbs_script $command_line > /dev/null 2>&1 &"
+      echo ""
+      $HOME/bin/$start_wbs_script $command_line > /dev/null 2>&1 &
+
+      if [ $? -ne 0 ]
+      then
+         echo_error "Problem executing $HOME/bin/$start_wbs_script"
+      fi
+   else
+      echo ""
+      echo "$start_wbs_script will not start automatically."
+      echo ""
+      echo "*********************************************************"
+      echo "Reference for starting $start_wbs_script from command line:"
+      echo ""
+      $HOME/bin/$start_wbs_script -h
+      echo "*********************************************************"
+      echo ""
+   fi
+}
+
+##################################
+# START_RDA_SIMULATOR: Starts 
+#       rda_simulator feed type.
+##################################
+
+start_rda_simulator()
+{
+   ##################################
+   # Determine if rda_simulator should
+   # be in legacy or ORDA mode.
+   ##################################
+
+   if [ $1 = "orda" ]
+   then
+     rda_config_flag=""
+   else
+     rda_config_flag="-L "
+   fi
+
+   ##################################
+   # rda_simulator isn't automatically
+   # started when the rpg software
+   # starts. Therefore, the executable
+   # has to be explicitly called here.
+   # Prompt user whether rda_simulator
+   # should automatically start, and if
+   # so, what command line arguments
+   # should be passed.
+   ##################################
+
+   command_line_options=""
+
+   while true
+   do
+      echo ""
+      echo "Do you want to start $rdasim_executable automatically (Y/N)? [N]"
+      echo ""
+      read ans
+
+      if [ "$ans" = "" ]
+      then
+         ans="N"
+      fi
+
+      if [ $ans = "Y" -o $ans = "y" ]
+      then
+         autostart="Y"
+         echo ""
+         echo "What command line options do you want to pass? (\"Enter\" for none)"
+         echo ""
+         read command_line_options
+         break
+      elif [ $ans = "N" -o $ans = "n" ]
+      then
+         autostart="N"
+         break
+      else
+         echo ""
+         echo "Bad input, your choices are \"Y\" or \"N\""
+         echo ""
+      fi
+   done
+
+   command_line="$rda_config_flag $command_line_options"
+ 
+   if [ $autostart = "Y" ]
+   then
+      echo ""
+      echo "Executing $HOME/bin/${sys_dir}/$rdasim_executable $command_line > /dev/null 2>&1 &"
+      echo ""
+      $HOME/bin/${sys_dir}/$rdasim_executable $command_line > /dev/null 2>&1 &
+   
+      if [ $? -ne 0 ]
+      then
+         echo_error "Problem executing $HOME/bin/${sys_dir}/$rdasim_executable"
+      fi
+   else
+      echo ""
+      echo "$rdasim_executable will not start automatically."
+      echo ""
+      echo "*********************************************************"
+      echo "Reference for starting $rdasim_executable from command line:"
+      echo ""
+      $rdasim_executable -h
+      echo "*********************************************************"
+      echo ""
+   fi
+}
+
+##################################
+# START_PLAY_A2: Starts play_a2
+#       feed type.
+##################################
+
+start_play_a2()
+{
+   ##################################
+   # play_a2 isn't automatically
+   # started when the rpg software
+   # starts. Therefore, the executable
+   # has to be explicitly called here.
+   # Prompt user whether play_a2
+   # should automatically start, and if
+   # so, what command line arguments
+   # should be passed.
+   ##################################
+
+   command_line=""
+
+   while true
+   do
+      echo ""
+      echo "Do you want to start $play_a2_executable automatically (Y/N)? [N]"
+      echo ""
+      read ans
+
+      if [ "$ans" = "" ]
+      then
+         ans="N"
+      fi
+
+      if [ $ans = "Y" -o $ans = "y" ]
+      then
+         autostart="Y"
+         echo ""
+         echo "What command line options do you want to pass? (\"Enter\" for none)"
+         echo ""
+         read command_line 
+         break
+      elif [ $ans = "N" -o $ans = "n" ]
+      then
+         autostart="N"
+         break
+      else
+         echo ""
+         echo "Bad input, your choices are \"Y\" or \"N\""
+         echo ""
+      fi
+   done
+
+ 
+   if [ $autostart = "Y" ]
+   then 
+      echo ""
+      echo "Executing $HOME/bin/${sys_dir}/$play_a2_executable $command_line > /dev/null 2>&1 &"
+      echo ""
+      $HOME/bin/${sys_dir}/$play_a2_executable $command_line > /dev/null 2>&1 &
+
+      if [ $? -ne 0 ]
+      then
+         echo_error "Problem executing $HOME/bin/${sys_dir}/$play_a2_executable"
+      fi
+   else
+      echo ""
+      echo "$play_a2_executable will not start automatically."
+      echo ""
+      echo "*********************************************************"
+      echo "Reference for starting $play_a2_executable from command line:"
+      echo ""
+      $play_a2_executable -h
+      echo "*********************************************************"
+      echo ""
+   fi
+}
+
+##################################
+# START_LB_REP: Starts lb_rep
+#       feed type.
+##################################
+
+start_lb_rep()
+{
+   ##################################
+   # lb_rep isn't automatically
+   # started when the rpg software
+   # starts. Therefore, the executable
+   # has to be explicitly called here.
+   # Prompt user whether lb_rep
+   # should automatically start, and if
+   # so, what command line arguments
+   # should be passed.
+   ##################################
+
+   command_line=""
+
+   while true
+   do
+      echo ""
+      echo "Do you want to start $lb_rep_executable automatically (Y/N)? [N]"
+      echo ""
+      read ans
+
+      if [ "$ans" = "" ]
+      then
+        ans="N"
+      fi
+
+      if [ $ans = "Y" -o $ans = "y" ]
+      then
+         autostart="Y"
+         echo ""
+         echo "What command line options do you want to pass? (\"Enter\" for none)"
+         echo ""
+         read command_line 
+         break
+      elif [ $ans = "N" -o $ans = "n" ]
+      then
+         autostart="N"
+         break
+      else
+         echo ""
+         echo "Bad input, your choices are \"Y\" or \"N\""
+         echo ""
+      fi
+   done
+
+ 
+   if [ $autostart = "Y" ]
+   then 
+      echo ""
+      echo "Executing $HOME/bin/${sys_dir}/$lb_rep_executable $command_line > /dev/null 2>&1 &"
+      echo ""
+      $HOME/bin/${sys_dir}/$lb_rep_executable $command_line > /dev/null 2>&1 &
+
+      if [ $? -ne 0 ]
+      then
+         echo_error "Problem executing $HOME/bin/${sys_dir}/$lb_rep_executable"
+      fi
+   else
+      echo ""
+      echo "$lb_rep_executable will not start automatically."
+      echo ""
+      echo "*********************************************************"
+      echo "Reference for starting $rdasim_executable from command line:"
+      echo ""
+      $lb_rep_executable -h
+      echo "*********************************************************"
+      echo ""
+   fi
+}
+
+##################################
+# STOP_PROCESSES: Stops previously
+#       running processes.
+##################################
+
+stop_processes()
+{
+   ##################################
+   # Stop mrpg.
+   ##################################
+
+   echo ""
+   echo "Stopping rpg load."
+   echo ""
+   echo ""
+
+   mrpg shutdown > /dev/null 2>&1
+   sleep 2
+   mrpg cleanup > /dev/null 2>&1
+   sleep 5 
+
+   # mrpg will kill live RDA
+   # mrpg will kill cm_tcp
+   # mrpg will kill wbs
+   # mrpg will kill start_wbs
+
+   ##################################
+   # Find pid of rda_simulator process.
+   # Kill process using the pid.
+   ##################################
+
+   pid_list=`ps -ef | awk '{if ($1 ~ /^'$LOGNAME'$/ && $8 ~ /'$rdasim_executable'$/ ) print $2}'`
+
+   for pid in $pid_list
+   do
+      kill -9 $pid
+   done
+
+   ##################################
+   # Find pid of play_a2 process.
+   # Kill process using the pid.
+   ##################################
+
+   pid_list=`ps -ef | awk '{if ($1 ~ /^'$LOGNAME'$/ && $8 ~ /'$play_a2_executable'$/ ) print $2}'`
+
+   for pid in $pid_list
+   do
+      kill -9 $pid
+   done
+
+   ##################################
+   # Find pid of lb_rep process.
+   # Kill process using the pid.
+   ##################################
+
+   pid_list=`ps -ef | awk '{if ($1 ~ /^'$LOGNAME'$/ && $8 ~ /'$lb_rep_executable'$/ ) print $2}'`
+
+   for pid in $pid_list
+   do
+      kill -9 $pid
+   done
+}
+
+
+
+##################################
+##################################
+#
+# End of function definitions.
+# Start of main script.
+#
+##################################
+##################################
+
+##################################
+# "Global" variables
+##################################
+
+rdasim_executable=rda_simulator
+play_a2_executable=play_a2
+lb_rep_executable=lb_rep
+start_wbs_script=start_wbs
+tcp_config_file=$HOME/cfg/tcp.conf
+comms_link_config_file=$HOME/cfg/comms_link.conf
+temp_file=/tmp/tmp.$$
+
+if [ `uname` = "Linux" ]
+then
+  sys_dir=lnux_x86
+else
+  sys_dir=slrs_spk
+fi
+
+##################################
+# Decode argument list
+##################################
+
+while getopts h option
+do
+   case $option in
+     h) print_usage; exit 0 ;;
+     \?) echo_error "Invalid input flag."
+   esac
+done
+
+
+##################################
+# Extract feed type
+##################################
+
+if [ $# != 1 ]
+then
+  echo_error "Wrong number of input arguments."
+fi
+
+feed_type=$1
+
+##################################
+# Stop processes
+##################################
+
+stop_processes
+
+##################################
+# Take action depending on which
+# feed type is selected.
+##################################
+
+case $feed_type in
+   orda)
+	edit_tcp_conf rda1
+	mnttsk_switch_orda -t orda
+	edit_comms_link_conf cm_tcp
+	start_mrpg
+	;;
+   wbs)
+	edit_tcp_conf wbs
+	mnttsk_switch_orda -t orda
+	edit_comms_link_conf cm_tcp
+	start_mrpg
+	;;
+   wbs_local)
+        local_host=`uname -a | awk '{print $2}'`
+	edit_tcp_conf $local_host
+	mnttsk_switch_orda -t orda
+	edit_comms_link_conf cm_tcp
+	start_mrpg
+	start_wbs
+	;;
+   rdasim_legacy)
+	mnttsk_switch_orda -t rda
+	mnttsk_switch_orda -t playback
+	edit_comms_link_conf cm_tcp_
+	start_mrpg
+	start_rda_simulator legacy
+	;;
+   rdasim_orda)
+	mnttsk_switch_orda -t orda
+	mnttsk_switch_orda -t playback
+	edit_comms_link_conf cm_tcp_
+	start_mrpg
+	start_rda_simulator orda
+	;;
+   play_a2)
+	mnttsk_switch_orda -t playback
+	edit_comms_link_conf cm_tcp_
+	start_mrpg
+	start_play_a2
+	;;
+   lb_rep)
+	mnttsk_switch_orda -t playback
+	edit_comms_link_conf cm_tcp_
+	start_mrpg
+	start_lb_rep
+	;;
+   *)   echo_error "Invalid feed type: $feed_type." ;;
+esac
+
+exit 0
+

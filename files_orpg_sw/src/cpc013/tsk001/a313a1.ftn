@@ -1,0 +1,429 @@
+C 
+C RCS info 
+C $Author: steves $ 
+C $Locker:  $ 
+C $Date: 2006/04/20 21:29:30 $ 
+C $Id: a313a1.ftn,v 1.5 2006/04/20 21:29:30 steves Exp $ 
+C $Revision: 1.5 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A313A1__BUFFER_CONTROL
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A313A1__BUFFER_CONTROL
+*.
+*.  MODULE VERSION: 0016
+*.
+*.  MODULE LANGUAGE:  FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       05 25 85      0000      Bradley Sutker       RPG Build #1
+*.       04 21 86      0001      Bradley Sutker       SPR #60304
+*.       07 25 86      0002      Bradley Sutker       SPR #60313
+*.       10 04 88      0003      STEVE D SMITH        SPR # 70206
+*.       10 04 88      0003      STEVE D SMITH        SPR # 80338
+*.       10 12 88      0004      CHI CHAN             SPR # 80293
+*.       02 13 91      0005      BAYARD JOHNSTON      SPR # 91254
+*.       12 03 91      0006      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0007      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0008      Toolset              SPR 91895
+*.       03/25/93      0009      Toolset              SPR NA93-06801
+*.       01/28/94      0010      Toolset              SPR NA94-01101
+*.       03/03/94      0011      Toolset              SPR NA94-05501
+*.       05/05/94      0012      STEVE SMITH          CCR 93158-003A00
+*.       04/01/95      0013      Toolset              CCR NA95-11802
+*.       06/06/95      0014      Robert Rierson       CCR NA90-93105
+*.       12/23/96      0015      Toolset              CCR NA95-11807
+*.       03/16/99      0016      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A313A1__BUFFER_CONTROL
+*.
+*.  MODULE FUNCTION:
+*.     This is the buffer control routine for the VIL/EHCO TOPS
+*.     routine.   The input and output buffers are acquired, if
+*.     the  status is  normal.   The radial status indicator is
+*.     used to  decide whether to initialize  the output arrays
+*.     and  is  also  sent  to  the  principle  subroutine  for
+*.     decision-making purposes.   Finally when the end (bad or
+*.     good, regular or pseudo)  has  been  reached, the output
+*.     buffers  (VIL and Echo Tops) are  released  for  product
+*.     processing.
+*.
+*.
+*.  MODULES CALLED: A31145__ABORT_ME, A31168__ABORT_ME_BECAUSE, 
+*.                  A31169__ABORT_DATATYPE_BECAUSE, A31211__GET_INBUF, 
+*.                  A31212__REL_INBUF, A31215__GET_OUTBUF, A31216__REL_OUTBUF, 
+*.                  A31218__BUF_VOL, A313D1__VIL_ET, A313I1__INITIALIZER, 
+*.                  A313S1__GET_STATUS, A313T1__COMPUTE_DEPTH, 
+*.                  A3CM53__WHAT_MOMENTS 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT                TYPE        DESCRIPTION
+*.    -   -----                ----        -----------
+*.    G   MEM                  I*4         Array in RPG shared memory set
+*.                                         aside for buffer sharing.
+*.    G   SUMMARY              I*4         Volume Scan Summary Table
+*.    G   BASEDATA             I*4         (CONSTANT)DATA BUFFER COUNT OF
+*.                                         BUFFERS TYPE-BASE DATA
+*.    G   DESTROY              I*4         (CONSTANT)Mnemonic used as input to
+*.                                         A31216__REL_OUTBUF. Indicates "do
+*.                                         not pass data to other tasks".
+*.    G   ETTAB                I*4         (CONSTANT)Data Buffer Type: Echo
+*.                                         Tops Table.
+*.    G   FORWARD              I*4         (CONSTANT)Parameter to indicate
+*.                                         that an output buffer is to be
+*.                                         forwarded to successor tasks
+*.    G   HEDO                 I*4         (CONSTANT)Offset in base radial
+*.                                         header input buffer for
+*.                                         preprocessed base radial headers
+*.                                         (in words).
+*.    G   NCOL                 I*4         (CONSTANT)Number of analysis box
+*.                                         columns.
+*.    G   NETSIZ               I*4         (CONSTANT)Size of the ECHO TOPS
+*.                                         supplemental variable array.
+*.    G   NORMAL               I*4         (CONSTANT)Parameter which indicates
+*.                                         normal completion of requested
+*.                                         operation to acquire input or
+*.                                         output buffer
+*.    G   NOT_REQD             I*4         (CONSTANT)Mnemonic used as output
+*.                                         from A31211__GET_ INBUF. Indicates
+*.                                         data type for which output buffer
+*.                                         was requested is not required.
+*.    G   NO_MEM               I*4         (CONSTANT)Parameter which indicates
+*.                                         no memory available on attempt to
+*.                                         acquire output buffer
+*.    G   NROW                 I*4         (CONSTANT)Number of analysis box
+*.                                         rows.
+*.    G   OBIT                 I*4         (CONSTANT)Offset to the maximum
+*.                                         ECHO TOP/LAST elevation identifier
+*.                                         bit map.
+*.    G   OSET                 I*4         (CONSTANT)OFFSET TO ARRAY OF ECHO
+*.                                         TOPS AUXILIARY PARAMETERS
+*.    G   OSVI                 I*4         (CONSTANT)Offset to array of VIL
+*.                                         parameters.
+*.    G   OVET                 I*4         (CONSTANT)Offset to the array of
+*.                                         ECHO TOPS values.
+*.    G   OVVI                 I*4         (CONSTANT)Offset to array of VIL
+*.                                         values.
+*.    G   PROD_DISABLED_MOMENT I*4         (CONSTANT)Abort status for moment
+*.                                         disabled product.
+*.    G   PROD_MEM_SHED        I*4         (CONSTANT)(CONSTANT)Parameter which
+*.                                         indicates that product aborted due
+*.                                         to memory load shedding
+*.    G   REFO                 I*4         (CONSTANT)Offset to base radial
+*.                                         reflectivity data in input buffer
+*.                                         (relative O from 'MEM(PTR)').
+*.    G   SCAN_VCP             I*4         (CONSTANT)Volume Coverage Pattern
+*.                                         index into Scan Summary Table
+*.    G   SCRATCH              I*4         (CONSTANT)DATA BUFFER TYPE FOR TASK
+*.                                         SCRATCH DATA BUFFERS
+*.    G   VILTABL              I*4         (CONSTANT)Data Buffer Type:
+*.                                         Vertical Integrated Liquid Table.
+*.    C   NUMW                 I*4         (CONSTANT)The number of full words
+*.                                         in the bit map (OVERLAY) that check
+*.                                         for the ECHO top found at the
+*.                                         maximum elevation.
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    G   MEM     I*4         Array in RPG shared memory set aside for buffer
+*.                            sharing.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    G   MEM               I*4         Array in RPG shared memory set aside
+*.                                      for buffer sharing.
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME       TYPE        DESCRIPTION
+*.    ----       ----        -----------
+*.    BEAM_DEPTH R*4         Parameter passed to A31371__COMPUTE_DEPTH.
+*.    BUFSIZ1    I*4         The size of the Echo Tops output buffer.
+*.    BUFSIZ2    I*4         The size of the VIL output buffer.
+*.    BVOL       I*4         BEGINING OF VOLUME.
+*.    DATTYP     I*4         A number signifying a type of output data.
+*.    DISP1      I*4         Indicates to dispose of output/scratch buffer #1.
+*.    DISP2      I*4         Indicates to dispose of output/scratch buffer #2.
+*.    DONE       I*4         The value of quitting time (111).
+*.    ENDVOL     I*4         Indicates end of volume reached.
+*.    IPR        I*4         The position of the radial data input buffer
+*.                           within the shared memory.
+*.    ISTAT      I*4         Internal variable - used to collect return status
+*.                           from calls.
+*.    LAST_VCP   I*4         Indicates last volume coverage pattern.
+*.    MAXEL      I*4         Dimension of BEAM_DEPTH array.
+*.    MAXRBIN    I*4         Dimension of array BEAM_DEPTH.
+*.    MYSTAT     I*4         An internal flag telling the routine when its
+*.                           time to quit.
+*.    NSTAT      I*4         Radial status flag.
+*.    NVILSIZ    I*4         (Constant) size of the VIL supplemental variable
+*.                           array.
+*.    OPR1       I*4         The position of the ET output buffer within the
+*.                           shared memory.
+*.    OPR2       I*4         The position of the VIL output buffer within the
+*.                           shared memory.
+*.    OSTAT1     I*4         The status of the E T output buffer.
+*.    OSTAT2     I*4         The status of the VIL output buffer.
+*.    POS_MASK   I*4         Radial position mask.
+*.    RAD_POS    I*4         Position within radial.
+*.    REF_FLAG   L*4         FLAG FOR REFLECTIVITY AVAILABLE
+*.    VCP        I*4         Volume coverage pattern.
+*.    VEL_FLAG   L*4         FLAG FOR VELOCITY AVAILABLE
+*.    VOLNO      I*4         Volume number, used as index into summary array.
+*.    WID_FLAG   L*4         FLAG FOR SPECTRUM WIDTH AVAILABLE
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD00
+*.    A3CD05
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP13.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK13.CSS
+*.
+*.  MISC:
+*.
+*.     Further description of the Product Index and Disk Space Map
+*.     organization may be found in the CPCI 03 C5 document.
+*.
+*.*******************************************************************
+C
+C***********************************************************
+C*                                                         *
+C*            VIL/ECHO TOPS: BUFFER CONTROL ROUTINE        *
+C*                                                         *
+C***********************************************************
+C
+      IMPLICIT NONE
+      INTEGER IAND
+C
+C Include base radial data and parameter declaration files
+C
+$INCLUDE A309.INC/G,**A3PM00 (NLIST)
+$INCLUDE **A3PM02 (NLIST)
+$INCLUDE **A3PM06 (NLIST)
+$INCLUDE **A3PM07 (NLIST)
+$INCLUDE **A3CD00 (NLIST)
+$INCLUDE **A3CD05 (NLIST)
+$INCLUDE A304.INC/G,**A304P4 (NLIST)
+C
+C Include common parameter files
+C
+$INCLUDE A313BUF.INC/G,**A313P0 (NLIST)
+C
+C Define parameters & variables needed for buffer_control routines.
+C
+      INTEGER  IPR,ISTAT,DATTYP,NSTAT,DONE,MYSTAT,RAD_POS
+      INTEGER  BUFSIZ1,OPR1,OSTAT1,DISP1,VCP,VOLNO
+      INTEGER  BUFSIZ2,OPR2,OSTAT2,DISP2
+      INTEGER  A31218__BUF_VOL
+      LOGICAL  REF_FLAG, VEL_FLAG, WID_FLAG
+C
+C Define parameters
+C
+      PARAMETER ( BUFSIZ1=((NCOL*NROW)/2)+NUMW+NETSIZ )
+      PARAMETER ( BUFSIZ2=((NCOL*NROW)/2)+NVILSIZ )
+      PARAMETER ( DONE=111 )
+C
+C  Define values of Radial Status...
+C
+      INTEGER STAT_MASK,POS_MASK
+      PARAMETER (STAT_MASK = 128, POS_MASK = 127)
+      INTEGER GOOD_RAD,BAD_RAD
+      INTEGER BVOL,ENDVOL,PENDVOL,BEL,ENDEL,PENDEL,INT
+C
+      PARAMETER (GOOD_RAD = 0, BAD_RAD = 128,
+     *           BVOL    = 3, ENDVOL  = 4, PENDVOL = 9,
+     *           BEL     = 0, ENDEL   = 2, PENDEL  = 8, INT = 1)
+      INTEGER  LAST_VCP,MAXRBIN,MAXEL
+      PARAMETER (MAXRBIN=230,MAXEL=20)
+      DATA LAST_VCP/-1/
+      REAL     BEAM_DEPTH(MAXRBIN,MAXEL)
+C
+C BEGIN MAIN PROCESSING SECTION
+C
+C  Scan input radials until beginning or end of volume or
+C  until CPC 12 aborts my process.
+C  DO UNTIL beginning of volume OR end of volume OR aborted
+   90 CONTINUE
+C
+C  Get a radial
+C
+        CALL A31211__GET_INBUF( BASEDATA,IPR,DATTYP,ISTAT )
+        IF (ISTAT .EQ. NORMAL) THEN
+C
+C  Extract the radial status
+C
+          CALL A313S1__GET_STATUS (MEM(IPR+HEDO),NSTAT)
+          RAD_POS =  IAND(NSTAT,POS_MASK)
+        ELSE
+C
+C  Pretend we just got END OF VOLUME
+C
+          CALL A31145__ABORT_ME
+          RAD_POS = ENDVOL
+        ENDIF
+C
+C  COMPLETE DO-UNTIL
+C
+      IF ( (RAD_POS .NE. BVOL) .AND. (RAD_POS .NE. ENDVOL) ) THEN
+C
+C  Release this radial
+C
+        CALL A31212__REL_INBUF ( IPR )
+        GO TO 90
+      END IF
+C
+C  We are now at beginning or end of volume
+C
+C  Process further only if at beginning of volume
+C
+      IF (RAD_POS .EQ. BVOL) THEN
+C
+C  CHECK FOR REFLECTIVITY MOMENT DISABLED
+C
+          CALL A3CM53__WHAT_MOMENTS(MEM(IPR),REF_FLAG,VEL_FLAG,
+     >            WID_FLAG)
+          IF (.NOT. REF_FLAG) THEN
+C
+C  REFLECTIVITY DISABLED...DO ABORT PROCESSING
+C
+            CALL A31212__REL_INBUF( IPR )
+            CALL A31168__ABORT_ME_BECAUSE(PROD_DISABLED_MOMENT)
+            GO TO 99
+          END IF
+C
+C FIND VCP, AND CHECK SAME OR DIFFERENT
+C CALL TO COMPUTE BEAM DEPTH TABLE, IF VCP IS CHANGED
+C
+          VOLNO = A31218__BUF_VOL(IPR)
+          VCP = SUMMARY(SCAN_VCP,VOLNO)
+          IF (VCP .NE. LAST_VCP) THEN
+             LAST_VCP = VCP
+             CALL A313T1__COMPUTE_DEPTH(VCP,BEAM_DEPTH)
+          END IF
+C
+C  We are at the beginning
+C  Obtain the necessary output/scratch buffers
+C
+        CALL A31215__GET_OUTBUF( ETTAB,BUFSIZ1,OPR1,OSTAT1 )
+        DISP1 = FORWARD
+        CALL A31215__GET_OUTBUF( VILTABL,BUFSIZ2,OPR2,OSTAT2 )
+        DISP2 = FORWARD
+C
+C  Try for scratch buffers if original request denied
+C
+        IF (OSTAT1 .EQ. NOT_REQD) THEN
+          CALL A31215__GET_OUTBUF(SCRATCH,BUFSIZ1,OPR1,OSTAT1)
+          DISP1 = DESTROY
+        ELSE
+          IF (OSTAT1 .EQ. NO_MEM) THEN
+            CALL A31169__ABORT_DATATYPE_BECAUSE(ETTAB,
+     1                                          PROD_MEM_SHED)
+          END IF
+        END IF
+C
+C  Try for scratch buffers if original request denied
+C
+        IF (OSTAT2 .EQ. NOT_REQD) THEN
+          CALL A31215__GET_OUTBUF(SCRATCH,BUFSIZ2,OPR2,OSTAT2)
+          DISP2 = DESTROY
+        ELSE
+          IF (OSTAT2 .EQ. NO_MEM) THEN
+            CALL A31169__ABORT_DATATYPE_BECAUSE(VILTABL,
+     1                         PROD_MEM_SHED)
+          END IF
+        END IF
+C
+C  Process further only if buffers were obtained
+C
+        IF ( (OSTAT1 .EQ. NORMAL) .AND. (OSTAT2 .EQ. NORMAL)) THEN
+C
+C  Initialize the output/scratch buffers
+C
+          CALL A313I1__INITIALIZER ( MEM(OPR1+OSET),MEM(OPR1+OVET),
+     $      MEM(OPR2+OSVI),MEM(OPR2+OVVI),MEM(OPR1+OBIT) )
+C
+C DO UNTIL end of the volume scan
+C
+100       CONTINUE
+C
+C  Process this radial
+C
+            CALL A313D1__VIL_ET ( VCP,MEM(IPR+HEDO),MEM(IPR+REFO),
+     $           MEM(OPR1+OSET),MEM(OPR1+OVET),MEM(OPR1+OBIT),
+     $           MEM(OPR2+OSVI),MEM(OPR2+OVVI),MYSTAT,BEAM_DEPTH)
+C
+C  Release this radial
+C
+            CALL A31212__REL_INBUF ( IPR )
+C
+C  Get the next radial, if required
+C
+            IF (MYSTAT .NE. DONE) THEN
+              CALL A31211__GET_INBUF( BASEDATA,IPR,DATTYP,ISTAT )
+              IF (ISTAT .NE. NORMAL) THEN
+C
+C  Something happened to the input stream, bag this attempt
+C
+                MYSTAT = DONE
+                DISP1 = DESTROY
+                DISP2 = DESTROY
+              ENDIF
+            ENDIF
+C
+C  Complete DO-UNTIL
+C
+          IF (MYSTAT .NE. DONE) GO TO 100
+C
+C  All done for this volume scan
+C
+C  Dispose of output/scratch buffers as required
+C
+          CALL A31216__REL_OUTBUF( OPR1,DISP1 )
+          CALL A31216__REL_OUTBUF( OPR2,DISP2 )
+        ELSE
+C
+C  Unable to obtain required buffers, must abort
+C  Release the one radial I am holding
+C
+          CALL A31212__REL_INBUF( IPR )
+C
+C  Release and destroy any output buffers that were obtained
+C
+          IF (OSTAT1 .EQ. NORMAL)
+     *      CALL A31216__REL_OUTBUF( OPR1,DESTROY)
+          IF (OSTAT2 .EQ. NORMAL)
+     *      CALL A31216__REL_OUTBUF( OPR2,DESTROY)
+C
+          CALL A31145__ABORT_ME
+C
+        ENDIF
+      ELSE
+C
+C  Release the one radial I am holding
+C
+        IF ( ISTAT.EQ.NORMAL ) CALL A31212__REL_INBUF (IPR)
+      ENDIF
+ 99   END

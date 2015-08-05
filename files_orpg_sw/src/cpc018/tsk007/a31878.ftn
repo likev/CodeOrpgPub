@@ -1,0 +1,316 @@
+C
+C RCS info
+C $Author: steves $
+C $Locker:  $
+C $Date: 2004/01/12 22:29:52 $
+C $Id: a31878.ftn,v 1.6 2004/01/12 22:29:52 steves Exp $
+C $Revision: 1.6 $
+C $State: Exp $
+C
+      SUBROUTINE A31878__HEADER(VADBUF,CDATE,CTIME,
+     $           ENDPTR,LENPSD)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A31878__HEADER
+*.
+*.  MODULE VERSION: 0011
+*.
+*.  MODULE LANGUAGE:  FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       09 08 88      0000      VALERIE HOLDEN       SPR # 80273
+*.       05 20 90      0001      JOHN DEPHILIP        SPR # 90697
+*.       11 07 90      0002      CHARLIE BAUMHER      SPR # 91259
+*.       12 03 91      0003      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0004      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0005      Toolset              SPR 91895
+*.       03/25/93      0006      Toolset              SPR NA93-06801
+*.       01/28/94      0007      Toolset              SPR NA94-01101
+*.       03/03/94      0008      Toolset              SPR NA94-05501
+*.       04/01/95      0009      Toolset              CCR NA95-11802
+*.       04/05/95      0010      C. Stephenson        CCR NA94-35301
+*.       03/16/99      0011      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A31878__HEADER(VADBUF,CDATE,CTIME,
+*.                    ENDPTR,LENPSD)
+*.
+*.  MODULE FUNCTION:
+*.
+*.     SETS ALL THE HEADER FIELDS IN THE VAD PRODUCT HEADER.
+*.
+*.  MODULES CALLED: A31877__MAX_LEVELS 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT          TYPE        DESCRIPTION
+*.    -   -----          ----        -----------
+*.    G   SIRDAHGT       I*4         Site Adaptation - RDA Height.
+*.    G   SIRDALAT       I*4         Site Adaptation - RDA Latitude.
+*.    G   SIRDALON       I*4         Site Adaptation - RDA Longitude.
+*.    G   SIRPGID        I*4         Site Adaptation - RPG ID Number.
+*.    G   SUMMARY        I*4         Volume Scan Summary Table
+*.    G   THRESH         I*2         Adaptation Data for Color Data Table
+*.                                   Thresholds (color-level code, color table
+*.                                   number).
+*.    G   BLKOVRHD       I*4         (CONSTANT)SIZE OF OVERHEAD PORTION OF
+*.                                   PRODUCT SYMBOLOGY BLOCK, IN BYTES
+*.    G   BLOCKIDOFF     I*4         (CONSTANT)Product block ID offset.
+*.    G   DIV1OFF        I*4         (CONSTANT)Product header offset: First
+*.                                   divider.
+*.    G   DIV2OFF        I*4         (CONSTANT)Product block offset: Second
+*.                                   divider.
+*.    G   DL1OFF         I*4         (CONSTANT)Product header offset: data
+*.                                   level 1.
+*.    G   GDPRDOFF       I*4         (CONSTANT)Product header offset:
+*.                                   generation date of product.
+*.    G   GTLSWOFF       I*4         (CONSTANT)Product header
+*.                                   offset:Generation time of product (LSW).
+*.    G   GTMSWOFF       I*4         (CONSTANT)Product header offset.
+*.                                   Generation time of product (MSW).
+*.    G   LGLSWOFF       I*4         (CONSTANT)Product header offset: Length
+*.                                   of message (LSW).
+*.    G   LGMSWOFF       I*4         (CONSTANT)Product header offset: Length
+*.                                   of message (MSW).
+*.    G   LNLSWOFF       I*4         (CONSTANT)Product header offset:
+*.                                   Longitude of radar (LSW).
+*.    G   LNMSWOFF       I*4         (CONSTANT)Product header offset:
+*.                                   Longitude of radar (MSW).
+*.    G   LRLSWOFF       I*4         (CONSTANT)Product block offset: Length of
+*.                                   product block portion of product (LSW).
+*.    G   LRMSWOFF       I*4         (CONSTANT)Product block offset: Length of
+*.                                   product block portion of product (MSW).
+*.    G   LTLSWOFF       I*4         (CONSTANT)Product header offset: Latitude
+*.                                   of radar (LSW).
+*.    G   LTMSWOFF       I*4         (CONSTANT)Product header offset: Latitude
+*.                                   of radar (MSW)
+*.    G   LYRDIVOFF      I*4         (CONSTANT)PRODUCT BLOCK OFFSET: LAYER
+*.                                   DIVIDER
+*.    G   LYRLLSWOFF     I*4         (CONSTANT)Product block offset:  Layer
+*.                                   length (LSW).
+*.    G   LYRLMSWOFF     I*4         (CONSTANT)Product block offset: Layer
+*.                                   length (MSW).
+*.    G   MESCDOFF       I*4         (CONSTANT)Product header offset: Message
+*.                                   code.
+*.    G   NBLKSOFF       I*4         (CONSTANT)Product header offset: Number
+*.                                   of blocks in product.
+*.    G   NLYROFF        I*4         (CONSTANT)Product block offsets: Number
+*.                                   of layers.
+*.    G   NMAPSOFF       I*4         (CONSTANT)Product header offset
+*.                                   descriptions: Number of maps.
+*.    G   OPRLSWOFF      I*4         (CONSTANT)Product header offset
+*.                                   descriptions: Offset to product length
+*.                                   (LSW)
+*.    G   OPRMSWOFF      I*4         (CONSTANT)Product header offset
+*.                                   descriptions: Offset to product length
+*.                                   (MSW)
+*.    G   OTADLSWOFF     I*4         (CONSTANT)Product header offset: offset
+*.                                   to tabular/adaptation data (LSW)
+*.    G   OTADMSWOFF     I*4         (CONSTANT)Product header offset: offset
+*.                                   to tabular/adaptation (MSW)
+*.    G   PHEADLNG       I*4         (CONSTANT)Number of half words in product
+*.                                   header (its length).
+*.    G   PRDCODOFF      I*4         (CONSTANT)Product header offset
+*.                                   descriptions: Product code.
+*.    G   RADHGTOFF      I*4         (CONSTANT)Product header offset
+*.                                   descriptions: Height of radar.
+*.    G   SBON           I*2         (CONSTANT)Spot Blanking flag indicating
+*.                                   it is enabled in product
+*.    G   SCAN_DATE      I*4         (CONSTANT)Volume Scan Date index into
+*.                                   Scan Summary Table
+*.    G   SCAN_MODE      I*4         (CONSTANT)Weather Mode index into Scan
+*.                                   Summary Table
+*.    G   SCAN_SB        I*4         (CONSTANT)Spot Blanking Flag index into
+*.                                   Volume Scan Summary Table
+*.    G   SCAN_TIME      I*4         (CONSTANT)Volume Scan Time index into
+*.                                   Scan Summary Table
+*.    G   SCAN_VCP       I*4         (CONSTANT)Volume Coverage Pattern index
+*.                                   into Scan Summary Table
+*.    G   SRCIDOFF       I*4         (CONSTANT)Product header offset: Source
+*.                                   ID-Number.
+*.    G   VCPOFF         I*4         (CONSTANT)Product header offset:  Volume
+*.                                   coverage pattern.
+*.    G   VOL_SPOT_BLANK I*2         (CONSTANT)Spot Blank field in Scan
+*.                                   Summary table definition
+*.    G   VSDATOFF       I*4         (CONSTANT)Product header offset: Volume
+*.                                   scan date.
+*.    G   VSNUMOFF       I*4         (CONSTANT)Product header offset
+*.                                   descriptions: Volume scan number.
+*.    G   VSTLSWOFF      I*4         (CONSTANT)Product header offset: Volume
+*.                                   scan time (LSW).
+*.    G   VSTMSWOFF      I*4         (CONSTANT)Product header offset:  Volume
+*.                                   scan time (MSW).
+*.    G   WTMODOFF       I*4         (CONSTANT)Product header offset:  Weather
+*.                                   mode.
+*.    C   CLRIDX         I*4         Index into color tables.
+*.    C   VOLN           I*4         Volume scan number.
+*.    P   CDATE          I*4         GENERATION DATE
+*.    P   CTIME          I*4         GENERATION TIME
+*.    P   ENDPTR         I*4         POINTER TO END OF BUFFER. ENDPTR*2 END
+*.                                   POINTER
+*.    P   LENPSD         I*4         PRODUCT SYMBOLOGY DATA LENGTH,BYTE
+*.    P   VADBUF         I*2         PRODUCT HEADER INFO
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    P   VADBUF  I*2         PRODUCT HEADER INFO
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    P   VADBUF            I*2         PRODUCT HEADER INFO
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME       TYPE        DESCRIPTION
+*.    ----       ----        -----------
+*.    DIVIDER    I*4         Product header block divider.
+*.    IDX        I*4         LOOP INDEX
+*.    INC1       I*4         INCREMENTAL VALUE FOR 1
+*.    INIT_VAL   I*4         INITIALIZING PARAMETER HEADER FIELDS
+*.    MXLVLCOL   I*4         MAXIMUM NUMBER FOR COLOR LEVELS
+*.    NUMLYRS    I*4         NUMBER OF LAYERS = 1 FOR ECHO TOPS PRODUCT
+*.    NUM_BLOCKS I*4         Number of blocks in VAD product
+*.    NUM_BYTES  I*4         NUMBER OF BYTES IN I*2 WORD
+*.    ONE        I*4         PROGRAM PARAMETER FOR 1
+*.    SYMBLKID   I*4         SYMBOLIC BLOCK ID
+*.    TOTLENG    I*4         TOTAL LENGTH VARIABLE
+*.    VAD2_CODE  I*4         VAD PRODUCT CODE
+*.    ZERO       I*4         Program parameter for zero.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD05
+*.    COLRTBL
+*.    SITEADP
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A318C7
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  NONE
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP18.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK18.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+C
+$INCLUDE A309ADPT.INC/G,**A3CD70CA (NLIST NEND )
+$INCLUDE **A3CD70C7 (NLIST)
+$INCLUDE **A3CD70C5 (NLIST)
+$INCLUDE A309.INC/G,**A3PM00 (NLIST NEND )
+$INCLUDE            **A3PM01 (NLIST NEND )
+$INCLUDE            **A3PM06 (NLIST NEND )
+$INCLUDE            **A3CD05 (NLIST NEND )
+$INCLUDE A318.INC,**A318C7 (NLIST)
+C
+      INTEGER*2 VADBUF(*)
+      INTEGER*4 LENPSD,ENDPTR
+      INTEGER*4 CDATE,CTIME,VAD2_CODE,NUM_BLOCKS
+      INTEGER*4 TOTLENG,IDX,DIVIDER
+      INTEGER*4 MXLVLCOL,ONE,INC1,ZERO,INIT_VAL
+      INTEGER*4 NUM_BYTES,SYMBLKID,NUMLYRS
+      PARAMETER (VAD2_CODE=84,DIVIDER=-1,INIT_VAL=0,NUM_BLOCKS=4)
+      PARAMETER (SYMBLKID=1,NUMLYRS=1,ZERO=0)
+      PARAMETER (ONE=1,INC1=1,NUM_BYTES=2,MXLVLCOL=16)
+      LOGICAL OS32BTESTS
+C
+C*    INITIALIZE PRODUCT HEADER TO ZERO
+C
+      DO 101 IDX=ONE,PHEADLNG
+         VADBUF(IDX) = INIT_VAL
+ 101  CONTINUE
+C
+C*    STORE INFORMATION INTO THE PRODUCT HEADER BLOCK
+C
+      VADBUF(MESCDOFF) = VAD2_CODE
+      VADBUF(SRCIDOFF) = SIRPGID
+      VADBUF(NBLKSOFF) = NUM_BLOCKS
+      VADBUF(DIV1OFF) = DIVIDER
+C
+C*    STORE RADAR LATITUDE AND LONGITUDE
+C
+      call RPG_set_product_int( VADBUF(LTMSWOFF), SIRDALAT )
+      call RPG_set_product_int( VADBUF(LNMSWOFF), SIRDALON )
+C*
+C*    STORE RADAR HEIGHT, PRODUCT CODE, OPERATION MODE AND VOLUME
+C*       COVERAGE PATTERN
+C*
+      VADBUF(RADHGTOFF) = SIRDAHGT
+      VADBUF(PRDCODOFF) = VAD2_CODE
+      VADBUF(WTMODOFF) = SUMMARY(SCAN_MODE,VOLN)
+      VADBUF(VCPOFF) = SUMMARY(SCAN_VCP,VOLN)
+C*
+C*    STORE VOLUME SCAN NUMBER, VOLUME SCAN DATE AND TIME
+C
+      VADBUF(VSNUMOFF) = VOLN
+      VADBUF(VSDATOFF) = SUMMARY(SCAN_DATE,VOLN)
+      call RPG_set_product_int( VADBUF(VSTMSWOFF), 
+     1                          SUMMARY(SCAN_TIME,VOLN) )
+C
+C*    STORE THE GENERATION DATE AND TIME
+C
+      VADBUF(GDPRDOFF) = CDATE
+      call RPG_set_product_int( VADBUF(GTMSWOFF), CTIME )
+C
+C**** SET SPOT BLANK STATUS
+C
+      IF (OS32BTESTS(SUMMARY(SCAN_SB,VOLN),VOL_SPOT_BLANK))
+     >    VADBUF(NMAPSOFF)= SBON
+C
+C*    SET COLOR THRESHOLD TABLE VALUES
+C
+      DO 10 IDX=ONE,MXLVLCOL
+         VADBUF(DL1OFF+IDX-INC1)=THRESH(IDX, CLRIDX)
+ 10   CONTINUE
+C
+C*    CALL A31877 TO STORE THE MAXIMUM DATA LEVELS
+C
+      CALL A31877__MAX_LEVELS(VADBUF)
+C*
+C*    STORE OFFSET TO THE PRODUCT BLOCK
+C
+      call RPG_set_product_int( VADBUF(OPRMSWOFF), PHEADLNG )
+C*
+C*    STORE OFFSET TO THE SITE ADAPTATION DATA BLOCK
+C
+      call RPG_set_product_int( VADBUF(OTADMSWOFF), ZERO )
+C
+C*    STORE INFORMATION INTO THE PRODUCT SYMBOLOGY BLOCK
+C
+      VADBUF(DIV2OFF) = DIVIDER
+      VADBUF(BLOCKIDOFF) = SYMBLKID
+      VADBUF(NLYROFF) = NUMLYRS
+      VADBUF(LYRDIVOFF) = DIVIDER
+C
+C*    STORE PRODUCT SYMBOLOGY DATA LAYER LENGTH IN BYTES
+C
+      TOTLENG = LENPSD
+      call RPG_set_product_int( VADBUF(LYRLMSWOFF), LENPSD )
+C*
+C*    STORE LENGTH OF THE PRODUCT BLOCK IN BYTES
+C
+      TOTLENG = TOTLENG + BLKOVRHD
+      call RPG_set_product_int( VADBUF(LRMSWOFF), TOTLENG )
+C*
+C*    STORE TOTAL LENGTH OF THE MESSAGE
+      call RPG_set_product_int( VADBUF(LGMSWOFF), ENDPTR*NUM_BYTES )
+
+      RETURN
+      END

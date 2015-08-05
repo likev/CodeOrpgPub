@@ -1,0 +1,57 @@
+C
+C RCS info
+C $Author: steves $
+C $Locker:  $
+C $Date: 2006/01/03 16:53:44 $
+C $Id: cmprfape.ftn,v 1.8 2006/01/03 16:53:44 steves Exp $
+C $Revision: 1.8 $
+C $State: Exp $
+C
+C***********************************************************************
+C
+C    The main function for the COMPOSITE REFLECTIVITY POLAR 
+C    GRID w/AP Edited task.
+C
+C***********************************************************************
+C
+
+      IMPLICIT NONE
+
+$INCLUDE rpg_port.inc,**rpg_port
+
+      integer param            ;return value of A307B1
+
+$INCLUDE A309.INC/G,**A3PM00
+$INCLUDE A309ADPT.INC/G, **A3CD70CA   ; SITEADP
+$INCLUDE A309ADPT.INC/G,**A3CD70_LAYER_REF 
+$INCLUDE A309ADPT.INC/G,**A3CD70_DEA_NAMES
+
+      INTEGER LAYER_DBZ_CALLBACK_FX   ;adapt callback f(x)
+      EXTERNAL LAYER_DBZ_CALLBACK_FX  ;adapt callback f(x)
+
+     ;** specify inputs and outputs
+      call RPG_in_data (COMBBASE, RADIAL_DATA)
+      call RPG_out_data (CRPGAPE, VOLUME_DATA, INT_PROD)
+
+     ;** register the scan summary array
+      call RPG_reg_scan_summary ()
+
+      ;** register for site info adaptation data
+      call RPG_reg_site_info( SIRDALAT )
+
+      ;** register for layer reflectivity adaptation data
+      call RPG_reg_ade_callback( LAYER_DBZ_CALLBACK_FX,
+     $                           ADMINDBZ,
+     $                           LAYER_REF_DEA_NAME,
+     $                           BEGIN_VOLUME )
+
+      ;** tell system we are volume-based.
+      call RPG_task_init (VOLUME_BASED);
+
+      ;** waiting for activation.
+10    call RPG_wait_act (WAIT_DRIVING_INPUT)
+      call A307B1__BUFFER_CONTROL (param)
+      goto 10
+
+      stop
+      end

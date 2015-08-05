@@ -1,0 +1,354 @@
+#!/bin/sh
+#
+# File: build_adapt_media
+# Purpose: Build adaptation data master media an adaptation
+#          directory or directory structure
+#
+# RCS info
+# $Author: cmn $
+# $Locker:  $
+# $Date: 2008/08/04 21:34:16 $
+# $Id: build_adapt_media,v 1.27 2008/08/04 21:34:16 cmn Exp $
+# $Revision: 1.27 $
+# $State: Exp $
+#
+
+clear_output=
+input_dir_name=
+prompt_site_name=
+save_time=
+save_date=
+to_floppy=
+tmp_dir_name=
+
+##################################################
+# PRINT_USAGE: Display script usage.
+##################################################
+
+print_usage ()
+{
+  echo
+  echo
+  echo "Usage: `basename $0` [options] -i input_directory"
+  echo "    Build adaptation CD (Floppy) from the Adaptation Master directory"
+  echo "      Options:"
+  echo "        -h Print usage message and exit"
+  echo "        -c Clear the output directory"
+  echo "        -d Date of the adaptation data archive [default: today's date]"
+  echo "        -i directory - Adaptation master directory"
+  echo "        -T directory - directory for tmp file [default: HOME]"
+  echo "        -s Prompt for individual site names"
+  echo "        -t Time of the adaptation data archive [default: Current time]"
+  echo "        -f Build floppy [default: Build CD]"
+  echo
+  echo
+}
+
+while getopts cd:hi:st:T:f input
+do
+    case $input in
+	c) clear_output=true  ;;
+	d) save_date="$OPTARG" ;;
+        h) print_usage; exit 0 ;;
+        \?) print_usage; exit 1 ;;
+	i) input_dir_name="$OPTARG" ;;
+	T) tmp_dir_name="$OPTARG" ;;
+	s) prompt_site_name=true ;;
+	t) save_time="$OPTARG" ;;
+	f) to_floppy=true ;;
+    esac
+done
+
+if [ -z "$input_dir_name" ]
+then
+   echo "--->The -i option is required"
+   exit 1
+fi
+
+if [ ! -d "$input_dir_name" ]
+then
+   echo "--->\"$input_dir_name\" is not a valid directory"
+   exit 1
+fi
+
+num_of_disks=0
+
+if [ -z "$to_floppy" ]
+then
+    device_name="cd"
+else
+    device_name="floppy"
+fi
+
+
+#********************************************************************
+#   Copies $1 to dir $2 and verifies the copy.
+#********************************************************************
+
+Copy_and_verify () {
+
+    echo "--->Copying $1 to $2"
+    cp $1 $2
+    status=$?
+    diff $1 $2
+    diff_status=$?
+    if [ $status -ne 0 ] || [ $diff_status -ne 0 ]
+    then
+	echo "--->Failed in Copying $1 to $2"
+	exit 1
+    fi
+}
+
+#********************************************************************
+#   Copies all files in $input_dir_name/$site_name/$install_dir to
+#   $1/$site_name/$install_dir.
+#********************************************************************
+
+Copy_all_files_in_install_dir () {
+
+    if [ "$device_name" = "cd" ]
+    then
+	dest_name=$1/$install_dir
+	mkdir -p $dest_name
+	cp -dRf $input_dir_name/$site_name/$install_dir/* $dest_name
+	return
+    fi
+
+    for fl in `find $input_dir_name/$site_name/$install_dir -name "*" -and -type f 2> /dev/null`
+    do
+	skip="no"
+	if [ "$device_name" = "floppy" -a "`basename $fl`" = "blockage.lb" ]
+	then
+	    skip="yes"
+	fi
+
+	if [ "$skip" = "no" ]
+	then
+	    func=s,$input_dir_name/$site_name,$1,
+	    dest_name=`echo $fl | sed $func`
+	    mkdir -p `dirname $dest_name`
+	    Copy_and_verify $fl $dest_name
+	    num_of_files=`expr $num_of_files + 1`
+	fi
+    done
+}
+
+#********************************************************************
+#   Finds adapt files for site "site_name" and copies them to $1 
+#   (destination dir).
+#********************************************************************
+
+Find_and_copy_files () {
+
+    # process manual hub load site - not a nexrad site 
+#    dc_tool -M -S $CFG_DIR/comms -s $site_name
+    gdc -S $CFG_DIR/comms -s $site_name -C HLMANUAL
+    if [ $? -eq 0 ] 
+    then
+	for fl in `find $input_dir_name/$site_name -name "*-cfg" -and -type f`
+	do
+	    Copy_and_verify $fl $1
+	    num_of_files=`expr $num_of_files + 1`
+	done
+	return
+    fi
+
+    # process nexrad site
+    find_adapt_command="find_adapt -a -D $input_dir_name/$site_name -s $site_name"
+    if [ -n "$save_date" ]
+    then
+	find_adapt_command=`echo "$find_adapt_command -d $save_date"`
+    fi
+ 
+    if [ -n "$save_time" ]
+    then
+	find_adapt_command=`echo "$find_adapt_command -t $save_time"`
+    fi
+ 
+    adapt_files=`$find_adapt_command`
+    status=$?
+    if [ $status -ne 0 ] || [ -z "$adapt_files" ]
+    then
+	echo "--->No adaptation archive in directory $input_dir_name/$site_name"
+    else
+	for file in $adapt_files
+	do
+	    Copy_and_verify $file $1
+	    num_of_files=`expr $num_of_files + 1`
+	    if [ $file = "`echo $file | grep rpg1`" ]
+	    then
+		chan=rpg1
+	    else
+		chan=rpg2
+	    fi
+	    install_dir=`find_adapt -I -s $site_name -c $chan -n rpga`
+	    Copy_all_files_in_install_dir $1
+	    install_dir=`find_adapt -I -s $site_name -c $chan -n rpgb`
+	    Copy_all_files_in_install_dir $1
+	    install_dir=`find_adapt -I -s $site_name -c none -n mscf`
+	    Copy_all_files_in_install_dir $1
+	done
+    fi
+}
+
+#********************************************************************
+#   process one site (site_name) - floppy version.
+#********************************************************************
+
+Process_a_site_floppy () {
+
+    echo "--->Building $device_name for site $site_name"
+    echo "--->Insert a new $device_name into the drive"
+    echo "--->Hit return when ready"
+    read answer
+ 
+    echo "--->Mounting $device_name for site $site_name"
+    media_dir=`medcp -mp $device_name`
+    if [ $? -ne 0 ]
+    then
+	echo "--->Error mounting $device_name (check lem medcp)."
+	exit 1
+    fi
+
+    if [ -n "$clear_output" ]
+    then
+	echo "--->Clearing the $media_dir directory"
+	rm -rf $media_dir/*
+    fi
+
+    num_of_files="0"
+    Find_and_copy_files $media_dir
+
+    medcp -u $device_name
+    if [ "$num_of_files" = "0" ]
+    then
+	echo "--->$device_name is empty - No file is found for $site_name"
+    else
+	echo "--->$device_name for site $site_name completed"
+    fi
+    echo "--->Remove the $device_name from the drive and then Hit return"
+    read answer
+}
+
+#********************************************************************
+#   process one site (site_name) - CD version.
+#********************************************************************
+
+Process_a_site_cd () {
+ 
+    if [ "$device_name" = "floppy" ]
+    then
+	Process_a_site_floppy
+	return
+    fi
+
+    echo "--->Finding adaptation data for site $site_name"
+    Find_and_copy_files $tmp_dir
+
+    if [ "$num_of_files" = "0" ]
+    then
+	return
+    fi
+
+    echo "--->Do you want to write to $device_name (y or n)?"
+    read answer
+    if [ "$answer" = "y" ]
+    then
+	cp -R $input_dir_name/shared $tmp_dir
+
+	echo "--->Insert a new $device_name into the drive"
+	echo "--->Hit return when ready"
+	read answer
+
+	echo "--->Copying files to $device_name ..."
+	medcp "$tmp_dir" cd
+	if [ $? -ne 0 ]
+	then
+	    echo "--->Failed in writing to $tmp_dir (check with lem medcp)"
+	    exit 1
+	fi
+	rm -rf $tmp_dir/*
+	num_of_files="0"
+	echo "--->Adaptation data written to $device_name successfully"
+	echo "--->Remove the $device_name from the drive and then Hit return"
+	read answer
+    fi
+}
+
+#********************************************************************
+#   process one site (site_name).
+#********************************************************************
+
+Process_a_site () {
+
+    Process_a_site_cd
+#    find_adapt -L -s $site_name > /dev/null - Replaced by next gdc
+#    gdc -S $CFG_DIR/comms -s $site_name -C HLMSCF
+#    if [ $? -eq 0 ]
+#    then
+#	echo "--->This is a Hub-load-from-mscf site, you may need a second $device_name"
+#	echo "--->Do you want to create the second $device_name (y or n)"
+#	read answer
+#	if [ "$answer" = "y" ]
+#	then
+#	    Process_a_site_cd
+#	fi
+#    fi
+}
+
+# The main procedure starts here
+#
+
+tmp_dir=
+if [ "$device_name" = "cd" ]
+then
+    if [ -n "$tmp_dir_name" ] 
+    then
+	tmp_dir="$tmp_dir_name"/build_adapt_media_tmp
+    else
+	tmp_dir="$HOME"/build_adapt_media_tmp
+    fi
+    rm -rf $tmp_dir
+    mkdir -p $tmp_dir
+    num_of_files="0"
+fi
+
+if [ -z "$prompt_site_name" ]
+then
+    site_list=`ls $input_dir_name`
+    for site_name in $site_list
+    do
+	if [ "$site_name" = "tmp" -o "$site_name" = "shared" ]; then
+	    continue
+	fi
+	if [ -d $input_dir_name/$site_name ]
+	then
+	    Process_a_site
+	fi
+    done
+    echo "--->All sites are processed"
+else
+    while [ "true" ]
+    do
+	echo "--->Enter the site name to build an adaptation $device_name or q to exit"
+	read site_name
+	if [ -z "$site_name" -o "$site_name" = "q" -o "$site_name" = "Q" ]
+	then
+	    break
+	fi
+
+	if [ -d $input_dir_name/$site_name ]
+	then
+	    Process_a_site
+	else
+	    echo "--->Error, could not find site \"$site_name\""
+	fi
+    done
+fi
+
+if [ -n "$tmp_dir" ]
+then
+    rm -rf $tmp_dir
+fi
+
+exit 0

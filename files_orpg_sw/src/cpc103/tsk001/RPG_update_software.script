@@ -1,0 +1,487 @@
+#!/bin/sh
+
+# RCS info
+# $Author: ccalvert $
+# $Locker:  $
+# $Date: 2012/11/19 15:56:36 $
+# $Id: RPG_update_software.script,v 1.7 2012/11/19 15:56:36 ccalvert Exp $
+# $Revision: 1.7 $
+# $State: Exp $
+
+#**************************************************************************
+#
+# Purpose: Update RPG with ROC CM-generated media
+#
+#**************************************************************************
+
+CD_DIR=""
+INTERACTIVE_FLAG=YES
+DISPLAY_BUILD_INFO_FLAG=NO
+DISPLAY_CD_TYPE_FLAG=NO
+UPDATE_RPG_FLAG=NO
+UNKNOWN_CD_FLAG=UNKNOWN
+UNKNOWN_EXIT_CODE=20
+SITE_SPECIFIC_CD_FLAG=SITE_SPECIFIC
+SITE_SPECIFIC_EXIT_CODE=21
+EPSS_CD_FLAG=EPSS
+EPSS_EXIT_CODE=22
+RDA_HELP_CD_FLAG=RDA_HELP
+RDA_HELP_EXIT_CODE=23
+RDA_JAR_CD_FLAG=RDA_JAR
+RDA_JAR_EXIT_CODE=24
+PATCH_CD_FLAG=PATCH
+PATCH_EXIT_CODE=25
+TOOLS_CD_FLAG=TOOLS
+TOOLS_EXIT_CODE=26
+VIRUS_DEFINITION_UPDATE_CD_FLAG=VIRUS_DEFINITION_UPDATE
+VIRUS_DEFINITION_UPDATE_EXIT_CODE=27
+SECURITY_SCAN_CD_FLAG=SECURITY_SCAN
+SECURITY_SCAN_EXIT_CODE=28
+TEST_ECP_CD_FLAG=TEST_ECP
+TEST_ECP_EXIT_CODE=29
+ACTION_INVOKED=NO
+UPDATE_RPG_FLAG=NO
+
+#**************************************************************************
+#**************************************************************************
+#
+# Start of Functions
+#
+#**************************************************************************
+#**************************************************************************
+
+#**************************************************************************
+# PRINT_USAGE: Display "help" to screen.
+#**************************************************************************
+
+print_usage ()
+{
+  echo
+  echo
+  echo "***************************************************"
+  echo "HELP SCREEN FOR SCRIPT: $0"
+  echo "***************************************************"
+  echo
+  echo
+  echo "OPTIONS:"
+  echo
+  echo "-h  -    Display help"
+  echo
+  echo "-b  -    Display current build number"
+  echo
+  echo "-c  -    Determine CD type"
+  echo "           possible output with exit values in parenthesis:"
+  echo "             $UNKNOWN_CD_FLAG ($UNKNOWN_EXIT_CODE)"
+  echo "             $SITE_SPECIFIC_CD_FLAG ($SITE_SPECIFIC_EXIT_CODE)"
+  echo "             $EPSS_CD_FLAG ($EPSS_EXIT_CODE)"
+  echo "             $RDA_HELP_CD_FLAG ($RDA_HELP_EXIT_CODE)"
+  echo "             $RDA_JAR_CD_FLAG ($RDA_JAR_EXIT_CODE)"
+  echo "             $PATCH_CD_FLAG ($PATCH_EXIT_CODE)"
+  echo "             $TOOLS_CD_FLAG ($TOOLS_EXIT_CODE)"
+  echo "             $VIRUS_DEFINITION_UPDATE_CD_FLAG ($VIRUS_DEFINITION_UPDATE_EXIT_CODE)"
+  echo "             $SECURITY_SCAN_CD_FLAG ($SECURITY_SCAN_EXIT_CODE)"
+  echo "             $TEST_ECP_CD_FLAG ($TEST_ECP_EXIT_CODE)"
+  echo
+  echo "-N  -    Non-interactive (invoked from some other program - the flag"
+  echo "         must come before any other on the command line)"
+  echo
+  echo "-P       Update with Patch CD"
+  echo "-S       Update with Site-specific CD"
+  echo "-E       Update with EPSS CD"
+  echo "-J       Update with RDA Jar File CD"
+  echo "-H       Update with RDA Help CD"
+  echo "-T       Update with Tools CD"
+  echo "-A       Update with Antivirus Dat Update CD"
+  echo "-B       Update with Security Scan CD"
+  echo "-C       Update with Test ECP CD"
+  echo
+  echo
+  echo
+}
+
+#**************************************************************************
+# ECHO_STDOUT: Echo to stdout.
+#**************************************************************************
+
+echo_stdout ()
+{
+  echo -e $1
+  echo -e $1 | $LE_LOG_CMD
+}
+
+#**************************************************************************
+# ECHO_STDERR: Echo to stderr.
+#**************************************************************************
+
+echo_stderr ()
+{
+  echo -e $1 >&2
+  echo -e $1 | $LE_ERR_CMD
+}
+
+#**************************************************************************
+# ECHO_INT: Echo if interactive. Output does not go to log file.
+#**************************************************************************
+
+echo_int ()
+{
+  if [ $INTERACTIVE_FLAG = "YES" ]
+  then
+    echo -e $1
+  fi
+}
+
+#**************************************************************************
+# ECHO_ERROR: Echo error message and exit.
+#**************************************************************************
+
+echo_error ()
+{
+  if [ $# -eq 1 ]
+  then
+    exit_code=1
+  else
+    exit_code=$2
+  fi
+
+  echo_int
+  echo_int
+  echo_int "IN SCRIPT: $0"
+  echo_stderr "ERROR: $1"
+  echo_int "Stopping script"
+  echo_int "Use -h option for help"
+  echo_int
+  echo_int
+  
+  exit $exit_code
+}
+
+#**************************************************************************
+# INIT_LE_LOG: Initialize logging.
+#**************************************************************************
+
+init_le_log ()
+{ 
+  LE_NUM_LINES=100
+
+  if env | grep ORPG_NONOPERATIONAL > /dev/null 2>&1
+  then
+    LE_UID=`id -u $USER 2>/dev/null`
+    if [ $? -ne 0 -o "$LE_UID" = "" ]
+    then
+      echo_error "Command \"id -u $USER 2>/dev/null\" failed ($?)"
+    fi
+    LE_GID=`id -g $USER 2>/dev/null`
+    if [ $? -ne 0 -o "$LE_GID" = "" ]
+    then 
+      echo_error "Command \"id -g $USER 2>/dev/null\" failed ($?)"
+    fi
+  else
+    LE_UID=`id -u rpg 2>/dev/null`
+    if [ $? -ne 0 -o "$LE_UID" = "" ]
+    then
+      echo_error "Command \"id -u rpg 2>/dev/null\" failed ($?)"
+    fi
+    LE_GID=`id -g rpg 2>/dev/null`
+    if [ $? -ne 0 -o "$LE_GID" = "" ]
+    then 
+      echo_error "Command \"id -g rpg 2>/dev/null\" failed ($?)"
+    fi
+  fi
+  LE_FILE_NAME=`basename $0 2>/dev/null`
+  if [ $? -ne 0 -o "$LE_FILE_NAME" = "" ]
+  then
+    echo_error "Command \"basename $0 2>/dev/null\" failed ($?)"
+  fi
+
+  LE_LOG_CMD="le_pipe -t $LE_FILE_NAME -n $LE_NUM_LINES -w $LE_UID -g $LE_GID"
+  LE_ERR_CMD="$LE_LOG_CMD -e GL_ERROR"
+}
+
+#**************************************************************************
+# PARSE_INPUT: Parse command line input.
+#**************************************************************************
+
+parse_input ()
+{
+  # Parse input options/arguments. If option doesn't have an argument (and
+  # requires one) or option isn't valid, print message and exit.
+
+  while getopts hbcNPSEJHTABC options
+  do
+    case $options in
+      h)  print_usage; exit 0;;
+      b)  DISPLAY_BUILD_INFO_FLAG=YES; validate_action;;
+      c)  DISPLAY_CD_TYPE_FLAG=YES; validate_action;;
+      N)  INTERACTIVE_FLAG=NO;;
+      P)  validate_update $PATCH_CD_FLAG;;
+      S)  validate_update $SITE_SPECIFIC_CD_FLAG;;
+      E)  validate_update $EPSS_CD_FLAG;;
+      J)  validate_update $RDA_JAR_CD_FLAG;;
+      H)  validate_update $RDA_HELP_CD_FLAG;;
+      T)  validate_update $TOOLS_CD_FLAG;;
+      A)  validate_update $VIRUS_DEFINITION_UPDATE_CD_FLAG;;
+      B)  validate_update $SECURITY_SCAN_CD_FLAG;;
+      C)  validate_update $TEST_ECP_CD_FLAG;;
+      \?) echo_error "OPTION: $OPTARG IS NOT A VALID OPTION";;
+    esac
+  done
+
+  if [ $DISPLAY_BUILD_INFO_FLAG = "YES" ]
+  then
+    display_build_info
+  elif [ $DISPLAY_CD_TYPE_FLAG = "YES" ]
+  then
+    display_cd_type
+  elif [ $UPDATE_RPG_FLAG = "YES" ]
+  then
+    update_RPG $RPG_UPDATE_TYPE_FLAG
+  else
+    echo_error "No action flag invoked"
+  fi
+}
+
+#**************************************************************************
+# VALIDATE_ACTION: Make sure only one action flag is invoked.
+#**************************************************************************
+
+validate_action ()
+{
+  if [ $ACTION_INVOKED = "YES" ]
+  then
+    echo_error "Multiple action flags not allowed"
+  fi
+  ACTION_INVOKED=YES
+}
+
+#**************************************************************************
+# VALIDATE_update: Make sure only one update flag is invoked.
+#**************************************************************************
+
+validate_update ()
+{
+  # Make sure this is the only action invoked
+ 
+  validate_action
+
+  if [ $UPDATE_RPG_FLAG = "YES" ]
+  then
+    echo_error "Multiple update types not allowed"
+  fi
+  UPDATE_RPG_FLAG=YES
+  RPG_UPDATE_TYPE_FLAG=$1
+}
+
+
+#**************************************************************************
+# DISPLAY_BUILD_INFO: Display build information from version_rpg file.
+#**************************************************************************
+
+display_build_info ()
+{
+  ROC_update -N -b
+  exit $?
+}
+
+#**************************************************************************
+# DISPLAY_CD_TYPE: Display type of CD.
+#**************************************************************************
+
+display_cd_type ()
+{
+  mount_cd_media
+
+  # Check for site-specific CD
+
+  ls $CD_DIR | egrep '^adapt.*\.Z' > /dev/null 2>&1
+  adapt_file=$?
+  ls $CD_DIR | egrep '^install.*$' > /dev/null 2>&1
+  install_dir=$?
+
+  if [ $adapt_file -eq 0 -a $install_dir -eq 0 ]
+  then
+    echo_stdout $SITE_SPECIFIC_CD_FLAG
+    exit $SITE_SPECIFIC_EXIT_CODE
+  fi
+
+  # Check for EPSS CD
+
+  if [ -d $CD_DIR/epss ]
+  then
+    echo_stdout $EPSS_CD_FLAG
+    exit $EPSS_EXIT_CODE
+  fi
+
+  # Check for RDA Help CD
+
+  if [ -d $CD_DIR/help -a -f $CD_DIR/scripts/update_rda_gui ]
+  then
+    echo_stdout $RDA_HELP_CD_FLAG
+    exit $RDA_HELP_EXIT_CODE
+  fi 
+
+  # Check for RDA JAR File CD
+
+  if [ -f $CD_DIR/install_rda_gui ]
+  then
+    echo_stdout $RDA_JAR_CD_FLAG
+    exit $RDA_JAR_EXIT_CODE
+  fi
+
+  # Check for Tools CD
+
+  if [ -f $CD_DIR/install_tools ]
+  then
+    echo_stdout $TOOLS_CD_FLAG
+    exit $TOOLS_EXIT_CODE
+  fi
+
+  # Check for Patch CD
+
+  ls $CD_DIR 2>/dev/null | egrep '^[0-9]+\.[0-9]+$' > /dev/null 2>&1
+  if [ $? -eq 0 ]
+  then
+    echo_stdout $PATCH_CD_FLAG
+    exit $PATCH_EXIT_CODE
+  fi
+
+  # Check for Antivirus DAT CD
+
+  ls $CD_DIR 2>/dev/null | egrep '^uvscan-dat-[0-9]+.*\.rpm$' > /dev/null 2>&1
+  if [ $? -eq 0 ]
+  then
+    echo_stdout $VIRUS_DEFINITION_UPDATE_CD_FLAG
+    exit $VIRUS_DEFINITION_UPDATE_EXIT_CODE
+  fi
+
+  # Check for Security Scan CD
+
+  ls $CD_DIR 2>/dev/null | egrep '^startUpdate.sh$' > /dev/null 2>&1
+  if [ $? -eq 0 ]
+  then
+    echo_stdout $SECURITY_SCAN_CD_FLAG
+    exit $SECURITY_SCAN_EXIT_CODE
+  fi
+
+  # Check for Test ECP CD
+
+  ls $CD_DIR 2>/dev/null | egrep '^TEST_ECP$' > /dev/null 2>&1
+  if [ $? -eq 0 ]
+  then
+    echo_stdout $TEST_ECP_CD_FLAG
+    exit $TEST_ECP_EXIT_CODE
+  fi
+
+  echo_stdout $UNKNOWN_CD_FLAG
+  exit $UNKNOWN_EXIT_CODE
+}
+
+#**************************************************************************
+# UPDATE_RPG: Update component of RPG passed in as argument.
+#**************************************************************************
+
+update_RPG ()
+{
+  mount_cd_media
+
+  if [ $1 = $SITE_SPECIFIC_CD_FLAG ]
+  then
+    site_CD_update -N
+    exit_code=$?
+  elif [ $1 = $EPSS_CD_FLAG ]
+  then
+    install_epss -N
+    exit_code=$?
+  elif [ $1 = $RDA_HELP_CD_FLAG ]
+  then
+    $CD_DIR/scripts/update_rda_gui -N
+    exit_code=$?
+  elif [ $1 = $RDA_JAR_CD_FLAG ]
+  then
+    $CD_DIR/install_rda_gui -N
+    exit_code=$?
+  elif [ $1 = $PATCH_CD_FLAG ]
+  then
+    sudo -S ROC_update -N
+    exit_code=$?
+  elif [ $1 = $TOOLS_CD_FLAG ]
+  then
+    $CD_DIR/install_tools -N
+    exit_code=$?
+  elif [ $1 = $VIRUS_DEFINITION_UPDATE_CD_FLAG ]
+  then
+    sudo -S update_virus_definition_files -N
+    exit_code=$?
+  elif [ $1 = $SECURITY_SCAN_CD_FLAG ]
+  then
+    sudo -S $CD_DIR/startUpdate.sh -S RPG
+    exit_code=$?
+  elif [ $1 = $TEST_ECP_CD_FLAG ]
+  then
+    sudo -S $CD_DIR/TEST_ECP
+    exit_code=$?
+  else
+    echo_error "Invalid argument for -u option"
+  fi
+
+  sleep 2
+
+  # Scripts that are run from CD can't eject the CD when finished.
+  # Add special eject here to make sure all CDs are auto-ejected.
+  # Ignore any exit/return value.
+
+  if [ $1 = $RDA_HELP_CD_FLAG -o $1 = $RDA_JAR_CD_FLAG -o $1 = $TOOLS_CD_FLAG ]
+  then
+    medcp -ue cd > /dev/null 2>&1
+  fi
+
+  exit $exit_code
+}
+
+#**************************************************************************
+# MOUNT_CD_MEDIA: Mount CD media.
+#**************************************************************************
+
+mount_cd_media ()
+{
+  echo_stdout "Mounting CD"
+
+  CD_DIR=`medcp -pm cd`
+
+  if [ $? -ne 0 ]
+  then
+    echo_error "Unable to mount CD" 2
+  elif [ "$CD_DIR" = "" ]
+  then
+    echo_error "CD directory undefined"
+  fi
+}
+
+
+
+#**************************************************************************
+#**************************************************************************
+#
+# End of Functions
+#
+#**************************************************************************
+#**************************************************************************
+
+#**************************************************************************
+#**************************************************************************
+#
+# Main Body of Script
+#
+#**************************************************************************
+#**************************************************************************
+
+init_le_log
+parse_input "$@"
+
+echo_int
+echo_int
+echo_stdout "Finished update of RPG software"
+echo_int
+echo_int
+
+exit 0

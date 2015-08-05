@@ -1,0 +1,208 @@
+C 
+C RCS info 
+C $Author: nolitam $ 
+C $Locker:  $ 
+C $Date: 2002/11/27 15:58:35 $ 
+C $Id: a3136t.ftn,v 1.8 2002/11/27 15:58:35 nolitam Exp $ 
+C $Revision: 1.8 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A3136T__INIT_TIMES( SUPL_DATA, FLG_IOERR)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3136T__INIT_TIMES
+*.
+*.  MODULE VERSION: 0012
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       10 27 88      0000      Paul Jendrowski      SPR #80383
+*.       05 17 90      0000      JOHN DEPHILIP        SPR #90697
+*.       02 22 91      0001      PAUL JENDROWSKI      SPR #91254
+*.       01 08 91      0001      PAUL JENDROWSKI      SPR #90888
+*.       12 03 91      0002      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0003      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0004      Toolset              SPR 91895
+*.       05 22 92      0005      J. WHEELER           SPR# 92149
+*.       03/25/93      0006      Toolset              SPR NA93-06801
+*.       01/28/94      0007      Toolset              SPR NA94-01101
+*.       03/03/94      0008      Toolset              SPR NA94-05501
+*.       04/11/96      0009      Toolset              CCR NA95-11802
+*.       12/23/96      0010      Toolset              CCR NA95-11807
+*.       03/16/99      0011      Toolset              CCR NA98-23803
+*.       01/31/02      0012      Dennis A. Miller     CCR NA01-27501
+*.
+*.  CALLING SEQUENCE: CALL A3136T__INIT_TIMES( SUPL_DATA, FLG_IOERR )
+*.
+*.  MODULE FUNCTION:
+*.
+*.      This module reads the bias values and times from disk and gets
+*.    the current time from the SUPL_DATA array.
+*.
+*.  MODULES CALLED: A3CM08__CHANGE_NOTICE
+*
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT        TYPE        DESCRIPTION
+*.    -   -----        ----        -----------
+*.    G   DISK_BY_READ I*4         Disk performance monitoring information -
+*.                                 Number of bytes read from disk.
+*.    G   AVG_SCNDAT   I*4         (CONSTANT)(CONSTANT)Average Scan Date index
+*.                                 into Hydromet Supplemental Data array
+*.    G   AVG_SCNTIM   I*4         (CONSTANT)(CONSTANT)Average Scan Time index
+*.                                 into Hydromet Supplemental Data array
+*.    G   CNDISKFILE   I*4         (CONSTANT)FILE/DISK ACCESS CHANGE
+*.                                 NOTIFICATION CONSTANT-DISTRIBUTION TASK
+*.    G   FLAG_CLEAR   I*4         (CONSTANT)Parameter for a cleared flag
+*.    G   HYALARM_FLG  I*4         (CONSTANT)HYDROMET ALARM FLAG VALUE -
+*.                                 CONSTANT
+*.    C   DATECUR      I*4         Current Date.
+*.    C   TIMECUR      I*4         Current time, in seconds of the volume scan
+*.                                 (from 0 to 86400).
+*.    C   BIBYTES      I*4         (CONSTANT)Number of bytes to write during
+*.                                 transfer of bias times and values.
+*.    C   GASCNLU      I*4         (CONSTANT)Gage accumulation scan disk file
+*.                                 logical unit.
+*.    C   IINIT        I*4         (CONSTANT)Constant zero for initialization.
+*.    C   SEC0         I*4         (CONSTANT)First disk sector of gage
+*.                                 accumulation scan disk file.
+*.    P   FLG_IOERR    I*4         Disk I/O error code
+*.    P   SUPL_DATA    I*4         Supplementary data array buffer.
+*.
+*.    *   OUTPUT       TYPE        DESCRIPTION
+*.    -   ------       ----        -----------
+*.    G   DISK_BY_READ I*4         Disk performance monitoring information -
+*.                                 Number of bytes read from disk.
+*.    C   DATECUR      I*4         Current Date.
+*.    C   TIMECUR      I*4         Current time, in seconds of the volume scan
+*.                                 (from 0 to 86400).
+*.    P   FLG_IOERR    I*4         Disk I/O error code
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    C   TBUPDT            I*4         Time Bias last updated locally (secs)
+*.    P   FLG_IOERR         I*4         Disk I/O error code
+*.
+*.  DATABASE/FILE REFERENCE: HYGAGSCN.DAT; RETRIEVE
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME        TYPE        DESCRIPTION
+*.    ----        ----        -----------
+*.    INITIALIZED L*4         FLAG PERMITS INITIALIZATION OF DISK INDEX TO BE
+*.                            DONE ONLY ONCE
+*.    YES         L*4         (CONSTANT) LOGICAL .TRUE.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD07
+*.    ENVIRON
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3136C3
+*.    A3136CA
+*.
+*.  ERROR CONDITIONS: None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS: None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP13.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK13.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+      IMPLICIT NONE
+C
+$INCLUDE A309ADPT.INC/G,**A3CD70P6 (NEND NLIST)
+$INCLUDE                **A3CD70CA (NEND NLIST)
+$INCLUDE                **A3CD70C8 (NLIST)
+$INCLUDE                **A3CD70C4 (NLIST)
+$INCLUDE A309.INC/G,**A3CD07 (NLIST)
+$INCLUDE A313HBUF.INC/G,**A313HYPP (NLIST)
+$INCLUDE A313H.INC,**A3136P        (NLIST)
+$INCLUDE **A3136P1                 (NLIST)
+$INCLUDE **A3136C3                 (NLIST)
+C
+C      ORPG Issue 9
+      INTEGER ORPGNDX
+      INTEGER BIAS_DATA(BIBYTES/4)
+      EQUIVALENCE (BIAS_DATA(1),TBUPDT)
+C
+      INTEGER FLG_IOERR
+C
+      LOGICAL YES
+      PARAMETER (YES=.TRUE.)
+C
+      INTEGER SUPL_DATA(HYZ_SUPL)
+C
+C*********************************************************************
+C
+X     WRITE(6,1)
+X 1   FORMAT(' ***** ENTER A3136T')
+C
+      FLG_IOERR = FLAG_CLEAR
+C
+C INCREMENT PERFORMANCE MONITOR VARIABLE BY NUMBER OF BYTES READ
+C
+C** Read in saved Bias Update and Calculation times, and Bias and
+C** associated (effective) no. gage-radar pairs & memory span from
+C** disk
+C
+C      ORPG Issue 9
+          READ(UNIT=GASCNLU, IOSTAT=FLG_IOERR, REC=ORPG_SEC0_REC)
+     $        (BIAS_DATA(ORPGNDX), ORPGNDX=1,(BIBYTES/4))
+C
+      IF (FLG_IOERR.EQ.FLAG_CLEAR) THEN
+C
+C** Get current time from the Preprocessing Supplemental data
+C
+        DATECUR=SUPL_DATA( AVG_SCNDAT )
+        TIMECUR=SUPL_DATA( AVG_SCNTIM )
+C
+X       type *,' A3136T: fields in A3136C3 after read from GASCNLU:'
+C
+X       WRITE(6,11) DBUPDT, TBUPDT, DBTBL_UPD, TBTBL_UPD
+X11     FORMAT(' A3136T: DATE & TIME LAST BIAS VALUE UPDATE:',2I6,
+X    $         '; DATE & TIME BIAS TABLE UPDATE:',2I6)
+X       WRITE(6,12) DBTBL_OBS, TBTBL_OBS, DBTBL_GEN, TBTBL_GEN
+X12     FORMAT(' A3136T: DATE & TIME BIAS TABLE OBSERVATION:',2I6,
+X    $         '; DATE & TIME BIAS TABLE GENERATATION:',2I6)
+X       WRITE(6,13) BIAS, GRPSIZ, MSPAN
+X13     FORMAT(' A3136T: BIAS=',F6.3,'  GRPSIZ=',F10.3,
+X    $                '  MSPAN=',F10.3)   
+X       WRITE(6,15) DATECUR, TIMECUR
+X15     FORMAT(' A3136T: CURRENT VOLUME SCAN DATE AND TIME:',2I6)
+C
+      ELSE
+C
+C** Write message to the status monitor if there is a read error
+C
+        CALL A3CM08__CHANGE_NOTICE(CNDISKFILE,HYALARM_FLG,FLG_IOERR,
+     $                              GASCNLU, IINIT, IINIT)
+C
+X       WRITE(6, 999) FLG_IOERR
+X999    FORMAT(' Disk read error',I4,' in Module A3136T')
+C
+      END IF
+C
+X     WRITE(6,99)
+X 99  FORMAT(' ***** EXIT A3136T')
+C
+      RETURN
+      END

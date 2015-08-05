@@ -1,0 +1,361 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/17 16:12:10 $
+C $Id: a317n8.ftn,v 1.2 2002/12/17 16:12:10 christie Exp $
+C $Revision: 1.2 $
+C $State: Exp $
+C
+      SUBROUTINE A317N8__COMPLETE_SCAN( AZBUF )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A317N8__COMPLETE_SCAN
+*.
+*.  MODULE VERSION: 0001
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       05/29/97      0000      MARK FRESCH          CCR NA95-21503
+*.       03/16/99      0001      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:  A317N8__COMPLETE_SCAN( AZBUF )
+*.
+*.  MODULE FUNCTION:
+*.
+*.  This routine completes an elevation scan by comparing any
+*.  Potential 2D Features alive at the beginning & end of the scan.
+*.
+*.  MODULES CALLED: A317J8__CLOSE_P2D, A317L8__COMPARE_RADS 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT         TYPE        DESCRIPTION
+*.    -   -----         ----        -----------
+*.    G   ADPMVAD       R*4         TDA 2D VECTOR AZIMUTHAL DISTANCE THRESHOLD
+*.    G   PV_AZIM       R*4         Azimuth of each radial.
+*.    C   AZC           I*4         A INDEX TO THE CURRENT RADIAL IN RAD_PV
+*.                                  AND OTHER ASSOCIATED ARRAYS
+*.    C   AZCOUNT       I*4         RADIAL COUNTER
+*.    C   BAZM_NDX      I*4         INDEX TO THE FIRST RADIAL IN THE PATTERN
+*.                                  VECTOR ARRAY, PV_AZIM, FOR THE ELEVATION
+*.                                  SCAN
+*.    C   FIRSTAZ       I*4         INDEX INDICATING THE FIRST AZIMUTH
+*.    C   HALF_PVAD     R*4         HALF THE VECTOR AZIMUTH DIFFERENCE FOR THE
+*.                                  ABOVE THRESHOLD PATTERN VECTORS IN THE
+*.                                  "CURRENT" AND "PREVIOUS" RADIALS
+*.    C   NRPV_TH       I*4         NUMBER OF PATTERN VECTORS FOUND WITH A
+*.                                  DIFFERENTIAL VELOCITY THRESHOLD THAT BEGIN
+*.                                  ON A RADIAL
+*.    C   NUM_PREV_RADS I*4         # OF PREVIOUS RADIALS WITH PATTERN VECTORS
+*.                                  BEING COMPARED IN THE 2D PROCESSING -
+*.                                  RELATED TO THE MAX. PATTERN VECTOR
+*.                                  AZIMUTHAL DISTANCE THRESH.
+*.    C   N_PREV_2      I*4         TWO TIMES THE # OF PREVIOUS RADIALS WITH
+*.                                  PATTERN VECTORS BEING COMPARED IN THE 2D
+*.                                  PROCESSING
+*.    C   P2DFEAT       R*4         ARRAY CONTAINING ATTRIBUTES OF THE P2DF's
+*.    C   PVAD          R*4         VECTOR AZIMUTH DIFFERENCE FOR THE ABOVE
+*.                                  THRESHOLD PATTERN VECTORS IN THE "CURRENT"
+*.                                  AND "PREVIOUS" RADIALS
+*.    C   PVBAZ         R*4         BEGINNING AZIMUTH FOR THE ABOVE THRESHOLD
+*.                                  PATTERN VECTORS IN THE "CURRENT" AND
+*.                                  "PREVIOUS" RADIALS
+*.    C   PVEAZ         R*4         ENDING AZIMUTH FOR THE ABOVE THRESHOLD
+*.                                  PATTERN VECTORS IN THE "CURRENT" AND
+*.                                  "PREVIOUS" RADIALS
+*.    C   RADFLAG       I*4         ARRAY WITH FLAG VALUES INDICATING WHETHER
+*.                                  PATTERN VECTOR HAS BEEN CORRELATED WITH
+*.                                  ANOTHER PATTERN VECTOR
+*.    C   RAD_PV        R*4         CONTAINS THE CORRELATION FLAG, BIN #
+*.                                  (RANGE), AND INDEX INTO TDAMAIN OF THE
+*.                                  ABOVE THRESHOLD PATTERN VECTORS IN THE
+*.                                  "CURRENT" AND "PREVIOUS" RADIALS
+*.    C   FLG_COR       I*4         (CONSTANT)FLAG VALUE INDICATING A PATTERN
+*.                                  VECTOR IS CORRELATED TO A PATTERN VECTOR
+*.                                  IN THE CURRENT 2D FEATURE
+*.    C   FLG_FIN       I*4         (CONSTANT)FLAG VALUE INDICATING A PATTERN
+*.                                  VECTOR IS CORRELATED TO A COMPLETED 2D
+*.                                  FEATURE
+*.    C   FLG_UNC       I*4         (CONSTANT)FLAG VALUE INDICATING A PATTERN
+*.                                  VECTOR IS NOT CORRELATED TO A PATTERN
+*.                                  VECTOR IN THE CURRENT 2D FEATURE
+*.    C   MAX_TOT_RADS  I*4         (CONSTANT)MAXIMUM NUMBER OF RADIALS IN THE
+*.                                  RAD_PV ARRAY
+*.    C   PI_DEG        R*4         (CONSTANT)PI = 180 DEGREES
+*.    C   PV_ID         I*4         (CONSTANT)INDEX INTO RAD_PV TO THE 2D
+*.                                  FEATURE ID NUMBER TO WHICH A PATTERN
+*.                                  VECTOR IS ASSIGNED
+*.    C   TWOPI_DEG     R*4         (CONSTANT)TWO TIMES PI = 360 DEGREES
+*.    P   AZBUF         I*4         An array of azimuth pointers
+*.
+*.    *   OUTPUT         TYPE        DESCRIPTION
+*.    -   ------         ----        -----------
+*.    G   ADPMVAD        R*4         TDA 2D VECTOR AZIMUTHAL DISTANCE
+*.                                   THRESHOLD
+*.    C   AZC            I*4         A INDEX TO THE CURRENT RADIAL IN RAD_PV
+*.                                   AND OTHER ASSOCIATED ARRAYS
+*.    C   FIRSTAZ        I*4         INDEX INDICATING THE FIRST AZIMUTH
+*.    C   HALF_PVAD      R*4         HALF THE VECTOR AZIMUTH DIFFERENCE FOR
+*.                                   THE ABOVE THRESHOLD PATTERN VECTORS IN
+*.                                   THE "CURRENT" AND "PREVIOUS" RADIALS
+*.    C   PVAD           R*4         VECTOR AZIMUTH DIFFERENCE FOR THE ABOVE
+*.                                   THRESHOLD PATTERN VECTORS IN THE
+*.                                   "CURRENT" AND "PREVIOUS" RADIALS
+*.    C   PVBAZ          R*4         BEGINNING AZIMUTH FOR THE ABOVE THRESHOLD
+*.                                   PATTERN VECTORS IN THE "CURRENT" AND
+*.                                   "PREVIOUS" RADIALS
+*.    C   PVEAZ          R*4         ENDING AZIMUTH FOR THE ABOVE THRESHOLD
+*.                                   PATTERN VECTORS IN THE "CURRENT" AND
+*.                                   "PREVIOUS" RADIALS
+*.    C   PV_ZERO_CROSS  L*4         FLAG INDICATING WHETHER A PATTERN VECTOR
+*.                                   SPANS ZERO DEGREES
+*.    C   RADFLAG        I*4         ARRAY WITH FLAG VALUES INDICATING WHETHER
+*.                                   PATTERN VECTOR HAS BEEN CORRELATED WITH
+*.                                   ANOTHER PATTERN VECTOR
+*.    C   RAD_PV         R*4         CONTAINS THE CORRELATION FLAG, BIN #
+*.                                   (RANGE), AND INDEX INTO TDAMAIN OF THE
+*.                                   ABOVE THRESHOLD PATTERN VECTORS IN THE
+*.                                   "CURRENT" AND "PREVIOUS" RADIALS
+*.    C   RAD_ZERO_CROSS L*4         FLAG INDICATING WHETHER THE VECTOR
+*.                                   AZIMUTH DISTANCE (TWO PATTERN VECTORS)
+*.                                   SPANS ZERO DEGREES
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    C   NRPV_TH           I*4         NUMBER OF PATTERN VECTORS FOUND WITH A
+*.                                      DIFFERENTIAL VELOCITY THRESHOLD THAT
+*.                                      BEGIN ON A RADIAL
+*.    C   P2DFEAT           R*4         ARRAY CONTAINING ATTRIBUTES OF THE
+*.                                      P2DF's
+*.    C   RAD_PV            R*4         CONTAINS THE CORRELATION FLAG, BIN #
+*.                                      (RANGE), AND INDEX INTO TDAMAIN OF THE
+*.                                      ABOVE THRESHOLD PATTERN VECTORS IN THE
+*.                                      "CURRENT" AND "PREVIOUS" RADIALS
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME       TYPE        DESCRIPTION
+*.    ----       ----        -----------
+*.    AZP        I*4         An array of azimuth pointers
+*.    AZP1       I*4         Do loop variable for the azimuth pointers
+*.    AZ_BEG     I*4         Do loop initial value for previous radials
+*.    AZ_END     I*4         Do loop ending value for searching previous
+*.                           radials
+*.    AZ_PTR     I*4         Do loop variable for searching previous radials
+*.    BEG_AZ_PTR I*4         Beginning azimuth pointer
+*.    I          I*4         Do loop index for previous radials
+*.    IXC        I*4         Loop index used for referencing "Ith radial
+*.                           pattern vectors
+*.    IXX        I*4         Do loop variable referencing the pattern vectors
+*.                           in a radial
+*.    LAB        I*4         Potential 2D feature label
+*.    VEC_AZ_DIS R*4         Distance between the radials
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A317CTAD
+*.    PVECS09
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A315P2DC
+*.    A317CDAD
+*.    A317TCA
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:
+*.
+*.     At the end of an elevation scan, an attempt is made to
+*.   correlate Pot. 2D Features alive at the beginning & end of the
+*.   the scan as if there had been no motion during the interval
+*.   between their times of observation.
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     Compiled using COMP17.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     Linked using LINK17.CSS
+*.
+*.  MISC:  None
+*.
+C********************************************************************
+C
+C                     TDA 2D: COMPLETE_SCAN  SUBROUTINE
+C
+C********************************************************************
+C
+      IMPLICIT NONE
+C
+$INCLUDE A317BUF.INC/G, **A317P3T (NLIST)
+$INCLUDE A317BUF.INC/G, **A317PTAD (NLIST)
+$INCLUDE A317BUF.INC/G, **A317CTAD (NLIST)
+C
+$INCLUDE A309.INC/G, **A3PM50 (NLIST)
+$INCLUDE             **A3CD09BL (NLIST)
+C
+$INCLUDE A317.INC/G, **A317TCP (NLIST)
+$INCLUDE A317.INC/G, **A317TCA (NLIST)
+$INCLUDE A317.INC/G, **A317P2DP (NLIST)
+$INCLUDE A317.INC/G, **A317P2DC (NLIST)
+$INCLUDE A317.INC/G, **A317CDAD (NLIST)
+C
+C*********************** DATA DECLARATIONS **************************
+C
+      INTEGER  IXX, IXP, IXC, ID
+C
+      REAL     RADIAL_AZM_DELTA, VEC_AZ_DIS
+      INTEGER AZP(MAX_TOT_RADS), AZ_PTR, AZP1
+      INTEGER AZBUF(MAX_TOT_RADS), LAB
+      INTEGER AZ_BEG, AZ_END, I, BEG_AZ_PTR
+C
+C****************** BEGIN MAIN PROCESSING SECTION *******************
+C
+      FIRSTAZ=1
+      BEG_AZ_PTR = BAZM_NDX - 1
+C
+C** After completing 360 deg scan, compare components with patt vects
+C** alive in last azimuth to those with patt vects alive in first.
+C** First fill the azimuthal pointer and azimuth arrays
+C** for the last few radials (- the last radial) in the elev. scan.
+C
+      DO 10 AZ_PTR = 1,NUM_PREV_RADS
+        AZP(N_PREV_2+AZ_PTR-1)= AZBUF(N_PREV_2-AZ_PTR+1)
+        PVBAZ(N_PREV_2+AZ_PTR-1)=PV_AZIM(AZCOUNT-AZ_PTR+BEG_AZ_PTR)
+        PVEAZ(N_PREV_2+AZ_PTR-1)=PV_AZIM(AZCOUNT-AZ_PTR+1+BEG_AZ_PTR)
+ 10   CONTINUE
+C
+C** Now fill the same arrays with info from the last radial.
+C
+      AZP(NUM_PREV_RADS + 1) = AZC
+      PVBAZ(NUM_PREV_RADS +1) = PV_AZIM(AZCOUNT + BEG_AZ_PTR)
+      PVEAZ(NUM_PREV_RADS +1) = PV_AZIM(FIRSTAZ + BEG_AZ_PTR)
+C
+C** Now fill the same arrays with info from the first few radials.
+C
+      DO 11 AZ_PTR = 1, NUM_PREV_RADS
+        AZP(AZ_PTR) = AZBUF(NUM_PREV_RADS) - AZ_PTR + 1
+        PVBAZ(AZ_PTR)=PV_AZIM(NUM_PREV_RADS +1-AZ_PTR + BEG_AZ_PTR)
+        PVEAZ(AZ_PTR)= PV_AZIM(NUM_PREV_RADS +2-AZ_PTR + BEG_AZ_PTR)
+C
+ 11   CONTINUE
+C
+C** Set up outer loop to process number of previous radials
+C
+      DO 650 I = NUM_PREV_RADS,1,-1
+        PV_ZERO_CROSS = .FALSE.
+        AZC = AZP(I)
+        PVAD(I)=ABS(PVEAZ(I)-PVBAZ(I))
+        IF(PVAD(I) .GT. PI_DEG)THEN
+          PVAD(I) = TWOPI_DEG - PVAD(I)
+          PV_ZERO_CROSS = .TRUE.
+        ENDIF
+        HALF_PVAD(I) = PVAD(I)*0.5
+C
+C** Set up inner loop to correlate pattern vectors in
+C** earlier radials in counter clockwise direction.
+C
+        AZ_BEG = I + 1
+        AZ_END = I + NUM_PREV_RADS
+C
+        DO 655 AZP1 = AZ_BEG, AZ_END
+          PVAD(AZP1)=ABS(PVEAZ(AZP1)-PVBAZ(AZP1))
+C
+          IF(PVAD(AZP1) .GT. PI_DEG)THEN
+            PVAD(AZP1) = TWOPI_DEG - PVAD(AZP1)
+            PV_ZERO_CROSS = .TRUE.
+          ENDIF
+          HALF_PVAD(AZP1) = PVAD(AZP1)*0.5
+          RAD_ZERO_CROSS = .FALSE.
+          VEC_AZ_DIS = ABS((HALF_PVAD(AZP1) +
+     >        PVBAZ(AZP1)) - (HALF_PVAD(I) + PVBAZ(I)))
+          IF(VEC_AZ_DIS .GT. PI_DEG) THEN
+C
+C** The first and last azimuths of the scan cross zero degrees.
+C
+            RAD_ZERO_CROSS = .TRUE.
+            VEC_AZ_DIS = TWOPI_DEG - VEC_AZ_DIS
+          END IF
+C
+C** If distance between the radials is within a min. threshold & if
+C** there are live patt vects in both, test for possible correlations
+C
+          IF ( VEC_AZ_DIS .LE. ADPMVAD ) THEN
+C
+            IF ( NRPV_TH(  AZC ) .GT. 0 .AND.
+     >           NRPV_TH( AZP(AZP1) ) .GT. 0) THEN
+C
+C** Compare patt vects in current radial with pattvects in previous
+C** radial for possible coorelation.
+C
+              CALL A317L8__COMPARE_RADS( NRPV_TH( AZP(AZP1) ),
+     >              NRPV_TH(  AZC ), RAD_PV( 1, 1, AZP(AZP1) ),
+     >              RAD_PV( 1, 1,  AZC ))
+            END IF
+          END IF
+ 655    CONTINUE
+ 650  CONTINUE
+C
+C** Finish analysis upon any components which were alive in last
+C** radial but which emerged from comparison test uncorrelated.
+C
+      DO 645 I = 1, N_PREV_2
+C
+C** Set the beginning and ending indices of the previous radials
+C** relative to the I radial.
+C
+        AZ_BEG = I + 1
+        AZ_END = 1 + N_PREV_2
+        AZC = AZP(I)
+C
+C** Loop through all pattern vectors on the Ith radial
+C
+        DO 660  IXC = 1, NRPV_TH( AZC )
+          IF ( RADFLAG( AZC, IXC ) .EQ. FLG_UNC .OR.
+     >           RADFLAG( AZC, IXC ) .EQ. FLG_COR ) THEN
+C
+C** If a pattern vector is not marked as finished, get its P2DF
+C** label and close the P2DF.
+C
+            LAB = RAD_PV( PV_ID, IXC, AZC )
+            CALL A317J8__CLOSE_P2D( P2DFEAT( 1, LAB ), LAB )
+C
+C**  MARK ANY PATTERN VECTORS IN THIS RADIAL with the same label
+C** as finished.
+C
+            DO 640 IXX = 1,NRPV_TH( AZC )
+              IF(RAD_PV(PV_ID,IXX, AZC ).EQ.LAB)
+     >                RADFLAG( AZC,IXX) = FLG_FIN
+640         CONTINUE
+C
+C** Scan the previous few radials, and
+C** mark any other branches (i.e. patt vects) with same label as
+C** component just analysed as "Finished".
+C
+            DO 647 AZP1 = AZ_BEG,AZ_END
+              DO 66  IXX = 1, NRPV_TH(  AZP(AZP1) )
+                IF ( RAD_PV( PV_ID, IXX,  AZP(AZP1) ) .EQ. LAB )
+     >                         RADFLAG( AZP(AZP1),IXX ) = FLG_FIN
+ 66           CONTINUE
+ 647        CONTINUE
+C
+          END IF
+ 660    CONTINUE
+ 645  CONTINUE
+C
+C**************** END OF PROCESSING FOR SUBROUTINE ******************
+C
+      RETURN
+      END

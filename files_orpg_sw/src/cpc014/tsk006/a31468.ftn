@@ -1,0 +1,324 @@
+C 
+C RCS info 
+C $Author: ccalvert $ 
+C $Locker:  $ 
+C $Date: 2010/04/12 17:46:27 $ 
+C $Id: a31468.ftn,v 1.8 2010/04/12 17:46:27 ccalvert Exp $ 
+C $Revision: 1.8 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A31468__PDB_IO(WORKCODE,RECNO,BUF,IOSTATUS)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A31468__PDB_IO
+*.
+*.  MODULE VERSION: 0013
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       06 13 89      0000      P.A.JENDROWSKI       SPR# 90348
+*.       03 23 90      0001      DAVE HOZLOCK         # 90697
+*.       08 20 90      0002      PAUL JENDROWSKI      SPR# 90899
+*.       02 22 91      0003      PAUL JENDROWSKI      SPR #91255
+*.       01 08 91      0003      PAUL JENDROWSKI      SPR #90888
+*.       12 03 91      0004      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0005      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0006      Toolset              SPR 91895
+*.       05 22 92      0007      J. WHEELER           SPR# 92149
+*.       03/25/93      0008      Toolset              SPR NA93-06801
+*.       01/28/94      0009      Toolset              SPR NA94-01101
+*.       03/03/94      0010      Toolset              SPR NA94-05501
+*.       04/11/96      0011      Toolset              CCR NA95-11802
+*.       12/23/96      0012      Toolset              CCR NA95-11807
+*.       03/16/99      0013      Toolset              CCR NA98-23803
+*.       03/15/10      0014      JAMES WARD           SET FIL_STAT TO 0
+*.                                                    BEFORE IOSTATUS CHECK
+*.
+*.  CALLING SEQUENCE: CALL A31468__PDB_IO(WORKCODE,RECNO,BUF,IOSTATUS)
+*.
+*.  MODULE FUNCTION:  Performs input & output on the product database
+*.                    disk file.
+*.
+*.  MODULES CALLED: A3CM08__CHANGE_NOTICE, A3CM94__DEVICE_DISK_INDEX, IOERR, 
+*.                  SYSIO 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT         TYPE        DESCRIPTION
+*.    -   -----         ----        -----------
+*.    G   DISK_BY_READ  I*4         Disk performance monitoring information -
+*.                                  Number of bytes read from disk.
+*.    G   DISK_BY_WRITE I*4         Disk performance monitoring information -
+*.                                  Number of bytes written to disk.
+*.    G   HYPROD_DEV    CHAR*5      PPS product database device name.
+*.    G   CNDISKFILE    I*4         (CONSTANT)FILE/DISK ACCESS CHANGE
+*.                                  NOTIFICATION CONSTANT-DISTRIBUTION TASK
+*.    G   HYALARM_FLG   I*4         (CONSTANT)HYDROMET ALARM FLAG VALUE -
+*.                                  CONSTANT
+*.    C   HDB_DISK_LU   I*4         (CONSTANT)Hydromet database disk logical
+*.                                  unit number.
+*.    C   IBEG          I*4         (CONSTANT)Parameter used as loop control
+*.                                  variable (initial value).
+*.    C   IINIT         I*4         (CONSTANT)Parameter indicating initial
+*.                                  value.
+*.    C   READKODE      I*4         (CONSTANT)I/O code indicating input should
+*.                                  be read.
+*.    C   WRITKODE      I*4         (CONSTANT)I/O code indicating write to
+*.                                  disk I/O operation should be performed.
+*.    P   BUF           I*2         Database buffer
+*.    P   IOSTATUS      I*4         Status returned from IOERR
+*.    P   RECNO         I*4         Record number to be I/O'ed
+*.    P   WORKCODE      I*4         Code indicating whether input or output
+*.                                  should be done
+*.
+*.    *   OUTPUT         TYPE        DESCRIPTION
+*.    -   ------         ----        -----------
+*.    G   DISK_BY_READ   I*4         Disk performance monitoring information -
+*.                                   Number of bytes read from disk.
+*.    G   DISK_BY_WRITE  I*4         Disk performance monitoring information -
+*.                                   Number of bytes written to disk.
+*.    C   FIL_STAT       I*4         Status of disk file.
+*.    C   LAST_OPERATION I*4         Flag to keep track of last I/O operation
+*.                                   code to product database.
+*.    C   LAST_REC       I*4         Flag to keep track of last record number
+*.                                   I/O'ed to product database.
+*.    P   IOSTATUS       I*4         Status returned from IOERR
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    G   HYPROD_DEV        CHAR*5      PPS product database device name.
+*.    P   BUF               I*2         Database buffer
+*.    P   IOSTATUS          I*4         Status returned from IOERR
+*.
+*.  DATABASE/FILE REFERENCE:  HYPROD.DAT; STORE, RETRIEVE
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME           TYPE        DESCRIPTION
+*.    ----           ----        -----------
+*.    DPA_SCTR       I*4         File sector number for the digital
+*.                               precipitation array (DPA) database.
+*.    FILINFO        I*4         Table of file information of sector lengths
+*.                               and offsets
+*.    HDR_SCTR       I*4         File sector number for the header record.
+*.    HRA_SCTR       I*4         File sector number for the first polar scan.
+*.    HRB_SCTR       I*4         File sector number for the second polar scan.
+*.    HRC_SCTR       I*4         File sector number for the third polar scan.
+*.    I              I*4         Loop index for file information
+*.                               initialization.
+*.    IDX_HYPROD_DEV I*4         INDEX TO STATUS OF HYDROMET DISK
+*.    INITIALIZED    L*4         FLAG PERMITS INITIALIZATION OF DISK INDEX TO
+*.                               BE DONE ONLY ONCE
+*.    NBYT_IDX       I*4         Index to part of the table with sector
+*.                               lengths
+*.    NDPA_BYTES     I*4         Number of DPA bytes to read/write.
+*.    NHDR_BYTES     I*4         (Constant) number of header BYTES to
+*.                               read/write.
+*.    NPARAM         I*4         (Constant) Number of parameter dimensions in
+*.                               `file information' array (FILINGFO).
+*.    NPLR_BYTES     I*4         (Constant) Number of polar bytes to
+*.                               read/write.  Data contained in file
+*.                               information array (FILINFO).
+*.    NREC           I*4         (Constant) Value is used as maximum loop
+*.                               control in filling array (FILINFO) which
+*.                               contains file information of sector lengths
+*.                               and offsets.
+*.    NRLE_BYTES     I*4         (Constant) Number of RLE bytes to read/write.
+*.                               Data contained in file information array
+*.                               (FILINFO).
+*.    PB             I*4         SYSIO parameter block
+*.    RFC            I*4         Read file code (=92)
+*.    RLE_SCTR       I*4         File sector number for the 3-hour
+*.                               accumulation RLE data.
+*.    SECT_IDX       I*4         Index to part of the table with sector
+*.                               offsets
+*.    STM_SCTR       I*4         File sector number for the storm total
+*.                               accumulation scan.
+*.    WFC            I*4         Write File Code (=60)
+*.    YES            L*4         Logical parameter indicating "true".
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD07
+*.    ENVIRON
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3146C3
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK14.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+
+
+C
+C** 'X' IN COLUMN-1 INDICATES CONDITIONALLY COMPILED DEBUG CODE...
+C
+      IMPLICIT NONE
+C
+$INCLUDE A309ADPT.INC/G,**A3CD70P6 (NEND NLIST)
+$INCLUDE                **A3CD70CA (NEND NLIST)
+$INCLUDE                **A3CD70C8 (NLIST)
+$INCLUDE                **A3CD70C4 (NLIST)
+$INCLUDE A309.INC/G,**A3PM00 (NEND NLIST)
+$INCLUDE            **A3PM01 (NEND NLIST)
+$INCLUDE            **A3CD07 (NEND NLIST)
+$INCLUDE A313HBUF.INC/G,**A313HYPP (NEND NLIST)
+$INCLUDE A3146.INC ,**A3146P1 (NEND NLIST)
+$INCLUDE           **A3146P2 (NEND NLIST)
+$INCLUDE           **A3146C3 (NEND NLIST)
+$INCLUDE           **A3146PD (NEND NLIST)
+$INCLUDE           **A3146P8 (NEND NLIST)
+C
+C--------------------------LOCAL DATA ------------------------
+C
+      INTEGER WORKCODE, RECNO, IOSTATUS, I, NREC, NPARAM
+      INTEGER*2 BUF(*)
+C$INSERTC     ORPG Issue 13
+C$INSERTC     ORPG adds a record index to the FILINFO array ...
+C$INSERT      PARAMETER (NREC=7, NPARAM=3)
+C$DELETE
+      PARAMETER (NREC=7, NPARAM=2)
+C$ENDDELETE
+C
+C    The following preset table of info. describes the offsets and
+C    length in bytes of the parts of the total file.
+C
+C    The file is made up of the following parts:
+C    DIR_REC starts at Sector 0 is the header record.(Supl,,etc.)
+C    HRA_REC starts at Sector 1 is Polar grid of Hourly Precip Accum.
+C    HRB_REC starts at Sector 325 is Polar grid of Hourly Precip Accum.
+C    HRC_REC starts at Sector 649 is Polar grid of Hourly Precip Accum.
+C    STM_REC starts at Sector 973 is Polar grid of Storm total data.
+C    RLE_REC Starts at Sector 1297 is Encoded (RLE) 3-hr sum of Accum.
+C    DPA_REC Starts at sector 1508 is DPA product database.
+C
+      INTEGER FILINFO(NPARAM,NREC), SECT_IDX,NBYT_IDX
+C$INSERTC     ORPG Issue 13
+C$INSERT      INTEGER ORPGNDX
+C$INSERT      INTEGER ORPG_REC_IDX
+C$INSERT      PARAMETER(ORPG_REC_IDX=3)
+C$INSERTC
+      PARAMETER(SECT_IDX=1,NBYT_IDX=2)
+      DATA (FILINFO(SECT_IDX,I),I=IBEG,NREC) /HDR_SCTR, HRA_SCTR,
+     $       HRB_SCTR, HRC_SCTR, STM_SCTR, RLE_SCTR, DPA_SCTR/
+      DATA (FILINFO(NBYT_IDX,I),I=IBEG,NREC)
+     $     /NHDR_BYTES, 4*NPLR_BYTES, NRLE_BYTES, NDPA_BYTES/
+C$INSERTC
+C$INSERTC     ORPG Issue 13
+C$INSERT      DATA (FILINFO(ORPG_REC_IDX,I),I=IBEG,NREC)
+C$INSERT     $     /ORPG_HDR_REC, ORPG_HRA_REC, ORPG_HRB_REC, ORPG_HRC_REC,
+C$INSERT     $      ORPG_STM_REC, ORPG_RLE_REC, ORPG_DPA_REC/
+C$INSERTC
+C
+C** Set up stuff for SYSIO
+C
+      INTEGER PB(6),RFC,WFC
+      DATA RFC,WFC/92,60/
+      INTEGER IDX_HYPROD_DEV
+      DATA IDX_HYPROD_DEV /1/
+C$DELETE
+      LOGICAL INITIALIZED,YES
+      DATA INITIALIZED /.FALSE./
+C$ENDDELETE
+C$INSERT      LOGICAL YES
+      PARAMETER (YES=.TRUE.)
+C
+C-------------------------- EXECUTABLE CODE --------------------
+C
+C$DELETE
+C
+C GET THE INDEX FOR DISK PERFORMANCE MONITORING VARIABLE
+C
+      IF (.NOT.INITIALIZED) THEN
+        CALL A3CM94__DEVICE_DISK_INDEX(HYPROD_DEV,IDX_HYPROD_DEV)
+        INITIALIZED=YES
+      ENDIF
+C$ENDDELETE
+C
+      IF (WORKCODE .EQ. WRITKODE ) THEN
+C
+C INCREMENT PERFORMANCE MONITOR VARIABLE BY NUMBER OF BYTES WRITTEN
+C
+C$DELETE
+         DISK_BY_WRITE(IDX_HYPROD_DEV)=
+     >       DISK_BY_WRITE(IDX_HYPROD_DEV)+FILINFO(NBYT_IDX,RECNO)
+C$ENDDELETE
+C
+C** WRITE THE SPECIFIED RECORD TO THE HOURLY FILE.
+C
+C$INSERTC     ORPG Issue 13
+C$INSERT         WRITE(UNIT=HDB_DISK_LU, IOSTAT=IOSTATUS, 
+C$INSERT     $      REC=FILINFO(ORPG_REC_IDX,RECNO))
+C$INSERT     $      (BUF(ORPGNDX), ORPGNDX=1,(FILINFO(NBYT_IDX,RECNO)/2))
+C$DELETE
+         CALL SYSIO(PB,WFC,HDB_DISK_LU,BUF,FILINFO(NBYT_IDX,RECNO),
+     $                  FILINFO(SECT_IDX,RECNO),IINIT)
+C$ENDDELETE
+C
+      ENDIF
+      IF (WORKCODE .EQ. READKODE) THEN
+C
+C INCREMENT PERFORMANCE MONITOR VARIABLE BY NUMBER OF BYTES READ
+C
+C$DELETE
+         DISK_BY_READ(IDX_HYPROD_DEV)=
+     >       DISK_BY_READ(IDX_HYPROD_DEV)+FILINFO(NBYT_IDX,RECNO)
+C$ENDDELETE
+C
+C** READ THE SPECIFIED RECORD INTO THE SPECIFIED BUFFER
+C
+C$INSERTC        ORPG Issue 13
+C$INSERT         READ(UNIT=HDB_DISK_LU, IOSTAT=IOSTATUS, 
+C$INSERT     $      REC=FILINFO(ORPG_REC_IDX,RECNO))
+C$INSERT     $      (BUF(ORPGNDX), ORPGNDX=1,(FILINFO(NBYT_IDX,RECNO)/2))
+C$DELETE
+         CALL SYSIO(PB,RFC,HDB_DISK_LU,BUF,FILINFO(NBYT_IDX,RECNO),
+     $                  FILINFO(SECT_IDX,RECNO),IINIT)
+C$ENDDELETE
+C
+      ENDIF
+C
+C$DELETE
+C** The status of the operation is in the lower 2 bytes of
+C** the PB array.
+C
+      CALL IOERR(PB, IOSTATUS)
+C$ENDDELETE
+
+C     20100315 JAMES WARD SET FIL_STAT TO 0 BEFORE IOSTATUS CHECK
+      FIL_STAT = 0
+
+      IF (IOSTATUS.NE.IINIT) THEN
+C
+C** SEND MESSAGE TO CPC 10
+C
+         CALL A3CM08__CHANGE_NOTICE(CNDISKFILE, HYALARM_FLG, IOSTATUS,
+     $            HDB_DISK_LU, IINIT, IINIT)
+C
+         FIL_STAT = IOSTATUS
+         LAST_OPERATION = WORKCODE
+         LAST_REC = RECNO
+      ENDIF
+C
+      RETURN
+      END

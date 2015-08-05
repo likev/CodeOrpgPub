@@ -1,0 +1,50 @@
+# RCS info
+# $Author: ccalvert $
+# $Locker:  $
+# $Date: 2011/09/30 22:20:57 $
+# $Id: syslog.conf.tmpl,v 1.7 2011/09/30 22:20:57 ccalvert Exp $
+# $Revision: 1.7 $
+# $State: Exp $
+#
+# This template is used for generating site-dependent syslog.conf.
+SET _gdc_set_interpreting = !-# 
+SET _gdc_install_file = /etc/syslog.conf
+#
+# Log all kernel messages to the console.
+# Logging much else clutters up the screen.
+#kern.*                                              /dev/console
+
+# Log anything (except mail) of level info or higher.
+# Don't log private authentication messages!
+*.info;mail.none;authpriv.none;cron.none;\
+local0.none;local4.none;local5.none;local6.none      /var/log/messages
+
+
+# The authpriv file has restricted access.
+authpriv.*                                           /var/log/secure
+
+# Log all the mail messages in one place.
+mail.*                                               -/var/log/maillog
+
+
+# Log cron stuff
+cron.*                                               /var/log/cron
+
+# Everybody gets emergency messages
+*.emerg                                              *
+
+# Save news errors of level crit and higher in a special file.
+uucp,news.crit                                       /var/log/spooler
+
+# Save boot messages also to boot.log
+local7.*                                             /var/log/boot.log
+
+# Save LDM messages to LDM user's log directory
+local0.debug                                         /opt/ldm/logs/ldmd.log
+
+# Save log messages from the network devices
+IF NODE_NAME==rpga: {
+  local4.*                                           /syslog/rpg_rtr.log
+  local5.*                                           /syslog/fr_rtr.log
+  local6.*                                           /syslog/lan_sw.log
+}

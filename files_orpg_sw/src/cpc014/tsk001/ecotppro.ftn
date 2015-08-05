@@ -1,0 +1,58 @@
+C
+C RCS info
+C $Author: steves $
+C $Locker:  $
+C $Date: 2011/02/25 15:28:34 $
+C $Id: ecotppro.ftn,v 1.11 2011/02/25 15:28:34 steves Exp $
+C $Revision: 1.11 $
+C $State: Exp $
+C
+
+	PROGRAM ECOTPPRO__ECOTPPRO_MAIN
+C***********************************************************************
+C
+C	This file defines the "main" Echo Tops Product routine.
+C
+C***********************************************************************
+C
+
+
+	IMPLICIT NONE
+
+$INCLUDE rpg_port.inc,**rpg_port	
+				
+C adaptation common blocks
+$INCLUDE a309adpt.inc,**A3CD70C8	;RDACNT
+$INCLUDE a309adpt.inc,**A3CD70CA	;SITEADP
+$INCLUDE a309adpt.inc,**A3CD70C5	;COLRTBL
+
+$INCLUDE a309.inc,**A3PM00		;ETTAB
+
+	integer param
+
+	;**specify inputs
+	call RPG_in_data(ETTAB, VOLUME_DATA)
+
+	;**specify outputs
+	call RPG_out_data(ETPRODD, VOLUME_DATA, 41)
+
+	;** register adaptation blocks and the scan summary array
+	;** These calls will cause automatic adaptation and scan summary update
+	call RPG_reg_adpt(RDACNT_ID, RDACNT_FIRST, BEGIN_VOLUME)
+	call RPG_reg_adpt(COLRTBL_ID, COLRTBL_FIRST, BEGIN_VOLUME)
+	call RPG_reg_scan_summary()
+
+	;** register for site info adaptation data
+        call RPG_reg_site_info( SIRDALAT )
+
+        ;** tell system this task is volume-based.  Initialize
+        ;** support environment
+	call RPG_task_init(VOLUME_BASED)
+
+        ;** waiting for activation
+10	call RPG_wait_act(WAIT_DRIVING_INPUT)
+	call A314D1__ECHO_TOPS_CTL(param)
+	goto 10
+
+	stop
+	end

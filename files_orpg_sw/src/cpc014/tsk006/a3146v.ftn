@@ -1,0 +1,187 @@
+C 
+C RCS info 
+C $Author: nolitam $ 
+C $Locker:  $ 
+C $Date: 2002/11/27 15:17:04 $ 
+C $Id: a3146v.ftn,v 1.5 2002/11/27 15:17:04 nolitam Exp $ 
+C $Revision: 1.5 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A3146V__PROD82_SUPPLEMENTAL (HYDRSUPL, VSNUM)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3146V__PROD82_SUPPLEMENTAL
+*.
+*.  MODULE VERSION: 0013
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       06 13 88      0000      BRADLEY SUTKER       SPR# 90348
+*.       03 28 90      0001      DAVE HOZLOCK         SPR# 90697
+*.       02 14 91      0002      PAUL JENDROWSKI      SPR# 91255
+*.       12 03 91      0003      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0004      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0005      Toolset              SPR 91895
+*.       10 05 92      0006      JOSEPH/WHEELER       CCR NA90-93082
+*.       10 20 92      0006      BRADLEY SUTKER       CCR NA92-28001
+*.       03/25/93      0007      Toolset              SPR NA93-06801
+*.       01/28/94      0008      Toolset              SPR NA94-01101
+*.       03/03/94      0009      Toolset              SPR NA94-05501
+*.       10/03/95      0010      JAY BREIDENBACH      CCR NA94-33201
+*.       12/23/96      0011      Toolset              CCR NA95-11807
+*.       03/16/99      0012      Toolset              CCR NA98-23803
+*.       01/31/02      0013      Dennis A. Miller     CCR NA01-27501
+*.
+*.  CALLING SEQUENCE: CALL A3146V__PROD82_SUPPLEMENTAL(HYDRSUPL, VSNUM )
+*.
+*.  MODULE FUNCTION: Controls the sequence in which routines are
+*.                   called to generate (non-displayable) product 82.
+*.                   (Supplemental data)
+*.
+*.  MODULES CALLED: A31169__ABORT_DATATYPE_BECAUSE, A31215__GET_OUTBUF,
+*.                  A31216__REL_OUTBUF, A31466__PRODUCT_HEADER,
+*.                  A3146W__PROD82_BLD_PRODBUF
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT         TYPE        DESCRIPTION
+*.    -   -----         ----        -----------
+*.    G   MEM           I*4         Array in RPG shared memory set aside for
+*.                                  buffer sharing.
+*.    G   FORWARD       I*4         (CONSTANT)(CONSTANT)Parameter to indicate
+*.                                  that an output buffer is to be forwarded
+*.                                  to successor tasks
+*.    G   NORMAL        I*4         (CONSTANT)(CONSTANT)Parameter which
+*.                                  indicates normal completion of requested
+*.                                  operation to acquire input or output
+*.                                  buffer
+*.    G   PROD_MEM_SHED I*4         (CONSTANT)(CONSTANT)Parameter which
+*.                                  indicates that product aborted due to
+*.                                  memory load shedding
+*.    C   CODE_SUP      I*4         (CONSTANT)Supplemental data product code.
+*.    C   HYSUPPLE      I*4         (CONSTANT)Constant indicating supplemental
+*.                                  data product buffer data vtype.
+*.    P   HYDRSUPL      I*4         Supplemental data array.
+*.    P   VSNUM         I*4         Volume-scan number of input buffer
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    G   MEM     I*4         Array in RPG shared memory set aside for buffer
+*.                            sharing.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    G   MEM               I*4         Array in RPG shared memory set aside
+*.                                      for buffer sharing.
+*.    P   HYDRSUPL          I*4         Supplemental data array.
+*.    P   VSNUM             I*4         Volume-scan number of input buffer
+*.
+*.  DATABASE/FILE REFERENCE: NONE
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME     TYPE        DESCRIPTION
+*.    ----     ----        -----------
+*.    ENIDX    I*4         End index of product
+*.    MAX82VAL I*4         MAXIMUM VALUE FOR PRODUCT 82 (NULL)
+*.    NI2      I*4         Ratio of I*4 bytes to I*2 bytes (2)
+*.    P82PTR   I*4         Pointer to start of Prod-82 buffer
+*.    P82SIZ   I*4         Size of output buffer requested
+*.    P82STAT  I*4         Status returned from request for buffer space for
+*.                         Prod-82
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD00
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK14.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+ 
+C
+C...'X' IN COLUMN-1 INDICATES CONDITIONALLY COMPILED DEBUG CODE...
+C
+      IMPLICIT NONE
+C
+$INCLUDE A309.INC/G,**A3PM00 (NEND NLIST)
+$INCLUDE            **A3PM07 (NEND NLIST)
+$INCLUDE            **A3CD00 (NEND NLIST)
+C
+$INCLUDE A313HBUF.INC/G,**A313HYPP (NEND NLIST)
+$INCLUDE                **A313HYDD (NEND NLIST)
+C
+$INCLUDE A3146.INC/G,   **A3146P1  (NEND NLIST)
+$INCLUDE                **A3146LFP (NEND NLIST)
+C
+      INTEGER P82SIZ, P82PTR, P82STAT, ENIDX,
+     +        VSNUM, NI2, NULL
+      PARAMETER (NI2=2, NULL=0)
+      INTEGER NCHAR_LN, NLIN_PG, NPGS_SPD, NFLD_PHDR, NFLD_SHDR 
+      PARAMETER (NCHAR_LN=80, NLIN_PG=17, NPGS_SPD=2, NFLD_PHDR=60,
+     *           NFLD_SHDR=2)
+      PARAMETER (P82SIZ = ((NCHAR_LN/NI2 + 1)*NLIN_PG*NPGS_SPD 
+     *                     + NPGS_SPD + NFLD_PHDR + NFLD_SHDR +1)/NI2)
+X     INTEGER TEST
+      INTEGER MAX82VAL
+      DATA MAX82VAL /0/
+C
+C**** EXECUTABLE ****
+C     ----------
+C
+X     TYPE *,'A3146V: .................... BEGIN BUILDING ',
+X    $                'SUPPLEMENTAL DATA PRODUCT'
+C
+C** Request buffer space for product buffer
+C** If buffer space is available...
+C
+      CALL A31215__GET_OUTBUF(HYSUPPLE,P82SIZ,P82PTR,P82STAT)
+      IF (P82STAT.EQ.NORMAL) THEN
+C
+C** Write supplemental info followed by gage data base and
+C   gage/radar pairs forwarded from input to product buffer.
+C
+         CALL A3146W__PROD82_BLD_PRODBUF (HYDRSUPL,MEM(P82PTR),
+     +                                    VSNUM,ENIDX)
+C
+C** Build the product header
+C
+         CALL A31466__PRODUCT_HEADER (MEM(P82PTR), VSNUM,
+     +                         CODE_SUP, MAX82VAL, HYDRSUPL, ENIDX)
+X        DO 100 TEST=1,25
+X          TYPE*,'  ',MEM(P82PTR-1+TEST)
+X 100    CONTINUE
+C
+C** Release and forward the product output buffer
+         CALL A31216__REL_OUTBUF(P82PTR,FORWARD)
+C
+      ELSE
+         CALL A31169__ABORT_DATATYPE_BECAUSE(HYSUPPLE,PROD_MEM_SHED)
+      ENDIF
+C
+X     TYPE *,'A3146V: ................... FINISHED BUILDING ',
+X    $                'SUPPLEMENTAL DATA PRODUCT'
+C
+      RETURN
+      END

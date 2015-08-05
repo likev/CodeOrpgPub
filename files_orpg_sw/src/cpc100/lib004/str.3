@@ -1,0 +1,131 @@
+str(3)			String manipulation routines			str(3)
+
+NAME
+STR - string manipulation routines
+
+SYNOPSIS
+
+char *STR_grow (char *str, int length);
+
+char *STR_copy (char *dest_str, const char *src_str);
+
+char *STR_cat (char *dest_str, const char *src_str);
+
+char *STR_append (char *dest_str, const char *src_str, int size);
+
+char *STR_replace (char *str, int offset, int len, char *c_str, int size);
+
+int STR_size (char *str);
+
+char *STR_reset (char *str, int length);
+
+void STR_free (char *str);
+
+char *STR_gen (char *str, ...);
+
+DESCRIPTION
+
+    The STR routines are convenient functions for processing variable-sized
+    character strings. They provide support of string operations (such as
+    copying, concatenating and sub-string replacement) with automatic memory
+    reallocation and, thus, free the calling application code from managing the
+    buffers. These routines use MISC_malloc so exception handling is not
+    required by the calling functions. That is the STR functions never return
+    with failure. If one does not want to terminate the process upon malloc
+    failure, one can call MISC_malloc_retry to let MISC_malloc retry until
+    success. When extending the buffer size, STR allocates extra space so
+    memory reallocation is not needed for every string expansion. STR functions
+    are event interrupt-safe.
+
+    A pointer returned by any of the STR functions are called a STR pointer. If
+    a STR string is a pointer to a null terminated string, any of the standard
+    C string manipulation functions that do not modify a string length may be
+    used with STR pointers (i.e. strstr, strchr, etc). A STR pointer, however,
+    cannot be freed by "free". "STR_free", instead, must be used.
+	
+    STR_grow increases the allocated string buffer size of STR pointer "str"
+    to at least "length" bytes. "str" must be NULL or a STR pointer returned by
+    one of the STR functions. If "str" is NULL, a new empty STR pointer with a
+    buffer of "length" bytes will be created. This function returns the
+    requested STR pointer. STR_grow can be used for initializing the buffer
+    to a desired size.
+
+    STR_copy copies "src_str" to "dest_str" which must be a STR pointer
+    returned from STR functions. "src_str" can be either a STR string or a C
+    string. If "dest_str" is NULL, a new STR pointer is created and returned.
+    "src_str" must be either a null-terminated string or NULL. If it is NULL,
+    all data bytes are discarded and the number of data bytes is set to 0. The
+    function returns the STR pointer that contains the result. STR_copy (str,
+    NULL) can be used for deleting the data in "src_str".
+
+    STR_cat appends "src_str" to "dest_str" which must be a STR pointer
+    returned from STR functions. "dest_str" must contain null-terminated
+    string. "src_str" can be either a STR string or a C string. If "dest_str"
+    is NULL, a new STR pointer is created and returned. The function returns
+    the STR pointer that contains the result. STR_cat should only be used for
+    null-terminated strings.
+
+    STR_append appends "size" bytes pointed by "src_str" to the end of
+    "dest_str" which must be a STR pointer returned from STR functions.
+    "src_str" can be either a STR string or a C string. If "dest_str" is NULL,
+    a new STR pointer is created and returned. The function returns the STR
+    pointer that contains the result. STR_append allows the STR module to be
+    used for binary (not null-terminated) strings.
+
+    STR_replace replaces, with "c_str" of "size" bytes, "len" bytes at offset
+    "offset" of string pointed to by "str" which must be a STR pointer returned
+    from STR functions. "c_str", however, can be either a STR string or a C
+    string. If cases of NULL "str", invalid "len" and "offset", STR_replace
+    returns "str" without any processing. The function returns the STR pointer
+    that contains the result.
+
+    STR_free frees STR pointer "str" which must be a STR pointer returned from
+    STR functions.
+
+    STR_size returns the number of bytes currently stored in "str" which must 
+    be a STR pointer returned from STR functions. 
+
+    STR_reset sets/resets the buffer size to at least "length" if "length" is
+    non-zero and discards all data (sets number of data bytes to 0). If "str" 
+    is NULL, a new STR pointer is created and returned.
+
+    STR_create is for backward compatibility. It is equivalent to STR_copy
+    (NULL, orig_str).
+
+    STR_gen appends a list of strings to generate a string. The first argument,
+    which must be a STR pointer, specifies the place to put the generated 
+    string. Any content in "str" is discarded. The argument list must be 
+    terminated by "NULL". STR_gen returns the first argument.
+
+
+EXAMPLES:
+
+	#include <infr.h>
+
+        /*  Create the initial string  */
+	char* str = STR_copy (NULL, "The fox jumped over");
+
+	/*  Memory allocation will happen automatically if needed */
+	str = STR_cat (str, "the moon");
+
+	/*  Find the word moon in a STR created string */
+	if (strstr (str, "moon") != NULL)
+            printf ("The string contains the word moon\n");
+
+	/*  Free the string  */
+	STR_free (str);
+
+	/*  Create a new string that contains 250 bytes of space */
+	str = STR_grow (NULL, 250);
+
+	/*  Concatenate some stuff */
+	str = STR_copy (str, "Some stuff");
+
+	/*  Print the string out */
+	printf ("The string equals %s\n", str);
+
+	/*  Increase the length str buffer to 275  */
+	str = STR_grow (str, 275);
+
+	STR_free (str);
+

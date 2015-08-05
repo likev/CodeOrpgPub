@@ -1,0 +1,163 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/17 16:24:55 $
+C $Id: a317t9.ftn,v 1.2 2002/12/17 16:24:55 christie Exp $
+C $Revision: 1.2 $
+C $State: Exp $
+C
+      SUBROUTINE A317T9__SORT2D_BY_DV(NUMLEVS)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A317T9__SORT2D_BY_DV
+*.
+*.  MODULE VERSION: 0001
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       05/29/97      0000      DAVE ZITTEL          CCR NA95-21503
+*.       03/16/99      0001      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A317T9__SORT2D_BY_DV
+*.
+*.  MODULE FUNCTION:
+*.
+*.  Sorts 2D features by their delta velocity on an elevation basis
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT       TYPE        DESCRIPTION
+*.    -   -----       ----        -----------
+*.    C   DVTABL      I*4         Array of two-dimensional features sorted by
+*.                                maximum delta velocity on an elevation basis
+*.    C   VOLCOMP     R*4         ARRAY CONTAINING ATTRIBUTES OF THE 2D
+*.                                FEATURES FOR THE VOLUME SCAN
+*.    C   VOL_2DF_CNT I*4         NUMBER OF 2D FEATURES IDENTIFIED ON EACH
+*.                                ELEVATION SCAN
+*.    C   VCM_DVE     I*4         (CONSTANT)INDEX INTO VOLCOMP TO THE MAX.
+*.                                DELTA VELOCITY (IN M/S) OF A 2D FEATURE
+*.    P   NUMLEVS     I*4         Number of elevation cuts processed by TDA to
+*.                                generate two-dimensional features.
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    C   DVTABL  I*4         Array of two-dimensional features sorted by
+*.                            maximum delta velocity on an elevation basis
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME   TYPE        DESCRIPTION
+*.    ----   ----        -----------
+*.    DV_JNX I*4         Temporary rank order of current 2D feature in array
+*.                       DVTABLE and used as index to array VOLCOMP
+*.    DV_KNX I*4         Temporary rank order of (current + 1) 2D feature in
+*.                       array DVTABLE and used as index to array VOLCOMP
+*.    I2DF   I*4         Outer do loop index for sorting two-dimensional
+*.                       features by their low-level delta velocity attribute
+*.                       in descending order
+*.    IEL    I*4         Do loop index to point to current elevation cut
+*.    J2DF   I*4         Inner do loop index for sorting two-dimensional
+*.                       features by their low-level delta velocity attribute
+*.                       in descending order
+*.    K2DF   I*4         Index for sorting two-dimensional features by their
+*.                       low-level delta velocity attribute in descending
+*.                       order
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A317C3DA
+*.    A317TC2
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:
+*.
+*.     If return status from a call to run-time library routine "ABL"
+*.   (Add to Bottom of List) indicates operation not successful, the
+*.   ID-STACK is full: no more elements can be added.
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     Compiled using COMP17.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     Linked using LINK17.CSS
+*.
+*.  MISC:  None
+*.
+C********************************************************************
+C
+C             TDA 3D PROCESSING: SORT 2D FEATURES SUBROUTINE
+C
+C********************************************************************
+C
+C
+      IMPLICIT NONE
+C
+C**Attach internal common block (CPCC)
+$INCLUDE A317.INC/G, **A317TP2 (NLIST)
+$INCLUDE A317.INC/G, **A317TC2 (NLIST)
+$INCLUDE A317.INC/G, **A317C3DA (NLIST NEND)
+C
+C*********************** DATA DECLARATIONS **************************
+C
+      INTEGER  NUMLEVS, I, J, IEL, I2DF, J2DF, DV_INX, DV_JNX, DV_KNX
+      INTEGER K2DF
+C
+C****************** BEGIN MAIN PROCESSING SECTION *******************
+C
+C***  DO FOR ALL ELEVATIONS
+C
+      DO 10 IEL = 1, NUMLEVS
+C
+C***  INITIALIZE THE SORTED TABLE BY THE INDEX TO THE 2D FEATURE ARRAY
+C
+        DO 20 I2DF = 1, VOL_2DF_CNT(IEL)
+          DVTABL(I2DF, IEL) = I2DF
+ 20     CONTINUE
+C
+C***  BEGIN THE SORT ROUTINE.  SET UP OUTER LOOP
+C
+        DO 30 I2DF = 1, VOL_2DF_CNT(IEL) - 1
+C
+C***  SET UP INNER LOOP
+C
+          DO 40 J2DF = 1, VOL_2DF_CNT(IEL) - I2DF
+            K2DF = J2DF + 1
+C
+C***  GET THE CURRENT TABLE ENTRIES
+C
+            DV_JNX = DVTABL(J2DF, IEL)
+            DV_KNX = DVTABL(K2DF, IEL)
+            IF(VOLCOMP(VCM_DVE, DV_JNX, IEL) .LT.
+     >         VOLCOMP(VCM_DVE, DV_KNX, IEL) ) THEN
+               DVTABL(K2DF, IEL) = DV_JNX
+               DVTABL(J2DF, IEL) = DV_KNX
+            ENDIF
+ 40       CONTINUE
+ 30     CONTINUE
+ 10   CONTINUE
+C
+C**************** END OF PROCESSING FOR SUBROUTINE ******************
+C
+      RETURN
+      END

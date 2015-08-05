@@ -1,0 +1,172 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/05 16:38:10 $
+C $Id: a3082t.ftn,v 1.3 2002/12/05 16:38:10 christie Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A3082T__VAD_CONVERT(HEIGHT,RCONF,VDIR,VSPD,IHEIGHT,
+     $                   CONFVAL,IDIR,ISPD)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3082T__VAD_CONVERT
+*.
+*.  MODULE VERSION: 0014
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       5 23 88       0000      VALERIE HOLDEN       SPR # 80002
+*.       0 09 89       0001      STAN MANOSKI         SPR # 90403
+*.       1 09 89       0001      STAN MANOSKI         SPR # 90509
+*.       5 07 90       0002      PAUL PISANI          SPR # 90697
+*.       6 04 90       0003      JOHN DEPHILIP        SPR # 90775
+*.       8 15 90       0003      MIKE ISTOK           SPR # 90839
+*.       2 22 91       0004      VALERIE HOLDEN       SPR # 91249
+*.       3 06 91       0004      BAYARD JOHNSTON      SPR # 91225
+*.       0 11 91       0005      EDWARD WENDOWSKI     SPR # 92410
+*.       12 03 91      0006      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0007      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/20/92      0008      Toolset              SPR 91895
+*.       03/25/93      0009      Toolset              SPR NA93-06801
+*.       01/28/94      0010      Toolset              SPR NA94-01101
+*.       03/03/94      0011      Toolset              SPR NA94-05501
+*.       04/11/96      0012      Toolset              CCR NA95-11802
+*.       12/23/96      0013      Toolset              CCR NA95-11807
+*.       03/16/99      0014      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A3082T__VAD_CONVERT(HEIGHT,RCONF,VDIR,
+*.                    VSPD,IHEIGHT,CONFVAL,IDIR,ISPD)
+*.
+*.  MODULE FUNCTION: THIS MODULE CONVERTS INPUT ALGORITHM VALUES
+*.    FOR VAD WINDS FOR PART B TO RADAR CODED MESSAGE PRODUCT
+*.    OUTPUT VALUES.  HEIGHT IS CONVERTED FROM FEET TO
+*.    HUNDREDS OF FEET AND SPEED IS CONVERTED FROM METERS/SEC
+*.    TO KNOTS.  RMS CONFIDENCE VALUE IS CONVERTED TO THE LETTERS
+*.    A-G AS PER NTR SPECIFICATIONS.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT      TYPE        DESCRIPTION
+*.    -   -----      ----        -----------
+*.    G   MPS_TO_KTS R*4         (CONSTANT)SCALING FACTOR FOR METERS PER
+*.                               SECOND TO KNOTS
+*.    P   HEIGHT     R*4         :HEIGHT OF VAD (METERS)
+*.    P   RCONF      R*4         RMS VALUE FOR VAD
+*.    P   VDIR       R*4         VAD DIRECTION (DEGREES)
+*.    P   VSPD       R*4         VAD SPEED (M/S)
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    P   CONFVAL CHAR*1      CONFIDENCE VALUE FOR PART B
+*.    P   HEIGHT  R*4         :HEIGHT OF VAD (METERS)
+*.    P   IDIR    I*4         VAD DIRECTION (DEGREES)
+*.    P   IHEIGHT I*4         HEIGHT OF VAD (HUNDREDS OF FEET)
+*.    P   ISPD    I*4         VAD SPEED (KNOTS)
+*.    P   VSPD    R*4         VAD SPEED (M/S)
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE: NONE
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME     TYPE        DESCRIPTION
+*.    ----     ----        -----------
+*.    CONF     CHAR*1      ARRAY OF CONFIDENCE VALUES (A-G)
+*.    HUNDFT   R*4         CONVERSION FACTOR TO HUNDREDS OF FEET
+*.    ICONF    I*4         RMS INTEGER VALUE
+*.    MAX_CONF I*4         MAXIMUM CONFIDENCE VALUE
+*.    MIN_CONF I*4         MINIMUM CONFIDENCE VALUE
+*.    ZERO     I*4         PROGRAM PARAMETER FOR 0
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS: NONE
+*.
+*.  DEVIATION FROM STANDARDS: NONE
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     THIS MODULE IS COMPILED USING COMP08.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     THIS MODULE IS LINKED USING LINK08.CSS
+*.
+*.  MISC: NONE
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+$INCLUDE A309.INC/G,**A3PM50    (NLIST)
+C
+$INCLUDE A309ADPT.INC/G,**A3CD70CA (NEND NLIST)
+C*
+      INTEGER*4    IHEIGHT,ICONF,IDIR,ISPD,MIN_CONF,MAX_CONF,ZERO
+      REAL         HUNDFT,RCONF,VDIR,VSPD,HEIGHT
+C
+      PARAMETER    ( HUNDFT = 100.0)
+      PARAMETER    ( MIN_CONF = 1, MAX_CONF = 7, ZERO = 0 )
+C
+      CHARACTER*1  CONF(7),CONFVAL
+      DATA         CONF/'A','B','C','D','E','F','G'/
+C
+X     LOGICAL PRINTED
+X     DATA PRINTED /.FALSE./
+C*
+C********************************************************************
+C*    CONVERT INPUT HEIGHT(FEET) TO OUTPUT HEIGHT(HUNDREDS OF FEET)
+C*
+X     TYPE *,'2T: ENTERED A3082T; HEIGHT = ',HEIGHT
+      HEIGHT = HEIGHT  / HUNDFT
+X     TYPE *,'2T: HEIGHT = ',HEIGHT
+      IHEIGHT = NINT(HEIGHT)
+C*
+C********************************************************************
+C*    CONVERT INPUT RMS (REAL) TO OUTPUT RMS (CHARACTER)
+C*
+      ICONF = INT(RCONF)
+      IF (ICONF.EQ.ZERO) ICONF = MIN_CONF
+      IF (ICONF.GT.MAX_CONF) ICONF = MAX_CONF
+C
+      CONFVAL = CONF(ICONF)
+C*
+C********************************************************************
+C*    ROUND TO NEAREST INTEGER VAD DIRECTION (DEGREES)
+C*
+      IDIR = NINT(VDIR)
+C*
+C********************************************************************
+C*    CONVERT INPUT SPEED (METER/SEC) TO OUTPUT SPEED (KNOTS)
+C*
+      VSPD = VSPD * MPS_TO_KTS
+C
+X     IF (.NOT. PRINTED) THEN
+X     WRITE(14,*)'A3082T: VALUES IN CALCULATION LINE 168 '
+X     WRITE(14,*)'VSPD = VSPD * MPS_TO_KTS '
+X     WRITE(14,*)'VSPD EQUALS ',VSPD
+X     WRITE(14,*)'METERS PER SECOND TO KNOTS EQUALS ',MPS_TO_KTS
+X     WRITE(14,*)'A3082T: RESULTS OF CALCULATION ',VSPD
+X     PRINTED = .TRUE.
+X     ENDIF
+C
+      ISPD = NINT(VSPD)
+C
+X     TYPE *,'2T: EXITED A3082T '
+      RETURN
+      END

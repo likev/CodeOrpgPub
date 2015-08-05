@@ -1,0 +1,161 @@
+hci_prf(1)                    ORPG SUM Man page                      hci_prf(1)
+
+NAME
+
+hci_prf
+
+SYNOPSIS
+
+hci_prf [options]
+
+DESCRIPTION
+
+The "hci_prf" command invokes the PRF Selection (Modify Current VCP) task for
+the RPG.  It is a GUI based task which runs in an X Windows/Motif environment.
+It is part of the Human-Computer Interface (HCI) family of tasks, typically
+launched from the RPG Control/Status task (refer to man page hci(1)).  However,
+it can be run as a stand-alone application from the command line.
+
+OPTIONS
+
+hci_prf recognizes the following options:
+
+	-h	      print usage message and exit
+	
+	-l	      low bandwidth mode; compress data passed to/from
+		      ORPG data stores.
+
+	-iconic	      start in an iconic state
+	
+	-m <name>     RPG computer name
+	
+	-name <title> Window title
+	
+	-s <rate>     Set the simulated baud rate
+
+OVERVIEW
+
+The PRF Selection (Modify Current VCP) task provides a graphical user interface
+to modify the characteristics of the currently active VCP.  The characteristics
+which can be edited include: Velocity interval, sector azimuth and PRF number,
+and signal/noise ratio.  When activated, the "PRF Selection (Modify Current
+VCP) window is displayed.  It consists of several sets of control buttons, an
+obscuration table and a data display/edit region.
+
+Control Buttons
+---------------
+
+Selecting the "Close" button exits the task.  If any unsaved edits to the
+current VCP data are detected, a warning popup window is first displayed to
+give the user a chance to save the edits.
+
+The "Save" button is desensitized until edits are made.  Selecting it causes
+edits to be written to the data store containing the current VCP data.  A
+warning popup window is first displayed for verification.
+
+The "Undo" button is desensitized until edits are made.  When unsaved edits
+are present, selecting it discards all unsaved edits and restores the window
+to its pre-edit state.
+
+Selecting the "Download" button commands the RDA control task to download the
+current VCP data to the RDA.  A warning popup window is first displayed for
+verification.  If unsaved edits are detected, a warning popup window is
+displayed indicating that edits will be saved if the download procedure is
+continued.  If the auto PRF flag is enabled, another warning popup window
+is displayed giving the user a chance to disable it before the download.
+
+Selecting the "Refresh" button causes the base reflectivity and obscuration
+data inside the display/edit region to be updated with the latest available.
+
+Selecting the "0.97 kts" and "1.94 kts" radio buttons to the right of the 
+"Velocity Increment" label change the Doppler velocity resolution in the
+current edit session.
+
+The two buttons embedded in the label "Modify elevations in range...." define
+the range of elevations affected by edits made in the display/edit region.
+Selecting a button changes the label to the angle of the next elevation cut
+in the VCP, wrapping around to the first cut it the last cut was reached.  The
+elevation of the first button will always be less than or equal to the second
+button.  Selecting the first button while the labels for both buttons are the
+same causes the label angles to increment equally for both buttons.
+
+Obscuration Table
+-----------------
+
+Displayed just above the display/edit region is a table containing a set of
+labels and buttons for each allowable PRF number in the current VCP.  Each
+PRF number constitutes a row in the table.  Labels are provided indicating the
+unambiguous range and nyquist velocity for each PRF number.  Buttons are
+provided with labels indicating the percentage of area within each and all
+sectors where data was detected but velocities are indeterminate for each PRF
+number.  The PRF number with the least obscuration is displayed with a white
+background for each and all sectors.  Selecting one of the table buttons
+changes the PRF number of the corresponding sector and results in an update to
+the data displayed in the display/edit region.
+
+Data Display/Edit Region
+------------------------
+
+Data displayed in the display/edit region consist of a composite of a base 
+reflectivity product and obscuration data output by the automatic PRF selection
+algorithm.  The base reflectivity product is defined in the "hci_task_data"
+configuration file.  Entries for both high and low bandwidth configurations
+are defined.  Data are combined so that, using the PRF number for a given
+sector in the current VCP, an element in the base reflectivity product which
+is flagged as obscured in the obscuration product is colored "purple".  The
+sector boundaries and sector PRF numbers defined for the lowest elevation cut
+in the current VCP are overlaid.  The attribute information (date, time, site,
+etc.) from the reflectivity product is displayed to the right of the
+obscuration table.
+
+As the cursor is moved inside the display/edit region, its relative position
+from the radar is displayed in the upper left corner.  If the cursor is
+located within 2 degrees of a sector boundary its shape changes from a pointer
+to a hand.  Pressing the left mouse button and dragging the mouse while the
+cursor shape is a hand will move the sector boundary.  Releasing the left mouse
+button will change the sector boundary in the edit buffer.  Data in the
+display/edit region and obscuration table are redisplayed using the new sector
+information.
+
+If the left mouse button is pressed and released while the cursor is located
+more than 2 degrees from a sector boundary, the PRF number for the sector
+containing the cursor will increment by 1 and the data in the display/edit
+region will be redisplayed.  If the maximum allowable PRF number has been
+reached, the sector PRF number is changed to the minimum allowable PRF number. 
+
+If the right mouse button is pressed and released while the cursor is located
+more than 2 degrees from a sector boundary, the PRF number for the sector
+containing the cursor will decrement by 1 and the data in the display/edit
+region will be redisplayed.  If the minimum allowable PRF number has been 
+reached, the sector PRF number is changed to the maximum allowable PRF number.
+
+There may be times when important reflectivity/obscuration information is
+hidden by PRF sector labels.  The "On" and "Off" buttons to the right of the
+"Label" label turns labels in the display/edit region on and off, respectively.
+The current label overlay state corresponds to the button with the white
+background color.
+
+The "On" and "Off" buttons to the right of the "Table" label opens and closes
+the Modify Current VCP Adaptation Data window.  This window contains a tabular
+display of the current VCP data identical to the table displayed by the
+Modify VCP Adaptation Data task (refer to the man page hci_vcp(1)).  The table
+contains a set of buttons and edit boxes for each editable element of the
+current VCP.  This table can be used to change sector azimuths, PRF numbers,
+the velocity increment, and  signal/noise ratios for each cut in the current
+VCP.  If this table is displayed while sector azimuth/PRF number changes are
+made in the display/edit region, the table is updated.  It should be noted
+that PRF number and sector azimuth changes made directly to the table only
+affect the item changed whereas changes made in the display/edit region affect
+all cuts within the defined elevation range.
+
+NOTES
+
+In FAA redundant configurations, the label "(FAA:x)" is appended to the window
+title ("x" is the RDA channel number).  Refer to the header files "itc.h" and
+"vcp.h" for more information on VCP data structures.
+
+SEE ALSO
+
+orpg(3) hci(1) hci_agent(1) hci_vcp(1)
+
+				$Revision: 1.5 $

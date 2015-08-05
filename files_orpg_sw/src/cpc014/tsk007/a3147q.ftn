@@ -1,0 +1,138 @@
+C 
+C RCS info 
+C $Author: nolitam $ 
+C $Locker:  $ 
+C $Date: 2002/11/27 15:17:31 $ 
+C $Id: a3147q.ftn,v 1.3 2002/11/27 15:17:31 nolitam Exp $ 
+C $Revision: 1.3 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A3147Q__GET_SUM(ARRAY1,ARRAY2, MAX_VAL)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3147Q__GET_SUM
+*.
+*.  MODULE VERSION: 0002
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       08/04/94      0009      C. Stephenson        CCR NW-94-084-02
+*.       12/23/96      0001      Toolset              CCR NA95-11807
+*.       03/16/99      0002      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A3146Q__GET_SUM(ARRAY1,ARRAY2, BIAS)
+*.
+*.  MODULE FUNCTION:  This module adds the values of the first
+*.            polar grid passed into this routine to the values
+*.            of the second polar grid, and returns the second
+*.            grid to the calling routine.  The values in the first
+*.            are converted to inches from MM before being summed
+*.            and the bias is applied.
+*.            The conversion is actually from input units of .1 MM
+*.            to output units of .01 inches.
+*.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT       TYPE        DESCRIPTION
+*.    -   -----       ----        -----------
+*.    G   MAX_ADJBINS I*4         (CONSTANT)Maximum number of range bins
+*.                                (index into output buffer of adjusted
+*.                                values).
+*.    G   MAX_AZMTHS  I*4         (CONSTANT)Maximum number of azimuths in a
+*.                                scan (index into output buffer of adjusted
+*.                                values).
+*.    C   IBEG        I*4         (CONSTANT)Parameter used as loop control
+*.                                variable (initial value).
+*.    C   IINIT       I*4         (CONSTANT)Parameter indicating initial
+*.                                value.
+*.    P   ARRAY1      I*2         Source polar grid
+*.    P   ARRAY2      I*2         Destination polar grid
+*.    P   MAX_VAL     I*4         Maximum value in the destination polar grid
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    P   ARRAY2  I*2         Destination polar grid
+*.    P   MAX_VAL I*4         Maximum value in the destination polar grid
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME  TYPE        DESCRIPTION
+*.    ----  ----        -----------
+*.    I     I*4         LOOP COUNTER
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK14.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+
+
+C
+C** 'X' IN COLUMN-1 INDICATES CONDITIONALLY COMPILED DEBUG CODE...
+C
+      IMPLICIT NONE
+C
+$INCLUDE A313HBUF.INC/G,**A313HYPP (NLIST)
+$INCLUDE A3146.INC/G,**A3146P1 (NLIST)
+$INCLUDE A3147.INC/G,**A3147P1 (NLIST)
+C
+      INTEGER*2 ARRAY1(MAX_ADJBINS*MAX_AZMTHS)
+      INTEGER*2 ARRAY2(MAX_ADJBINS*MAX_AZMTHS)
+      INTEGER X,Y, MAX_VAL, I
+C
+C
+C
+X     WRITE(14,*)'ENTERING A3147Q'
+X     WRITE(14,91)(ARRAY1(I*19),I=26,50)
+X91   FORMAT(' 7Q: ARRAY1 (AZ = 19, RNG = 26-50):',/,25I5)
+X     WRITE(14,92)(ARRAY2(I*19),I=26,50)
+X92   FORMAT('7Q: ARRAY2 (AZ = 19, RNG = 26-50):',/,25I5)
+C
+C
+      DO 100 I = IBEG, MAX_AZMTHS*MAX_ADJBINS,1
+C
+C** DO FOR NON-ZERO POINTS
+C
+           IF (ARRAY1(I).GT.IINIT) THEN
+C
+             ARRAY2(I) = ARRAY2(I) + ARRAY1(I)
+             IF (ARRAY2(I).GT.MAX_VAL) THEN
+              MAX_VAL = ARRAY2(I)
+           ENDIF
+           END IF
+C
+ 100  CONTINUE
+X     WRITE(14,*)'7Q: MAX VAL = ',MAX_VAL
+      RETURN
+      END

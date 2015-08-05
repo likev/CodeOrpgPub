@@ -1,0 +1,132 @@
+hci_prf.doc			  NOTES			       hci_prf.doc
+
+
+This file contains information about the HCI PRF Selection (Modify Current VCP)
+task.  It is intended to be used by those interested in how the software is
+designed rather than by a typical user.  More detailed information about data
+stores and events used by this task is presented.
+
+Design
+------
+
+The PRF Selection (Modify Current VCP) task was created as a sub task in the
+HCI family of tasks.  A typical user would normally activate it by selecting
+the "PRF Selection" icon pushbutton in the Applications region of the RPG
+Control/Status window.  However, as a stand-alone application, it can be
+launched from the command line using the "hci_prf" command or by invoking a
+system call in any other application wishing to launch it.  This modular
+approach has a number of benefits which are described in the doc file for the
+hci task (hci.doc).
+
+The PRF Selection (Modify Current VCP) task provides the functionality provided
+by the "Current Volume Coverage Pattern" menu in the legacy UCP.  Its purpose
+is to allow the user to modify data for the current VCP so it can be 
+downloaded to the RDA.  Whenever the VCP number changes, the data for the
+current VCP is replaced by the adaptation data associated with the new VCP
+number.  A full description can be found in the man page hci_prf(1).
+
+The PRF Selection (Modify Current VCP) window cannot be resized.
+
+The data in the obscuration table is updated whenever a sector definition is
+changed or when new base reflectivity and obscuration products are loaded.
+The data in the obscuration table represent the percentage of area tagged
+as range folded in a given sector.  The PRF number which results in the least
+amount of obscuration in each sector is displayed with reverse foreground
+and background colors.  The background reflectivity product is defined in
+the "hci_task_data" configuration file.  The "hci_agent" task initializes
+the ORPGDAT_PRF_TASK_DATA_MSG_ID in the ORPGDAT_HCI_DATA LB with the default
+product codes for low and high bandwidth configurations.  The PRF Selection
+task reads this message and loads the product corresponding to the current
+bandwidth mode.
+
+When sectors are defined with the mouse, te clockwise rule of ordering is
+preserved.
+
+When the left mouse button is pressed inside a sector the PRF number is
+incremented by 1.  If the new PRF number is larger than the maximum allowed
+(as defined in RDA adaptation data for each VCP), it is set to the smallest
+allowable PRF number.
+
+When the right mouse button is pressed inside a sector the PRF number is
+decremented by 1.  If the new PRF number is smaller than the minimum allowed
+(as defined in RDA adaptation data for each VCP), it is set to the largest
+allowable PRF number.
+
+The user can manually set sector and signal to noise ratio values directly
+by editing the table in the Modify Current VCP Adaptation Data window.  Only
+table changes to the lowest elevation angle are reflected in the graphical
+display.
+
+The PRF Selection (Modify Current VCP) task is not selectable from the RPG
+Control/Status window when VCP 31 is active (since only one PRF number is
+allowed).  However, it can be activated from the command line regardless of
+the active VCP number.
+
+The timer procedure is activated in 2 second intervals.  All PRF Selection
+windows are updated if the current VCP data store has been updated.  If the
+VCP number has changed, then a warning popup is displayed informing the user
+to restart the application.
+
+Testing
+-------
+
+To test this function fully, a live RDA is required so that the new VCP data
+can be downloaded and verified at the RDA.  The RDA simulator can be used to
+test the GUI.
+
+To test the background product feature one should run the task in both low
+and high bandwidth modes and define different products as the defaults in the
+"hci_task_data" configuration file.
+
+SOURCE FILES
+------------
+
+	hci_prf_control.c
+			This module contains the code to build and
+			manage the PRF Control window.
+				
++++ PROC
+
+DATA IN
+
+	BASEDATA.4
+	ORPGDAT_GSM_DATA.4
+	ORPGDAT_REDMGR_CHAN_MSGS.4
+	ORPGDAT_ADAPT.4
+	ORPGDAT_ADAPTATION.4
+	ORPGDAT_PRODUCTS.4
+	ORPGDAT_RPG_INFO.4
+	ORPGDAT_HCI_DATA.4
+
+EVENTS IN
+
+	ORPGEVT_SCAN_INFO
+	
+EVENTS OUT
+
+	ORPGEVT_HCI_COMMAND_ISSUED
+			
+APIs USED
+
+	orpg.3
+	
+		ORPGRED.3
+		ORPGRDA.3
+		ORPGSITE.3
+		ORPGMISC.3
+		ORPGDBM.3
+		ORPGVST.3
+		ORPGINFO.3 
+
+	hci.3
+
+---
+
+SEE ALSO
+
+hci(1) hci_agent(1) hci_prf(1) rda_simulator(1) hci(3) orpg(3) orpgred(3)
+orpgrda(3) orpgsite(3) orpgvst(3) orpgmisc(3) orpgdbm(3) orpginfo(3)
+orpgvst(3)
+
+
+hci_prf.doc							hci_prf.doc

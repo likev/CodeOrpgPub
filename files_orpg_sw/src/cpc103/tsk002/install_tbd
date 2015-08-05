@@ -1,0 +1,276 @@
+#!/bin/sh
+#
+# RCS info
+# $Author: ccalvert $
+# $Locker:  $
+# $Date: 2006/03/10 17:21:10 $
+# $Id: install_tbd,v 1.8 2006/03/10 17:21:10 ccalvert Exp $
+# $Revision: 1.8 $
+# $State: Exp $
+#
+# File name:            install_tbd
+# Author:               Chris Gilbert
+# Creation Date:	10/02/02
+#
+# Purpose: To install Terrain Blockage Data.
+#     
+#set -x      #Debug option
+
+#*******************************************************************************
+# Global Variables   
+#*******************************************************************************
+
+WORKDIR=`dirname ${0}`
+SRCDIR=${WORKDIR}/tbd_data
+VERSION=DEFAULT
+DESTDATADIR=DEFAULT
+DESTADAPTDIR=DEFAULT
+SITENAME=DEFAULT
+
+#*******************************************************************************
+# Start of Functions
+#*******************************************************************************
+
+##################################################
+# CHECK_OS: Set OS dependent variables.
+##################################################
+
+check_OS ()
+{
+  if [ `uname` = "Linux" ]
+  then
+    MAINDIR=/home
+  else #assume SUN
+    MAINDIR=/export/home
+  fi
+}
+
+##################################################
+# PRINT_USAGE: Display script usage.
+##################################################
+
+print_usage ()
+{
+  echo
+  echo
+  echo "Usage: `basename $0` [options]"
+  echo "      Options:"
+  echo "        -h Print usage information"
+  echo "        -v software version (default is latest in $MAINDIR)"
+  echo "        -a destination adapt directory"
+  echo "             (default is $MAINDIR/vX.X/cfg/adapt/installed)"
+  echo "        -d destination data directory"
+  echo "             (default is $MAINDIR/vX.X/cfg/bin)"
+  echo
+  echo
+  exit 1
+}
+
+##################################################
+# GETVERSION: Get version of software for MAINDIR.
+##################################################
+
+getversion ()
+{
+   #
+   # Get the archive version by looking in the $MAINDIR
+   #
+   #
+   # Where vx.xx is the version of the software build.
+   #
+   ls -td $MAINDIR/v*.*[0-9] > /tmp/list
+
+   VERSION=`awk -F/  ' { 
+       for ( i = NF; i >= 1; i-- ) {
+          if ( $i ~ /[v][0-9]/ ) {
+             print $i
+             flag="found"
+             exit  
+          }
+       } 
+   }
+   END {
+      if ( flag != "found" ) {
+        print "NOT_FOUND"
+      }
+   }' /tmp/list `
+
+   if [ "$VERSION" = "NOT_FOUND" ]
+   then
+      echo
+      echo "Error: Cannot find any software versions in $MAINDIR."
+      echo     "Use the \"-d dir_path\" option to specify software path."
+      exit 1
+   fi
+
+   rm -f /tmp/list
+}
+
+##################################################
+# GETSITENAME: Parse the sitename from the hostname.
+##################################################
+
+getsitename ()
+{
+   echo `hostname` > /tmp/host$$
+   SITE=`awk -F- ' { print $2 }' /tmp/host$$ `
+   rm /tmp/host$$ > /dev/null 2>&1
+
+   if [ "$SITE" = "" ]
+   then
+      echo
+      echo "Error: Unable to determine site name!"
+      echo "        The hostname `hostname` is not in the rpg1-site format"
+      echo
+      exit 1
+   fi
+   TEMP=`echo ${SITE} | tr '[a-z]' '[A-Z]'`
+
+   SITENAME=$TEMP
+}
+
+#*******************************************************************************
+# End of Functions
+#*******************************************************************************
+
+#*******************************************************************************
+# Main Body of Script
+#*******************************************************************************
+
+#
+# Set OS dependent variables.
+#
+
+check_OS
+
+while getopts hv:a:d:s: INPUT
+do
+   case $INPUT in
+      h) print_usage ;;
+      v) VERSION="$OPTARG";;
+      d) DESTDATADIR="$OPTARG";;
+      a) DESTADAPTDIR="$OPTARG";;
+      s) SITENAME="$OPTARG";;
+      \?) print_usage ;;
+   esac
+done
+
+#
+# Figure out the sitename.
+#
+if [ "$VERSION" = "DEFAULT" ]
+then
+   getversion
+fi
+
+#
+# Assign the version. Figure it out if needed.
+#
+if [ "$SITENAME" = "DEFAULT" ]
+then
+   getsitename
+fi
+
+if [ "$DESTDATADIR" = "DEFAULT" ]
+then
+   DESTDATADIR=${MAINDIR}/${VERSION}/cfg/bin
+fi
+
+if [ "$DESTADAPTDIR" = "DEFAULT" ]
+then
+   DESTADAPTDIR=${MAINDIR}/${VERSION}/cfg/adapt/installed
+fi
+
+if [ ! -d $MAINDIR/${VERSION} ]
+then
+   echo "Error: $MAINDIR/${VERSION} does not exist!"
+   echo "        Is the ${VERSION} application software installed?"
+   exit 1
+fi
+
+if [ ! -d $DESTDATADIR ]
+then
+   echo "Error: $DESTDATADIR does not exist!"
+   echo "        Is the ${VERSION} application software installed?"
+   exit 1
+fi
+
+
+#
+# Can we write to the target directory?
+#
+touch ${DESTDATADIR}/$$test > /dev/null 2>&1
+
+if [ ! -f ${DESTDATADIR}/$$test ]
+then
+   echo "Error: Cannot write to ${DESTDATADIR} !"
+   rm -f ${DESTDATADIR}/$$test
+   exit 0
+fi
+
+rm -f ${DESTDATADIR}/$$test
+
+#
+# Figure out who is running this script
+#
+USER=`ps -o ruser | awk ' { if ( $1 != "RUSER" ) { print $1; exit } }' `
+GRP=`id -ng`
+
+if [ "$VERSION" != "$USER" ]
+then
+   echo
+   echo "WARNING! Permission Problem!"
+   echo "           Config Files will be installed and owned by $USER:$GRP"
+   echo "Do you wish to proceed (y/n)?  [Default: y]"
+   echo
+   read PROMPT
+   echo
+   if [ "$PROMPT" = "n" -o "$PROMPT" = "N" -o   \
+        "$PROMPT" = "No" -o "$PROMPT" = "no" -o \
+        "$PROMPT" = "NO" ]
+   then
+      exit
+   fi
+fi
+
+
+#
+# Make sure the blockage lb is located
+# where we think it should be.
+#
+if [ ! -f ${SRCDIR}/${SITENAME}_blockage.lb ]
+then
+   echo "Error: Unable to find ${SRCDIR}/${SITENAME}_blockage.lb on CD!"
+   exit 1
+fi
+
+#
+# Copy over blockage lb      
+#
+cp $SRCDIR/${SITENAME}_blockage.lb ${DESTDATADIR}/blockage.lb
+chmod 664 ${DESTDATADIR}/blockage.lb
+
+if [ ! -d $DESTADAPTDIR ]
+then
+   mkdir -p $DESTADAPTDIR
+fi
+
+cp $SRCDIR/${SITENAME}_blockage.lb ${DESTADAPTDIR}/blockage.lb
+chmod 664 ${DESTADAPTDIR}/blockage.lb
+
+#
+# Put out a marker on what happened
+#
+echo $VERSION $SITENAME $DESTDATADIR $DESTADAPTDIR > ${MAINDIR}/${VERSION}/cfg/${SITENAME}_TBD_INSTALLED 2>&1
+if [ ! -f ${MAINDIR}/${VERSION}/cfg/${SITENAME}_TBD_INSTALLED ]
+then
+   echo "Error: Cannot write marker file ${MAINDIR}/${VERSION}/cfg/${SITENAME}_TBD_INSTALLED !"
+fi
+
+echo ""
+echo "Finished! Installed the Terrain Blockage Data."
+echo ""
+echo "  Restart RPG Software for Data to take effect. " 
+echo ""
+
+

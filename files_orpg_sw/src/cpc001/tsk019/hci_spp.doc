@@ -1,0 +1,108 @@
+hci_spp.doc			NOTES				hci_spp.doc
+
+
+This file contains information about the HCI Edit Selectable Product Parameters
+task.  It is intended to be used by those interested in how the software is
+designed rather than by a typical user.  More detailed information about
+data stores and events used by this task is presented.
+
+Design
+------
+
+The Edit Selectale Product Parameters task was created as a sub task in the
+HCI family of tasks.  A typical user would normally activate it by selecting
+the "Selectable Parameters" pushbutton in the RPG Products sub window of the
+RPG Control/Status task.  However, as a stand-alone application, it can be
+launched from the command line using the "hci_spp" command or by invoking
+a system call in any other application wishing to launch it.  This modular
+approach has a number of benefits which are described in the doc file for
+the hci task (hci.doc).
+
+The Edit Selectable Product Parameters task includes the selectable product
+parameters functionality provided by the legacy UCP "SELECTION OF PRODUCT
+PARAMETERS", "LAYER PRODUCT PARAMETERS", "RCM PRODUCT PARAMETERS",
+RCM REFLECTIVITY DATA LEVEL CODE SELECT", "VAD AND RCM HEIGHT SELECTIONS",
+VELOCITY DATA LEVEL CODE SELECT", "STP DATA LEVELS", "OHP/THP DATA LEVELS",
+and "CELL PRODUCT PARAMETERS" menus.  A full description can be found in the
+man page hci_spp(1).
+
+All data contained in the table are read from RPG adaptation data.  Although
+specific category items are hard coded, the contents for each category are
+dynamically read from adaptation data.  The data includes, item description,
+min and max values, units, and current value.  Range checking is done both
+in the application and by the adaptation data API.
+
+There is a requirement to restrict editing of the selectable product parameters
+data to the URC level user.  Editable fields are desensitized until the window
+is unlocked with a valid password.
+
+The window cannot be resized directly by the user.  The window size changes
+automatically when a new category is selected.  The window is resized so that
+the data for the new category are visible.
+
+An advisory lock is placed on the data corresponding to the category currently
+being edited using the ORPGADPT_lock function.  If another instance of the task
+is running and the user attempts to unlock the same list for editing, a warning
+popup is displayed indicating the list is being edited by another user.  When a
+different list is selected or if the window is locked, the advisory lock is
+removed.
+
+The timer procedure is activated in 1/2 second intervals.  It doesn't do
+anything other than to check the state of the raise flag.  The raise flag is
+set when an item from a combo box menu is selected.  When the flag is set, the
+timer procedure raises the Edit Selectable Product Parameters window to the
+top of the window heirarchy.  If this isn't done, the if the selected item
+happens to lie outside the domain of the Edit Selectable Product Parameters
+window, the underlying window is raised to the top.
+
+Testing
+-------
+
+To test this function the RPG must be running.  SOme mechanism is needed to
+verify product parameter changes in resultant RPG products.  This can be done
+using the XPDT tool or by sending products to a PUP or its equivalent.
+
+SOURCE FILES
+------------
+
+hci_selectable_product_parameters.c -
+			This module contains all of the code to build
+			and display the Edit Selectable Product Parameters
+			window.
+
++++ PROC
+
+DATA IN
+
+	ORPGDAT_HCI_DATA.4
+	ORPGDAT_ADAPT.4
+	ORPGDAT_BASELINE_ADAPT.4
+	ORPGDAT_REDMGR_CHAN_MSGS.4
+	
+DATA OUT
+
+	ORPGDAT_ADAPT.4
+	ORPGDAT_BASELINE_ADAPT.4
+	
+EVENTS OUT
+
+	ORPGEVT_HCI_COMMAND_ISSUED
+	
+APIs USED
+
+	orpg.3
+	
+		ORPGRED.3
+		ORPGSITE.3
+		ORPGMISC.3
+		ORPGADPT.3
+
+	hci.3
+
+---
+	
+SEE ALSO
+
+hci(1) hci(3) orpg(3) orpgred(3) orpgsite(3) orpgmisc(3) orpgadpt(3)
+
+hci_spp.doc							hci_spp.doc

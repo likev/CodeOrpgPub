@@ -1,0 +1,224 @@
+C 
+C RCS info 
+C $Author: steves $ 
+C $Locker:  $ 
+C $Date: 2008/01/07 23:22:36 $ 
+C $Id: a313i1.ftn,v 1.5 2008/01/07 23:22:36 steves Exp $ 
+C $Revision: 1.5 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A313I1__INITIALIZER ( ETPAR,ETVAL,VILPAR,
+     $ VILVAL,OVERLAY )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A313I1__INITIALIZER
+*.
+*.  MODULE VERSION: 0012
+*.
+*.  MODULE LANGUAGE:  FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       05 25 85      0000      Bradley Sutker       RPG Build #1
+*.       08 24 88      0001      STEVE ANDERSON       SPR # 80248
+*.       02 13 91      0002      BAYARD JOHNSTON      SPR # 91254
+*.       12 03 91      0003      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0004      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0005      Toolset              SPR 91895
+*.       03/25/93      0006      Toolset              SPR NA93-06801
+*.       01/28/94      0007      Toolset              SPR NA94-01101
+*.       03/03/94      0008      Toolset              SPR NA94-05501
+*.       06/07/94      0009      Steve Smith          CCR 93158-003A00
+*.       04/11/96      0010      Toolset              CCR NA95-11802
+*.       12/23/96      0011      Toolset              CCR NA95-11807
+*.       03/16/99      0012      Toolset              CCR NA98-23803
+*.       12/09/03      0013      CHRIS CALVERT        CCR NA03-30002
+*.
+*.  CALLING SEQUENCE:
+*.
+*.    CALL A313I1__INITIALIZER ( ETPAR,ETVAL,VILPAR,
+*.           VILVAL,OVERLAY )
+*.
+*.  MODULE FUNCTION:
+*.     This module initializes the output arrays to the
+*.     background (0) level.  Also, the maximums are initialized.
+*.     The radial status flag is determined for decision-making
+*.     in the buffer control routine every radial, however...
+*.     the output arrays and the maximums are initialized only
+*.     after a beginning of volume radial status flag has been
+*.     sent.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT    TYPE        DESCRIPTION
+*.    -   -----    ----        -----------
+*.    G   EBMWT    R*4         Beam Width (realtime data).
+*.    G   ENREF    R*4         Minimum VIL/Echo Tops Reflectivity Threshold.
+*.    G   MEVIL    I*4         Maximum VIL Value Threshold.
+*.    G   SIRDAHGT I*4         Site Adaptation - RDA Height.
+*.    G   NCOL     I*4         (CONSTANT)Number of analysis box columns.
+*.    G   NROW     I*4         (CONSTANT)Number of analysis box rows.
+*.    G   OMET     I*4         (CONSTANT)The pointer into the ECHO TOPS
+*.                             supplemental variable array to height.
+*.    G   OMETC    I*4         (CONSTANT)The pointer into the ECHO TOPS
+*.                             supplemental variable array to the maximum echo
+*.                             top column position.
+*.    G   OMETR    I*4         (CONSTANT)The pointer into the ECHO TOP
+*.                             supplemental variable array to the maximum ECHO
+*.                             TOP row position.
+*.    G   OMVI     I*4         (CONSTANT)Pointer into VIL supplemental array
+*.                             to maximum VIL value.
+*.    G   OMVIC    I*4         (CONSTANT)Pointer into VIL supplemental array
+*.                             to maximum VIL values column.
+*.    G   OMVIR    I*4         (CONSTANT)Pointer into VIL supplemental array
+*.                             to maximum VIL values row.
+*.    C   REFMIN   R*4         Minimum reflectivity required to determine VIL
+*.                             and ECHO TOPS.
+*.    C   NUMW     I*4         (CONSTANT)The number of full words in the bit
+*.                             map (OVERLAY) that check for the ECHO top found
+*.                             at the maximum elevation.
+*.
+*.    *   OUTPUT   TYPE        DESCRIPTION
+*.    -   ------   ----        -----------
+*.    C   BMWDTH   R*4         RADAR BEAM WIDTH
+*.    C   IREFMIN  I*4         Minimum reflectivity required to determine VIL
+*.                             and ECHO TOPS (in RDA/RPG ICD format).  scaled
+*.                             and biased dBZ
+*.    C   MAXVILTH I*4         Maximum displayable VIL threshold value.
+*.    C   RADHGT   I*4         The height of the radar site.
+*.    C   REFMIN   R*4         Minimum reflectivity required to determine VIL
+*.                             and ECHO TOPS.
+*.    P   ETPAR    I*4         ARRAY OF ECHO TOPS AUXILIARY PARAMETERS
+*.    P   ETVAL    I*2         Array of Echo Tops Values in thousands of feet.
+*.    P   OVERLAY  I*4         Bit map defining which echo tops were found at
+*.                             the maximum elevation angle.
+*.    P   VILPAR   I*4         VIL supplemental variable output array.
+*.    P   VILVAL   I*2         The array of VIL values, in kg/m**2.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME      TYPE        DESCRIPTION
+*.    ----      ----        -----------
+*.    INDEX     I*4         Do-Loop index
+*.    NW        I*4         The number of I*4 values in the bit map OVERLAY.
+*.    REF_BIAS  R*4         Bias when converting radar units to reflectivity
+*.                          units
+*.    REF_SCALE R*4         Scaling when converting radar units to
+*.                          reflectivity units
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A313C0
+*.    SITEADP
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A313C0
+*.    VIL_ECHO_TOPS
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP13.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK13.CSS
+*.
+*.  MISC:
+*.
+*.     Further description of the Product Index and Disk Space Map
+*.     organization may be found in the CPCI 03 C5 document.
+*.
+*.*******************************************************************
+C************************************************
+C*           THE VIL/ECHO TOPS                  *
+C*  ARRAY AND PARAMETER INITIALIZATION          *
+C*         PROCESSING SUBROUTINE                *
+C*              A313I1.FTN                      *
+C*     *** INITIALIZE ALL ARRAYS ***            *
+C************************************************
+      IMPLICIT NONE
+C
+C Include common data and parameter declaration files
+C
+$INCLUDE A309.INC/G,**A3PM02 (NLIST)
+$INCLUDE A309ADPT.INC/G,**A3CD70_VIL_ECHO_TOPS (NLIST)
+$INCLUDE A309ADPT.INC/G,**A3CD70CA (NLIST)
+C
+C Include common parameter file
+C
+$INCLUDE A313BUF.INC/G,**A313P0 (NLIST)
+$INCLUDE               **A313Z0 (NLIST)
+$INCLUDE               **A313Z1 (NLIST)
+C
+C Include global adaptation data image file
+C
+C
+C Include local common adaptation data
+C
+$INCLUDE A313.INC,**A313C0 (NLIST)
+C
+C Local data declarations
+C
+      INTEGER INDEX,NW
+      REAL REF_BIAS, REF_SCALE
+      PARAMETER (REF_BIAS = 66.0, REF_SCALE = 2.0)
+C
+C Initialize maximums to background (0)
+C
+        VILPAR(OMVI)=0
+        ETPAR(OMET)=0
+C
+C Initialize maximum positions
+C
+        VILPAR(OMVIC)=0
+        VILPAR(OMVIR)=0
+        ETPAR(OMETC)=0
+        ETPAR(OMETR)=0
+C
+C Initialize VIL and ECHO TOPs analysis BOX fields
+C
+        DO 100 INDEX=1,NROW*NCOL
+C
+C VIL array
+C
+          VILVAL(INDEX)=0
+C
+C Echo tops array
+C
+          ETVAL(INDEX)=0
+C
+  100   CONTINUE
+C
+C Initialize bit map
+C
+        DO 5 NW=1,NUMW
+            OVERLAY(NW)=0
+    5   CONTINUE
+C
+C Initialize adaptation data for VIL/ET
+C
+      BMWDTH=EBMWT
+      REFMIN=ENREF
+      IREFMIN=NINT(REF_SCALE*REFMIN + REF_BIAS)
+      MAXVILTH=MEVIL
+      RADHGT=SIRDAHGT
+C
+      RETURN
+      END

@@ -1,0 +1,249 @@
+#!/bin/sh
+
+# RCS info
+# $Author: cmn $
+# $Locker:  $
+# $Date: 2008/10/07 11:34:13 $
+# $Id: audit_logs_manager.script,v 1.3 2008/10/07 11:34:13 cmn Exp $
+# $Revision: 1.3 $
+# $State: Exp $
+
+#**************************************************************************
+#**************************************************************************
+#
+# Beginning of Functions
+#
+#**************************************************************************
+#**************************************************************************
+
+#**************************************************************************
+# PRINT_USAGE: Display "help" to screen.
+#**************************************************************************
+
+print_usage ()
+{
+  echo
+  echo
+  echo "***************************************************"
+  echo "HELP SCREEN FOR SCRIPT: $0"
+  echo "***************************************************"
+  echo
+  echo
+  echo "OPTIONS:"
+  echo
+  echo "-h  - display help"
+  echo
+  echo "-N  - non-interactive (invoked from some other program)"
+  echo
+  echo "no flags  - copies audit files to CD"
+  echo
+  echo
+  echo
+}
+
+#**************************************************************************
+# ECHO_STDOUT: Echo to stdout.
+#**************************************************************************
+
+echo_stdout ()
+{
+  echo -e $1
+  echo -e $1 | $LE_LOG_CMD
+}
+
+#**************************************************************************
+# ECHO_STDERR: Echo to stderr.
+#**************************************************************************
+
+echo_stderr ()
+{
+  echo -e $1 >&2
+  echo -e $1 | $LE_ERR_CMD
+}
+
+#**************************************************************************
+# ECHO_INT: Echo if interactive. Output does not go to log file.
+#**************************************************************************
+
+echo_int ()
+{
+  if [ $INTERACTIVE_FLAG = "YES" ]
+  then
+    echo -e $1
+  fi
+}
+
+#**************************************************************************
+# ECHO_ERROR: Echo error message and exit.
+#**************************************************************************
+
+echo_error ()
+{
+  if [ $# -eq 1 ]
+  then
+    exit_code=1
+  else
+    exit_code=$2
+  fi
+
+  echo_int
+  echo_int
+  echo_int "IN SCRIPT: $0"
+  echo_stderr "ERROR: $1"
+  echo_int "Stopping script"
+  echo_int "Use -h option for help"
+  echo_int
+  echo_int
+
+  exit $exit_code
+}
+
+#**************************************************************************
+# INIT_LE_LOG: Initialize logging.
+#**************************************************************************
+
+init_le_log ()
+{
+  LE_NUM_LINES=100
+
+  LE_UID=`id -u 2>/dev/null`
+  if [ $? -ne 0 -o "$LE_UID" = "" ]
+  then
+    echo_error "Command \"id -u 2>/dev/null\" failed ($?)"
+  fi
+  LE_GID=`id -g 2>/dev/null`
+  if [ $? -ne 0 -o "$LE_GID" = "" ]
+  then
+    echo_error "Command \"id -g 2>/dev/null\" failed ($?)"
+  fi
+  LE_FILE_NAME=`basename $0 2>/dev/null`
+  if [ $? -ne 0 -o "$LE_FILE_NAME" = "" ]
+  then
+    echo_error "Command \"basename $0 2>/dev/null\" failed ($?)"
+  fi
+
+  LE_LOG_CMD="le_pipe -t $LE_FILE_NAME -n $LE_NUM_LINES -w $LE_UID -g $LE_GID"
+  LE_ERR_CMD="$LE_LOG_CMD -e GL_ERROR"
+}
+
+#**************************************************************************
+# PARSE_INPUT: Parse command line input.
+#**************************************************************************
+
+parse_input ()
+{
+  INTERACTIVE_FLAG=YES	# If no, script is invoked from another program
+  INSTALL_DIR="" # Directory to install EPSS into.
+
+  # Parse input options/arguments. If option doesn't have an argument (and
+  # requires one) or option isn't valid, print message and exit.
+
+  while getopts Nh options
+  do
+    case $options in
+      h)  print_usage; exit 0;;
+      N)  INTERACTIVE_FLAG=NO;;
+      \?) echo_error "Option: $OPTARG is not a valid option";;
+    esac
+  done
+}
+
+#**************************************************************************
+# CHECK_ROOT: Make sure user has root priviliges.
+#**************************************************************************
+
+check_root ()
+{
+  if [ `whoami` != "root" ]
+  then
+    echo_error "You do not have root priviliges !!!"
+  fi
+}
+
+#**************************************************************************
+# COPY_AUDIT_LOGS: Copy audit logs to CD.
+#**************************************************************************
+
+copy_audit_logs ()
+{
+  max_file_size=600000000 # 600MB limit on file(s) to copy to CD
+  total_size=0 # Total size of files to copy
+  medcp_cmd="medcp " # Copy command to execute
+  num_files=0 # Number of files to copy
+  # List of files to copy. Append more files separated by a space
+  file_list="/var/log/messages"
+
+  for file_name in $file_list
+  do
+    # Are files present and readable?
+
+    if [ ! -f $file_name ]
+    then
+      echo_stderr "File: $file_name does not exist. Cannot copy." 1>&2
+      continue
+    fi
+
+    if [ ! -r $file_name ]
+    then
+      echo_stderr "File: $file_name is not readable. Cannot copy." 1>&2
+      continue
+    fi
+
+    # Make sure files can fit onto CD
+
+    file_size=`stat $file_name | awk '{if($1=="Size:"){print $2;}}'`
+    total_size=`expr $total_size + $file_size`
+
+    if [ $total_size -gt $max_file_size ]
+    then
+      echo_stderr "Quota size ($max_file_size Bytes) reached. Unable to copy additional files." 1>&2
+      break
+    fi
+
+    # Add file to copy command
+    medcp_cmd="$medcp_cmd $file_name"
+    num_files=`expr $num_files + 1`
+  done
+
+  # Copy files to CD
+
+  if [ $num_files -gt 0 ]
+  then
+    echo_stdout "Copying file(s) to CD...this may take a few minutes."
+    $medcp_cmd cd
+    return_value=$?
+    if [ $return_value -ne 0 ]
+    then
+      echo_error "Error copying files ($return_value)"
+    else
+      echo_stdout "Successfully copied audit files."
+    fi
+  else
+    echo_error "No valid files to copy."
+  fi
+
+  # Eject CD
+  medcp -ue cd > /dev/null 2>&1
+}
+
+#**************************************************************************
+#**************************************************************************
+#
+# End of Functions
+#
+#**************************************************************************
+#**************************************************************************
+
+#**************************************************************************
+#**************************************************************************
+#
+# Main Body of Script
+#
+#**************************************************************************
+#**************************************************************************
+
+init_le_log
+parse_input "$@"	# Parse command line input
+check_root		# Make sure user has root priviliges
+copy_audit_logs		# Copy audit log files to CD
+

@@ -1,0 +1,153 @@
+C 
+C RCS info 
+C $Author: ccalvert $ 
+C $Locker:  $ 
+C $Date: 2004/06/30 20:15:58 $ 
+C $Id: a3cm39.ftn,v 1.8 2004/06/30 20:15:58 ccalvert Exp $ 
+C $Revision: 1.8 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A3CM39__EXTRACT_RADSTAT( BDRADHDR, GOOD_RAD, RAD_STAT )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3CM39__EXTRACT_RADSTAT
+*.
+*.  MODULE VERSION: 0009
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       08 16 85      0000      DENNIS MILLER        BUILD 2
+*.       10 02 86      0001      J GROMMONS           SPR # 60346
+*.       08 23 88      0002      W.B. EIDSON          SPR # 80248
+*.       11 08 90      0003      J.A. WHEELER         SPR # 91250
+*.       12 03 91      0004      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0005      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0006      Toolset              SPR 91895
+*.       03/25/93      0007      Toolset              SPR NA93-06801
+*.       03/03/94      0008      Toolset              SPR NA94-05501
+*.       12/23/96      0009      Toolset              CCR NA95-11807
+*.
+*.  CALLING SEQUENCE:
+*.
+*.     CALL A3CM39__EXTRACT_RADSTAT( BDRADHDR, GOOD_RAD, RAD_STAT )
+*.
+*.  MODULE FUNCTION:
+*.
+*.  This subroutine initializes flags & variables for each new radial
+*.  from the Radial Header.
+*.
+*.  MODULES CALLED: BCLR 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT    TYPE        DESCRIPTION
+*.    -   -----    ----        -----------
+*.    G   PHEDSIZE I*4         (CONSTANT)Size of preprocessed base radial
+*.                             header.
+*.    G   RSOFFSET I*4         (CONSTANT)Offset to radial status in
+*.                             preprocessed radial header (relative 1 from
+*.                             beginning).
+*.    P   BDRADHDR I*2         INPUT BUFFER
+*.    P   RAD_STAT I*4         RADIAL STATUS
+*.
+*.    *   OUTPUT   TYPE        DESCRIPTION
+*.    -   ------   ----        -----------
+*.    P   GOOD_RAD L*4         GOOD RADIAL INDICATOR
+*.    P   RAD_STAT I*4         RADIAL STATUS
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    P   RAD_STAT          I*4         RADIAL STATUS
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME     TYPE        DESCRIPTION
+*.    ----     ----        -----------
+*.    TEST_BIT I*4         TEST BIT LOCATION
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS:
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:
+*.
+*.  DEVIATION FROM STANDARDS:
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.        THIS MODULE IS COMPILED USING THE COMP09.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.        THIS MODULE IS LINKED USING THE LINK09.CSS
+*.
+*.  MISC:
+*.
+*.*******************************************************************
+C
+C$NCOMP
+C*********************************************************************
+C
+C              STORM SEGMENTS: INITIALIZE RADIAL  ROUTINE
+C
+C*********************************************************************
+C
+C
+C$INCLUDE PROCM39.FTN
+C
+C$INCLUDE PDLCM39.FTN
+C
+      IMPLICIT NONE
+C
+C**Attach input parameter-definition file (from "UNPACK_RADIAL_DATA")
+$INCLUDE A304.INC/G,**A304P4 (NLIST)
+C
+C********************** DATA DECLARATIONS ****************************
+C
+C** Input Buffer:
+C
+      INTEGER*2  BDRADHDR( PHEDSIZE )
+C
+C** Output Buffer:
+C
+      INTEGER  RAD_STAT
+      LOGICAL  GOOD_RAD
+C
+C** Local:
+C
+      INTEGER    TEST_BIT
+      PARAMETER ( TEST_BIT=24 )
+C
+C     ORPG Issue 3
+      LOGICAL OS32BTEST
+C******************* BEGIN MAIN PROCESSING SECTION *******************
+C
+C** Get packed Radial Status from input buffer (containing Sequence in
+C** Scan and Good vs. Bad indication).
+C
+      RAD_STAT = BDRADHDR( RSOFFSET )
+C
+C** Evaluate whether Good or Bad radial by examining Test-bit.
+C
+C     ORPG Issue 3
+      GOOD_RAD = .NOT. OS32BTEST( RAD_STAT,TEST_BIT )
+C
+C** Clear Test-bit to retain Radial-Sequence portion of Status Flag.
+C
+C
+C	Calling the integer*4 bit-clearing function ...
+      CALL OS32BCLR( RAD_STAT,TEST_BIT )
+C
+C***************** END OF PROCESSING FOR SUBROUTINE ******************
+C
+      RETURN
+      END

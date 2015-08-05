@@ -1,0 +1,109 @@
+#!/usr/bin/ksh
+#
+# RCS info
+# $Author: ccalvert $
+# $Locker:  $
+# $Date: 2009/08/19 15:11:41 $
+# $Id: cvg_install_config,v 1.13 2009/08/19 15:11:41 ccalvert Exp $
+# $Revision: 1.13 $
+# $State: Exp $
+#
+#################################################################
+# FILE: cvg_install_config
+#
+# Script to install CVG global configuration files
+# 
+# Must be exectued from the cvg source code directory
+# after cvg is compiled
+#
+# Must be logged in with administrative permissions
+#
+################################################################
+
+################################################################
+# CHANGE LOG:
+#
+# 10/23/02 TJG: Corrected Error in global installed file permissions, 
+#               Top level files must be writable by user
+#
+#  8/25/04 TJG: removed installation of X resource files which
+#               are no longer needed by cvg and cvg_color_edit
+#
+# 10/21/04 TJG: Changed the environmental variable used to locate
+#               the global configuration files.  The variable
+#               no longer includes the subdirectory named 'cvgN.n'
+#               The directory name will automatically be handled
+#               by the makefiles and cvg preferences logic
+################################################################
+
+# CVG USER CHANGES THIS VARIABLE, IF CHANGING LOCATION
+
+# to change the location of the default configuration files
+# modify the value of CVG_CONFIG_DIR
+
+CVG_CONFIG_DIR=/usr/local/share
+
+
+###############################################################
+
+# DEVELOPER CHANGES THIS VARIABLE FOR NEW CVG VERSION
+# This value must agree with CVG_PREF_DIR_NAME in global2.h
+CVG_VER=cvg9.1
+
+################################################################
+
+CVG_GLOBAL_CONFIG=${CVG_CONFIG_DIR}/${CVG_VER}
+
+
+print "\nINSTALLING CVG DEFAULT CONFIGURATION FILES"
+
+print "INTO CONFIGURATION DIRECTORY $CVG_GLOBAL_CONFIG \n"
+
+
+#make sure the CVG_GLOBAL_CONFIG directory exists
+if [[ ! -d ${CVG_GLOBAL_CONFIG} ]] then 
+    mkdir -p ${CVG_GLOBAL_CONFIG}  
+    print creating directory ${CVG_GLOBAL_CONFIG}
+fi
+
+print "\nINSTALLING CVG DEFAULT CONFIGURATION FILES"
+
+if [[ -d ${CVG_GLOBAL_CONFIG}/.${CVG_VER} ]] then
+    rm -f -r ${CVG_GLOBAL_CONFIG}/.${CVG_VER}
+fi
+mkdir ${CVG_GLOBAL_CONFIG}/.${CVG_VER} 
+
+cp -R -f -p config/* ${CVG_GLOBAL_CONFIG}/.${CVG_VER}
+#chmod u+w ${CVG_GLOBAL_CONFIG}/.${CVG_VER}/*
+chmod -R a+r ${CVG_GLOBAL_CONFIG}/.${CVG_VER}
+
+
+#########################################################
+
+CVG_STANDARD_MAP_DIR=${CVG_CONFIG_DIR}/cvg_map
+
+print "\nINSTALLING CVG MAP DATA FILES"
+
+print "INTO MAP DIRECTORY $CVG_STANDARD_MAP_DIR \n"
+
+
+#make sure the CVG_STANDARD_MAP_DIR directory exists
+if [[ -d ${CVG_STANDARD_MAP_DIR} ]] then
+    rm -f -r ${CVG_STANDARD_MAP_DIR}
+fi
+if [[ ! -d ${CVG_STANDARD_MAP_DIR} ]] then 
+    mkdir -p ${CVG_STANDARD_MAP_DIR}  
+    chmod a+w ${CVG_STANDARD_MAP_DIR}
+    print creating directory ${CVG_STANDARD_MAP_DIR}
+fi
+
+print "\nINSTALLING CVG MAP DATA FILES"
+
+cp -f -p map/* ${CVG_STANDARD_MAP_DIR}
+chmod -R a+r ${CVG_STANDARD_MAP_DIR}
+
+cp -f create_sample_maps  ${CVG_STANDARD_MAP_DIR}/create_sample_maps
+cp -f create_all_cvg_maps  ${CVG_STANDARD_MAP_DIR}/create_all_cvg_maps
+
+
+print "\nDONE"

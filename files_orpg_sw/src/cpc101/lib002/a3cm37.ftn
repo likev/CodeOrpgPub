@@ -1,0 +1,348 @@
+C 
+C RCS info 
+C $Author: steves $ 
+C $Locker:  $ 
+C $Date: 2004/02/23 19:50:27 $ 
+C $Id: a3cm37.ftn,v 1.6 2004/02/23 19:50:27 steves Exp $ 
+C $Revision: 1.6 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A3CM37__COMBATTR_TO_PRODBUF(GRIDBUF,GRIDLNG,
+     >                                       INT_LINE,CAT_NUM_STORMS,
+     >                                       CATBUF,CAT_LNG,
+     >                                       MAX_PAGES)
+*.*******************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3CM37__COMBATTR_TO_PRODBUF
+*.
+*.  MODULE VERSION: 0012
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       03 06 85      0000      J.STALEY             Part 2, RPG Build 3
+*.       10 02 86      0001      J GROMMONS           SPR # 60346
+*.       03 31 87      0002      JO STALEY            SPR # 70142
+*.       02 22 91      0003      J. WHEELER           SPR # 91250
+*.       02 15 91      0003      JOHN DEPHILIP        SPR # 91762
+*.       12 03 91      0004      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0005      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0006      Toolset              SPR 91895
+*.       03/25/93      0007      Toolset              SPR NA93-06801
+*.       03/03/94      0008      Toolset              SPR NA94-05501
+*.       05/02/95      0009      STEVE SMITH          CCR NA94-26302
+*.       12/23/95      0010      Toolset              CCR NA95-11807
+*.       08/18/97      0011      STEVE SMITH          CCR NA95-21503
+*.       03/16/99      0012      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A3CM37__COMBATTR_TO_PRODBUF(GRIDBUF,
+*.                   GRIDLNG,INT_LINE,CAT_NUM_STORMS,CATBUF,CAT_LNG)
+*.
+*.  MODULE FUNCTION: WRITE COMBINED-ATTRIBUTES CHARACTER TABLE
+*.                   TO A BUFFER.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT          TYPE        DESCRIPTION
+*.    -   -----          ----        -----------
+*.    G   CAT_MXSTMS     I*4         (CONSTANT)Combined attributes features
+*.                                   index for maximum number of storms.
+*.    P   CAT_NUM_STORMS I*4         Number of storms processed for the
+*.                                   combined attributes table.
+*.    P   GRIDBUF        I*2         Buffer for grid vectors.
+*.    P   GRIDLNG        I*4         LENGTH OF GRID VECTORS BUFFER
+*.    P   INT_LINE       I*2         INTEGER TYPED CHARACTER LINE DATA
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    P   CATBUF  I*2         OUTPUT BUFFER FOR C_A_T
+*.    P   CAT_LNG I*4         NUMBER I*2'S IN C_A_T BUFFER
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME           TYPE        DESCRIPTION
+*.    ----           ----        -----------
+*.    BLKLNG         I*4         BLOCK LENGTH VARIABLE I*4 EQUIVALENT FOR
+*.                               I2_BLKLNG
+*.    BLKLNG_LSW     I*4         Block length-least significant word.
+*.    BLKLNG_MSW     I*4         Block length-most significant word.
+*.    BLOCKID        I*4         Parameter for Block ID.
+*.    CLEAR          I*4         Parameter used to clear a variable.
+*.    CNULL          CHAR*24     Character data indicating no storms were
+*.                               detected.
+*.    DIVIDER        I*4         Divider for combined Attubutes Tables buffer.
+*.    ENDIX          I*4         Ending index used to move storm data line
+*.                               into buffer.
+*.    FIRST          I*4         Parameter value of 1.
+*.    HDRLINE        I*4         Index into INT_LINE for header line.
+*.    HDR_ICOORD     I*4         I-coordinate of header line.
+*.    HDR_JCOORD     I*4         J-coordinate of header line.
+*.    I              I*4         Do loop index.
+*.    I2NULL         I*4         Dimension of INULL array.
+*.    I2_LNG         I*2         C_A_T Block length.
+*.    INCRMNT        I*4         Incremental value.
+*.    INDX           I*4         INDEX TO KEEP TRACK OF PLACE IN BUFFER
+*.    INULL          I*2         Integer equivalent of character string CNULL.
+*.    J              I*4         Loop index.
+*.    JJ             I*4         Data row do-loop index.
+*.    JJJ            I*4         Do-loop index control.
+*.    K              I*4         Loop control index.
+*.    KK             I*4         Loop control index used to add grid vectors
+*.                               to end of page.
+*.    LINELNG        I*4         Number of I*2s in a line of character storm
+*.                               data.
+*.    NI2            I*4         (Constant) ratio of I*4 words to I*2 words.
+*.    NPGIDX         I*4         (Constant) Value used as index (offset) into
+*.                               array (CATBUF) which contains the output
+*.                               buffer for Combined Attributes Table (C_A_T).
+*.    NPX            I*4         Internal variable used in determining number
+*.                               of pages (NUM_PAGES) via calculation
+*.                               involving number of storms (CAT_NUM_STORMS)
+*.                               and storms-per-page (STMPPG).
+*.    NULL_PG_LNG    I*4         Block overhead parameter - null page length.
+*.    NULL_PKT_LNG   I*4         Block overhead parameter - null packet
+*.                               length.
+*.    NUM_PAGES      I*4         Number of pages of data.
+*.    PKT_BYTES_LINE I*4         (Constant)
+*.    STARTIX        I*4         Start index for do loop.
+*.    STMPPG         I*4         Constant for storm-per-page.
+*.    SVPGLNGIX      I*4         Saved index to page length field.
+*.    TXTCODE        I*4         (Cnnstant) Value for text code.
+*.    TXTCOLOR       I*4         (Cnnstant) Value for text color.
+*.    TXT_ICOORD     I*4         Array of text coordinates.
+*.    TXT_JCOORD     I*4         Array of text coordinates.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  NONE
+*.
+*.  DEVIATION FROM STANDARDS:  NONE
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.        THIS MODULE IS COMPILED USING THE COMP09.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.        THIS MODULE IS LINKED USING THE LINK09.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+C
+$INCLUDE A308BUF.INC/G,**A308P3 (NEND NLIST)
+C
+C** ARGUMENTS PASSED IN THE SUBROUTINE CALL:
+      INTEGER GRIDLNG, CAT_NUM_STORMS, CAT_LNG, MAX_PAGES
+      INTEGER*2 CATBUF(*), GRIDBUF(*)
+C
+C** ASSORTED PARAMETERS & ARRAYS:
+C
+C**  STORMS-PER-PAGE,  I2S-PER-LINE-LENGTH
+C
+      INTEGER STMPPG, LINELNG, INCRMNT
+      PARAMETER (STMPPG=4, INCRMNT=1)
+      PARAMETER (LINELNG=36)
+      INTEGER NUM_PAGES,NPX,PKT_BYTES_LINE,TXTCOLOR
+      INTEGER HDR_ICOORD,HDR_JCOORD,TXT_ICOORD(STMPPG)
+      INTEGER TXT_JCOORD(STMPPG)
+      INTEGER SVPGLNGIX,STARTIX,ENDIX
+C
+      PARAMETER(HDR_ICOORD=0,HDR_JCOORD=1)
+      PARAMETER(TXTCOLOR=1)
+      PARAMETER(PKT_BYTES_LINE=78)
+C
+C** TABLE OF STORM DATA LINES IN INTEGER*2 FORMAT:
+C
+      INTEGER*2 INT_LINE(LINELNG,CAT_MXSTMS+INCRMNT)
+C
+C** NUMBER-CAT-PAGES, PAGE-#
+C
+      INTEGER INDX, I, J,JJ,JJJ,K,KK
+C
+C** LENGTH OF C_A_T BLOCK, STARTING INDEX OF BLOCK
+C
+      INTEGER BLKLNG
+C
+      INTEGER CLEAR,DIVIDER,BLOCKID,FIRST
+      INTEGER TXTCODE,ISTART,JSTART,STMLNG,NI2
+      INTEGER HDRLINE,BKHDRLNG,NUMLINES,HDRLNG1,HDRLNG2
+      PARAMETER (CLEAR=0,DIVIDER=-1,BLOCKID=2,FIRST=1,TXTCODE=8)
+      PARAMETER (ISTART=0,JSTART=4,STMLNG=2)
+      PARAMETER (HDRLINE=1,BKHDRLNG=5,NUMLINES=5)
+      PARAMETER (HDRLNG1=4,HDRLNG2=2,NI2=2)
+C
+C** INDEXES TO THE BLOCK OVERHEAD PARAMETERS
+C
+      INTEGER BLKLNG_MSW,BLKLNG_LSW,NPGIDX
+      PARAMETER(BLKLNG_MSW=3,BLKLNG_LSW=4,NPGIDX=5)
+C
+      INTEGER I2NULL,NULL_PG_LNG,NULL_PKT_LNG
+      PARAMETER(I2NULL=9,NULL_PG_LNG=28,NULL_PKT_LNG=24)
+      CHARACTER*24 CNULL
+      INTEGER*2 INULL(9)
+      EQUIVALENCE (CNULL,INULL(1))
+      DATA TXT_ICOORD/0,0,0,0/
+      DATA TXT_JCOORD/11,21,31,41/
+      DATA CNULL/'NO STORMS DETECTED'/
+C
+C** EXECUTABLE CODE :
+C   ---------------
+C
+C** INDX IS USED TO INDEX THE OUTPUT BUFFER FOR ALL THE PACKETS
+C
+      INDX=FIRST
+C
+C** STORE BLOCK OVERHEAD
+C
+      CATBUF(INDX)=DIVIDER
+      CATBUF(INDX+INCRMNT)=BLOCKID
+C
+C** CALCULATE THE NUMBER OF PAGES OF DATA
+C
+      NUM_PAGES=CAT_NUM_STORMS/STMPPG
+      NPX= MOD(CAT_NUM_STORMS,STMPPG)
+      IF(NPX.NE.0) NUM_PAGES=NUM_PAGES+INCRMNT
+C
+C** ONLY DO UP TO MAX_PAGES TO PREVENT OUTPUT BUFFER OVERFLOW.
+C
+      NUM_PAGES = MIN(NUM_PAGES, MAX_PAGES)
+C
+C** DETERMINE IF ANY STORMS AVAILABLE , IF NOT THEN OUTPUT A NULL
+C** MESSAGE
+C
+      IF(NUM_PAGES.EQ.CLEAR) THEN
+         CATBUF(NPGIDX) = FIRST
+         CATBUF(NPGIDX+1) = FIRST
+         CATBUF(NPGIDX+2) = NULL_PG_LNG
+C
+C** STORE TEXT PACKET OVERHEAD
+C
+         INDX = NPGIDX + 3
+         CATBUF(INDX ) = TXTCODE
+         INDX = INDX + INCRMNT
+         CATBUF(INDX) = NULL_PKT_LNG
+         INDX = INDX + INCRMNT
+         CATBUF(INDX) = TXTCOLOR
+         INDX = INDX + INCRMNT
+         CATBUF(INDX) = TXT_ICOORD(FIRST)
+         INDX = INDX + INCRMNT
+         CATBUF(INDX) = TXT_JCOORD(FIRST)
+C
+C** NOW MOVE THE CHARACTER DATA INTO BUFFER
+C
+         DO 500 I = 1,I2NULL
+            INDX = INDX + INCRMNT
+            CATBUF(INDX) = INULL(I)
+500      CONTINUE
+C
+C** INDX NOW AT THE LAST STORED HALF WORD
+C
+      ELSE
+         CATBUF(NPGIDX)=NUM_PAGES
+C
+C** UPDATE INDX TO POINT TO LAST SLOT STORED
+C
+         INDX=NPGIDX
+C
+C** DO FOR ALL PAGES
+C
+         DO 150 I=1,NUM_PAGES
+C
+C** STORE PAGE NUMBER
+C
+            INDX=INDX+INCRMNT
+            CATBUF(INDX)=I
+            INDX=INDX+INCRMNT
+C
+C** SAVE INDEX TO PAGE LENGTH FIELD
+C
+            SVPGLNGIX = INDX
+            INDX=INDX+INCRMNT
+C
+C** MOVE TITLE LINE INTO BUFFER FOR THIS PAGE
+C
+            CATBUF(INDX)=TXTCODE
+            INDX=INDX+INCRMNT
+            CATBUF(INDX)=PKT_BYTES_LINE
+            INDX=INDX+INCRMNT
+            CATBUF(INDX)=TXTCOLOR
+            INDX=INDX+1
+            CATBUF(INDX)=HDR_ICOORD
+            INDX=INDX+INCRMNT
+            CATBUF(INDX)=HDR_JCOORD
+            DO 200 J=1,LINELNG
+               CATBUF(INDX+J)=INT_LINE(J,HDRLINE)
+ 200        CONTINUE
+C
+C** UPDATE INDX
+C
+            INDX=INDX+LINELNG
+C
+C** MOVE STORM DATA LINE INTO BUFFER
+C
+            STARTIX=(I-1)*STMPPG+NI2
+            ENDIX= STARTIX+STMPPG-INCRMNT
+C
+            K=FIRST
+            DO 300 JJ=STARTIX,ENDIX
+C
+C** STORE PACKET OVERHEAD FIRST
+C
+               INDX=INDX+INCRMNT
+               CATBUF(INDX)=TXTCODE
+               INDX=INDX+INCRMNT
+               CATBUF(INDX)=PKT_BYTES_LINE
+               INDX=INDX+INCRMNT
+               CATBUF(INDX)=TXTCOLOR
+               INDX=INDX+1
+               CATBUF(INDX)=TXT_ICOORD(K)
+               INDX=INDX+INCRMNT
+               CATBUF(INDX)=TXT_JCOORD(K)
+               K=K+1
+C
+C** MOVE LINE DATA BEHIND PACKET OVERHEAD
+C
+               DO 400 JJJ=1,LINELNG
+                  CATBUF(INDX+JJJ)=INT_LINE(JJJ,JJ)
+400            CONTINUE
+               INDX=INDX+LINELNG
+300         CONTINUE
+C
+C** ADD GRID VECTORS TO END OF PAGE:
+C
+            DO 13 KK=1,GRIDLNG
+               CATBUF(INDX+KK) = GRIDBUF(KK)
+ 13         CONTINUE
+            INDX=INDX+GRIDLNG
+            CATBUF(SVPGLNGIX)=(INDX-SVPGLNGIX)*NI2
+150      CONTINUE
+      ENDIF
+C
+C** INCREMENT VALUES  BLOCK LENGTH
+C
+      BLKLNG = INDX*NI2
+C
+      CALL RPG_set_product_int( CATBUF(BLKLNG_MSW), BLKLNG )
+      CAT_LNG = BLKLNG
+C
+C** RETURN TO CALLER
+C
+      RETURN
+      END

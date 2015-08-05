@@ -1,0 +1,341 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/17 16:27:06 $
+C $Id: a317u8.ftn,v 1.2 2002/12/17 16:27:06 christie Exp $
+C $Revision: 1.2 $
+C $State: Exp $
+C
+      SUBROUTINE A317U8__COMP_P2DF_ATTR( P2D_FEAT, TRIMMED )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A317U8__COMP_P2DF_ATTR
+*.
+*.  MODULE VERSION: 0001
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       05/29/97      0000      MARK FRESCH          CCR NA95-21503
+*.       03/16/99      0001      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:  A317U8__COMP_P2DF_ATTR( P2D_FEAT, TRIMMED )
+*.
+*.  MODULE FUNCTION: Trims Pot. 2D Features pattern vectors and
+*.  computes the features attributes.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT       TYPE        DESCRIPTION
+*.    -   -----       ----        -----------
+*.    G   TDAMAIN     R*4         An array that holds pattern attributes.
+*.    G   ONE_RADIAN  R*4         (CONSTANT)PARAMETER VALUE FOR ONE RADIAN
+*.    G   PI_CONST    R*4         (CONSTANT)PARAMETER VALUE FOR PI
+*.    C   AVE_DELAZ   R*4         AVERAGE CHANGE IN THE DELTA AZIMUTH FOR ALL
+*.                                RADIALS IN AN ELEVATION SCAN
+*.    C   BINSIZ      R*4         Biased Doppler bin size
+*.    C   ELEVTABL    R*4         A TABLE OF ELEVATION ANGLES FOR EACH
+*.                                ELEVATION SCAN
+*.    C   LEV         I*4         THE ELEVATION SCAN NUMBER WITHIN A VOLUME
+*.                                SCAN
+*.    C   OFFSET      I*4         EQUAL TO TDABFPTR - OFFSET USED TO CORRECT
+*.                                PATTERN VECTOR POINTERS IN THE VECT_ATTR
+*.                                ARRAY FROM TWO SIDED TDAMAIN ARRAY
+*.    C   VECT_ATTR   R*4         CONTAINS THE VECTOR AZIMUTH DIFFERENCE AND
+*.                                ENDING AZIMUTH OF PATTERN VECTORS CORRELATED
+*.                                TO POTENTIAL 2D FEATURES
+*.    C   MAX_PV_RAD  I*4         (CONSTANT)MAXIMUM NUMBER OF PATTERN VECTORS
+*.                                PER RADIAL IN THE RAD_PV ARRAY
+*.    C   NUM_P2D_ATR I*4         (CONSTANT)NUMBER OF POTENTIAL 2D FEATURE
+*.                                ATTRIBUTES IN P2DFEAT AND OTHER ARRAYS
+*.    C   P2D_ARA     I*4         (CONSTANT)INDEX INTO P2DFEAT TO THE ASPECT
+*.                                RATIO (IN KM/KM) OF A POTENTIAL 2D FEATURE
+*.    C   P2D_AZM     I*4         (CONSTANT)INDEX INTO P2DFEAT TO THE AZIMUTH
+*.                                (IN DEGREES) TO THE MOMENTUM WEIGHTED CENTER
+*.                                OF A POTENTIAL 2D FEATURE
+*.    C   P2D_BRG     I*4         (CONSTANT)INDEX INTO P2DFEAT TO THE
+*.                                BEGINNING RANGE OF A POTENTIAL 2D FEATURE
+*.                                INITIALLY IN BINS CONVERTED TO KM IN A317U8
+*.    C   P2D_ERG     I*4         (CONSTANT)INDEX INTO P2DFEAT TO THE ENDING
+*.                                RANGE OF A POTENTIAL 2D FEATURE INITIALLY IN
+*.                                BINS CONVERTED TO KM IN A317U8
+*.    C   P2D_HGT     I*4         (CONSTANT)INDEX INTO P2DFEAT TO THE HEIGHT
+*.                                (IN KM ARL) TO THE MOMENTUM WEIGHTED CENTER
+*.                                OF A POTENTIAL 2D FEATURE
+*.    C   P2D_MDV     I*4         (CONSTANT)INDEX INTO P2DFEAT TO THE MAXIMUM
+*.                                DELTA VELOCITY (IN M/S) OF A POTENTIAL 2D
+*.                                FEATURE
+*.    C   P2D_NPV     I*4         (CONSTANT)INDEX INTO P2DFEAT TO THE # OF
+*.                                PATTERN VECTORS IN A POTENTIAL 2D FEATURE
+*.    C   P2D_RNG     I*4         (CONSTANT)INDEX INTO P2DFEAT TO THE RANGE
+*.                                (IN KM) TO THE MOMENTUM WEIGHTED CENTER OF A
+*.                                POTENTIAL 2D FEATURE
+*.    C   P2D_SHR     I*4         (CONSTANT)INDEX INTO P2DFEAT TO THE MAXIMUM
+*.                                SHEAR (IN 1/S) OF A POTENTIAL 2D FEATURE
+*.    C   P2D_XCN     I*4         (CONSTANT)INDEX INTO P2DFEAT TO THE
+*.                                X-COORDINATE (IN KM) OF A POTENTIAL 2D
+*.                                FEATURE IN KM
+*.    C   P2D_YCN     I*4         (CONSTANT)INDEX INTO P2DFEAT TO THE
+*.                                Y-COORDINATE (IN KM) OF A POTENTIAL 2D
+*.                                FEATURE IN KM
+*.    C   P2D_ZCR     I*4         (CONSTANT)INDEX INTO P2DFEAT TO THE ZERO
+*.                                CROSS FLAG OF A POTENTIAL 2D FEATURE
+*.    C   PV_BAZ      I*4         (CONSTANT)Index to Pattern vector beginning
+*.                                azimuth.
+*.    C   PV_BIN      I*4         (CONSTANT)Index in TDAMAIN to pattern vector
+*.                                bin numbers
+*.    C   PV_DV       I*4         (CONSTANT)Index to Pattern vector delta
+*.                                velocity
+*.    C   TWOPI_DEG   R*4         (CONSTANT)TWO TIMES PI = 360 DEGREES
+*.    C   VAD         I*4         (CONSTANT)INDEX TO THE VECTOR AZIMUTH
+*.                                DIFFERENCE IN THE VECT_ATTR ARRAY
+*.    P   P2D_FEAT    R*4         An array of attributes for a potential 2D
+*.                                feature
+*.    P   TRIMMED     I*4         An array of pointers of the saved pattern
+*.                                vectors
+*.
+*.    *   OUTPUT   TYPE        DESCRIPTION
+*.    -   ------   ----        -----------
+*.    P   P2D_FEAT R*4         An array of attributes for a potential 2D
+*.                             feature
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME         TYPE        DESCRIPTION
+*.    ----         ----        -----------
+*.    BIN_OFST     R*4         Bin offset
+*.    CENTROID_AZ  R*4         Centroid's azimuth
+*.    MOMENTUM     R*4         The Pattern Vector Momentum
+*.    P2D_ADI      I*4         INDEX INTO P2DFEAT TO THE AZIMUTHAL DIAMETER
+*.                             (IN KM) OF A POTENTIAL 2D FEATURE
+*.    P2D_ELV      I*4         INDEX INTO P2DFEAT TO THE AVERAGE ELEVATION
+*.                             ANGLE (IN DEGREES) OF THE ELEVATION SCAN OF A
+*.                             POTENTIAL 2D FEATURE
+*.    P2D_RDI      I*4         INDEX INTO P2DFEAT TO THE RADIAL DIAMETER (IN
+*.                             KM) OF A POTENTIAL 2D FEATURE
+*.    PV           I*4         Do loop variable for pattern vector
+*.    PVI          I*4         The pattern vector pointer into TDAMAIN
+*.    RZERO        R*4         Parameter value for real zero used for
+*.                             initialization.
+*.    SUM_DEL_AZ   R*4         The Potential 2D Feature Sum Delta Azimuths
+*.    SUM_MID_AZ   R*4         The Potential 2D Feature Sum Middle Azimuths
+*.    SUM_MOMENTUM R*4         The Potential 2D Feature Sum Momentum
+*.    SUM_RANGES   R*4         The Potential 2D Feature Sum Ranges
+*.    TWOIRRE      R*4         THE INVERSE OF TWO TIMES THE REFRACTIVE INDEX
+*.                             TIMES THE EARTH'S RADIUS
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    PVECS09
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A317TDNE
+*.    A317TVA
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     Compiled using COMP17.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     Linked using LINK17.CSS
+*.
+*.  MISC:  None
+*.
+C********************************************************************
+C
+C                    TDA 2D PROCESSING:
+C              2D FEATURE CONTROL & RANGE RANKING ROUTINE
+C
+C********************************************************************
+C
+      IMPLICIT NONE
+C
+$INCLUDE A317BUF.INC/G, **A317P3T (NLIST)
+C
+$INCLUDE A309.INC/G, **A3PM50 (NLIST)
+$INCLUDE             **A3CD09BL (NLIST)
+C
+$INCLUDE A317.INC/G, **A317TDNE (NLIST)
+$INCLUDE             **A317TCP  (NLIST)
+$INCLUDE             **A317TVA  (NLIST)
+$INCLUDE             **A317P2DP (NLIST)
+C
+C** Passed arguements
+C
+      INTEGER TRIMMED(MAX_PV_RAD)
+      REAL P2D_FEAT(NUM_P2D_ATR)
+C
+C** Other Declarations
+C
+      REAL MOMENTUM, SUM_MOMENTUM, SUM_RANGES, SUM_MID_AZ
+      REAL SUM_DEL_AZ, CENTROID_AZ, BIN_OFST
+      REAL RZERO
+      PARAMETER (RZERO = 0.)
+      INTEGER PV, PVI
+C
+C** Executable code
+C
+C** Initialize the summations
+C
+      SUM_MOMENTUM = RZERO
+      SUM_RANGES = RZERO
+      SUM_MID_AZ = RZERO
+      SUM_DEL_AZ = RZERO
+C
+      BIN_OFST = BINSIZ/2.
+C
+C** Do for all pattern vector in the trimmed Pot. 2D Feature
+C
+C
+      DO 100 PV = 1, INT(P2D_FEAT(P2D_NPV))
+C
+C** For efficiency get the pattern vector pointer into
+C** TDAMAIN from the TRIMMED array.
+C
+        PVI = TRIMMED(PV)
+C
+C** Use the first pattern vector to initialize the max and min
+C** attributes of the feature
+C
+        IF (PV .EQ. 1) THEN
+          P2D_FEAT(P2D_MDV) = TDAMAIN(PV_DV, PVI)
+        ELSE
+C
+C** Compute the Maximum Potential 2D Feature Delta Velocity
+C
+          IF (TDAMAIN( PV_DV, PVI ) .GT. P2D_FEAT(P2D_MDV)) THEN
+            P2D_FEAT(P2D_MDV) = TDAMAIN(PV_DV, PVI)
+          END IF
+        END IF
+C
+C** Compute the Pattern Vector Momentum
+C
+        MOMENTUM = (ABS(VECT_ATTR(VAD,PVI-OFFSET) *
+     >     TDAMAIN(PV_DV, PVI)))
+C
+C** Compute the Potential 2D Feature Sum Momentum
+C
+        SUM_MOMENTUM = SUM_MOMENTUM + MOMENTUM
+C
+C** Compute the Potential 2D Feature Sum Ranges
+C
+        SUM_RANGES = SUM_RANGES + (((TDAMAIN(PV_BIN, PVI) *
+     >   BINSIZ) - BIN_OFST) * MOMENTUM)
+C
+C** Compute the Centroid Azimuth - There's no need to check if
+C** the Pattern Vector Azimuth Difference is greater than 180
+C** degrees.  It's already been done in A317S8.  Plus, assuming
+C** the beginning azimuth is always more counter-clockwise, there's
+C** no need to take the MIN of the beginning & ending azimuths
+C** (as in the AEL).
+C
+        CENTROID_AZ = VECT_ATTR(VAD,PVI-OFFSET)/2 +
+     >                TDAMAIN(PV_BAZ, PVI)
+C
+C  If the P2D Feature crosses 0, then add 360 degrees to the
+C  CENTROID_AZs that are just east of 360 deg. so that the
+C  SUM_MID_AZ has a consistent frame of reference.
+C
+        IF ((CENTROID_AZ .LT. TWOPI_DEG/2) .AND.
+     >    (P2D_FEAT(P2D_ZCR) .EQ. 1)) THEN
+          CENTROID_AZ = CENTROID_AZ + TWOPI_DEG
+        END IF
+C
+C** Compute the Potential 2D Feature Sum Middle Azimuths
+C
+        SUM_MID_AZ = SUM_MID_AZ + (CENTROID_AZ * MOMENTUM)
+C
+C** Compute the Potential 2D Feature Sum Delta Azimuths
+C
+        SUM_DEL_AZ = SUM_DEL_AZ + (VECT_ATTR(VAD,PVI-OFFSET) *
+     >                         MOMENTUM)
+C
+100   CONTINUE
+C
+C** Convert the Beginning & Ending Ranges from bins to km
+C
+      P2D_FEAT(P2D_BRG) = (P2D_FEAT(P2D_BRG) * BINSIZ) - BIN_OFST
+      P2D_FEAT(P2D_ERG) = (P2D_FEAT(P2D_ERG) * BINSIZ) - BIN_OFST
+C
+C** Compute the Potential 2D Feature Radial Diameter
+C
+      P2D_FEAT(P2D_RDI) = ABS(P2D_FEAT(P2D_ERG) -
+     >          P2D_FEAT(P2D_BRG))
+C
+C** Compute the Potential 2D Feature Azimuth
+C
+      P2D_FEAT(P2D_AZM) = SUM_MID_AZ/SUM_MOMENTUM
+C
+      IF (P2D_FEAT(P2D_AZM) .GE. TWOPI_DEG) THEN
+        P2D_FEAT(P2D_AZM) = P2D_FEAT(P2D_AZM) - TWOPI_DEG
+      END IF
+C
+C** Compute the Potential 2D Feature Range
+C
+      P2D_FEAT(P2D_RNG) = SUM_RANGES/SUM_MOMENTUM
+C
+C** Compute the Maximum Potential 2D Feature Shear
+C** from the Maximum Delta Velocity
+C
+C===>  NOTE THAT DELTA VELOCITY HAS UNITS OF M/S WHILE RANGE
+C      HAS UNITS OF KM RESULTING IN A SHEAR SCALED BY 1000
+C
+C
+      P2D_FEAT(P2D_SHR) = P2D_FEAT(P2D_MDV) / (P2D_FEAT(P2D_RNG) *
+     >         2. * SIN(AVE_DELAZ * ONE_RADIAN / 2.))
+C
+C** Compute the Potential 2D Feature X-coordinate
+C
+      P2D_FEAT(P2D_XCN) = P2D_FEAT(P2D_RNG) *
+     >                    SIN(P2D_FEAT(P2D_AZM) * ONE_RADIAN)
+C
+C** Compute the Potential 2D Feature Y-coordinate
+C
+      P2D_FEAT(P2D_YCN) = P2D_FEAT(P2D_RNG) *
+     >                    COS(P2D_FEAT(P2D_AZM) * ONE_RADIAN)
+C
+C** Set the Potential 2D Feature Average Elevation Angle to the
+C** average elevation angle of the elevation scan.  This is done
+C** versus computing a different angle for each Potential 2D
+C** Feature from their pattern vectors.
+C
+      P2D_FEAT(P2D_ELV) = ELEVTABL(LEV)
+C
+C** Compute the Potential 2D Feature Height
+C
+      P2D_FEAT(P2D_HGT) = (P2D_FEAT(P2D_RNG) *
+     >   SIN(P2D_FEAT(P2D_ELV) * ONE_RADIAN)) +
+     >   (P2D_FEAT(P2D_RNG) *
+     >   P2D_FEAT(P2D_RNG) * TWOIRRE)
+C
+C** Compute the Potential 2D Feature Azimuthal Diameter
+C
+      P2D_FEAT(P2D_ADI) = (SUM_DEL_AZ * P2D_FEAT(P2D_RNG) *
+     >   3 * PI_CONST * PI_CONST)/(8 * 180 * SUM_MOMENTUM)
+C
+C** Compute the Potential 2D Feature Aspect Ratio
+C
+      P2D_FEAT(P2D_ARA) = P2D_FEAT(P2D_RDI)/P2D_FEAT(P2D_ADI)
+C
+      RETURN
+      END

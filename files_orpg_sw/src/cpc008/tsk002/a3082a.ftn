@@ -1,0 +1,205 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/05 16:05:56 $
+C $Id: a3082a.ftn,v 1.3 2002/12/05 16:05:56 christie Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A3082A__COMPACT_RCM(REPS,RUN_VIP,IROW,ICOL,NBYTES,
+     $   RCMBUF)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3082A__COMPACT_RCM
+*.
+*.  MODULE VERSION: 0011
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       04 22 88      0000      VALERIE HOLDEN       SPR # 80002
+*.       12 14 88      0001      VALERIE HOLDEN       SPR # 80548
+*.       01 29 91      0002      VALERIE HOLDEN       SPR # 91249
+*.       12 03 91      0003      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0004      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/20/92      0005      Toolset              SPR 91895
+*.       03/25/93      0006      Toolset              SPR NA93-06801
+*.       01/28/94      0007      Toolset              SPR NA94-01101
+*.       03/03/94      0008      Toolset              SPR NA94-05501
+*.       04/11/96      0009      Toolset              CCR NA95-11802
+*.       12/23/96      0010      Toolset              CCR NA95-11807
+*.       03/16/99      0011      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A3082A__COMPACT_RCM (REPS,RUN_VIP,IROW,
+*.                    ICOL,NBYTES,RCMBUF)
+*.
+*.  MODULE FUNCTION: COMPACTS CONSECUTIVE VIP NUMBERS
+*.
+*.  MODULES CALLED: A30826__BLANK_PAD, A3082P__COMPACT_AGAIN 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT     TYPE        DESCRIPTION
+*.    -   -----     ----        -----------
+*.    C   COUNT_INT I*4         Total number of reflectivity intensities
+*.                              reported in Part A, with a range of 0 to 16.
+*.    C   NACOLS    I*4         (CONSTANT)Number of columns available for
+*.                              Radar Coded Message product.
+*.    P   ICOL      I*4         Column Number
+*.    P   IROW      I*4         Row Number
+*.    P   NBYTES    I*4         NUMBER OF BYTES.
+*.    P   RCMBUF    CHAR*1      :RADAR-CODED-MESSAGE BUFFER
+*.    P   REPS      I*4         NUMBER OF REPETITIONS
+*.    P   RUN_VIP   I*4         RUN VALUE INDEX
+*.
+*.    *   OUTPUT    TYPE        DESCRIPTION
+*.    -   ------    ----        -----------
+*.    C   COUNT_INT I*4         Total number of reflectivity intensities
+*.                              reported in Part A, with a range of 0 to 16.
+*.    P   ICOL      I*4         Column Number
+*.    P   IROW      I*4         Row Number
+*.    P   NBYTES    I*4         NUMBER OF BYTES.
+*.    P   RCMBUF    CHAR*1      :RADAR-CODED-MESSAGE BUFFER
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    P   ICOL              I*4         Column Number
+*.    P   IROW              I*4         Row Number
+*.    P   NBYTES            I*4         NUMBER OF BYTES.
+*.    P   RCMBUF            CHAR*1      :RADAR-CODED-MESSAGE BUFFER
+*.    P   RUN_VIP           I*4         RUN VALUE INDEX
+*.
+*.  DATABASE/FILE REFERENCE: NONE
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME       TYPE        DESCRIPTION
+*.    ----       ----        -----------
+*.    COLCHK     I*4         VARIABLE TO CHECK COLUMN POSITION
+*.    INC1       I*4         Incremental value of 1.
+*.    INC2       I*4         Incremental value of 2.
+*.    INIT1      I*4         INITIALIZED VALUE OF 1
+*.    LETTER     CHAR*1      TABLE OF LETTER VALUES
+*.    MAX_LETTER I*4         LETTER LIMIT
+*.    NUM        I*4         NUMBER OF COMPACTION GROUPS
+*.    NUM2       I*4         Program parameter for 2.
+*.    NUM3       I*4         Program parameter for 3.
+*.    NUM4       I*4         Program parameter for 4.
+*.    NUM5       I*4         Program parameter for 5.
+*.    NUM6       I*4         Program parameter for 6.
+*.    NUM7       I*4         Program parameter for 7.
+*.    NUM8       I*4         Program parameter for 8.
+*.    REM        I*4         REMAINDER FROM MOD
+*.    REP27      I*4         NUMBER OF REPETITIONS = 27
+*.    REP28      I*4         NUMBER OF REPETITIONS = 28
+*.    REP29      I*4         NUMBER OF REPETITIONS = 29
+*.    REP54      I*4         NUMBER OF REPETITIONS = 54
+*.    REP55      I*4         NUMBER OF REPETITIONS = 55
+*.    REP56      I*4         NUMBER OF REPETITIONS = 56
+*.    REP81      I*4         NUMBER OF REPETITIONS = 81
+*.    REP82      I*4         NUMBER OF REPETITIONS = 82
+*.    REP83      I*4         NUMBER OF REPETITIONS = 83
+*.    REPSA      I*4         ADJUSTED NUMBER OF REPETITIONS
+*.    VIP        CHAR*1      VIP LEVELS 0-9
+*.    ZERO       I*4         Program parameter for zero.
+*.    ZERO_CHAR  CHAR*1      CHARACTER FOR ZERO
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A308P2
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS: NONE
+*.
+*.  DEVIATION FROM STANDARDS: NONE
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     THIS MODULE IS COMPILED USING COMP08.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     THIS MODULE IS LINKED USING LINK08.CSS
+*.
+*.  MISC: NONE
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+C*
+$INCLUDE A308.INC,**A308P2 (NEND NLIST)
+C*
+      INTEGER*4    REPS,RUN_VIP,IROW,ICOL,NBYTES,REPSA,NUM,REM
+      INTEGER*4    MAX_LETTER,COLCHK
+      INTEGER*4    NUM2,NUM3,NUM4,NUM5,NUM6,NUM7,NUM8,NUM9
+      INTEGER*4    REP27,REP28,REP29,REP54,REP55,REP56,REP81
+      INTEGER*4    REP82,REP83,INC1,INC2,INIT1,ZERO
+      CHARACTER*1  RCMBUF(*),LETTER(26),VIP(0:8),ZERO_CHAR
+      PARAMETER    (MAX_LETTER=26,INC1=1,INC2=2,INIT1=1,ZERO=0)
+      PARAMETER    (REP27=27,REP28=28,REP29=29,REP54=54,REP55=55)
+      PARAMETER    (REP56=56,REP81=81,REP82=82,REP83=83)
+      PARAMETER    (NUM2=2,NUM3=3,NUM4=4,NUM5=5,NUM6=6,NUM7=7)
+      PARAMETER    (NUM8=8,NUM9=9)
+      DATA         LETTER/'A','B','C','D','E','F','G','H','I','J',
+     $                    'K','L','M','N','O','P','Q','R','S','T',
+     $                    'U','V','W','X','Y','Z'/
+      DATA         VIP/'0','1','2','3','4','5','6','7','8'/
+      DATA         ZERO_CHAR/'0'/
+C*
+C*    INITIALIZE COLUMN CHECK TO ONE, INCREMENT VALUE BASED ON
+C*       NUMBER OF REPETITIONS
+      COLCHK = INIT1
+      IF (REPS.EQ.REP28) COLCHK = COLCHK + INC1
+      IF (REPS.GE.REP29) COLCHK = COLCHK + INC2
+      IF (REPS.EQ.REP55) COLCHK = COLCHK + INC1
+      IF (REPS.GE.REP56) COLCHK = COLCHK + INC2
+      IF (REPS.EQ.REP82) COLCHK = COLCHK + INC1
+      IF (REPS.GE.REP83) COLCHK = COLCHK + INC2
+C*
+C*    NOT ENOUGH ROOM ON THIS ROW TO PUT VIP AND COMPACTION LETTER
+      IF (ICOL + COLCHK.GT.NACOLS) THEN
+         CALL A30826__BLANK_PAD(IROW,ICOL,NBYTES,RCMBUF)
+         IROW = IROW + INC1
+         ICOL = INIT1
+      ENDIF
+C*
+C*    CALCULATE NUMBER OF COMPACTION GROUPS AND REMAINDER FROM MOD
+      REPSA = REPS - INC1
+      NUM = REPSA / (MAX_LETTER+INC1)
+      REM = MOD(REPSA,MAX_LETTER+INC1)
+C*
+C*    IF ONE COMPACTION GROUP, STORE VIP AND COMPACTION LETTER
+      IF (NUM.EQ.ZERO) THEN
+         RCMBUF(NBYTES+INC1) = VIP(RUN_VIP)
+         RCMBUF(NBYTES+INC2) = LETTER(REPSA)
+         NBYTES = NBYTES + INC2
+      ENDIF
+C*
+C*    CHECK IF MORE COMPACTION IS NECESSARY
+      IF (NUM.GE.INIT1) CALL A3082P__COMPACT_AGAIN(RUN_VIP,NBYTES,
+     $   NUM,REM,RCMBUF)
+C*
+C*    INCREMENT TOTAL NUMBER OF INTENSITIES (DON'T INCLUDE EMBEDDED
+C*       ZEROS IN INTENSITY COUNT)
+      IF (VIP(RUN_VIP).NE.ZERO_CHAR) THEN
+         COUNT_INT = COUNT_INT + REPS
+      ENDIF
+C*
+C*    ADJUST COLUMN POSITIONS
+      IF (REPS.LE.REP27) ICOL = ICOL + NUM2
+      IF (REPS.EQ.REP28) ICOL = ICOL + NUM3
+      IF (REPS.GE.REP29.AND.REPS.LE.REP54) ICOL = ICOL + NUM4
+      IF (REPS.EQ.REP55) ICOL = ICOL + NUM5
+      IF (REPS.GE.REP56.AND.REPS.LE.REP81) ICOL = ICOL + NUM6
+      IF (REPS.EQ.REP82) ICOL = ICOL + NUM7
+      IF (REPS.GE.REP83) ICOL = ICOL + NUM8
+      RETURN
+      END

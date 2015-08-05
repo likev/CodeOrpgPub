@@ -1,0 +1,193 @@
+C 
+C RCS info 
+C $Author: nolitam $ 
+C $Locker:  $ 
+C $Date: 2002/12/11 20:00:25 $ 
+C $Id: a3148e.ftn,v 1.2 2002/12/11 20:00:25 nolitam Exp $ 
+C $Revision: 1.2 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A3148E__MEDIAN_FILTERING( MFFLAG, CRDIST,
+     1                   SLDIST, PTSGOOD, POLGRID )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3148E__MEDIAN_FILTERING
+*.
+*.  MODULE VERSION: 0002
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.     DATE      VERSION  PROGRAMMER        NOTES
+*.     --------  -------  ----------------  -------------------------
+*.     02/25/97   0000    Steve Smith       CCR NA96-17903
+*.       03/16/99      0001      Toolset              CCR NA98-23803
+*.     05/17/99   0002    Mike Istok        CCR NA96-17803
+*.
+*.  CALLING SEQUENCE: A3148E__MEDIAN_FILTERING( MFFLAG, CRDIST,
+*.                            SLDIST, PTSGOOD, POLGRID )
+*.
+*.  MODULE FUNCTION: ACQUIRES SCRATCH BUUFER TO SUPPORT MEDIAN FILTERING
+*.                   OF THE LAYER COMPOSITE REFLECTIVITY POLAR GRID.
+*.                   CALLS MODULE TO PERFORM THE MEDIAN FILTERING.
+*.
+*.  MODULES CALLED: A31215__GET_OUTBUF, A31216__REL_OUTBUF, 
+*.                  A3148A__PERFORM_MEDIAN_FILTERING 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT             TYPE        DESCRIPTION
+*.    -   -----             ----        -----------
+*.    G   MEM               I*4         Array in RPG shared memory set aside
+*.                                      for buffer sharing.
+*.    G   DESTROY           I*4         (CONSTANT)Mnemonic used as input to
+*.                                      A31216__REL_OUTBUF. Indicates "do not
+*.                                      pass data to other tasks".
+*.    G   NORMAL            I*4         (CONSTANT)Parameter which indicates
+*.                                      normal completion of requested
+*.                                      operation to acquire input or output
+*.                                      buffer
+*.    G   SCRATCH           I*4         (CONSTANT)DATA BUFFER TYPE FOR TASK
+*.                                      SCRATCH DATA BUFFERS
+*.    C   ADIFMEDIAN_L      L*4         Local copy of ADIFMEDIAN (Flag
+*.                                      indicating whether median filtering is
+*.                                      to be performed)
+*.    C   MAX_PRODUCT_RANGE I*4         (CONSTANT)Maximum reflectivity bin
+*.                                      number to use for layer composite
+*.                                      reflectivity - AP removed polar grid
+*.                                      generation.
+*.    C   MAX_RADS          I*4         Number of radials in layer composite
+*.                                      reflectivity - AP removed polar grid.
+*.    P   CRDIST            I*4         Cross-range distance
+*.    P   MFFLAG            L*4         Flag indicating whether median
+*.                                      filtering is to be performed.
+*.    P   POLGRID           I*2         Polar grid portion of polar grid
+*.                                      buffer.
+*.    P   PTSGOOD           I*4         Ma Median Filter Percent Good in the
+*.                                      output buffer
+*.    P   SLDIST            I*4         MA Maximum Range Bin Difference
+*.
+*.    *   OUTPUT        TYPE        DESCRIPTION
+*.    -   ------        ----        -----------
+*.    G   MEM           I*4         Array in RPG shared memory set aside for
+*.                                  buffer sharing.
+*.    C   ADCRMEDIAN_L  I*4         Local copy of ADCRMEDIAN (Cross-range
+*.                                  distance threshold used for median filter
+*.                                  window)
+*.    C   ADIFMEDIAN_L  L*4         Local copy of ADIFMEDIAN (Flag indicating
+*.                                  whether median filtering is to be
+*.                                  performed)
+*.    C   ADPGDMEDIAN_L R*4         Local copy of ADPGDMEDIAN (Ma Median
+*.                                  Filter Percent Good)
+*.    C   ADRNGMEDIAN_L I*4         Local copy of ADRNGMEDIAN (:MA Maximum
+*.                                  Range Bin Difference)
+*.    P   POLGRID       I*2         Polar grid portion of polar grid buffer.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    G   MEM               I*4         Array in RPG shared memory set aside
+*.                                      for buffer sharing.
+*.    P   POLGRID           I*2         Polar grid portion of polar grid
+*.                                      buffer.
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME       TYPE        DESCRIPTION
+*.    ----       ----        -----------
+*.    OPSTAT     I*4         Returned status from A31215 to get output buffer
+*.    PTSGOOD_I  I*4         The integer equivalent of PTSGOOD_R
+*.    PTSGOOD_R  R*4         The real value of Ma Median Filter Percent Good
+*.                           (Equivalenced to PTSGOOD_I)
+*.    SCR_BUFPTR I*4         Scratch buffer pointer
+*.    SCR_BUFSIZ I*4         Buffer size of the scratch buffer
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD00
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3148C1
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK14.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+      IMPLICIT NONE
+C
+$INCLUDE A309.INC/G,**A3PM00      (NLIST)
+$INCLUDE A309.INC/G,**A3PM07      (NLIST)
+$INCLUDE            **A3CD00      (NLIST)
+$INCLUDE A314BUF.INC,  **A3148P3      (NLIST)
+$INCLUDE A314BUF.INC,  **A3148C1      (NLIST)
+C
+C*** PASSED ARGUMENTS:
+C
+      INTEGER*2 POLGRID( MAX_PRODUCT_RANGE, MAX_RADS )
+      INTEGER*4 CRDIST, SLDIST, PTSGOOD, PTSGOOD_I
+      LOGICAL   MFFLAG
+      REAL      PTSGOOD_R
+      EQUIVALENCE (PTSGOOD_I, PTSGOOD_R)
+C
+C*** LOCAL DECLARATIONS:
+C
+      INTEGER SCR_BUFPTR, SCR_BUFSIZ
+      PARAMETER (SCR_BUFSIZ=82802)
+      INTEGER OPSTAT
+C
+C*** EXECUTABLE CODE:
+C-------------------
+C
+C*** TRANSFER ADAPTATION DATA FROM OUTPUT BUFFER TO LOCAL COMMON
+C
+      ADIFMEDIAN_L = MFFLAG
+      ADCRMEDIAN_L = CRDIST
+      ADRNGMEDIAN_L = SLDIST
+      PTSGOOD_I = PTSGOOD
+      ADPGDMEDIAN_L = PTSGOOD_R
+C
+C*** CHECK IF MEDIAN FILTERING IS TO BE PERFORMED.  IF NOT, RETURN.
+C
+      IF( .NOT. ADIFMEDIAN_L ) RETURN
+C
+C*** REQUEST A SCRATCH BUFFER.
+C
+      CALL A31215__GET_OUTBUF(SCRATCH,SCR_BUFSIZ,SCR_BUFPTR,OPSTAT)
+C
+C*** PROCESS FURTHER ONLY IF OUTPUT-BUFFER RETRIEVED SUCCESSFULLY.
+C
+      IF (OPSTAT .EQ. NORMAL) THEN
+C
+C*** PERFORM THE MEDIAN FILTERING.
+C
+         CALL A3148A__PERFORM_MEDIAN_FILTERING( MEM(SCR_BUFPTR),
+     >                                          POLGRID )
+C
+C*** RELEASE THE SCRATCH BUFFER.
+C
+         CALL A31216__REL_OUTBUF( SCR_BUFPTR, DESTROY )
+
+      ENDIF
+C
+C*** RETURN TO CALLING ROUTINE.
+C
+      RETURN
+      END

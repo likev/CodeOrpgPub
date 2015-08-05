@@ -1,0 +1,132 @@
+C 
+C RCS info 
+C $Author: ryans $ 
+C $Locker:  $ 
+C $Date: 2005/02/23 22:36:28 $ 
+C $Id: a3cm33.ftn,v 1.5 2005/02/23 22:36:28 ryans Exp $ 
+C $Revision: 1.5 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A3CM33__STM_ADAPT(RBUF,IBUF,OBUF,IDX,EIDX,
+     >                     FILKERSZ, FRACTREQ, FILTERON)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3CM33__STM_ADAPT
+*.
+*.  MODULE VERSION: 0013
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       03 24 86      0000      DENNIS MILLER
+*.       10 02 86      0001      J GROMMONS           SPR # 60346
+*.       05 17 89      0002      DAVID M. LYNCH       SPR # 90201
+*.       10 03 90      0003      TOM LYNCH            SPR # 90775
+*.       11 08 90      0004      JOE WHEELER          SPR # 91250
+*.       04 12 91      0004      DENNIS MILLER        SPR # 90956
+*.       12 03 91      0005      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0006      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0007      Toolset              SPR 91895
+*.       03/25/93      0008      Toolset              SPR NA93-06801
+*.       03/03/94      0009      Toolset              SPR NA94-05501
+*.       04/05/94      0010      Steve Smith          CCR NW-94-007-10
+*.       04/25/95      0011      STEVE SMITH          CCR NA94-26302
+*.       12/23/96      0012      Toolset              CCR NA95-11807
+*.       03/16/99      0013      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:
+*.
+*.     CALL A3CM33__STM_ADAPT(RBUF,IBUF,OBUF,IDX,EIDX)
+*.
+*.  MODULE FUNCTION:
+*.
+*.  MODULES CALLED: A3CM3A__SEG_ADAPT, A3CM3B__COMP_ADAPT, A3CM3C__PAF_ADAPT 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT  TYPE        DESCRIPTION
+*.    -   -----  ----        -----------
+*.    P   EIDX   I*4         POINTER TO LAST WORD IN OUTPUT
+*.    P   IBUF   I*4         INPUT BUFFER AS INTEGER
+*.    P   IDX    I*4         BEGINNING OF OUTPUT BUFFER POINTER
+*.    P   OBUF   I*2         Output buffer.
+*.    P   RBUF   R*4         Input buffer as REAL.
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    P   EIDX    I*4         POINTER TO LAST WORD IN OUTPUT
+*.    P   OBUF    I*2         Output buffer.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    P   EIDX              I*4         POINTER TO LAST WORD IN OUTPUT
+*.    P   IBUF              I*4         INPUT BUFFER AS INTEGER
+*.    P   OBUF              I*2         Output buffer.
+*.    P   RBUF              R*4         Input buffer as REAL.
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME  TYPE        DESCRIPTION
+*.    ----  ----        -----------
+*.    BIDX  I*4         The index in the output buffer where the adaptation
+*.                      data block begins.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.        THIS MODULE IS COMPILED USING THE COMP09.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.        THIS MODULE IS LINKED USING THE LINK09.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+C
+C******************************************************************
+C
+      REAL RBUF(*)
+      INTEGER*4 IBUF(*), IDX, EIDX
+      INTEGER*2 OBUF(*)
+      REAL FILKERSZ, FRACTREQ
+      INTEGER*4 FILTERON
+C
+      INTEGER*4 BIDX
+C
+C** FORMAT SEGMENTS ADAPTATION DATA PAGE
+C
+      BIDX = IDX
+      CALL A3CM3A__SEG_ADAPT(RBUF,IBUF,OBUF,BIDX,EIDX)
+C
+C** FORMAT CENTROIDS ADAPTATION DATA PAGE
+C
+      BIDX = EIDX + 1
+      CALL A3CM3B__COMP_ADAPT(RBUF,IBUF,OBUF,BIDX,EIDX)
+C
+C** FORMAT POSTION AND FORECAST ADAPTATION DATA PAGE
+C
+      BIDX = EIDX + 1
+      CALL A3CM3C__PAF_ADAPT(RBUF,IBUF,OBUF,BIDX,EIDX,
+     >                    FILKERSZ,FRACTREQ, FILTERON)
+C
+C** RETURN TO CALLER ROUTINE
+C
+      RETURN
+      END

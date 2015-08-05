@@ -1,0 +1,308 @@
+orpgadpt(3)		ORPG Adaptation Support					orpgadpt(3)
+
+
+    	OC_BOOL ORPGADPT_get_data(const char* name, void* data, int data_len);
+    	
+	OC_BOOL ORPGADPT_set_data(const char* name, void* data, int data_len, const char* class_name)
+
+	int ORPGADPT_get_data_length(const char* name);
+
+	OC_BOOL ORPGADPT_set_data(const char* name, void* data, int data_len, const char* class_name);
+
+	propobj_t ORPGADPT_get_propobj(const char* name);
+
+	int ORPGADPT_get_msg_id(const char* name);
+
+	int ORPGADPT_lock(int lock_command, const char* name);
+
+	OC_BOOL ORPGADPT_set_propobj(const char* name, propobj_t prop_obj);
+
+	OC_BOOL ORPGADPT_on_change(const char* name, 
+		orpgadpt_chg_func_ptr_t change_callback, void* user_data);
+		
+	OC_BOOL ORPGADPT_restore_baseline(const char* name, OC_BOOL replace_message)
+
+	OC_BOOL ORPGADPT_update_baseline(const char* name, OC_BOOL replace_message)		
+
+	char* ORPGADPT_get_archive_name(const char* dir, const char* date, const char* time, const char* site_name)
+
+	OC_BOOL ORPGADPT_save(const char* destination_dir, const char* site_name, char* orpg_name, char** archive_name)
+
+	int ORPGADPT_restore(const char* dir, const char* date, const char* time, const char* site_name,
+			char* orpg_name, char** archive_name)
+
+	int ORPGADPT_install(const char* dir, const char* date, const char* time, const char* site_name,
+			char* orpg_name, char** archive_name)
+
+	THIS FUNCTION IS OBSOLETE - All ORPG adaptation is stored in a central repository
+	It is only provided for backward compatibility
+	OC_BOOL ORPGADPT_select_data_store(int data_store_id);
+
+	OC_BOOL ORPGADPT_log_last_error(int le_code, int flogs);
+
+	OC_BOOL ORPGADPT_last_error_text(char* error_buf, int error_buf_len, int flags);
+
+	OC_BOOL ORPGADPT_error_occurred();
+
+        OC_BOOL ORPGADPT_clear_error();
+
+	OC_BOOL ORPGADPT_refresh_legacy(int verbose_level);
+
+
+     The ORPGADPT module allows the user to access raw ORPG adaptation data
+     or ORPG property objects by name.
+
+     ORPGADPT_get_data gets the raw data for the specified message name in
+     the adaptation store.  The "data" parameter is the address of the data
+     buffer that will contain the adaptation data.  The "data_len" parameter
+     specifies the length of the data parameter.  It returns TRUE if the
+     message exists and FALSE otherwise.  If the specified message can not
+     be retrieved for some exceptional condition, the last error text
+     information will be set appropriately.  If the message can't be found
+     because it simply does not exist, last error information will not be set.
+
+     ORPGADPT_get_data_length gets the length of the adaptation data
+     message stored in the ORPG adaptation data store.
+     If successful the length of the specified message will be returned.
+     On failure, -1 will be returned.  Last error information will not be
+     set for a simple message not found condition.  It will only be set if
+     a message can not be found because of some exceptional condition.
+
+     ORPGADPT_set_data sets the data of the specified message.  name is the
+     name of the message.  data is the message contents.  data_len is the
+     length of data in bytes.  class_name is the object class of the data,
+     and is only required if a new data message is being added to the named
+     message store.  For messages that already exist, class_name can be
+     NULL.  This function returns TRUE if successful, and FALSE otherwise.
+     Error text can be retrieved or logged using the last_error functions.
+
+     ORPGADPT_get_propobj retrieves a property object by name from the
+     adaptation data store.  It returns NULL if the
+     property object does not exist and a valid property object handle
+     otherwise.  If the specified property object can not be retrieved for
+     some exceptional condition, the last error text information will be
+     set appropriately.  If the message can't be found because it simply
+     does not exist, last error information will not be set.  The returned
+     property object should be freed by calling the PROP_dec_ref function.
+     The PROP api can be used to set/get elements of a property object.
+
+     ORPGADPT_get_msgid returns the message id associated with a specific
+     message name.  If the name exists, a positive message id will be
+     returned.  If the name does not exist or if an exception occurs,
+     a -1 will be returned.  When an exception occurs, ORPGADPT_log_last_error
+     and ORPGADPT_last_error_text routines can be used to report or
+     retrieve exception information.
+
+     ORPGADPT_lock(int lock_command, const char* name) locks a message name
+     with the specified lock or unlocks the specified message name.  lock_command
+     can be ORPGADPT_EXCLUSIVE_LOCK, ORPGADPT_SHARED_LOCK, ORPGADPT_TEST_SHARED_LOCK,
+     ORPGADPT_TEST_EXCLUSIVE_LOCK or ORPGADPT_UNLOCK.  ORPGADPT_EXCLUSIVE_LOCK
+     obtains an exclusive lock.  Only one process can have an exclusive lock,
+     all other requests for exclusive locks will be denied.  ORPGADPT_SHARED_LOCK
+     obtains a shared lock.  Any number of processes can obtain a shared lock.
+     ORPGADPT_TEST_SHARED_LOCK tests to see if a shared lock can be obtained.
+     Shared locks can be obtained if no lock exists or if a shared lock exists.
+     ORPGADPT_TEST_EXCLUSIVE_LOCK tests to see if an exclusive lock can be obtained.
+     Exclusive locks can only be obtained if no locks already exists.
+     ORPGADPT_UNLOCK removes any locks from the specified message.  This function
+     returns 1 on success and 0 on failure.  If an exceptional condition has
+     occurred on a failure, ORPGADPT_log_last_error and ORPGADPT_last_error_text
+     can be used to retrieve exception information.  ALL LOCKS ARE ADVISORY.
+     No lock prevents data from being read or written to an adaptation data
+     message.
+
+     ORPGADPT_set_propobj adds a new or sets an existing property object in
+     the adaptation data store.  If a property object
+     for the specified name already exists in the 
+     adaptation store, that property object will be replaced with prop_obj.
+     If a property object doesn't already exists, prop_obj will be added to
+     the adaptation data store.  It returns TRUE if the property object was
+     added or replaced successfully.  If the property object could not be
+     set, last error information will be set.
+
+     ORPGADPT_on_change allows the user to register a callback function of
+     the type orpgadpt_chg_func_ptr_t which will be called when the
+     appropriate named object is changed or removed by another application.
+     name can be NULL or the message name to monitor for changes.  If name
+     is NULL any message change within the data store
+     will cause the callback function to be called.  If name is not null,
+     the callback will only be called if the specified message name
+     changes.  The user_data parameter can be used to supply user
+     information that will be passed to the callback.  Because function
+     uses LB notification internally, the LB_NTF_control function must be
+     used to protect non-reentrant code from interrupts caused by message
+     changes.  See LB_NTF_control for more information.  When a change
+     occurs the callback function of the form void
+     my_callback(orpgadpt_event_t* event) will be called.  Field in the
+     orpgadpt_event_t structure are:
+
+    	int data_id;			 /*  ORPG data store id */
+	orpgadpt_event_type_t event;     /*  Type of event, change event or remove event */
+	char* name;			 /*  Name of the message/object that has changed */
+	void* user_data;		 /*  User Data passed in on registration */
+    
+
+     This function id obsolete - only provided for backward compatibility
+     ORPGADPT_select_data_store selects the current orpg adaptation data
+     store.  data_store_id is an ORPGDAT_?????  data store id.  It returns
+     TRUE if successful and FALSE otherwise.  Last error information will
+     be set if this function is not successful.
+     
+     ORPGADPT_restore_baseline copies the specified message from the
+     baseline adaptation data store to the production adaptation data store.
+     Returns true if successful and false otherwise.
+
+     ORPGADPT_update_baseline copies the specified message from the
+     production adaptation data store to the baseline adaptation data store.
+     Returns true if successful and false otherwise.
+
+     ORPGADPT_get_archive_name returns the name of the archive that best meets
+     the specified directory, date, time, and site_name.  dir is the directory
+     path that contains one or more adaptation archives.  date represents the
+     desired restore date in the form MM/DD/YYYY.  time represents the desired
+     restore time in the form HH:MM:SS.  site_name represents the 4 letter
+     site mneumonic where the archive was created. date, time, and site_name
+     are optional.  If date is NULL, today's date will be assumed.  If time is
+     NULL, then 23:59:59 will be assumed.  If site_name is NULL, then any
+     site archive will be considered.  The returned archive name will
+     always be the latest archive that exists in the specified directory
+     and was created prior to or on the specified date and time with the
+     specified site name.  Any call to this function replaces the contents
+     of the return string from previous calls.  This function will return
+     a valid archive name if an archive is found and no error occurs.  If
+     the archive is not found, a zero length string will be returned.  If
+     an error occurs, NULL will be returned and ORPGADPT_log_last_error
+     and ORPGADPT_last_error_text functions can be used to log or retrieve
+     error text.
+
+     ORPGADPT_save saves ORPG adaptation data into a compressed tar archive.
+     destination_dir is the directory where the archive will be created.
+     site_name is the name of the site that the archive is created from
+     or for.  site_name is optional.  If site_name is NULL, site_id from
+     "Site Information" in the misc_adapt configuration file will be used
+     as the archive site.  archive_name is the address of a buffer to hold
+     the name of the saved archive file.  If archive_name is not NULL, the
+     name of the created archive will be copied into the archive_name buffer.
+     The buffer should be large enough to hold the full path of the
+     archive.  orpg_name is the name of the machine where ORPG is installed.
+     If it is NULL, the ORPGDIR environment variable will determine the
+     host_name where the ORPG is installed.   This function returns 1 on
+     success and 0 otherwise.  If an error occurred, ORPGADPT_log_last_error
+     and ORPGADPT_last_error_text can be used to log or retrieve error text.
+	
+     ORPGADPT_install installs ORPG adaptation data from the specified adaptation
+     data archive.  dir is the directory where one or more adaptation data
+     archives exist.  date is the date to install in the form MM/DD/YYYY.
+     time is the install time in the form HH:MM:SS.  site_name is the name
+     of the site to install.  date, time, and site_name are optional.  If
+     date is NULL, the today's date will be used.  If time is NULL, then
+     23:59:59 will be used.  If site_name is NULL, then archives from
+     any site will be considered when determining the correct install
+     archive.  archive_name is the address of a buffer to hold
+     the name of the installed archive file.  If archive_name is not NULL, the
+     name of the installed archive will be copied into the archive_name buffer.
+     The buffer should be large enough to hold the full path of the
+     archive.  orpg_name is the name of the machine where ORPG is installed.
+     If it is NULL, the ORPGDIR environment variable will determine the
+     host_name where the ORPG is installed. Returns TRUE if successful, and FALSE
+     otherwise.  If an error occurred, ORPGADPT_log_last_error and
+     ORPGADPT_last_error_text can be used to log or retrieve error text.
+
+     ORPGADPT_restore restores ORPG adaptation data from an archive by copying
+     it into the $CFG_DIR/adapt directory.  The adaptation data will be installed
+     on the next ORPG startup.  dir is the directory where one
+     or more adaptation data archives exist.  date is the date to set up
+     in the form MM/DD/YYYY.  time is the archive time in the form HH:MM:SS.
+     site_name is the name of the site to set up.  date, time, and site_name
+     are optional.  If date is NULL, the today's date will be used.  If time is NULL,
+     then 23:59:59 will be used.  If site_name is NULL, then archives from
+     any site will be considered when determining the correct set up
+     archive.  archive_name is the address of a buffer to hold
+     the name of the set up archive file.  If archive_name is not NULL, the
+     name of the restored archive will be copied into the archive_name buffer.
+     The buffer should be large enough to hold the full path of the
+     archive.  orpg_name is the name of the machine where ORPG is installed.
+     If it is NULL, the ORPGDIR environment variable will determine the
+     host_name where the ORPG is installed. Returns TRUE if successful, and
+     FALSE otherwise.  If an error occurred, ORPGADPT_log_last_error and
+     ORPGADPT_last_error_text can be used to log or retrieve error text.
+
+     ORPGADPT_log_last_error logs the last error that occurred from an
+     ORPGADPT function call.  le_code is a standard LE log message error
+     code (see LE documentation).  flags can be set 0 if details should not
+     be logged and the message should not be cleared after logging.  The
+     ORPGADPT_REPORT_DETAILS flag may be or'd into flags to cause exception
+     details to be reported.  The ORPGADPT_CLEAR_ERROR flag may be or'd
+     into flags to cause the error message to be cleared after logging.
+     Returns TRUE on success and false on failure.  The return value for
+     this function does not need to be tested.
+
+     ORPGADPT_last_error_text copies error_buf_len bytes of error text from
+     the last ORPGADPT error into error_buf.  flags is the same as flags
+     for ORPG_log_last_error.  Returns TRUE on success and FALSE on error.
+     ORPGADPT_error_occurred can be used to text for the existence of error
+     information.
+
+     ORPGADPT_error_occurred returns TRUE if an ORPGADPT error has occurred
+     and it has not been cleared.
+
+     ORPGADPT_clear_error clears any ORPGADPT error information.
+
+     ORPGADPT_refresh_legacy monitors the ORPG adaptation named object store
+     for changes and updates legacy color tables based on the changes.
+     This routine is not general purpose, and it is used by the adapt_sync
+     program.
+
+
+    Examples:
+
+     The following section of code reads the site id property from the
+     "Site Information" adaptation data object in the adaptation data store
+     ORPGDAT_ADAPT data store.  NOTE:  This API is implemented in C++,
+     so a C++ linker must be used (ie.  g++).  This API requires libobjcore
+     and liborpg++ in the link line.  nmstor_info will dump out message
+     names and contents for a named message store.  Note that new adaptation
+     items and structures can be defined using the install_adapt_type tool.
+     Algorithms should use the RPGC library to register for adaptation data.
+     This allows adaptation data to be updated at the appropriate times
+     for an algorithm (beginning of volume, beginning of elevation, etc.).
+
+    #include <stdlib.h>
+    #include "occobjectcore.h"    /*  PROP api  */
+    #include "orpgadpt.h"	  /*  ORPGADPT api  */
+    #include "tda.h"		  /*  Definition of the tda_t structure  */
+
+    int main()
+    {
+	propobj_t prop_obj;
+	int site_id;
+	int site_lat;
+	int site_lon;
+	int site_elev;
+        tda_t tda_data;
+
+        /**  Get an adaptation data property object  */
+	prop_obj = ORPGADPT_get_propobj("Site Information");
+	if (prop_obj != NULL)
+	{
+	    site_id = PROP_get_long(prop_obj, "rpg_id", 0);
+	    site_lat = PROP_get_long(prop_obj, "rda_lat", 0);
+	    site_lon = PROP_get_long(prop_obj, "rda_lon", 0);
+	    site_elev = PROP_get_long(prop_obj, "site_elev", 0);
+	}
+	if (ORPGADPT_error_occurred())
+	    ORPGADPT_log_last_error(GL_ERROR, ORPGADPT_REPORT_DETAILS | ORPGADPT_CLEAR_ERROR);
+
+
+	if (!ORPGADPT_get_data("Tornado Detection", &tda_data, sizeof(tda_t))
+	    ORPGADPT_log_last_error(GL_ERROR, ORPGADPT_REPORT_DETAILS | ORPGADPT_CLEAR_ERROR);
+
+	/*  Access elements of tda_data as needed  */
+
+    }
+
+SEE ALSO
+    prop.3, objcore.3, rpgc.3, install_adapt_type.1, orpgadptsv.3
+
+---
+

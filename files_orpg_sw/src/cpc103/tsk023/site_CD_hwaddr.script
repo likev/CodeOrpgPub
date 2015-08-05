@@ -1,0 +1,95 @@
+#!/bin/sh
+
+#**************************************************************************
+#
+# Title:        site_CD_hwaddr
+#
+# Description:  Backup/restore hwaddr data during site-specific update
+#
+#**************************************************************************
+
+
+IFCFG_ETH0=/etc/sysconfig/network-scripts/ifcfg-eth0
+IFCFG_ETH1=/etc/sysconfig/network-scripts/ifcfg-eth1
+HWADDR_ETH0=/etc/sysconfig/network-scripts/eth0.hwaddr
+HWADDR_ETH1=/etc/sysconfig/network-scripts/eth1.hwaddr
+
+print_usage ()
+{
+  echo
+  echo
+  echo "************************************************"
+  echo "This script does backup/restore on HWADDR fields"
+  echo "in ifcfg-eth that may be over-written in"
+  echo "restore_adapt process"
+  echo
+  echo "The following are valid flags"
+  echo
+  echo "-h - help"
+  echo "-b - backup HWADDR from ifcfg-eth files"
+  echo "-r - restore HWADDR to ifcfg-eth files"
+  echo "************************************************"
+  echo
+  echo
+}
+
+backup_hwaddr ()
+{
+  if [ ! -f $HWADDR_ETH0 ]
+  then
+    # 'dmidecode -t2' prints information about the system's base board
+    MANUFACTURER=`dmidecode -t2|grep 'Manufacturer:'|sed 's/.*Manufacturer: //'`
+    PRODUCT_NAME=`dmidecode -t2|grep 'Product Name:'|sed 's/.*Product Name: //'`
+    if [ ! -f $IFCFG_ETH1 ]
+    then
+      # Port ordering is a non-issue for hardware with only one port
+      grep HWADDR $IFCFG_ETH0 > $HWADDR_ETH0
+    elif [ "$MANUFACTURER" = "Supermicro" ] && [ "$PRODUCT_NAME" = "H8DGU" ]
+    then
+      # For this hardware, we are intentionally swapping the port ordering
+      grep HWADDR $IFCFG_ETH1 > $HWADDR_ETH0
+      grep HWADDR $IFCFG_ETH0 > $HWADDR_ETH1
+    else
+      grep HWADDR $IFCFG_ETH0 > $HWADDR_ETH0
+      grep HWADDR $IFCFG_ETH1 > $HWADDR_ETH1
+    fi
+  fi
+}
+
+restore_hwaddr ()
+{
+  if [ -f $HWADDR_ETH0 ] && [ -f $IFCFG_ETH0 ]
+  then
+    sed -i '/HWADDR/d' $IFCFG_ETH0
+    cat $HWADDR_ETH0 >> $IFCFG_ETH0
+  fi
+
+  if [ -f $HWADDR_ETH1 ] && [ -f $IFCFG_ETH1 ]
+  then
+    sed -i '/HWADDR/d' $IFCFG_ETH1
+    cat $HWADDR_ETH1 >> $IFCFG_ETH1
+  fi
+}
+
+
+MODE=NONE
+
+while getopts hbr optionflag
+do
+  case $optionflag in
+     h) print_usage; exit 0;;
+     b) MODE=BACKUP;;
+     r) MODE=RESTORE;;
+    \?) echo_error "Invalid input flag"
+  esac
+done
+
+if [ $MODE = "BACKUP" ]
+then
+  backup_hwaddr
+elif [ $MODE = "RESTORE" ]
+then
+  restore_hwaddr
+else
+  print_usage
+fi

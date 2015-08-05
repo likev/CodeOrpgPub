@@ -1,0 +1,387 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/03 14:17:04 $
+C $Id: a30781.ftn,v 1.3 2002/12/03 14:17:04 christie Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A30781__VXS_MAIN (PARAM)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A30781__VXS_MAIN
+*.
+*.  MODULE VERSION: 0016
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       06 09 85      0001      BOB BENEDICT         RPG BUILD 2
+*.       05 05 86      0001      BOB BENEDICT         SPR # 60364
+*.       07 10 86      0002      MARK STEWART         SPR # 60367
+*.       04 14 87      0003      JO STALEY            SPR # 70119
+*.       08 10 88      0004      MIKE ISTOK           SPR # 80217
+*.       10 05 88      0005      STEVE SMITH          SPR # 70206
+*.       10 05 88      0005      STEVE SMITH          SPR # 80338
+*.       05 08 90      0006      CHARLIE BAUMHER      SPR # 80271
+*.       12 06 90      0007      PAUL JENDROWSKI      SPR # 91137
+*.       11 03 90      0007      MARK FRESCH          SPR # 91248
+*.       12 03 91      0008      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0009      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/20/92      0010      Toolset              SPR 91895
+*.       03/25/93      0011      Toolset              SPR NA93-06801
+*.       01/28/94      0012      Toolset              SPR NA94-01101
+*.       03/03/94      0013      Toolset              SPR NA94-05501
+*.       04/11/96      0014      Toolset              CCR NA95-11802
+*.       12/23/96      0015      Toolset              CCR NA95-11807
+*.       03/16/99      0016      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:   RPGLOAD (A311M1) ON COLD START
+*.                      RPGMON  (A311M2) ON RESTART
+*.
+*.  MODULE FUNCTION:
+*.
+*.  VERTICAL CROSS SECTION MAIN PROCESSING ROUTINE. THIS ROUTINE
+*.  WILL DETERMINE WHICH PRODUCTS ARE BEING REQUESTED, AND REQUEST
+*.  A SCRATCH OUTPUT BUFFER FOR EACH. THIS BUFFER IS USED TO BUILD
+*.  THE CARTESIAN MAP IN. BASE RADIAL INPUT BUFFERS ARE READ IN AND
+*.  PASSED ON TO SUBROUTINES FOR PROCESSING, UNTIL THE END OF THE
+*.  CURRENT VOLUME SCAN. OTHER SUBROUTINES ARE THEN CALLED TO
+*.  INTERPOLATE AND RASTER RUN LENGTH ENCODE THE CARTESIAN MAPS BUILT
+*.  FOR EACH PRODUCT. PRODUCT BUFFERS ARE THEN BUILT AND PASSED ON
+*.  TO DISTRIBUTION.
+*.
+*.
+*.  MODULES CALLED: A30782__AZIMUTH_SRCH, A30785__BUILD_PROD_BUFF, 
+*.                  A30789__INIT_REQ, A3078G__MOMENT_PROC, A31145__ABORT_ME, 
+*.                  A31168__ABORT_ME_BECAUSE, A31211__GET_INBUF, 
+*.                  A31212__REL_INBUF, A31216__REL_OUTBUF, 
+*.                  A3CM39__EXTRACT_RADSTAT 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT         TYPE        DESCRIPTION
+*.    -   -----         ----        -----------
+*.    G   MEM           I*4         Array in RPG shared memory set aside for
+*.                                  buffer sharing.
+*.    G   BASEDATA      I*4         (CONSTANT)DATA BUFFER COUNT OF BUFFERS
+*.                                  TYPE-BASE DATA
+*.    G   DESTROY       I*4         (CONSTANT)Mnemonic used as input to
+*.                                  A31216__REL_OUTBUF. Indicates "do not pass
+*.                                  data to other tasks".
+*.    G   END_VOL       I*4         (CONSTANT)Radial status flag: End of
+*.                                  volume scan.
+*.    G   HEDO          I*4         (CONSTANT)Offset in base radial header
+*.                                  input buffer for preprocessed base radial
+*.                                  headers (in words).
+*.    G   NORMAL        I*4         (CONSTANT)Parameter which indicates normal
+*.                                  completion of requested operation to
+*.                                  acquire input or output buffer
+*.    G   PHEDSIZE      I*4         (CONSTANT)Size of preprocessed base radial
+*.                                  header.
+*.    G   PROD_MEM_SHED I*4         (CONSTANT)(CONSTANT)Parameter which
+*.                                  indicates that product aborted due to
+*.                                  memory load shedding
+*.    G   PSEND_VOL     I*4         (CONSTANT)Radial status flag: Pseudo end
+*.                                  of volume scan.
+*.    C   DEC1          I*4         (CONSTANT)Constant, used as a decrementor
+*.                                  value.
+*.    C   ONE           I*4         (CONSTANT)Constant value of one.
+*.    C   REQCOLS       I*4         (CONSTANT)Maximum number of request
+*.                                  columns in the request table.
+*.    C   REQROWS       I*4         (CONSTANT)Number of request rows
+*.                                  (parameters) in the request table.
+*.    C   ZERO          I*4         (CONSTANT)Program parameter for 0.
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    G   MEM               I*4         Array in RPG shared memory set aside
+*.                                      for buffer sharing.
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME         TYPE        DESCRIPTION
+*.    ----         ----        -----------
+*.    ABORTED      L*4         FLAG FOR ABORTED PROCESSING
+*.    ABORT_NO_MEM L*4         NO MEMORY ABORTING FLAG
+*.    BUFFTAB      I*4         TABLE OF OUTPUT BUFFER PTRS
+*.    DATTYP       I*4         TYPE OF INPUT BUFFER RECEIVED
+*.    GOOD_RAD     L*4         Flag indicating good base data radial.
+*.    HDINFO       I*4         HEADER FROM 1ST RADIAL
+*.    HDRPTR       I*4         RADIAL HEADER POINTER
+*.    I            I*4         LOOP INDEX
+*.    NUMREQS      I*4         NUMBER OF PRODUCTS REQUESTED
+*.    NUM_BYTES    I*4         NUMBER OF BYTES PER ENTRY
+*.    OPSTAT       I*4         STATUS FROM GET_INBUF
+*.    RADINPTR     I*4         POINTER TO INPUT BUFFER
+*.    RADSTAT      I*4         RADIAL STATUS
+*.    REF_FLAG     L*4         FLAG FOR ENABLED REFL. MOMENT
+*.    REQTAB       I*2         TABLE OF PRODUCT REQUESTS
+*.    SKIPPSEUDO   L*4         PSEUDO END OF VOLUME SCAN FLAG
+*.    VEL_FLAG     L*4         FLAG FOR ENABLED VELOCITY MOMENT
+*.    VOLNUM       I*4         CURRENT VOLUME SCAN NUMBER
+*.    WID_FLAG     L*4         FLAG FOR ENABLED SPECTRUM WIDTH
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD00
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  NONE
+*.
+*.  DEVIATION FROM STANDARDS: NONE
+*.
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP07.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK07.CSS
+*.
+*.  MISC:  NONE
+*.
+*.*******************************************************************
+C
+      IMPLICIT NONE
+C
+C*  INCLUDE COMMON PARAMETER FILES
+C
+$INCLUDE A309.INC/G,**A3PM00 (NEND NLIST)
+$INCLUDE            **A3PM02 (     NLIST)
+$INCLUDE            **A3PM07 (     NLIST)
+$INCLUDE            **A3CD00 (     NLIST)
+$INCLUDE A304.INC/G,**A304P4 (     NLIST)
+$INCLUDE A307.INC  ,**A30788  (NLIST)
+C
+C*********************************************************************
+C* LOCAL DECLARATIONS
+C
+      INTEGER*4    RADSTAT
+      INTEGER*2    REQTAB(REQROWS,REQCOLS)
+C
+X     INTEGER*4    XCOUNT, X82COUNT ;DEBUG ONLY !!!!
+      INTEGER*4    NUM_BYTES
+      INTEGER*4    PARAM
+      INTEGER*4    I
+      INTEGER*4    HDINFO(PHEDSIZE / 2), HDRPTR
+      INTEGER*4    BUFFTAB(REQROWS)
+      INTEGER*4    VOLNUM
+      INTEGER*4    RADINPTR, DATTYP, OPSTAT, NUMREQS
+      INTEGER*4    DUMELIX
+C
+      LOGICAL      SKIPPSEUDO
+      LOGICAL      ABORT_NO_MEM
+      LOGICAL      ABORTED, GOOD_RAD
+      LOGICAL      REF_FLAG, VEL_FLAG, WID_FLAG
+C
+      PARAMETER    ( DUMELIX = 1)
+      PARAMETER    ( NUM_BYTES = 2 )
+C$INSERT      integer orpg_mem_addr
+C
+C********************************************************************
+C
+X     TYPE  *,'81: ENTERING A30781__VXS_MAIN'
+X      XCOUNT = 0
+X      X82COUNT = 0
+C
+C********************************************************************
+C
+C*  REQUEST THE FIRST BASE RADIAL. WITH THIS WE WILL DETERMINE
+C*  THE VOLUME SCAN NUMBER, AND CALL FOR THE PRODUCT REQUEST
+C*  CUSTOMIZING DATA.
+C
+      CALL A31211__GET_INBUF (BASEDATA, RADINPTR, DATTYP, OPSTAT)
+C
+X     XCOUNT = XCOUNT + 1
+X     TYPE *,'81: RTN FROM A31211__GET_INBUF','OPSTAT = ',OPSTAT
+C
+      IF ( OPSTAT .NE. NORMAL ) THEN
+C
+C*  INPUT BUFFER NOT ACQUIRED, ABORT PROCESSING
+C
+        CALL A31145__ABORT_ME
+C
+X       TYPE *,'81:  VERT X-SECT :NO INPUT BUFFERS;NO PRODUCTS BUILT'
+C
+      ELSE
+C
+C*  SAVE THE HEADER INFORMATION FROM THE FIRST BASE RADIAL
+C*  FOR BUILDING THE PRODUCT OUTPUT BUFFER HEADERS.
+C
+        DO 200 I= ONE, PHEDSIZE / NUM_BYTES
+C$DELETE
+          HDINFO (I) = MEM(RADINPTR + HEDO + I - DEC1)
+C$ENDDELETE
+C$INSERT          HDINFO (I) = 
+C$INSERT     >        orpg_mem_addr(MEM(RADINPTR + HEDO + I - DEC1))
+200     CONTINUE
+C
+C*  CHECK WHICH MOMENTS ARE ENABLED
+C
+        CALL A3078G__MOMENT_PROC( RADINPTR, REF_FLAG, VEL_FLAG,
+     $                            WID_FLAG, ABORTED )
+        IF (.NOT. ABORTED) THEN
+C
+C*  INITIALIZE REQUEST TABLES
+C
+          CALL A30789__INIT_REQ(RADINPTR, ABORT_NO_MEM, NUMREQS,
+     $         REQTAB, BUFFTAB, VOLNUM, REF_FLAG, VEL_FLAG, WID_FLAG )
+          IF ( NUMREQS .GT. ZERO ) THEN
+C
+C*********************************************************************
+C*  BEGIN SEARCHING EACH INCOMING BASE RADIAL FOR AN AZIMUTH
+C*  ANGLE THAT MATCHES ONE OF THOSE REQUESTED. WE HAVE ALREADY
+C*  RECEIVED THE FIRST RADIAL.
+C
+C*  IF A PSEUDO END OF VOLUME SCAN IS ENCOUNTERED THEN WE
+C*  MUST SKIP EACH RADIAL UNTIL THE REAL END OF VOLUME SCAN.
+C
+C*  CONTINUE SEARCHING UNTIL THE END OF THE VOLUME SCAN OR UNTIL
+C*  THE END OF THE INPUT RADIALS IS RECEIVED, ( VIA THE USE OF
+C*  THE "GOTO 120" STATEMENT ).
+C
+            SKIPPSEUDO = .FALSE.
+C
+ 120        CONTINUE
+            HDRPTR = HEDO + RADINPTR
+C
+C*  GET RADIAL STATUS
+C
+            CALL A3CM39__EXTRACT_RADSTAT(MEM(HDRPTR),GOOD_RAD,RADSTAT)
+            IF ( .NOT. SKIPPSEUDO .AND. GOOD_RAD ) THEN
+C
+C*  GOOD RADIAL, PROCESS IT
+C
+              CALL A30782__AZIMUTH_SRCH( MEM(RADINPTR), REQTAB,
+     $                                            NUMREQS, BUFFTAB )
+X             X82COUNT = X82COUNT + 1
+            ENDIF
+C
+C*  DONE WITH RADIAL, RELEASE IT
+C
+            CALL A31212__REL_INBUF (RADINPTR)
+            IF (RADSTAT.NE.END_VOL) THEN
+C
+C*  CHECK FOR PSUEDO END OF VOLUME
+C
+              IF ( RADSTAT.EQ.PSEND_VOL ) SKIPPSEUDO = .TRUE.
+C
+X             IF ( RADSTAT.EQ.PSEND_VOL )
+     $           TYPE *,'81: HIT PSEUDO EOV ON ',XCOUNT,' RADIAL READ'
+C
+C*  GET THE NEXT INCOMING RADIAL. IF THE STATUS IS NORMAL, THEN
+C*  PROCESS THIS NEXT RADIAL. ( THIS IS ACCOMPLISHED VIA A GOTO ).
+C
+              CALL A31211__GET_INBUF (BASEDATA,RADINPTR,DATTYP,OPSTAT)
+C
+C********************************************************************
+C   DEBUG STATEMENTS
+C
+X             IF (OPSTAT .EQ. NORMAL ) THEN
+X               XCOUNT = XCOUNT + 1
+X             ELSE
+X               TYPE *,'81: INPUT DATA BUFF CANCLD:PARTIAL PROD BUILT'
+X               TYPE *,'81: OPSTAT = ',OPSTAT
+X             END IF
+C
+C********************************************************************
+C
+C*  IF THIS RADIAL IS GOOD, REPEAT PROCESSING STEPS
+C*  SIMULATING DO UNTIL STRUCTURE WITH A GO TO
+C
+              IF (OPSTAT.EQ.NORMAL) GO TO 120
+C
+C*  ERROR GETTING INPUT BUFFERS, ABORT PROCESSING
+C
+X             TYPE *,'81: BAD INPUT BUFFER STATUS = ',OPSTAT,
+     $                ', ABORTING VIA A31145'
+C
+              CALL A31145__ABORT_ME
+              ABORTED = .TRUE.
+C
+C*  RELEASE SCRATCH BUFFERS
+C
+              DO 300 I=ONE,NUMREQS
+                CALL A31216__REL_OUTBUF(BUFFTAB(I),DESTROY)
+C
+X               TYPE *,'81: DESTROYED SCRATCH BUFFER: PTR = ',
+     $                 BUFFTAB(I)
+ 300          CONTINUE
+C
+X           ELSE
+X             TYPE *,'81:  END OF THIS VOLUME SCAN ENCOUNTERED'
+C
+            END IF
+C
+X           TYPE *,'81: RECEIVED ',XCOUNT,' RADIALS '
+X           TYPE *,'81: CALLED A30782 ',X82COUNT,' TIMES '
+C
+C********************************************************************
+C*  THE VOLUME SCAN IS NOW COMPLETE, CARTESIAN MAPS HAVE BEEN
+C*  BUILT FOR EACH PRODUCT REQUESTED. NOW RASTER RUN LENGTH ENCODE
+C*  AND VERTICALLY INTERPOLATE
+C*  THESE MAPS AND BUILD THE FINAL OUTPUT BUFFERS.
+C
+            IF ( .NOT. ABORTED ) THEN
+              CALL A30785__BUILD_PROD_BUFF( REQTAB, BUFFTAB, NUMREQS,
+     $                               VOLNUM, HDINFO, ABORT_NO_MEM )
+C
+X             TYPE *,'81: RETURNED FROM A30785__BUILD_PROD__BUFF CALL'
+C
+C*  IF ABORT NO MEMORY FLAG SET, THEN ABORT WITH A REASON
+C
+              IF ( ABORT_NO_MEM )
+     $              CALL A31168__ABORT_ME_BECAUSE( PROD_MEM_SHED )
+C
+X             IF ( ABORT_NO_MEM )
+     $            TYPE *,'81: CALLED A31168 - PRODUCT MEMORY SHED '
+C
+            END IF
+          ELSE
+C
+C*  NO GOOD REQUESTS FOR THIS VOLUME SCAN, RELEASE THE INPUT BUFFER AND
+C*  ABORT THE TASK.
+C
+X           TYPE *,'81: NO PRODUCT REQUESTS FOR THIS VOL SCAN'
+C
+            CALL A31212__REL_INBUF ( RADINPTR )
+C
+C*  IF ABORT NO MEMORY FLAG SET, THEN ABORT WITH A REASON
+C
+            IF ( ABORT_NO_MEM ) THEN
+X             TYPE *,'81: CALLED A31168 - PRODUCT MEMORY SHED '
+              CALL A31168__ABORT_ME_BECAUSE( PROD_MEM_SHED )
+            ELSE
+X             TYPE *,'81: CALLED A31145 - ABORT PROCESSING '
+              CALL A31145__ABORT_ME
+            ENDIF
+          END IF
+C
+C********************************************************************
+C*  NO MOMENTS ARE ENABLED, JUST RELEASE THE INPUT BUFFER
+C
+        ELSE
+          CALL A31212__REL_INBUF( RADINPTR )
+        END IF
+C
+      END IF
+C
+X     TYPE *,'81: FINISHED A30781__VXS_MAIN'
+      RETURN
+      END

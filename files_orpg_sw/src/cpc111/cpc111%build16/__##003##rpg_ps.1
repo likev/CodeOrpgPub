@@ -1,0 +1,124 @@
+
+NAME
+    rpg_ps - A tool that displays the RPG state and process information.
+
+SYNOPSIS
+    rpg_ps [-p]
+
+DESCRIPTION
+
+    rpg_ps retrieves the RPG process info by running command "mrpg -b status"
+    and then waiting for the RPG process status (data store
+    ORPGDAT_TASK_STATUS, message MRPG_PS_MSGID) to be updated. When the updated
+    process info is published, rpg_ps reads the message and prints the process
+    info on the standard output port.
+
+    rpg_ps also retrieves the RPG state info (by reading message
+    MRPG_RPG_STATE_MSGID, data store ORPGDAT_TASK_STATUS) and prints it. The
+    RPG state info is printed after the RPG process info.
+
+    Process info is printed as a table in which each row is an RPG process. 
+    The columns are:
+
+	name: The task (process) name.
+
+	tskid: RPG task ID.
+
+	inst: Instance number of the task. This column is empty for single
+	instance tasks.
+
+	pid: Process ID. "FAIL" if the process is not running.
+
+	cpu: The cumulative CPU time used by the process. The CPU time used is
+	displayed in number of milli-seconds, seconds or kilo-seconds as
+	indicated by the letter (m, s and k respectively) following the number.
+	If the info is not available (e.g. due to a permission problem), "n/a"
+	is displayed.
+
+	mem: The memory used by the process which include the memory allocated
+	by the application and the memory needed for the process stack. It does
+	not include the process memory used by the code, the data and shared
+	libraries. If there is any memory leak in the application, this number
+	should be constantly increasing. The memory used is displayed in number
+	of bytes, K bytes or M bytes as indicated by the letter (B, k and M
+	respectively) following the number. If the info is not available (e.g.
+	due to a permission problem), "n/a" is displayed.
+
+	life: The life time of the process (The time elapsed since the process
+	started). The life time is displayed in number of seconds, minutes,
+	hours or days as indicated by the letter (s, m, h and d respectively)
+	following the number.
+
+	command: The command line used to start the process.
+
+    The RPG state is printed as a single line text. Three fields, separated by
+    "-", in the line are for RPG state, active/inactive channel and
+    test/operational mode. For example, line "Operating state - Active - In
+    Operational Mode" indicates that the RPG is in operating state, the channel
+    is active and it is in operational (instead of test) mode. Possible RPG
+    states are "Shutdown state", "Standby state", "Operating state", "Failed
+    state", "Powerfailure state" and "Transition state". Possible channel
+    states are "Active" and "Inactive". Possible RPG modes are "In Test Mode"
+    and "In Operational Mode".
+
+    With the "-p" option, rpg_ps runs as a tool for RPG performance monitoring.
+    In this mode, rpg_ps prints elevation info and RPG process info every time
+    when a new elevation scan starts. It also prints volume info when a new
+    volume starts. The RPG process info is printed in a simpler raw format:
+    Process name, Task ID, Instance number (-1 for single instance task),
+    Process ID (-1 is not running), CPU time in milli-seconds, memory used in
+    bytes and process life time in seconds.
+
+    rpg_ps registers for and reads ORPGEVT_SCAN_INFO event to get the elevation     and volume scan info. 
+
+OPTIONS
+    -p	rpg_ps runs as a tool for RPG performance monitoring.
+
+EXAMPLES
+    Example 1: rpg_ps
+	Prints the RPG process info and the RPG state info.
+
+    Example 2: rpg_ps -p
+	Runs as an RPG performance monitoring tool.
+
+    Example 3: rpg_ps |grep p_server
+	Prints info of RPG task "p_server".
+
+    Example 4: rpg_ps |grep FAIL
+	Prints info of all failed RPG tasks.
+
+ENVIRONMENT VARIABLES
+    CFG_DIR and CFG_SRC
+		Specify the location for configuration files. See "man cs" for
+		more details.
+
+EXIT STATUS
+    0:		Terminated normally. 
+
+    non-zero:	Terminated because an error was detected.
+
+FILES
+    RPG system configuration file
+	The name of the file is defined by CFG_DIR and CFG_SRC. An example of 
+	the file is $HOME/cfg/syscfg.
+
+    rpg_ps reads the following RPG data stores:
+
+    ORPGDAT_TASK_STATUS
+	RPG process status and RPG state info.
+
+SEE ALSO
+    mrpg(1), orpgmgr(3)
+
+NOTES
+    rpg_ps relies on mrpg to get the RPG process info. If mrpg is not running,
+    rpg_ps will start it on the local host. This, however, makes rpg_ps not
+    working correctly on hosts other than the one hosts mrpg. Improvement is
+    needed to fully support distributed RPG.
+
+
+
+
+
+
+

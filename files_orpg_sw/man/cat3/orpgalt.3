@@ -1,0 +1,151 @@
+orpgalt(3)		ORPG SDD Manpage		orpgalt(3)
+
+NAME
+
+orpgalt - ORPG Library Alert Threshold Table (ALT) access routines
+
+SYNOPSIS
+
+	cc [ flag ... ] file ... -lorpg -linfr [ library ... ]
+
+#include <orpg.h>
+
+
+DESCRIPTION
+
+These functions provide access to the Alert Threshold Table which is maintained
+by the ORPG library.  The data is stored in the DEA database.  The library keeps
+a copy of the data in memory for quick access and writes changes to the database
+as necessary.  The legacy data required by the Alerting task is provided via a
+call to the function ORPGALT_update_legacy().  The legacy data is not stored
+separately.
+
+A high level description of the functions follows:
+
+ORPGALT_io_status () returns the status of the last I/O operation.
+
+ORPGALT_categories () returns the number of categories (entries) in the Alert
+Threshold Table.  If the table doesn't exist, a 0 is returned.
+
+ORPGALT_groups () returns the number of groups defined in the Alert Threshold
+Table linear buffer.  If no groups are defined, a 0 is returned.
+
+ORPGALT_read () reads the alert threshold data from the DEA database.  The
+data are stored in memory until the calling process exits.  If ORPGALT_read()
+fails, then -1 is returned.  Otherwise, a non-negative integer is returned.
+
+ORPGALT_write () writes the alert threshold data back to the DEA database. 
+On success, 0 is returned, otherwise, -1 is returned.
+
+ORPGALT_update_legacy () gathers the legacy alerting adaptation data
+from the DEA database and fills the buffer supplied by the caller.
+
+ORPGALT_restore_baseline () copies the alerting table "default" values in the
+DEA database to the "current" values.
+
+ORPGALT_update_baseline () copies the alerting table "current" values in the
+DEA database to the "default" values.
+
+ORPGALT_init_groups () initializes the Group data.  This data used to be part
+of the configuration file.  When we moved to using the DEA database, we decided
+the Group data didn't need to be put into the DB because it will rarely change,
+if ever.
+
+ORPGALT_get_category () returns the category identifier for a given table
+position (indx).  If the position is invalid, ORPGALT_INVALID_INDEX returned.
+
+ORPGALT_get_group () returns the group identifier for a given table position
+(indx).  If the position is invalid, ORPGALT_INVALID_CATEGORY is returned.
+
+ORPGALT_get_group_id () returns the group identifier for a given group table
+position (indx).  If the position is invalid, ORPGALT_INVALID_INDEX is
+returned.
+
+ORPGALT_get_loca () returns an integer bitmask containing the level of change
+authority associated with the specified category.  If no bits are set, then the
+data are editable by anyone.  The following bits are assigned to the following
+LOCAs: 1 - URC; 2 - Agency, 3 - ROC.
+
+ORPGALT_get_min () returns the minimum threshold value for a specified category
+identifier (category_id).  If the category identifier is invalid,
+ORPGALT_INVALID_CATEGORY is returned.
+
+ORPGALT_get_max () returns the maximum threshold value for a specified category
+identifier (category_id).  If the category identifier is invalid,
+ORPGALT_INVALID_CATEGORY is returned.
+
+ORPGALT_get_type () returns the product type(s) allowed for an alert threshold
+category.
+
+ORPGALT_get_prod_code () returns the product identifier for the product paired
+with a specified category identifier (category_id).  If the category identifier
+is invalid, ORPGALT_INVALID_CATEGORY is returned.
+
+ORPGALT_set_prod_code () sets the product identifier for the product paired
+with a specified category identifier (category_id). On success, 0 is returned.
+If the category identifier is invalid, ORPGALT_INVALID_CATEGORY is returned.
+If the product identifier is outside the permitted range of values,
+ORPGALT_INVALID_DATA is returned.
+
+ORPGALT_get_thresholds () returns the number of allowed thresholds for a
+specified category identifier (category_id).  If the category identifier is
+invalid, ORPGALT_INVALID_CATEGORY is returned.
+
+ORPGALT_get_threshold () returns the threshold value specified by threshold_id
+for a specified category identifier (category_id).  If the category identifier
+is invalid, ORPGALT_INVALID_CATEGORY is returned.  If an invalid threshold
+identifier was specified, ORPGALT_INVALID_INDEX is returned.
+
+ORPGALT_set_threshold () sets the threshold value for a specified threshold
+element (threshold_id) and category identifier (category_id). On success, 0 is
+returned.  If the category identifier is invalid, ORPG_INVALID_CATEGORY is
+returned.  If the threshold element is invalid, ORPGALT_INVALID_INDEX is
+returned.  If the threshold value is outside the allowed range,
+ORPGALT_INVALID_DATA is returned.
+
+ORPGALT_clear_edit_lock () releases the lock on the Alerting data in the DEA DB.
+Note that the DEA locking mechanism is ADVISORY in nature.
+
+ORPGALT_set_edit_lock () locks the Alerting data in the DEA DB so that other
+applications know it's being edited.  NOTE: the DEA locking mechanism is
+ADVISORY in nature.
+
+ORPGALT_get_edit_status () tests the lock on the Alerting data in the DEA DB
+to see whether other applications are editing it.
+
+ORPGALT_error () registers a callback function which will be called when an
+exception condition is encountered.
+
+ORPGALT_get_name () returns a pointer to the name (description) for a given
+alert threshold category identifier (category_id).  If the category identifier
+is invalid, a NULL pointer is returned.
+
+ORPGALT_get_group_name () returns a pointer to the name (description) for a
+given group identifier.  If the position is invalid, a NULL pointer is
+returned.
+
+ORPGALT_get_unit () returns a pointer to the units descriptor specified by the
+function argument.
+
+ORPGALT_get_type () returns a bit field indicating which product types can be
+paired with a particular alert threshold category.  The bits defined are:
+
+	bit 1 set = VOLUME products
+	bit 2 set = ELEVATION products
+	bit 3 set = HYDROMET products
+
+If none of these bits are set, no products are paired with the alert category.
+	
+ORPGALT_get_unit () returns the pointer to a string containing the units name
+(description) for a specified category identifier.  A NULL pointer is returned
+on failure.
+
+NOTE:  All of the specific data type get and set functions will fail if the
+Alert Threshold Table hasn't been initialized.  The return value will be
+ORPGDAT_READ_FAILED.
+
+SEE ALSO
+
+deau, init_alert_request
+
+				$Revision: 1.11 $

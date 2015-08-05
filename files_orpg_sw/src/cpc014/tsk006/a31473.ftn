@@ -1,0 +1,215 @@
+C 
+C RCS info 
+C $Author: nolitam $ 
+C $Locker:  $ 
+C $Date: 2002/11/27 15:17:10 $ 
+C $Id: a31473.ftn,v 1.4 2002/11/27 15:17:10 nolitam Exp $ 
+C $Revision: 1.4 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A31473__CHECK_USDB (TIME_DIF)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A31473__CHECK_USDB
+*.
+*.  MODULE VERSION: 0003
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   -----------------    --------------------
+*.       12/07/95      0000      ELLIOTT P. FRIEND    CCR NA94-08462
+*.       12/23/96      0001      Toolset              CCR NA95-11807
+*.       03/16/99      0002      Toolset              CCR NA98-23803
+*.       01/31/02      0003      Dennis A. Miller     CCR NA01-27501
+*.
+*.  CALLING SEQUENCE: CALL A31473__CHECK_USDB (TIME_DIF)
+*.
+*.  MODULE FUNCTION:
+*.
+*.     This routine is called to assure the proper association
+*.     between the hourly scans and the corresponding time-slot
+*.     indices, to handle possible circumstances such as a gap of
+*.     missing hours since the last time the USERSEL.DAT database
+*.     was updated.
+*.
+*.  MODULES CALLED: A31472__INIT_USDB, A31474__ROTATE_INDICES
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT          TYPE        DESCRIPTION
+*.    -   -----          ----        -----------
+*.    C   USDB_HRS_OLD   I*2         An array of indexs for the hourly
+*.                                   accumulation
+*.    C   USDB_LAST_DATE I*2         Last date the USDB was updated
+*.    C   USDB_LAST_TIME I*2         Last time the USDB was updated
+*.    C   MAX_USDB_HRS   I*4         (CONSTANT)(CONSTANT)Maximum number of
+*.                                   hours in the User Selectable Data Base
+*.    C   USDB_NEWEST    I*4         (CONSTANT)(CONSTANT)Index of the newest
+*.                                   of the 30 hourly scans in the User
+*.                                   Selectable Data Base
+*.    P   TIME_DIF       I*4         The time difference between the last time
+*.                                   the USDB was updated and the current
+*.                                   time.
+*.
+*.    *   OUTPUT              TYPE        DESCRIPTION
+*.    -   ------              ----        -----------
+*.    C   USDB_CUR_BIAS       R*4         An array of the the calculated BIAS
+*.                                        for the hourly accumulation
+*.    C   USDB_CUR_GRPSIZ     R*4         An array of the (effective) no.
+*.                                        G-R Pairs associated with the Bias
+*.                                        for the hourly accumulation
+*.    C   USDB_CUR_MSPAN      R*4         An array of the Memory Span
+*.                                        associated with the Bias for the
+*.                                        hourly accumulation
+*.    C   USDB_FLG_ADJUST     I*4         Not Used
+*.    C   USDB_FLG_NO_HRLY    I*4         An array of the flags indicating if
+*.                                        the hourly accumulation has been
+*.                                        flagged as a bad hourly accumulation
+*.    C   USDB_FLG_ZERO_HRLY  I*4         An array of the flags indicating if
+*.                                        the hourly accumulation has zero
+*.                                        accumulation
+*.    C   USDB_HRLY_EDATE     I*2         An array of the end date for the
+*.                                        hourly accumulation
+*.    C   USDB_HRLY_ETIME     I*2         An array of the end hour for the
+*.                                        hourly accumulation
+*.    C   USDB_HRLY_SCAN_TYPE I*4         An array of the scan type for the
+*.                                        hourly accumulations
+*.    C   USDB_SB_STATUS_HRLY I*4         An array of the flags indicating if
+*.                                        the hourly accumulation is spot
+*.                                        blanked
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE: NONE
+*.
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME         TYPE        DESCRIPTION
+*.    ----         ----        -----------
+*.    DATE         I*4         Variable used to set the hour in the USDB for
+*.                             hourly end date for the current index
+*.    HOURS_IN_DAY I*2         (CONSTANT)Parameter value for number of hours
+*.                             in a day
+*.    I            I*4         LOOP COUNTER
+*.    KUR_IDX      I*4         Current Index
+*.    LSDATE       I*2         The last date the USDB was updated, if -2 then
+*.                             the USDB has only been initialized
+*.    LSTIME       I*2         The last time the USDB was updated, if -2 then
+*.                             the USDB has only been initialized
+*.    NULL         I*4
+*.    RNULL        R*4         (CONSTANT)Real parameter value for zero
+*.    SET          I*4         (CONSTANT)Parameter value for a flag being set
+*.                             (1)
+*.    TIME         I*4         Variable used to set the hour in the USDB for
+*.                             hourly end time for the current index
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3147C9
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK14.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+C...'X' IN COLUMN-1 INDICATES CONDITIONALLY COMPILED DEBUG CODE...
+C
+      IMPLICIT NONE
+C
+C
+C ORPG Issue 12
+$INCLUDE A309.INC/G,**A3PM00
+C
+$INCLUDE A3146.INC/G,**A3146P1 (NEND NLIST)
+$INCLUDE             **A3146C2 (NEND NLIST)
+$INCLUDE             **A314C3 (NEND NLIST)
+$INCLUDE A3147.INC/G,**A3147P9 (NEND NLIST)
+$INCLUDE             **A3147C8 (NEND NLIST)
+$INCLUDE             **A3147C9 (NEND NLIST)
+C
+$INCLUDE A313HBUF.INC/G,**A313HYPP (NEND NLIST)
+$INCLUDE                **A313HYD6 (NEND NLIST)
+C
+      INTEGER KUR_IDX
+      INTEGER*4 TIME_DIF
+      INTEGER TIME, DATE
+      INTEGER*2  LSDATE, LSTIME
+      INTEGER I,SET,NULL,ONE
+      REAL RNULL
+      PARAMETER (RNULL = 0.0)
+      PARAMETER (NULL = 0)
+      PARAMETER(ONE = 1, SET = 1)
+      INTEGER*2 HOURS_IN_DAY
+      PARAMETER (HOURS_IN_DAY=24)
+C
+C---------------------
+C
+X     WRITE(14,*)'A31473: ENTER A31473,TIME DIF = ',TIME_DIF
+C
+C** First, get last DATE/TIME from USDB header record
+C
+      LSDATE = USDB_LAST_DATE
+      LSTIME = USDB_LAST_TIME
+X     WRITE(14,*)'DB LSDATE = ',LSDATE,' AND LSTIME = ',LSTIME
+C
+      IF(TIME_DIF .LE. MAX_USDB_HRS)THEN
+C
+C  If time difference less than 30 hours, just rotate indices
+C  and set no hourly flag.  Also if cross midnight, update date
+C
+         TIME = LSTIME + 1
+         DATE = LSDATE
+X        WRITE(14,*)'73: INCREMENT TIME BY ',TIME_DIF,' HRS'
+         DO 10 I= 1,TIME_DIF
+            IF(TIME .EQ. HOURS_IN_DAY)THEN
+              TIME = 0
+              DATE = DATE + 1
+            ENDIF
+X           WRITE(14,*)'CALL A31474 TO ROTATE'
+            CALL A31474__ROTATE_INDICES
+            KUR_IDX = USDB_HRS_OLD(USDB_NEWEST)
+            USDB_HRLY_EDATE(KUR_IDX) = DATE
+            USDB_HRLY_ETIME(KUR_IDX) = TIME
+            USDB_FLG_ZERO_HRLY(KUR_IDX) = NULL
+            USDB_FLG_NO_HRLY(KUR_IDX) = SET
+            USDB_HRLY_SCAN_TYPE(KUR_IDX) = NULL
+            USDB_SB_STATUS_HRLY(KUR_IDX) = NULL
+            USDB_CUR_BIAS(KUR_IDX) = RNULL
+            USDB_CUR_GRPSIZ(KUR_IDX) = RNULL
+            USDB_CUR_MSPAN(KUR_IDX) = RNULL
+            USDB_FLG_ADJUST(KUR_IDX) = NULL
+               TIME = TIME + 1
+10          CONTINUE
+      ELSEIF(TIME_DIF .GT. MAX_USDB_HRS)THEN
+X        WRITE(14,*)'CALL 72 INIT DB'
+C
+C  JUST INITIALIZE THE DATABASE
+C  BY CALLING A31472
+          CALL A31472__INIT_USDB
+      ENDIF
+X     WRITE(14,*)'A31473: EXITING A31473... '
+C
+      RETURN
+      END

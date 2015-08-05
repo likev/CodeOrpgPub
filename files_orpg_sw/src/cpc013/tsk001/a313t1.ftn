@@ -1,0 +1,324 @@
+C 
+C RCS info 
+C $Author: steves $ 
+C $Locker:  $ 
+C $Date: 2014/04/25 17:26:46 $ 
+C $Id: a313t1.ftn,v 1.6 2014/04/25 17:26:46 steves Exp $ 
+C $Revision: 1.6 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A313T1__COMPUTE_DEPTH(VCP,BEAM_DEPTH)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A313T1__COMPUTE_DEPTH
+*.
+*.  MODULE VERSION: 0009
+*.
+*.  MODULE LANGUAGE:  FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       08 19 88      0000      CHI  CHAN            SPR #80293
+*.       02 13 91      0001      BAYARD JOHNSTON      SPR # 91254
+*.       12/10/91      0002      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0003      Toolset              SPR 91895
+*.       03/25/93      0004      Toolset              SPR NA93-06801
+*.       01/28/94      0005      Toolset              SPR NA94-01101
+*.       03/03/94      0006      Toolset              SPR NA94-05501
+*.       04/11/96      0007      Toolset              CCR NA95-11802
+*.       12/23/96      0008      Toolset              CCR NA95-11807
+*.       03/16/99      0009      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL  A313T1__COMPUTE_DEPTH(VCP,BEAM_DEPTH)
+*.
+*.  MODULE FUNCTION:
+*.  THIS ROUTINE CAN BE CALLED AT THE BEGINNING OF THE VOLUME SCAN
+*.  TO COMPUTE THE BEAM DEPTH TABLE FOR THE WHOLE COVERAGE AREA
+*.  AT EACH ELEVATION OF THE VOLUME COVERAGE PATTERN THAT IS BEING
+*.  RUN.
+*.
+*.  MODULES CALLED: A3CM56__GET_ELEV_ANGLE 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT  TYPE        DESCRIPTION
+*.    -   -----  ----        -----------
+*.    P   VCP    I*4         The VOLUME COVERAGE PATTERN
+*.
+*.    *   OUTPUT     TYPE        DESCRIPTION
+*.    -   ------     ----        -----------
+*.    P   BEAM_DEPTH R*4         The ARRAY OF BEAM DEPTH
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    P   VCP               I*4         The VOLUME COVERAGE PATTERN
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME     TYPE        DESCRIPTION
+*.    ----     ----        -----------
+*.    BW       R*4         BEAM WIDTH
+*.    DEGTORAD R*4         The conversion from degrees to radians (0.0174532),
+*.                         in rads/deg.
+*.    ELVANG   I*4         ELEVATION ANGLE
+*.    ELVNUM   I*4         ELEVATION NUMBER
+*.    FOUND    L*4         FOUND FLAG
+*.    FOUND_EL L*4         elevation index found flag.
+*.    FOURP    R*4         Constant value of four.
+*.    HALF     R*4         Used to calculate beam depth.
+*.    I        I*4         DO LOOP INDEX
+*.    J        I*4         DO LOOP INDEX
+*.    MAXEL    I*4         MAXIMUM ELEVATION SCAN
+*.    MAXRBIN  I*4         MAXIMUM RANGE BINS
+*.    ONE      I*4         Program parameter value for one used as lower index
+*.                         in do loop.
+*.    PHI      R*4         PHI # ANGLES
+*.    PHIAVG   R*4         AVERAGE PHI ANGLES
+*.    PHINXT   R*4         NEXT HIGHEST PHI ANGLE
+*.    PHIT     R*4         TEMPORARY
+*.    PHIT1    R*4         Holds value of PHI (I+1).
+*.    PHIT2    R*4         Holds value of PHI (I-1).
+*.    PHITOP   R*4         HIGHEST PHI ANGLE
+*.    RE       R*4         RADIUS OF EARTH
+*.    RH       R*4         RANGE HORIZONTAL
+*.    RS       R*4         The slant range of the current sample, in
+*.                         KILOmeters.
+*.    TEN      R*4         Parameter real 10.0
+*.    THREEP   R*4         Floating point constant 3.0.
+*.    TOP      I*4         HIGHEST ELEVATION
+*.    TRUE     L*4         TRUE
+*.    TWO      I*4         (Constant) Parameter equal to 2.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP13.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK13.CSS
+*.
+*.  MISC:
+*.
+*.     Further description of the Product Index and Disk Space Map
+*.     organization may be found in the CPCI 03 C5 document.
+*.
+*.*******************************************************************
+C*********************************************************
+C*                THE FIRST OF FIVE                      *
+C*               OF THE VIL/ECHO TOPS                    *
+C*              PROCESSING SUBROUTINES                   *
+C*                   A313E1.FTN                          *
+C* *** BEAM,DEPTH AND RADIAL CONSTANTS FUNCTIONS ***     *
+C*********************************************************
+C
+      IMPLICIT NONE
+C
+C Local variable definitions
+C
+      INTEGER   VCP,ELVNUM,ELVANG,I,J,ONE,TWO,THREE,FOUR,ZERO
+      INTEGER   MAXEL,TOP, MAXRBIN
+      INTEGER   LOCAL_VCP
+      PARAMETER (MAXEL = 20, ONE = 1, TWO = 2, THREE = 3, FOUR = 4)
+      PARAMETER (ZERO = 0, MAXRBIN = 230)
+      LOGICAL   FOUND,TRUE, FOUND_EL
+      REAL BEAM_DEPTH(MAXRBIN,MAXEL),RH,RE,BW,RS,PHI(MAXEL),TEN
+      REAL HALF,DEGTORAD,PHIAVG,PHIT,PHIT1,PHIT2,PHITOP,PHINXT
+      REAL THREEP,FOURP
+
+      INTEGER ALLOW_SUPPL_SCANS
+      COMMON/SAILS/ ALLOW_SUPPL_SCANS
+C
+C Local data declarations
+C
+      DATA TRUE /.TRUE./
+      DATA DEGTORAD /0.0174532/
+      DATA RE /6371.0/
+      DATA BW /.017/
+      DATA HALF /0.5/
+      DATA TEN /10.0/
+      DATA THREEP /3.0/
+      DATA FOURP /4.0/
+
+C 
+C DO SOME INITIALIZATION ... DETERMINE WHETHER SAILS IS 
+C SUPPORTED OR NOT SUPPORTED. (Note: Currently SAILS is not
+C supported so ALLOW_SUPPL_SCAN should be 0.)  In the context
+C of this routine, ELVNUM is assumed sequential.  If this
+C algorithm does not process SAILS cuts, then elevation
+C numbers are not sequential.  By assuming elevation 
+C numbers are sequential, the A3CM56 call needs to be told
+C (via negating the VCP number) that the ELVANG should be 
+C derived from the "local" version of the VCP definition
+C which has no SAILS cuts.  
+C 
+      LOCAL_VCP = VCP
+      IF ( ALLOW_SUPPL_SCANS .EQ. 0 ) LOCAL_VCP = -VCP
+C
+C COMPUTE THE BEAM DEPTH TABLE FOR THE WHOLE COVERAGE AREA
+C AT EACH ELEVATION OF THE VOLUME COVERAGE PATTERN.
+C
+      DO 10 I = ONE, MAXEL
+         ELVNUM = I
+C
+C INITIALIZE AT THE BEGINNING
+C
+         PHIAVG = 0.0
+         PHINXT = 0.0
+         PHITOP = 0.0
+C
+C CALL SUBROUTINE WITH ELEVATION INDEX I TO OBTAIN ELEVATION ANGLE
+C
+         CALL A3CM56__GET_ELEV_ANGLE(LOCAL_VCP,ELVNUM,ELVANG,FOUND)
+         FOUND_EL = FOUND
+C
+C IF ELEVATION ANGLE WAS FOUND AND ELEVATION INDEX  IS
+C LESS THAN MAXIMUM ELEVATION INDEX (20)
+C
+         IF ((FOUND .EQV. TRUE) .AND. (I .LT. MAXEL)) THEN
+            IF (I .EQ. ONE) THEN
+C
+C LOWEST ELEVATION SCAN CASE
+C
+               PHI(ONE) = (ELVANG/TEN) * DEGTORAD
+               ELVNUM = TWO
+               CALL A3CM56__GET_ELEV_ANGLE(LOCAL_VCP,ELVNUM,ELVANG,
+     >                                     FOUND)
+               IF ( FOUND ) THEN
+                  PHI(TWO) = (ELVANG/TEN) * DEGTORAD
+C
+C COMPUTE PHI AVERAGE
+C PHI AVG. = (PHI(1) + PHI(2)) / 2
+C
+                  PHIAVG = (PHI(ONE) + PHI(TWO))/TWO
+               END IF
+C
+C COMPUTES MAXIMUM BINS (230) , INCREMENT BY 1 KM
+C
+               DO 20 J = ONE, MAXRBIN
+                  RS = J
+                  PHIT = PHI(ONE)
+C
+C COMPUTE HORIZONTAL RANGE = SLANT RANGE * SIN(PHI)
+C
+                  RH = RS * COS(PHIT)
+C
+C COMPUTE THE BEAM DEPTH TABLE , LOWEST ELEVATION SCAN CASE
+C
+                  BEAM_DEPTH(J,ONE) = (RH*(TAN(PHIAVG))) + ((RH**
+     -            TWO)/(TWO*(FOURP/THREEP)*RE*((COS(PHIAVG))**TWO)))
+20             CONTINUE
+            ELSE
+C
+C IF ELEVATION SCAN IS NOT LOWEST OR HIGHEST
+C
+               ELVNUM = I + 1
+               CALL A3CM56__GET_ELEV_ANGLE(LOCAL_VCP,ELVNUM,ELVANG,
+     >                                     FOUND)
+               IF ( FOUND ) THEN
+C
+C CALCULATE PHI(I+1) ANGLE
+C
+                  PHI(I+1) = (ELVANG/TEN) * DEGTORAD
+               END IF
+               ELVNUM = I - 1
+               CALL A3CM56__GET_ELEV_ANGLE(LOCAL_VCP,ELVNUM,ELVANG,
+     >                                     FOUND)
+               IF ( FOUND ) THEN
+C
+C CALCULATE PHI(I-1) ANGLE
+C
+                  PHI(I-1) = (ELVANG/TEN) * DEGTORAD
+               END IF
+               ELVNUM = I
+               CALL A3CM56__GET_ELEV_ANGLE(LOCAL_VCP,ELVNUM,ELVANG,
+     >                                     FOUND)
+               IF ( FOUND ) THEN
+C
+C CALCULATE PHI(I) ANGLE
+C
+                  PHI(I) = (ELVANG/TEN) * DEGTORAD
+               END IF
+C
+C DO FOR WHOLE COVERAGE AREA(230 KM)
+C INCREMENT BY 1 KM
+C
+               DO 30 J = ONE, MAXRBIN
+                  RS = J
+                  PHIT = PHI(I)
+                  PHIT1 = PHI(I+1)
+                  PHIT2 = PHI(I-1)
+C
+C COMPUTE HOIZONTAL RANGE = SLANT RANGE * SIN(PHI)
+C
+                  RH = RS * COS(PHIT)
+C
+C COMPUTE BEAM DEPTH TABLE
+C
+                  BEAM_DEPTH(J,I) = HALF*RH*(TAN(PHIT1) -
+     -                                  TAN(PHIT2))
+30             CONTINUE
+             END IF
+         ELSE
+C
+C IF ELEVATION SCAN IS HIGHEST
+C ELEVATION INDEX NOT FOUND , NO MORE ELEVATION INDEX
+C OR ELEVATION INDEX IS MAXIMUM(20)
+C
+            ELVNUM = I
+            IF (FOUND_EL .NEQV. TRUE) THEN
+C
+C IF NOT FOUND DECREMENT ELEVATION INDEX BY 1
+C
+               ELVNUM = I - 1
+            END IF
+            TOP = ELVNUM
+            CALL A3CM56__GET_ELEV_ANGLE(LOCAL_VCP,ELVNUM,ELVANG,FOUND)
+            IF ( FOUND ) THEN
+               PHITOP = (ELVANG/TEN) * DEGTORAD
+            END IF
+C
+C CALCULATE NEXT HIGHEST ELEVATION SCAN
+C
+            ELVNUM = TOP - 1
+            CALL A3CM56__GET_ELEV_ANGLE(LOCAL_VCP,ELVNUM,ELVANG,FOUND)
+            IF ( FOUND ) THEN
+               PHINXT = (ELVANG/TEN) * DEGTORAD
+            END IF
+C
+C CALCULATE 230 RANGE BINS, HIGHEST ELEVATION SCAN CASE
+C
+            DO 40 J = ONE, MAXRBIN
+               RS = J
+               RH = RS * COS(PHITOP)
+               PHIT = (PHITOP + (BW/TWO))
+               BEAM_DEPTH(J,TOP) = HALF*RH*(TAN(PHIT) -
+     -                                TAN(PHINXT))
+40          CONTINUE
+         END IF
+         IF (FOUND_EL .NEQV. TRUE) THEN
+C
+C NO MORE HIGHER ELEVATION INDEX CAN BE FOUND
+C GO TO EXIT, DONE
+C
+            GO TO 900
+         END IF
+10    CONTINUE
+900   RETURN
+      END

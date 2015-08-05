@@ -1,0 +1,332 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/03 14:21:15 $
+C $Id: a30783.ftn,v 1.4 2002/12/03 14:21:15 christie Exp $
+C $Revision: 1.4 $
+C $State: Exp $
+C
+      SUBROUTINE A30783__CART_MAP( MAPBUFF,NYROW,NXCOL,RADBUFF,RADELV,
+     $       HL,HR,SLANT_LEFT,SLOPE,RESOLUTION,MOMENT,BEGBIN,ENDBIN )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A30783__CART_MAP
+*.
+*.  MODULE VERSION: 0015
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY: NONE
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       06 09 85      0001      BOB BENEDICT         RPG BUILD 2
+*.       04 25 88      0002      STEVEN SMITH         SPR # 80061
+*.       05 08 89      0003      CHARLIE BAUMHER      SPR # 80271
+*.       11 03 90      0004      MARK FRESCH          SPR # 91248
+*.       12 03 91      0005      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0006      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/20/92      0007      Toolset              SPR 91895
+*.       06/10/92      0008      MARK FRESCH          SPR # 92420
+*.       03/25/93      0009      Toolset              SPR NA93-06801
+*.       01/28/94      0010      Toolset              SPR NA94-01101
+*.       03/03/94      0011      Toolset              SPR NA94-05501
+*.       03/31/94      0012      STEVE SMITH          CCR NW-93-300-06
+*.       04/11/96      0013      Toolset              CCR NA95-11802
+*.       12/23/96      0014      Toolset              CCR NA95-11807
+*.       03/16/99      0015      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:
+*.
+*.  CALL A30783__CART_MAP(MAPBUFF, NYROW, NXCOL, RADBUFF, RADELV, HL,
+*.       HR, SLANT_LEFT, SLOPE, RESOLUTION, MOMENT, BEGBIN, ENDBIN )
+*.
+*.  MODULE FUNCTION:
+*.     VERTICAL CROSS SECTION CARTESIAN MAPPING. THIS MODULE ACCEPTS
+*.  RADIAL BINS, FOR EITHER REFLECTIVITY, VELOCITY OR SPECTRUM-WIDTH.
+*.  EACH BIN IS THEN MAPPED ONTO THE SPECIFIC CARTESIAN MAP BEING
+*.  BUILT FOR THAT PRODUCT. THIS ROUTINE CALCULATES THE HEIGHT AND
+*.  DISTANCE FOR EACH OF THE RADIAL BINS, THEN INSERTS THE BIN'S VALUE
+*.  INTO THE CORRESPONDING BOX IN THE MAP.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT      TYPE        DESCRIPTION
+*.    -   -----      ----        -----------
+*.    G   RDMSNG     I*4         (CONSTANT)Flag value indicating Missing
+*.                               sample bin
+*.    G   RDRNGF     I*4         (CONSTANT)Flag value indicating sample bin
+*.                               Range Folded
+*.    C   BOXHGHT    R*4         (CONSTANT)Height of the cartesian grid box.
+*.    C   DEGTORAD   R*4         (CONSTANT)Constant, used in calculation to
+*.                               convert degrees to radians.
+*.    C   HALF       R*4         (CONSTANT)Constant, value of one half.
+*.    C   INC1       I*4         (CONSTANT)Constant, used as an incrementor
+*.                               value.
+*.    C   NOT_MAPPED I*4         (CONSTANT)Grid value if no data was mapped to
+*.                               it-initialization value.
+*.    C   TWO        I*4         (CONSTANT)Constant value of an integer 2.
+*.    C   VELOCITY   I*4         (CONSTANT)Moment constant for velocity.
+*.    C   ZERO       I*4         (CONSTANT)Program parameter for 0.
+*.    P   BEGBIN     I*4         FIRST GOOD BIN
+*.    P   ENDBIN     I*4         LAST GOOD BIN
+*.    P   HL         R*4         DIST FROM P1 TO LEFT_AZ ALONG
+*.    P   HR         R*4         Distance from P1 to RIGHT_AZ along the P1P2
+*.                               line.
+*.    P   MAPBUFF    I*2         Buffer to map radial information.
+*.    P   MOMENT     I*4         Moment (1=REF,2=VEL,3=SPT.WDTH)
+*.    P   NXCOL      I*4         NUMBER OF COLMNS IN THE MAP
+*.    P   NYROW      I*4         NUMBER OF ROWS IN THE MAP
+*.    P   RADBUFF    I*2         BUFFER OF RADIAL BINS
+*.    P   RADELV     R*4         RADIAL ELEVATION (DEGREES)
+*.    P   RESOLUTION R*4         RESOLUTION OF RADIAL DATA
+*.    P   SLANT_LEFT R*4         RANGE FROM RADAR TO LEFT_AZ
+*.    P   SLOPE      R*4         SLOPE OF THE RADIAL BEAM
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    P   MAPBUFF I*2         Buffer to map radial information.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME           TYPE        DESCRIPTION
+*.    ----           ----        -----------
+*.    BADMAP         L*4         FLAG FOR BAD MAP VALUE
+*.    BADRAD         L*4         FLAG FOR BAD RADIAL VALUE
+*.    BIN_CEN        I*4         NEAREST BIN CENTER OF VALUE
+*.    COS_ELEV       R*4         COSINE OF CURRENT ELEVATION
+*.    DELTAH         R*4         CHANGE IN DIST FROM SLANT_LEFT
+*.    HBOX_CEN       R*4         HORIZONTAL BOX CENTER
+*.    HGHT           R*4         HORIZONTAL COORDINATE INDEX
+*.    HI             I*4         HORIZONTAL GRID INDEX
+*.    HL_BOX         I*4         HORIZONTAL LEFT BOX INDEX NUMBER
+*.    HR_BOX         I*4         HORIZONTAL RIGHT BOX INDEX NUMBER
+*.    INDEXREFRACT   R*4         CONST:INDEX OF REFRACTION
+*.    MAPVAL         I*2         CURRENT VALUE OF A GRID BOX
+*.    MAXROW         I*4         THRESHOLD VERTICAL GRID INDEX
+*.    RADIUSEARTH    R*4         CONST:EARTHS RADIUS IN KM'S
+*.    RADVAL         I*2         VALUE OF A RADIAL BIN
+*.    SBOX_CEN       R*4         BOX CENTER FROM SLANT_LEFT LINE
+*.    SIN_ELEV       R*4         SINE OF INCOMING ELEVATION
+*.    S_RANGE_RADIAL R*4         NEAREST BIN TO OBTAIN DATA FROM
+*.    TWOINRE        R*4         CONSTANT VALUE OF 2 * INR * RE
+*.    VELMIDPT       I*2         CONST.MIDPOINT OF VELOC. BELL CURVE
+*.    VI             I*4         VERTICAL COORDINATE INDEX
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS:NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  NONE
+*.
+*.  DEVIATION FROM STANDARDS:  NONE
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP07.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK07.CSS
+*.
+*.  MISC:  NONE
+*.
+*.*******************************************************************
+C
+C*****************************************************
+C*        VERTICAL X-SECTION CARTESIAN MAPPING       *
+C*****************************************************
+C*
+      IMPLICIT NONE
+C*
+$INCLUDE A304.INC/G,**A304P4 (NLIST)
+$INCLUDE A307.INC,**A30788    (     NLIST)
+C
+C*********************************************************************
+C  Local declarations
+C
+      REAL*4      INDEXREFRACT, RADIUSEARTH, TWOINRE
+      REAL*4      SLOPE
+      REAL*4      HBOX_CEN
+      REAL*4      DELTAH
+      REAL*4      SBOX_CEN, S_RANGE_RADIAL
+      REAL*4      SIN_ELEV, COS_ELEV
+      REAL*4      HL, HR
+      REAL*4      SLANT_LEFT, SLANT_RIGHT
+      REAL*4      RESOLUTION
+      REAL*4      RADELV
+      REAL*4      HGHT
+C
+      INTEGER*4   NYROW, NXCOL, MAXROW
+      INTEGER*4   HI, VI
+      INTEGER*4   BIN_CEN
+      INTEGER*4   HL_BOX, HR_BOX
+C
+      INTEGER*2   MAPBUFF(NXCOL, NYROW)
+      INTEGER*2   RADBUFF(*)
+      INTEGER*2   VELMIDPT,MAPVAL,RADVAL
+      INTEGER*4   MOMENT, M
+      INTEGER*4   BEGBIN, ENDBIN
+C
+      LOGICAL       BADMAP, BADRAD
+C
+C*********************************************************************
+C*  LOCAL DECLARATION
+C
+      PARAMETER   ( MAXROW = 43 )
+      PARAMETER   ( VELMIDPT = 129 )
+      PARAMETER   ( INDEXREFRACT=1.21, RADIUSEARTH=6371.0 )
+      PARAMETER   ( TWOINRE = 1.0/(TWO*INDEXREFRACT*RADIUSEARTH) )
+C*
+C
+C*
+      SIN_ELEV = SIN(RADELV * DEGTORAD )
+      COS_ELEV = COS(RADELV * DEGTORAD )
+C*
+C*********************************************************************
+C*  DETERMINE THE HORIZONTAL BOX INDEX NUMBERS BASED ON THE HL
+C*  AND HR REFERENCE POINTS. THE CARTESIAN GRID HAS HORIZONTAL BOX
+C*  SIZES OF ONE KM AND VERTICAL LENGHT OF 0.5 KM.
+C*
+      HL_BOX = NINT( HL )
+      HR_BOX = NINT( HR )
+      IF (HL_BOX.LT.ZERO) HL_BOX = ZERO
+      IF (HR_BOX.GT.NXCOL) HR_BOX = NXCOL
+C*
+C*********************************************************************
+C*  FOR ALL HORIZONTAL BOX CENTERS BETWEEN HL+1 AND HR, DETERMINE THE
+C*  CORRESPONDING BIN NUMBERS THAT WILL BE MAPPED.
+C*
+C*
+      DO 400 HI = HL_BOX + INC1,HR_BOX
+        HBOX_CEN = HI - HALF
+        DELTAH = HBOX_CEN - HL
+C*
+C*********************************************************************
+C*
+C*  THE CORRESPONDING DISTANT IN SLANT RANGE FROM THE LEFT SIDE OF THE
+C*  BEAM IS AT THE FIRST BOX CENTER IS
+C*
+        SBOX_CEN = SLANT_LEFT + ( SLOPE * DELTAH )
+C*
+C*********************************************************************
+C*
+C*  THE NEAREST BIN CENTER IS THEN COMPUTED ( HORIZONTAL INDEX )
+C*
+        S_RANGE_RADIAL = SBOX_CEN / COS_ELEV
+        BIN_CEN = INT((S_RANGE_RADIAL / RESOLUTION ) + INC1 )
+C
+C*  CHECK IF BIN IS WITHIN GOOD DATA, IF NOT, SET TO MISSING VALUE
+C
+        IF (BIN_CEN.GE.BEGBIN .AND. BIN_CEN.LE.ENDBIN) THEN
+           RADVAL = RADBUFF(BIN_CEN)
+        ELSE
+           RADVAL = RDMSNG
+        END IF
+C
+C*
+C*********************************************************************
+C*  CALCULATE THE VERTICAL COORDINATE ( VERTICAL INDEX )
+C*
+        HGHT = S_RANGE_RADIAL*SIN_ELEV +
+     $         S_RANGE_RADIAL*S_RANGE_RADIAL*TWOINRE
+C
+        VI = MAXROW - INT( HGHT/BOXHGHT )
+C
+C*
+C*
+C*********************************************************************
+C*   NOW INSERT THE RADIAL'S BIN VALUE INTO THE MAP. IF THIS
+C*   BOX IN THE MAP ALREADY HAS A VALUE, THEN INSERT THE NEW VALUE
+C*   ONLY IF IT IS GREATER.
+C*   NOTE: VELOCITY IS TREATED AS A SPECIAL CASE. VELOCITY VALUES
+C*   FORM AN UPSIDE DOWN BELL CURVE. THE MIDPOINT (129) HAS THE
+C*   LOWEST VALUE, WHILE THE VALUES 2 AND 256 REPRESENT THE
+C*   HIGHEST VALUES.  BELOW THRESHOLD IS INDICATED AS 257.
+C*
+C*
+        IF (VI.GT.ZERO .AND. VI.LE.MAXROW) THEN
+C
+C*  SET FLAGS IF RADIAL OR MAP VALUES AREN'T GOOD DATA
+C
+          BADRAD = .FALSE.
+          BADMAP = .FALSE.
+          IF (RADVAL.LE.RDRNGF .OR. RADVAL.EQ.RDMSNG)
+     $        BADRAD = .TRUE.
+          IF (MAPBUFF(HI,VI).LE.RDRNGF .OR. MAPBUFF(HI,VI)
+     $        .EQ.RDMSNG) BADMAP = .TRUE.
+C
+C*********************************************************************
+C*  DETERMINE HOW TO HANDLE NEW RADIAL VALUE DEPENDING ON WHETHER THE
+C*  NEW RADIAL VALUE TO BE MAPPED IS GOOD OR NOT, AND WHETHER THE
+C*  CURRENT VALUE IN THE MAP IS GOOD OR NOT.  NOTE THAT RANGED FOLDED
+C*  DATA TAKES PRECIDENCE OVER OTHER BAD VALUES AND ANY GOOD VALUE
+C*  WILL REPLACE BAD VALUES
+C*
+C*  FIRST CHECK IF ANY VALUE HAS BEEN MAPPED TO THIS GRID BOX
+C
+          IF (MAPBUFF(HI,VI).EQ.NOT_MAPPED) THEN
+            MAPBUFF(HI,VI) = RADVAL
+C
+C*  IF RADIAL IS BAD, ONLY REPLACE BAD MAP VALUE WITH RANGE FOLDED FLAG
+C
+          ELSE IF (BADRAD) THEN
+            IF (BADMAP .AND. RADVAL.EQ.RDRNGF)
+     $                          MAPBUFF(HI,VI) = RADVAL
+C
+C*  FOR NEXT CHECK, RADIAL VALUE IS GOOD, MAP VALUE IS BAD
+C
+          ELSE IF (BADMAP) THEN
+            MAPBUFF(HI,VI) = RADVAL
+          ELSE
+C
+C*  NORMAL MAPPING OF RADIAL VALUES, USE MAXIMUM VALUE THAT MAPS INTO
+C*  THE GRID BOX
+C
+C*  FIRST SAVE MAP VALUE TO TEMPORY STORAGE
+C
+            MAPVAL = MAPBUFF(HI,VI)
+C
+C
+C*  SPECIAL CASE FOR VELOCITY WHERE MAX ABSOLUTE VALUE OF VELOCITY
+C*  IS RETAINED
+C
+            IF (MOMENT .EQ. VELOCITY) THEN
+C
+C*  UNITS ARE BIASED VELOCITY (ALL > 0 ) SO GET DEVIATION FROM MIDPOINT
+C*  WHICH REPRESENTS 0 VELOCITY
+C
+#IFDEF LINUX
+              MAPVAL = IABS(INT(MAPVAL - VELMIDPT))
+              RADVAL = IABS(INT(RADVAL - VELMIDPT))
+#ELSE
+              MAPVAL = IABS(MAPVAL - VELMIDPT)
+              RADVAL = IABS(RADVAL - VELMIDPT)
+#ENDIF
+            END IF
+C*
+C*********************************************************************
+C*  NOW MAKE COMPARISONS, AND INSERT NEW VALUE IF REQUIRED.
+C*
+            IF ( RADVAL .GT. MAPVAL ) THEN
+              MAPBUFF(HI,VI) = RADBUFF(BIN_CEN)
+            END IF
+
+          END IF
+        END IF
+400   CONTINUE
+      RETURN
+      END

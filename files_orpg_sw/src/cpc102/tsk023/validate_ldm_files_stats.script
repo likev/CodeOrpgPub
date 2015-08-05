@@ -1,0 +1,1139 @@
+#!/bin/sh
+
+# RCS info
+# $Author: ccalvert $
+# $Locker:  $
+# $Date: 2012/07/31 15:17:46 $
+# $Id: validate_ldm_files_stats.script,v 1.2 2012/07/31 15:17:46 ccalvert Exp $
+# $Revision: 1.2 $
+# $State: Exp $
+
+# Description: Create stats from output of validate_ldm_files_ROCSWE.script or
+#              validate_ldm_files_generic.script.
+
+INPUT_DIRECTORY=`pwd`
+OUTPUT_DIRECTORY=`pwd`
+EVENT_NAME="DEFAULT"
+DEBUG_MODE=NO
+SEARCH_ALL_ICAOS_FLAG=YES
+OUTPUT_SINGLE_FILE=YES
+OUTPUT_FILE_BY_REGION=NO
+OUTPUT_FILE_BY_ICAO=NO
+OUTPUT_FILE_BY_DAY=NO
+OUTPUT_FILE_BY_HOUR=NO
+SORT_OUTPUT_FILE_BY_ICAO=NO
+CREATE_STATS_FILE=NO
+RETRANSLATE_VCPS=NO
+RANGE_START_YEAR=`date -u -d @0 +%Y`
+RANGE_STOP_YEAR=`date -u +%Y`
+RANGE_START_MONTH=`date -u -d @0 +%m`
+RANGE_STOP_MONTH=`date -u +%m`
+RANGE_START_DAY=`date -u -d @0 +%d`
+RANGE_STOP_DAY=`date -u +%d`
+RANGE_START_HOUR=`date -u -d @0 +%H`
+RANGE_STOP_HOUR=`date -u +%H`
+RANGE_START_MINUTE=`date -u -d @0 +%M`
+RANGE_STOP_MINUTE=`date -u +%M`
+RANGE_START_TIME_STRING="${RANGE_START_YEAR}${RANGE_START_MONTH}${RANGE_START_DAY}${RANGE_START_HOUR}${RANGE_START_MINUTE}"
+RANGE_STOP_TIME_STRING="${RANGE_STOP_YEAR}${RANGE_STOP_MONTH}${RANGE_STOP_DAY}${RANGE_STOP_HOUR}${RANGE_STOP_MINUTE}"
+EASTERN_REGION_TAG=Eastern
+CENTRAL_REGION_TAG=Central
+SOUTHERN_REGION_TAG=Southern
+WESTERN_REGION_TAG=Western
+ROC_REGION_TAG=ROC
+ERROR_FLAG=1
+NO_ERROR_FLAG=0
+WORKING_FILE=/tmp/create_event_file.temp.${USER}
+
+#####################################################################
+# CALC: Calculate floating point numbers.
+#####################################################################
+
+calc ()
+{
+  echo "scale=4; $1" | bc;
+}
+
+#####################################################################
+# ECHO_OUT: Echo message with timestamp.
+#####################################################################
+
+echo_out ()
+{
+  echo "$1"
+}
+
+#####################################################################
+# ECHO_ERROR: Echo error message and exit.
+#####################################################################
+
+echo_error ()
+{
+  if [ $# -eq 1 ]
+  then
+    exit_code=1
+  else
+    exit_code=$2
+  fi
+  echo -e "ERROR: $1" >&2
+  exit $exit_code
+}
+
+#####################################################################
+# ECHO_DEBUG: Echo message if debug flag is YES.
+#####################################################################
+
+echo_debug ()
+{
+  if [ $DEBUG_MODE = YES ]
+  then
+    echo_out "DEBUG: $1"
+  fi
+}
+
+#####################################################################
+# PRINT_USAGE: Display usage of this script
+#####################################################################
+
+print_usage ()
+{
+  echo_out
+  echo_out "Usage: `basename $0`"
+  echo_out ""
+  echo_out "General options:"
+  echo_out ""
+  echo_out "  -h       Print help"
+  echo_out "  -n dir:  Input directory (default: $INPUT_DIRECTORY)"
+  echo_out "  -o dir:  Output directory (default: $OUTPUT_DIRECTORY)"
+  echo_out "  -e str:  Name of event with no whitespaces (default: $EVENT_NAME)"
+  echo_out "  -x       Debug mode (default: $DEBUG_MODE)"
+  echo_out ""
+  echo_out "Options for searching for ICAOs to include in event: (default is all ICAOs)"
+  echo_out ""
+  echo_out "  -i ICAO: ICAO to search for (can be used multiple times)"
+  echo_out "  -E       Search NWS Eastern Region ICAOs"
+  echo_out "  -C       Search NWS Central Region ICAOs"
+  echo_out "  -S       Search NWS Southern Region ICAOs"
+  echo_out "  -W       Search NWS Western Region ICAOs"
+  echo_out "  -R       Search ROC ICAOs"
+  echo_out ""
+  echo_out "Options for organizing output files of event: (default is single file)"
+  echo_out ""
+  echo_out "  -G       Output files by ROC or NWS region"
+  echo_out "  -O       Output files by ICAO"
+  echo_out "  -D       Output files by day"
+  echo_out "  -H       Output files by hour"
+  echo_out ""
+  echo_out "Options for organizing data within output files:"
+  echo_out ""
+  echo_out "  -c       Within output files, sort by ICAO"
+  echo_out ""
+  echo_out "Options for creating stats for each output file:"
+  echo_out ""
+  echo_out "  -s       Create stats for each output file"
+  echo_out "  -V       Convert translated VCPs to original VCPs"
+  echo_out ""
+  echo_out "Options for setting time range of event:"
+  echo_out ""
+  echo_out "  -y yyyy: 4-digit range start year (default: $RANGE_START_YEAR)"
+  echo_out "  -Y yyyy: 4-digit range stop year (default: $RANGE_STOP_YEAR)"
+  echo_out "  -m mm:   2-digit range start month (01-12) (default: $RANGE_START_MONTH)"
+  echo_out "  -M mm:   2-digit range stop month (01-12) (default: $RANGE_STOP_MONTH)"
+  echo_out "  -a dd:   2-digit range start day (01-31) (default: $RANGE_START_DAY)"
+  echo_out "  -A dd:   2-digit range stop day (01-31) (default: $RANGE_STOP_DAY)"
+  echo_out "  -b HH:   2-digit range start hour (00-23) (default: $RANGE_START_HOUR)"
+  echo_out "  -B MM:   2-digit range stop hour (00-23) (default: $RANGE_STOP_HOUR)"
+  echo_out "  -f HH:   2-digit range start minute (00-59) (default: $RANGE_START_MINUTE)"
+  echo_out "  -F MM:   2-digit range stop minute (00-59) (default: $RANGE_STOP_MINUTE)"
+  echo_out "  -z str:  12-digit yyyymmddHHMM range start string (default: $RANGE_START_TIME_STRING)"
+  echo_out "  -Z str:  12-digit yyyymmddHHMM range stop string (default: $RANGE_STOP_TIME_STRING)"
+  echo_out
+}
+
+#####################################################################
+# PARSE_CMDLINE: Parse the command line arguments.
+#####################################################################
+
+parse_cmdline ()
+{
+  while getopts hn:o:e:xi:ECSWRGODHcsVy:Y:m:M:a:A:b:B:f:F:z:Z: option
+  do
+    case $option in
+       h) print_usage; exit 0 ;;
+       n) INPUT_DIRECTORY=$OPTARG ;;
+       o) OUTPUT_DIRECTORY=$OPTARG ;;
+       e) EVENT_NAME=$OPTARG ;;
+       x) DEBUG_MODE=YES ;;
+       i) add_ICAO $OPTARG; SEARCH_ALL_ICAOS_FLAG=NO ;;
+       E) add_region $EASTERN_REGION_TAG; SEARCH_ALL_ICAOS_FLAG=NO ;;
+       C) add_region $CENTRAL_REGION_TAG; SEARCH_ALL_ICAOS_FLAG=NO ;;
+       S) add_region $SOUTHERN_REGION_TAG; SEARCH_ALL_ICAOS_FLAG=NO ;;
+       W) add_region $WESTERN_REGION_TAG; SEARCH_ALL_ICAOS_FLAG=NO ;;
+       R) add_region $ROC_REGION_TAG; SEARCH_ALL_ICAOS_FLAG=NO ;;
+       G) OUTPUT_FILE_BY_REGION=YES; OUTPUT_SINGLE_FILE=NO ;;
+       O) OUTPUT_FILE_BY_ICAO=YES; OUTPUT_SINGLE_FILE=NO ;;
+       D) OUTPUT_FILE_BY_DAY=YES; OUTPUT_SINGLE_FILE=NO ;;
+       H) OUTPUT_FILE_BY_HOUR=YES; OUTPUT_SINGLE_FILE=NO ;;
+       c) SORT_OUTPUT_FILE_BY_ICAO=YES ;;
+       s) CREATE_STATS_FILE=YES ;;
+       V) RETRANSLATE_VCPS=YES ;;
+       y) RANGE_START_YEAR=$OPTARG ;;
+       Y) RANGE_STOP_YEAR=$OPTARG ;;
+       m) RANGE_START_MONTH=$OPTARG ;;
+       M) RANGE_STOP_MONTH=$OPTARG ;;
+       a) RANGE_START_DAY=$OPTARG ;;
+       A) RANGE_STOP_DAY=$OPTARG ;;
+       b) RANGE_START_HOUR=$OPTARG ;;
+       B) RANGE_STOP_HOUR=$OPTARG ;;
+       f) RANGE_START_MINUTE=$OPTARG ;;
+       F) RANGE_STOP_MINUTE=$OPTARG ;;
+       z) set_start_time_range $OPTARG ;;
+       Z) set_stop_time_range $OPTARG ;;
+      \?) print_usage; exit 1 ;;
+    esac
+  done
+
+  # Validate input directory
+  if [ ! -d $INPUT_DIRECTORY ]
+  then
+    echo_error "Input directory: $INPUT_DIRECTORY does not exist"
+  fi
+
+  # Validate output directory
+  if [ ! -d $OUTPUT_DIRECTORY ]
+  then
+    echo_error "Output directory: $OUTPUT_DIRECTORY does not exist"
+  fi
+
+  # Validate event name
+  if ! echo "$EVENT_NAME" | egrep -q '[a-zA-Z0-9_-.]+'
+  then
+    echo_error "Event name: $EVENT_NAME has invalid characters"
+  fi 
+
+  # Make sure year/month/day/times are valid
+  if ! echo $RANGE_START_YEAR | egrep -q '^[0-9][0-9][0-9][0-9]$'
+  then
+    echo_error "-y option ($RANGE_START_YEAR) is invalid format"
+  fi
+  if ! echo $RANGE_STOP_YEAR | egrep -q '^[0-9][0-9][0-9][0-9]$'
+  then
+    echo_error "-Y option ($RANGE_STOP_YEAR) is invalid format"
+  fi
+  if ! echo $RANGE_START_MONTH | egrep -q '^0[1-9]$|^1[0-2]$'
+  then
+    echo_error "-m option ($RANGE_START_MONTH) is invalid format"
+  fi
+  if ! echo $RANGE_STOP_MONTH | egrep -q '^0[1-9]$|^1[0-2]$'
+  then
+    echo_error "-M option ($RANGE_STOP_MONTH) is invalid format"
+  fi
+  if ! echo $RANGE_START_DAY | egrep -q '^0[1-9]$|^[1-2][0-9]$|^3[0-1]$'
+  then
+    echo_error "-a option ($RANGE_START_DAY) is invalid format"
+  fi
+  if ! echo $RANGE_STOP_DAY | egrep -q '^0[1-9]$|^[1-2][0-9]$|^3[0-1]$'
+  then
+    echo_error "-A option ($RANGE_STOP_DAY) is invalid format"
+  fi
+  if ! echo $RANGE_START_HOUR | egrep -q '^[0-1][0-9]$|^2[0-3]$'
+  then
+    echo_error "-b option ($RANGE_START_HOUR) is invalid format"
+  fi
+  if ! echo $RANGE_STOP_HOUR | egrep -q '^[0-1][0-9]$|^2[0-3]$'
+  then
+    echo_error "-B option ($RANGE_STOP_HOUR) is invalid format"
+  fi
+  if ! echo $RANGE_START_MINUTE | egrep -q '^[0-5][0-9]$'
+  then
+    echo_error "-f option ($RANGE_START_MINUTE) is invalid format"
+  fi
+  if ! echo $RANGE_STOP_MINUTE | egrep -q '^[0-5][0-9]$'
+  then
+    echo_error "-F option ($RANGE_STOP_MINUTE) is invalid format"
+  fi
+
+  if [ $OUTPUT_FILE_BY_REGION = YES -a $OUTPUT_FILE_BY_ICAO = YES ]
+  then
+    echo_error "Options -G and -O are mutually exclusive"
+  fi
+
+  if [ $OUTPUT_FILE_BY_DAY = YES -a $OUTPUT_FILE_BY_HOUR = YES ]
+  then
+    echo_error "Options -D and -H are mutually exclusive"
+  fi
+
+  echo_debug "INPUT DIRECTORY:       $INPUT_DIRECTORY"
+  echo_debug "OUTPUT DIRECTORY:      $OUTPUT_DIRECTORY"
+  echo_debug "EVENT NAME:            $EVENT_NAME"
+  echo_debug "SEARCH ICAO:           $SEARCH_ICAO_LIST"
+  echo_debug "SEARCH REGION:         $SEARCH_REGION_LIST"
+  echo_debug "SEARCH ALL ICAOs:      $SEARCH_ALL_ICAOS_FLAG"
+  echo_debug "OUTPUT BY REGION:      $OUTPUT_FILE_BY_REGION"
+  echo_debug "OUTPUT BY ICAO:        $OUTPUT_FILE_BY_ICAO"
+  echo_debug "OUTPUT BY DAY:         $OUTPUT_FILE_BY_DAY"
+  echo_debug "OUTPUT BY HOUR:        $OUTPUT_FILE_BY_HOUR"
+  echo_debug "OUTPUT ONE FILE:       $OUTPUT_SINGLE_FILE"
+  echo_debug "OUTPUT SORTED BY ICAO: $SORT_OUTPUT_FILE_BY_ICAO"
+  echo_debug "CREATE STAT FILES:     $CREATE_STATS_FILE"
+  if [ $CREATE_STATS_FILE = YES ]
+  then
+    echo_debug "RETRANSLATE VCPs:      $RETRANSLATE_VCPS"
+  fi
+  echo_debug "RANGE START YEAR:      $RANGE_START_YEAR"
+  echo_debug "RANGE STOP YEAR:       $RANGE_STOP_YEAR"
+  echo_debug "RANGE START MONTH:     $RANGE_START_MONTH"
+  echo_debug "RANGE STOP MONTH:      $RANGE_STOP_MONTH"
+  echo_debug "RANGE START DAY:       $RANGE_START_DAY"
+  echo_debug "RANGE STOP DAY:        $RANGE_STOP_DAY"
+  echo_debug "RANGE START HOUR:      $RANGE_START_HOUR"
+  echo_debug "RANGE STOP HOUR:       $RANGE_STOP_HOUR"
+  echo_debug "RANGE START MINUTE:    $RANGE_START_MINUTE"
+  echo_debug "RANGE STOP MINUTE:     $RANGE_STOP_MINUTE"
+  echo_debug "RANGE START TIME:      $RANGE_START_TIME_STRING"
+  echo_debug "RANGE STOP TIME:       $RANGE_STOP_TIME_STRING"
+}
+
+#####################################################################
+# SET_START_TIME_RANGE: Parse start date/time string.
+#####################################################################
+
+set_start_time_range ()
+{
+  dt_string=$1
+  if ! echo $dt_string | egrep -q '^[0-9]{12}$'
+  then
+    echo_error "Invalid start time string (-z)"
+  fi
+
+  RANGE_START_YEAR=`echo $dt_string | awk '{print substr($1,1,4)}'`
+  RANGE_START_MONTH=`echo $dt_string | awk '{print substr($1,5,2)}'`
+  RANGE_START_DAY=`echo $dt_string | awk '{print substr($1,7,2)}'`
+  RANGE_START_HOUR=`echo $dt_string | awk '{print substr($1,9,2)}'`
+  RANGE_START_MINUTE=`echo $dt_string | awk '{print substr($1,11,2)}'`
+}
+
+#####################################################################
+# SET_STOP_TIME_RANGE: Parse stop date/time string.
+#####################################################################
+
+set_stop_time_range ()
+{
+  dt_string=$1
+  if ! echo $dt_string | egrep -q '^[0-9]{12}$'
+  then
+    echo_error "Invalid stop time string (-Z)"
+  fi
+
+  RANGE_STOP_YEAR=`echo $dt_string | awk '{print substr($1,1,4)}'`
+  RANGE_STOP_MONTH=`echo $dt_string | awk '{print substr($1,5,2)}'`
+  RANGE_STOP_DAY=`echo $dt_string | awk '{print substr($1,7,2)}'`
+  RANGE_STOP_HOUR=`echo $dt_string | awk '{print substr($1,9,2)}'`
+  RANGE_STOP_MINUTE=`echo $dt_string | awk '{print substr($1,11,2)}'`
+}
+
+#####################################################################
+# ADD_ICAO: Add ICAO from command line option.
+#####################################################################
+
+add_ICAO ()
+{
+  icao_to_add=`echo $1 | tr '[a-z]' '[A-Z]'`
+  if ! sh -c "$ICAO_INFO_CMD" | egrep -q "^$icao_to_add"
+  then
+    echo_error "ICAO: $icao_to_add not valid"
+  else
+    if [ -z "$SEARCH_ICAO_LIST" ]
+    then
+      SEARCH_ICAO_LIST=$icao_to_add
+    else
+      if ! echo $SEARCH_ICAO_LIST | egrep -q "$icao_to_add"
+      then
+        SEARCH_ICAO_LIST="$SEARCH_ICAO_LIST $icao_to_add"
+      fi
+    fi
+  fi
+}
+
+#####################################################################
+# ADD_REGION: Add region from command line option.
+#####################################################################
+
+add_region ()
+{
+  if [ -z "$SEARCH_REGION_LIST" ]
+  then
+    SEARCH_REGION_LIST=$1
+  else
+    if ! echo $SEARCH_REGION_LIST | egrep -q "$1"
+    then
+      SEARCH_REGION_LIST="$SEARCH_REGION_LIST $1"
+    fi
+  fi
+}
+
+#####################################################################
+# INITIALIZE_VARIABLES: Initialize and validate variables.
+#####################################################################
+
+initialize_variables ()
+{
+  # Set search range epochs
+  RANGE_START_TIME_STRING=`date -u --date="${RANGE_START_YEAR}${RANGE_START_MONTH}${RANGE_START_DAY} ${RANGE_START_HOUR}:${RANGE_START_MINUTE}:00"`
+  RANGE_START_EPOCH=`date -u --date="$RANGE_START_TIME_STRING" +%s`
+  echo_debug "Range start time: $RANGE_START_TIME_STRING (epoch: $RANGE_START_EPOCH)"
+  RANGE_STOP_TIME_STRING=`date -u --date="${RANGE_STOP_YEAR}${RANGE_STOP_MONTH}${RANGE_STOP_DAY} ${RANGE_STOP_HOUR}:${RANGE_STOP_MINUTE}:00"`
+  RANGE_STOP_EPOCH=`date -u --date="$RANGE_STOP_TIME_STRING" +%s`
+  echo_debug "Range stop time: $RANGE_STOP_TIME_STRING (epoch: $RANGE_STOP_EPOCH)"
+
+  # Build ICAO list to search for
+  if [ $SEARCH_ALL_ICAOS_FLAG = YES ]
+  then
+    IFS=$'\n'
+    for input_line in `sh -c "$ICAO_INFO_CMD"`
+    do
+       input_icao=`echo $input_line | awk -F, '{print $1}'`
+       add_ICAO $input_icao
+    done
+    unset IFS
+  elif [ ! -z $SEARCH_REGION_LIST ]
+  then
+    for region in $SEARCH_REGION_LIST
+    do
+      echo_debug "Region to search: $region"
+      IFS=$'\n'
+      for input_line in `sh -c "$ICAO_INFO_CMD"`
+      do
+         input_icao=`echo $input_line | awk -F, '{print $1}'`
+         input_region=`echo $input_line | awk -F, '{print $2}'`
+         if [ $region = "$input_region" ]
+         then
+           add_ICAO $input_icao
+         fi
+      done
+      unset IFS
+    done
+  fi
+  echo_debug "Search list: $SEARCH_ICAO_LIST"
+  if [ -z "$SEARCH_ICAO_LIST" ]
+  then
+    echo_error "No ICAOs listed to search for"
+  fi
+}
+
+#####################################################################
+# PRINT_HEADER_LINE: Print header line for csv file.
+#####################################################################
+
+print_header_line ()
+{
+  echo "base_name,name_time_epoch,stat_start_epoch,stat_stop_epoch,blat_s,elat_s,ver,ICAO,rad_start_epoch,rad_end_epoch,VCP,D,dur,el,#rads,C_size_b,U_size_b,C_ratio,total_b,thruput_Kb_s,error,NWS_region,desc,state"
+}
+
+#####################################################################
+# RESET_STATS: Reset stats for new file.
+#####################################################################
+
+reset_stats ()
+{
+  NUM_GOOD_FILES=0
+  NUM_ERROR_FILES=0
+  TOTAL_START_LATENCY=0
+  TOTAL_START_LATENCY_COUNT=0
+  MAX_START_LATENCY=0
+  V07_COUNT=0
+  V06_COUNT=0
+  V05_COUNT=0
+  V04_COUNT=0
+  V03_COUNT=0
+  VOTHER_COUNT=0
+  VCP11_COUNT=0
+  VCP12_COUNT=0
+  VCP21_COUNT=0
+  VCP31_COUNT=0
+  VCP32_COUNT=0
+  VCP121_COUNT=0
+  VCP211_COUNT=0
+  VCP212_COUNT=0
+  VCP221_COUNT=0
+  VCP13_COUNT=0
+  VCP14_COUNT=0
+  VCP23_COUNT=0
+  VCP33_COUNT=0
+  VCP34_COUNT=0
+  VCP123_COUNT=0
+  VCP213_COUNT=0
+  VCP214_COUNT=0
+  VCP223_COUNT=0
+  VCP_PRECIP_COUNT=0
+  VCP_CLEAR_AIR_COUNT=0
+  DP_COUNT=0
+  TOTAL_DURATION=0
+  DURATION_COUNT=0
+  TOTAL_ELEVATIONS=0
+  ELEVATIONS_COUNT=0
+  TOTAL_RADIALS=0
+  RADIALS_COUNT=0
+  TOTAL_U_SIZE=0
+  U_SIZE_COUNT=0
+  TOTAL_C_SIZE=0
+  C_SIZE_COUNT=0
+  TOTAL_C_RATIO=0
+  C_RATIO_COUNT=0
+  TOTAL_SIZE=0
+  TOTAL_SIZE_COUNT=0
+  FILE_FIRST_RADIAL_EPOCH=`date +%s`
+  FILE_LAST_RADIAL_EPOCH=0
+}
+
+#####################################################################
+# PARSE_LINE: Parse line and get stats.
+#####################################################################
+
+parse_line ()
+{
+  data_line=`echo $1 | sed 's/ \+//g'`
+
+  base_name=`echo $data_line | awk -F, '{print $1}'`
+  name_time=`echo $data_line | awk -F, '{print $2}'`
+  stat_start=`echo $data_line | awk -F, '{print $3}'`
+  stat_stop=`echo $data_line | awk -F, '{print $4}'`
+  start_latency=`echo $data_line | awk -F, '{print $5}'`
+  stop_latency=`echo $data_line | awk -F, '{print $6}'`
+  ldm_version=`echo $data_line | awk -F, '{print $7}'`
+  icao=`echo $data_line | awk -F, '{print $8}'`
+  radial_start=`echo $data_line | awk -F, '{print $9}'`
+  radial_stop=`echo $data_line| awk -F, '{print $10}'`
+  vcp=`echo $data_line | awk -F, '{print $11}'`
+  dp_flag=`echo $data_line | awk -F, '{print $12}'`
+  vol_duration=`echo $data_line | awk -F, '{print $13}'`
+  num_elevs=`echo $data_line | awk -F, '{print $14}'`
+  num_rads=`echo $data_line | awk -F, '{print $15}'`
+  c_size=`echo $data_line | awk -F, '{print $16}'`
+  u_size=`echo $data_line | awk -F, '{print $17}'`
+  c_ratio=`echo $data_line | awk -F, '{print $18}'`
+  t_size=`echo $data_line | awk -F, '{print $19}'`
+  thruput=`echo $data_line | awk -F, '{print $20}'`
+  error_flag=`echo $data_line | awk -F, '{print $21}'`
+
+  if [ $radial_start -ne 0 ]
+  then
+    if [ `calc "$radial_start < $FILE_FIRST_RADIAL_EPOCH"` = 1 ]
+    then
+      FILE_FIRST_RADIAL_EPOCH=$radial_start
+    fi
+  fi
+
+  if [ $radial_stop -ne 0 ]
+  then
+    if [ `calc "$radial_stop > $FILE_LAST_RADIAL_EPOCH"` = 1 ]
+    then
+      FILE_LAST_RADIAL_EPOCH=$radial_stop
+    fi
+  fi
+
+  if [ $start_latency -ge 0 -a $error_flag = '0' ]
+  then
+    TOTAL_START_LATENCY=`expr $TOTAL_START_LATENCY + $start_latency`
+    TOTAL_START_LATENCY_COUNT=`expr $TOTAL_START_LATENCY_COUNT + 1`
+    if [ $start_latency -gt $MAX_START_LATENCY ]
+    then
+      MAX_START_LATENCY=$start_latency
+    fi
+  fi
+
+  if [ $ldm_version = 'V07' ]
+  then
+    V07_COUNT=`expr $V07_COUNT + 1`
+  elif [ $ldm_version = 'V06' ]
+  then
+    V06_COUNT=`expr $V06_COUNT + 1`
+  elif [ $ldm_version = 'V05' ]
+  then
+    V05_COUNT=`expr $V05_COUNT + 1`
+  elif [ $ldm_version = 'V04' ]
+  then
+    V04_COUNT=`expr $V04_COUNT + 1`
+  elif [ $ldm_version = 'V03' ]
+  then
+    V03_COUNT=`expr $V03_COUNT + 1`
+  else
+    VOTHER_COUNT=`expr $VOTHER_COUNT + 1`
+  fi
+
+  if [ $vcp = '11' ]
+  then
+    VCP11_COUNT=`expr $VCP11_COUNT + 1`
+    VCP_PRECIP_COUNT=`expr $VCP_PRECIP_COUNT + 1`
+  elif [ $vcp = '12' ]
+  then
+    VCP12_COUNT=`expr $VCP12_COUNT + 1`
+    VCP_PRECIP_COUNT=`expr $VCP_PRECIP_COUNT + 1`
+  elif [ $vcp = '21' ]
+  then
+    VCP21_COUNT=`expr $VCP21_COUNT + 1`
+    VCP_PRECIP_COUNT=`expr $VCP_PRECIP_COUNT + 1`
+  elif [ $vcp = '31' ]
+  then
+    VCP31_COUNT=`expr $VCP31_COUNT + 1`
+    VCP_CLEAR_AIR_COUNT=`expr $VCP_CLEAR_AIR_COUNT + 1`
+  elif [ $vcp = '32' ]
+  then
+    VCP32_COUNT=`expr $VCP32_COUNT + 1`
+    VCP_CLEAR_AIR_COUNT=`expr $VCP_CLEAR_AIR_COUNT + 1`
+  elif [ $vcp = '121' ]
+  then
+    VCP121_COUNT=`expr $VCP121_COUNT + 1`
+    VCP_PRECIP_COUNT=`expr $VCP_PRECIP_COUNT + 1`
+  elif [ $vcp = '211' ]
+  then
+    VCP211_COUNT=`expr $VCP211_COUNT + 1`
+    VCP_PRECIP_COUNT=`expr $VCP_PRECIP_COUNT + 1`
+  elif [ $vcp = '212' ]
+  then
+    VCP212_COUNT=`expr $VCP212_COUNT + 1`
+    VCP_PRECIP_COUNT=`expr $VCP_PRECIP_COUNT + 1`
+  elif [ $vcp = '221' ]
+  then
+    VCP221_COUNT=`expr $VCP221_COUNT + 1`
+    VCP_PRECIP_COUNT=`expr $VCP_PRECIP_COUNT + 1`
+  elif [ $vcp = '13' ]
+  then
+    VCP_PRECIP_COUNT=`expr $VCP_PRECIP_COUNT + 1`
+    if [ $RETRANSLATE_VCPS = YES ]
+    then
+      VCP11_COUNT=`expr $VCP11_COUNT + 1`
+    else
+      VCP13_COUNT=`expr $VCP13_COUNT + 1`
+    fi
+  elif [ $vcp = '14' ]
+  then
+    VCP_PRECIP_COUNT=`expr $VCP_PRECIP_COUNT + 1`
+    if [ $RETRANSLATE_VCPS = YES ]
+    then
+      VCP12_COUNT=`expr $VCP12_COUNT + 1`
+    else
+      VCP14_COUNT=`expr $VCP14_COUNT + 1`
+    fi
+  elif [ $vcp = '23' ]
+  then
+    VCP_PRECIP_COUNT=`expr $VCP_PRECIP_COUNT + 1`
+    if [ $RETRANSLATE_VCPS = YES ]
+    then
+      VCP21_COUNT=`expr $VCP21_COUNT + 1`
+    else
+      VCP23_COUNT=`expr $VCP23_COUNT + 1`
+    fi
+  elif [ $vcp = '33' ]
+  then
+    VCP_CLEAR_AIR_COUNT=`expr $VCP_CLEAR_AIR_COUNT + 1`
+    if [ $RETRANSLATE_VCPS = YES ]
+    then
+      VCP31_COUNT=`expr $VCP31_COUNT + 1`
+    else
+      VCP33_COUNT=`expr $VCP33_COUNT + 1`
+    fi
+  elif [ $vcp = '34' ]
+  then
+    VCP_CLEAR_AIR_COUNT=`expr $VCP_CLEAR_AIR_COUNT + 1`
+    if [ $RETRANSLATE_VCPS = YES ]
+    then
+      VCP32_COUNT=`expr $VCP32_COUNT + 1`
+    else
+      VCP34_COUNT=`expr $VCP34_COUNT + 1`
+    fi
+  elif [ $vcp = '123' ]
+  then
+    VCP_PRECIP_COUNT=`expr $VCP_PRECIP_COUNT + 1`
+    if [ $RETRANSLATE_VCPS = YES ]
+    then
+      VCP121_COUNT=`expr $VCP121_COUNT + 1`
+    else
+      VCP123_COUNT=`expr $VCP123_COUNT + 1`
+    fi
+  elif [ $vcp = '213' ]
+  then
+    VCP_PRECIP_COUNT=`expr $VCP_PRECIP_COUNT + 1`
+    if [ $RETRANSLATE_VCPS = YES ]
+    then
+      VCP211_COUNT=`expr $VCP211_COUNT + 1`
+    else
+      VCP213_COUNT=`expr $VCP213_COUNT + 1`
+    fi
+  elif [ $vcp = '214' ]
+  then
+    VCP_PRECIP_COUNT=`expr $VCP_PRECIP_COUNT + 1`
+    if [ $RETRANSLATE_VCPS = YES ]
+    then
+      VCP212_COUNT=`expr $VCP212_COUNT + 1`
+    else
+      VCP214_COUNT=`expr $VCP214_COUNT + 1`
+    fi
+  elif [ $vcp = '223' ]
+  then
+    VCP_PRECIP_COUNT=`expr $VCP_PRECIP_COUNT + 1`
+    if [ $RETRANSLATE_VCPS = YES ]
+    then
+      VCP221_COUNT=`expr $VCP221_COUNT + 1`
+    else
+      VCP223_COUNT=`expr $VCP223_COUNT + 1`
+    fi
+  fi
+
+  if [ $dp_flag = '1' ]
+  then
+    DP_COUNT=`expr $DP_COUNT + 1`
+  fi
+
+  if [ $vol_duration != '0' ]
+  then
+    TOTAL_DURATION=`expr $TOTAL_DURATION + $vol_duration`
+    DURATION_COUNT=`expr $DURATION_COUNT + 1`
+  fi
+
+  if [ $num_elevs != '0' ]
+  then
+    TOTAL_ELEVATIONS=`expr $TOTAL_ELEVATIONS + $num_elevs`
+    ELEVATIONS_COUNT=`expr $ELEVATIONS_COUNT + 1`
+  fi
+
+  if [ $num_rads != '0' ]
+  then
+    TOTAL_RADIALS=`expr $TOTAL_RADIALS + $num_rads`
+    RADIALS_COUNT=`expr $RADIALS_COUNT + 1`
+  fi
+
+  if [ $u_size != '0' ]
+  then
+    TOTAL_U_SIZE=`expr $TOTAL_U_SIZE + $u_size`
+    U_SIZE_COUNT=`expr $U_SIZE_COUNT + 1`
+  fi
+
+  if [ $c_size != '0' ]
+  then
+    TOTAL_C_SIZE=`expr $TOTAL_C_SIZE + $c_size`
+    C_SIZE_COUNT=`expr $C_SIZE_COUNT + 1`
+  fi
+
+  if [ $c_ratio != '0' ]
+  then
+    TOTAL_C_RATIO=`calc "$TOTAL_C_RATIO + $c_ratio"`
+    C_RATIO_COUNT=`expr $C_RATIO_COUNT + 1`
+  fi
+
+  if [ $t_size != '0' ]
+  then
+    TOTAL_SIZE=`expr $TOTAL_SIZE + $t_size`
+    TOTAL_SIZE_COUNT=`expr $TOTAL_SIZE_COUNT + 1`
+  fi
+
+  if [ $error_flag = $NO_ERROR_FLAG ]
+  then
+    NUM_GOOD_FILES=`expr $NUM_GOOD_FILES + 1`
+  else
+    NUM_ERROR_FILES=`expr $NUM_ERROR_FILES + 1`
+  fi
+}
+
+#####################################################################
+# PRINT_STATS_HEADER_LINE: Print stats header line for csv file.
+#####################################################################
+
+print_stats_header_line ()
+{
+  if [ $RETRANSLATE_VCPS = YES ]
+  then
+    echo "file_count,good_files,pct_good_files,bad_files,pct_bad_files,avg_start_latency_s,max_start_latency_s,V07,V06,V05,V04,V03,V_other,VCP11,VCP12,VCP21,VCP31,VCP32,VCP121,VCP211,VCP212,VCP221,VCP_precip,pct_VCP_precip,VCP_clear_air,pct_VCP_clear_air,pct_VCP_12_212,pct_precip_VCP_12_212,DP,avg_duration_s,avg_elevs,avg_rads,avg_U_size_b,avg_C_size_b,avg_C_ratio,avg_total_size_b,avg_thruput_Kb_per_s_vol"
+  else
+    echo "file_count,good_files,pct_good_files,bad_files,pct_bad_files,avg_start_latency_s,max_start_latency_s,V07,V06,V05,V04,V03,V_other,VCP11,VCP12,VCP13,VCP14,VCP21,VCP23,VCP31,VCP32,VCP33,VCP34,VCP121,VCP123,VCP211,VCP212,VCP213,VCP214,VCP221,VCP223,VCP_precip,pct_VCP_precip,VCP_clear_air,pct_VCP_clear_air,pct_VCP_12_212,pct_precip_VCP_12_212,DP,avg_duration_s,avg_elevs,avg_rads,avg_U_size_b,avg_C_size_b,avg_C_ratio,avg_total_size_b,avg_thruput_Kb_per_s_vol"
+  fi
+}
+
+#####################################################################
+# PRINT_STATS: Print stats to file
+#####################################################################
+
+print_stats ()
+{
+  if [ $FILE_LINE_COUNT -le 0 ]
+  then
+    pct_good_files=0.0
+    pct_bad_files=0.0
+  else
+    pct_good_files=`calc "$NUM_GOOD_FILES / $FILE_LINE_COUNT * 100.0"`
+    pct_bad_files=`calc "$NUM_ERROR_FILES / $FILE_LINE_COUNT * 100.0"`
+  fi
+
+  if [ $TOTAL_START_LATENCY_COUNT -le 0 ]
+  then
+    avg_start_latency=0.0
+  else
+    avg_start_latency=`calc "$TOTAL_START_LATENCY / $TOTAL_START_LATENCY_COUNT"`
+  fi
+
+  total_vcps=`calc "$VCP_PRECIP_COUNT + $VCP_CLEAR_AIR_COUNT"`
+  total_12_212_vcps=`calc "$VCP12_COUNT + $VCP14_COUNT + $VCP212_COUNT + $VCP214_COUNT"`
+  if [ $total_vcps -le 0 ]
+  then
+    pct_vcp_precip=0.0
+    pct_vcp_clear_air=0.0
+    pct_vcp_12_212=0.0
+  else
+    pct_vcp_precip=`calc "$VCP_PRECIP_COUNT / $total_vcps * 100.0"`
+    pct_vcp_clear_air=`calc "$VCP_CLEAR_AIR_COUNT / $total_vcps * 100.0"`
+    pct_vcp_12_212=`calc "$total_12_212_vcps / $total_vcps * 100.0"`
+  fi
+
+  if [ $VCP_PRECIP_COUNT -le 0 ]
+  then
+    pct_precip_vcp_12_212=0.0
+  else
+    pct_precip_vcp_12_212=`calc "$total_12_212_vcps / $VCP_PRECIP_COUNT * 100.0"`
+  fi
+
+  if [ $DURATION_COUNT -le 0 ]
+  then
+    avg_duration=0.0
+  else
+    avg_duration=`calc "$TOTAL_DURATION / $DURATION_COUNT"`
+  fi 
+
+  if [ $ELEVATIONS_COUNT -le 0 ]
+  then
+    avg_elevations=0.0
+  else
+    avg_elevations=`calc "$TOTAL_ELEVATIONS / $ELEVATIONS_COUNT"`
+  fi
+ 
+  if [ $RADIALS_COUNT -le 0 ]
+  then
+    avg_radials=0.0
+  else
+    avg_radials=`calc "$TOTAL_RADIALS / $RADIALS_COUNT"`
+  fi
+ 
+  if [ $U_SIZE_COUNT -le 0 ]
+  then
+    avg_U_size=0.0
+  else
+    avg_U_size=`calc "$TOTAL_U_SIZE / $U_SIZE_COUNT"`
+  fi
+ 
+  if [ $C_SIZE_COUNT -le 0 ]
+  then
+    avg_C_size=0.0
+  else
+    avg_C_size=`calc "$TOTAL_C_SIZE / $C_SIZE_COUNT"`
+  fi
+ 
+  if [ $C_RATIO_COUNT -le 0 ]
+  then
+    avg_C_ratio=0.0
+  else
+    avg_C_ratio=`calc "$TOTAL_C_RATIO / $C_RATIO_COUNT"`
+  fi
+ 
+  if [ $TOTAL_SIZE_COUNT -le 0 ]
+  then
+    avg_total_size=0.0
+  else
+    avg_total_size=`calc "$TOTAL_SIZE / $TOTAL_SIZE_COUNT"`
+  fi
+ 
+  if [ $TOTAL_DURATION -le 0 ]
+  then
+    AVG_THRUPUT_PER_VOLUME=0.0
+  else
+    # Calculate bytes per second per volume
+    AVG_THRUPUT_PER_VOLUME=`calc "$TOTAL_SIZE / $TOTAL_DURATION"`
+    # Calculate kilobytes per second per volume
+    AVG_THRUPUT_PER_VOLUME=`calc "$AVG_THRUPUT_PER_VOLUME / 1024"`
+    # Calculate kilobits per second per volume
+    AVG_THRUPUT_PER_VOLUME=`calc "$AVG_THRUPUT_PER_VOLUME * 8"`
+  fi
+
+  if [ $RETRANSLATE_VCPS = YES ]
+  then
+    echo "$FILE_LINE_COUNT,$NUM_GOOD_FILES,$pct_good_files,$NUM_ERROR_FILES,$pct_bad_files,$avg_start_latency,$MAX_START_LATENCY,$V07_COUNT,$V06_COUNT,$V05_COUNT,$V04_COUNT,$V03_COUNT,$VOTHER_COUNT,$VCP11_COUNT,$VCP12_COUNT,$VCP21_COUNT,$VCP31_COUNT,$VCP32_COUNT,$VCP121_COUNT,$VCP211_COUNT,$VCP212_COUNT,$VCP221_COUNT,$VCP_PRECIP_COUNT,$pct_vcp_precip,$VCP_CLEAR_AIR_COUNT,$pct_vcp_clear_air,$pct_vcp_12_212,$pct_precip_vcp_12_212,$DP_COUNT,$avg_duration,$avg_elevations,$avg_radials,$avg_U_size,$avg_C_size,$avg_C_ratio,$avg_total_size,$AVG_THRUPUT_PER_VOLUME"
+  else
+    echo "$FILE_LINE_COUNT,$NUM_GOOD_FILES,$pct_good_files,$NUM_ERROR_FILES,$pct_bad_files,$avg_start_latency,$MAX_START_LATENCY,$V07_COUNT,$V06_COUNT,$V05_COUNT,$V04_COUNT,$V03_COUNT,$VOTHER_COUNT,$VCP11_COUNT,$VCP12_COUNT,$VCP13_COUNT,$VCP14_COUNT,$VCP21_COUNT,$VCP23_COUNT,$VCP31_COUNT,$VCP32_COUNT,$VCP33_COUNT,$VCP34_COUNT,$VCP121_COUNT,$VCP123_COUNT,$VCP211_COUNT,$VCP212_COUNT,$VCP213_COUNT,$VCP214_COUNT,$VCP221_COUNT,$VCP223_COUNT,$VCP_PRECIP_COUNT,$pct_vcp_precip,$VCP_CLEAR_AIR_COUNT,$pct_vcp_clear_air,$pct_vcp_12_212,$pct_precip_vcp_12_212,$DP_COUNT,$avg_duration,$avg_elevations,$avg_radials,$avg_U_size,$avg_C_size,$avg_C_ratio,$avg_total_size,$AVG_THRUPUT_PER_VOLUME"
+  fi
+}
+
+#####################################################################
+# PRINT_META_HEADER_LINE: Print meta header line for stats file.
+#####################################################################
+
+print_meta_header_line ()
+{
+  echo "num_ICAOS,start_epoch,stop_epoch,time_diff,total_bytes,actual_thru_Mb_s,theory_thru_Mb_s"
+}
+
+#####################################################################
+# PRINT_META: Print meta for stats file.
+#####################################################################
+
+print_meta ()
+{
+  time_diff=`calc "$FILE_LAST_RADIAL_EPOCH - $FILE_FIRST_RADIAL_EPOCH"`
+  if [ $time_diff -le 0 ]
+  then
+    actual_thru_Mbs=0.0
+  else
+    bytes_per_kilobyte=1024
+    bits_per_byte=8
+    # Calculate bytes per second
+    actual_thru_Bs=`calc "$TOTAL_SIZE / $time_diff"`
+    # Calculate kilobytes per second
+    actual_thru_KBs=`calc "$actual_thru_Bs / $bytes_per_kilobyte"`
+    # Calculate megabytes per second
+    actual_thru_MBs=`calc "$actual_thru_KBs / $bytes_per_kilobyte"`
+    # Calculate megabits per second
+    actual_thru_Mbs=`calc "$actual_thru_MBs * $bits_per_byte"`
+  fi
+  # Theoretical thruput is kilobits per second per volume multiplied by the number of ICAOs
+  theory_thru_Kbs=`calc "$AVG_THRUPUT_PER_VOLUME * $NUM_UNIQUE_ICAOS"`
+  # Calculate megabits per second
+  theory_thru_Mbs=`calc "$theory_thru_Kbs / $bytes_per_kilobyte"`
+  echo "$NUM_UNIQUE_ICAOS,$FILE_FIRST_RADIAL_EPOCH,$FILE_LAST_RADIAL_EPOCH,$time_diff,$TOTAL_SIZE,$actual_thru_Mbs,$theory_thru_Mbs"
+}
+
+#####################################################################
+# CREATE_STATS: Create stats for file, if needed.
+#####################################################################
+
+create_stats ()
+{
+  file_to_find_stats=$1
+  data_file=${file_to_find_stats}.csv
+  stats_file=${data_file}.stats
+  meta_file=${data_file}.meta
+
+  if ! mv $file_to_find_stats $data_file > /dev/null 2>&1
+  then
+    echo_error "Could not mv $file_to_find_stats to $data_file"
+  fi
+
+  if [ $CREATE_STATS_FILE = NO ]
+  then
+    return
+  else
+    echo_out "Creating stats for $file_to_find_stats"
+  fi
+
+  reset_stats
+
+  FILE_LINE_COUNT=`wc -l $data_file | awk '{print $1}'`
+  FILE_LINE_COUNT=`expr $FILE_LINE_COUNT - 1` # Ignore header
+
+  IFS=$'\n'
+  for input_line in `cat $data_file | egrep '^[A-Z]{3}[A-Z0-9]'`
+  do
+    parse_line $input_line
+  done
+  unset IFS
+
+  print_stats_header_line > $stats_file
+  print_stats >> $stats_file
+
+  NUM_UNIQUE_ICAOS=`cat $data_file | egrep '^[A-Z]{3}' | awk -F, '{print $8}' | sort -u | wc -l`
+  print_meta_header_line > $meta_file
+  print_meta >> $meta_file
+}
+
+#####################################################################
+# DIVIDE_OUTPUT_FILE_BY_HOUR: Divide output file by hour, if needed.
+#####################################################################
+
+divide_output_file_by_hour ()
+{
+  file_to_divide_by_hour=$1
+
+  if [ $OUTPUT_FILE_BY_HOUR = YES ]
+  then
+    echo_out "Dividing event by hour"
+    for sorted_line in `cat $file_to_divide_by_hour | egrep '^[A-Z]{3}' | sort -t ',' --key=2 -n`
+    do
+      start_epoch=`echo $sorted_line | awk -F, '{print $2}'`
+      break
+    done
+    for sorted_line in `cat $file_to_divide_by_hour | egrep '^[A-Z]{3}' | sort -t ',' --key=2 -nr`
+    do
+      stop_epoch=`echo $sorted_line | awk -F, '{print $2}'`
+      break
+    done
+    range_year=`date -u -d @$start_epoch +%Y`
+    range_month=`date -u -d @$start_epoch +%m`
+    range_day=`date -u -d @$start_epoch +%d`
+    range_hour=`date -u -d @$start_epoch +%H`
+    range_epoch=`date -u -d "${range_year}-${range_month}-${range_day} ${range_hour}:00:00" +%s`
+    until [ $range_epoch -gt $stop_epoch ]
+    do
+      outfile=${file_to_divide_by_hour}.${range_year}.${range_month}.${range_day}.${range_hour}
+      print_header_line > $outfile
+      cat $file_to_divide_by_hour | egrep "[A-Z]{3}[A-Z0-9]${range_year}${range_month}${range_day}${range_hour}" >> $outfile
+      create_stats $outfile
+      range_epoch=`expr $range_epoch + 3600`
+      range_year=`date -u -d @$range_epoch +%Y`
+      range_month=`date -u -d @$range_epoch +%m`
+      range_day=`date -u -d @$range_epoch +%d`
+      range_hour=`date -u -d @$range_epoch +%H`
+    done
+  else
+    create_stats $file_to_divide_by_hour
+  fi
+}
+
+
+#####################################################################
+# DIVIDE_OUTPUT_FILE_BY_DAY: Divide output file by day, if needed.
+#####################################################################
+
+divide_output_file_by_day ()
+{
+  file_to_divide_by_day=$1
+
+  if [ $OUTPUT_FILE_BY_DAY = YES ]
+  then
+    echo_out "Dividing event by day"
+    for sorted_line in `cat $file_to_divide_by_day | egrep '^[A-Z]{3}' | sort -t ',' --key=2 -n`
+    do
+      start_epoch=`echo $sorted_line | awk -F, '{print $2}'`
+      break
+    done
+    for sorted_line in `cat $file_to_divide_by_day | egrep '^[A-Z]{3}' | sort -t ',' --key=2 -nr`
+    do
+      stop_epoch=`echo $sorted_line | awk -F, '{print $2}'`
+      break
+    done
+    range_year=`date -u -d @$start_epoch +%Y`
+    range_month=`date -u -d @$start_epoch +%m`
+    range_day=`date -u -d @$start_epoch +%d`
+    range_epoch=`date -u -d "${range_year}-${range_month}-${range_day}" +%s`
+    until [ $range_epoch -gt $stop_epoch ]
+    do
+      outfile=${file_to_divide_by_day}.${range_year}.${range_month}.${range_day}
+      print_header_line > $outfile
+      cat $file_to_divide_by_day | egrep "[A-Z]{3}[A-Z0-9]${range_year}${range_month}${range_day}" >> $outfile
+      divide_output_file_by_hour $outfile
+      range_epoch=`expr $range_epoch + 86400`
+      range_year=`date -u -d @$range_epoch +%Y`
+      range_month=`date -u -d @$range_epoch +%m`
+      range_day=`date -u -d @$range_epoch +%d`
+    done
+  else
+    divide_output_file_by_hour $file_to_divide_by_day
+  fi
+}
+
+#####################################################################
+# CREATE_EVENT_OUTPUT_FILES: Create output files for the event.
+#####################################################################
+
+create_event_output_files ()
+{
+  if [ $OUTPUT_FILE_BY_REGION = YES ]
+  then
+    echo_out "Creating region output files"
+    for region in $EASTERN_REGION_TAG $CENTRAL_REGION_TAG $SOUTHERN_REGION_TAG $WESTERN_REGION_TAG $ROC_REGION_TAG
+    do
+      if egrep -q ", *$region," $WORKING_FILE
+      then
+        outfile=$OUTPUT_DIRECTORY/${EVENT_NAME}.${region}
+        print_header_line > $outfile
+        egrep ", *$region," $WORKING_FILE >> $outfile 2>/dev/null
+        divide_output_file_by_day $outfile
+      fi
+    done
+  elif [ $OUTPUT_FILE_BY_ICAO = YES ]
+  then
+    echo_out "Creating ICAO output files"
+    for icao in $SEARCH_ICAO_LIST
+    do
+      if egrep -q ",$icao," $WORKING_FILE
+      then
+        outfile=$OUTPUT_DIRECTORY/${EVENT_NAME}.${icao}
+        print_header_line > $outfile
+        egrep ",$icao," $WORKING_FILE >> $outfile 2>/dev/null
+        divide_output_file_by_day $outfile
+      fi
+    done
+  else
+    outfile=$OUTPUT_DIRECTORY/${EVENT_NAME}
+    print_header_line > $outfile
+    if ! cat $WORKING_FILE >> $outfile 2>/dev/null
+    then
+      echo_error "Failed to copy $WORKING_FILE to $outfile"
+    fi
+    divide_output_file_by_day $outfile
+  fi
+}
+
+#####################################################################
+# CREATE_EVENT_WORKING_FILE: Create single event file to work from.
+#####################################################################
+
+create_event_working_file ()
+{
+  if [ -f $WORKING_FILE ]
+  then
+    if ! rm -f $WORKING_FILE > /dev/null 2>&1
+    then
+      echo_error "File: $WORKING_FILE could not be removed"
+    fi
+  fi
+  if ! touch $WORKING_FILE > /dev/null 2>&1
+  then
+    echo_error "File: $WORKING_FILE could not be created"
+  fi
+  echo_debug "File: $WORKING_FILE created"
+
+  echo_out "Creating $WORKING_FILE"
+  for base_name in `ls $INPUT_DIRECTORY | egrep '[A-Z]{3}[A-Z0-9].*\.csv'`
+  do
+    echo_debug "Base name: $base_name"
+    echo_out "Processing $base_name"
+    IFS=$'\n'
+    for input_line in `cat $INPUT_DIRECTORY/$base_name | egrep '^[A-Z]{3}[A-Z0-9]'`
+    do
+      file_time=`echo $input_line | awk -F, '{print $2}'`
+      echo_debug "Line: $input_line File time: $file_time"
+      if [ $file_time -ge $RANGE_START_EPOCH -a $file_time -le $RANGE_STOP_EPOCH ]
+      then
+        echo $input_line >> $WORKING_FILE
+      fi
+    done
+    unset IFS
+  done
+  echo_out "Finished creating $WORKING_FILE"
+}
+
+####################################################################
+#
+# MAIN BODY OF SCRIPT
+#
+####################################################################
+
+# Find command to provide ICAO info
+if which validate_ldm_files_ROCSWE.script > /dev/null 2>&1
+then
+  ICAO_INFO_CMD="`which validate_ldm_files_ROCSWE.script` -p"
+elif which validate_ldm_files_generic.script > /dev/null 2>&1
+then
+  ICAO_INFO_CMD="`validate_ldm_files_generic.script` -p"
+else
+  echo_error "Can't find command to provide ICAO info"
+fi
+
+# Read the command line options
+parse_cmdline $*
+
+# Initialize and validate variables
+initialize_variables
+
+# Create event working file
+create_event_working_file
+
+# Create event output files
+create_event_output_files
+

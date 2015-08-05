@@ -1,0 +1,186 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/16 20:36:32 $
+C $Id: a3164i.ftn,v 1.3 2002/12/16 20:36:32 christie Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A3164I__PACKET_MOVE(BUF,OPCODE,BLNGTH,TXCLR,BL)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3164I__PACKET_MOVE
+*.
+*.  MODULE VERSION: 0014
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       10 18 85      0000      JSGROMMONS
+*.       05 01 86      0001      JSGROMMONS           SPR#  60124
+*.       06 03 86      0002      JSGROMMONS           SPR#  60313
+*.       10 02 86      0003      J GROMMONS           SPR # 60346
+*.       11 06 90      0004      David M. Lynch       SPR # 91257
+*.       12 03 91      0005      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0006      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0007      Toolset              SPR 91895
+*.       03/25/93      0008      Toolset              SPR NA93-06801
+*.       01/28/94      0009      Toolset              SPR NA94-01101
+*.       03/03/94      0010      Toolset              SPR NA94-05501
+*.       04/01/95      0011      Toolset              CCR NA95-11802
+*.       06/22/95      0012      STEVE SMITH          CCR NA94-26301
+*.       12/23/96      0013      Toolset              CCR NA95-11807
+*.       03/16/99      0014      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:
+*.     CALL A3164I__PACKET_MOVE(BUF,OPCODE,BLNGTH,TXCLR,BL)
+*.
+*.  MODULE FUNCTION:
+*.     MOVE THE FORMATTED PACKET LINES FOR THE GRAPHIC BLOCK TO
+*.     THE OUTPUT BUFFER
+*.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT  TYPE        DESCRIPTION
+*.    -   -----  ----        -----------
+*.    C   IPIX   I*2         Row pixel.
+*.    C   JPIX   I*2         Column pixel.
+*.    C   NDX    I*4         Working subscript for moving data.
+*.    C   TBUF   I*2         Character lines.
+*.    C   TXCHR  CHAR*80     Text character lines.
+*.    C   GLOFF  I*4         (CONSTANT)Offset to beginning of graphics line
+*.                           within page.
+*.    C   NCOLS  I*4         (CONSTANT)Used as a dimension of a
+*.                           one-dimensional array.
+*.    P   BL     I*4         NO OF CHARACTERS PER LINE
+*.    P   OPCODE I*2         CONSTANT 8 FOR TEXT PACKET
+*.    P   TXCLR  I*2         VALUE FOR TEXT STRING COLOR
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    C   JPIX    I*2         Column pixel.
+*.    C   NDX     I*4         Working subscript for moving data.
+*.    C   TBUF    I*2         Character lines.
+*.    C   TXCHR   CHAR*80     Text character lines.
+*.    P   BLNGTH  I*4         LENGTH OF PACKET DATA INCLUDING OVERHEAD IN
+*.                            BYTES.
+*.    P   BUF     I*2         OUTPUT BUFFER
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME    TYPE        DESCRIPTION
+*.    ----    ----        -----------
+*.    BLNGTHX I*2         LENGTH OF PACKET DATA IN HALF WORDS.
+*.    GDOFF   I*4         OFFSET TO BEGINNING OF CHARACTER DATA WITHIN LINE.
+*.    GNOLNS  I*4         Number of lines per page of graphics.
+*.    IB      I*4         SUBSCRIPT FOR STORING CHARACTERS
+*.    JB      I*4         LINE NO INDEX FOR STORING
+*.    JINCR   I*2         Increment for JPIX, ('J' pixel count).
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3164A
+*.    A3164B
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP16.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK16.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+      IMPLICIT NONE
+C
+C   LOCAL COMMON
+$INCLUDE A315BUF.INC/G, **A315P9H (NLIST)
+$INCLUDE A316.INC/G,**A3164P4 (NLIST)
+C
+C   LOCAL DEFINITIONS:
+      INTEGER*2  BUF(*)
+      INTEGER*2  OPCODE,TXCLR,JINCR,BLNGTHX
+C
+      INTEGER*4  IB,JB,BL
+      INTEGER*4  BLNGTH
+C
+      CHARACTER*80  TXCHR(NCOLS)
+C
+      EQUIVALENCE  (TBUF(1,1),TXCHR)
+C
+      PARAMETER(JINCR=10)
+C
+C...................................................................
+C
+C** DETERMINE LENGTH OF BLOCK FOR PACKET
+C
+      BLNGTH = GNOLNS * (BL+GDOFF+GLOFF)
+C
+C** DETERMINE NO OF WORDS IN LINE HEREAFTER
+C
+      BLNGTHX = (BL+GDOFF) * 2
+C
+C** MOVE DATA TO OUTPUT BUFFER
+C
+      DO 150  JB = 1,GNOLNS
+C
+C** SET PACKETCODE AND BLOCK LENGTH
+C
+         BUF(NDX) = OPCODE
+         NDX = NDX + 1
+         BUF(NDX) = BLNGTHX
+C
+C** MOVE COLOR TO OUTPUT BUFFER
+C
+         NDX = NDX + 1
+         BUF(NDX) = TXCLR
+         NDX = NDX + 1
+C
+C** MOVE I,J PIXELS TO OUTPUT BUFFER
+C
+         BUF(NDX) = IPIX
+         NDX = NDX + 1
+         BUF(NDX) = JPIX
+         NDX = NDX + 1
+C
+C** MOVE CHARACTERS TO OUTPUT BUFFER
+C
+         DO 140  IB = 1,BL
+            BUF(NDX) = TBUF(IB,JB)
+            NDX = NDX + 1
+  140 CONTINUE
+C
+C** DETERMINE JPIX VALUE FOR NEXT LINE LOCATION
+C
+         JPIX = JPIX + JINCR
+  150 CONTINUE
+C
+C** RETURN TO CALLER
+C
+      RETURN
+      END

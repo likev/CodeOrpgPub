@@ -1,0 +1,167 @@
+               GUIDE TO CVG SOURCE
+
+top-level
+
+This is the basic logic flow of CVG: first, the user chooses an ICD formatted product.  we parse this product and create a list of the layers and packets the product contains, from which the user picks one or more of them to display.  CVG then goes through and displays the packets one-by-one, using the user-specified settings, and then displays the rest of the image desired by the user, i.e. overlays, legend, etc.  All other behaviors are derived from this basic flow.
+
+we keep a lot of global state data, and much of it is in the two screen_data structures, which keep the state information associated with the two possible products that can be displayed, and therefore the two data screens.  many of the lower-level functions work on only one screen, so we give them the correct screen to work with by pointing them to the correct screen_data structure (unfortunately, right now, this is also done as a global variable)
+
+anim.c
+
+this module contains routines that implement the animation features of CVG. 
+
+The continuous animation is implemented interestingly.  It sets up a loop where the functions to display the next product are continuously called, with a delay, using internal X functions.  A sentry variable is also set up, which is used by the stop button to signal when it has been pressed, which signals the animation loop when it gets called again to stop.
+
+The whole next/previous product display routines act a bit differently than the normal data flows, so they are actually composed of on odd mix of code patched together from a couple different sources, including Load_ORPG_Product() and the history code.
+
+
+assoc_array_*.c
+
+these modules implement associative arrays for integers and strings.
+
+They were written mostly to hold configuration information, since that's mostly indexed by product ID, which is a fairly sparse namespace.  Right now, its algorithms are linear, O(N), which could stand some improvement.
+
+The biggest thing to note is the lookup routines.  They return a pointer to the data, which means that you have to check for a NULL result, which signifies a failed lookup, and also if you modify the data the functions return, you will be modifying the data stored in the array, since they're pointers.
+
+
+callbacks.c
+
+this file contains callback routines for the main window controls and other routines for displaying images on the data screens.  many of these functions affect various global variables and data structures.
+
+For speed reasons, we cache the products that have been plotted to offscreen pixmaps and copy those images to the screen in response to user actions.  Many of the functions that affect these pixmaps are here.
+
+plot_image() is one of the key functions in CVG, as it sits in the interface between the user-manipulatable GUI and the underlying product plotting functions that deal with the nitty-gritty of the ICD and all its assorted ugliness (as opposed the GUI ugliness :).  It mostly calls other functions of various types that do the work.
+
+the legend plotting functions are rather long, but mostly because they have to deal with a lot of verbose data - they're fairly straightforward.  they are used both to plot the full legend on the main screen area, and also the secondary legend on the display window.
+
+
+click.c
+
+this module contains the functions that report on the data bins from the plotted products.  Mostly, they reverse the calculations made in the plotting functions.
+
+
+colors.c
+
+this module contains functions involved in setting up palettes for the ICD product packets.  every time we plot a packet, we reset the color palette
+
+basically, the logic for choosing a palette for a given packet works like this:
+
+if a default palette and default packet for the palette have been chosen for this product, then we choose the default palette if the given packet is of the default packet type, otherwise we choose the global default palette for the given packet.
+if a default palette has been chosen, but not a default packet, then we always use the default palette
+if a default palette has not been chosen, then we use the global default palette for the given packet.
+
+
+cvg.c
+
+basic initialization functions
+
+
+db_access.c
+
+this module contains functions that read in ICD products from various sources.
+
+Reading ICD products from disk is a bit convoluted, because of variable headers.  When we read in CVG raw data (CRF), we stuff it into an ICD formatted structure, meaning that not all of the ICD fields are filled out correctly.
+
+
+dispatcher.c
+
+this module contains a function that calls the correct function to plot a given packet
+
+
+display_GAB.c
+
+this module contains a function that displays the GAB of a given product.  Since a GAB is essentially a wrapper around a bunch of packets, we just redisplay them on the main screen.  We store the page of the GAB that we are currently displaying globally.
+
+
+display_TAB.c
+
+this module contains functions for displaying the TAB of a given product.  emulating the PUP, we display the TAB in a seperate window.  Each of the display functions are mostly the same, but with small differences in what they're looking for.
+
+
+fileselect.c
+
+this module contains functions for selecting a product to load.  these functions are the first stage in displaying a product.  the functions here are essentially the front-end to the data processing functions in db_access.c.  each of the three different load functions eventually call product_post_load_setup(), which works after the data is loaded as an ICD formatted product, which extracts the information from the product needed by other parts of the program.
+
+
+gif_output.c
+
+this module contains functions used for outputting the current screen image as an uncompressed GIF image.
+
+basically, we take the offscreen image that we keep around and convert it to a gif image.  due to the nature of X pixmaps, we have to extract the offscreen image a pixel at a time, so the whole process can be rather slow.  to get alternate "formatted" output, we play some games with global variables and replot some of the products - the code is a stripped down version of the history code and plot_image().
+
+
+grow_array.c
+
+this module implements an array that automatically resizes itself when it gets full.  this was made for the symbology_block.c module to save memory, since most products have very few packets, but some have very very many
+
+
+help.c
+
+this module implements a very basic help screen.  it takes as an argument a file of help information to read in and display
+
+
+helpers.c
+
+taken from the old beta CODE infrastructure.  only the output formatting routines are used (for time/data/etc...)
+
+
+history.c
+
+this module keeps track of what products have been plotted in the current image.  because the user can plot multiple products on an image, e.g. overlays, to recreate the image, we need to keep track of more data.  what we do is for each product plotted, we keep a copy of the product, its decoded layer information, and information on which layers were selected.  this lets us use plot_image() and its sister functions unchanged.
+
+
+map.c
+
+this module is used for loading and displaying background map info.  it was lifted mostly intact from xpdt
+
+
+overlay.c
+
+this module contains functions for displaying the other types of overlays, range rings and azimuth lines.
+
+
+packet_*.c radial_rle.c raster.c raster_digital.c
+
+these are modules for decoding and displaying each type of packet.  individual notes are availible in each file.
+
+for raster and radial data, we keep a copy of the decoded data around, to respond to screen click requests
+
+packetselect.c
+
+this module contains functions for letting the user select which packets he wants to display from a given product and then displaying on the desired screen.  the selection callbacks handle both the plotting of the packets and the legend sidebar.  both slection callbacks are much the same.
+
+
+png_output.c
+
+this module contains functions for outputting the current screen image as a PNG image file.
+
+this module is derived from gif_output.c, and while the outputting code is slightly different (since it uses a different library to handle the dirty work), it has mostly the same limitations (though the PNGs are compressed).
+
+
+prefs.c
+
+this module contains functions for reading in program preferences and for online editing the preferences.
+
+The routines for the parsing the preference files are all different and a bit tempermental, so be careful.  
+
+
+product_names.c
+
+this module loads and parses the ORPG product attribute table to get the long product descriptions for each product.
+
+
+res.c
+
+this module contains functions that operate on range-related info.
+
+
+setup.c
+
+this module contains functions that set up important GUI elements and global variables.  mostly just big gobs of ugly Motif GUI code.
+
+
+symbology_block.c
+
+this module contains functions that deal with the symbology block of an already-loaded ICD product.  the most important function, parse_packet_numbers(), is called after an ICD product has been loaded into memory, and it fills out a layer_info structure with the packets that the product contains - we shoehorn the GAB and TAB into these structures as well, so the code is a bit similar
+
+

@@ -1,0 +1,313 @@
+C 
+C RCS info 
+C $Author: nolitam $ 
+C $Locker:  $ 
+C $Date: 2002/11/27 15:15:01 $ 
+C $Id: a314d1.ftn,v 1.3 2002/11/27 15:15:01 nolitam Exp $ 
+C $Revision: 1.3 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A314D1__ECHO_TOPS_CTL(PARAM)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A314D1__ECHO_TOPS_CTL
+*.
+*.  MODULE VERSION: 0013
+*.
+*.  MODULE LANGUAGE:  FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       04 15 85      0000      Ze'ev Rivlin         rpg build 2
+*.       04 21 86      0001      Bradley Sutker       SPR #304
+*.       08 24 88      0002      STEVE ANDERSON       SPR # 80248
+*.       10 10 88      0003      STEVE D SMITH        SPR # 80338
+*.       02 14 91      0004      BRADLEY SUTKER       SPR # 91255
+*.       12 03 91      0005      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0006      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0007      Toolset              SPR 91895
+*.       03/25/93      0008      Toolset              SPR NA93-06801
+*.       01/28/94      0009      Toolset              SPR NA94-01101
+*.       03/03/94      0010      Toolset              SPR NA94-05501
+*.       04/11/96      0011      Toolset              CCR NA95-11802
+*.       12/23/96      0012      Toolset              CCR NA95-11807
+*.       03/16/99      0013      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A314D1__ECHO_TOPS_CTL(PARAM)
+*.
+*.  MODULE FUNCTION:
+*.
+*.     This is the Buffer Control Module.  When data becomes
+*.     available, this module receives control.  It acquires
+*.     the input and output buffers, stores data in the output
+*.     buffer based on input data and other information, and
+*.     releases the input & output buffers.
+*.
+*.  MODULES CALLED: A31145__ABORT_ME, A31168__ABORT_ME_BECAUSE, 
+*.                  A31211__GET_INBUF, A31212__REL_INBUF, A31215__GET_OUTBUF, 
+*.                  A31216__REL_OUTBUF, A31218__BUF_VOL, A314D2__NO_ECHOES_MESG, 
+*.                  A314D3__ECHO_TOPS_HEADER, A314D4__END_MAINTENANCE, 
+*.                  A3CM22__RASTER_RUN_LENGTH, A3CM25__GET_DATE_TIME 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT         TYPE        DESCRIPTION
+*.    -   -----         ----        -----------
+*.    G   MEM           I*4         Array in RPG shared memory set aside for
+*.                                  buffer sharing.
+*.    G   SUMMARY       I*4         Volume Scan Summary Table
+*.    G   BLKOVRHD      I*4         (CONSTANT)SIZE OF OVERHEAD PORTION OF
+*.                                  PRODUCT SYMBOLOGY BLOCK, IN BYTES
+*.    G   DESTROY       I*4         (CONSTANT)Mnemonic used as input to
+*.                                  A31216__REL_OUTBUF. Indicates "do not pass
+*.                                  data to other tasks".
+*.    G   ETTAB         I*4         (CONSTANT)Data Buffer Type: Echo Tops
+*.                                  Table.
+*.    G   FORWARD       I*4         (CONSTANT)Parameter to indicate that an
+*.                                  output buffer is to be forwarded to
+*.                                  successor tasks
+*.    G   NETCOL        I*4         (CONSTANT)Total columns in the ECHO TOPS
+*.                                  product.
+*.    G   NETROW        I*4         (CONSTANT)Total rows in the ECHO TOPS
+*.                                  product.
+*.    G   NORMAL        I*4         (CONSTANT)Parameter which indicates normal
+*.                                  completion of requested operation to
+*.                                  acquire input or output buffer
+*.    G   NO_MEM        I*4         (CONSTANT)Parameter which indicates no
+*.                                  memory available on attempt to acquire
+*.                                  output buffer
+*.    G   OMET          I*4         (CONSTANT)The pointer into the ECHO TOPS
+*.                                  supplemental variable array to height.
+*.    G   OSET          I*4         (CONSTANT)OFFSET TO ARRAY OF ECHO TOPS
+*.                                  AUXILIARY PARAMETERS
+*.    G   OVET          I*4         (CONSTANT)Offset to the array of ECHO TOPS
+*.                                  values.
+*.    G   PFWXCLA       I*4         (CONSTANT)Code Indicating Clear Weather
+*.                                  Mode.
+*.    G   PHEADLNG      I*4         (CONSTANT)Number of half words in product
+*.                                  header (its length).
+*.    G   PROD_MEM_SHED I*4         (CONSTANT)(CONSTANT)Parameter which
+*.                                  indicates that product aborted due to
+*.                                  memory load shedding
+*.    G   RASTA_BEGIN   I*4         (CONSTANT)Product buffer beginning index
+*.                                  for storing raster run-length encoded
+*.                                  data. To be used for raster products only.
+*.    G   RASTER_HEADER I*4         (CONSTANT)Number of half words in raster
+*.                                  packet header.
+*.    G   SCAN_MODE     I*4         (CONSTANT)Weather Mode index into Scan
+*.                                  Summary Table
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    G   MEM     I*4         Array in RPG shared memory set aside for buffer
+*.                            sharing.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    G   MEM               I*4         Array in RPG shared memory set aside
+*.                                      for buffer sharing.
+*.
+*.  DATABASE/FILE REFERENCE:  NONE
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME              TYPE        DESCRIPTION
+*.    ----              ----        -----------
+*.    AFTER_HEADER      I*4         First index in output buffer after product
+*.                                  header
+*.    BUFSTAT           I*4         Tells if there was enough room to complete
+*.                                  the run-length encoding. 0=complete,
+*.                                  1=incomplete. Can later be observed by
+*.                                  performance monitor.
+*.    BYTES             I*4         Number of bytes in a halfword
+*.    CDATE             I*4         Current date
+*.    CTIME             I*4         Current time.
+*.    DATTYP            I*4         The returned input data type from call to
+*.                                  A31211
+*.    ECCL16            I*4         Index into the color level table COLDAT
+*.                                  for all the color tables in the RPG: Echo
+*.                                  top 16 level clear air.
+*.    ECHOES            L*4         Specifies if there are any echoes
+*.    ECNC16            I*4         Index into the color level table COLDAT
+*.                                  for all the color tables in the RPG: Echo
+*.                                  top 16 level non-clear air.
+*.    ETIND             I*4         Echo Tops table INDex. Sent to
+*.                                  echo_tops_header to access threshold
+*.                                  table. Sent to raster_run_length to access
+*.                                  color data table.
+*.    ETPRODD           I*4         Data Buffer Type: Echo Tops Products.
+*.    ET_SIZ            I*4         Echo tops product size (bytes).
+*.    GAABLK_START      I*4         starting index of Graphic Alpha Attributes
+*.                                  Block
+*.    IPTR              I*4         Echo tops grid input buffer pointer.
+*.    ISTAR2S           I*4         Total number of i*2 words stored by
+*.                                  RASTER_RUN_LENGTH
+*.    MAXIND            I*4         echo tops buffer upper boundary index
+*.    MAX_ROUND         I*4         used to "ROUND" off the echo tops product
+*.                                  size to 50% of maximum size. It's equal to
+*.                                  2, and we divide by it when calculating
+*.                                  ET_SIZ
+*.    NIL               I*4         an echo value of 0
+*.    NRLEW1            I*4         i*2 word to store Number of Run Length
+*.                                  Encoded Words for each row. used to
+*.                                  calculate ET_SIZ.
+*.    OFF_MEM           I*4         1, used to reference parameters directly
+*.                                  in MEM, offsets one less
+*.    OPSTAT1           I*4         Get_Outbuf operation status
+*.    OPSTAT2           I*4         Internal variable used to hold operational
+*.                                  status (call argument) of particular
+*.                                  buffer.
+*.    OPTR              I*4         Echo Tops product output buffer pointer
+*.    RUNS_PERI2        I*4         number of RUNS PER I*2 word of echo tops
+*.                                  product buffer, = 2 since the run
+*.                                  information can be stored in 1 byte. used
+*.                                  to calculate ET_SIZ
+*.    TOTAL_HEADER_INFO I*4         Total number of header fields in product,
+*.                                  i.e.- everything except the actual
+*.                                  run-length encoded data.
+*.    VOLNO             I*4         Volume scan number.
+*.    WMODE             I*4         Weather mode.  Determines which threshold
+*.                                  value will be used.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD00
+*.    A3CD05
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK14.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+
+C *include data type codes and other control parameter definitions:
+$INCLUDE A309.INC/G,**A3PM00 (NEND NLIST)
+C
+C *include no memory abort parameters
+$INCLUDE A309.INC/G,**A3PM07 (NEND NLIST)
+C
+C *INCLUDE MEM DEFINITION:
+$INCLUDE A309.INC/G,**A3CD00 (NEND NLIST)
+
+C *include echo tops algorithm output buffer parameter definitions:
+$INCLUDE A313BUF.INC/G,**A313P0 (NEND NLIST)
+
+C * include product offsets and global parameters:
+$INCLUDE A309.INC/G,**A3PM01 (NEND NLIST)
+
+C *include color table indeces' parameters:
+$INCLUDE A309.INC/G,**A3PM04 (NEND NLIST)
+
+C *include parameters used in referencing SUMMARY table:
+$INCLUDE A309.INC/G,**A3PM06 (NEND NLIST)
+
+C *include Scan Summary Table definition:
+$INCLUDE A309.INC/G,**A3CD05 (NEND NLIST)
+
+C *include weather mode parameter
+$INCLUDE A309ADPT.INC/G,**A3CD70C8 (NLIST)
+
+
+      INTEGER*4 RUNS_PERI2,NRLEW1,MAX_ROUND,TOTAL_HEADER_INFO,
+     1          BYTES ,MAXIND,BUFSTAT,NIL,GAABLK_START,OFF_MEM,
+     2          AFTER_HEADER,A31218__BUF_VOL,VOLNO,WMODE,CLAIR
+      PARAMETER(TOTAL_HEADER_INFO=PHEADLNG+BLKOVRHD/2+RASTER_HEADER)
+      PARAMETER(AFTER_HEADER=PHEADLNG+1)
+
+
+      PARAMETER(RUNS_PERI2=2,NRLEW1=1,MAX_ROUND=2,
+     1          BYTES=2,NIL=0,OFF_MEM=1)
+
+      INTEGER*4 ET_SIZ, OPTR, IPTR, ETIND,ISTAR2S,
+     1          PARAM,CDATE,CTIME,
+     2          OPSTAT1,OPSTAT2,DATTYP
+
+      PARAMETER(ET_SIZ=((NETROW*(NETCOL/RUNS_PERI2+NRLEW1))/MAX_ROUND
+     1          +TOTAL_HEADER_INFO)*BYTES,CLAIR=1,
+     2          MAXIND=ET_SIZ/BYTES)
+
+
+      LOGICAL ECHOES
+      ECHOES = .TRUE.
+
+
+
+
+
+
+
+      CALL A31215__GET_OUTBUF(ETPRODD, ET_SIZ, OPTR, OPSTAT1)
+      IF (OPSTAT1.EQ.NORMAL) THEN
+C output buffer attained:
+         CALL A31211__GET_INBUF(ETTAB, IPTR, DATTYP, OPSTAT2)
+         IF (OPSTAT2.EQ.NORMAL)THEN
+C input buffer attained:
+
+            VOLNO = A31218__BUF_VOL(IPTR)
+            WMODE = SUMMARY(SCAN_MODE,VOLNO)
+            IF(WMODE.EQ.PFWXCLA)THEN
+               ETIND = ECCL16
+            ELSE
+C* non-clear air weather mode:
+               ETIND = ECNC16
+            ENDIF
+            CALL A3CM25__GET_DATE_TIME(CDATE,CTIME)
+
+
+            CALL A314D3__ECHO_TOPS_HEADER (MEM(IPTR+OSET),
+     +      MEM(OPTR),IPTR,ETIND,CDATE,CTIME)
+
+C if no echoes detected:
+            IF(MEM(IPTR+OSET+OMET-OFF_MEM).EQ.NIL)THEN
+               GAABLK_START = AFTER_HEADER
+               ECHOES = .FALSE.
+               CALL A314D2__NO_ECHOES_MESG(GAABLK_START,MEM(OPTR))
+            ELSE
+C run-length encode echo tops grid:
+               CALL A3CM22__RASTER_RUN_LENGTH(NETROW,NETCOL,BUFSTAT,
+     +   MEM(IPTR+OVET),ETIND,MEM(OPTR),RASTA_BEGIN,ISTAR2S,MAXIND)
+            ENDIF
+
+
+C BUFSTAT can be observed by performance monitor, and for a
+C BUFSTAT = incomplete, a message can be sent to the user.
+
+            CALL A314D4__END_MAINTENANCE(ISTAR2S,MEM(OPTR),ECHOES)
+            CALL A31212__REL_INBUF(IPTR)
+            CALL A31216__REL_OUTBUF(OPTR,FORWARD)
+         ELSE
+C output buffer attained, input buffer not available:
+            CALL A31216__REL_OUTBUF(OPTR,DESTROY)
+            CALL A31145__ABORT_ME
+         ENDIF
+C
+C If no mem available call abort routine
+C
+      ELSE
+        IF (OPSTAT1 .EQ. NO_MEM) THEN
+          CALL A31168__ABORT_ME_BECAUSE(PROD_MEM_SHED)
+        ELSE
+          CALL A31145__ABORT_ME
+        END IF
+      ENDIF
+      RETURN
+      END

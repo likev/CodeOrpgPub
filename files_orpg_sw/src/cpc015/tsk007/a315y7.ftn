@@ -1,0 +1,383 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/16 19:41:13 $
+C $Id: a315y7.ftn,v 1.3 2002/12/16 19:41:13 christie Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A315Y7__OUTPUT_ADAP( FORCADAP )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A315Y7__OUTPUT_ADAP
+*.
+*.  MODULE VERSION: 0016
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       08 16 85      0000      DENNIS MILLER        BUILD 2
+*.       05 07 86      0001      DENNIS MILLER        SPR # 304
+*.       11 15 86      0002      M STEWART            SPR # 60346
+*.       11 15 86      0002      M STEWART            SPR # 60650
+*.       04 11 89      0003      DAVID M. LYNCH       SPR # 90201
+*.       03 22 90      0004      RICH MIHOCI          SPR # 90697
+*.       02 22 91      0005      DENNIS MILLER        SPR # 91256
+*.       01 25 91      0005      DENNIS MILLER        SPR # 91629
+*.       02 15 91      0005      JOHN DEPHILIP        SPR # 91762
+*.       12 03 91      0006      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0007      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0008      Toolset              SPR 91895
+*.       03/25/93      0009      Toolset              SPR NA93-06801
+*.       01/28/94      0010      Toolset              SPR NA94-01101
+*.       03/03/94      0011      Toolset              SPR NA94-05501
+*.       04/05/94      0012      Steve Smith          CCR NW-94-007-10
+*.       04/01/95      0013      Toolset              CCR NA95-11802
+*.       53/31/95      0014      STEVE SMITH          CCR NA94-26302
+*.       12/23/96      0015      Toolset              CCR NA95-11807
+*.       03/16/99      0016      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A315Y7__OUTPUT_ADAP( FORCADAP )
+*.
+*.  MODULE FUNCTION:
+*.
+*.  This subroutine makes a copy of all adaptation data for the Storms
+*.  Algorithms (other than Hail) into Forecast's output buffer, from
+*.  the local values of the Adaptation variables initialized at the
+*.  onset of the current volume scan and passed through the prede-
+*.  cessor routines.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT    TYPE        DESCRIPTION
+*.    -   -----    ----        -----------
+*.    G   STRMADAP I*4         Array containing the integer variables in SCIT
+*.                             adaptation data in internal common.
+*.    G   NSTF_ADP I*4         (CONSTANT)Copy in Storm Forecast of the number
+*.                             of SCIT adaptable parameters.
+*.    G   STA_ALER I*4         (CONSTANT)Offset to the Allowable Error (m/s)
+*.                             in the adaptation data part of the centroids &
+*.                             tracking/forecast output buffers.
+*.    G   STA_AZMD I*4         (CONSTANT)Offset to the Azimuthal Separation
+*.                             Threshold (deg) in the adaptation data part of
+*.                             the centroids & tracking/forecast output
+*.                             buffers.
+*.    G   STA_CMPX I*4         (CONSTANT)Offset to the Max. # of
+*.                             Components/Elevation in the adaptation data
+*.                             part of the centroids & tracking/forecast
+*.                             output buffers.
+*.    G   STA_COSP I*4         (CONSTANT)Offset to the Correlation Speed (m/s)
+*.                             in the adaptation data part of the centroids &
+*.                             tracking/forecast output buffers.
+*.    G   STA_CPA1 I*4         (CONSTANT)Offset to the Threshold Component
+*.                             Area #1 (km**2) in the adaptation data part of
+*.                             the centroids & tracking/forecast output
+*.                             buffers.
+*.    G   STA_CPA2 I*4         (CONSTANT)Offset to the Threshold Component
+*.                             Area #2 (km**2) in the adaptation data part of
+*.                             the centroids & tracking/forecast output
+*.                             buffers.
+*.    G   STA_CPA3 I*4         (CONSTANT)Offset to the Threshold Component
+*.                             Area #3 (km**2) in the adaptation data part of
+*.                             the centroids & tracking/forecast output
+*.                             buffers.
+*.    G   STA_CPA4 I*4         (CONSTANT)Offset to the Threshold Component
+*.                             Area #4 (km**2) in the adaptation data part of
+*.                             the centroids & tracking/forecast output
+*.                             buffers.
+*.    G   STA_CPA5 I*4         (CONSTANT)Offset to the Threshold Component
+*.                             Area #5 (km**2) in the adaptation data part of
+*.                             the centroids & tracking/forecast output
+*.                             buffers.
+*.    G   STA_CPA6 I*4         (CONSTANT)Offset to the Threshold Component
+*.                             Area #6 (km**2) in the adaptation data part of
+*.                             the centroids & tracking/forecast output
+*.                             buffers.
+*.    G   STA_CPA7 I*4         (CONSTANT)Offset to the Threshold Component
+*.                             Area #7 (km**2) in the adaptation data part of
+*.                             the centroids & tracking/forecast output
+*.                             buffers.
+*.    G   STA_DDEL I*4         (CONSTANT)Offset to the Threshold Depth Delete
+*.                             (km) in the adaptation data part of the
+*.                             centroids & tracking/forecast output buffers.
+*.    G   STA_DFDI I*4         (CONSTANT)Offset to the Default Direction (deg)
+*.                             in the adaptation data part of the centroids &
+*.                             tracking/forecast output buffers.
+*.    G   STA_DFSP I*4         (CONSTANT)Offset to the Default Speed (m/s) in
+*.                             the adaptation data part of the centroids &
+*.                             tracking/forecast output buffers.
+*.    G   STA_ELMR I*4         (CONSTANT)Offset to the Threshold Elevation
+*.                             Merge (deg) in the adaptation data part of the
+*.                             centroids & tracking/forecast output buffers.
+*.    G   STA_ERIN I*4         (CONSTANT)Offset to the Error Interval (min) in
+*.                             the adaptation data part of the centroids &
+*.                             tracking/forecast output buffers.
+*.    G   STA_FINT I*4         (CONSTANT)Offset to the Forecast Interval (min)
+*.                             in the adaptation data part of the centroids &
+*.                             tracking/forecast output buffers.
+*.    G   STA_HDEL I*4         (CONSTANT)Offset to the Threshold Horizontal
+*.                             Delete (km) in the adaptation data part of the
+*.                             centroids & tracking/forecast output buffers.
+*.    G   STA_HEMR I*4         (CONSTANT)Offset to the Threshold Height Merge
+*.                             (km) in the adaptation data part of the
+*.                             centroids & tracking/forecast output buffers.
+*.    G   STA_HOMR I*4         (CONSTANT)Offset to the Threshold Horizontal
+*.                             Merge (km) in the adaptation data part of the
+*.                             centroids & tracking/forecast output buffers.
+*.    G   STA_MAXT I*4         (CONSTANT)Offset to the Time Maximum (min) in
+*.                             the adaptation data part of the centroids &
+*.                             tracking/forecast output buffers.
+*.    G   STA_MCOF I*4         (CONSTANT)Offset to the Mass Coef. Factor in
+*.                             the adaptation data part of the centroids &
+*.                             tracking/forecast output buffers.
+*.    G   STA_MNSG I*4         (CONSTANT)Offset to the Threshold Min. # of
+*.                             Segments/Comp. in the adaptation data part of
+*.                             the centroids & tracking/forecast output
+*.                             buffers.
+*.    G   STA_MULF I*4         (CONSTANT)Offset to the Mass Mult. Factor in
+*.                             the adaptation data part of the centroids &
+*.                             tracking/forecast output buffers.
+*.    G   STA_MWTF I*4         (CONSTANT)Offset to the Mass Weighted Factor in
+*.                             the adaptation data part of the centroids &
+*.                             tracking/forecast output buffers.
+*.    G   STA_MXDS I*4         (CONSTANT)Offset to the Thresh. Max. Detected
+*.                             Cells in the adaptation data part of the
+*.                             centroids & tracking/forecast output buffers.
+*.    G   STA_MXPC I*4         (CONSTANT)Offset to the Thresh. Max. Pot.
+*.                             Components/Elev in the adaptation data part of
+*.                             the centroids & tracking/forecast output
+*.                             buffers.
+*.    G   STA_NAVG I*4         (CONSTANT)Offset to the Ref. Avg. Factor (bins)
+*.                             in the adaptation data part of the centroids &
+*.                             tracking/forecast output buffers.
+*.    G   STA_NDRO I*4         (CONSTANT)Offset to the Thresh. Dropout Count
+*.                             (bins) in the adaptation data part of the
+*.                             centroids & tracking/forecast output buffers.
+*.    G   STA_NFOR I*4         (CONSTANT)Offset to the Number of (Forecast)
+*.                             Intervals in the adaptation data part of the
+*.                             centroids & tracking/forecast output buffers.
+*.    G   STA_OVLP I*4         (CONSTANT)Offset to the Thresh. Segment Overlap
+*.                             (km) in the adaptation data part of the
+*.                             centroids & tracking/forecast output buffers.
+*.    G   STA_PVOL I*4         (CONSTANT)Offset to the Number of Past Volumes
+*.                             in the adaptation data part of the centroids &
+*.                             tracking/forecast output buffers.
+*.    G   STA_RDIF I*4         (CONSTANT)Offset to the Thresh. Dropout Ref.
+*.                             Difference (dB) in the adaptation data part of
+*.                             the centroids & tracking/forecast output
+*.                             buffers.
+*.    G   STA_REF1 I*4         (CONSTANT)Offset to the Thresh. Reflectivity #1
+*.                             (dBZ) in the adaptation data part of the
+*.                             centroids & tracking/forecast output buffers.
+*.    G   STA_REF2 I*4         (CONSTANT)Offset to the Thresh. Reflectivity #2
+*.                             (dBZ) in the adaptation data part of the
+*.                             centroids & tracking/forecast output buffers.
+*.    G   STA_REF3 I*4         (CONSTANT)Offset to the Thresh. Reflectivity #3
+*.                             (dBZ) in the adaptation data part of the
+*.                             centroids & tracking/forecast output buffers.
+*.    G   STA_REF4 I*4         (CONSTANT)Offset to the Thresh. Reflectivity #4
+*.                             (dBZ) in the adaptation data part of the
+*.                             centroids & tracking/forecast output buffers.
+*.    G   STA_REF5 I*4         (CONSTANT)Offset to the Thresh. Reflectivity #5
+*.                             (dBZ) in the adaptation data part of the
+*.                             centroids & tracking/forecast output buffers.
+*.    G   STA_REF6 I*4         (CONSTANT)Offset to the Thresh. Reflectivity #6
+*.                             (dBZ) in the adaptation data part of the
+*.                             centroids & tracking/forecast output buffers.
+*.    G   STA_REF7 I*4         (CONSTANT)Offset to the Thresh. Reflectivity #7
+*.                             (dBZ) in the adaptation data part of the
+*.                             centroids & tracking/forecast output buffers.
+*.    G   STA_RGMX I*4         (CONSTANT)Offset to the Thresh. Max. Segment
+*.                             Range (km) in the adaptation data part of the
+*.                             centroids & tracking/forecast output buffers.
+*.    G   STA_RLVL I*4         (CONSTANT)Offset to the Number of Reflectivity
+*.                             Levels in the adaptation data part of the
+*.                             centroids & tracking/forecast output buffers.
+*.    G   STA_RSGM I*4         (CONSTANT)Offset to the Max. # of
+*.                             Segments/Radial in the adaptation data part of
+*.                             the centroids & tracking/forecast output
+*.                             buffers.
+*.    G   STA_SGL1 I*4         (CONSTANT)Offset to the Thresh. Segment Length
+*.                             #1 (km) in the adaptation data part of the
+*.                             centroids & tracking/forecast output buffers.
+*.    G   STA_SGL2 I*4         (CONSTANT)Offset to the Thresh. Segment Length
+*.                             #2 (km) in the adaptation data part of the
+*.                             centroids & tracking/forecast output buffers.
+*.    G   STA_SGL3 I*4         (CONSTANT)Offset to the Thresh. Segment Length
+*.                             #3 (km) in the adaptation data part of the
+*.                             centroids & tracking/forecast output buffers.
+*.    G   STA_SGL4 I*4         (CONSTANT)Offset to the Thresh. Segment Length
+*.                             #4 (km) in the adaptation data part of the
+*.                             centroids & tracking/forecast output buffers.
+*.    G   STA_SGL5 I*4         (CONSTANT)Offset to the Thresh. Segment Length
+*.                             #5 (km) in the adaptation data part of the
+*.                             centroids & tracking/forecast output buffers.
+*.    G   STA_SGL6 I*4         (CONSTANT)Offset to the Thresh. Segment Length
+*.                             #6 (km) in the adaptation data part of the
+*.                             centroids & tracking/forecast output buffers.
+*.    G   STA_SGL7 I*4         (CONSTANT)Offset to the Thresh. Segment Length
+*.                             #7 (km) in the adaptation data part of the
+*.                             centroids & tracking/forecast output buffers.
+*.    G   STA_SGMX I*4         (CONSTANT)Offset to the Max. # of
+*.                             Segments/Elev. in the adaptation data part of
+*.                             the centroids & tracking/forecast output
+*.                             buffers.
+*.    G   STA_SPMN I*4         (CONSTANT)Offset to the Speed Minimum (m/s) in
+*.                             the adaptation data part of the centroids &
+*.                             tracking/forecast output buffers.
+*.    G   STA_SRD1 I*4         (CONSTANT)Offset to the Thresh. Search Radius
+*.                             #1 (km) in the adaptation data part of the
+*.                             centroids & tracking/forecast output buffers.
+*.    G   STA_SRD2 I*4         (CONSTANT)Offset to the Thresh. Search Radius
+*.                             #2 (km) in the adaptation data part of the
+*.                             centroids & tracking/forecast output buffers.
+*.    G   STA_SRD3 I*4         (CONSTANT)Offset to the Thresh. Search Radius
+*.                             #3 (km) in the adaptation data part of the
+*.                             centroids & tracking/forecast output buffers.
+*.    G   STA_STMX I*4         (CONSTANT)Offset to the Thresh. Max. Cells/Vol.
+*.                             in the adaptation data part of the centroids &
+*.                             tracking/forecast output buffers.
+*.    G   STA_VILX I*4         (CONSTANT)Offset to the Thresh. Max. VIL
+*.                             (kg/m**2) in the adaptation data part of the
+*.                             centroids & tracking/forecast output buffers.
+*.
+*.    *   OUTPUT   TYPE        DESCRIPTION
+*.    -   ------   ----        -----------
+*.    G   STRMADAP I*4         Array containing the integer variables in SCIT
+*.                             adaptation data in internal common.
+*.    P   FORCADAP I*4         Array of Storm Series Adaptation Data.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME  TYPE        DESCRIPTION
+*.    ----  ----        -----------
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A315CSAD
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     Compiled using COMP15.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     Linked using LINK15.CSS
+*.
+*.  MISC:  None
+*.
+C********************************************************************
+C
+C       STORM POSITION FORECAST : OUTPUT ADAPTATION DATA  ROUTINE
+C
+C********************************************************************
+C
+      IMPLICIT NONE
+C
+C**Attach output parameter-definition file (of "POSITION_FORECAST")
+$INCLUDE A315BUF.INC/G,**A315P7F (NLIST)
+C
+C**Attach local STORMS Adaptation Data parameter file:
+$INCLUDE **A315PSAD (NLIST)
+C
+C**Attach local STORMS Adaptation Data definitions:
+$INCLUDE **A315CSAD (NLIST)
+C
+C********************** DATA DECLARATIONS ***************************
+C
+      INTEGER  FORCADAP( NSTF_ADP )
+C
+C******************* BEGIN MAIN PROCESSING SECTION ******************
+C
+C** Make a copy of the Adaptation parameters for the Storms-series of
+C** Algorithms into Forecast's output buffer.
+C
+      FORCADAP( STA_REF1 ) = STRMADAP( STA_REF1 )
+      FORCADAP( STA_REF2 ) = STRMADAP( STA_REF2 )
+      FORCADAP( STA_REF3 ) = STRMADAP( STA_REF3 )
+      FORCADAP( STA_REF4 ) = STRMADAP( STA_REF4 )
+      FORCADAP( STA_REF5 ) = STRMADAP( STA_REF5 )
+      FORCADAP( STA_REF6 ) = STRMADAP( STA_REF6 )
+      FORCADAP( STA_REF7 ) = STRMADAP( STA_REF7 )
+      FORCADAP( STA_SGL1 ) = STRMADAP( STA_SGL1 )
+      FORCADAP( STA_SGL2 ) = STRMADAP( STA_SGL2 )
+      FORCADAP( STA_SGL3 ) = STRMADAP( STA_SGL3 )
+      FORCADAP( STA_SGL4 ) = STRMADAP( STA_SGL4 )
+      FORCADAP( STA_SGL5 ) = STRMADAP( STA_SGL5 )
+      FORCADAP( STA_SGL6 ) = STRMADAP( STA_SGL6 )
+      FORCADAP( STA_SGL7 ) = STRMADAP( STA_SGL7 )
+      FORCADAP( STA_CPA1 ) = STRMADAP( STA_CPA1 )
+      FORCADAP( STA_CPA2 ) = STRMADAP( STA_CPA2 )
+      FORCADAP( STA_CPA3 ) = STRMADAP( STA_CPA3 )
+      FORCADAP( STA_CPA4 ) = STRMADAP( STA_CPA4 )
+      FORCADAP( STA_CPA5 ) = STRMADAP( STA_CPA5 )
+      FORCADAP( STA_CPA6 ) = STRMADAP( STA_CPA6 )
+      FORCADAP( STA_CPA7 ) = STRMADAP( STA_CPA7 )
+      FORCADAP( STA_RLVL ) = STRMADAP( STA_RLVL )
+      FORCADAP( STA_NDRO ) = STRMADAP( STA_NDRO )
+      FORCADAP( STA_RDIF ) = STRMADAP( STA_RDIF )
+      FORCADAP( STA_NAVG ) = STRMADAP( STA_NAVG )
+      FORCADAP( STA_MWTF ) = STRMADAP( STA_MWTF )
+      FORCADAP( STA_MULF ) = STRMADAP( STA_MULF )
+      FORCADAP( STA_MCOF ) = STRMADAP( STA_MCOF )
+C
+C** STRMADAP: array of storm series adaptation data local to
+C**           program
+C** FORCADAP: array of storm series adaptation data in forecast's
+C**           output buffer
+C
+      FORCADAP( STA_RSGM ) = STRMADAP( STA_RSGM )
+      FORCADAP( STA_MXPC ) = STRMADAP( STA_MXPC )
+      FORCADAP( STA_MXDS ) = STRMADAP( STA_MXDS )
+      FORCADAP( STA_SGMX ) = STRMADAP( STA_SGMX )
+      FORCADAP( STA_RGMX ) = STRMADAP( STA_RGMX )
+      FORCADAP( STA_OVLP ) = STRMADAP( STA_OVLP )
+      FORCADAP( STA_AZMD ) = STRMADAP( STA_AZMD )
+      FORCADAP( STA_SRD1 ) = STRMADAP( STA_SRD1 )
+      FORCADAP( STA_SRD2 ) = STRMADAP( STA_SRD2 )
+      FORCADAP( STA_SRD3 ) = STRMADAP( STA_SRD3 )
+      FORCADAP( STA_DDEL ) = STRMADAP( STA_DDEL )
+      FORCADAP( STA_HDEL ) = STRMADAP( STA_HDEL )
+      FORCADAP( STA_ELMR ) = STRMADAP( STA_ELMR )
+      FORCADAP( STA_HEMR ) = STRMADAP( STA_HEMR )
+      FORCADAP( STA_HOMR ) = STRMADAP( STA_HOMR )
+      FORCADAP( STA_MNSG ) = STRMADAP( STA_MNSG )
+      FORCADAP( STA_CMPX ) = STRMADAP( STA_CMPX )
+      FORCADAP( STA_STMX ) = STRMADAP( STA_STMX )
+      FORCADAP( STA_VILX ) = STRMADAP( STA_VILX )
+      FORCADAP( STA_DFDI ) = STRMADAP( STA_DFDI )
+      FORCADAP( STA_DFSP ) = STRMADAP( STA_DFSP )
+      FORCADAP( STA_MAXT ) = STRMADAP( STA_MAXT )
+      FORCADAP( STA_PVOL ) = STRMADAP( STA_PVOL )
+      FORCADAP( STA_COSP ) = STRMADAP( STA_COSP )
+      FORCADAP( STA_SPMN ) = STRMADAP( STA_SPMN )
+      FORCADAP( STA_ALER ) = STRMADAP( STA_ALER )
+      FORCADAP( STA_FINT ) = STRMADAP( STA_FINT )
+      FORCADAP( STA_NFOR ) = STRMADAP( STA_NFOR )
+      FORCADAP( STA_ERIN ) = STRMADAP( STA_ERIN )
+C
+C************** END OF PROCESSING FOR SUBROUTINE ********************
+C
+      RETURN
+      END

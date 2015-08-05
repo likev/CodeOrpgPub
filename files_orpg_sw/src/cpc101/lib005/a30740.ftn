@@ -1,0 +1,287 @@
+C 
+C RCS info 
+C $Author: ccalvert $ 
+C $Locker:  $ 
+C $Date: 2004/02/05 23:20:49 $ 
+C $Id: a30740.ftn,v 1.6 2004/02/05 23:20:49 ccalvert Exp $ 
+C $Revision: 1.6 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A30740__CAT_IN_PRODBUF(BUFOUT,BUFF_SIZE,BUILDCAT,
+     >                                  INPTR)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A30740__CAT_IN_PRODBUF
+*.
+*.  MODULE VERSION: 0011
+*.
+*.  MODULE LANGUAGE:  FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       09 15 85      0000      A.Weinstein          SPR # 60159
+*.       02 22 91      0001      MARK FRESCH          SPR # 91248
+*.       02 15 91      0001      JOHN DEPHILIP        SPR # 91762
+*.       12 03 91      0002      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0003      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/20/92      0004      Toolset              SPR 91895
+*.       03/25/93      0005      Toolset              SPR NA93-06801
+*.       01/28/94      0006      Toolset              SPR NA94-01101
+*.       03/03/94      0007      Toolset              SPR NA94-05501
+*.       05/02/95      0008      STEVE SMITH          CCR NA94-26302
+*.       05/02/95      0008      STEVE SMITH          CCR NA94-26301
+*.       12/23/95      0009      Toolset              CCR NA95-11807
+*.       12/23/95      0010      STEVE SMITH          CCR NA95-21503
+*.       03/16/99      0011      Toolset              CCR NA98-23803
+*.       12/09/03      0012      CHRIS CALVERT        CCR NA03-30002
+*.
+*.  CALLING SEQUENCE: CALL A30740__CAT_IN_PRODBUF(BUFOUT,BUILDCAT,
+*.                                                BUFF_SIZE,INPTR)
+*.
+*.  MODULE FUNCTION:
+*.
+*.     CONTROL ROUTINE FOR COMBINED_ATTRIBUTES_TABLE DISPLAY
+*.     FOR THE COMPOSITE REFLECTIVITY TASK
+*.
+*.  MODULES CALLED: A3CM29__GRID_VECTORS, A3CM36__BUILD_CHARLINES, 
+*.                  A3CM37__COMBATTR_TO_PRODBUF 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT              TYPE        DESCRIPTION
+*.    -   -----              ----        -----------
+*.    G   MAX_CAT_ATTR_CELLS I*4         The Maximum number of Cells in the
+*.                                       Combined Attribute Table threshold in
+*.                                       adaptation data.
+*.    G   MEM                I*4         Array in RPG shared memory set aside
+*.                                       for buffer sharing.
+*.    G   CATT               I*4         (CONSTANT)Combined attributes table
+*.                                       offset.
+*.    G   CAT_MXSTMS         I*4         (CONSTANT)Combined attributes
+*.                                       features index for maximum number of
+*.                                       storms.
+*.    G   CFEA               I*4         (CONSTANT)Combined attributes
+*.                                       features offset.
+*.    G   CNFP               I*4         (CONSTANT)Offset in combined
+*.                                       attributes table to number of
+*.                                       forecast positions.
+*.    G   CNFST              I*4         (CONSTANT)Offset in combined
+*.                                       attributes table to number of
+*.                                       forecast storms.
+*.    G   CNS                I*4         (CONSTANT)Offset in combined
+*.                                       attributes table to the number of
+*.                                       storms
+*.    G   LGLSWOFF           I*4         (CONSTANT)Product header offset:
+*.                                       Length of message (LSW).
+*.    G   LGMSWOFF           I*4         (CONSTANT)Product header offset:
+*.                                       Length of message (MSW).
+*.    G   NBLKSOFF           I*4         (CONSTANT)Product header offset:
+*.                                       Number of blocks in product.
+*.    G   OGLSWOFF           I*4         (CONSTANT)Product header offset:
+*.                                       graphic attributes (LSW).
+*.    G   OGMSWOFF           I*4         (CONSTANT)Product header offset:
+*.                                       graphic attributes (MSW).
+*.    P   BUFF_SIZE          I*4         The size of the Composite
+*.                                       Reflectivity product buffer, in
+*.                                       fullwords
+*.    P   BUFOUT             I*2         PRODUCT BUFFER
+*.    P   BUILDCAT           L*4         FLAG INDICATING WHETHER TO BUILD
+*.                                       COMBINED ATTRIBUTES TABLE
+*.    P   INPTR              I*4         INPUT BUFFER POINTER INTO MEM
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    P   BUFOUT  I*2         PRODUCT BUFFER
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    G   MEM               I*4         Array in RPG shared memory set aside
+*.                                      for buffer sharing.
+*.    P   BUFOUT            I*2         PRODUCT BUFFER
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME                       TYPE        DESCRIPTION
+*.    ----                       ----        -----------
+*.    BYTE_PER_FW                I*4         Number of bytes in a fullword.
+*.    CATLNG                     I*4         LENGTH OF C_A_T PORTION OF BUFFER
+*.    CATOPTN                    I*4         Combined attributes table for
+*.                                           select option for grid vectors
+*.                                           routine.
+*.    CATSTART                   I*4         STARTING INDEX OF C_A_T IN
+*.                                           PRODBUF
+*.    CHARLINE                   CHAR*72     Character line table.
+*.    CHARPL                     I*4         Place of character within array.
+*.    FIRST_PAGE                 I*4         Length of one page of Combined
+*.                                           Attributes graphic alphanumeric
+*.                                           plus the length of graphic
+*.                                           alphanumeric block header.
+*.    GRAPHIX_ALPHA_BLOCK_HEADER I*4         Length of graphic alphanumeric
+*.                                           block header.
+*.    GRIDBUF                    I*2         Buffer for grid vectors.
+*.    GRIDLNG                    I*4         LENGTH OF GRID VECTORS TABLE
+*.    GRIDST                     I*4         STARTING ADDRESS OF GRID IN
+*.                                           GRIDBUF
+*.    I2PL                       I*4         The number of halfwords be
+*.                                           character line.
+*.    INDEX1                     I*4         PARAMETER FOR STARTING INDEX OF
+*.                                           GRID
+*.    INT_LINE                   I*2         Equivalent to charcter string
+*.                                           CHARLINE.
+*.    LSW                        I*4         Index to I*2(2).
+*.    MAX_PAGES                  I*4         Maximum number of pages which can
+*.                                           fit in the remaining product
+*.                                           buffer
+*.    MSW                        I*4         MOST SIGNIFICANT WORD INDEX.
+*.    MXGRVEC                    I*4         Size of grid vectors table.
+*.    MXSTMSP1                   I*4         MAX NO. OF ROWS OF C_A_T INFO (=
+*.                                           MAX NO. STORMS + 1 HEADER LINE)
+*.    NCATBUFS                   I*4         Number of blocks in combined
+*.                                           attributes table buffer.
+*.    NHDRLINE                   I*4         NO. OF HEADER LINES OF C_A_T INFO
+*.    OPTN                       I*4         SELECT OPTION FOR GRID VECTORS
+*.                                           ROUTINE
+*.    PAGE_LENGTH                I*4         Length of one page of Combined
+*.                                           Attributes graphic  alphanumeric.
+*.    PRODLNG                    I*4         Equivalenced to PROD_LNG.
+*.    PROD_LNG                   I*2         I*2 equivalenced to I*4 PRODLNG.
+*.    REMAINING_BYTES            I*4         Number of bytes remaining in
+*.                                           product buffer after product
+*.                                           symbology block.
+*.    TOTAL_STORMS               I*4         The total number of storm cell
+*.                                           detected this volume scan by the
+*.                                           SCIT suite of algorithms.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD00
+*.    CELL_PROD
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  NONE
+*.
+*.  DEVIATION FROM STANDARDS:  NONE
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP07.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK07.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+$INCLUDE A309.INC/G,**A3PM00 (NEND NLIST)
+$INCLUDE            **A3PM01 (NEND NLIST)
+$INCLUDE            **A3CD00 (NEND NLIST)
+$INCLUDE A308BUF.INC/G,**A308P3 (NEND NLIST)
+$INCLUDE A309ADPT.INC/G, **A3CD70_CELL_PROD (NEND NLIST)
+C
+C** A30740 - CONTROL ROUTINE FOR COMBINED ATTRIBUTES TABLE
+C
+      INTEGER INPTR, BUFF_SIZE, N, TOTAL_STORMS
+      INTEGER NCATBUFS,NHDRLINE,MXSTMSP1
+      PARAMETER( NCATBUFS=1,NHDRLINE=1 )
+      PARAMETER( MXSTMSP1=CAT_MXSTMS+NHDRLINE )
+C
+      INTEGER I2PL,CHARPL
+      PARAMETER( I2PL=36,CHARPL=72)
+C
+      INTEGER INDEX1,CATOPTN,OPTN
+      PARAMETER( INDEX1=1,CATOPTN=2 )
+C
+      INTEGER GRIDLNG,GRIDST,MXGRVEC
+      PARAMETER( MXGRVEC=200 )
+      INTEGER*2 GRIDBUF(MXGRVEC),BUFOUT(*)
+C
+      LOGICAL BUILDCAT
+C
+      INTEGER*2 INT_LINE(I2PL,MXSTMSP1)
+      CHARACTER CHARLINE(MXSTMSP1)*(CHARPL)
+      EQUIVALENCE( INT_LINE,CHARLINE )
+C
+      INTEGER  CATSTART,PRODLNG,CATLNG
+C
+C** PAGE LENGTH AND BLOCK HEADER LENGTH (IN BYTES)
+C
+      INTEGER*4 PAGE_LENGTH, GRAPHIX_ALPHA_BLOCK_HEADER
+      INTEGER*4 FIRST_PAGE, BYTE_PER_FW, MAX_PAGES
+      INTEGER*4 REMAINING_BYTES
+      PARAMETER (PAGE_LENGTH = 554, GRAPHIX_ALPHA_BLOCK_HEADER = 10)
+      PARAMETER (FIRST_PAGE = PAGE_LENGTH+GRAPHIX_ALPHA_BLOCK_HEADER)
+      PARAMETER (BYTE_PER_FW = 4)
+C
+C** EXECUTABLE CODE :
+C   ---------------
+C
+C** LIMIT THE NUMBER OF STORM CELLS DISPLAYED IN THE COMBINED
+C** ATTRIBUTES TABLE.
+C
+      TOTAL_STORMS = MIN(MEM(INPTR+CNS),MAX_CAT_ATTR_CELLS)
+C
+C** CHECK AND SEE IF THIS IS THE FIRST PRODUCT PROCESSED;
+C** IF IT IS, ALSO BUILD COMBINED-ATTRIBUTES-TABLE :
+C
+      IF ( BUILDCAT ) THEN
+C
+C** SET UP GRID FRAMEWORK VECTORS :
+C
+         OPTN  = CATOPTN
+         GRIDST = INDEX1
+         CALL A3CM29__GRID_VECTORS(OPTN,GRIDBUF,GRIDST,GRIDLNG)
+         CALL A3CM36__BUILD_CHARLINES(TOTAL_STORMS,MEM(INPTR+CFEA),
+     >                                MEM(INPTR+CATT),MEM(INPTR+CNFP),
+     >                                MEM(INPTR+CNFST),CHARLINE)
+      ENDIF
+C
+C** GET PRODUCT LENGTH FOR STARTING INDEX IN PRODUCT BUFFER OF C_A_T:
+C
+      call RPG_get_product_int( BUFOUT(LGMSWOFF), PRODLNG )
+C
+C** COMPARE CURRENT PRODUCT LENGTH AGAINST SIZE OF AT LEAST ONE PAGE
+C** OF GRAPHIC ALPHANUMERIC DATA.  NO NEED TO DO ANYTHING IF BUFFER
+C** SPACE NOT AVAILABLE FOR AT LEAST ONE PAGE.
+C
+      REMAINING_BYTES = (BUFF_SIZE*BYTE_PER_FW) - PRODLNG
+      IF ( REMAINING_BYTES .GE. FIRST_PAGE ) THEN
+C
+C** THERE IS ROOM FOR AT LEAST ONE PAGE, BUT HOW MANY TOTAL?
+C
+        MAX_PAGES = (REMAINING_BYTES-FIRST_PAGE)/PAGE_LENGTH + 1
+C
+C** STORE OFFSET TO GRAPHIC ATTRIBUTES BLOCK (IN HALF-WORDS):
+C
+        CATSTART = PRODLNG / 2
+        call RPG_set_product_int( BUFOUT(OGMSWOFF), CATSTART )
+C
+C** APPEND GRAPHIC ATTRIBUTES TO PRODUCT BUFFER:
+C
+        CATSTART = CATSTART + 1
+        CALL A3CM37__COMBATTR_TO_PRODBUF(GRIDBUF,GRIDLNG,INT_LINE,
+     >                                  TOTAL_STORMS,BUFOUT(CATSTART),
+     >                                  CATLNG,MAX_PAGES)
+C
+C** UPDATE NUMBER OF BLOCKS IN, & LENGTH OF, PRODUCT BUFFER:
+C
+        BUFOUT(NBLKSOFF) = BUFOUT(NBLKSOFF) + NCATBUFS
+        PRODLNG = PRODLNG + CATLNG
+        call RPG_set_product_int( BUFOUT(LGMSWOFF), PRODLNG )
+C
+      END IF
+C
+C** RETURN TO CALLER ROUTINE
+C
+      RETURN
+      END

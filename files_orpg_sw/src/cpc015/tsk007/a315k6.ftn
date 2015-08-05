@@ -1,0 +1,370 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/16 19:40:51 $
+C $Id: a315k6.ftn,v 1.3 2002/12/16 19:40:51 christie Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A315K6__CORREL_STORMS( VOLTIME, NSTORMS, STORMAIN )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A315K6__CORREL_STORMS
+*.
+*.  MODULE VERSION: 0017
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       08 16 85      0000      DENNIS MILLER        BUILD 2
+*.       05 07 86      0001      DENNIS MILLER        SPR # 304
+*.       07 10 86      0002      DENNIS MILLER        SPR # 60313
+*.       07 10 86      0002      DENNIS MILLER        SPR # 60367
+*.       11 15 86      0003      M STEWART            SPR # 60346
+*.       04 14 89      0004      CHI CHAN             SPR # 90299
+*.       03 21 90      0005      RICH MIHOCI          SPR # 90697
+*.       02 22 91      0006      DENNIS MILLER        SPR # 91256
+*.       02 15 91      0006      JOHN DEPHILIP        SPR # 91762
+*.       04 12 91      0006      DENNIS MILLER        SPR # 90956
+*.       12 03 91      0007      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0008      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0009      Toolset              SPR 91895
+*.       05/14/92      0010      P. PISANI            SPR # 92713
+*.       03/25/93      0011      Toolset              SPR NA93-06801
+*.       01/28/94      0012      Toolset              SPR NA94-01101
+*.       03/03/94      0013      Toolset              SPR NA94-05501
+*.       04/01/95      0014      Toolset              CCR NA95-11802
+*.       05/25/95      0015      STEVE SMITH          CCR NA94-26302
+*.       12/23/96      0016      Toolset              CCR NA95-11807
+*.       03/16/99      0017      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A315K6__CORREL_STORMS( VOLTIME,NSTORMS,
+*.                                                       STORMAIN )
+*.
+*.  MODULE FUNCTION:
+*.
+*.  This routine inputs information for the current volume scan into
+*.  the various Storm-History tables and attempts to correlate the
+*.  current storms with those from the previous volume scan (by time
+*.  and position), examining the storms in the order of their cell-
+*.  based VIL values. If a correlation is found, the current storm is
+*.  connected to its previous representative in the linked-list
+*.  Correlation table (CORLTABL), otherwise it receives a new ID
+*.  label from the circular Storm-Label stack.
+*.
+*.  MODULES CALLED: A315B6__BEST_POSITS, A315L6__RETURN_LABELS, 
+*.                  A315Q6__BEST_CORREL, RTL 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT            TYPE        DESCRIPTION
+*.    -   -----            ----        -----------
+*.    G   NSTM_CHR         I*4         (CONSTANT)Maximum number of storm
+*.                                     characteristics  (dimension of
+*.                                     STORMAIN)
+*.    G   NSTM_MAX         I*4         (CONSTANT)Maximum number of storms
+*.                                     (Dimension for STORMAIN)
+*.    G   STM_XCN          I*4         (CONSTANT)Index to storm cell
+*.                                     x-position in an array of centroid
+*.                                     data.
+*.    G   STM_YCN          I*4         (CONSTANT)Index to storm cell
+*.                                     y-position in an array of centroid
+*.                                     data.
+*.    C   BESTPOS          R*4         An array of  best positions  for cells
+*.                                     in the previous volume scan.  (The 3rd
+*.                                     position is not used.)
+*.    C   BEST_IP          I*4         Index to the cell from the previous
+*.                                     volume scan w/ the closest best
+*.                                     position to the current cell.
+*.    C   COSPD            R*4         Correlation Speed in local common.
+*.    C   IXCUR            I*4         Index to the current volume scan in the
+*.                                     correlation table
+*.    C   IXPRE            I*4         Index to the previous volume scan in
+*.                                     the correlation table
+*.    C   NSTMHIST         I*4         Array of the # of cells/volume scan in
+*.                                     correlation table.
+*.    C   POSITABL         R*4         Table of cell-X and Y centroid
+*.                                     positions thru the time spanned in the
+*.                                     Correlation History table.
+*.    C   STRMLABL         I*4         Circular list of storm-ID indices.
+*.    C   TIMEHIST         R*4         Table of the times of past and present
+*.                                     volume scans, NOT corrected for change
+*.                                     of day.
+*.    C   INIT_MIN         R*4         (CONSTANT)Large value used to
+*.                                     initialize the Difference Best
+*.                                     Position.
+*.    C   NST_MAX          I*4         (CONSTANT)Max. # of cells allowed in
+*.                                     the correlation & position tables.
+*.                                     Max. possible value of Max. Cell/Vol
+*.                                     Threshold.
+*.    C   X_DIR            I*4         (CONSTANT)Index to the x-direction of a
+*.                                     storm cell in the STMSPD and BESTPOS
+*.                                     arrays.
+*.    C   X_POS            I*4         (CONSTANT)Index to the x-coordinate of
+*.                                     a storm cell, the first attribute, in
+*.                                     the POSITABLE array.
+*.    C   Y_DIR            I*4         (CONSTANT)Index to the y-direction of a
+*.                                     storm cell in the STMSPD and BESTPOS
+*.                                     arrays.
+*.    C   Y_POS            I*4         (CONSTANT)Index to the y-coordinate of
+*.                                     a storm cell, the second attribute, in
+*.                                     the POSITABLE array.
+*.    P   NSTORMS          I*4         Number of Storms in current volume scan
+*.    P   STORMAIN         R*4         2-D array of principal Storm Cell
+*.                                     attributes
+*.    P   VOLTIME          R*4         Time associated with current volume
+*.
+*.    *   OUTPUT           TYPE        DESCRIPTION
+*.    -   ------           ----        -----------
+*.    C   BEST_IP          I*4         Index to the cell from the previous
+*.                                     volume scan w/ the closest best
+*.                                     position to the current cell.
+*.    C   BPD_MIN          R*4         Distance squared between the cell from
+*.                                     the previous volume scan w/ the closest
+*.                                     best position to the current cell.
+*.    C   CORLTABL         I*4         Correlation table containing IDs to the
+*.                                     cells for all previous volumes (up to
+*.                                     the maximum).
+*.    C   IXCUR            I*4         Index to the current volume scan in the
+*.                                     correlation table
+*.    C   NSTMHIST         I*4         Array of the # of cells/volume scan in
+*.                                     correlation table.
+*.    C   POSITABL         R*4         Table of cell-X and Y centroid
+*.                                     positions thru the time spanned in the
+*.                                     Correlation History table.
+*.    C   TIMEHIST         R*4         Table of the times of past and present
+*.                                     volume scans, NOT corrected for change
+*.                                     of day.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    C   STRMLABL          I*4         Circular list of storm-ID indices.
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME         TYPE        DESCRIPTION
+*.    ----         ----        -----------
+*.    BPD_SQUARED  R*4         The sum of the squares of DELTAX and DELTAY
+*.    CNVMEKM      R*4         Factor for converting meters to kilometers
+*.    CNVMSSEC     R*4         Factor for converting millisecs to seconds
+*.    CORDIST      R*4         Max distance between storm positions
+*.    CORD_SQUARED R*4         Square of the correlation distance
+*.    CORFLAG      I*4         Table of correlation-flags per storm
+*.    DELTAX       R*4         Distance between previous & current radial.
+*.    DELTAY       R*4         Distance between previous & current radial.
+*.    DELTIME      R*4         Time between previous and current volume scan.
+*.    FLG_COR      I*4         Flag indicating storm Correlated
+*.    FLG_UNC      I*4         Flag indicating storm Uncorrelated
+*.    IC           I*4         Do-loop index for storms of current volume
+*.                             scan.
+*.    IP           I*4         Do-loop index for storms of previous volume
+*.                             scan.
+*.    ISTAT        I*4         Status of return from call to circular
+*.                             stack-manipulation routine.
+*.    NEWLAB       I*4         New label-index extracted from STRMLABL array
+*.    NSECPDAY     R*4         No. of seconds per day (i.e. 86400.)
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A315C6T
+*.    A315CFF
+*.    A315CTT
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:
+*.
+*.     Storms that are correlated are associated in the History table
+*.   via linked-list pointers, from volume scan to volume scan.  The
+*.   Storm I.D. is contained in the last (i.e. earliest) volume scan
+*.   of a linked-chain in the form of a negative pointer value, the
+*.   absolute value of which is the Storm I.D..  The negative pointer
+*.   value also serves as an indicator of the earliest known position
+*.   of a storm.
+*.
+*.     In the event of their being no storms present in any of the
+*.   volume scans here being processed, zero-trip do-loops are assumed.
+*.
+*.     A poor choice of the Adaptation Parameter "Correlation Speed"
+*.   can lead to erroneous correlations of storms from volume scan to
+*.   volume scan and hence to erratic storm tracks.
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     Compiled using COMP15.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     Linked using LINK15.CSS
+*.
+*.  MISC:  None
+*.
+C********************************************************************
+C
+C              STORM TRACKING: CORRELATE STORMS  SUBROUTINE
+C
+C********************************************************************
+C
+      IMPLICIT NONE
+C
+C**Attach input parameter-definition file (from "STORM_CENTROIDS")
+$INCLUDE A315BUF.INC/G,**A315P5C (NLIST)
+$INCLUDE **A315P7F (NLIST)
+C
+C**Attach internal common block (of "STORM_TRACK" output variables).
+$INCLUDE A315.INC/G,**A315C6T (NLIST)
+C
+C**Attach internal common block (of "STORM_TRACK" local variables).
+$INCLUDE **A315CFF (NLIST)
+$INCLUDE **A315CTT(NLIST)
+C
+C*********************** DATA DECLARATIONS **************************
+C
+C** From input buffer:
+C
+      INTEGER  NSTORMS
+      REAL     VOLTIME, STORMAIN( NSTM_CHR,NSTM_MAX )
+C
+C** Local:
+C
+      INTEGER  FLG_UNC, FLG_COR , I, J
+      PARAMETER ( FLG_UNC=0, FLG_COR=1 )
+C
+      INTEGER  CORFLAG( NST_MAX ), IC, IP, NEWLAB, ISTAT
+      REAL     CORDIST, CORD_SQUARED, CNVMSSEC, CNVMEKM, NSECPDAY
+      REAL     DELTIME,  DELTAX,  DELTAY,  BPD_SQUARED
+C
+C********************* DATA INITIALIZATIONS *************************
+C
+      PARAMETER (CNVMSSEC = 0.001, CNVMEKM = 0.001)
+      PARAMETER (NSECPDAY = 86400.0)
+C
+C****************** BEGIN MAIN PROCESSING SECTION *******************
+C
+C** Input new storm cell information for the current volume scan into
+C** the Storm Cell Number, Time, and X and Y-Position History tables.
+C
+      TIMEHIST( IXCUR ) = VOLTIME * CNVMSSEC
+      NSTMHIST( IXCUR ) = NSTORMS
+C
+      DO 300  IC = 1, NSTORMS
+         POSITABL( X_POS, IC, IXCUR ) = STORMAIN( STM_XCN, IC )
+         POSITABL( Y_POS, IC, IXCUR ) = STORMAIN( STM_YCN, IC )
+ 300  CONTINUE
+C
+C** Determine Correlation Threshold Distance from Correlation Speed
+C** (Adaptation data) and time difference between current & previous
+C** volume scans. (Answer converted from meters to kilometers).
+C
+C** COMPUTE (CORRELATION (Distance))
+C
+C** Correlation Distance units are kilometers.  Correlation Speed
+C** is defined in meters/second.  Delta time is in seconds.
+C
+      DELTIME = ( TIMEHIST(IXCUR) - TIMEHIST(IXPRE) )
+      IF ( DELTIME.LT.0.0 )  DELTIME = DELTIME + NSECPDAY
+      CORDIST = COSPD * DELTIME * CNVMEKM
+      CORD_SQUARED = CORDIST * CORDIST
+C
+C** Compute all previous Best X-Positions, Best Y-Positions, and
+C** Best Position-Directions by calling A315B6__BEST_POSITS
+C
+      CALL A315B6__BEST_POSITS(DELTIME)
+C
+C** Reset Correlation Flags for storm cells in previous volume scan
+C** to "Uncorrelated".
+C
+      DO 350  IP = 1, NSTMHIST( IXPRE )
+         CORFLAG( IP ) = FLG_UNC
+ 350  CONTINUE
+C
+C** Attempt to correlate each storm cell in current volume scan with
+C** one in previous. Storm Cells tested in order of decreasing VIL.
+C** Only one correlation allowed per storm cell in each volume.
+C
+C** DO FOR ALL (STORM CELLs at the current time)
+C
+      DO 500  IC = 1, NSTMHIST( IXCUR )
+C
+C** Initialize Best-IP Index & Best Position-Difference.
+C
+         BEST_IP = 0
+         BPD_MIN = INIT_MIN
+C
+C** DO FOR ALL (STORM CELLs at the previous time)
+C
+         DO 400  IP = 1, NSTMHIST( IXPRE )
+C
+C**  IF (STORM CELL from previous time has not already been
+C**      correlated) THEN
+C
+C**  COMPUTE(X-POSITION(Storm Cell) difference) and
+C**  COMPUTE(Y-POSITION(Storm Cell) difference):
+C
+            IF ( CORFLAG(IP).NE.FLG_COR )  THEN
+               DELTAX =  POSITABL(X_POS,IC,IXCUR) -
+     >                       BESTPOS( X_DIR, IP )
+               DELTAY =  POSITABL(Y_POS,IC,IXCUR) -
+     >                       BESTPOS( Y_DIR, IP )
+C
+C**  COMPUTE THE SUM OF THE SQUARES OF DELTAX AND DELTAY
+C
+            BPD_SQUARED = DELTAX * DELTAX + DELTAY * DELTAY
+C
+C**  IF( DISTANCE (Best Position) is less than CORRELATION DISTANCE
+C**    THEN
+C
+               IF ( BPD_SQUARED .LT. CORD_SQUARED ) THEN
+C
+C** Call A315Q6 to COMPUTE (DIFFERENCE (Best Position)):
+C
+                  CALL A315Q6__BEST_CORREL(IC,IP,BPD_SQUARED)
+               END IF
+            END IF
+ 400     CONTINUE
+C
+C**  IF (Smallest DIFFERENCE (Best Position)) THEN
+C
+         IF (BEST_IP .NE. 0) THEN
+C
+C** Identify as same STORM CELL from previous TIME in CORRELATION
+C** (TABLE).
+C
+C** Assign the same ID.
+C
+             CORFLAG(BEST_IP) = FLG_COR
+             CORLTABL( IC,IXCUR ) = BEST_IP
+         ELSE
+C
+C**  IF (STORM CELL from current time is not correlated with a STORM
+C**  CELL from previous time) THEN
+C
+C**  Assign ID from the top of the list of IDs
+C
+             CALL RTL( NEWLAB,STRMLABL,ISTAT )
+             CORLTABL( IC,IXCUR ) = -1 * NEWLAB
+C
+         END IF
+ 500  CONTINUE
+C
+C**  If a Storm Cell from previous volume is Uncorrelated with
+C**  a Storm Cell from current volume, return ID to List of IDs.
+C
+      CALL A315L6__RETURN_LABELS(CORFLAG)
+C
+C************** END OF PROCESSING FOR SUBROUTINE ********************
+C
+      RETURN
+      END

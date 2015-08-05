@@ -1,0 +1,232 @@
+.\" RCS info
+.\" $Author: ccalvert $
+.\" $Locker:  $
+.\" $Date: 2011/04/13 22:53:04 $
+.\" $Id: gauge_radar.1,v 1.3 2011/04/13 22:53:04 ccalvert Exp $
+.\" $Revision: 1.3 $
+.\" $State: Exp $
+gauge_radar(1)        ORPG SUM Manpage        gauge_radar(1)
+
+NAME:
+        cpc102/tsk022 - Gauge-Radar Comparison Tool
+
+DESCRIPTION:
+        The Gauge-Radar Comparison Tool, gauge_radar, compares
+        gauge readings against hourly and storm total Dual Pol
+        (DP) and PPS precipitation accumulations. At present it
+        compares only KOUN accumulations against surrounding OK
+        gauges.
+
+        For Dual Pol accumulations, the tool reads the
+        DP_LT_ACCUM (411) buffer. The One_Hr_unbiased grid is
+        used for hourly DP and the (possibly biased) Storm_Total
+        grid is used for the storm DP.
+
+        For PPS accumulations, the tool reads the HYADJSCN
+        (104) buffer. The (unbiased) AccumHrly grid is used for
+        the hourly PPS and the (unbiased) AccumScan grid is
+        collected over the duration of the storm for storm PPS.
+
+        For gauge accumulations, a Python script,
+        gauge_radar.py, collects the gauges in KOUN_gauges.
+        Each gauge in KOUN_gauges has a name, latitude, and
+        longitude. The gauges under the KOUN radar umbrella are
+        from the OK Mesonet, the Little Washita Watershed,
+        Fort Cobb, and the OKC Micronet. To comment out a gauge,
+        start the line with a '#'. An Internet connection is
+        required to fetch the gauge readings. The KOUN gauges are
+        not updated in real time, so gauge_radar works best as
+        a playback tool.
+
+        gauge_radar.py uses seven Python packages. To see if
+        you have the Python and the packages installed, run the
+        commands:
+
+            rpm -q python
+
+            rpm -q lapack3
+            rpm -q python-dateutil
+            rpm -q python-matplotlib
+            rpm -q python-numpy
+            rpm -q python-scipy
+            rpm -q python-tz
+            rpm -q refblas3
+
+        If they are installed, the rpm should return something
+        like:
+
+            python-2.4.3-27.el5
+
+            lapack3-3.0-19.1
+            python-dateutil-1.2-1.el5.rf
+            python-matplotlib-0.91.2-1.el5.rf
+            python-numpy-1.2.0-1.1
+            python-scipy-0.6.0-2.1
+            python-tz-2006p-1.el5.rf
+            refblas3-3.0-11.1
+
+        A scratch dir, $WORK_DIR/gauges, is required by the
+        Python script to return its output. $WORK_DIR should
+        already be set in your $HOME/orpg_env_cshrc as
+        $HOME/tmp.
+
+        The task is volume timed. Hourly comparisons are done at
+        the top of every hour, and storm comparisons are done at
+        the DP storm end. Storm comparisons may also be done at
+        a fixed time or every Nth volume.
+
+        When hourly output is triggered, an HOURLY_GAUGE (179)
+        product is produced, When storm output is triggered, a
+        STORM_GAUGE (180) product is produced, HOURLY_GAUGE and
+        STORM_GAUGE are overlays containing Gauge Name, Gauge
+        Accumulation, DP Accumulation, and PPS Accumulation.
+        One of Gauge Accumulation, DP Accumulation, or PPS
+        Accumulation must be non-zero to be included in a
+        product. Accumulations are rounded to hundredths of
+        inches, and an 0 < accumulation < 0.01 inches is
+        reported as 'T’ for trace. HOURLY_GAUGE and STORM_GAUGE
+        may be overlayed on other RPG products.
+
+        To view HOURLY_GAUGE and STORM_GAUGE using cvg 9.1, add
+        the following lines to your $HOME/.cvg9.1/prod_config:
+
+           179   0 0 12 .plt  0  0 .lgd .lgd .plt .plt 0 in
+           180   0 0 12 .plt  0  0 .lgd .lgd .plt .plt 0 in
+
+        When hourly or storm output is triggered, a matching
+        text file is appended to. The hourly/storm text files
+        are KOUN_hourly_gauge_dp_pps.txt and
+        KOUN_storm_gauge_dp_pps.txt. A text file has the format:
+
+        From 06/13/2010 21:32:05Z to 06/14/2010 18:53:52Z Storm
+                                                vol 72 total 232
+        Gauge ID Latitude   Longitude  AZM    KM    Gauge  DP
+                                             DP-G   PPS    PPS-G
+            ADAX 34.798512 -96.669090 123.7  87.21  1.150  0.743
+                                            -0.407  1.012 -0.138
+            ALTU 34.587219 -99.338081 247.7 186.00  0.410  0.255
+                                            -0.155  0.409 -0.001
+            BIXB 35.963051 -95.866211  60.3 165.69  1.330  0.609
+                                            -0.721  0.614 -0.716
+        ...
+
+        vol is the last volume modulo 80 and total is the total
+        number of volumes since the beginning of the run.
+
+        After the gauges have printed, statistics on the
+        gauge-radar pairs are printed:
+
+                                   Gauges         DP        PPS
+
+                          mean:      2.62         1.26      1.99
+            standard deviation:      2.75         1.35      2.35
+
+                                          DP-Gauge    PPS-Gauge
+
+                        gauge-radar pairs:    126         125
+                          mean field bias:      2.07        1.33
+                            additive bias:   -171.03      -81.30
+                               mean error:     -1.36       -0.65
+                      mean absolute error:      1.37        0.88
+                   root mean square error:      2.09        1.44
+                       standard deviation:      1.59        1.29
+                  correlation coefficient:      0.92        0.88
+        fractional                   bias:     -0.52       -0.25
+        fractional root mean square error:      0.80        0.54
+        fractional     standard deviation:      0.61        0.49
+
+        The statistics are also added to the product Tabular
+        Alphanumeric Block.
+
+        Due to differences in DP/PPS reporting precip. there may
+        be a different number of DP-Gauge and PPS-Gauge pairs.
+
+        The GNU Scientific Library (GSL) is used to compute
+        statistics. To see if you have GSL installed, run the
+        command:
+
+            rpm -q gsl
+
+        It should return something like:
+
+            gsl-1.8-1.1
+
+        If GSL is not installed, see your system administrator.
+
+        When hourly/storm output is triggered, a matching comma
+        separated values (CSV) file with the DP-Gauge and
+        PPS-Gauge is appended to. The hourly/storm CSV files are
+        KOUN_hourly_gauge_dp_pps.csv and
+        KOUN_storm_gauge_dp_pps.csv. A CSV file has the format:
+
+        Gauge ID,Latitude,Longitude,AZM,KM,
+                                 Gauge,DP,DP-Gauge,PPS,PPS-Gauge
+        MEDF,36.792419,-97.745773,351.7,175.26,
+                                 0.060,0.022,-0.038,0.000,-0.060
+        FREE,36.725620,-99.142342,318.1,224.70,
+                                 0.010,0.102,0.092,0.252,0.242
+        CHER,36.748131,-98.362740,334.5,187.00,
+                                 0.040,0.082,0.042,0.130,0.090
+        ALV2,36.708229,-98.709740,325.9,198.89,
+                                 0.650,0.563,-0.087,0.874,0.224
+        ...
+
+        The tool takes four arguments, which are passed through
+        $HOME/cfg/dea/gauge_radar.alg. The arguments control
+        product timing and output:
+
+        1. use_only_nonzero
+
+           If 'Yes', only DP-gauge and PPS-gauge pairs where at
+           least one of the gauge, DP, or PPS is non-zero will
+           be added to the products, the hourly .txt file and
+           the storm .txt file. If 'No', add all pairs, even
+           when the gauge, DP, and PPS are all zero. The default
+           is 'Yes'.
+
+        2. stats_everywhere
+
+           'Yes' adds the statistics set to the product TAB, the
+           hourly .txt file and the storm .txt file. 'No' prints
+           statistics only to the product TAB. The default is
+           'Yes'.
+
+        3. storm_print_volume
+
+           A storm product will be generated every
+           storm_print_volume. The default is to generate a
+           storm product only after the end of a storm. The
+           default is 10, so a storm product will be generated
+           every 10th volume.
+
+        4. storm_print_time
+
+           The first volume after the storm_print_time produces
+           a storm product. The default is to generate a storm
+           product only after the end of a storm, which may be
+           hard to determine. There is no default
+           storm_print_time.
+
+           Format: CCYY_MM_DD_HH_MM_SS (Zulu).
+
+        A features overlay, with the same product id as STORM_GAUGE (180)
+        has been added. It is generated every (N+1)st volume, where N
+        is the storm print volume. A feature is a location plus
+        optional text, like another radar or a windfarm. The features
+        are set in gauge_radar_location.c. The default features are the
+        KOUN gauges, without text.
+
+TASK ID:
+       10222
+
+DATA IN:
+       DP_LT_ACCUM(411)
+       HYADJSCN(104)
+
+DATA OUT:
+       HOURLY_GAUGE(179)
+       STORM_GAUGE(180)
+
+SEE ALSO:
+
+$Revision: 1.3 $

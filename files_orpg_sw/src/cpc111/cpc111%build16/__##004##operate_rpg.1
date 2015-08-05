@@ -1,0 +1,128 @@
+
+NAME
+    operate_rpg - task that allows a user to run RPG in the rpg account 
+    without rpg login.
+
+SYNOPSIS
+    operate_rpg [-fbv]
+
+DESCRIPTION
+    operate_rpg allows a permitted user to change the user's login user ID and
+    group ID to become the RPG login and then run RPG as if the user is logged
+    in the rpg account. This allows multiple RPG operators to run the same RPG
+    installation without the permission to actually log in the rpg account. By
+    not allowing operators to directly log in the rpg account, the operators of
+    the RPG can be individually traced and audited. When a user enters into or
+    leaves from rpg account through operate_rpg, a message is logged in the
+    operate_rpg log file /var/log/operate_rpg.log.
+
+    operate_rpg uses a configuration file to get the list of all users that are
+    permitted to operate RPG. The operate_rpg configuration file and
+    operate_rpg log file must be owned by the root and writable only by the
+    root user. The executable file of operate_rpg must be owned by the root
+    user and has "u+s" permission bit set. The default name of the operate_rpg
+    configuration file is /etc/operate_rpg.conf. An alternative file name can
+    be specified with the -f command line option.
+
+    operate_rpg, with the -c option provides a mechanism to allow a user to run
+    a command in the RPG environment. The command executed is specified in the
+    operate_rpg configuration file after label "cmd_lable_command" where
+    "cmd_label" is specified with the -c option. The procedure of executing the
+    command is the following: Change the user ID and group ID to those of the
+    rpg account; Set the HOME environment variable to be the path of the rpg
+    home directory; Run the mrpg automatic startup command in the bash
+    environment. To do these, operate_rpg executes the following command (in
+    bash, the default shell):
+
+	HOME=RPG_home; export HOME; cd $HOME; /bin/bash -l -c "command"
+
+    where "RPG_home" is the rpg account home directory and "command" is the
+    specified command.
+
+    operate_rpg, with -b option, provides the mechanism to automatically start
+    RPG after the OS is booted. This option is equivalent to "-c
+    RPG_boot_start". In order for this to work, the RPG startup command must be
+    specified after label "RPG_boot_start_command" in the operate_rpg
+    configuration file.
+
+    An example of the operate_rpg configuration file consists the following:
+
+	# RPG configuration file
+
+	RPG_uid		204
+	RPG_gid		200
+	RPG_home	/export/home/rpg
+
+	RPG_boot_start_command	mrpg -v auto_start
+
+	mscf_command	mscf_cmd &
+
+	Operator_uid	0		# root
+	Operator_uid	1010		# the first operator
+	Operator_uid	202		# the second operator
+
+    If we add the line 
+
+	nm:3:once:/usr/bin/operate_rpg -b > /var/log/run_operate_rpg.log 2>&1
+
+    in the /etc/inittab file, RPG will be started automatically upon OS bootup.
+    Here we assume operate_rpg is installed in /usr/bin. Note that, in order
+    for this to work, the root user (0) must be in the permission list in the
+    operate_rpg configuration file.
+
+    In -b mode, operate_rpg error logs go to the operate_rpg log file.
+    Otherwise, error logs go to the standard error port.
+
+OPTIONS
+    -f	conf_file_name
+	Specifies an alternative operate_rpg configuration file name. The 
+	default is "/etc/operate_rpg.conf".
+
+    -c	cmd_label
+	Specifies an command to run in the RPG environmant.
+
+    -b	Runs mrpg automatic startup command to start RPG after OS bootup.
+
+    -v	Verbose mode.
+
+EXAMPLES
+    Example 1: operate_rpg
+	Enter into the rpg account.
+
+    Example 2: operate_rpg -f /export/home/rpg/cfg/operate_rpg.conf
+	Enter into the rpg account using a non-default configuration file.
+
+    Example 3: operate_rpg -b
+	Run automatic RPG startup (from the root account). This is not normally
+	done on the command line other than for test purpose.
+
+    Example 4: operate_rpg -c mscf
+	Enter into the rpg account, run command "mscf_cmd &" and terminate.
+
+ENVIRONMENT VARIABLES
+    none.
+
+EXIT STATUS
+    0:		Terminated normally. 
+
+    non-zero:	Terminated because an error was detected.
+
+FILES
+    operate_rpg configuration file
+	Must have the right owner and permission. The default is 
+	"/etc/operate_rpg.conf". 
+
+    /var/log/operate_rpg.log
+	The operate_rpg log file. It is created by operate_rpg. Must have the 
+	right owner and permission.
+
+SEE ALSO
+    mrpg(1), setuid(2), inittab(4)
+
+NOTES
+    The current implementation assumes that RPG uses bash. This can be extended
+    to configurable shell types.
+
+
+
+

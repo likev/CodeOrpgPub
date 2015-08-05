@@ -1,0 +1,428 @@
+#!/bin/sh
+
+# RCS info
+# $Author: ccalvert $
+# $Locker:  $
+# $Date: 2013/03/22 17:16:30 $
+# $Id: manage_install,v 1.1 2013/03/22 17:16:30 ccalvert Exp $
+# $Revision: 1.1 $
+# $State: Exp $
+
+RPG_BUILD_NUM=
+INSTALLED_RPG_BUILD_FILES=INSTALLED_RPG_BUILD_FILES
+PRINT_DEFAULTS_FLAG=NO
+LIST_BUILDS_FLAG=NO
+DEBUG_FLAG=NO
+
+#########################################################
+# ECHO_ERROR: Echo error message and exit.
+#########################################################
+
+echo_error ()
+{
+  echo
+  echo
+  echo "IN SCRIPT: $0"
+  echo "ERROR: $1"
+  echo "Stopping script"
+  echo "Use -h option for help"
+  echo
+  echo
+  exit 1
+}
+
+#########################################################
+# ECHO_DEBUG: Echo debug messages.
+#########################################################
+
+echo_debug ()
+{
+  if [ $DEBUG_FLAG = YES ]
+  then
+    echo "DEBUG: $1"
+  fi
+}
+
+#########################################################
+# PRINT_USAGE: Display "help" to screen.
+#########################################################
+
+print_usage ()
+{
+  echo
+  echo "Usage: `basename $0` [Options]"
+  echo
+  echo "Options:"
+  echo
+  echo "-h - help"
+  echo "-d - Print defaults after processing command line"
+  echo "-x - Turn debugging statements on"
+  echo "-b - RPG Build number"
+  echo "-p - RPG Build path (Default: $PLAYBACK_RPG_BUILD_PATH)"
+  echo "-P - List builds available in $PLAYBACK_RPG_BUILD_PATH"
+  echo
+}
+
+#########################################################
+# PARSE_CMDLINE: Parse command line arguments.
+#########################################################
+
+parse_cmdline ()
+{
+  while getopts hdxb:p:P option
+  do
+    case $option in
+      h) print_usage; exit 0;;
+      d) PRINT_DEFAULTS_FLAG=YES;;
+      x) DEBUG_FLAG=YES;;
+      b) RPG_BUILD_NUM=$OPTARG;;
+      p) PLAYBACK_RPG_BUILD_PATH=$OPTARG;;
+      P) LIST_BUILDS_FLAG=YES;;
+     \?) echo_error "Invalid input flag"
+    esac
+  done
+
+  echo_debug "RPG_BUILD_NUM:           $RPG_BUILD_NUM"
+  echo_debug "PLAYBACK_RPG_BUILD_PATH: $PLAYBACK_RPG_BUILD_PATH"
+  echo_debug "LIST_BUILDS_FLAG:        $LIST_BUILDS_FLAG"
+  echo_debug "PRINT_DEFAULTS_FLAG:     $PRINT_DEFAULTS_FLAG"
+  echo_debug "DEBUG_FLAG:              $DEBUG_FLAG"
+
+  # Make sure "print defaults" and "list builds" are mutually exclusive
+  if [ $PRINT_DEFAULTS_FLAG = YES -a $LIST_BUILDS_FLAG = YES ]
+  then
+    echo_error "Options -d and -l are mutually exclusive"
+  fi
+
+  # Make sure RPG build directory is defined and exists
+  if [ -z "$PLAYBACK_RPG_BUILD_PATH" ]
+  then
+    echo_error "\$PLAYBACK_RPG_BUILD_PATH not defined"
+  elif [ ! -d $PLAYBACK_RPG_BUILD_PATH ]
+  then
+    echo_error "Directory $PLAYBACK_RPG_BUILD_PATH doesn't exist"
+  fi
+
+  # List builds if desired
+  if [ $LIST_BUILDS_FLAG = YES ]
+  then
+    list_available_builds
+    exit 0
+  fi
+
+  # Get latest build in $PLAYBACK_RPG_BUILD_PATH as a default
+  for build_dir in `ls $PLAYBACK_RPG_BUILD_PATH | sort -r | grep linux`
+  do
+    if ! `ls $PLAYBACK_RPG_BUILD_PATH/$build_dir/orpg_* > /dev/null 2>&1`
+    then
+      continue
+    fi
+    bld=`echo $build_dir | sed 's/linux//'`
+    break
+  done
+
+  # If user does not define RPG build number, use the default.
+  if [ -z "$RPG_BUILD_NUM" ]
+  then
+    RPG_BUILD_NUM=$bld
+    echo_debug "RPG_BUILD_NUM: $RPG_BUILD_NUM"
+  fi
+
+  # Create full path name of RPG build directory
+  RPG_BUILD_DIR=${PLAYBACK_RPG_BUILD_PATH}/linux${RPG_BUILD_NUM}
+  echo_debug "RPG_BUILD_DIR: $RPG_BUILD_DIR"
+
+  # Print defaults if needed
+  if [ $PRINT_DEFAULTS_FLAG = YES ]
+  then
+    print_defaults
+    exit 0
+  fi
+
+  # Make sure RPG build directory exists
+  if [ ! -d $RPG_BUILD_DIR ]
+  then
+    echo_error "Directory $RPG_BUILD_DIR doesn't exist"
+  fi
+}
+
+#########################################################
+# PRINT_DEFAULTS: Print default values used by script
+#########################################################
+
+print_defaults ()
+{
+  echo
+  echo "RPG_BUILD_NUM:           $RPG_BUILD_NUM"
+  echo "PLAYBACK_RPG_BUILD_PATH: $PLAYBACK_RPG_BUILD_PATH"
+  echo "LIST_BUILDS_FLAG:        $LIST_BUILDS_FLAG"
+  echo "PRINT_DEFAULTS_FLAG:     $PRINT_DEFAULTS_FLAG"
+  echo "DEBUG_FLAG:              $DEBUG_FLAG"
+  echo
+}
+
+#########################################################
+# LIST_AVAILABLE_BUILDS: List builds available for selection
+#########################################################
+
+list_available_builds ()
+{
+  echo
+  echo "Available builds in $PLAYBACK_RPG_BUILD_PATH:"
+  for build_dir in `ls $PLAYBACK_RPG_BUILD_PATH | sort | grep linux`
+  do
+    if ! `ls $PLAYBACK_RPG_BUILD_PATH/$build_dir/orpg_* > /dev/null 2>&1`
+    then
+      continue
+    fi
+    bld=`echo $build_dir | sed 's/linux//'`
+    if echo $bld | egrep -q '^[0-9][0-9]$'
+    then
+      bldnum="$bld".0
+    elif echo $bld | egrep -q '^[0-9][0-9][0-9]$'
+    then
+      bldnum=`echo $bld | sed 's/\([0-9][0-9]\)\([0-9]\)/\1\.\2/'`
+    fi
+    echo "  RPG B$bldnum  (use -b $bld)"
+  done
+  echo
+}
+
+#########################################################
+# STOP_PREVIOUS_TASKS: Stop any previously running tasks
+#     that need to be cleaned up.
+#########################################################
+
+stop_previous_tasks ()
+{
+  # Make sure RPG software isn't running from previous install
+  if ps -ef | grep mrpg | grep -qv grep 2>/dev/null
+  then
+    echo_debug "CMD: mrpg cleanup"
+    mrpg cleanup > /dev/null 2>&1
+  fi
+
+  # Make sure RPG playback tasks aren't running from previous install
+  for task in cm_tcp1 wb_simulator
+  do
+    if ps -ef | grep $task | grep -qv grep 2>/dev/null
+    then
+      echo_debug "CMD: prm -quiet -9 $task"
+      prm -quiet -9 $task > /dev/null 2>&1
+    fi
+  done
+}
+
+#########################################################
+# REMOVE_PREVIOUS_INSTALL: Remove any previously installed
+#     files. If the destination isn't in one of the
+#     /export/home directories make sure the user wants
+#     to proceed.
+#########################################################
+
+remove_previous_install ()
+{
+  # If this is being run outside of /export/home, make sure
+  # user wants to remove everything from their home directory.
+  if echo $HOME | grep -qv export 2>/dev/null
+  then
+    echo "\$HOME is $HOME. Are you sure you want to remove all"
+    echo "contents from $HOME and install the RPG software?"
+    echo "Type n (NO) or y (YES) and \"Return\""
+    read $ans
+    echo_debug "USER ANSWER: $ans"
+    if echo $ans | egrep -q '^[yY]' 2>/dev/null
+    then
+      echo "User input $ans and continued install"
+    else
+      echo_error "User input $ans and aborted install"
+    fi
+  fi
+
+  # Remove contents of home directory
+  echo_debug "CMD: rm -rf $HOME/*"
+  if ! rm -rf $HOME/* > /dev/null
+  then
+    echo_error "Removal of contents from $HOME failed"
+  fi
+}
+
+#########################################################
+# COPY_NEW_INSTALL: Copy over new install script and
+#     tar files from RPG_BUILD_DIR.
+#########################################################
+
+copy_new_install ()
+{
+  # Copy over install_rpg script
+  echo_debug "CMD: cp -f $RPG_BUILD_DIR/install_rpg $HOME"
+  if ! cp -f $RPG_BUILD_DIR/install_rpg $HOME > /dev/null
+  then
+    echo_error "Failed to copy $RPG_BUILD_DIR/install_rpg to $HOME"
+  fi
+
+  # Make install_rpg script executable
+  echo_debug "CMD: chmod 755 $HOME/install_rpg"
+  if ! chmod 755 $HOME/install_rpg > /dev/null
+  then
+    echo_error "Failed to chmod $HOME/install_rpg"
+  fi
+
+  # Copy over RPG build tar files to install
+  for bfile in `ls $RPG_BUILD_DIR`
+  do
+    if echo $bfile | egrep -q '^orpg_.*\.bz2'
+    then
+      echo_debug "CMD: cp -f $RPG_BUILD_DIR/$bfile $HOME"
+      if ! cp -f $RPG_BUILD_DIR/$bfile $HOME > /dev/null
+      then
+        echo_error "Failed to copy $bfile to $HOME"
+      fi
+      echo $bfile >> $INSTALLED_RPG_BUILD_FILES
+    fi
+  done
+}
+
+#########################################################
+# RUN_INSTALL_RPG: Run install_rpg script to install
+#     RPG software into $HOME.
+#########################################################
+
+run_install_rpg ()
+{
+  # Create config file to be passed to install_rpg
+  rpg_infile=$HOME/.rpg_infile
+  if [ -f $rpg_infile ]
+  then
+    echo_debug "CMD: rm -f $rpg_infile"
+    rm -f $rpg_infile > /dev/null
+  fi
+
+  echo_debug "Creating install_rpg input file"
+  echo "USER:                $USER" >> $rpg_infile
+  echo "GROUP:               rpg" >> $rpg_infile
+  echo "HOME_DIRECTORY:      $HOME" >> $rpg_infile
+  echo "ORPG_DATA_DIRECTORY: $HOME/data" >> $rpg_infile
+  echo "TAR_FILE_PATH::      $RPG_BUILD_DIR" >> $rpg_infile
+
+  # Comment out final_prompt call so no user interaction is needed
+  echo_debug "Modify $HOME/install_rpg to be non-interactive"
+  sed -i 's/^final_prompt #/#/' $HOME/install_rpg
+
+  # Call install_rpg and pass config file
+  echo_debug "CMD: $HOME/install_rpg -f $rpg_infile"
+  if ! $HOME/install_rpg -f $rpg_infile > /dev/null
+  then
+    echo_error "Failed to install RPG into $HOME"
+  fi
+
+  # Source .bash_profile to set environment
+  echo_debug "CMD: . $HOME/.bash_profile"
+  if ! . $HOME/.bash_profile > /dev/null
+  then
+    echo_error "Failed to source $HOME/.bash_profile"
+  fi
+}
+
+#########################################################
+# INSTALL_SAVE_PRODUCT_DB_LB: Install application.
+#########################################################
+
+install_save_product_db_lb ()
+{
+  app=save_product_db_lb
+  playback_app=$PLAYBACK_BIN_DIR/$app
+  rpg_app=$HOME/bin/lnux_x86/$app
+  ext_dir=$HOME/cfg/extensions
+  ta=task_attr_table.$app
+  playback_ta=$PLAYBACK_CFG_DIR/$ta
+  rpg_ta=$ext_dir/$ta
+  tt=task_tables.$app
+  playback_tt=$PLAYBACK_CFG_DIR/$tt
+  rpg_tt=$ext_dir/$tt
+
+  if [ ! -f $playback_app ]
+  then
+    echo_error "File $playback_app not found"
+  elif ! cp $playback_app $rpg_app > /dev/null
+  then
+    echo_error "Unable to install $rpg_app"
+  elif ! chmod 755 $rpg_app > /dev/null
+  then
+    echo_error "Unable to chmod $rpg_app"
+  elif ! mkdir -p $ext_dir > /dev/null
+  then
+    echo_error "Unable to create $ext_dir"
+  elif [ ! -f $playback_ta ]
+  then
+    echo_error "File $playback_ta not found"
+  elif ! cp $playback_ta $rpg_ta > /dev/null
+  then
+    echo_error "Unable to install $rpg_ta"
+  elif ! chmod 644 $rpg_ta > /dev/null
+  then
+    echo_error "Unable to chmod $rpg_ta"
+  elif [ ! -f $playback_tt ]
+  then
+    echo_error "File $playback_tt not found"
+  elif ! cp $playback_tt $rpg_tt > /dev/null
+  then
+    echo_error "Unable to install $rpg_tt"
+  elif ! chmod 644 $rpg_tt > /dev/null
+  then
+    echo_error "Unable to chmod $rpg_tt"
+  fi
+}
+
+#########################################################
+# CLEANUP_FILES: Post install cleanup.
+#########################################################
+
+cleanup_files ()
+{
+  # Remove tar RPG build tar files
+  echo_debug "Remove build tar files"
+  for bfile in `ls $HOME`
+  do
+    if echo $bfile | egrep -q '^orpg_.*\.bz2'
+    then
+      echo_debug "CMD: rm -f $bfile"
+      if ! rm -f $bfile > /dev/null
+      then
+        echo_error "Failed to remove $bfile from $HOME"
+      fi
+    fi
+  done
+}
+
+####################################################################
+#
+# MAIN BODY OF SCRIPT
+#
+####################################################################
+
+# Read the command line options
+parse_cmdline $*
+
+# Clean up any previously running tasks
+stop_previous_tasks
+
+# Remove any previously installed files
+remove_previous_install
+
+# Copy new install files over
+copy_new_install
+
+# Run RPG install script
+run_install_rpg
+
+# Install save_product_db_lb application
+install_save_product_db_lb
+
+# Cleanup up after install
+cleanup_files
+
+echo
+echo "Finished installing RPG Build: $RPG_BUILD_NUM into $RPG_BUILD_DIR"
+echo
+

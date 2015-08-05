@@ -1,0 +1,467 @@
+C 
+C RCS info 
+C $Author: nolitam $ 
+C $Locker:  $ 
+C $Date: 2002/11/27 15:17:16 $ 
+C $Id: a3147b.ftn,v 1.3 2002/11/27 15:17:16 nolitam Exp $ 
+C $Revision: 1.3 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A3147B__OPTIMIZE
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3147B__OPTIMIZE
+*.
+*.  MODULE VERSION: 0002
+*.
+*.  MODULE LANGUAGE:  FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.        10/19/95      0000     Cheryl Stephenson    CCR NA94-08462
+*.       12/23/96      0001      Toolset              CCR NA95-11807
+*.       03/16/99      0002      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A3147B__OPTIMIZE
+*.
+*.  MODULE FUNCTION:
+*.   This module sorts the customized requests by TIME_SPAN.
+*.   If any customized request is a duplicate because the user requested the
+*.   latest END_HOUR (-1), then the request will be marked as a duplicate
+*.   in case the product is memory load shedded when clean up is done so
+*.   that DISTRIB will notify both users.  Then this module will determine
+*.   if the there are enough hours to buld this request by calling A3147I.
+*.   If there is not enough hours, the Null status will be set for the
+*.   request in A3147I.  Then for the remaining requests a check for overlaps
+*.   will be made. If there is overlap, then the scratch  buffer will be
+*.   saved so that this part of the summation does not have to
+*.   be performed again.
+*.
+*.  MODULES CALLED: A3147I__CHECK_MINIMUM
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT          TYPE        DESCRIPTION
+*.    -   -----          ----        -----------
+*.    G   LAST_TIME_HRDB I*2         The time of the latest hour that was
+*.                                   added to the USP 30 HR Precipitation
+*.                                   database.
+*.    G   SUMMARY        I*4         Volume Scan Summary Table
+*.    G   SCAN_TIME      I*4         (CONSTANT)Volume Scan Time
+*.                                   index into Scan Summary Table
+*.    C   CA             I*2         Array of customized USP requests
+*.    C   NREQ           I*4         Number of customized USP products
+*.                                   requested
+*.    C   VOLN           I*4         Volume Scan Number
+*.    C   BEG_POS        I*4         (CONSTANT)Index in the
+*.                                   Customizing array for the beginning index
+*.                                   in the User Selectable
+*.    C   DUP_FLAG       I*2         (CONSTANT)Flag value indicating
+*.                                   product is a duplicate
+*.    C   DUP_POS        I*4         (CONSTANT)Index into Customizing
+*.                                   array to indicate whether
+*.                                   this particular USP product is a
+*.                                   duplicate of another USP product
+*.    C   END_HOUR       I*4         (CONSTANT)INDEX INTO CUSTOMIZING
+*.                                   ARRAY FOR END HOUR OF THE USP
+*.                                   PRODUCT
+*.    C   END_POS        I*4         (CONSTANT)Index in the
+*.                                   Customizing array for the ending index in
+*.                                   the User Selectable
+*.    C   INIT_VAL       I*2         (CONSTANT)Value indicating
+*.                                   date/time are initial value
+*.    C   NULL_POS       I*4         (CONSTANT)Index into
+*.                                   Customizing array to indicate that this
+*.                                   particular USP is a Null product
+*.    C   OVER_POS       I*4         (CONSTANT)Index in the
+*.                                   Customizing array for the index in the
+*.                                   User Selectable
+*.    C   TIME_SPAN      I*4         (CONSTANT)INDEX INTO
+*.                                   CUSTOMIZING ARRAY FOR TIME SPAN OF THE
+*.                                   USP PRODUCT
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    C   CA      I*2         Array of customized USP requests
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE: NONE.
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME         TYPE        DESCRIPTION
+*.    ----         ----        -----------
+*.    BEG_MATCH    I*4         The request number that corresponds to
+*.                             BEGIN_OVER
+*.    BEG_OVER     I*4         Amount of overlap of two request with the same
+*.                             begin hour
+*.    END_MATCH    I*4         The request number that corresponds to END_OVER
+*.    END_OVER     I*4         Amount of overlap of two request with the same
+*.                             end hour
+*.    I            I*4         LOOP COUNTER
+*.    IDX          I*4        Do loop end range for sorting
+*.    J            I*4         Do loop counter
+*.    K            I*4         Do loop variable
+*.    M            I*4         Do Loop Index
+*.    MATCH        I*4         The request number that provides the best
+*.                             overlap for the optimization
+*.    MID_MATCH    I*4         The request number that corresponds to MID_OVER
+*.    MID_OVER     I*4         Amount of overlap of two request where one
+*.                             request is within the time span of the second
+*.                             request
+*.    SECS_IN_HOUR I*4         (CONSTANT)Number of seconds in a hour
+*.    TEMP         I*2         Temporary array used for sorting customized
+*.                             requests
+*.    TEN          I*4         (CONSTANT)Parameter value for 10
+*.    ZERO         I*4         (CONSTANT)Parameter value of zero.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD05
+*.    A3CD07
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3147C1
+*.
+*.  ERROR CONDITIONS: NONE.
+*.
+*.  ASSUMPTIONS/RESTRICTIONS: NONE.
+*.
+*.  DEVIATION FROM STANDARDS: NONE.
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK14.CSS
+*.
+*.  MISC: NONE.
+*.
+*.********************************************************************
+      IMPLICIT NONE
+$INCLUDE A309ADPT.INC/G,**A3CD70PA (NLIST)
+$INCLUDE **A3CD70P6 (NLIST)
+$INCLUDE **A3CD70P8 (NLIST)
+$INCLUDE A309.INC/G,**A3PM00 (NLIST)
+$INCLUDE            **A3PM01 (NLIST)
+$INCLUDE            **A3PM04 (NLIST)
+$INCLUDE            **A3PM06 (NLIST)
+$INCLUDE            **A3PM07 (NLIST)
+$INCLUDE            **A3CD05 (NLIST)
+$INCLUDE            **A3CD07 (NLIST)
+$INCLUDE A3146.INC/G,**A3146P1    (NLIST)
+$INCLUDE A3147.INC/G,**A3147P1    (NLIST)
+$INCLUDE             **A3147P4    (NLIST)
+$INCLUDE             **A3147P9    (NLIST)
+$INCLUDE             **A3147C1    (NLIST)
+      INTEGER I, J, K, TEN, ZERO ,STATUS
+       PARAMETER (TEN =10, ZERO = 0)
+      INTEGER IDX, SECS_IN_HOUR
+       PARAMETER (SECS_IN_HOUR = 3600)
+      INTEGER M
+      INTEGER*2 TEMP(TEN)
+      INTEGER END_OVER, END_MATCH , MATCH
+      INTEGER BEG_OVER, BEG_MATCH
+      INTEGER MID_OVER, MID_MATCH
+C*********************** EXECUTABLE **********************
+X     WRITE(14,*)'ENTERING A3147B, NREQ =',NREQ
+X     WRITE(14,*)'7B: UNSORTED ARRAY'
+X     DO 77 K=1,NREQ
+X      WRITE(14,99)K,(CA(J,K),J=1,10)
+X99    FORMAT(1X,I2,2X,10(1X,I4))
+X77   CONTINUE
+C
+C  If the end hour is the default (-1), then
+C  store latest Time
+C
+      DO 10 I=1,NREQ
+         IF (CA(END_HOUR,I) .EQ. -1)THEN
+            CA(END_HOUR,I) = LAST_TIME_HRDB
+C
+C  If the database is just initialize
+C
+            IF (LAST_TIME_HRDB .EQ. INIT_VAL)THEN
+C
+C  Then use the volume scan hour
+C
+               CA(END_HOUR,I) = SUMMARY(SCAN_TIME,VOLN)/SECS_IN_HOUR
+            ENDIF
+         ENDIF
+10    CONTINUE
+C
+C  Sort Custom array by time span
+C
+      DO 20 I= 1,NREQ - 1
+         IDX = NREQ - I
+         DO 25 J = 1,IDX
+C
+C  If next timespan is less, then switch
+C
+            IF (CA(TIME_SPAN,J).GT.CA(TIME_SPAN,J+1))THEN
+C
+C  Switch request parameters
+C
+               DO 30 K= 1,TEN
+                  TEMP(K) = CA(K,J)
+                   CA(K,J) = CA(K,J+1)
+                   CA(K,J+1) = TEMP(K)
+30              CONTINUE
+            ENDIF
+25      CONTINUE
+20    CONTINUE
+C
+C  Sort Custom array by end hour
+C
+      DO 31 I= 1,NREQ - 1
+         IDX = NREQ - I
+         DO 35 J = 1,IDX
+C
+C  If next end hour is less but time span the same then switch
+C
+            IF (CA(END_HOUR,J).GT.CA(END_HOUR,J+1).AND.
+     &          CA(TIME_SPAN,J).EQ.CA(TIME_SPAN,J+1) )THEN
+C
+C  Switch request parameters
+C
+               DO 40 K= 1,TEN
+                  TEMP(K) = CA(K,J)
+                   CA(K,J) = CA(K,J+1)
+                   CA(K,J+1) = TEMP(K)
+40              CONTINUE
+            ENDIF
+35      CONTINUE
+31    CONTINUE
+C
+C  Check for duplicates because operator took the default or
+C  for overlapping requests
+C
+      DO 50 I = 1,NREQ-1
+C
+C Check if end hour the same as the previous customized
+C request
+C
+           IF(CA(END_HOUR,I).EQ.CA(END_HOUR,I+1))THEN
+C
+C  Check if the time span is the same
+C
+            IF(CA(TIME_SPAN,I).EQ.CA(TIME_SPAN,I+1))THEN
+C
+C  Time span the same so a duplicate
+C
+               CA(DUP_POS,I+1) = DUP_FLAG
+            ENDIF
+         ENDIF
+50    CONTINUE
+X     WRITE(14,*)'AFTER CHECK FOR DUPLICATE'
+X     DO 52 I=1,NREQ
+X        WRITE(14,99)(CA(J,I),J=1,10)
+X52   CONTINUE
+C
+C Determine if minimum  hours for each request
+C
+      DO 60 I=1, NREQ, 1
+C
+C  If it is a duplicate request don't need to check
+C  don't need to check if it has minimum hours
+C
+         IF(CA(DUP_POS,I) .EQ. DUP_FLAG)GO TO 65
+C
+C Determine if have minimum number of hours
+C
+         CALL A3147I__CHECK_MINIMUM(I)
+C
+C  If the next request is a duplicate, need to
+C  also set it as a NULL product status, end and begin
+C  positions.
+C
+         IF(CA(DUP_POS,I+1) .EQ. DUP_FLAG)THEN
+             CA(BEG_POS,I+1)=  CA(BEG_POS,I)
+             CA(END_POS,I+1)=  CA(END_POS,I)
+              CA(NULL_POS,I+1)= CA(NULL_POS,I)
+         ENDIF
+65    CONTINUE
+60    CONTINUE
+X     WRITE(14,*)'7B: ARRAY AFTER CALL TO 7I'
+X     DO 61 K=1,NREQ
+X      WRITE(14,99)K,(CA(J,K),J=1,10)
+X61   CONTINUE
+C
+C  Sort Custom array by end pos
+C
+      DO 70 I= 1,NREQ - 1
+         IDX = NREQ - I
+         DO 75 J = 1,IDX
+C
+C  If next end hour is less but time span the same then switch
+C
+            IF (CA(END_POS,J).GT.CA(END_POS,J+1).AND.
+     &          CA(TIME_SPAN,J).EQ.CA(TIME_SPAN,J+1) )THEN
+C
+C  Switch request parameters
+C
+               DO 80 K= 1,TEN
+                  TEMP(K) = CA(K,J)
+                   CA(K,J) = CA(K,J+1)
+                   CA(K,J+1) = TEMP(K)
+80              CONTINUE
+            ENDIF
+75      CONTINUE
+70    CONTINUE
+C
+C  Push the NULL product request to the bottom of the array
+C
+      DO 90 I= 1,NREQ - 1
+         IDX = NREQ - I
+         DO 95 J = 1,IDX
+C
+C  If next request not Null and this request is NULL
+C  then switch
+C
+            IF (CA(NULL_POS,J).GT.CA(NULL_POS,J+1))THEN
+
+C
+C  Switch request parameters
+C
+               DO 100 K= 1,TEN
+                  TEMP(K) = CA(K,J)
+                   CA(K,J) = CA(K,J+1)
+                   CA(K,J+1) = TEMP(K)
+100              CONTINUE
+            ENDIF
+95      CONTINUE
+90    CONTINUE
+X     WRITE(14,*)'7B: NULL REQUEST LAST'
+X     DO 96 I=1,NREQ
+X      WRITE(14,99)I,(CA(J,I),J=1,10)
+X96   CONTINUE
+C
+C  Now check for overlap.  Start at the bottom,
+C  since the larger time spans are at the bottom
+C
+      DO 110 I= NREQ,2,-1
+         END_MATCH = ZERO
+         END_OVER  = ZERO
+         BEG_MATCH = ZERO
+         BEG_OVER  = ZERO
+         MID_MATCH = ZERO
+         MID_OVER  = ZERO
+         IDX = I-1
+C
+C  If a Null product request, don't check
+C
+         IF(CA(NULL_POS,I).EQ.ZERO)THEN
+           DO 115 J= IDX,1,-1
+C
+C  If the time spans are the same and not a duplicate,
+C  won't overlap.
+C
+             IF (CA(TIME_SPAN,I) .EQ. CA(TIME_SPAN,J) .AND.
+     &           CA(DUP_POS,I) .NE. DUP_FLAG)THEN
+                 GO TO 116
+C
+C  If the end position is the same, should overlap
+C
+             ELSEIF(CA(END_POS,I).EQ. CA(END_POS,J).AND.CA(BEG_POS,I)
+     &          .GE.CA(BEG_POS,J))THEN
+               IF(END_OVER .LT. CA(TIME_SPAN,J))THEN
+                 END_MATCH = J
+                 END_OVER = CA(TIME_SPAN,J)
+X                WRITE(14,*)'END MATCH = ',END_MATCH,' END OVERLAP=',
+X    &             END_OVER
+               ENDIF
+C
+C  If the begin position is the same should overlap
+C
+             ELSEIF(CA(BEG_POS,I).EQ.CA(BEG_POS,J).AND.CA(END_POS,I)
+     &          .GE. CA(END_POS,J))THEN
+               IF(BEG_OVER .EQ. CA(TIME_SPAN,J))THEN
+                 BEG_MATCH = J
+                 BEG_OVER = CA(TIME_SPAN,J)
+X                WRITE(14,*)'BEG MATCH = ',BEG_MATCH,' BEG OVERLAP=',
+X    &             BEG_OVER
+               ENDIF
+C
+C  Else determine if the previous request falls with this
+C  request
+             ELSE
+               IF(CA(END_POS,I).LT.CA(END_POS,J) .AND.
+     &           CA(BEG_POS,I) .GT. CA(BEG_POS,J))THEN
+                 IF(MID_OVER .EQ. CA(TIME_SPAN,J))THEN
+                    MID_MATCH = J
+                    MID_OVER = CA(TIME_SPAN,J)
+X                WRITE(14,*)'MID MATCH = ',MID_MATCH,' MID OVERLAP=',
+X    &             MID_OVER
+                 ENDIF
+               ENDIF
+             ENDIF
+116        CONTINUE
+115        CONTINUE
+           ENDIF
+C
+C  If any overlaps greater than zero, check for the best
+C
+           IF(END_OVER .GT. ZERO .OR. BEG_OVER .GT. ZERO .OR.
+     &       MID_OVER .GT. ZERO)THEN
+C
+C   Check if the end overlap is the best
+C
+             IF(END_OVER .GE. BEG_OVER .AND. END_OVER .GE. MID_OVER)
+     &         THEN
+                 CA(OVER_POS,I)= CA(TIME_SPAN,END_MATCH)
+                 MATCH = END_MATCH
+             ELSEIF(BEG_OVER .GT. END_OVER .AND. BEG_OVER .GE. MID_OVER)
+     &         THEN
+                 CA(OVER_POS,I)= CA(TIME_SPAN,BEG_MATCH)
+                 MATCH = BEG_MATCH
+             ELSEIF(MID_OVER .GT. END_OVER .AND. MID_OVER .GT. BEG_OVER)
+     &         THEN
+                 CA(OVER_POS,I)= CA(TIME_SPAN,MID_MATCH)
+                 MATCH = MID_MATCH
+             ENDIF
+C
+C  Switch request parameters
+C
+                DO 120 K= 1,TEN
+                  TEMP(K) = CA(K,MATCH)
+                   CA(K,MATCH) = CA(K,I-1)
+                   CA(K,I-1) = TEMP(K)
+120              CONTINUE
+C
+C  Need to resort Custom array by time span
+C  because time spans could now be out of order
+C
+          DO 125 J= 1,I-2
+            IDX = I -2- J
+           DO 130 M = 1,IDX
+C
+C  If next end hour is less but time span the same then switch
+C
+            IF (CA(TIME_SPAN,M).GT.CA(TIME_SPAN,M+1))THEN
+C
+C  Switch request parameters
+C
+               DO 140 K= 1,TEN
+                  TEMP(K) = CA(K,M)
+                   CA(K,M) = CA(K,M+1)
+                   CA(K,M+1) = TEMP(K)
+140              CONTINUE
+            ENDIF
+130      CONTINUE
+125    CONTINUE
+           ENDIF
+110    CONTINUE
+X     WRITE(14,*)'7B: ARRAY AFTER OVERLAP CHECK'
+X     DO 150 I=1,NREQ
+X      WRITE(14,99)I,(CA(J,I),J=1,10)
+X150  CONTINUE
+X     WRITE(14,*)'EXIT 7B'
+      RETURN
+      END

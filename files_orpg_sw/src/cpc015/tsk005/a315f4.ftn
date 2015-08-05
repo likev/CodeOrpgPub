@@ -1,0 +1,160 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/16 19:40:33 $
+C $Id: a315f4.ftn,v 1.3 2002/12/16 19:40:33 christie Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A315F4__INIT_STACK( )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A315F4__INIT_STACK
+*.
+*.  MODULE VERSION: 0014
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       08 16 85      0000      DENNIS MILLER        BUILD 2
+*.       05 07 86      0001      DENNIS MILLER        SPR # 304
+*.       07 10 86      0002      DENNIS MILLER        SPR # 60313
+*.       07 10 86      0002      DENNIS MILLER        SPR # 60367
+*.       05 08 90      0003      STACY RONALD         SPR # 90697
+*.       02 22 91      0004      DENNIS MILLER        SPR # 91256
+*.       02 15 91      0004      JOHN DEPHILIP        SPR # 91762
+*.       12 03 91      0005      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0006      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0007      Toolset              SPR 91895
+*.       03/25/93      0008      Toolset              SPR NA93-06801
+*.       01/28/94      0009      Toolset              SPR NA94-01101
+*.       03/03/94      0010      Toolset              SPR NA94-05501
+*.       04/01/95      0011      Toolset              CCR NA95-11802
+*.       06/27/95      0012      STEVE SMITH          CCR NA94-26302
+*.       12/23/96      0013      Toolset              CCR NA95-11807
+*.       03/16/99      0014      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A315F4__INIT_STACK
+*.
+*.  MODULE FUNCTION:
+*.
+*.  This routine initializes a circular stack of component ID labels.
+*.
+*.  MODULES CALLED: ABL, DEFLST 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT    TYPE        DESCRIPTION
+*.    -   -----    ----        -----------
+*.    G   ADPCMPMX I*4         Maximum number of componets for each
+*.                             reflectivity threshold saved in Storm Data.
+*.    C   IDSTACK  I*4         IDSTACK(NIDTOT*NCFRFLEV)  Circular stacks of
+*.                             component IDs for each reflectivity level.
+*.    C   NCFRFLEV I*4         (CONSTANT)Number of reflectivity levels at
+*.                             which component features are identified.
+*.
+*.    *   OUTPUT   TYPE        DESCRIPTION
+*.    -   ------   ----        -----------
+*.    G   ADPCMPMX I*4         Maximum number of componets for each
+*.                             reflectivity threshold saved in Storm Data.
+*.    C   IDSTACK  I*4         IDSTACK(NIDTOT*NCFRFLEV)  Circular stacks of
+*.                             component IDs for each reflectivity level.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    G   ADPCMPMX          I*4         Maximum number of componets for each
+*.                                      reflectivity threshold saved in Storm
+*.                                      Data.
+*.    C   IDSTACK           I*4         IDSTACK(NIDTOT*NCFRFLEV)  Circular
+*.                                      stacks of component IDs for each
+*.                                      reflectivity level.
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME  TYPE        DESCRIPTION
+*.    ----  ----        -----------
+*.    I     I*4         Loop index used for filling items in
+*.    ISTAT I*4         Status of return from call to circular
+*.                      stack-manipulation routine.
+*.    J     I*4         Do loop counter
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A315CSAD
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A315CQCC
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:
+*.
+*.     If return status from a call to run-time library routine "ABL"
+*.   (Add to Bottom of List) indicates operation not successful, the
+*.   ID-STACK is full: no more elements can be added.
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     Compiled using COMP15.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     Linked using LINK15.CSS
+*.
+*.  MISC:  None
+*.
+C********************************************************************
+C
+C             STORM CELL COMPONENTS: INIT STACK SUBROUTINE
+C
+C********************************************************************
+C
+C
+      IMPLICIT NONE
+C
+C**Attach internal common block (CPCC)
+$INCLUDE A315.INC/G, **A315CPPC (NLIST)
+$INCLUDE             **A315CPCC (NLIST)
+C
+C**Attach internal common block (CQCC)
+$INCLUDE A315.INC/G, **A315CQPC (NLIST)
+$INCLUDE             **A315CQCC (NLIST)
+C
+**Attach SCIT adaptation data
+$INCLUDE A315BUF.INC/G, **A315PSAD (NLIST)
+$INCLUDE                **A315CSAD (NLIST)
+C
+C*********************** DATA DECLARATIONS **************************
+C
+      INTEGER  ISTAT, I, J
+C
+C****************** BEGIN MAIN PROCESSING SECTION *******************
+C
+C** Define circular stack of Component-ID Labels:
+C
+      DO 50  I = 1, NCFRFLEV
+         CALL DEFLST( IDSTACK( 1, I ), ADPCMPMX )
+ 50   CONTINUE
+C
+C** Initialize stack with desired Labels:
+C
+      DO 200  J = 1, NCFRFLEV
+         DO 100  I = 1, ADPCMPMX
+            CALL ABL( I, IDSTACK( 1, J ), ISTAT )
+ 100     CONTINUE
+ 200  CONTINUE
+C
+C**************** END OF PROCESSING FOR SUBROUTINE ******************
+C
+      RETURN
+      END

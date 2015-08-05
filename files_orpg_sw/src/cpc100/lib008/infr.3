@@ -1,0 +1,726 @@
+
+NAME
+    libinfr - The infrastructure library for building distributed multi-tasking
+    applications.
+
+SYNOPSIS
+    #include <infr.h>
+
+DESCRIPTION
+
+    libinfr is a library providing infrastructure support for developing
+    distributed multi-tasking applications. It contains the following modules:
+
+	rss - The remote system service module.
+
+	rmt - The lower level remote service module.
+
+	en - The event notification module.
+
+	lb - The linear buffer module.
+
+	net - The socket and network utility module.
+
+	cmp - The data compression module.
+
+	malrm - The multiple alarm service module.
+
+	cs - The configuration support module.
+
+	le - The log and error reporting module.
+
+	css - The client/server support module.
+
+	sdq - The simple database query module.
+
+	misc - The miscellaneous utility function module;
+
+	deau - The data element attribute utility module.
+
+	smia - The struct meta-info application module.
+
+	str - The STR module (a set of string/array processing functions).
+
+    Refer to their respective man-pages for further details.
+
+
+    libinfr error code:
+
+    -2	MISC_RSRC_GET_ERR: System call getrlimit failed.
+
+    -3	MISC_RSRC_SET_ERR: System call setrlimit failed.
+
+    -4	MISC_RSRC_DIR_MISSING: The work directory did not exist or cannot be 
+	open.
+
+    -5	MISC_RSRC_VAR_TOO_LARGE: The caller provided buffer was too small for 
+	MISC_get_*_dir functions.
+
+    -6	MISC_RSRC_ENVS_UNDEFINED: The expected environmental variable was not 
+	defined for MISC_get_*_dir functions.
+
+    -7	MISC_RSRC_BUF_TOO_SMALL: The same as -5.
+
+    -8  MISC_TOKEN_ERROR: The string has a syntax error when parsing a token in
+	the string.
+
+    -9  MISC_TOKEN_FORMAT_ERROR: The "format" argument passed to MISC_get_token
+	is not correct..
+
+    -10 NET_DISCONNECTED: The TCP connection is detected to be lost as reading 
+	or writing the network.
+
+    -11 NET_READ_FAILED: Failed in reading the socket (read).
+
+    -12 NET_WRITE_FAILED: Failed in writing the socket (write).
+
+    -13 NET_MALLOC_FAILED: Failed in allocating memory (malloc).
+
+    -16 NET_SETSOCKOPT_FAILED: Failed in setting appropriate socket options 
+	(setsockopt).
+
+    -17 NET_FCNTL_FAILED: Failed in setting non-blocking socket (fcntl).
+
+    -19 RSS_COPY_SRC_ERROR: RSS_copy failed in opening the source file.
+
+    -20 RSS_COPY_DEST_ERROR: RSS_copy failed in opening the destination file.
+
+    -21 RSS_MALLOC_FAILED: Failed in allocating memory (malloc).
+
+    -22 RSS_RPC_FORMAT_ERROR: An error was found in the format string of the 
+	generic RPC function.
+
+    -23 RSS_RPC_UNKNOWN_ARG_TYPE: An unknown argument type is found in the 
+	format string of the generic RPC function.
+
+    -24 RSS_RPC_NAME_ERROR: The function name argument is not correctly 
+	specified for the generic RPC function.
+
+    -25 RSS_RPC_DLOPEN: Failed in opening the dynamic library (dlopen).
+
+    -26 RSS_RPC_DLSYM: Failed in dynamically loading the function (dlsym).
+
+    -28 RSS_RPC_GETHOSTNAME_FAILED: Failed in getting the local host name 
+	(gethostname).
+
+    -29 RSS_RPC_RECURSIVE_CALLS: Too many levels (> 8) of recursive RSS_rpc 
+	calls.
+
+    -30 RSS_RPC_SMI_UNSET: RSS_set_SMI_func_name had not been called before 
+	calling RSS_rpc with user-define type parameter.
+
+    -31 RSS_RPC_CLOSED_FOR_RESERVED_PORT: RSS_rpc is not available for reserved
+	port (rssd port number is less than 1025).
+
+    -33 MISC_BUF_TOO_SMALL: The caller provided output buffer is too small for 
+        MISC_compress or MISC_decompress.
+
+    -34 MISC_BAD_METHOD: The compress method is invalid for MISC_compress or 
+        MISC_decompress.
+
+    -35 MISC_LIB_NOT_FOUND: The compression library requested is not available
+        for MISC_compress or MISC_decompress.
+
+    -36 MISC_CMP_FAILED: MISC_compress or MISC_decompress failed other than 
+        MISC_BUF_TOO_SMALL.
+
+    -37 MISC_NOT_SUPPORTED: The compression function is turned off in compile 
+        time.
+
+    -38 LB_TO_COME: The next message to read in the message queue is not yet 
+	available.
+
+    -39 LB_FULL: The number of messages in the LB reaches its maximum and it is
+	not possible to make room by discarding messages.
+
+    -41 LB_BAD_ARGUMENT: One of the calling parameters is not valid.
+
+    -42 LB_MALLOC_FAILED: Failed in allocating memory (malloc).
+
+    -43 LB_OPEN_FAILED: The LB file cannot be opened (e.g. It does not exist or
+	does not have the right permission).
+
+    -44 LB_MMAP_FAILED: Failed in memory mapping the file or the shared memory 
+	(mmap or shmat).
+
+    -46 LB_BAD_DESCRIPTOR: The file descriptor passed to the LB function was 
+	not valid.
+
+    -47 LB_BAD_ACCESS: The LB type was not allowed for the function. The open 
+	flag did not allow this operation (e.g. LB_write is applied to an LB 
+	opened for read-only).
+
+    -48 LB_LB_ERROR: An error is found in the LB internal control data 
+	structure. The LB is likely to be corrupted (due to, e.g., modification
+	by non-LB functions, disk drive failure, or OS crash without normal 
+	file system synchronization).
+
+    -49 LB_BUF_TOO_SMALL: The caller provided buffer was too small to hold the 
+	entire message in LB_read.
+
+    -50 LB_DIFFER: The LB to open as an existing LB was not possible because 
+	the LB attributes specified in the LB_open parameter do not match those
+	in the LB.
+
+    -51 LB_TOO_MANY_WRITERS: The LB allows only one process to open for writing
+	and there was already such a process.
+
+    -52 LB_NOT_EXIST: LB_remove tries to remove an LB and the LB file does not 
+	exist.
+
+    -53 LB_EXPIRED: The message to access in a message queue had expired.
+
+    -54 LB_MSG_TOO_LARGE: The LB size exceeded the limit.
+
+    -55 LB_UPDATE_FAILED: Failed in setting the LB magic number when creating 
+	the LB.
+
+    -56 LB_NOT_FOUND: The message to access was not found in the LB.
+
+    -57 LB_LOCK_FAILED: Failed in locking the LB for direct access.
+
+    -58 LB_LENGTH_ERROR: The LB size was found to be incorrect. It may be 
+	corrupted.
+
+    -59 LB_FTOK_FAILED: Failed in uniquely mapping a file name to a key (ftok).
+
+    -60 LB_SHMGET_FAILED: Failed in opening the shared memory segment (shmget).
+
+    -61 LB_REMOVE_FAILED: Could not remove the existing LB file in LB_remove.
+
+    -62 LB_FTRUNCATE_FAILED: Failed in reducing the size of the LB file 
+	(ftruncate).
+
+    -63 LB_PARITY_ERROR: The data structure allocated for the open LB had been 
+	corrupted. The application may have an memory error.
+
+    -64 LB_MPROTECT_FAILED: Failed in setting appropriate access permission for
+	shared memory or memory mapped file (mprotect).
+
+    -65 LB_SHMDT_FAILED: Failed in detaching a shared memory segment (shmdt).
+
+    -66 LB_NON_LB_FILE: The file to open was not an LB file.
+
+    -67 LB_HAS_BEEN_LOCKED: The required lock was not available because another
+	process held the lock. This is a return value from LB_misc and LB_lock.
+
+    -68 LB_MISC_BAD_CMD: The second parameter for LB_misc is not valid.
+
+    -69 LB_N_CHECK_ERROR: LB_stat was called inconsistently.
+
+    -70 LB_FILE_SYSTEM_FULL: The file system was full - No more space for the 
+	LB.
+
+    -71 LB_OPEN_LOCK_FILE_FAILED: For certain file system (e.g. the NFS on 
+	SOLARIS), a separate lock file must be created/opened for an LB. 
+	Failed in opening such a lock file.
+
+    -72 LB_INUSE: The LB was accessed recursively. Recursive access can happen 
+	when an LB function is called from a signal handling function or from 
+	another thread without proper protection.
+
+    -73 LB_NOT_SUPPORTED: The requested function as specified by the calling 
+	parameters is not supported.
+
+    -74 LB_SEEK_FAILED: Failed in repositioning file access pointer (lseek).
+
+    -76 LB_TOO_MANY_WAKEUP_REQ: The LB notification request area was full - No
+	more registration can be added.
+
+    -80 LB_ZERO_HOST_ADDRESS: Host address was not found in LB notification 
+	registration.
+
+    -90 LB_VERSION_NOT_SUPPORTED: The version of the LB file is not supported 
+	(e.g. too old).
+
+    -91 LB_RSIS_FAILED: The LB internal data for managing free space segments 
+	were corrupted.
+
+    -92 LB_RSIS_CHECK_SUM_ERROR: The LB internal data for managing free space 
+	segments were corrupted.
+
+    -93 LB_NOT_ACTIVE: LB_write failed because the LB is set to active test 
+	mode and there is no process holding the LB active lock through calling
+	LB_misc (lbd, LB_SET_ACTIVE_LOCK). See "man lb" for more details.
+
+    -94 LB_BAD_BYTE_ORDER: The LB file to open was in the wrong byte order 
+	(e.g. created on a machine of different byte order).
+
+    -95 LB_CHMOD_FAILED: Failed in setting the LB file access mode by calling 
+	chmod.
+
+    -96 LB_FCNTL_LOCK_FAILED: An error was found in invoking a file lock by 
+	calling fcntl (Not because the lock is not available).
+
+    -97 LB_FCNTL_LOCK_NOT_SUPPORTED: The file lock mechanism is not supported 
+	on the file system.
+
+    -98 LB_PTHREAD_KEY_CREATE_FAILED: Failed in pthread_once. It is likely 
+	caused by running out of threading resource.
+
+    -100 RSIS_NOT_FOUND: The record to search is not found by RSIS_traverse,
+	RSIS_get_next_ind or RSIS_find.
+
+    -101 RSIS_TOO_MANY_RECORDS: The RSIS table was full.
+
+    -102 RSIS_INVALID_INDEX: The index passed to Test_and_free_index is 
+	invalid.
+
+    -103 RSIS_INVALID_ARGS: One of the arguments passed to RSIS_size is not
+	valid.
+
+    -124 SDQM_DLSYM_FAILED: Failed in dynamically loading SMI function (dlsym).
+
+    -125 SDQM_DLOPEN_FAILED: Failed in opening the library for SMI functions 
+	(dlopen).
+
+    -126 SDQM_MSG_AMBIGUOUS: Could not determine which message to update or 
+	lock because multiple messages match the query statement.
+
+    -129 SDQM_RECORD_NOT_FOUND: The specified record was not found in the query
+	result. The specified message is not found for "lock", "delete", 
+	"update" or "get".
+
+    -130 SDQM_BAD_HOST_NAME: The host part in the DB LB name is not valid.
+
+    -131 SDQM_OPEN_QUOTATION: Quotation not closed in the query statement.
+
+    -132 SDQM_BUFFER_OVERFLOW: An internal buffer overflow happened - The query
+	statement is too big to be processed.
+
+    -133 SDQM_RELATION_NOT_SUPPORTED: An unexpected relational operator was 
+	found in the query statement.
+
+    -134 SDQM_SYNTAX_ERROR: A syntax error was found in the query statement.
+
+    -135 SDQM_FIELD_NOT_FOUND: An unexpected field name was found in the query
+	statement.
+
+    -136 SDQM_TEXT_TOO_LONG: Too many tokens in the query statement. The query
+	statement is too long.
+
+    -137 SDQM_BAD_FIELD_TYPE: A unsupported field type is found in the table 
+	struct.
+
+    -138 SDQM_BAD_FIELD_VALUE: An unexpected value was found in the query 
+	statement.
+
+    -139 SDQM_PARSE_ERROR: An error was found when the query statement is 
+	parsed.
+
+    -140 SDQM_MALLOC_FAILED: Failed in allocating memory (malloc).
+
+    -158 SDQM_DB_NAME_NOT_FOUND: The specified database did not exist.
+
+    -160 CSS_S_NAME_NOT_FOUND: Specified service name not found.
+
+    -161 CSS_MALLOC_FAILED: malloc failed.
+
+    -162 CSS_TIMED_OUT: Timed-out while waiting for server's response.
+
+    -163 CSS_SERVER_ADDR_RESET: Ambiguous service name used.
+
+    -164 CSS_DUPLICATED_SERVER: Ambiguous server used.
+
+    -165 CSS_MSG_OUT_SEQ: Response message is out of sequence.
+
+    -166 CSS_BAD_ARGUMENT: Bad argument passed to a function.
+
+    -167 CSS_SV_ADDR_ERROR: Server name is too long.
+
+    -168 CSS_HOST_NAME_ERROR: Named server host does not exist.
+
+    -169 CSS_OPEN_SOCKET_FAILED: Opening socket failed in the server.
+
+    -170 CSS_SET_SOCK_PROP_FAILED: Setting socket properties failed in the 
+	server.
+
+    -171 CSS_CONNECT_FAILED: Connect request failed in the client.
+
+    -172 CSS_WRITE_FAILED: Sending message failed in the client.
+
+    -173 CSS_BIND_FAILED: Binding to the port failed in the server.
+
+    -174 CSS_LISTEN_FAILED: Calling "listen" failed in the server.
+
+    -175 CSS_BAD_MSG_HD: Bad message header detected.
+
+    -176 CSS_BUFFER_ERROR: Too many socket connections.
+
+    -177 CSS_LOST_CONN: Connection to the server is detected to be lost.
+
+    -178 CSS_SERVER_DOWN: The server is detected to be down by the client.
+
+    -210 RSS_BAD_REQUEST_SERVER: The RPC request was determined to be incorrect
+	by the server.
+
+    -211 RSS_PERMISSION_DENIED: The remote file was not permitted to access as 
+	determined by the server.
+
+    -212 RSS_NO_MEMORY_CLIENT: Malloc failed on the client side.
+
+    -213 RSS_NO_MEMORY_SERVER: Malloc failed in the server.
+
+    -215 RSS_HOSTNAME_FAILED: The remote host name could not be determined from
+	the argument of the RPC function call.
+
+    -216 RSS_BAD_PATH_NAME: The file name could not be determined from the 
+	argument of the RPC function call
+
+    -217 RSS_BAD_RET_VALUE: The returned data from the RPC server was incorrect
+	(e.g. corrupted).
+
+    -218 RSS_BAD_SOCKET_FD: The file descriptor passed to the RPC function was 
+	not valid.
+
+    -219 RSS_HOME_UNDEFINED: Environment variable "HOME" was not defined as 
+	determined by the server.
+
+    -220 RSS_INVALID_SIGNAL: An unexpected UNIX signal number was used.
+
+    -221 RSS_TOO_MANY_CHECKS: Too many messages to check by RSS_LB_stat.
+
+    -222 RSS_NOT_SUPPORTED: The requested function is not supported.
+
+    -341 EN_BAD_ARGUMENT: One of the calling argument was invalid.
+
+    -342 EN_MALLOC_FAILED: Failed in allocating memory (malloc).
+
+    -354 EN_MSG_TOO_LARGE: The event message to be posted was too large.
+
+    -373 EN_NOT_SUPPORTED: The function could not be called at this time or 
+	from this place in the code (e.g. Some functions cannot be called from
+	the event callback function).
+
+    -378 EN_SIGSET_FAILED: Failed in setting the appropriate signal action 
+	(sigaction).
+
+    -382 EN_IOCTL_FAILED: Failed in associating a socket with a callback 
+	function for signal SIGIO (ioctl).
+
+    -383 EN_UNEXP_ACK: Unexpected message received from the event server 
+	(rssd). This should never happen unless another server is using the 
+	same port number.
+
+    -384 EN_REG_FAILED: The event registration was refused by the server.
+
+    -385 EN_CON_LOST: The connection to the event server was detected to be 
+	lost. This may be because the server has been terminated.
+
+    -386 EN_WAS_BLOCKED: The function failed because it requires receiving an
+	event but the event was blocked.
+
+    -388 EN_LOCAL_IP_NOT_FOUND: Failed in retrieving the local IP address on 
+	the host.
+
+    -389 EN_LOCAL_SV_NOT_CONN: Connection to the server lost.
+
+    -399 EN_SIG_WAIT_FAILED: System call sigtimedwait failed.
+
+    -390 EN_FCNTL_FAILED: Failed in associating a socket with a callback 
+	function for signal SIGIO (fcntl).
+
+    -440 MISC_SYSTEM_CMD_TOO_LONG: The string passed to MISC_system_to_buffer 
+	as the first argument is too long.
+
+    -441 MISC_SYSTEM_SYNTAX_ERROR: A syntax error was found in the string of 
+	the first argument of MISC_system_to_buffer.
+
+    -442 MISC_SYSTEM_GETRLIMIT: Failed in finding the maximum number of open 
+	files (getrlimit).
+
+    -443 MISC_SYSTEM_SIGACTION: Failed in setting SIGCHLD signal action 
+	(sigaction).
+
+    -444 MISC_SYSTEM_PIPE: Failed in creating a pipe (pipe).
+	
+    -445 MISC_SYSTEM_OPEN: Failed in creating the specified output file (open).
+
+    -446 MISC_SYSTEM_WAITPID: Failed in waiting for a child process to 
+	terminate (waitpid).
+
+    -447 MISC_SYSTEM_WRITE: Failed in writing data to the output file (write).
+
+    -448 MISC_SYSTEM_READ_PIPE: Failed in reading data from a pipe (read).
+
+    -449 MISC_SYSTEM_EXECVP: Failed in executing the specified command in 
+	MISC_system_to_buffer (execvp).
+
+    -450 MISC_SYSTEM_FORK: Failed in forking a child process in 
+	MISC_system_to_buffer (fork).
+
+    -451 MISC_SYSTEM_BG_DIED: The process started in background died (waitpid).
+
+    -452 MISC_SYSTEM_BG_FAILED: The process started in background terminated 
+	with non-zero status.
+
+    -453 MISC_SYSTEM_SIGPROCMASK: Failed in setting signal mask for the process
+	(sigprocmask).	
+
+    -454 MISC_FILE_SYSTEM_FULL: File system full error was detected while 
+	writing data to a file in MISC_write.
+
+    -455 MISC_WRITE_FAILED: An error was detected while writing data to a file
+	in MISC_write.
+
+    -456 MISC_READ_FAILED: An error was detected while reading data from a file
+	in MISC_read.
+
+    -457 MISC_MALLOC_FAILED: Failed in allocating memory (malloc).
+
+    -459 MISC_MKDIR_FAILED: Failed in creating a specified directory in 
+	MISC_mkdir (mkdir).
+
+    -480 SMIA_SMI_NOT_FOUND: The SMI info for the type (struct) was not found.
+
+    -481 SMIA_DATA_TOO_SHORT: The data to be processed was too short.
+
+    -482 SMIA_STRUCT_NOT_SUPPORTED: The particular type (struct) had a field 
+	type that is not supported by the function.
+
+    -483 SMIA_MALLOC_FAILED: Failed in allocating memory (malloc).
+
+    -485 SMIA_SMI_FUNC_UNSET: A SMIA function was called before the SMI 
+	function is set through calling SMIA_set_smi_func.
+
+    -500 MALRM_BAD_ALARMID: Bad alarm ID was passed in as an argument.
+
+    -502 MALRM_SUSPECT_PTR: Bad pointer was passed in as an argument.
+
+    -504 MALRM_DUPL_REG: The alarm ID had already been registered.
+
+    -507 MALRM_TOO_MANY_ALARMS: Too many registered alarms.
+
+    -509 MALRM_ALARM_NOT_REGISTERED: The alarm ID passed in to the function had
+	not been registered.
+
+    -510 MALRM_BAD_START_TIME: The time to set was prior to the current time.
+
+    -511 MALRM_ALARM_NOT_SET: The timer to cancel had not been set.
+
+    -550 MALRM_SIGACTION_FAILED: Failed in setting SIGALARM signal action 
+	(sigaction).
+
+    -551 MALRM_SIGEMPTYSET_FAILED: Failed in setting SIGALARM signal action 
+	(sigemptyset).
+
+    -560 DEAU_MALLOC_FAILED: Failed in allocating memory (malloc).
+
+    -562 DEAU_BAD_ATTR_SPEC: An error was found in the attribute specification.
+
+    -563 DEAU_BAD_TYPE_NAME: An expected type name was found in DEA.
+
+    -564 DEAU_TYPE_TOO_LONG: Type names were too long in 
+	DEAU_check_struct_range.
+
+    -565 DEAU_DATA_TOO_SHORT: The data passed in for range check was too short 
+	in DEAU_check_struct_range.
+
+    -567 DEAU_NAME_TOO_LONG: An identifier was too long in the DEA file.
+
+    -568 DEAU_BAD_TABLE_IDS: An error was detected when creating the DEA 
+	database LB.
+
+    -569 DEAU_LB_UNDEFINED: The DEA database LB name was not specified.
+
+    -570 DEAU_BAD_DEA_MSG: A message read from the DEA LB was not in the 
+	expected format.
+
+    -571 DEAU_HASH_TABLE_NOT_FOUND: The hash table was not found in the DEA 
+	database LB.
+
+    -572 DEAU_BAD_HASH_TABLE: The hash table message in the DEA database LB was
+	not correct.
+
+    -575 DEAU_DE_NOT_FOUND: The data element was not found in the database.
+
+    -576 DEAU_BAD_NUMERICAL: The DE values are expected to be numerical, but 
+	one of the values was not. 
+
+    -577 DEAU_BUFFER_TOO_SMALL: The caller provided buffer was too small.
+
+    -578 DEAU_BAD_ARGUMENT: One of the calling arguments was invalid.
+
+    -579 DEAU_DEFAULT_NOT_FOUND: The required default value was not found in 
+	DEAU_use_default_values.
+
+    -580 DEAU_ATTR_RESPECIFIED: Inconsistent specifications of the same 
+	attribute for the same data element were detected while reading DEA 
+	file.
+
+    -582 DEAU_SPEC_NOT_IMPLEMENTED: Supporting for the type is yet to be 
+	implemented.
+
+    -584 DEAU_BAD_ENUM: Bad enumeration specification was found for a DE.
+
+    -585 DEAU_BAD_ID: The DE ID was not defined for the DE.
+
+    -586 DEAU_BAD_RANGE": Range was not specified correctly for the DE.
+
+    -587 DEAU_BAD_CONVERSION: Conversion was not specified correctly for the 
+	DE.
+
+    -588 DEAU_SYNTAX_ERROR: A syntax error was found when reading the DEA file.
+
+    -681 MISC_CP_SIGSET_FALIED: Failed in setting signal action (sigset).
+
+    -682 MISC_CP_PIPE_FALIED: Failed in creating a pipe (pipe).
+
+    -683 MISC_CP_FORK_FALIED: Failed in forking a child process (fork).
+
+    -684 MISC_CP_FCNTL_FALIED: Failed in setting pipe to be non-blocking 
+	(fcntl).
+
+    -685 MISC_CP_DOWN: The co-processor was terminated.
+
+    -780 CS_KEY_NOT_FOUND: The key to search was not found.
+
+    -781 CS_TOK_NOT_FOUND: The token to read was not found.
+
+    -782 CS_BUF_TOO_SMALL: The caller provided buffer was too small.
+
+    -785 CS_TOO_MANY_EVENTS: To many CS configuration change events had already
+	been registered.
+
+    -787 CS_OPEN_ERR: Failed in opening the CS file (open).
+
+    -788 CS_SEEK_ERR: Failed in moving the file pointer in the CS file (lseek).
+
+    -789 CS_READ_ERR: Failed in reading the CS file (read).
+
+    -790 CS_MALLOC_ERR: Failed in allocating memory (malloc).
+
+    -792 CS_EV_REGISTER_ERR: Failed in registering the configuration change 
+	event (EN_register).
+
+    -793 CS_ENV_VAR_ERR: Failed in expanding an environmental variable.
+
+    -794 CS_END_OF_TEXT: The end of the CS file was reached.
+
+    -795 CS_KEY_AMBIGUOUS: Duplicated key was found in the CS file.
+
+    -796 CS_BAD_ARGUMENT: One of the calling arguments was invalid.
+
+    -797 CS_CONVERT_ERROR: The token to read could not be converted to the 
+	requested type.
+
+    -798 CS_FORMAT_ERROR: A syntax error was found in the CS file.
+
+    -799 CS_NO_SUCH_LEVEL: CS_level detected that the specified level did not 
+	exist.
+
+    -990 LE_ENV_DEF_ERROR: Environmental variable LE_DIR_EVENT was not 
+	correctly defined.
+
+    -991 LE_OPT_ALREADY_DEFINED: The LE option had already defined and could 
+	not be redefined at this time.
+
+    -992 LE_ENV_NOT_DEF -992: Environmental variable LE_DIR_EVENT was not 
+	defined.
+
+    -993 LE_BUF_TOO_SMALL: The caller provided buffer was too small.
+
+    -994 LE_LB_OPEN_CREATE_FAILED: Failed in opening/creating the LE LB.
+
+    -995 LE_LB_NAME_UNDEFINED: The LE LB name is not defined.
+
+    -996 LE_BAD_ARGUMENT: The option name was not valid in LE_set_option.
+
+    -997 LE_DUPLI_INSTANCE: The LE LB could not be open since it was created as
+	"single writer" type and there was already one process accessing it.
+
+    -1001 RMT_BAD_REMOTE_HOST_NAME: The remote host name was not specified.
+
+    -1002 RMT_TOO_MANY_CONNECTIONS: The number of existing remote connections 
+	exceeded an internal limit.
+
+    -1004 RMT_PORT_NUMBER_NOT_FOUND: It was not possible to get or construct 
+	the rssd port number.
+
+    -1005 RMT_GETHOSTBYNAME_FAILED: The IP address of the remote host could 
+	not be found.
+
+    -1006 RMT_OPEN_SOCKET_FAILED: Failed in opening a stream socket (socket).
+
+    -1007 RMT_CONNECT_FAILED: Failed in connecting to the remote server 
+	(connect).
+
+    -1009 RMT_SET_SOCK_PROP_FAILED: Failed in setting the appropriate socket 
+	properties.
+
+    -1010 RMT_AUTHENTICATION_FAILED: The authentication procedure failed while
+	connecting to the remote server.
+
+    -1003 RMT_BAD_ARG_CLIENT_SIDE: Bad function ID was detected.
+
+    -1008 RMT_CONNECTION_NOT_SET: The current connection had not been set.
+
+    -1012 RMT_BAD_ARG_SERVER_SIDE: Function id number was out of range as 
+	detected by the server.
+
+    -1013 RMT_USER_FUNC_UNDEFINED: An undefined function was called as detected
+	by the server.
+
+    -1014 RMT_BAD_USER_FUNC_RETN: The return value of the remote user function
+	in the server was not correct.
+
+    -1015 RMT_REQ_MSG_TOO_LARGE: The server could not allocate the required 
+	memory to complete the remote user function.
+
+    -1016 RMT_RPC_REENTRY: Attempted to start an RPC while an existing RPC was 
+	in progress. This can happen when a RPC is initiated from an interrupt 
+	routine.
+
+    -1017 RMT_INVALID_FD: An invalid file descriptor for the remote connection
+	was detected. 
+
+    -1018 RMT_TIMED_OUT: The RPC was timed out.
+
+    -1019 RMT_SELECT_FAILED: Failed in waiting for the RPC to complete
+	(select).
+
+    -1020 RMT_WRITE_FAILED: Failed in sending RPC data to the server.
+
+    -1021 RMT_SERVER_DISCONNECTED: The connection to the server was detected to
+	be lost while conducting the RPC.
+
+    -1022 RMT_READ_FAILED: Failed in receiving RPC data from the server.
+
+    -1023 RMT_BAD_RESPONSE: A bad RPC response was received from the server.
+
+    -1024 RMT_MALLOC_FAILED: Failed in allocating memory (malloc).
+
+    -1025 RMT_BAD_CONTROL_MSG: The server detected a bad message from the 
+	client.
+
+    -1026 RMT_BAD_USER_BUFFER: The user supplied buffer is not sufficiently
+	large.
+
+    -1031 RMT_HOME_UNDEFINED: Failed in retrieving the local host name (uname).
+
+    -1033 RMT_REJECTED_BAD_AUTH_HOST: The connection request was rejected by 
+	the remote server due to rssd access permission check.
+
+    -1034 RMT_AUTH_REJECTED: The connection request was rejected by the
+	remote server due to rssd password check failure.
+
+    -1035 RMT_CANCELLED: RPC operation was cancelled by the caller through 
+	progress callback.
+
+    -1036 RMT_COMPRESSION_FAILED: Failed in data compression.
+
+    -1037 RMT_DECOMPRESSION_FAILED: Failed in data decompression.
+
+    -1041 RMT_PTHREAD_KEY_CREATE_FAILED: pthread_key_create failed (Too many 
+	keys used by the application).
+
+
+SEE ALSO
+    lb(3), rss(3), rmt(3), en(3), net(3), cmp(3), malrm(3), cs(3), le(3), 
+    css(3), sdq(3), misc(3), str(3), smia(3), deau(3), sdqs(1), smipp(1).
+
+NOTES
+
+
+
+

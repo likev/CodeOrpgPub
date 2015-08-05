@@ -1,0 +1,387 @@
+orpgrda(3)			ORPGRDA Manpage		   orpgrda(3)
+
+NAME
+
+   orpgrda - ORPGRDA Library Functions.
+
+
+SYNOPSIS
+
+   #include <orpg.h>
+   #include <orpgrda.h>
+
+   int		ORPGRDA_alarm_io_status  ()
+   int		ORPGRDA_alarm_update_flag ()
+   time_t	ORPGRDA_alarm_update_time ()
+   int		ORPGRDA_channel_num ()
+   int		ORPGRDA_check_status_change ( short* new_msg_data );
+   void		ORPGRDA_clear_alarms();
+   int		ORPGRDA_clear_alarm_codes ();
+   int		ORPGRDA_get_alarm (int indx, int item)
+   int		ORPGRDA_get_alarm_codes (int* alarm_code_ptr);
+   int		ORPGRDA_get_num_alarms ()
+   int		ORPGRDA_get_previous_state ( int field_id );
+   int		ORPGRDA_get_previous_state_vcp ( char *vcp, int *size );
+   int		ORPGRDA_get_previous_status ( int field_id );
+   int		ORPGRDA_get_rda_config( void *msg_ptr )
+   int		ORPGRDA_get_status (int item)
+   int		ORPGRDA_get_wb_status (int item)
+   int		ORPGRDA_read_alarms ()
+   int		ORPGRDA_read_previous_state ();
+   int		ORPGRDA_read_status_msg ();
+   void		ORPGRDA_send_cmd (int cmd, int who_sent_it, int p1, int p2,
+		                  int p3, int p4, int p5, char *msg, ...)
+   int		ORPGRDA_set_state ( int field_id, int value );
+   int		ORPGRDA_set_state_vcp ( char *vcp, int size );
+   int		ORPGRDA_set_status ( int field_id, int value );
+   int		ORPGRDA_set_rda_config( void *msg_ptr );
+   int		ORPGRDA_set_wb_status ( int field_id, int value );
+   int		ORPGRDA_status_io_status ();
+   int		ORPGRDA_status_update_flag ();
+   time_t	ORPGRDA_status_update_time ();
+   doulbe	ORPGRDA_last_update_time ();
+   int		ORPGRDA_store_new_status_data ( short* status_data_ptr );
+   int		ORPGRDA_write_alarm_msg (char *buf)
+   int		ORPGRDA_write_state ();
+   int		ORPGRDA_write_status_msg (char *buf)
+   
+
+DESCRIPTION
+
+   The ORPGRDA family of functions provide an API to various RDA status,
+   RDA alarm, RDA/RPG wideband communications, and RDA control data.  
+
+   ORPGRDA_alarm_io_status() returns the status of the last ORPGDAT_RDA_ALARMS
+   read operation.  Possible return values are LB_SUCCESS, a positive number
+   equal to a message read length, or a negative number indicating an error
+   condition.
+
+   ORPGRDA_alarm_update_flag() returns 0 if the RDA Alarm message has been
+   updated since the last RDA alarm read operation and 1 if it hasn't been
+   updated.  One would normally use this function in their application to
+   determine if local data need to be refreshed.
+
+   ORPGRDA_alarm_update_time() returns the time (in julian seconds) when the RDA
+   Alarm message was last updated.
+
+   ORPGRDA_channel_num() returns the RDA channel number from the RDA status
+   message header.  On failure, ORPGRDA_DATA_NOT_FOUND is returned.  Otherwise, a
+   value of 0 (non-redundant), 1 or 2 is returned.
+
+   ORPGRDA_check_status_change() is used to determine whether the new RDA Status
+   message differs from previous one.  If there are differences,
+   ORPGRDA_STATUS_CHANGED is returned.  Otherwise, ORPGRDA_STATUS_UNCHANGED is
+   returned.  If problems were encountered reading the status message,
+   ORPGRDA_DATA_NOT_FOUND is returned.
+
+   ORPGRDA_clear_alarms() clears the RDA alarms list and sets the
+   global variable "ORPGRDA_num_alarms" to zero.  Return type is void.
+
+   ORPGRDA_clear_alarm_codes() clears the alarm codes in the library's RDA
+   status structure.  Returns ORPGRDA_SUCCESS upon successful completion or
+   ORPGRDA_ERROR if an error is encountered.
+
+   ORPGRDA_get_alarm() returns the value for a specified alarm record (indx) and
+   element (item).  The record element, indx, is a number in the range 0 to
+   ORPGRDA_get_num_alarms()-1.  The element, item, is one of the macro names
+   in the list below titled ALARM RECORD PARAMETERS.  If the item passed in is
+   invalid, ORPGRDA_DATA_NOT_FOUND is returned.  If the reading of the alarms
+   fails, a negative value will be returned.
+
+   ORPGRDA_get_alarm_codes() fills an array pointed to by the integer pointer
+   argument with the alarm codes from the latest RDA Status message. 
+   Returns ORPGRDA_SUCCESS upon successful completion and ORPGRDA_DATA_NOT_FOUND
+   if a problem was encountered reading the RDA Status message.
+
+   ORPGRDA_get_num_alarms() returns the number of alarm messages of type
+   RDA_alarm_t stored in the RDA Alarm array.  Returns zero if there was a
+   problem reading the alarm data.
+
+   ORPGRDA_get_previous_state() returns the previous state value for the item
+   passed in by the caller.  See PREVIOUS STATE PARAMETERS for a list of
+   valid inputs.  ORPGRDA_DATA_NOT_FOUND is returned if an invalid parameter is
+   passed in.
+
+   ORPGRDA_get_previous_state_vcp() returns the previous state VCP data.
+   ORPGRDA_DATA_NOT_FOUND is returned if the data does not exist or is invalid,
+   or the VCP data does not match the current VCP number that is also stored as 
+   part of the previous state data.  Otherwise the data is returned in the user 
+   provided buffer along with the VCP data size.  The size is also returned by 
+   the function.  
+
+   ORPGRDA_get_previous_status() returns the value of a desired field of the 
+   library's internal previous RDA status structure.  ORPGRDA_DATA_NOT_FOUND is
+   returned for an invalid field.  For a list of valid parameters, see
+   RDA STATUS PARAMETERS.
+
+   ORPGRDA_get_rda_config() returns the RDA configuration.  If a NULL pointer
+   is passed, the configuration is obtained from adaptation data.  If a non-NULL
+   pointer is passed, the buffer is assumed to point to an ICD format message.
+   The configuration from the ICD message header is returned.  ORPGRDA_LEGACY_CONFIG
+   is returned for legacy RDA configurations.  ORPGRDA_ORDA_CONFIG is returned
+   for Open RDA configurations.  ORPGRDA_DATA_NOT_FOUND is returned when the
+   configuration cannot be determined.
+
+   ORPGRDA_get_status() is used to retrieve the RDA status data element
+   identified by the "item" argument. The RDA status message header data can
+   also be retrieved using this function but the message header data elements are
+   specified by negating the header macros  (ie. setting the sign bit).  This not
+   only distinguishes message  header information from the actual status data but
+   it also prevents  incurring duplicate macro definitions between the message
+   header macros and the status data macros.
+
+   ORPGRDA_get_wb_status() is used to retrieve the RDA-RPG wideband status
+   element identified by the "item" argument.  See WIDEBAND COMMS PARAMETERS for
+   applicable macro definitions.  Returns the wideband parameter value or
+   ORPGRDA_DATA_NOT_FOUND.
+
+   ORPGRDA_read_alarms() reads the latest alarm data from the RDA alarm linear
+   buffer and copies the data to local storage for other library routines to
+   access. This routine is normally called by library routines instead of being
+   called from application programs.  On success a value >= 0 is returned
+   indicating the number of new alarm messages read.  On failure, a value < 0
+   is returned.
+
+   ORPGRDA_read_previous_state() reads the previous state from the
+   ORPGDAT_RDA_STATUS linear buffer and stores it in the library's copy of the
+   previous state structure.  ORPGRDA_SUCCESS is returned upon successful
+   completion.  ORPGRDA_ERROR is returned if an error is encountered.
+
+   ORPGRDA_read_status_msg() is used to read the contents of the RDA Status
+   message (RDA_STATUS_ID) contained in the general status message LB
+   (ORPGDAT_GSM_DATA).  The RDA Status message contains both a copy of the
+   RDA/RPG ICD defined RDA Status message and also the RDA-RPG wideband status
+   (generated by control_rda).  Normally, this function is invoked internally
+   when a call is made to the RDA Status message or Wideband Status message data
+   access routines (ORPGRDA_get_status() and ORPGRDA_get_wb_status()).  Whenever
+   this message is updated, an ORPGEVT_RDA_STATUS_CHANGE event is posted. On
+   success, 0 is returned.  On failure, a negative value is returned.
+
+   ORPGRDA_send_cmd() formats and sends an RDA control command to control_rda to
+   be sent to the RDA.  The command, "cmd" is one of the RDA control macros.  The
+   "who_sent_it" is a macro denoting the sender of the command .  "p1", "p2", ...
+   "p5", and "msg" are parameters which supply information required by the
+   specific command.  If msg is provided with the command, an additional 
+   argument to the command specifies the size of "msg", in bytes. 
+
+   Refer to the header file "orpgrda.h" and man page rda_commands.5 for specific
+   information on commands and parameters.  On success, 0 is returned.  On   
+   failure, a negative value is returned.
+
+   ORPGRDA_set_state() sets the value of a field in the library's copy of the
+   previous state structure.  ORPGRDA_SUCCESS is returned upon successful
+   completion.  ORPGRDA_DATA_NOT_FOUND is returned if the field passed in is
+   not valid.
+
+   ORPGRDA_set_state_vcp() sets the library's copy of the previous state's VCP
+   data.   The user provided buffer contains the VCP as well as the size of the 
+   data.   The VCP data can also be undefined in which case the buffer contains
+   all zeros.  
+
+   ORPGRDA_set_status() is used to change the value of a particular RDA status
+   field.  See RDA STATUS PARAMETERS for applicable macro definitions.  Returns
+   ORPGRDA_ERROR if problems were encountered reading the status message,
+   ORPGRDA_SUCCESS if it successfully set the status value, and
+   ORPGRDA_DATA_NOT_FOUND if the status parameter passed in was not valid.
+
+   ORPGRDA_set_wb_status() is used to set the wideband communications status
+   fields.  See WIDEBAND COMMS PARAMETERS for applicable macro definitions.
+   Returns ORPGRDA_ERROR if problems were encountered reading the status message,
+   ORPGRDA_SUCCESS if it successfully set the wideband status value, and
+   ORPGRDA_DATA_NOT_FOUND if the wideband parameter was not valid.
+
+   ORPGRDA_set_rda_config() sets the RDA configuration.  If a non-NULL
+   pointer is passed, the buffer is assumed to point to an ICD format message.
+   The configuration is set based on the value from the ICD message header.  
+   ORPGRDA_ERROR is returned if pointer passed to function is NULL or 
+   an internal error occurred attempting to set the configuration.
+
+   ORPGRDA_status_io_status() returns the status of the last RDA Status message
+   read operation.
+
+   ORPGRDA_status_update_flag() returns 0 if the RDA Status message has been
+   updated since the last RDA status read operation and 1 if it hasn't been
+   updated.  One would normally use this function in their application to
+   determine if local data need to be refreshed.
+
+   ORPGRDA_status_update_time() returns the time (in julian seconds) when the RDA
+   status message was last updated.
+
+   ORPGRDA_last_status_update() returns the time in julian seconds, with 
+   microsecond resolution, when the RDA status message was last updated.   
+
+   ORPGRDA_store_new_status_data() copies the RDA status data pointed to by the
+   input argument into the internal status message buffer.  ORPGRDA_SUCCESS is
+   returned upon successful completion.  ORPGRDA_ERROR is returned if an error
+   is encountered.
+
+   ORPGRDA_write_alarm_msg() writes an input RDA Alarm message of type
+   RDA_alarm_t to the RDA Alarm LB (ORPGDAT_RDA_ALARMS).  The input argument is
+   a character pointer to the RDA_alarm_t structure.  On success, 0 is returned.
+   On failure, a negative value is returned.
+
+   ORPGRDA_write_state() writes the values in the library's copy of the
+   previous state structure to the ORPGDAT_GSM_DATA linear buffer.
+   ORPGRDA_SUCCESS is returned upon successful completion.  ORPGRDA_ERROR is
+   returned upon failure.
+
+   ORPGRDA_write_status_msg() is used to write the ORPG RDA Status message to the
+   general status message LB.  If a non-NULL pointer is passed as an argument,
+   then the RDA status data are passed from the calling routine and written.  If
+   the argument is NULL, the local (internal) copy of the RDA status message is
+   written.  On success, 0 is returned.  On failure, a negative value is
+   returned.
+
+ 
+   
+   WIDEBAND COMMS PARAMETERS
+
+	ORPGRDA_WBLNSTAT
+           Description:	Wideband link status
+           Values:	ORPGRDA_NOT_IMPLEMENTED, ORPGRDA_CONNECT_PENDING,
+                        ORPGRDA_DISCONNECT_PENDING, ORPGRDA_DISCONNECTED_HCI,
+                        ORPGRDA_DISCONNECTED_CM, ORPGRDA_DISCONNECTED_SHUTDOWN,
+                        ORPGRDA_CONNECTED, ORPGRDA_DOWN, ORPGRDA_WBFAILURE
+
+	ORPGRDA_DISPLAY_BLANKING
+           Description:	Display Blanking
+           Values:	0 = OFF, 1 = ON
+
+	ORPGRDA_WBFAILED
+           Description:	Wideband failure flag
+           Values:	0 = Not failed, Not zero = Failed
+
+
+   RDA STATUS PARAMETERS
+
+	ORPGRDA_RDA_STATUS
+	ORPGRDA_OPERABILITY_STATUS
+	ORPGRDA_CONTROL_STATUS
+	ORPGRDA_AUX_POWER_GEN_STATE
+	ORPGRDA_AVE_TRANS_POWER
+	ORPGRDA_REFL_CALIB_CORRECTION
+	ORPGRDA_DATA_TRANS_ENABLED
+	ORPGRDA_VCP_NUMBER
+	ORPGRDA_RDA_CONTROL_AUTH
+	ORPGRDA_INTERFERENCE_DETECT_RATE
+	ORPGRDA_OPERATIONAL_MODE
+	ORPGRDA_ISU
+	ORPGRDA_ARCHIVE_II_STATUS
+	ORPGRDA_ARCHIVE_II_CAPACITY
+	ORPGRDA_RDA_ALARM_SUMMARY
+	ORPGRDA_COMMAND_ACK
+	ORPGRDA_CHAN_CONTROL_STATUS
+	ORPGRDA_SPOT_BLANKING_STATUS
+	ORPGRDA_BPM_GEN_DATE
+	ORPGRDA_BPM_GEN_TIME
+	ORPGRDA_NWM_GEN_DATE
+	ORPGRDA_NWM_GEN_TIME
+	ORPGRDA_SPARE1
+	ORPGRDA_TPS_STATUS
+	ORPGRDA_RMS_CONTROL_STATUS
+	ORPGRDA_SPARE4
+	ORPGRDA_ALARM_CODE1
+	ORPGRDA_ALARM_CODE2
+	ORPGRDA_ALARM_CODE3
+	ORPGRDA_ALARM_CODE4
+	ORPGRDA_ALARM_CODE5
+	ORPGRDA_ALARM_CODE6
+	ORPGRDA_ALARM_CODE7
+	ORPGRDA_ALARM_CODE8
+	ORPGRDA_ALARM_CODE9
+	ORPGRDA_ALARM_CODE10
+	ORPGRDA_ALARM_CODE11
+	ORPGRDA_ALARM_CODE12
+	ORPGRDA_ALARM_CODE13
+	ORPGRDA_ALARM_CODE14
+	-RDA_RPG_MSG_HDR_CHANNEL
+	-RDA_RPG_MSG_HDR_SEQ_NUM
+	-RDA_RPG_MSG_HDR_DATE
+	-RDA_RPG_MSG_HDR_TIME
+
+
+   PREVIOUS STATE PARAMETERS
+
+	ORPGRDA_RDA_STATUS
+        ORPGRDA_DATA_TRANS_ENABLED
+	ORPGRDA_RDA_CONTROL_AUTH
+	ORPGRDA_ISU
+	ORPGRDA_OPERATIONAL_MODE
+        ORPGRDA_SPOT_BLANKING_STATUS
+        ORPGRDA_VCP_NUMBER
+        ORPGRDA_CHAN_CONTROL_STATUS
+ 
+
+   ALARM RECORD PARAMETERS
+
+	ORPGRDA_ALARM_MONTH	- (1 to 12)
+	ORPGRDA_ALARM_DAY	- (1 to 31)
+	ORPGRDA_ALARM_YEAR	- (i.e., 1999, 2000,...)
+	ORPGRDA_ALARM_HOUR	- (0 to 23)
+	ORPGRDA_ALARM_MINUTE	- (0 to 59)
+	ORPGRDA_ALARM_SECOND	- (0 to 59)
+	ORPGRDA_ALARM_CODE	- (0 = cleared; 1 = set)
+	ORPGRDA_ALARM_ALARM	- (1 to 800)
+	ORPGRDA_ALARM_CHANNEL   - (0 to 2)
+
+
+
+
+EXAMPLES
+
+   1) The following code segment is used to retrieve the latest RDA control
+      status.
+
+	#include <orpg.h>
+	#include <orpgrda.h>
+	.
+	.
+	int	status;
+	.
+	.
+	status = ORPGRDA_get_status (ORPGRDA_CONTROL_STATUS);
+	.
+	.
+
+   2) The following code segment is used to retrieve the latest RDA-RPG wideband
+      connect status.
+
+	#include <orpg.h>
+	#include <orpgrda.h>
+	.
+	.
+	int status;
+	.
+	.
+	status = ORPGRDA_get_wb_status (ORPGRDA_WBLNSTAT);
+	.
+	.
+
+   3) The following code segment is used to instruct the RDA to go to operate
+      state.
+
+	#include <orpg.h>
+	#include <orpgrda.h>
+	.
+	.
+	int	status;
+	.
+	.
+	status = ORPGRDA_send_cmd (COM4_RDACOM,
+				   (int) RMS_INIT_RDA_CTRL_CMD,
+				   CRDA_OPERATE,
+				   0,
+				   0,
+				   0,
+				   0,
+				   (char *) NULL);
+	.
+	.
+
+
+SEE ALSO
+
+control_rda(1) orpg(3)
+
+
+				$Revision: 1.19 $

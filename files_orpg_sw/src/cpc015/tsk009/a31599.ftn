@@ -1,0 +1,412 @@
+C
+C RCS info
+C $Author: ccalvert $
+C $Locker:  $
+C $Date: 2004/02/05 22:58:29 $
+C $Id: a31599.ftn,v 1.5 2004/02/05 22:58:29 ccalvert Exp $
+C $Revision: 1.5 $
+C $State: Exp $
+C
+      SUBROUTINE A31599__INIT_ALG(NSTORMS)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A31599__INIT_ALG
+*.
+*.  MODULE VERSION: 0002
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       06/20/95      0000      MARK FRESCH          CCR NA94-26301
+*.       12/23/96      0001      Toolset              CCR NA95-11807
+*.       03/16/99      0002      Toolset              CCR NA98-23803
+*.       12/09/03      0003      CHRIS CALVERT        CCR NA03-30002
+*.
+*.  CALLING SEQUENCE: A31599__INIT_ALG( NSTORMS )
+*.
+*.  MODULE FUNCTION:
+*.
+*.  This module does the necessary pre-algorithm processing.  It
+*.  gets the number of cells; initializes the local hail attributes
+*.  array; makes a local copy of hail adaptation data; and derives
+*.  the needed adaptation data.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT      TYPE        DESCRIPTION
+*.    -   -----      ----        -----------
+*.    G   HADATE     I*4         The Hail Temperatures Altitude Date Stamp
+*.                               stored in adaptation data.
+*.    G   HAILSZCF   R*4         The SHI Hail Size Coefficient, in adaptation
+*.                               data.
+*.    G   HAILSZEX   R*4         The SHI Hail Size Exponent, in adaptation
+*.                               data.
+*.    G   HATIME     I*4         The Hail Temperatures Altitude Time Stamp
+*.                               stored in Adapatation Data
+*.    G   HKECOEF1   R*4         The HKE Coefficient #1 threshold, in
+*.                               adaptation data.
+*.    G   HKECOEF2   R*4         The HKE Coefficient #2 threshold, in
+*.                               adaptation data.
+*.    G   HKECOEF3   R*4         The HKE Coefficient #3 threshold, in
+*.                               adaptation data.
+*.    G   HT0        R*4         The altitude the 0 degrees C (freezing)
+*.                               level, in adaptation data.
+*.    G   HT20       R*4         The altitude the -20 degrees C level, in
+*.                               adaptation data.
+*.    G   MNPOHREF   I*4         The Minimum POH Reflectivity Threshold in
+*.                               adaptation data.
+*.    G   MXHALRNG   I*4         The Maximum Processing Range Threshold in
+*.                               adaptation data.
+*.    G   POHTDIF0   R*4         The POH Height Difference #0 Threshold in
+*.                               adaptation data.
+*.    G   POHTDIF1   R*4         The POH Height Difference #1 Threshold in
+*.                               adaptation data.
+*.    G   POHTDIF2   R*4         The POH Height Difference #2 Threshold in
+*.                               adaptation data.
+*.    G   POHTDIF3   R*4         The POH Height Difference #3 Threshold in
+*.                               adaptation data.
+*.    G   POHTDIF4   R*4         The POH Height Difference #4 Threshold in
+*.                               adaptation data.
+*.    G   POHTDIF5   R*4         The POH Height Difference #5 Threshold in
+*.                               adaptation data.
+*.    G   POHTDIF6   R*4         The POH Height Difference #6 Threshold in
+*.                               adaptation data.
+*.    G   POHTDIF7   R*4         The POH Height Difference #7 Threshold in
+*.                               adaptation data.
+*.    G   POHTDIF8   R*4         The POH Height Difference #8 Threshold in
+*.                               adaptation data.
+*.    G   POHTDIF9   R*4         The POH Height Difference #9 Threshold in
+*.                               adaptation data.
+*.    G   POSHCOEF   R*4         The POSH Coefficient in adaptation data.
+*.    G   POSHOFST   I*4         The POSH Offset in adaptation data.
+*.    G   RCMPOSHL   I*4         The RCM Positive Hail Threshold in adaptation
+*.                               data.
+*.    G   RCMPRBHL   I*4         The RCM Probable Hail Threshold in adaptation
+*.                               data.
+*.    G   REF_W_LL   I*4         The HKE Reflectivity Weighting Lower Limit
+*.                               Threshold in adaptation data.
+*.    G   REF_W_UL   I*4         The HKE Reflectivity Weighting Upper Limit
+*.                               Threshold in adaptation data.
+*.    G   SIRDAHGT   I*4         Site Adaptation - RDA Height.
+*.    G   WT_SM_CF   R*4         The Warning Threshold Selection Model
+*.                               Coefficient in adaptation data.
+*.    G   WT_SM_OF   R*4         The Warning Threshold Selection Model Offset
+*.                               in adaptation data.
+*.    G   FT_TO_KM   R*4         (CONSTANT)DEFINES THE SCALING FACTOR FOR FEET
+*.                               TO KILOMETERS PARAMETERS
+*.    G   H_AZM      I*4         (CONSTANT)Index to the azimuth, the fifth
+*.                               position, in the HAILSTATS arrays.
+*.    G   H_MHS      I*4         (CONSTANT)Index to the MEHS, the third
+*.                               position, in the HAILSTATS arrays.
+*.    G   H_POH      I*4         (CONSTANT)Index to the POH, the first
+*.                               position, in the HAILSTATS arrays.
+*.    G   H_PSH      I*4         (CONSTANT)Index to the PSH, the second
+*.                               position, in the HAILSTATS arrays.
+*.    G   H_RNG      I*4         (CONSTANT)Index to the range, the fourth
+*.                               position, in the HAILSTATS arrays.
+*.    G   NHAL_MAX   I*4         (CONSTANT)A sizing parameter equal to the
+*.                               max. number of cells processed by the hail
+*.                               algorithm.
+*.    C   HKE_COF2   R*4         The HKE Coefficient #2 in local common
+*.                               adaptation data.
+*.    C   HKE_COF3   R*4         The HKE Coefficient #3 in local common
+*.                               adaptation data.
+*.    C   HT0_ARL    R*4         The height (ARL) of the 0 degrees C isotherm
+*.                               in local commom adaptation data.
+*.    C   HT0_MSL    R*4         The height (MSL) of the 0 degrees C isotherm
+*.                               in local commom adaptation data.
+*.    C   HT20_ARL   R*4         The height, in km ARL, of the -20 degrees C
+*.                               level, derived from adaptation data.
+*.    C   HT20_MSL   R*4         The height (MSL) of the -20 degrees C
+*.                               isotherm in local commom adaptation data.
+*.    C   LL_HKE_REF I*4         The Threshold HKE Reflectivity Weighting
+*.                               Lower Limit in local adaptation data.
+*.    C   POSH_COF   R*4         The POSH Coefficient in local common
+*.                               adaptation data.
+*.    C   POSH_OFS   I*4         The POSH Offset in local common adaptation
+*.                               data.
+*.    C   UL_HKE_REF I*4         The Threshold HKE Reflectivity Weighting
+*.                               Upper Limit in local adaptation data.
+*.    C   WT         R*4         The Warning Threshold Selection Model - a
+*.                               weighting factor based on the freezing level
+*.                               used in the POSH computation.
+*.    C   WT_COF     R*4         The Warning Threshold Selection Model
+*.                               Coefficient in local common adaptation data.
+*.    C   WT_OFS     R*4         The Warning Threshold Selection Model Offset
+*.                               in local common adaptation data.
+*.    P   NSTORMS    I*4         The number of cells identified by the SCIT
+*.                               (from the CENTATTR buffer).
+*.
+*.    *   OUTPUT           TYPE        DESCRIPTION
+*.    -   ------           ----        -----------
+*.    C   HAILTEMP         R*4         Array used for local storage of hail
+*.                                     attributes, except cell IDs.
+*.    C   HKE_CF23         R*4         The HKE Coefficient #3 to the HKE
+*.                                     Coefficient #2 power.
+*.    C   HKE_COF1         R*4         The HKE Coefficient #1 in local common
+*.                                     adaptation data.
+*.    C   HKE_COF2         R*4         The HKE Coefficient #2 in local common
+*.                                     adaptation data.
+*.    C   HKE_COF3         R*4         The HKE Coefficient #3 in local common
+*.                                     adaptation data.
+*.    C   HS_COF           R*4         The SHI Hail Size Coefficient in local
+*.                                     common adaptation data.
+*.    C   HS_EXP           R*4         The SHI Hail Size Exponent in local
+*.                                     common adaptation data.
+*.    C   HT0_ARL          R*4         The height (ARL) of the 0 degrees C
+*.                                     isotherm in local commom adaptation
+*.                                     data.
+*.    C   HT0_MSL          R*4         The height (MSL) of the 0 degrees C
+*.                                     isotherm in local commom adaptation
+*.                                     data.
+*.    C   HT20_ARL         R*4         The height, in km ARL, of the -20
+*.                                     degrees C level, derived from
+*.                                     adaptation data.
+*.    C   HT20_HT0         R*4         The difference between the heights of
+*.                                     the -20 and 0 degrees C isotherms in
+*.                                     local commom adaptation data.
+*.    C   HT20_MSL         R*4         The height (MSL) of the -20 degrees C
+*.                                     isotherm in local commom adaptation
+*.                                     data.
+*.    C   LL_HKE_REF       I*4         The Threshold HKE Reflectivity
+*.                                     Weighting Lower Limit in local
+*.                                     adaptation data.
+*.    C   MR_POH_TH        I*4         The Threshold Minimum Reflectivity POH
+*.                                     in local adaptation data.
+*.    C   MX_HL_RNG        I*4         The Maximum Hail Processing Range in
+*.                                     local adaptation data.
+*.    C   NHAILS           I*4         The number of cells processed by the
+*.                                     hail algorithm.
+*.    C   POHHDTH0         R*4         The POH Height Difference #0 Threshold
+*.                                     in local common adaptation data.
+*.    C   POHHDTH1         R*4         The POH Height Difference #1 Threshold
+*.                                     in local common.
+*.    C   POHHDTH2         R*4         The POH Height Difference #2 Threshold
+*.                                     in local common adaptation data.
+*.    C   POHHDTH3         R*4         The POH Height Difference #3 Threshold
+*.                                     in local common adaptation data.
+*.    C   POHHDTH4         R*4         The POH Height Difference #4 Threshold
+*.                                     in local common adaptation data.
+*.    C   POHHDTH5         R*4         1The POH Height Difference #5 Threshold
+*.                                     in local common adaptation data.
+*.    C   POHHDTH6         R*4         The POH Height Difference #6 Threshold
+*.                                     in local common adaptation data.
+*.    C   POHHDTH7         R*4         The POH Height Difference #7 Threshold
+*.                                     in local common adaptation data.
+*.    C   POHHDTH8         R*4         The POH Height Difference #8 Threshold
+*.                                     in local common adaptation data.
+*.    C   POHHDTH9         R*4         The POH Height Difference #9 Threshold
+*.                                     in local common adaptation data.
+*.    C   POSH_COF         R*4         The POSH Coefficient in local common
+*.                                     adaptation data.
+*.    C   POSH_OFS         I*4         The POSH Offset in local common
+*.                                     adaptation data.
+*.    C   P_COF            R*4         The scaled POSH Coefficient - scaled
+*.                                     for rounding the POSH to the nearest
+*.                                     10%.
+*.    C   P_OFS            R*4         The scaled POSH Offset - scaled for
+*.                                     rounding the POSH to he nearest 10%.
+*.    C   RCM_PRBL         I*4         The Threshold RCM Probable Hail in
+*.                                     local adaptation data.
+*.    C   RCM_PSTV         I*4         The Threshold RCM Positive Hail in
+*.                                     local adaptation data.
+*.    C   TMP_ALT_DAY_STMP I*4         The Day (of the month) of the Temp
+*.                                     Altitude Time Stamp local in adaptation
+*.                                     data.
+*.    C   TMP_ALT_HR_STMP  I*4         The Hours of the Temp Altitude Time
+*.                                     Stamp in local adaptation data.
+*.    C   TMP_ALT_MIN_STMP I*4         The Minutes of the Temp Altitude Time
+*.                                     Stamp in local adaptation data.
+*.    C   TMP_ALT_MON_STMP I*4         The Month of the Temp Altitude Time
+*.                                     Stamp in local adaptation data.
+*.    C   TMP_ALT_YR_STMP  I*4         The YR of the Temp Altitude Time Stamp
+*.                                     in local adaptationdata.
+*.    C   UL_HKE_REF       I*4         The Threshold HKE Reflectivity
+*.                                     Weighting Upper Limit in local
+*.                                     adaptation data.
+*.    C   UL_LL_HKE_REF    R*4         The difference between the UL_HKE_REF
+*.                                     and LL_HKE_REF.
+*.    C   WT               R*4         The Warning Threshold Selection Model -
+*.                                     a weighting factor based on the
+*.                                     freezing level used in the POSH
+*.                                     computation.
+*.    C   WT_COF           R*4         The Warning Threshold Selection Model
+*.                                     Coefficient in local common adaptation
+*.                                     data.
+*.    C   WT_OFS           R*4         The Warning Threshold Selection Model
+*.                                     Offset in local common adaptation data.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME      TYPE        DESCRIPTION
+*.    ----      ----        -----------
+*.    CELL      I*4         A DO LOOP index used to process/index by cell when
+*.                          nitializing the HAILTEMP array.
+*.    INIT0R    R*4         A real parameter of 0.0
+*.    KFT_TO_FT I*4         A conversion factor from kilofeet to feet.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    SITEADP
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A315CHH
+*.    A315CIH
+*.    HAIL
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.     THIS MODULE IS COMPILED USING THE COMP15.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.     THIS MODULE IS LINKED USING THE LINK15.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+      IMPLICIT NONE
+C
+$INCLUDE A309ADPT.INC/G,**A3CD70_HAIL (NLIST NEND)
+$INCLUDE                **A3CD70CA (NLIST NEND)
+$INCLUDE                **A3CD70C7 (NLIST NEND)
+$INCLUDE A309.INC/G,    **A3PM50   (NLIST NEND)
+$INCLUDE A315BUF.INC/G, **A315P9H  (NLIST NEND)
+$INCLUDE                **A315CHH  (NLIST NEND)
+$INCLUDE A315.INC/G,    **A315CIH  (NLIST NEND)
+C
+C** VARIABLE AND PARAMETER DECLARATIONS
+C
+      INTEGER CELL, INIT0, NSTORMS, KFT_TO_FT
+      REAL INIT0R
+      PARAMETER (INIT0 = 0, INIT0R = 0., KFT_TO_FT = 1000 )
+C     INTEGER HATIME(3), HADATE(3)
+C     DATA HATIME/01,08,00/
+C     DATA HADATE/05,07,09/
+C
+C** EXECUTABLE CODE
+C
+      NHAILS = MIN(NSTORMS,NHAL_MAX)
+C
+C** For all cells...
+C
+      DO 100 CELL = 1, NHAL_MAX
+C
+C** Initialize the local Hail Attribute Array
+C
+         HAILTEMP(H_POH,CELL) = INIT0R
+         HAILTEMP(H_PSH,CELL) = INIT0R
+         HAILTEMP(H_MHS,CELL) = INIT0R
+         HAILTEMP(H_RNG,CELL) = INIT0R
+         HAILTEMP(H_AZM,CELL) = INIT0R
+ 100  CONTINUE
+C
+C** Copy adaptation data from A3CD70 to local common
+C
+C** Height of the 0 and -20 degree C isotherm in MSL
+C
+      HT0_MSL    = HT0
+      HT20_MSL   = HT20
+C
+C** Maximum Hail Processing Range
+C
+      MX_HL_RNG  = MXHALRNG
+C
+C** HKE adaptable parameters
+C
+      UL_HKE_REF = REF_W_UL
+      LL_HKE_REF = REF_W_LL
+      HKE_COF1   = HKECOEF1
+      HKE_COF2   = HKECOEF2
+      HKE_COF3   = HKECOEF3
+C
+C** POSH adaptable parameters
+C
+      POSH_OFS   = POSHOFST
+      POSH_COF   = POSHCOEF
+      WT_COF     = WT_SM_CF
+      WT_OFS     = WT_SM_OF
+C
+C** Hail Size (MEHS) adaptable parameters
+C
+      HS_COF     = HAILSZCF
+      HS_EXP     = HAILSZEX
+C
+C** RCM adaptable parameters
+C
+      RCM_PSTV   = RCMPOSHL
+      RCM_PRBL   = RCMPRBHL
+C
+C** POH adaptable parameters
+C
+      MR_POH_TH  = MNPOHREF
+      POHHDTH1   = POHTDIF1
+      POHHDTH2   = POHTDIF2
+      POHHDTH3   = POHTDIF3
+      POHHDTH4   = POHTDIF4
+      POHHDTH5   = POHTDIF5
+      POHHDTH6   = POHTDIF6
+      POHHDTH7   = POHTDIF7
+      POHHDTH8   = POHTDIF8
+      POHHDTH9   = POHTDIF9
+      POHHDTH0   = POHTDIF0
+C
+C** Copy the Hail Temperatures Time/Date Stamp
+C
+      TMP_ALT_HR_STMP = HATIME(1)
+      TMP_ALT_MIN_STMP = HATIME(2)
+      TMP_ALT_DAY_STMP = HADATE(3)
+      TMP_ALT_MON_STMP = HADATE(2)
+      TMP_ALT_YR_STMP = HADATE(1)
+C
+C** Convert adaptation data units where necessary
+C
+      P_OFS = POSH_OFS * 0.1
+      P_COF = POSH_COF * 0.1
+C
+C** Convert the 0 and -20 degrees C heights from MSL to ARL
+C
+      HT0_ARL = ((HT0_MSL * KFT_TO_FT) - SIRDAHGT) * FT_TO_KM
+      HT20_ARL = ((HT20_MSL * KFT_TO_FT) - SIRDAHGT) * FT_TO_KM
+C
+C** Make sure legitimate numbers have been supplied by the user;
+C** in other words, the heights are not below ground level
+C
+      IF (HT0_ARL .LT. 0.) THEN
+         HT0_ARL = 0.
+      END IF
+      IF (HT20_ARL .LT. 0.) THEN
+         HT20_ARL = 0.
+      END IF
+      HT20_HT0 = HT20_ARL - HT0_ARL
+C
+C** Do computations once (at the beginning of the volume) to be
+C** efficient
+C
+      UL_LL_HKE_REF = UL_HKE_REF - LL_HKE_REF
+      HKE_CF23 = HKE_COF3**HKE_COF2
+C
+      WT = WT_COF * HT0_ARL + WT_OFS
+      IF (WT .LT. 20.) THEN
+         WT = 20.
+      END IF
+C
+      RETURN
+      END

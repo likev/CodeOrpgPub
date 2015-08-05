@@ -1,0 +1,266 @@
+# RCS info
+# $Author: steves $
+# $Locker:  $
+# $Date: 2014/02/28 19:55:45 $
+# $Id: make.common,v 1.33 2014/02/28 19:55:45 steves Exp $
+# $Revision: 1.33 $
+# $State: Exp $
+
+# This file contains all the information that is architecture independent and
+# is needed by make.
+
+# These dummy targets keep make from complaining if there is nothing to be
+# made for a particular target in any subdirectory.
+Makefile::
+Makefiles::
+
+clean::
+
+depend::
+
+all::
+install::
+liball::
+libinstall::
+
+debugall::
+debuginstall::
+gprofall::
+gprofinstall::
+
+USE_GCC=1
+
+# some common commands used inside makefiles.
+CP = cp
+MV = mv
+RM = rm -f
+DEPEND = makedepend
+MKDIR = mkdir -p
+AR = ar clq
+RANLIB = ranlib
+FPP = ftnpp
+RAZOR = razor
+INSTALL = /usr/bin/install
+
+INSTBINFLAGS = -c -m 0755
+INSTPGMFLAGS = -c 
+INSTLIBFLAGS = -c -m 0644
+INSTSHLIBFLAGS = -c -m 0755
+INSTDATFLAGS = -c -m 0644
+
+#  Global lines for Fortran algorithms
+F_ALGORITHM_LD = g++
+F_ALGORITHM_LIBS = -lrpgcm -ladaptcomblk -lrpg -lorpg -linfr 
+
+#  Global lines for C algorithms
+C_ALGORITHM_LIBS = -ladaptstruct -lrpgc -lorpg -linfr -lm
+
+# alternate places to find source and object files.
+VPATH = ..:./$(ARCH)
+
+# all the common includes go here
+# These are the places to look for header files in that order.
+STD_INCLUDES = -I. -I..
+LOCALTOP_INCLUDES = -I$(LOCALTOP)/include -I$(LOCALTOP)/lib/include
+TOP_INCLUDES = -I$(MAKETOP)/include -I$(MAKETOP)/lib/include
+
+# include files for fortran code. It can be changed if it is decided 
+# to separate fortran includes from the rest of the includes.
+FC_STD_INCLUDES = $(STD_INCLUDES)
+FC_LOCALTOP_INCLUDES = $(LOCALTOP_INCLUDES)
+FC_TOP_INCLUDES = $(TOP_INCLUDES)
+FPP_STD_INCLUDES = $(STD_INCLUDES)
+FPP_LOCALTOP_INCLUDES = $(LOCALTOP_INCLUDES)
+FPP_TOP_INCLUDES = $(TOP_INCLUDES)
+
+# Locations for different binary files and libraries. 
+localtop=$(strip $(LOCALTOP))
+ifeq ($(localtop),)
+INSTALLTOP=$(MAKETOP)
+else
+INSTALLTOP=$(LOCALTOP)
+endif
+
+LIBDIR = $(INSTALLTOP)/lib/$(ARCH)
+BINDIR = $(INSTALLTOP)/bin/$(ARCH)
+DEBUGBINDIR = $(INSTALLTOP)/dbin/$(ARCH)
+GPROFBINDIR = $(INSTALLTOP)/dbin/$(ARCH)
+SCRIPTDIR = $(INSTALLTOP)/bin
+CFGDIR = $(INSTALLTOP)/cfg
+DATADIR = $(INSTALLTOP)/data
+DATA_ARCHDIR = $(INSTALLTOP)/data/$(ARCH)
+TOOLSDIR = $(INSTALLTOP)/tools/bin/$(ARCH)
+TOOLSCRIPTDIR = $(INSTALLTOP)/tools/bin
+TOOLSDATADIR = $(INSTALLTOP)/tools/data
+TOOLSCFGDIR = $(INSTALLTOP)/tools/cfg
+TOOLSCFGEXTDIR = $(INSTALLTOP)/tools/cfg/extensions
+TOOLSMAINDIR = $(INSTALLTOP)/tools
+ORDADATADIR = $(INSTALLTOP)/orda
+
+# no common defines at this time
+COMMON_DEFINES = 
+
+# common defines for fortran code.
+FC_COMMON_DEFINES = 
+FPP_COMMON_DEFINES = 
+
+SHROBJT_EXT = sht
+DBGOBJT_EXT = dbt
+
+SHROBJ_EXT = shr
+DBGOBJ_EXT = dbg
+GPRFOBJ_EXT = gpr
+
+# some new suffixes to be defined for fortran files(ftn) and object files
+# with purify and debug information.
+.SUFFIXES: .f .ftn .$(DBGOBJ_EXT) .$(GPRFOBJ_EXT) .$(SHROBJ_EXT)
+
+# redefine some rules
+$(ARCH)/%.o: %.c
+	@if [ -d $(ARCH) ]; then set +x; \
+	else (set -x; $(MKDIR) $(ARCH)); fi
+	$(CC) -c $(CCFLAGS) -o $@ $^
+
+$(ARCH)/%.$(SHROBJ_EXT): %.c
+	@if [ -d $(ARCH) ]; then set +x; \
+	else (set -x; $(MKDIR) $(ARCH)); fi
+	$(RM) $@ ; \
+	$(CC) -c $(CCFLAGS) $(SHRDLIBCCFLAGS) -o $(ARCH)/$*.o $^ ;\
+	$(MV) $(ARCH)/$*.o $@
+
+$(ARCH)/%.$(DBGOBJ_EXT): %.c
+	@if [ -d $(ARCH) ]; then set +x; \
+	else (set -x; $(MKDIR) $(ARCH)); fi
+	$(RM) $@ ; \
+	$(DEBUGCC) -c $(DEBUGCCFLAGS) -o $(ARCH)/$*.o $^ ;\
+	$(MV) $(ARCH)/$*.o $@
+	
+$(ARCH)/%.$(GPRFOBJ_EXT): %.c
+	@if [ -d $(ARCH) ]; then set +x; \
+	else (set -x; $(MKDIR) $(ARCH)); fi
+	$(RM) $@ ; \
+	$(GPROFCC) -c $(GPROFCCFLAGS) -o $(ARCH)/$*.o $^ ;\
+	$(MV) $(ARCH)/$*.o $@
+	
+#  Threaded objects
+$(ARCH)/%.$(SHROBJT_EXT): %.c
+	@if [ -d $(ARCH) ]; then set +x; \
+	else (set -x; $(MKDIR) $(ARCH)); fi
+	$(RM) $@ ; \
+	$(CC) -c $(CCFLAGS) $(SHRDLIBCCFLAGS) -o $(ARCH)/$*.o $^ ;\
+	$(MV) $(ARCH)/$*.o $@
+
+$(ARCH)/%.$(DBGOBJT_EXT): %.c
+	@if [ -d $(ARCH) ]; then set +x; \
+	else (set -x; $(MKDIR) $(ARCH)); fi
+	$(RM) $@ ; \
+	$(DEBUGCC) -c $(DEBUGCCFLAGS) -o $(ARCH)/$*.o $^ ;\
+	$(MV) $(ARCH)/$*.o $@
+	
+# C++ rules
+$(ARCH)/%.o: %.cpp
+	@if [ -d $(ARCH) ]; then set +x; \
+	else (set -x; $(MKDIR) $(ARCH)); fi
+	$(CCC) -c $(CCCFLAGS) -o $@ $^
+
+$(ARCH)/%.$(SHROBJ_EXT): %.cpp
+	@if [ -d $(ARCH) ]; then set +x; \
+	else (set -x; $(MKDIR) $(ARCH)); fi
+	$(RM) $@ ; \
+	$(CCC) -c $(CCCFLAGS) $(SHRDLIBCCFLAGS) -o $(ARCH)/$*.o $^ ;\
+	$(MV) $(ARCH)/$*.o $@
+
+$(ARCH)/%.$(DBGOBJ_EXT): %.cpp
+	@if [ -d $(ARCH) ]; then set +x; \
+	else (set -x; $(MKDIR) $(ARCH)); fi
+	$(RM) $@ ; \
+	$(DEBUGCCC) -c $(DEBUGCCCFLAGS) -o $(ARCH)/$*.o $^ ;\
+	$(MV) $(ARCH)/$*.o $@
+
+$(ARCH)/%.$(GPRFOBJ_EXT): %.cpp
+	@if [ -d $(ARCH) ]; then set +x; \
+	else (set -x; $(MKDIR) $(ARCH)); fi
+	$(RM) $@ ; \
+	$(GPROFCCC) -c $(GPROFCCCFLAGS) -o $(ARCH)/$*.o $^ ;\
+	$(MV) $(ARCH)/$*.o $@
+
+#  Threaded objects	
+$(ARCH)/%.$(SHROBJT_EXT): %.cpp
+	@if [ -d $(ARCH) ]; then set +x; \
+	else (set -x; $(MKDIR) $(ARCH)); fi
+	$(RM) $@ ; \
+	$(CCC) -c $(CCCFLAGS) $(SHRDLIBCCFLAGS) -o $(ARCH)/$*.o $^ ;\
+	$(MV) $(ARCH)/$*.o $@
+
+$(ARCH)/%.$(DBGOBJT_EXT): %.cpp
+	@if [ -d $(ARCH) ]; then set +x; \
+	else (set -x; $(MKDIR) $(ARCH)); fi
+	$(RM) $@ ; \
+	$(DEBUGCCC) -c $(DEBUGCCCFLAGS) -o $(ARCH)/$*.o $^ ;\
+	$(MV) $(ARCH)/$*.o $@
+	
+
+# I don't think $(FPP) will let us place the .f file any place other
+# than the current directory ...
+$(ARCH)/%.f: %.ftn
+	@if [ -d $(ARCH) ]; then set +x; \
+	else (set -x; $(MKDIR) $(ARCH)); fi
+	( cd $(ARCH) ;\
+	$(RM) $@ ;\
+	$(FPP) -s ../ $(FPPFLAGS) $*.ftn )
+
+$(ARCH)/%.o: %.ftn
+	@if [ -d $(ARCH) ]; then set +x; \
+	else (set -x; $(MKDIR) $(ARCH)); fi
+	( cd $(ARCH) ;\
+	$(RM) $@ ;\
+	$(FPP) -s ../ $(FPPFLAGS) $< ;\
+	$(FC) -c $(FCFLAGS) $*.f )
+
+$(ARCH)/%.$(SHROBJ_EXT): %.ftn
+	@if [ -d $(ARCH) ]; then set +x; \
+	else (set -x; $(MKDIR) $(ARCH)); fi
+	( cd $(ARCH) ;\
+	$(RM) $@ ;\
+	$(FPP) -s ../ $(FPPFLAGS) $< ;\
+	$(FC) -c $(FCFLAGS) $(SHRDLIBFCFLAGS) $*.f ;\
+	$(MV) $*.o $*.shr )
+
+$(ARCH)/%.$(DBGOBJ_EXT): %.ftn
+	@if [ -d $(ARCH) ]; then set +x; \
+	else (set -x; $(MKDIR) $(ARCH)); fi
+	( cd $(ARCH) ;\
+	$(RM) $@ ;\
+	$(FPP) -s ../ $(FPPFLAGS) $< ;\
+	$(DEBUGFC) -c $(DEBUGFCFLAGS) $*.f ;\
+	$(MV) $*.o $*.$(DBGOBJ_EXT) )
+
+$(ARCH)/%.$(GPRFOBJ_EXT): %.ftn
+	@if [ -d $(ARCH) ]; then set +x; \
+	else (set -x; $(MKDIR) $(ARCH)); fi
+	( cd $(ARCH) ;\
+	$(RM) $@ ;\
+	$(FPP) -s ../ $(FPPFLAGS) $< ;\
+	$(GPROFFC) -c $(GPROFFCFLAGS) $*.f ;\
+	$(MV) $*.o $*.$(GPRFOBJ_EXT) )
+
+$(ARCH)/%.o: $(ARCH)/%.f
+	@if [ -d $(ARCH) ]; then set +x; \
+	else (set -x; $(MKDIR) $(ARCH)); fi
+	$(RM) $@ ;\
+	$(FC) -c $(FCFLAGS) -o $@ $^
+
+$(ARCH)/%.$(DBGOBJ_EXT): %.f
+	@if [ -d $(ARCH) ]; then set +x; \
+	else (set -x; $(MKDIR) $(ARCH)); fi
+	$(RM) $@ ; \
+	$(DEBUGFC) -c $(DEBUGFCFLAGS) -o $(ARCH)/$*.o $^ ;\
+	$(MV) $(ARCH)/$*.o $@
+
+$(ARCH)/%.$(GPRFOBJ_EXT): %.f
+	@if [ -d $(ARCH) ]; then set +x; \
+	else (set -x; $(MKDIR) $(ARCH)); fi
+	$(RM) $@ ; \
+	$(GPROFFC) -c $(GPROFFCFLAGS) -o $(ARCH)/$*.o $^ ;\
+	$(MV) $(ARCH)/$*.o $@
+

@@ -1,0 +1,541 @@
+C 
+C RCS info 
+C $Author: steves $ 
+C $Locker:  $ 
+C $Date: 2011/05/06 16:01:04 $ 
+C $Id: a30748.ftn,v 1.7 2011/05/06 16:01:04 steves Exp $ 
+C $Revision: 1.7 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A30748__PRODUCT_HEADER(BUFOUT,PRODNUM,NRLEB,VSNUM,
+     1              NDATLVL,WEATHRMD,CLTABIND,NBOX,CGRIDHDR,PGRIDHDR)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A30748__PRODUCT_HEADER
+*.
+*.  MODULE VERSION: 0016
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       05 15 85      0000      ATARA WEINSTEIN
+*.       04 25 86      0001      BRADLEY SUTKER       SPR # 60159
+*.       08 04 86      0002      MIKE ISTOK           SPR # 60313
+*.       01 22 87      0003      ATARA WEINSTEIN      SPR # 70069
+*.       06 06 88      0004      STEVEN D. SMITH      SPR # 80120
+*.       02 22 91      0005      MARK FRESCH          SPR # 91248
+*.       02 15 91      0005      JOHN DEPHILIP        SPR # 91762
+*.       05 01 91      0005      VALERIE HOLDEN       SPR # 91910
+*.       12 03 91      0006      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0007      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/20/92      0008      Toolset              SPR 91895
+*.       03/25/93      0009      Toolset              SPR NA93-06801
+*.       01/28/94      0010      Toolset              SPR NA94-01101
+*.       03/03/94      0011      Toolset              SPR NA94-05501
+*.       04/01/95      0012      Toolset              CCR NA95-11802
+*.       04/05/95      0013      C. Stephenson        CCR NA94-35301
+*.       12/23/96      0014      Toolset              CCR NA95-11807
+*.       03/16/99      0015      Toolset              CCR NA98-23803
+*.       11/14/05      0016      Brian Klein          CCR NA05-23001
+*.
+*.  CALLING SEQUENCE: CALL A30748__PRODUCT_HEADER
+*.                         (BUFOUT,PRODNUM,NRLEB,VSNUM,NDATLVL,
+*.                         WEATHRMD,CLTABIND,NBOX,CGRIDHDR,PGRIDHDR)
+*.  MODULE FUNCTION:
+*.     Product Header Generation routine for COMPOSITE REFLECTIVITY
+*.     mapping program.
+*.
+*.  MODULES CALLED: A3CM25__GET_DATE_TIME 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT          TYPE        DESCRIPTION
+*.    -   -----          ----        -----------
+*.    G   SIRDAHGT       I*4         Site Adaptation - RDA Height.
+*.    G   SIRDALAT       I*4         Site Adaptation - RDA Latitude.
+*.    G   SIRDALON       I*4         Site Adaptation - RDA Longitude.
+*.    G   SIRPGID        I*4         Site Adaptation - RPG ID Number.
+*.    G   SUMMARY        I*4         Volume Scan Summary Table
+*.    G   THRESH         I*2         Adaptation Data for Color Data Table
+*.                                   Thresholds (color-level code, color table
+*.                                   number).
+*.    G   BLKOVRHD       I*4         (CONSTANT)SIZE OF OVERHEAD PORTION OF
+*.                                   PRODUCT SYMBOLOGY BLOCK, IN BYTES
+*.    G   BLOCKIDOFF     I*4         (CONSTANT)Product block ID offset.
+*.    G   CALCONLSW      I*4         (CONSTANT)Product header offset to
+*.                                   calibration constant (LSW).
+*.    G   CALCONMSW      I*4         (CONSTANT)Product header offset to
+*.                                   calibration constant (MSW)
+*.    G   DIV1OFF        I*4         (CONSTANT)Product header offset: First
+*.                                   divider.
+*.    G   DIV2OFF        I*4         (CONSTANT)Product block offset: Second
+*.                                   divider.
+*.    G   DL1OFF         I*4         (CONSTANT)Product header offset: data
+*.                                   level 1.
+*.    G   FLAGSOF1       I*4         (CONSTANT)Display header offset (for
+*.                                   raster formatted products): first
+*.                                   opcode/flags offset.
+*.    G   FLAGSOF2       I*4         (CONSTANT)Display header offset (for
+*.                                   raster formatted products):seconds
+*.                                   opcod/flags offset.
+*.    G   FLAGSOF3       I*4         (CONSTANT)Display header offset (for
+*.                                   raster formatted products):Third
+*.                                   opcode/flags offset.
+*.    G   GDPRDOFF       I*4         (CONSTANT)Product header offset:
+*.                                   generation date of product.
+*.    G   GRID_MAXVAL    I*4         (CONSTANT)INDEX IN GRID BUFFER HEADER TO
+*.                                   MAXIMUM DATA VALUE
+*.    G   GTLSWOFF       I*4         (CONSTANT)Product header
+*.                                   offset:Generation time of product (LSW).
+*.    G   GTMSWOFF       I*4         (CONSTANT)Product header offset.
+*.                                   Generation time of product (MSW).
+*.    G   ICDSTOFF       I*4         (CONSTANT)Display header offset (For
+*.                                   raster formatted products): I Coordinate
+*.                                   start.
+*.    G   JCDSTOFF       I*4         (CONSTANT)Display header offset (for
+*.                                   raster formatted products): J Coordinates
+*.                                   start.
+*.    G   LGLSWOFF       I*4         (CONSTANT)Product header offset: Length
+*.                                   of message (LSW).
+*.    G   LGMSWOFF       I*4         (CONSTANT)Product header offset: Length
+*.                                   of message (MSW).
+*.    G   LNLSWOFF       I*4         (CONSTANT)Product header offset:
+*.                                   Longitude of radar (LSW).
+*.    G   LNMSWOFF       I*4         (CONSTANT)Product header offset:
+*.                                   Longitude of radar (MSW).
+*.    G   LRLSWOFF       I*4         (CONSTANT)Product block offset: Length of
+*.                                   product block portion of product (LSW).
+*.    G   LRMSWOFF       I*4         (CONSTANT)Product block offset: Length of
+*.                                   product block portion of product (MSW).
+*.    G   LTLSWOFF       I*4         (CONSTANT)Product header offset: Latitude
+*.                                   of radar (LSW).
+*.    G   LTMSWOFF       I*4         (CONSTANT)Product header offset: Latitude
+*.                                   of radar (MSW)
+*.    G   LYRDIVOFF      I*4         (CONSTANT)PRODUCT BLOCK OFFSET: LAYER
+*.                                   DIVIDER
+*.    G   LYRLLSWOFF     I*4         (CONSTANT)Product block offset:  Layer
+*.                                   length (LSW).
+*.    G   LYRLMSWOFF     I*4         (CONSTANT)Product block offset: Layer
+*.                                   length (MSW).
+*.    G   MDL1OFF        I*4         (CONSTANT)Product header offset: Maximum
+*.                                   Data Level 1.
+*.    G   MESCDOFF       I*4         (CONSTANT)Product header offset: Message
+*.                                   code.
+*.    G   NBLKSOFF       I*4         (CONSTANT)Product header offset: Number
+*.                                   of blocks in product.
+*.    G   NLYROFF        I*4         (CONSTANT)Product block offsets: Number
+*.                                   of layers.
+*.    G   NMAPSOFF       I*4         (CONSTANT)Product header offset
+*.                                   descriptions: Number of maps.
+*.    G   NRWSOFF        I*4         (CONSTANT)Display header offset (For
+*.                                   raster formatted products): Number of
+*.                                   rows offset.
+*.    G   OPRLSWOFF      I*4         (CONSTANT)Product header offset
+*.                                   descriptions: Offset to product length
+*.                                   (LSW)
+*.    G   PACKDESC       I*4         (CONSTANT)Display header offset (For
+*.                                   raster formatted products): Packing
+*.                                   descriptor offset.
+*.    G   PHBYTES        I*4         (CONSTANT)Number of bytes in product
+*.                                   header.
+*.    G   PHEADLNG       I*4         (CONSTANT)Number of half words in product
+*.                                   header (its length).
+*.    G   PRDCODOFF      I*4         (CONSTANT)Product header offset
+*.                                   descriptions: Product code.
+*.    G   RADHGTOFF      I*4         (CONSTANT)Product header offset
+*.                                   descriptions: Height of radar.
+*.    G   RASFLG1        I*4         (CONSTANT)Raster flag for first word in
+*.                                   raster header.
+*.    G   RASFLG2        I*4         (CONSTANT)Raster flag for second word in
+*.                                   raster header.
+*.    G   RASFLG3        I*4         (CONSTANT)Raster flag for third word in
+*.                                   raster header.
+*.    G   RASTER_HEADER  I*4         (CONSTANT)Number of half words in raster
+*.                                   packet header.
+*.    G   RAS_PACK_DES   I*4         (CONSTANT)Preset to raster packing
+*.                                   description.
+*.    G   SBON           I*2         (CONSTANT)Spot Blanking flag indicating
+*.                                   it is enabled in product
+*.    G   SCAN_DATE      I*4         (CONSTANT)Volume Scan Date index into
+*.                                   Scan Summary Table
+*.    G   SCAN_SB        I*4         (CONSTANT)Spot Blanking Flag index into
+*.                                   Volume Scan Summary Table
+*.    G   SCAN_TIME      I*4         (CONSTANT)Volume Scan Time index into
+*.                                   Scan Summary Table
+*.    G   SCAN_VCP       I*4         (CONSTANT)Volume Coverage Pattern index
+*.                                   into Scan Summary Table
+*.    G   SRCIDOFF       I*4         (CONSTANT)Product header offset: Source
+*.                                   ID-Number.
+*.    G   VCPOFF         I*4         (CONSTANT)Product header offset:  Volume
+*.                                   coverage pattern.
+*.    G   VOL_SPOT_BLANK I*2         (CONSTANT)Spot Blank field in Scan
+*.                                   Summary table definition
+*.    G   VSDATOFF       I*4         (CONSTANT)Product header offset: Volume
+*.                                   scan date.
+*.    G   VSNUMOFF       I*4         (CONSTANT)Product header offset
+*.                                   descriptions: Volume scan number.
+*.    G   VSTLSWOFF      I*4         (CONSTANT)Product header offset: Volume
+*.                                   scan time (LSW).
+*.    G   VSTMSWOFF      I*4         (CONSTANT)Product header offset:  Volume
+*.                                   scan time (MSW).
+*.    G   WTMODOFF       I*4         (CONSTANT)Product header offset:  Weather
+*.                                   mode.
+*.    G   XSCFACFRA      I*4         (CONSTANT)Display header offset (For
+*.                                   raster formatted products): X Scale
+*.                                   factor fraction.
+*.    G   XSCFACINT      I*4         (CONSTANT)Display header offset (For
+*.                                   raster formatted products): X Scale
+*.                                   factor integer.
+*.    G   YSCFACFRA      I*4         (CONSTANT)Display header offset (For
+*.                                   raster formatted products): Y Scale
+*.                                   factor fraction.
+*.    G   YSCFACINT      I*4         (CONSTANT)Display header offset (For
+*.                                   raster formatted products): Y Scale
+*.                                   factor integer.
+*.    C   CRP35          I*4         (CONSTANT)Data Buffer Type: Index for
+*.                                   composite reflectivity product (1x1
+*.                                   resolution, 230 KM range, data level 8).
+*.    C   CRP36          I*4         (CONSTANT)Data Buffer Type:Index for
+*.                                   reflectivity product (4x4 resolution, 460
+*.                                   Km range, data level 8).
+*.    C   CRP37          I*4         (CONSTANT)Data Buffer Type: Index for
+*.                                   composite reflectivity product (1x1
+*.                                   resolution, 230 km range, data level 16).
+*.    C   CRP38          I*4         (CONSTANT)Data Buffer Type: Index to
+*.                                   composite reflectivity product (4x4
+*.                                   resolution, 460 km range, data level 16).
+*.    C   GRID_CALCON    I*4         (CONSTANT)Index in grid buffer header to
+*.                                   radar calibration constant.
+*.    C   VS_NUM         I*4         (CONSTANT)Index in buffer header to
+*.                                   grid's volume scan number.
+*.    P   BUFOUT         I*2         OUTPUT BUFFER SPACE
+*.    P   CGRIDHDR       I*4         Array containing header portion of
+*.                                   cartesian grid buffer.
+*.    P   CLTABIND       I*4         INDEX OF COLOR TABLE TO BE USED
+*.    P   NBOX           I*4         NUMBER OF BOXES IN GRID
+*.    P   NRLEB          I*4         NUMBER OF RUN-LENGTH-ENCODED BYTES
+*.                                   PRODUCED BY RUN-LENGTH-ENCODING ROUTINE
+*.    P   PGRIDHDR       I*4         POLAR GRID PRODUCT HEADER
+*.    P   PRODNUM        I*4         CODE FOR THIS PRODUCT
+*.    P   VSNUM          I*4         ID NUMBER FOR THE VOLUME SCAN FROM WHICH
+*.                                   THIS PRODUCT'S DATA IS TAKEN
+*.    P   WEATHRMD       I*4         WEATHER MODE IN EFFECT FOR THIS VOL.
+*.
+*.    *   OUTPUT   TYPE        DESCRIPTION
+*.    -   ------   ----        -----------
+*.    P   BUFOUT   I*2         OUTPUT BUFFER SPACE
+*.    P   CGRIDHDR I*4         Array containing header portion of cartesian
+*.                             grid buffer.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE: NONE
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME     TYPE        DESCRIPTION
+*.    ----     ----        -----------
+*.    BIAS     I*4         (Constant)=33, max data level 1 bias
+*.    BLOCKID  I*4         BLOCK ID
+*.    CLEAR    I*4         Parameter used to clear a variable.
+*.    DIVIDER  I*4         USED TO DIVIDE BLOCKS OF HEADER SPACE.
+*.    GDATE    I*4         Generation date.
+*.    GTIME    I*4         Generation time of product.
+*.    HALF     R*4         Program parameter for 0.5.
+*.    I        I*4         Index variable.
+*.    I4WORD   I*4         Temporary storage variable
+*.    ISTRT    I*4         (Constant) Value used to designate the I-coordinate
+*.                         start, put in array BUFOUT (output buffer space).
+*.    JSTRT    I*4         (Constant) Initial J coordinate value
+*.    MAXLEVS  I*4         Maximum number of threshold tables. Used as upper
+*.                         limit of do loop.
+*.    NBLKS    I*4         NUMBER OF BLOCKS IN THE PRODUCT HEADER
+*.    NLYR     I*4         (Constant) number of layers.
+*.    PRODCODE I*4         Product code.
+*.    SC230    I*4         (Constant) Scale factor equal to 1.
+*.    SC460    I*4         (Constant) Scale factor equal to 2.
+*.    SCFINT   I*4         Temporary hold for scaling factor, integer part.
+*.    SCFRAC   I*4         Fractional part of scaling factor.
+*.    VS_DAT   I*4         Index in buffer header to grid's volume scan time.
+*.    VS_TIM   I*4         Index in buffer header to grid's volume scan time.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD05
+*.    COLRTBL
+*.    SITEADP
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: NONE.
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP07.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK07.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+$EJECT
+C
+      IMPLICIT NONE
+C
+$INCLUDE A309.INC/G,**A3PM00 (NEND NLIST)
+$INCLUDE            **A3PM01 (NEND NLIST)
+$INCLUDE            **A3PM04 (NEND NLIST)
+$INCLUDE            **A3PM06 (NEND NLIST)
+$INCLUDE            **A3CD05 (NEND NLIST)
+C
+$INCLUDE A309ADPT.INC/G,**A3CD70CA (NEND NLIST)
+$INCLUDE                **A3CD70C5 (NEND NLIST)
+C
+$INCLUDE A307BUF.INC/G,**A307P4 (NEND NLIST)
+$INCLUDE               **A307P9 (NEND NLIST)
+$INCLUDE               **A307D9 (NEND NLIST)
+C
+      INTEGER I4WORD
+C
+      INTEGER*2 BUFOUT(*)
+      INTEGER*2 LAST_ELEV, PARAM_30
+      INTEGER PGRIDHDR
+      INTEGER MAXVAL,VSNUM,WEATHRMD
+      INTEGER NBLKS,NLYR,BLOCKID
+      INTEGER NBOX
+      INTEGER NDATLVL,NRLEB
+      INTEGER CLTABIND,PRODNUM,PRODCODE
+      INTEGER I,J,DIVIDER,CLEAR,BIAS
+      INTEGER GDATE,GTIME
+      INTEGER ISTRT,JSTRT
+      INTEGER SC230,SC460
+      INTEGER SCFINT,SCFRAC
+      REAL HALF
+      INTEGER MAXLEVS
+      INTEGER CR_VERSION
+      PARAMETER (MAXLEVS=16)
+C
+      PARAMETER(DIVIDER=-1,NBLKS=3,NLYR=1,BLOCKID=1,CLEAR=0,BIAS=33)
+      PARAMETER (HALF=0.5)
+      PARAMETER(ISTRT=1,JSTRT=1)
+      PARAMETER(SC230=1,SC460=2,SCFRAC=0)
+      PARAMETER(CR_VERSION = X'0100')
+      LOGICAL OS32BTESTS
+C
+C*** EXECUTABLE CODE:
+C     ---------------
+C
+C** GET THE LAST ELEVATION ANGLE OF THE VCP.  IF AVSET IS NOT ACTIVE
+C** THE FOLLOWING CALL RETURNS 0.
+C
+      PARAM_30 = 0
+      CALL RPG_avset_last_elev( SUMMARY(SCAN_DATE,VSNUM), LAST_ELEV )
+C
+C** CORRELATE PRODUCT CODE & PRODUCT NUMBER, AND SET SCALE FACTORS
+C
+      SCFINT = SC460
+C
+C     PRODUCT CODE 35
+C
+      IF(PRODNUM.EQ.CRP35) THEN
+         PRODCODE=35
+         SCFINT=SC230
+         PARAM_30 = LAST_ELEV
+C
+C     PRODUCT CODE 36
+C
+      ELSE IF(PRODNUM.EQ.CRP36) THEN
+         PRODCODE=36
+         SCFINT=SC460
+         PARAM_30 = LAST_ELEV
+C
+C     PRODUCT CODE 37
+C
+      ELSE IF(PRODNUM.EQ.CRP37) THEN
+         PRODCODE=37
+         SCFINT=SC230
+         PARAM_30 = LAST_ELEV
+C
+C     PRODUCT CODE 38
+C
+      ELSE IF(PRODNUM.EQ.CRP38) THEN
+         PRODCODE=38
+         SCFINT=SC460
+         PARAM_30 = LAST_ELEV
+C
+C-----IN THIS CASE THERE IS AN ERROR SOMEWHERE
+C
+      ELSE
+         PRODCODE=CLEAR
+      ENDIF
+C
+C** INITIALIZE BUFFER TO NULL
+C
+      DO 10 I=1,PHEADLNG
+  10    BUFOUT(I)=CLEAR
+C
+C** MESSAGE CODE
+C
+      BUFOUT(MESCDOFF) = PRODCODE
+
+C** SOURCE ID
+C
+      BUFOUT(SRCIDOFF)=SIRPGID
+C
+C** NUMBER OF BLOCKS
+C
+      BUFOUT(NBLKSOFF)=NBLKS
+C
+C** DIVIDER
+C
+      BUFOUT(DIV1OFF)  = DIVIDER
+C
+C** LATITUDE
+C
+      call RPG_set_product_int( BUFOUT(LTMSWOFF), SIRDALAT )
+C
+C** LONGITUDE
+C
+      call RPG_set_product_int( BUFOUT(LNMSWOFF), SIRDALON )
+C
+C** RADAR HEIGHT
+C
+      BUFOUT(RADHGTOFF) = SIRDAHGT
+C
+C** PRODUCT CODE
+C
+      BUFOUT(PRDCODOFF) = PRODCODE
+C
+C** VOLUME COVERAGE PATTERN
+C
+      BUFOUT(VCPOFF) = SUMMARY(SCAN_VCP,VSNUM)
+C
+C** VOLUME SCAN NUMBER
+C
+      BUFOUT(VSNUMOFF) = VSNUM
+      CGRIDHDR(VS_NUM) = VSNUM
+C
+C** WEATHER MODE
+C
+      BUFOUT(WTMODOFF) = WEATHRMD
+C
+C** VOLUME SCAN DATE & TIME
+C
+      BUFOUT(VSDATOFF) = SUMMARY(SCAN_DATE,VSNUM)
+      call RPG_set_product_int( BUFOUT(VSTMSWOFF),
+     1                          SUMMARY(SCAN_TIME,VSNUM) )
+      CGRIDHDR(VS_DAT) = BUFOUT(VSDATOFF)
+      CGRIDHDR(VS_TIM) = SUMMARY(SCAN_TIME,VSNUM)
+C
+C** GENERATION DATE & TIME
+C
+      CALL A3CM25__GET_DATE_TIME(GDATE,GTIME)
+      BUFOUT(GDPRDOFF) = GDATE
+      call RPG_set_product_int( BUFOUT(GTMSWOFF), GTIME )
+C
+C** SET SPOT BLANK STATUS
+C
+C**   Call the INTEGER*4 bit-testing function ...
+      IF (OS32BTESTS(SUMMARY(SCAN_SB,VSNUM),VOL_SPOT_BLANK))
+     >    BUFOUT(NMAPSOFF)= SBON
+C
+C** SET THE PRODUCT VERSION NUMBER MAKING SURE TO
+C** RETAIN THE SPOT BLANK FLAG.  THE VERSION WAS
+C** INCREMENTED FOR CCR NA05-23001.
+C
+      BUFOUT(NMAPSOFF) = BUFOUT(NMAPSOFF) + CR_VERSION
+C
+C** SET THE LAST ELEVATION ANGLE IF AVSET IS ACTIVE
+C
+      BUFOUT(EAZALOFF) = PARAM_30
+C
+C** THRESHOLD TABLES
+C
+      DO 20 I=1,MAXLEVS
+        BUFOUT(DL1OFF+I-1) = THRESH(I,CLTABIND)
+  20  CONTINUE
+C
+C** MAXIMUM DATA VALUE FOUND IN THE GRID
+C
+      BUFOUT(MDL1OFF) = NINT(CGRIDHDR(GRID_MAXVAL)*HALF) - BIAS
+C
+C** PRODUCT HEADER OFFSET
+C
+      call RPG_set_product_int( BUFOUT(OPRMSWOFF), PHEADLNG )
+C
+C** PRODUCT DIVIDER OFFSET
+C
+      BUFOUT(DIV2OFF)=DIVIDER
+C
+C** BLOCK ID
+C
+      BUFOUT(BLOCKIDOFF)=BLOCKID
+C
+C** NUMBER OF LAYERS
+C
+      BUFOUT(NLYROFF)=NLYR
+C
+C** LAYER DIVIDER
+C
+      BUFOUT(LYRDIVOFF)=DIVIDER
+C
+C** LAYER LENGTH
+C
+      I4WORD = NRLEB + RASTER_HEADER*2
+      call RPG_set_product_int( BUFOUT(LYRLMSWOFF), I4WORD )
+C
+C** BLOCK LENGTH
+C
+      I4WORD = I4WORD + BLKOVRHD
+      call RPG_set_product_int( BUFOUT(LRMSWOFF), I4WORD )
+C
+C** LENGTH OF MESSAGE
+C
+      I4WORD = I4WORD + PHBYTES
+      call RPG_set_product_int( BUFOUT(LGMSWOFF), I4WORD )
+C
+C** CALIBRATION CONSTANT
+C
+      CGRIDHDR(GRID_CALCON)=PGRIDHDR
+      I4WORD = PGRIDHDR
+      call RPG_set_product_float( BUFOUT(CALCONMSW), I4WORD )
+C
+C** RUN LENGTH ENCODING HEADER PACKER:
+C
+      BUFOUT(FLAGSOF1)=RASFLG1
+      BUFOUT(FLAGSOF2)=RASFLG2
+      BUFOUT(FLAGSOF3)=RASFLG3
+      BUFOUT(PACKDESC)=RAS_PACK_DES
+C
+C** I & J COORDINATE STARTS
+C
+      BUFOUT(ICDSTOFF) = ISTRT
+      BUFOUT(JCDSTOFF) = JSTRT
+C
+C** SCALE FACTOR:
+C
+      BUFOUT(XSCFACINT)=SCFINT
+      BUFOUT(XSCFACFRA)=SCFRAC
+      BUFOUT(YSCFACINT)=SCFINT
+      BUFOUT(YSCFACFRA)=SCFRAC
+C
+C** NUMBER OF ROWS:
+C
+      BUFOUT(NRWSOFF)=NBOX
+C
+C*** RETURN TO PRODUCT GENERATION CONTROL ROUTINE
+      RETURN
+      END

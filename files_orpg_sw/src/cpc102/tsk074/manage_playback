@@ -1,0 +1,250 @@
+#!/bin/sh
+
+# RCS info
+# $Author: ccalvert $
+# $Locker:  $
+# $Date: 2013/03/22 17:16:31 $
+# $Id: manage_playback,v 1.1 2013/03/22 17:16:31 ccalvert Exp $
+# $Revision: 1.1 $
+# $State: Exp $
+
+RPG_ICAO=
+RPG_BUILD_NUM=
+CASE_NAME=
+CHANGE_ADAPT_OPTION=
+LAUNCH_HCI_OPTION=
+PRINT_DEFAULTS_FLAG=NO
+DEBUG_FLAG=NO
+
+#########################################################
+# ECHO_ERROR: Echo error message and exit.
+#########################################################
+
+echo_error ()
+{
+  echo
+  echo
+  echo "IN SCRIPT: $0"
+  echo "ERROR: $1"
+  echo "Stopping script"
+  echo "Use -h option for help"
+  echo
+  echo
+  exit 1
+}
+
+#########################################################
+# ECHO_DEBUG: Echo debug messages.
+#########################################################
+
+echo_debug ()
+{
+  if [ $DEBUG_FLAG = YES ]
+  then
+    echo "DEBUG: $1"
+  fi
+}
+
+#########################################################
+# PRINT_USAGE: Display "help" to screen.
+#########################################################
+
+print_usage ()
+{
+  echo
+  echo "Usage: `basename $0` [Options]"
+  echo
+  echo "Options:"
+  echo
+  echo "-h - help"
+  echo "-d - Print defaults after processing command line"
+  echo "-x - Turn debugging statements on"
+  echo "-i - ICAO (4-characters)"
+  echo "-b - RPG Build number"
+  echo "-C - Playback case (directory must exist in \$PLAYBACK_CASE_DIR)"
+  echo
+  echo "Optional:"
+  echo
+  echo "-f - Modified adaptable parameters file"
+  echo "-H - Do not launch HCI automatically"
+  echo
+}
+#########################################################
+# PARSE_CMDLINE: Parse command line arguments.
+#########################################################
+
+parse_cmdline ()
+{
+  while getopts hdxi:b:C:Hf: option
+  do
+    case $option in
+      h) print_usage; exit 0;;
+      d) PRINT_DEFAULTS_FLAG=YES;;
+      x) DEBUG_FLAG=YES;;
+      i) RPG_ICAO=`echo $OPTARG | tr '[a-z]' '[A-Z]'`;;
+      b) RPG_BUILD_NUM=$OPTARG;;
+      C) CASE_NAME=$OPTARG;;
+      f) CHANGE_ADAPT_OPTION="-f $OPTARG";;
+      H) LAUNCH_HCI_OPTION='-H';;
+     \?) echo_error "Invalid input flag"
+    esac
+  done
+
+  echo_debug "RPG_ICAO:            $RPG_ICAO"
+  echo_debug "RPG_BUILD_NUM:       $RPG_BUILD_NUM"
+  echo_debug "CASE_NAME:           $CASE_NAME"
+  echo_debug "PRINT_DEFAULTS_FLAG: $PRINT_DEFAULTS_FLAG"
+  echo_debug "DEBUG_FLAG:          $DEBUG_FLAG"
+
+  # Make sure playback environment is set
+  check_playback_env
+
+  if [ $PRINT_DEFAULTS_FLAG = YES ]
+  then
+    print_defaults
+    exit 0
+  fi
+
+  # Verify ICAO is defined and valid
+  if [ -z "$RPG_ICAO" ]
+  then
+    echo_error "Option -i is required"
+  elif ! echo $RPG_ICAO | egrep -q '^[A-Z][A-Z][A-Z][A-Z0-9]$'
+  then
+    echo_error "Argument for option -i has invalid format"
+  fi
+
+  # Verify RPG build number. ROC CM names RPG build directories without
+  # a decimal, so account for user adding a decimal.
+  if [ -z "$RPG_BUILD_NUM" ]
+  then
+    echo_error "Option -b is required"
+  fi
+  tempbld=$RPG_BUILD_NUM
+  if echo $tempbld | egrep -q '[0-9][0-9]\.0'
+  then
+    RPG_BUILD_NUM=`echo $tmpbld | sed 's/\([0-9][0-9]\)\.0/\1/'`
+  elif echo $tempbld | egrep -q '[0-9][0-9]\.[1-9]'
+  then
+    RPG_BUILD_NUM=`echo $tmpbld | sed 's/\([0-9][0-9]\)\.\([0-9]\)/\1\2/'`
+  fi
+  echo_debug "RPG_BUILD_NUM: $RPG_BUILD_NUM"
+
+  # Verify playback directory is defined and exists.
+  PLAYBACK_CASE=$PLAYBACK_CASE_DIR/$CASE_NAME
+  if [ ! -d $PLAYBACK_CASE ]
+  then
+    echo_debug "Directory $PLAYBACK_CASE doesn't exist"
+  fi
+
+  # Verify playback data sub-directory is defined and exists.
+  PLAYBACK_DATA_DIR=$PLAYBACK_CASE/data
+  echo_debug "PLAYBACK_DATA_DIR: $PLAYBACK_DATA_DIR"
+  if [ ! -d $PLAYBACK_DATA_DIR ]
+  then
+    echo_debug "Directory $PLAYBACK_DATA_DIR doesn't exist"
+  fi
+
+  # Verify playback misc sub-directory is defined and exists.
+  PLAYBACK_MISC_DIR=$PLAYBACK_CASE/misc
+  echo_debug "PLAYBACK_MISC_DIR: $PLAYBACK_MISC_DIR"
+  if [ ! -d $PLAYBACK_MISC_DIR ]
+  then
+    echo_debug "Directory $PLAYBACK_MISC_DIR doesn't exist"
+  fi
+}
+
+#########################################################
+# PRINT_DEFAULTS: Print default values used by script
+#########################################################
+
+print_defaults ()
+{
+  echo
+  echo "RPG_ICAO:            $RPG_ICAO"
+  echo "RPG_BUILD_NUM:       $RPG_BUILD_NUM"
+  echo "CASE_NAME:           $CASE_NAME"
+  echo "PRINT_DEFAULTS_FLAG: $PRINT_DEFAULTS_FLAG"
+  echo "DEBUG_FLAG:          $DEBUG_FLAG"
+  echo
+  for cmd in manage_install manage_setup manage_rpg
+  do
+    if ! "$cmd -d"
+    then
+      echo_error "Task $cmd failed"
+    fi
+  done
+}
+
+#########################################################
+# CHECK_PLAYBACK_ENV: Make sure playback environment is set
+#########################################################
+
+check_playback_env ()
+{
+  # Make sure PLAYBACK_CASE_DIR is defined
+  if [ -z "$PLAYBACK_CASE_DIR" ]
+  then
+    echo_error "\$PLAYBACK_CASE_DIR not defined"
+  elif [ ! -d "$PLAYBACK_CASE_DIR" ]
+  then
+    echo_error "Directory $PLAYBACK_CASE_DIR does not exist"
+  fi
+
+  if ! which manage_install > /dev/null 2>&1
+  then
+    echo_debug "Script manage_install not found"
+  elif ! which manage_setup > /dev/null 2>&1
+  then
+    echo_debug "Script manage_setup not found"
+  elif ! which manage_rpg > /dev/null 2>&1
+  then
+    echo_debug "Script manage_rpg not found"
+  fi
+}
+
+#########################################################
+# RUN_PLAYBACK: Run playback
+#########################################################
+
+run_playback ()
+{
+  DEBUG_OPTION=
+  if [ $DEBUG_FLAG = YES ]
+  then
+    DEBUG_OPTION='-x'
+  fi
+
+  cmd1="manage_install -b $RPG_BUILD_NUM $DEBUG_OPTION"
+  cmd2="manage_setup -i $RPG_ICAO $CHANGE_ADAPT_OPTION $DEBUG_OPTION"
+  cmd3="manage_rpg -D $PLAYBACK_DATA_DIR $LAUNCH_HCI_OPTION $DEBUG_OPTION"
+  cmd4="manage_rpg -S $DEBUG_OPTION"
+  cmd5="manage_rpg -A $PLAYBACK_MISC_DIR $DEBUG_OPTION"
+
+  for cmd in "$cmd1" "$cmd2" "$cmd3" "$cmd4" "$cmd5"
+  do
+    sleep 2
+    echo_debug "CMD: $cmd"
+    if ! $cmd
+    then
+      echo_error "Task $cmd failed"
+    fi
+  done
+}
+
+####################################################################
+#
+# MAIN BODY OF SCRIPT
+#
+####################################################################
+
+# Read the command line options
+parse_cmdline $*
+
+# Run playback
+run_playback
+
+echo
+echo "Finished running playback"
+echo
+

@@ -1,0 +1,120 @@
+#!/bin/sh
+
+# RCS info
+# $Author: steves $
+# $Locker:  $
+# $Date: 2014/03/10 19:31:43 $
+# $Id: build_install_tarballs,v 1.2 2014/03/10 19:31:43 steves Exp $
+# $Revision: 1.2 $
+# $State: Exp $
+
+#    File: build_install_files
+#
+# Purpose: build the multi-os/architecture installation "tar" file
+#
+#          We currently support the following Operating System/Architecture
+#          combinations:
+#
+#          lnux_x86 - LINUX X86
+#
+#   Notes:
+#       This script contains one or more script functions.  These functions
+#       are defined in alphabetical order at the top of this file (must
+#       precede the main body of the script).
+#
+
+usage="Usage: `basename $0` [options] -v version \n
+       Options: \n
+               -h print usage message \n\n
+               -d workdir (build files using specified directory; default: current working directory)\n\n
+       For example: \n
+       \n
+       `basename $0` -v 1.7\n\n"
+
+workdir=`pwd`
+orgdir=`pwd`
+version=
+
+while getopts d:hv: input
+do
+   case $input in
+      h) echo $usage
+        exit 0 ;;
+      d) workdir="$OPTARG";;
+      v) version="$OPTARG";;
+      \?) echo $usage
+          exit 1 ;;
+   esac
+done
+
+if [ -z "$version" ]
+then
+   echo $usage
+   exit 1
+fi
+
+# This is where the compressed installation file will be stored ...
+repository=$HOME
+
+#-------------------- Name the Build and Installation Files ---------------
+buildfile="bld_v"$version
+tarfile="orpg_"$buildfile".tar"
+
+# Ensure that the ./cfg files have proper permissions ...
+
+chmod  -R ug+rw * *.*
+
+#-------------------- Ensure Shared Libraries have Proper Mode ------------
+for arch in \
+        lnux_x86
+do
+   if [ -d "$workdir/lib/$arch" ]
+   then
+      chmod 0555 $workdir/lib/$arch/lib*.so*
+   fi
+done
+
+cd $workdir
+
+#-------------------- Create Empty Subdirectories -------------------------
+for subdir in \
+        $workdir/tmp
+do
+   if [ -d $subdir ]
+   then
+      rm -rf $subdir
+   fi
+
+   mkdir $subdir
+   chmod 0775 $subdir
+done
+
+#-------------------- Create Installation File ----------------------------
+
+# Note that we do not archive the static library files (*.a)
+cd $workdir
+
+# remove any old installation files ...
+rm -f orpg_bld_*
+
+echo "Building installation file: $tarfile at $workdir ..."
+rm -f $tarfile
+
+  tar cXf excludefile $tarfile ./install_rpg ./.bashrc ./.cshrc ./.bash_profile ./.rssd.conf ./.rssd.conf.faa ./bin ./cfg ./data ./man ./lib/lnux_x86/*.so* ./tmp
+
+echo "Compressing $tarfile ..."
+bzip2 $tarfile
+
+#-------------------- Restore Shared Libraries Modes ----------------------
+for arch in \
+        lnux_x86
+do
+   if [ -d "$workdir/lib/$arch" ]
+   then
+      chmod 0775 $workdir/lib/$arch/lib*.so*
+   fi
+done
+
+#-------------------- Build Installation File for Tools/Adaptation Data----
+$orgdir/build_tools_tarball -d $workdir -v $version
+$orgdir/build_adapt_tarball -d $workdir -v $version

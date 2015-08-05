@@ -1,0 +1,115 @@
+hci_cbm.doc			NOTES				hci_cbm.doc
+
+
+This file contains information about the HCI Clutter Bypass Map task.
+It is intended to be used by those interested in how the software is designed
+rather than by a typical user.  More detailed information about data stores
+and events used by this task is presented.
+
+Design
+------
+
+*** NOTE NOTE NOTE ***
+To support ORDA, two executables were added to this task. If hci_cbm determines
+the RDA configuration to be ORDA, then hci_cbm calls hci_cbm_orda, if the RDA
+configuration is legacy, then hci_cbm calls hci_cbm_legacy. The only difference
+between the two executables are macro names (i.e. "under the hood" stuff) not
+noticed by the user.
+**********************
+
+The Clutter Bypass Map task was created as a sub task in the HCI family
+of tasks.  A typical user would normally activate it by selecting the "Bypass
+Map Editor" icon pushbutton in the Applications region of the RPG Control/Status
+window.  However, as a stand-alone application, it can be launched from the
+command line using the "hci_cbm" command or by invoking a system call in any
+other application wishing to launch it.  This modular approach has a number of
+benefits which are described in the doc file for the hci task (hci.doc).
+
+The Clutter Bypass Map task includes the clutter bypass map data
+functionality provided by the legacy UCP "Clutter Bypass Filter Editor" menu.
+A full description can be found in the man page hci_cbm(1).
+
+The window can be resized.
+
+In the ORPG, one clutter bypass map message is defined; the default clutter
+bypass map.  The default clutter bypass map is not editable and contains
+the latest clutter bypass map received at the RPG from the RDA. When the user
+activates the task, the clutter bypass map message is loaded into the local
+buffer and displayed. When the task is started, if the clutter bypass map
+message hasn't been initialized, the default clutter bypass message is copied
+to the clutter bypass map message. If not, as soon as clutter bypass map 
+message is received at the RPG from the RDA, the default clutter bypass map
+message is initialized by the new message.
+
+The timer procedure is activated in 2 second intervals.  It checks to see
+if the copy of the clutter bypass map has been initialized.  If not, it
+checks for a valid default bypass map and updates the copy when one is
+received and displays it.
+
+Testing
+-------
+
+To test this function fully, a live RDA is needed.  However, the RDA simulator
+can be used to test everything except where a new downloaded bypass map is
+expected.
+
+SOURCE FILES
+------------
+
+	hci_clutter_bypass_map_editor.c
+				This module determines the RDA configuration and
+                                calls the appropriate executable. It calls
+                                hci_cbm_legacy or the legacy RDA and calls
+                                hci_cbm_orda for ORDA.
+
+				window.
+	hci_clutter_bypass_map_editor_legacy.c
+				This module contains all of the code to build
+				and display the Clutter Bypass Map window for
+
+                                the legacy RDA.
+	hci_clutter_bypass_map_editor_orda.c
+				This module contains all of the code to build
+				and display the Clutter Bypass Map window for
+                                ORDA
+
+				
++++ PROC
+
+DATA IN
+
+	ORPGDAT_ADAPT.4
+	ORPGDAT_CLUTTERMAP.4
+	ORPGDAT_HCI_DATA.4
+	ORPGDAT_REDMGR_CHAN_MSGS.4
+	
+DATA OUT
+
+	ORPGDAT_CLUTTERMAP.4
+	ORPGDAT_RDA_COMMAND.4
+		
+EVENTS OUT
+
+	ORPGEVT_HCI_COMMAND_ISSUED
+	
+APIs USED
+
+	orpg.3
+	
+		ORPGRED.3
+		ORPGSITE.3
+		ORPGRDA.3
+		ORPGEDLOCK.3
+		ORPGMISC.3
+
+	hci.3
+
+---
+	
+SEE ALSO
+
+hci(1) hci_cbm(1) rda_simulator(1) hci(3) orpg(3) orpgred(3) orpgsite(3)
+orpgrda(3) orpgmisc(3) orpgedlock(3)
+
+
+hci_cbm.doc							hci_cbm.doc

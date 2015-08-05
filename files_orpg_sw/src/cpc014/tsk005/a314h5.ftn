@@ -1,0 +1,197 @@
+C 
+C RCS info 
+C $Author: steves $ 
+C $Locker:  $ 
+C $Date: 2004/01/21 22:47:01 $ 
+C $Id: a314h5.ftn,v 1.5 2004/01/21 22:47:01 steves Exp $ 
+C $Revision: 1.5 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A314H5__AVG_REF_MAP ( LAYSTART,AZRAD,RSSKM,COSEL,
+     $ LAYEND,NCOL,NROW,HALFCOL,HALFROW,XAZFUNC,YAZFUNC,REFTY8,
+     $ IZ,REFLAY,REFNUM )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A314H5__AVG_REF_MAP
+*.
+*.  MODULE VERSION: 0013
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       09 25 85      0000      Bradley Sutker       RPG Build 3
+*.       08 23 88      0001      BILL EIDSON          SPR # 80248
+*.       10 17 88      0002      VALERIE HOLDEN       SPR # 80266
+*.       04 17 90      0003      PAUL PISANI          SPR # 90697
+*.       02 14 91      0004      MARK FRESCH          SPR # 91255
+*.       12 03 91      0005      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0006      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0007      Toolset              SPR 91895
+*.       03/25/93      0008      Toolset              SPR NA93-06801
+*.       01/28/94      0009      Toolset              SPR NA94-01101
+*.       03/03/94      0010      Toolset              SPR NA94-05501
+*.       04/11/96      0011      Toolset              CCR NA95-11802
+*.       12/23/96      0012      Toolset              CCR NA95-11807
+*.       03/16/99      0013      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A314H5__AVG_REF_MAP (LAYSTART,AZRAD,RSSKM,
+*.                      COSEL,LAYEND,NCOL,NROW,HALFCOL,HALFROW,
+*.                      XAZFUNC,YAZFUNC,REFTY8,IZ,REFLAY,REFNUM)
+*.
+*.  MODULE FUNCTION:
+*.
+*.     Determine the numerator and denominator to compute
+*.     the average reflectivity of polar data mapped to a
+*.     Cartesian array.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT    TYPE        DESCRIPTION
+*.    -   -----    ----        -----------
+*.    G   COLDAT   I*2         Product Data Levels Adaptation Data for the
+*.                             Color Data Tables.
+*.    G   PREFSIZE I*4         (CONSTANT)Size of preprocessed base radial
+*.                             reflectivity data.
+*.    P   HALFCOL  R*4         The center of the grid column position.
+*.    P   HALFROW  R*4         The center of the grid row position.
+*.    P   IZ       I*2         The base radial reflectivity data
+*.                             (scaled/biased).
+*.    P   LAYEND   I*4         The end bin number of the current layer.
+*.    P   LAYSTART I*4         The start bin number of the current layer.
+*.    P   NCOL     I*4         NUMBER OF CARTESIAN BOX IN COLUMN DIRECTION
+*.                             (E-W)
+*.    P   NROW     I*4         NUMBER OF CARTESIAN BOX IN ROW DIRECTION (N-S)
+*.    P   REFLAY   I*2         The Reflectivity Cartesian array.
+*.    P   REFNUM   I*2         The total number of reflectivity values in a
+*.                             column (denominator in the average calculation.
+*.    P   REFTY8   I*4         COLOR CODE TABLE INDEX
+*.    P   RSSKM    R*4         The reflectivity sample range interval, in km.
+*.    P   XAZFUNC  I*4         One of the X axis Cartesian mapping parameters.
+*.    P   YAZFUNC  I*4         One of the Y axis Cartesian mapping parameters.
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    P   REFLAY  I*2         The Reflectivity Cartesian array.
+*.    P   REFNUM  I*2         The total number of reflectivity values in a
+*.                            column (denominator in the average calculation.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME   TYPE        DESCRIPTION
+*.    ----   ----        -----------
+*.    HALVE  R*4         PROGRAM PARAMETER FOR 0.5
+*.    I      I*4         The I box start position.
+*.    IH     I*2         The I axis cartesian mapping variable.
+*.    INC1   I*4         INCREMENTAL VALUE OF 1
+*.    J      I*4         The J box start position.
+*.    JH     I*2         J axis cartesian mapping variable.
+*.    NBIN   I*4         BIN NUMBER
+*.    OFF1   I*4         OFFSET VALUE TO FIRST TABLE LOCATION
+*.    POWER2 I*4         An I*4 shift factor.
+*.    STPOS  R*4         The position of the first good radial bin being
+*.                       mapped, in km.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    COLRTBL
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS: None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK14.CSS
+*.
+*.  MISC:
+*.
+*.     The biased/scaled reflectivity is converted to it's
+*.     color code value for summation purposes.  Also...
+*.     no data is summed within the first 4 km because of
+*.     the enormous number of values in the nearest 4 4x4 km
+*.     Cartesian boxes.  Data is still accumulated in the
+*.     nearest 4 boxes however.  This procedure is followed
+*.     because an I*2 array is used for the summation
+*.     part of the average calculation and that it would
+*.     overflow the maximum I*2 value if this action was
+*.     not taken.
+*.
+*.*******************************************************************
+C
+      IMPLICIT NONE
+C
+$INCLUDE A309.INC/G,**A3PM04           (NLIST)
+$INCLUDE A304.INC/G,**A304P4           (NLIST)
+$INCLUDE A309ADPT.INC/G,**A3CD70C5     (NLIST)
+$INCLUDE A314.INC,**A314P5             (NLIST)
+C
+C  Local declarations
+C
+      REAL HALFCOL,HALFROW,RSSKM,STPOS,COSEL,HALVE,AZRAD
+      INTEGER DELTAI,DELTAJ,OFF1,INC1
+      INTEGER LAYSTART,LAYEND,NCOL,NROW,POWER2
+      INTEGER ICONST,JCONST,REFTY8
+      INTEGER I,IH,J,JH,NBIN,XAZFUNC,YAZFUNC
+      INTEGER*2 IZ( PREFSIZE )
+      INTEGER*2 REFLAY ( NCOL,NROW ),REFNUM( NCOL,NROW )
+      PARAMETER (OFF1=1,INC1=1)
+      DATA HALVE /0.5/, POWER2 /65536/
+C
+C Check for at least one good bin in this layer
+C
+      IF ( LAYSTART.LT.LAYEND ) THEN
+C
+C  Initialize mapping parameters
+C
+        STPOS=(LAYSTART-HALVE)*RSSKM
+C
+        I = ((HALFCOL+INC1)*POWER2)+(XAZFUNC*STPOS)
+        J = ((HALFROW+INC1)*POWER2)-(YAZFUNC*STPOS)
+C
+C Do for all 3-D BOXes
+C
+        DO 10 NBIN=LAYSTART,LAYEND
+C
+          call RPG_set_mssw_to_uint( I, IH )
+          call RPG_set_mssw_to_uint( J, JH )
+C
+C Sum the numerator
+C
+          REFLAY(IH,JH)=REFLAY(IH,JH)
+     $                       + COLDAT( IZ(NBIN),REFTY8 )
+C
+C Add (1) to the number of reflectivity values in this box...
+C in this layer
+C
+          REFNUM(IH,JH)=REFNUM(IH,JH)+INC1
+C
+C Increment I and J counters
+C
+          I = I + XAZFUNC
+          J = J - YAZFUNC
+   10   CONTINUE
+C
+      END IF
+C
+      RETURN
+      END

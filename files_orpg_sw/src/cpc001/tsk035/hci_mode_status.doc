@@ -1,0 +1,90 @@
+hci_mode_status.doc		    NOTES		hci_mode_status.doc
+
+
+This file contains information about the HCI Mode Status task.  It is
+intended to be used by those interested in how the software is designed rather
+than by a typical user.  More detailed information about data stores and events
+used by this task is presented.
+
+Design
+------
+
+The RPG Mode Status task was created as a sub task in the HCI family
+of tasks.  A typical user would normally activate it by selecting the "Mode
+Status" button in the "VCP and Mode Control" (tsk 007) gui window.
+However, as a stand-alone application, it can be launched from the command line
+using the "hci_mode_status" command or by invoking a system call in any other
+application wishing to launch it.  This modular approach has a number of
+benefits which are described in the doc file for the hci task (hci.doc).
+
+The Mode Status task consists of a main status window, called the
+Mode Status window, and a child window called Modify Mode Detection Parameters.
+The Modify Mode Detection Parameters window provides a user interface to edit
+mode detection adaptation data.
+
+There is a requirement to restrict editing of the mode detection
+adaptation data to the URC and ROC level users. Editable 
+fields are desensitized until the window is unlocked with a valid password.
+
+All Mode Status windows cannot be resized.  Vertical scrollbars are
+provided whenever too many table items exist to be visible.
+
+The "Time Until Clear Air" value is managed internally.  The value is determined
+by taking the difference between the current volume time and the time
+precipitation was last detected and subtracting the result from 60
+minutes.  If the value is negative, it is displayed as 0.
+
+A timer procedure is activated in 1 second intervals.  The Mode
+Status window is updated when the mode status data is updated.
+The Modify Mode Detection Parameters window is updated after
+the mode detection adaptation data are updated.
+
+Testing
+-------
+
+To test the full thread, a fully operational RPG needs to be running and 
+ingesting base data.
+
+SOURCE FILES
+------------
+
+	hci_popup_mode_status.c
+			This module contains all of the code to build and
+			manage the Mode Status and Modify Mode
+			Detection Parameters windows.
+				
++++ PROC
+
+DATA IN
+
+	ORPGDAT_ADAPT.4 
+	ORPGDAT_BASELINE_ADAPT.4
+	ORPGDAT_HCI_DATA.4
+	
+DATA OUT
+
+	ORPGDAT_ADAPT.4
+	
+EVENTS OUT
+
+	ORPGEVT_HCI_COMMAND_ISSUED
+					
+APIs USED
+
+	orpg.3
+	
+		ORPGRED.3
+		ORPGSITE.3
+		ORPGMISC.3
+		ORPGADPT.3
+
+	hci.3
+
+---
+	
+SEE ALSO
+
+hci(1) hci(3) orpg(3) orpgred(3) orpgsite(3) orpgmisc(3)
+orpgadpt(3)
+
+hci_mode_status.doc		 		         hci_mode_status.doc

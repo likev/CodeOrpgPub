@@ -1,0 +1,138 @@
+C 
+C RCS info 
+C $Author: nolitam $ 
+C $Locker:  $ 
+C $Date: 2002/11/27 15:58:36 $ 
+C $Id: a3136u.ftn,v 1.2 2002/11/27 15:58:36 nolitam Exp $ 
+C $Revision: 1.2 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A3136U__DETERM_LAG( LAG_HOURS )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3136U__DETERM_LAG
+*.
+*.  MODULE VERSION: 0000
+*.
+*.
+*.  MODULE LANGUAGE:  FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       01/31/02      0000      Dennis A. Miller     CCR NA01-27501
+*.
+*.  CALLING SEQUENCE:
+*.
+*.     CALL A3136U__DETERM_LAG( LAG_HOURS )
+*.
+*.  MODULE FUNCTION:
+*.
+*.     This routine, called when well more than an hour has passed since
+*.     the last time a new Bias Table was received, compares the most
+*.     recent Bias Table Observation date & time to the Current date
+*.     & time to determine the Lag (in clock hours) by which the local
+*.     copy of the Bias Table will be updated, before a Bias is extracted.
+*.
+*.
+*.  MODULES CALLED:  None
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.
+*.    *   INPUT       TYPE    DESCRIPTION
+*.    -   -----       ----    -----------
+*.    C   DBTBL_OBS   I*4     Observation Date of latest Bias Table (Julian)
+*.    C   TBTBL_OBS   I*4     Observation Time of latest Bias Table (secs)
+*.    C   DATECUR     I*4     Current Date (modified Julian, rel. 1/1/70)
+*.    C   TIMECUR     I*4     Current Time (seconds within current day)
+*.    C   SEC_IN_DAY  I*4     (CONSTANT)Number of seconds in a day
+*.    C   SEC_IN_HOUR I*4     (CONSTANT)Number of seconds in an hour
+*.
+*.
+*.    *   OUTPUT      TYPE    DESCRIPTION
+*.    -   ------      ----    -----------
+*.    P   LAG_HOURS   I*4     Lag betw. Current & last-received Bias Table hours
+*.
+*.
+*.    *   ACTUAL ARGUMENTS    TYPE   DESCRIPTION
+*.    -   ----------------    ----   -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME        TYPE    DESCRIPTION
+*.    ----        ----    -----------
+*.    LAG_DAYS    I*4     Lag betw. Current & last-received Bias Table dates
+*.    REF_TIME    I*4     Current time (secs) referenced to Bias Table date
+*.    REF_HOUR    I*4     Current hour referenced to Bias Table date
+*.    TABL_HOUR   I*4     Hour of last-received Bias Table
+*.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP09.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK09.CSS
+*.
+*.  MISC:  None
+*.
+*.**********************************************************************
+      IMPLICIT NONE
+C
+$INCLUDE A313H.INC,**A3136P        (NLIST)
+$INCLUDE **A3136C3                 (NLIST)
+C
+C************************* DATA DECLARATIONS ***************************
+C
+C
+      INTEGER  LAG_HOURS, REF_TIME, REF_HOUR, TABL_HOUR, LAG_DAYS
+C
+C
+C**************************** EXECUTABLE *******************************
+C
+X     type *
+X     type *, '...Enter module a3136u__determ_lag...'
+C
+C** Revise Current Time measure (secs) to same reference as last-
+C** received Bias Table date (Julian)
+C
+      LAG_DAYS = DATECUR - DBTBL_OBS
+      REF_TIME = TIMECUR + LAG_DAYS*SEC_IN_DAY
+C
+X     type *
+X     type *, 'Lag (days) between current & table date =',LAG_DAYS 
+C
+C** Determine lag (in hours) between most recently-passed (reference)
+C** clock hour and last-received Bias Table
+C
+      REF_HOUR = REF_TIME/SEC_IN_HOUR
+      TABL_HOUR = TBTBL_OBS/SEC_IN_HOUR
+C
+      LAG_HOURS = REF_HOUR - TABL_HOUR
+C
+X     type *
+X     type *, '  Lag (hours) between current & table time =',LAG_HOURS
+X     type *
+X     type *, '...Exit module a3136u__determ_lag...'
+C
+      RETURN
+      END

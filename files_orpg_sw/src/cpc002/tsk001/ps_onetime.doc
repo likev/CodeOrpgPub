@@ -1,0 +1,155 @@
+
+ps_onetime is the process that schedules one-time requests.
+
+All input and output is through Linear Buffers.  Requests may be made
+for the last available product, the current product, or a product
+generated at a specific time.  Current products may also be requested to
+be delivered for up to 9 future volumes, every 1st to 9th volume.
+(Refer to the Product Request Message documentation in RPG/ASSOCIATED
+PUP ICD. )
+
++++ PROC
+
+DATA IN
+	ORPGDAT_OT_REQUEST.4
+	ORPGDAT_PROD_STATUS.4
+		
+DATA OUT
+	ORPGDAT_OT_RESPONSE.4
+	ORPGDAT_RT_REQUEST.4
+	ORPGDAT_REPLAY_REQUESTS.4
+
+
+EVENTS IN
+	ORPGEVT_WX_ALERT_OT_REQ
+	ORPGEVT_START_OF_VOLUME
+	ORPGEVT_REPLAY_RESPONSES
+	ORPGEVT_OT_REQUEST
+	ORPGEVT_PROD_STATUS
+
+EVENTS OUT
+	ORPGEVT_OT_SCHEDULE_LIST
+	ORPGEVT_RT_REQUEST
+
+APIs USED
+	ORPGDA.3
+	EN.3
+	LE.3
+	ORPGPAT.3
+	ORPGDBM.3
+
+DOC ATCH
+        ps_onetime.doc
+
+MAN ATCH ps_onetime.1
+---
+
+DESIGN		
+
+ps_onetime waits for the events ORPGEVT_WX_ALERT_OT_REQ,
+ORPGEVT_START_OF_VOLUME, ORPGEVT_REPLAY_RESPONSES, ORPGEVT_OT_REQUEST,
+and ORPGEVT_PROD_STATUS.
+
+When it receives ORPGEVT_WX_ALERT_OT_REQ, ps_onetime takes new alert
+paired product requests from the ORPGDAT_OT_REQUEST(4) LB.  This consists
+of a Pd_msg_header structure (defined in prod_user_msg.h) followed by
+one or more Pd_request_product structures (also defined in in
+prod_user_msg.h).  The Pd_request_product portion of the structure is
+the same as a User request with the exception that the volume number for
+the product replaces the volume time.  The line_ind is used to look up
+the p_server instance number for the user that is to receive the alert
+paired product in the PD_LINE_INFO_MSG_ID message in the
+ORPGDAT_PROD_INFO(4) LB.  Then, the request is passed to
+OTR_add_to_volume_requests to process as a typical request for current
+product.
+
+When it receives ORPGEVT_OT_REQUEST, ps_onetime takes requests (defined
+in prod_user_msg.h as Pd_msg_header followed by zero or more
+Pd_request_product structures) from the ORPGDAT_OT_REQUEST(4) LB from the
+p_server processes.  The message number in the LB of the request is
+equal to the p_server number that made the request.  The request may be
+for a product generated at a specific time, the latest available
+product, or the current product.  For the specific time and the latest,
+the product database is searched and the product matching the time
+specified or the latest product in the database is sent back to the
+p_server.
+
+For requests for the current product, if the product is available in the
+current or previous volume scan according to the ORPGDAT_PROD_STATUS(4) LB,
+(defined in prod_status.h as structure Prod_gen_status) then it responds
+(with data One_time_prod_req_response defined in prod_distri_info.h) on
+the reply LB, (which is ORPGDAT_OT_RESPONSE(4) plus the p_server number
+that made the request) with the LB and message id that will fulfill the
+request.  If there is no current version of the product, then a product
+request is sent to ps_routine along with all outstanding product
+requests via ORPGDAT_RT_REQUEST(4) LB (using Pd_request_products structure
+defined in prod_user_msg.h).  If the product is capable of being
+generated from replay data, then it is flagged for making a request on
+the replay stream at the end of the decoding loop.  All outstanding
+product requests are kept in a local buffer (maintained in module
+otr_new_volume_product_requests.c).
+
+Any request consisting of just the message header is considered a cancel
+for all requests from the indicated user id, and the requests are
+removed from the local buffer.
+
+Once all the messages have been read from the ORPGDAT_OT_REQUEST(4) LB, and
+at five second intervals, OTR_replay_time-out_check is called.  This
+routine checks for a time-out on replay products, and schedules a new
+request (if needed) from the replay processes by getting all the flagged
+requests and posing them to ORPGDAT_REPLAY_REQUESTS(4).  It also schedules
+requests from the realtime stream.
+
+When ps_onetime receives a ORPGEVT_REPLAY_RESPONSES, then
+OTR_replay_message_received is called to check for outstanding requests
+for replay products.  As these products come available, they are sent as
+replies to the users.  If a request for replay products is not acted
+upon within 1.5 minutes, the request just waits for replies from the
+real-time stream.  The time-out for CFC products is 15 minutes, as it is
+not available from the realtime stream.
+
+When ps_onetime receives a ORPGEVT_PROD_STATUS(4) event, the product status
+is checked from ORPGDAT_PROD_STATUS(4) LB and a reply is sent to p_server
+when the product is generated.  If this was the last product needed to
+fulfill the request, a new product request message is sent to ps_routine
+via ORPGDAT_RT_REQUEST(4) LB with only those products still outstanding.
+
+When ORPGEVT_START_OF_VOLUME is received, then any product responses
+that are past due will trigger an error reply to the appropriate
+p_server.  A new product request message is sent to ps_routine via
+ORPGDAT_RT_REQUEST(4) LB with only those products still outstanding.
+
+ORPGDAT_GSM_DATA(4) is read during this process to get the elevations in
+the current VCP (to determine if elevation products are equal), and to
+get the current volume time to put into product requests to ps_routine.
+(This uses the Vol_stat_gsm_t structure in gen_stat_msg.h).
+
+This process consists of the following sources:
+
+otr_main.c initializes everything, then waits for the events.  It reads
+	   the one-time requests and passes control to the following
+	   routines.
+
+otr_process_onetime_requests.c takes as input the message header, the
+	   request, and the p_server id that made the requests.  It then
+	   handles the requests as stated above.
+
+otr_new_volume_product_requests.c contains the routines that handle
+	   requests that are fulfilled by products generated from the
+	   current set of products, or (if no current product) the replay steam
+	   or (not available from replay) from the next volume in the 
+	   real time stream.  It maintains a list of outstanding requests, 
+	   and builds and sends request messages to ps_routine.
+
+otr_reply_to_request.c builds and sends the reply message to the
+	   p_server that made the request.
+
+otr_find_product.c searches the product status summary LB for products
+	   that fulfill a request for either the last product, or
+	   a product within 15 minutes of a specified time.
+	   
+otr_alert_paired_product_request.c figures out which p_server instance
+	   an alert paired product is to be sent to.  It then simulates
+	   a one time request from that user with a call to 
+	   otr_new_volume_product_requests.
+	   

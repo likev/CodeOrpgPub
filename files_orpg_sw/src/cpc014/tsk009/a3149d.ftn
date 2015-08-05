@@ -1,0 +1,142 @@
+C 
+C RCS info 
+C $Author: nolitam $ 
+C $Locker:  $ 
+C $Date: 2002/11/27 15:14:51 $ 
+C $Id: a3149d.ftn,v 1.4 2002/11/27 15:14:51 nolitam Exp $ 
+C $Revision: 1.4 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A3149D__PROD_INIT ( SOPR, POPR, PBUFSIZ, SUCCESSFUL )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3149D__PROD_INIT
+*.
+*.  MODULE VERSION: 0001
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       03 07 97      0000      STEVE D SMITH         CCR NA96-17804
+*.       03/16/99      0001      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A3149D__PROD_INIT ( SOPR, POPR, PBUFSIZ,
+*.                                             SUCCESSFUL )
+*.
+*.  MODULE FUNCTION:
+*.
+*.  MODULES CALLED: A3149B__GET_BUFFERS 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT         TYPE        DESCRIPTION
+*.    -   -----         ----        -----------
+*.    G   BLKOVRHD      I*4         (CONSTANT)SIZE OF OVERHEAD PORTION OF
+*.                                  PRODUCT SYMBOLOGY BLOCK, IN BYTES
+*.    G   PHEADLNG      I*4         (CONSTANT)Number of half words in product
+*.                                  header (its length).
+*.    G   RASTER_HEADER I*4         (CONSTANT)Number of half words in raster
+*.                                  packet header.
+*.    C   NCOLS         I*4         (CONSTANT)Number of columns in layer
+*.                                  composite reflectivity - AP removed
+*.                                  Cartesian grid.
+*.    C   NROWS         I*4         (CONSTANT)Number of rows in layer
+*.                                  composite reflectivity - AP removed
+*.                                  Cartesian grid
+*.    P   PBUFSIZ       I*4         Product output buffer size
+*.    P   POPR          I*4         Product output buffer pointer
+*.    P   SOPR          I*4         Scratch Buffer Pointer
+*.    P   SUCCESSFUL    L*4         Flag indicating whether the scratch
+*.                                  buffers were successfully obtained.
+*.
+*.    *   OUTPUT     TYPE        DESCRIPTION
+*.    -   ------     ----        -----------
+*.    P   PBUFSIZ    I*4         Product output buffer size
+*.    P   POPR       I*4         Product output buffer pointer
+*.    P   SOPR       I*4         Scratch Buffer Pointer
+*.    P   SUCCESSFUL L*4         Flag indicating whether the scratch buffers
+*.                               were successfully obtained.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    P   PBUFSIZ           I*4         Product output buffer size
+*.    P   POPR              I*4         Product output buffer pointer
+*.    P   SOPR              I*4         Scratch Buffer Pointer
+*.    P   SUCCESSFUL        L*4         Flag indicating whether the scratch
+*.                                      buffers were successfully obtained.
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME   TYPE        DESCRIPTION
+*.    ----   ----        -----------
+*.    BUFSIZ I*4         Size of scratch buffer
+*.    BYTE   I*4         Number of bytes in a halfword
+*.    NPERI2 I*4         Number of Bytes per I*2 word
+*.    NUMRLE I*4         A value of one - used for adjusting product buffer
+*.                       size
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK14.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+      IMPLICIT NONE
+
+$INCLUDE A309.INC/G,**A3PM01 (NLIST)
+$INCLUDE            **A3PM04 (NLIST)
+$INCLUDE A314BUF.INC/G, **A3148P3 (NLIST)
+$INCLUDE A314BUF.INC/G, **A3148P4 (NLIST)
+$INCLUDE A309ADPT.INC/G,**A3CD70CA (NLIST)
+C
+C Passed Arguments
+C
+      INTEGER*4 SOPR, POPR, PBUFSIZ, BUFSIZ
+      LOGICAL   SUCCESSFUL
+C
+C Local Variables
+C
+      INTEGER*4 BYTE, NPERI2, NUMRLE
+      PARAMETER( NPERI2 = 2, BYTE = 2, NUMRLE = 1 )
+C
+C Product output size
+C
+      PBUFSIZ=((((NROWS*NCOLS)/NPERI2)+NUMRLE)/BYTE)
+     $       +(PHEADLNG+(BLKOVRHD/BYTE) + RASTER_HEADER )
+C
+C Scratch buffer size
+C
+      BUFSIZ=(NCOLS*NROWS)/BYTE
+C
+C  Call A3149B__MAX_LAYERS to obtain buffers for layer composite
+C  reflectivity maximum AP removed.
+C
+      CALL A3149B__GET_BUFFERS( PBUFSIZ, BUFSIZ, SOPR, POPR,
+     $                          SUCCESSFUL )
+
+      RETURN
+      END

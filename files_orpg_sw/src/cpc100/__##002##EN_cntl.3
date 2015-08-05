@@ -1,0 +1,188 @@
+EN_cntl(3)          Generic Services SDD Manpage                EN_cntl(3)
+
+NAME
+EN_cntl - control certain aspects of EN Library behavior
+
+SYNOPSIS
+#include <en.h>
+int EN_cntl(int cmd, ...)
+
+DESCRIPTION
+Control various aspects of EN Library behavior, as described in detail
+below.
+
+The EN client notification signal (default: SIGUSR1) is blocked while
+processing an EN Library control command.
+
+Valid values of "cmd" include:
+
+    EN_CNTL_STATE - control the EN Library state
+
+Additional arguments corresponding to these command values are described
+below.
+
+
+Command: EN_CNTL_STATE
+----------------------
+The following arguments are supported:
+
+    EN_STATE_BLOCKED   - transition to BLOCKED state; optionally specify
+                         resend of event message in hand
+    EN_STATE_UNBLOCKED - transition to UNBLOCKED state
+    EN_STATE_WAIT      - transition to WAIT state
+    EN_CANCEL_WAIT     - transition from WAIT state to UNBLOCKED state
+    EN_QUERY_STATE     - query current EN Library state
+
+The EN Library has three states corresponding to the EN_STATE_* macros.
+EN_STATE_UNBLOCKED is the default state.  The following table illustrates
+the valid state transitions:
+
+    Initial State       EN_CNTL_STATE Argument    Final State
+    ----------------------------------------------------------------
+    EN_STATE_UNBLOCKED  EN_STATE_BLOCKED          EN_STATE_BLOCKED
+    EN_STATE_UNBLOCKED  EN_STATE_WAIT             EN_STATE_WAIT
+    EN_STATE_BLOCKED    EN_STATE_WAIT             EN_STATE_WAIT
+    EN_STATE_BLOCKED    EN_STATE_UNBLOCKED        EN_STATE_UNBLOCKED
+    EN_STATE_WAIT       EN_CANCEL_WAIT            EN_STATE_UNBLOCKED
+
+The EN Library state also transitions from EN_STATE_WAIT to
+EN_STATE_UNBLOCKED upon (1) receipt of an event message or (2) elapse
+of the "wait" timeout interval.
+
+Note that when transitioning from the BLOCKED to the WAIT state, the
+WAIT state may be short-lived, as any blocked event messages will
+immediately be delivered and the EN Library state will transition to
+the UNBLOCKED state.
+
+
+Command: EN_CNTL_STATE Argument: EN_STATE_BLOCKED
+-------------------------------------------------
+This argument specifies that the EN Library state is to transition
+to the blocked state, in which delivery of event messages is blocked
+for all event codes and for all registered callback routines that
+have not yet been called.  For example, assume a client has three
+callback routines registered for a given event.  The callback routines
+are called in the order in which they were registered.  If the first
+routine blocks delivery of event messages, the event message in hand
+will not be delivered to the latter two callback routines until the
+client process explicitly unblocks delivery of event messages (either
+by EN_STATE_UNBLOCKED or EN_STATE_WAIT).
+
+If this command is executed from within a client EN callback routine,
+the client has the option of specifying the "resend event" flag.  In
+this case, the command has the further effect that the event message
+in hand (i.e., the event message just delivered to the client EN
+callback routine) will be re-delivered to the client EN callback
+routine once the client process has unblocked delivery of event
+messages.  If multiple callback routines are registered for the
+event in hand, the event message will also be delivered to any
+uncalled callback routines (as described above).
+
+The additional argument in this latter case is an integer flag, which when
+set indicates that the event message in hand is to be re-delivered.  The
+macro EN_CNTL_RESEND_FLAG may be used for this purpose, as shown in
+the EXAMPLES section below.
+
+
+Command: EN_CNTL_STATE Argument: EN_STATE_UNBLOCKED
+---------------------------------------------------
+This argument specifies that the EN Library state is to transition
+to the (default) unblocked state, in which event messages are
+delivered to registered client EN callback routines as they are
+received by the EN Library.
+
+
+Command: EN_CNTL_STATE Argument: EN_STATE_WAIT
+----------------------------------------------
+This argument specifies that the EN Library state is to transition
+to the wait state, in which the client process sleeps in the EN
+Library until one or more event messages are received.  Upon receipt
+of the first event message, the EN Library state automatically
+transitions to the UNBLOCKED state.  Note that the client process may
+still control the EN Library state.  This may be accomplished, by,
+for example, registering an alarm.  When the alarm signal is raised,
+the alarm signal handler may use EN_cntl() to cancel the "wait".
+
+This command/argument pair requires an additional argument: 
+
+    unsigned wait_seconds
+
+The "wait_seconds" argument specifies the number of seconds to "wait"
+for an event message to be delivered.  If the value of this argument is
+zero, the "wait" will never timeout (i.e., it will be an infinite wait).
+
+
+Command: EN_CNTL_STATE Argument: EN_CANCEL_WAIT
+-----------------------------------------------
+This argument specifies that the EN Library state is to transition
+from the EN_STATE_WAIT state to the EN_STATE_UNBLOCKED state.  This
+command/argument pair is useful only from within some sort of
+asynchronous code (i.e., the EN Library sleep must be interrupted
+somehow).  For example, the client process may register a signal handler
+for a given signal and then call EN_cntl() from within the signal
+handler upon receipt of the signal.
+
+
+Command: EN_CNTL_STATE Argument: EN_QUERY_STATE
+-----------------------------------------------
+This command/argument pair is used to query the current state of the
+EN Library.  The EN Library state is unchanged.
+
+
+RETURN VALUES
+The value returned by EN_cntl depends upon the value of the command
+argument.  If the command argument is not recognized, EN_cntl returns
+the following negative value:
+
+    EN_BAD_CNTL_CMD
+
+RETURN VALUES: EN_CNTL_STATE
+No negative values are returned for this command.  The return value
+corresponds to the EN Library state after processing the specified
+command.  These values include:
+
+    EN_STATE_BLOCKED
+    EN_STATE_UNBLOCKED
+    EN_STATE_WAIT
+
+EXAMPLES
+
+An example of "blocking-with-resend" (from within a client EN callback
+routine):
+
+    current_state = EN_cntl(EN_CNTL_STATE,
+                            EN_STATE_BLOCKED,
+                            EN_CNTL_RESEND_FLAG) ;
+
+An example "wait" sequence:
+
+    /*
+     * assumes we've already registered for one or more events ...
+     */
+    for (;;) {
+        unsigned wait_seconds = 0 ;
+                               /*  wait forever                           */
+
+        current_state = EN_cntl(EN_CNTL_STATE,
+                                EN_STATE_WAIT,
+                                wait_seconds) ;
+
+        /*
+         * execution resumes once one or more event messages
+         * are received ...
+         */
+
+        current_state = EN_cntl(EN_CNTL_STATE, EN_STATE_BLOCKED) ;
+
+        /*
+         * process one or more event messages just received ...
+         * note that additional event messages may have been
+         * received between returning from the "wait" and the
+         * second call to EN_cntl() ...
+         */
+    }
+
+SEE ALSO
+en(3), rssd(1)
+
+                                  $Revision: 1.4 $

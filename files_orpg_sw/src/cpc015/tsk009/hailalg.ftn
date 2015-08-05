@@ -1,0 +1,63 @@
+C***********************************************************************
+C
+C	Description: This module contains the main function for the 
+C	Storm Cell Hail algorithm of SCIT. 
+C
+C***********************************************************************
+C RCS info
+C $Author: steves $
+C $Locker:  $
+C $Date: 2011/02/25 15:24:34 $
+C $Id: hailalg.ftn,v 1.12 2011/02/25 15:24:34 steves Exp $
+C $Revision: 1.12 $
+C $State: Exp $
+C
+	IMPLICIT NONE
+
+$INCLUDE rpg_port.inc,**rpg_port	
+
+C adaptation common blocks
+$INCLUDE a309adpt.inc,**A3CD70CA	;SITEADP
+$INCLUDE a309adpt.inc,**A3CD70_HAIL
+$INCLUDE a309adpt.inc,**A3CD70_DEA_NAMES
+
+$INCLUDE A309.INC/G,**A3PM00		
+
+$INCLUDE itc.inc,**A315TRND		;ITC A315TRND
+
+	integer param;			;return value from A315A3 call
+
+	INTEGER HAIL_CALLBACK_FX	;adapt callback f(x)
+	EXTERNAL HAIL_CALLBACK_FX	;adapt callback f(x)
+
+	;** specify inputs and outputs
+	call RPG_in_data (CENTATTR, VOLUME_DATA)
+	call RPG_in_data (TRFRCATR, VOLUME_DATA)
+	call RPG_out_data (TRENDATR, VOLUME_DATA, INT_PROD)
+	call RPG_out_data (HAILATTR, VOLUME_DATA, INT_PROD)
+
+	;** register adaptation data callback functions
+	call RPG_reg_ade_callback( HAIL_CALLBACK_FX,
+     $                             REF_W_LL,
+     $                             HAIL_DEA_NAME,
+     $                             BEGIN_VOLUME )
+	call RPG_reg_site_info( SIRDALAT )
+
+	;register ITC inputs and outputs
+	call RPG_itc_in (A315TRND_ID, A315TRND_FIRST, A315TRND_LAST (2),
+     1		TRFRCATR)
+	call RPG_itc_out (A315TRND_ID, A315TRND_FIRST, A315TRND_LAST (2),
+     1		TRENDATR)
+
+        ;** tell system this task is volume-based.  Initialize the
+        ;** support environment.
+	call RPG_task_init (VOLUME_BASED)
+
+	;** The main loop, which will never end
+10	call RPG_wait_act (WAIT_DRIVING_INPUT)
+	call A31519__BUFFER_CONTROL(param)
+	goto 10
+
+	stop
+	end
+

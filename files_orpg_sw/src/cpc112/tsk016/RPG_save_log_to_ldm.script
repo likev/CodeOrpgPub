@@ -1,0 +1,415 @@
+#!/bin/sh
+#
+# RCS info
+# $Author: ccalvert $
+# $Locker:  $
+# $Date: 2012/08/21 13:42:15 $
+# $Id: RPG_save_log_to_ldm.script,v 1.5 2012/08/21 13:42:15 ccalvert Exp $
+# $Revision: 1.5 $
+# $State: Exp $
+#
+
+MISSING_SAVE_LOG_FLAG=none
+DEBUG_MODE=NO
+LOOP_INTERVAL=5
+SAVE_LOG_CHECK_INTERVAL=60
+NUM_LE_LOG_LINES=2000
+EXPECTED_NODE=RPGA
+BREAK_LOOP=NO
+SAVE_LOG_LDM_KEY=RPG-save_log
+RPG_INFO_FILE=$CFG_DIR/rpg_install.info
+PREVIOUSLY_SENT_SAVE_LOG_FILE=$MISSING_SAVE_LOG_FLAG
+
+#####################################################################
+# ECHO_OUT: Echo message with timestamp.
+#####################################################################
+
+echo_out ()
+{
+  if [ -n "$LE_PIPE_CMD" ]
+  then
+    echo $1 | $LE_PIPE_CMD
+  else
+    echo "`date '+%m/%d/%Y %H:%M:%S'` $1"
+  fi
+}
+
+#####################################################################
+# ECHO_ERROR: Echo error message and exit.
+#####################################################################
+
+echo_error ()
+{
+  if [ $# -eq 1 ]
+  then
+    exit_code=1
+  else
+    exit_code=$2
+  fi
+
+  if [ -n "$LE_PIPE_CMD" ]
+  then
+    echo_out "ERROR: $1. Terminate."
+  else
+    echo -e "`date '+%m/%d/%Y %H:%M:%S'` ERROR: $1" >&2
+  fi
+
+  exit $exit_code
+}
+
+#####################################################################
+# ECHO_DEBUG: Echo message if debug flag is YES.
+#####################################################################
+
+echo_debug ()
+{
+  if [ $DEBUG_MODE = YES ]
+  then
+    echo_out "DEBUG: $1"
+  fi
+}
+
+#####################################################################
+# PRINT_USAGE: Display usage of this script
+#####################################################################
+
+print_usage ()
+{
+  echo
+  echo "Usage: $SCRIPT_BASE_NAME"
+  echo "  -l int  : time interval to check for new save log (Default: $LOOP_INTERVAL)"
+  echo "  -n int  : number of lines in log file (Default: $NUM_LE_LOG_LINES)"
+  echo "  -x      : debug on (Default: $DEBUG_MODE)"
+  echo "  -T str  : task name (optional)"
+  echo "  -N str  : node to run on (Default: $EXPECTED_NODE)"
+  echo "  -h      : print help"
+  echo
+}
+
+#####################################################################
+# INITIALIZE_VARIABLES: Initialize variables.
+#####################################################################
+
+initialize_variables ()
+{
+  if ! which le_pipe 2>/dev/null
+  then
+    echo_error "Can't find le_pipe"
+  fi
+
+  if ! RPG_UID=`id -u $USER 2>/dev/null`
+  then
+    echo_error "Could not get $USER uid"
+  fi
+
+  if ! RPG_GID=`id -g $USER 2>/dev/null`
+  then
+    echo_error "Could not get $USER gid"
+  fi
+
+  if [ -n "$TASK_NAME" ]
+  then
+    log_name=$TASK_NAME
+  else
+    log_name=$SCRIPT_BASE_NAME
+  fi
+
+  LE_PIPE_CMD="le_pipe -t $log_name -g $RPG_GID -w $RPG_UID -n $NUM_LE_LOG_LINES -a 100 2>&1 &"
+
+  SAVE_LOG_DIR=$HOME/save_logs
+  find_latest_save_log
+  PREVIOUSLY_SENT_SAVE_LOG_FILE=$LATEST_SAVE_LOG_FILE
+
+  find_current_node
+
+  echo_debug "Current node:     $CURRENT_NODE"
+  echo_debug "Expected node:    $EXPECTED_NODE"
+  echo_debug "LE command:       $LE_PIPE_CMD"
+  echo_debug "RPG UID:          $RPG_UID"
+  echo_debug "RPG GID:          $RPG_GID"
+  echo_debug "Loop interval:    $LOOP_INTERVAL"
+  echo_debug "Num LE log lines: $NUM_LE_LOG_LINES"
+  echo_debug "Latest save log:  $LATEST_SAVE_LOG_FILE"
+
+  # Trap signals and act accordingly
+  # SIGABRT - exit
+  trap "signal_handler SIGABRT" SIGABRT
+  echo_debug "Handling signal SIGABRT"
+  # SIGUSR2 - toggle debug mode
+  trap "signal_handler SIGUSR2" SIGUSR2
+  echo_debug "Handling signal SIGUSR2"
+  # SIGPIPE - ignore
+  trap "signal_handler SIGPIPE" SIGPIPE
+  echo_debug "Handling signal SIGPIPE"
+  # SIGINT - terminate
+  trap "signal_handler SIGINT" SIGINT
+  echo_debug "Handling signal SIGINT"
+  # SIGTERM - terminate
+  trap "signal_handler SIGTERM" SIGTERM
+  echo_debug "Handling signal SIGTERM"
+}
+
+#####################################################################
+# FIND_CURRENT_NODE: Find node task is running on.
+#####################################################################
+
+find_current_node ()
+{
+  if which find_adapt > /dev/null 2>&1
+  then
+    if ! CURRENT_NODE=`find_adapt -N 2>&1`
+    then
+      echo_error "Task find_adapt -N failed ($CURRENT_NODE)"
+    fi
+  elif [ ! -f $RPG_INFO_FILE ]
+  then
+    echo_error "File $RPG_INFO_FILE not found"
+  else
+    CURRENT_NODE=`cat $RPG_INFO_FILE | grep TYPE: | awk '{print $2}'`
+  fi
+  CURRENT_NODE=`echo $CURRENT_NODE | tr '[a-z]' '[A-Z]'`
+}
+
+#####################################################################
+# PARSE_CMDLINE: Parse the command line arguments.
+#####################################################################
+
+parse_cmdline ()
+{
+  while getopts l:hn:T:N:x option
+  do
+    case $option in
+       l) new_loop_interval=$OPTARG ;;
+       h) print_usage; exit 0 ;;
+       n) new_num_log_lines=$OPTARG ;;
+       x) DEBUG_MODE=YES ;;
+       T) TASK_NAME=$OPTARG ;;
+       N) node_to_run_on=$OPTARG ;;
+      \?) print_usage; exit 1 ;;
+    esac
+  done
+
+  if [ ! -z "$new_loop_interval" ]
+  then
+    if echo $new_loop_interval | egrep '^[1-9]+[0-9]*$' > /dev/null 2>&1
+    then
+      LOOP_INTERVAL=$new_loop_interval
+    else
+      echo_error "-t is invalid number ($new_loop_interval)"
+    fi
+  fi
+
+  if [ ! -z "$new_num_log_lines" ]
+  then
+    if echo $new_num_log_lines | egrep '^[1-9]+[0-9]*$' > /dev/null 2>&1
+    then
+      NUM_LE_LOG_LINES=$new_num_log_lines
+    else
+      echo_error "-n is invalid number ($new_num_log_lines)"
+    fi
+  fi
+
+  if [ ! -z "$node_to_run_on" ]
+  then
+    if ! echo $node_to_run_on | egrep -q '^(RPGA|RPGB|MSCF)$'
+    then
+      echo_error "-N is invalid node ($node_to_run_on)"
+    else
+      EXPECTED_NODE=$node_to_run_on
+    fi
+  fi
+}
+
+#####################################################################
+# TOGGLE_DEBUG_MODE: Toggle DEBUG_MODE flag.
+#####################################################################
+
+toggle_debug_mode ()
+{
+  if [ $DEBUG_MODE = YES ]
+  then
+    echo_debug "Setting debug mode to NO"
+    DEBUG_MODE=NO
+  else
+    DEBUG_MODE=YES
+    echo_debug "Setting debug mode to YES"
+  fi
+}
+
+#####################################################################
+# SIGNAL_HANDLER: Handle signal traps.
+#####################################################################
+
+signal_handler ()
+{
+  if [ $1 == "SIGPIPE" ]
+  then
+    echo_out "Signal SIGPIPE received...ignore"
+  elif [ $1 == "SIGINT" ]
+  then
+    echo_out "Signal SIGINT received...terminate now"
+    exit 0
+  elif [ $1 == "SIGTERM" ]
+  then
+    echo_out "Signal SIGTERM received...terminate now"
+    exit 0
+  elif [ $1 == "SIGABRT" ]
+  then
+    echo_out "Signal SIGABRT received...terminate next iteration"
+    BREAK_LOOP=YES
+  elif [ $1 == "SIGUSR2" ]
+  then
+    echo_out "Signal SIGUSR2 received...toggle debug"
+    toggle_debug_mode
+  else
+    echo_out "Signal $1 received...ignore"
+  fi
+}
+
+#####################################################################
+# FIND_LATEST_SAVE_LOG: Find latest save log file.
+#####################################################################
+
+find_latest_save_log ()
+{
+  LATEST_SAVE_LOG_FILE=$MISSING_SAVE_LOG_FLAG
+
+  if [ ! -d $SAVE_LOG_DIR ]
+  then
+    echo_debug "Directory $SAVE_LOG_DIR is missing. Assume no save log files."
+    return
+  fi
+
+  for save_log_file in `ls -t $SAVE_LOG_DIR`
+  do
+    if [ -f $SAVE_LOG_DIR/$save_log_file ]
+    then
+      echo_debug "LATEST SAVE LOG FILE: $LATEST_SAVE_LOG_FILE"
+      LATEST_SAVE_LOG_FILE=$save_log_file
+      break
+    fi
+  done
+}
+
+#####################################################################
+# CHECK_FOR_SAVE_LOG: Check for new save log and send to LDM.
+#####################################################################
+
+check_for_save_log ()
+{
+  # If running on an unexpected node, do nothing
+  if [ $CURRENT_NODE != $EXPECTED_NODE ]
+  then
+    echo_debug "Current node ($CURRENT_NODE) and expected node ($EXPECTED_NODE) differ. Do nothing."
+    return
+  fi
+
+  # Find the latest save log file
+  find_latest_save_log
+
+  # If the latest save log file isn't the save log file previously sent,
+  # then a new save log file is available to send.
+  if [ $LATEST_SAVE_LOG_FILE != $PREVIOUSLY_SENT_SAVE_LOG_FILE ]
+  then
+    echo_debug "New file: $LATEST_SAVE_LOG_FILE != $PREVIOUSLY_SENT_SAVE_LOG_FILE"
+    # Loop through save log files in reverse chronological order (oldest
+    # first). When the previously sent file is found, everything afterwards
+    # is considered new and should be sent. If no save logs previously
+    # existed, go ahead and set the flag accordingly.
+    if [ $PREVIOUSLY_SENT_SAVE_LOG_FILE = $MISSING_SAVE_LOG_FLAG ]
+    then
+      found_starting_point=YES
+    else
+      found_starting_point=NO
+    fi
+    echo_debug "Loop through save log files"
+    for sl_file in `ls -tr $SAVE_LOG_DIR`
+    do
+      if [ -d $SAVE_LOG_DIR/$sl_file ]
+      then
+        echo_debug "$sl_file is a directory. Skipping."
+        continue
+      fi
+      echo_debug "Save log file: $sl_file"
+      if [ $sl_file = $PREVIOUSLY_SENT_SAVE_LOG_FILE ]
+      then
+        # Previously sent file found. Set flag to ensure
+        # files that follow are sent.
+        echo_debug "Previously sent file found."
+        found_starting_point=YES
+      elif [ $found_starting_point = YES ]
+      then
+        echo_debug "File to send: $sl_file"
+        size_of_file_to_send=`du -b $SAVE_LOG_DIR/$sl_file | awk '{print $1}'`
+        previous_size_of_file_to_send=-1
+        echo_debug "File's original size: $size_of_file_to_send"
+        # Don't send file until file's size is stable indicating
+        # file creation is complete.
+        while [ $size_of_file_to_send -ne $previous_size_of_file_to_send ]
+        do
+          # Reset previous size to current
+          previous_size_of_file_to_send=$size_of_file_to_send
+          # Sleep
+          echo_debug "Sleep for $LOOP_INTERVAL seconds before rechecking size"
+          sleep $LOOP_INTERVAL
+          # Get current size of file
+          size_of_file_to_send=`du -b $SAVE_LOG_DIR/$sl_file | awk '{print $1}'`
+          echo_debug "After $LOOP_INTERVAL seconds, size is $size_of_file_to_send"
+        done
+        echo_debug "File has not changed in size. Send it."
+        if [ $DEBUG_MODE = YES ]
+        then
+          cmd="file_to_ldm -f $SAVE_LOG_DIR/$sl_file -k $SAVE_LOG_LDM_KEY -cx"
+        else
+          cmd="file_to_ldm -f $SAVE_LOG_DIR/$sl_file -k $SAVE_LOG_LDM_KEY -c"
+        fi
+        echo_debug "Send command: $cmd"
+        PREVIOUSLY_SENT_SAVE_LOG_FILE=$sl_file
+        if ! /bin/sh -c "$cmd"
+        then
+          echo_out "Failed to send $sl_file"
+        else
+          echo_out "Successfully sent $sl_file"
+        fi
+      fi
+    done
+  else
+    echo_debug "Previously sent file is still $PREVIOUSLY_SENT_SAVE_LOG_FILE"
+  fi
+}
+
+####################################################################
+#
+# MAIN BODY OF SCRIPT
+#
+####################################################################
+
+SCRIPT_BASE_NAME=`basename $0`
+
+echo_out "Starting $SCRIPT_BASE_NAME"
+
+# Read the command line options
+parse_cmdline $*
+
+# Initialize variables
+initialize_variables
+
+# Initialize flags
+counter=0
+
+# Loop and monitor
+while [ $BREAK_LOOP = "NO" ]
+do
+  echo_debug "Loop counter at $counter of $SAVE_LOG_CHECK_INTERVAL"
+  counter=`expr $counter + $LOOP_INTERVAL`
+  if [ $counter -gt $SAVE_LOG_CHECK_INTERVAL ]
+  then
+    counter=0
+    check_for_save_log
+  fi
+  sleep $LOOP_INTERVAL
+done
+
+echo_out "Exiting $SCRIPT_BASE_NAME"
+exit 0
+

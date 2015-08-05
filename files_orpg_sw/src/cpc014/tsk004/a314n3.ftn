@@ -1,0 +1,168 @@
+C 
+C RCS info 
+C $Author: steves $ 
+C $Locker:  $ 
+C $Date: 2004/01/12 16:50:19 $ 
+C $Id: a314n3.ftn,v 1.4 2004/01/12 16:50:19 steves Exp $ 
+C $Revision: 1.4 $ 
+C $State: Exp $ 
+C 
+         SUBROUTINE A314N3__END_MAINTENANCE(ISTAR2S,VIL_BUF)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A314N3__END_MAINTENANCE
+*.
+*.  MODULE VERSION: 0010
+*.
+*.  MODULE LANGUAGE:  FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       05 15 85      0000      Ze'ev Rivlin         rpg build 2
+*.       02 14 91      0001      PENNY J YELSHIN      SPR # 91255
+*.       12 03 91      0002      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0003      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0004      Toolset              SPR 91895
+*.       03/25/93      0005      Toolset              SPR NA93-06801
+*.       01/28/94      0006      Toolset              SPR NA94-01101
+*.       03/03/94      0007      Toolset              SPR NA94-05501
+*.       04/11/96      0008      Toolset              CCR NA95-11802
+*.       12/23/96      0009      Toolset              CCR NA95-11807
+*.       03/16/99      0010      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A314N3__END_MAINTENANCE (ISTAR2S, VIL_BUF)
+*.
+*.  MODULE FUNCTION:
+*.
+*.     This is the End Maintenance Routine.  Anything that need
+*.     be done at the end would be done here.  For example, the
+*.     different lengths (e.g. - total product length) can only
+*.     be determined after all other fields have been filled.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT         TYPE        DESCRIPTION
+*.    -   -----         ----        -----------
+*.    G   BLKOVRHD      I*4         (CONSTANT)SIZE OF OVERHEAD PORTION OF
+*.                                  PRODUCT SYMBOLOGY BLOCK, IN BYTES
+*.    G   LGLSWOFF      I*4         (CONSTANT)Product header offset: Length of
+*.                                  message (LSW).
+*.    G   LGMSWOFF      I*4         (CONSTANT)Product header offset: Length of
+*.                                  message (MSW).
+*.    G   LRLSWOFF      I*4         (CONSTANT)Product block offset: Length of
+*.                                  product block portion of product (LSW).
+*.    G   LRMSWOFF      I*4         (CONSTANT)Product block offset: Length of
+*.                                  product block portion of product (MSW).
+*.    G   LYRLLSWOFF    I*4         (CONSTANT)Product block offset:  Layer
+*.                                  length (LSW).
+*.    G   LYRLMSWOFF    I*4         (CONSTANT)Product block offset: Layer
+*.                                  length (MSW).
+*.    G   NCOL          I*4         (CONSTANT)Number of analysis box columns.
+*.    G   NROW          I*4         (CONSTANT)Number of analysis box rows.
+*.    G   PHEADLNG      I*4         (CONSTANT)Number of half words in product
+*.                                  header (its length).
+*.    G   RASTER_HEADER I*4         (CONSTANT)Number of half words in raster
+*.                                  packet header.
+*.    P   ISTAR2S       I*4         Number of i*2 words encoded by
+*.                                  run-length-encoding routine
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    P   VIL_BUF I*2         VIL Product Output Buffer
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME              TYPE        DESCRIPTION
+*.    ----              ----        -----------
+*.    BYTES             I*4         Number of bytes in a halfword
+*.    LAYER_LEN         I*4         # of i*2 words in output buffer for raster
+*.                                  header & run-length encoded data
+*.    MAX_ROUND         I*4         used to round off estimated output buffer
+*.                                  size to 50% of its maximum size, =2
+*.    NRLEW1            I*4         1: used to calculate output buffer size,
+*.                                  accounts for the 1 i*2 word per row to
+*.                                  store the Number of Run-LEngth encoded
+*.                                  Words for that row
+*.    PRODUCT_LENGTH    I*4         VIL Product Length
+*.    PROD_BLOCK_LN     I*4         PRODuct symbology BLOCK LeNgth
+*.    RUNS_PERI2        I*4         # of RUNS stored PER I*2 word of output
+*.                                  buffer
+*.    TOTAL_HEADER_INFO I*4         Total # of header fields in product.
+*.    VIL_SIZ           I*4         VIL Product Size
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK14.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+
+      IMPLICIT NONE
+
+C include product offsets:
+$INCLUDE A309.INC/G,**A3PM01 (NEND NLIST)
+
+
+C include vil algorithm output parameters definitions:
+$INCLUDE A313BUF.INC/G,**A313P0 (NEND NLIST)
+
+
+      INTEGER*4 ISTAR2S,VIL_SIZ,PRODUCT_LENGTH,TOTAL_HEADER_INFO,
+     1          PROD_BLOCK_LN,BYTES,LAYER_LEN,RUNS_PERI2,
+     2          NRLEW1,MAX_ROUND
+
+      PARAMETER(RUNS_PERI2=2,NRLEW1=1,MAX_ROUND=2,BYTES=2)
+      PARAMETER(TOTAL_HEADER_INFO=PHEADLNG+BLKOVRHD/2+RASTER_HEADER)
+
+      PARAMETER(VIL_SIZ=(NROW*(NCOL/RUNS_PERI2+NRLEW1))/MAX_ROUND
+     1          + TOTAL_HEADER_INFO)
+
+      INTEGER*2 VIL_BUF(VIL_SIZ)
+
+
+C executable code:
+
+
+C  *Determine product length:
+      PRODUCT_LENGTH = (TOTAL_HEADER_INFO+ISTAR2S)*BYTES
+
+C  *determine Product Symbology Block Length:
+      PROD_BLOCK_LN = (BLKOVRHD/2+RASTER_HEADER+ISTAR2S)*BYTES
+      call RPG_set_product_int( VIL_BUF(LRMSWOFF), PROD_BLOCK_LN )
+
+C  *determine the Layer Length:
+      LAYER_LEN = (RASTER_HEADER + ISTAR2S) * BYTES
+      call RPG_set_product_int( VIL_BUF(LYRLMSWOFF), LAYER_LEN )
+
+C Store high and low half words of product length:
+      call RPG_set_product_int( VIL_BUF(LGMSWOFF), PRODUCT_LENGTH )
+
+      RETURN
+      END

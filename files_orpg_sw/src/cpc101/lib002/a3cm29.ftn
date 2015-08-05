@@ -1,0 +1,283 @@
+C 
+C RCS info 
+C $Author: nolitam $ 
+C $Locker:  $ 
+C $Date: 2002/12/11 20:00:40 $ 
+C $Id: a3cm29.ftn,v 1.3 2002/12/11 20:00:40 nolitam Exp $ 
+C $Revision: 1.3 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A3CM29__GRID_VECTORS(OPT,OBUF,ONDX,BLNGTH)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3CM29__GRID_VECTORS
+*.
+*.  MODULE VERSION: 0010
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       03 24 86      0000      DENNIS MILLER
+*.       10 02 86      0001      J GROMMONS           SPR # 60346
+*.       11 08 90      0002      J WHEELER            SPR # 91250
+*.       12/10/91      0003      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0004      Toolset              SPR 91895
+*.       03/25/93      0005      Toolset              SPR NA93-06801
+*.       03/03/94      0006      Toolset              SPR NA94-05501
+*.       04/22/95      0007      STEVE SMITH          CCR NA94-26301
+*.       12/11/95      0007      CHERYL STEPHENSON    CCR NA94-08462
+*.       12/23/95      0008      Toolset              CCR NA95-11807
+*.       08/18/97      0009      Steve D. Smith       CCR NA95-21503
+*.       03/16/99      0010      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:
+*.
+*.     CALL A3CM29__GRID_VECTORS(OPT,OBUF,ONDX,BLNGTH)
+*.
+*.  MODULE FUNCTION:
+*.
+*.          BUILD GRID VECTORS FOR GRAPHIC ATTRIBUTES FOR
+*.               OPTION SPECIFIED
+*.
+*.  MODULES CALLED: A3CM30__ACROSS_VECTORS, A3CM31__DOWN_VECTORS, 
+*.                  A3CM32__VAR_DOWN_VECTORS 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT  TYPE        DESCRIPTION
+*.    -   -----  ----        -----------
+*.    C   KLNGTH I*4         Length of the block of across vectors in the
+*.                           SCRAY array.
+*.    C   LLNGTH I*4         Length of the block of across vectors in the
+*.                           SCRAY array.
+*.    C   SCRAY  I*4         Array containing the block of vectors.
+*.    P   ONDX   I*4         INDEX TO BUFFER FOR STORING SCREEN
+*.    P   OPT    I*4         BUILD GRID VECTORS OPTION
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    C   BEGI    I*4         Beginning I Coordinate of the vector for
+*.                            variable field widths.
+*.    C   BEGJ    I*4         Beginning J Coordinate of the vector for
+*.                            variable field widths.
+*.    C   IA      I*4         Number of across vectors to build.
+*.    C   ID      I*4         NUMBER OF DOWN VECTORS TO BUILD
+*.    C   ILNGTH  I*4         Length of the across grid vector.
+*.    C   INCI    I*4         Number of pixels in the field width.
+*.    C   INCJ    I*4         Number of pixels in the field height.
+*.    C   JLNGTH  I*4         LENGTH OF THE DOWN GRID VECTOR
+*.    C   K       I*4         Not used
+*.    P   BLNGTH  I*4         LENGTH IN I*2 WORDS OF SCREEN DATA
+*.    P   OBUF    I*2         ACROSS GRID VECTORS FOLLOWED BY DOWN GRID
+*.                            VECTORS
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    P   OPT               I*4         BUILD GRID VECTORS OPTION
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME  TYPE        DESCRIPTION
+*.    ----  ----        -----------
+*.    I     I*4         LOOP COUNTER
+*.    INDX  I*4         INDEX TO OUTPUT BUFFER FOR SCREEN GRID
+*.    VVAL  I*4         VALUE OF VECTOR
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3CM29
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.        THIS MODULE IS COMPILED USING THE COMP09.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.        THIS MODULE IS LINKED USING THE LINK09.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+C
+C           BUILD GRID VECTORS FOR GRAPHIC ATTRIBUTES FOR
+C                OPTION SPECIFIED
+C
+C       OPT=0    BUILD GRID VECTORS FOR TVS
+C
+C       OPT=1    BUILD GRID VECTORS FOR MESOCYCLONE
+C
+C       OPT=2    BUILD GRID VECTORS FOR COMBINED ATTRIBUTES
+C
+C       OPT=3    BUILD GRID VECTORS FOR HAIL
+C
+C       OPT=4    BUILD GRID VECTORS FOR STORM POSITION AND FORECAST
+C
+C       OPT=5    BUILD GRID VECTORS FOR USP
+C       OBUF     TOP OF OUTPUT BUFFER
+C       ONDX     INDEX TO BUFFER FOR STORING SCREEN GRID VECTORS
+C       BLNGTH   LENGTH IN I*2 WORD OF SCREEN DATA
+C
+C       RESULTS IN OBUF(ONDX) - ACROSS GRID VECTORS FOLLOWED BY
+C                               DOWN GRID VECTORS
+C
+C
+C       INDX     INDEX TO OUTPUT BUFFER FOR SCREEN GRID DATA
+C       VVAL     VALUE OF VECTOR
+C       BEGI     BEGINNING I COORDINATE OF THE VECTOR
+C       BEGJ     BEGINNING J COORDINATE OF THE VECTOR
+C       ENDI     ENDING I COORDINATE OF THE VECTOR
+C       ENDJ     ENDING J COORDINATE OF THE VECTOR
+C       INCI     NO OF PIXELS IN THE FIELD WIDTH
+C       INCJ     NO OF PIXELS IN THE FIELD HEIGHT
+C       ILNGTH   LENGTH OF THE ACROSS GRID VECTOR
+C       JLNGTH   LENGTH OF THE DOWN GRID VECTOR
+C       IA       NUMBER OF ACROSS VECTORS TO BUILD
+C       ID       NUMBER OF DOWN VECTORS TO BUILD
+C       KLNGTH   LENGTH OF THE BLOCK OF ACROSS VECTORS IN SCRAY
+C       LLNGTH   LENGTH OF THE BLOCK OF DOWN VECTORS IN SCRAY
+C       SCRAY    ARRAY CONTAINING THE BLOCKS OF VECTORS
+C
+****************************************************************
+C
+      IMPLICIT NONE
+      INTEGER*2  OBUF(*)
+
+      INTEGER*4  OPT,ONDX,BLNGTH
+      INTEGER*4  SCRAY(100),VVAL,INDX,KLNGTH,LLNGTH,I,K,L,IA,ID
+      INTEGER*4  BEGI,BEGJ,ENDI,ENDJ,INCI,INCJ,ILNGTH,JLNGTH
+
+      COMMON/A3CM29/SCRAY,BEGI,BEGJ,ENDI,ENDJ,INCI,INCJ,KLNGTH,
+     >              LLNGTH,K,L,IA,ID,ILNGTH,JLNGTH
+C
+C** INITIALIZE
+C
+      VVAL = 0
+      K = 0
+
+      IF (OPT .EQ. 0 .OR. OPT .EQ. 1) THEN
+C
+C** OPT=0   BUILD GRID VECTORS FOR TVS ATTRIBUTES
+C** OPT=1   BUILD GRID VECTORS FOR MESOCYCLONE ATTRIBUTES
+C
+         VVAL = 3
+         IF (OPT .EQ. 0) VVAL = 4
+         BEGI = 4
+         BEGJ = 0
+         INCI = 70
+         INCJ = 10
+         IA = 6
+         ID = 8
+         ILNGTH = 490
+         JLNGTH = 50
+         CALL A3CM30__ACROSS_VECTORS
+         BEGI = 4
+         BEGJ = 0
+         CALL A3CM31__DOWN_VECTORS
+      ELSE IF (OPT .EQ. 2) THEN
+C
+C** OPT=2   BUILD GRID VECTORS FOR COMBINED ATTRIBUTES
+C
+         VVAL = 6
+         BEGI = 4
+         BEGJ = 0
+         INCJ = 10
+         IA = 6
+         ILNGTH = 497
+         JLNGTH = 50
+         CALL A3CM30__ACROSS_VECTORS
+         BEGI = 4
+         BEGJ = 0
+         CALL A3CM32__VAR_DOWN_VECTORS(OPT)
+      ELSE IF (OPT .EQ. 3) THEN
+C
+C** OPT=3   BUILD GRID VECTORS FOR HAIL ATTRIBUTES
+C
+         VVAL = 2
+         BEGI = 4
+         BEGJ = 0
+         INCJ = 10
+         IA = 6
+         ILNGTH = 483
+         CALL A3CM30__ACROSS_VECTORS
+         BEGI = 4
+         BEGJ = 0
+         CALL A3CM32__VAR_DOWN_VECTORS(OPT)
+      ELSE IF (OPT .EQ. 4) THEN
+C
+C** OPT=4   BUILD GRID VECTORS FOR STORM POSITION/FORECAST ATTRIBUTES
+C
+         VVAL = 5
+         BEGI = 4
+         BEGJ = 0
+         INCJ = 10
+         IA = 6
+         ILNGTH = 483
+         JLNGTH = 50
+         CALL A3CM30__ACROSS_VECTORS
+         BEGI = 4
+         BEGJ = 0
+         CALL A3CM32__VAR_DOWN_VECTORS(OPT)
+      ELSE IF (OPT .EQ. 5) THEN
+C
+C** OPT=5   BUILD GRID VECTORS FOR USP ATTRIBUTES
+C
+         VVAL = 5
+         BEGI = 4
+         BEGJ = 0
+         INCJ = 10
+         IA = 6
+         ILNGTH = 462
+         CALL A3CM30__ACROSS_VECTORS
+         BEGI = 4
+         BEGJ = 0
+         CALL A3CM32__VAR_DOWN_VECTORS(OPT)
+      ENDIF
+C
+C** STORE SCREEN GRID VECTORS IN OUTPUT BUFFER
+C
+C** ACROSS GRID VECTORS
+C
+      INDX = ONDX
+      OBUF(INDX) = 10
+      INDX = INDX + 1
+      OBUF(INDX) = (KLNGTH + 1) *2
+      INDX = INDX + 1
+      OBUF(INDX) = VVAL
+      DO 210  I = 1,KLNGTH
+         OBUF(INDX + I) = SCRAY(I)
+  210 CONTINUE
+
+      INDX = INDX + KLNGTH + 1
+C
+C** DOWN GRID VECTORS
+C
+      OBUF(INDX) = 10
+      INDX = INDX + 1
+      OBUF(INDX) = (LLNGTH + 1) *2
+      INDX = INDX + 1
+      OBUF(INDX) = VVAL
+      DO 220  I = 1,LLNGTH
+         OBUF(INDX + I) = SCRAY(KLNGTH + I)
+  220 CONTINUE
+
+      INDX = INDX + LLNGTH + 1
+      BLNGTH = INDX - ONDX
+C
+C** RETURN TO CALLER ROUTINE
+C
+      RETURN
+      END

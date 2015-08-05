@@ -1,0 +1,456 @@
+C
+C RCS info
+C $Author: steves $
+C $Locker:  $
+C $Date: 2011/02/25 15:26:52 $
+C $Id: a315i6.ftn,v 1.5 2011/02/25 15:26:52 steves Exp $
+C $Revision: 1.5 $
+C $State: Exp $
+C
+      SUBROUTINE A315I6__INIT_TABLES(VOLTIME,NSTORMS)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A315I6__INIT_TABLES
+*.
+*.  MODULE VERSION: 0017
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       08 16 85      0000      DENNIS MILLER        BUILD 2
+*.       05 07 86      0001      DENNIS MILLER        SPR # 304
+*.       07 10 86      0002      DENNIS MILLER        SPR # 60313
+*.       07 10 86      0002      DENNIS MILLER        SPR # 60367
+*.       11 15 86      0003      MARK STEWART         SPR # 60346
+*.       05 10 89      0004      DENNIS MILLER        SPR # 90299
+*.       03 21 90      0005      RICH MIHOCI          SPR # 90697
+*.       02 22 91      0006      DENNIS MILLER        SPR # 91256
+*.       02 15 91      0006      JOHN DEPHILIP        SPR # 91762
+*.       04 11 91      0006      DENNIS MILLER        SPR # 90956
+*.       12 03 91      0007      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0008      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0009      Toolset              SPR 91895
+*.       03/25/93      0010      Toolset              SPR NA93-06801
+*.       01/28/94      0011      Toolset              SPR NA94-01101
+*.       03/03/94      0012      Toolset              SPR NA94-05501
+*.       04/05/94      0013      Steve Smith          CCR NW-94-007-10
+*.       04/01/95      0014      Toolset              CCR NA95-11802
+*.       06/05/95      0015      Steve Smith          CCR NA94-26302
+*.       12/23/96      0016      Toolset              CCR NA95-11807
+*.       03/16/99      0017      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A315I6__INIT_TABLES(VOLTIME,NSTORMS)
+*.
+*.  MODULE FUNCTION:
+*.
+*.  This routine initializes the circular stack of Storm Cell ID
+*.  labels and the Storm Position-History and Correlation tables,
+*.  used to trace the evolution of storms over past volume scans,
+*.  upon restart of the task or the time difference between the
+*.  current and previous scans is greater than or equal to
+*.  THRESHOLD(Time Between Scans).
+*.
+*.    It also reinitializes the History & Correlation tables upon
+*.  change of Adaptation variables for the Tracking Algorithm.
+*.
+*.  MODULES CALLED: ABL, ATL, DEFLST 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT         TYPE        DESCRIPTION
+*.    -   -----         ----        -----------
+*.    G   ADPCOSPD      R*4         Correlation Speed in Storm Data (A3CD09)
+*.    G   ADPMXTIM      I*4         Adaptation data maximum time difference
+*.                                  between volume scans stored in Storm Data
+*.    G   ADPNPVOL      I*4         Adaptation data number of volume scans
+*.                                  without storms threshold stored in Storm
+*.                                  Data
+*.    G   NSTF_MAX      I*4         (CONSTANT)The maximum number of storm
+*.                                  cells the array STORMIDTYP may hold.  The
+*.                                  array provides the storm cell Id
+*.                                  attribute.
+*.    C   CELL_POINTERS I*4         Circular list of the beginning locations
+*.                                  of trend data in the array CELL_TREND_DATA
+*.    C   COSPD         R*4         Correlation Speed in local common.
+*.    C   IXCUR         I*4         Index to the current volume scan in the
+*.                                  correlation table
+*.    C   NPVOL         I*4         The Number of Past Volumes (scans) in
+*.                                  local common.  The max. # of scans stored
+*.                                  in the correlation table, including the
+*.                                  current.
+*.    C   STARTUP       L*4         Flag indicating whether the time between
+*.                                  volumes has exceed the threshold, &,
+*.                                  therefore, tracking must be reinitialized.
+*.    C   STRMLABL      I*4         Circular list of storm-ID indices.
+*.    C   TIMEHIST      R*4         Table of the times of past and present
+*.                                  volume scans, NOT corrected for change of
+*.                                  day.
+*.    C   NST_MAX       I*4         (CONSTANT)Max. # of cells allowed in the
+*.                                  correlation & position tables.  Max.
+*.                                  possible value of Max. Cell/Vol Threshold.
+*.    C   SPEEDINIT     R*4         (CONSTANT)Correlation Speed initialization
+*.                                  value
+*.    P   NSTORMS       I*4         Number of storm cells
+*.    P   VOLTIME       R*4         Time associated with current volume scan
+*.
+*.    *   OUTPUT           TYPE        DESCRIPTION
+*.    -   ------           ----        -----------
+*.    G   ADPCOSPD         R*4         Correlation Speed in Storm Data
+*.                                     (A3CD09)
+*.    G   ADPMXTIM         I*4         Adaptation data maximum time difference
+*.                                     between volume scans stored in Storm
+*.                                     Data
+*.    G   ADPNPVOL         I*4         Adaptation data number of volume scans
+*.                                     without storms threshold stored in
+*.                                     Storm Data
+*.    C   CELL_POINTERS    I*4         Circular list of the beginning
+*.                                     locations of trend data in the array
+*.                                     CELL_TREND_DATA
+*.    C   CELL_TREND_DATA4 I*4         I*4 array used for initializing
+*.                                     CELL_TEND_DATA
+*.    C   CORLTABL         I*4         Correlation table containing IDs to the
+*.                                     cells for all previous volumes (up to
+*.                                     the maximum).
+*.    C   COSPD            R*4         Correlation Speed in local common.
+*.    C   IXC              I*4         Index to the current volume scan in the
+*.                                     forecast error arrays, 1 to NPVOL.
+*.    C   IXCUR            I*4         Index to the current volume scan in the
+*.                                     correlation table
+*.    C   IXNEX            I*4         Index to the next volume scan in the
+*.                                     correlation table
+*.    C   IXP              I*4         Index to the previous volume scan in
+*.                                     the forecast error arrays
+*.    C   IXPRE            I*4         Index to the previous volume scan in
+*.                                     the correlation table
+*.    C   NPVOL            I*4         The Number of Past Volumes (scans) in
+*.                                     local common.  The max. # of scans
+*.                                     stored in the correlation table,
+*.                                     including the current.
+*.    C   NSTMHIST         I*4         Array of the # of cells/volume scan in
+*.                                     correlation table.
+*.    C   STARTUP          L*4         Flag indicating whether the time
+*.                                     between volumes has exceed the
+*.                                     threshold, &, therefore, tracking must
+*.                                     be reinitialized.
+*.    C   STRMLABL         I*4         Circular list of storm-ID indices.
+*.    C   TIMEHIST         R*4         Table of the times of past and present
+*.                                     volume scans, NOT corrected for change
+*.                                     of day.
+*.    C   TIMEPTR          I*4         Variable used to point to the location
+*.                                     of the latest volume time stored in the
+*.                                     array VOLUME_TIMES.
+*.    C   VOLUME_COUNTER   I*4         Count of the number of volume scans of
+*.                                     storm cell trend data
+*.    C   VOLUME_TIMES4    I*4         An I*4 array equivalenced to
+*.                                     VOLUME_TIMES to increase initialization
+*.                                     efficency
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    C   CELL_POINTERS     I*4         Circular list of the beginning
+*.                                      locations of trend data in the array
+*.                                      CELL_TREND_DATA
+*.    C   STRMLABL          I*4         Circular list of storm-ID indices.
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME                   TYPE        DESCRIPTION
+*.    ----                   ----        -----------
+*.    CNVMSEC                I*4         Conversion factor minutes to seconds
+*.    CNVMSSEC               R*4         Conversion factor of milleseconds to
+*.                                       seconds
+*.    DELTA_VOLUME_TIME      R*4         Time delta between adjacent volume
+*.                                       scans
+*.    I                      I*4         Loop Index
+*.    ICINIT                 I*4         Initial value of index for Current
+*.                                       volume in correlation - History
+*.                                       tables.
+*.    ICXINIT                I*4         Initial value of index for current
+*.                                       volume in forecast - Error tables.
+*.    ININIT                 I*4         Initial value of index for
+*.                                       Next-Oldest
+*.    INIT_CELL_POINTERS     L*4         Cell pointers array for trend data
+*.    IPINIT                 I*4         Initial value of index for Previous
+*.    IPXINIT                I*4         Initial value of index for Previous
+*.    ISTAT                  I*4         Status of return from call to
+*.                                       circular stack-manipulation routine.
+*.    N                      I*4         Loop Index
+*.    NPV_MAX                I*4         Maximum number of past volumes to
+*.                                       track
+*.    NPV_MX1                I*4         Number of max volumes minus one to
+*.                                       track
+*.    NSECPDAY               R*4         Number of seconds in one day
+*.    NST_LAB                I*4         Number of storm labels
+*.    NUMVOLS_WITHOUT_STORMS I*4         Number of volume scans wwithout
+*.                                       storms detected
+*.    PER_CELL               I*4         Number of entries per cell in trend
+*.                                       data
+*.    TIME_DIFF_MAX          R*4         Local copy of THRESHOLD(Time Between
+*.                                       Scans)
+*.    TREND_SIZE             I*4         The size of cell trend data
+*.    TREND_SIZE4            I*4         The size of cell trend data in words
+*.    VOLUME_SIZE4           I*4         Size of VOLUME_TIMES4 array
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A315CSAD
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A315C6T
+*.    A315CTT
+*.    A315TRND
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:
+*.
+*.     In the event of a change in Adaptation Data which would affect
+*.   the Correlation & History tables (i.e. a change in Correlation
+*.   Speed or No. of Past Volumes allowed for tracking each storm),
+*.   those tables are re-initialized and the storm-tracking process
+*.   is begun anew.
+*.
+*.     In the event of re-initialization or re-start of the RPG (due
+*.   to a power interrupt, etc.), the Storm I.D.-Label Stack is rein-
+*.   itialized.  Thereafter, all storms will receive new I.d. labels.
+*.
+*.     In the event the time difference between the current and previous
+*.   volume scans is greater than or equal to THRESHOLD(Time Between Scans),
+*.   the Correlation & History table, and the Storm I.D.-Label Stack
+*.   are reinitialized.
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     Compiled using COMP15.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     Linked using LINK15.CSS
+*.
+*.  MISC:  None
+*.
+C********************************************************************
+C
+C              STORM TRACKING: INITIALIZE TABLES  SUBROUTINE
+C
+C********************************************************************
+C
+      IMPLICIT NONE
+C
+C**Attach local STORMS Adaptation Data parameter file:
+$INCLUDE A315BUF.INC/G,**A315PSAD (NLIST)
+C
+C**Attach local STORMS Adaptation Data definitions:
+$INCLUDE **A315CSAD (NLIST)
+C
+C**Attach storm cell trend lists.
+$INCLUDE A315BUF.INC/G,**A315P7F (NLIST)
+$INCLUDE **A315PTRD (NLIST)
+$INCLUDE **A315CTRD (NLIST)
+C
+C**Attach internal common block (of "STORM_TRACK" output variables).
+$INCLUDE A315.INC/G,**A315C6T (NLIST)
+C
+C**Attach internal common block (of "STORM_TRACK" local variables).
+$INCLUDE **A315CTT(NLIST)
+C$INSERTC
+C$INSERTC**Attach itc defintion.
+C$INSERT$INCLUDE ITC.INC,**A315TRND
+C
+C*********************** DATA DECLARATIONS **************************
+C
+      INTEGER  IPINIT, ICINIT, ININIT,  ISTAT, I, N, IPXINIT, ICXINIT
+      INTEGER  CNVMSEC, NUMVOLS_WITHOUT_STORMS, NSTORMS
+      REAL     VOLTIME, CNVMSSEC, NSECPDAY
+      REAL     DELTA_VOLUME_TIME, TIME_DIFF_MAX
+      LOGICAL  INIT_CELL_POINTERS
+C$INSERT      INTEGER ITC_READ_STATUS
+C
+C********************* DATA INITIALIZATIONS *************************
+C
+      PARAMETER (IPINIT = NPV_MX1, ICINIT = NPV_MAX, ININIT = 1)
+      PARAMETER (IPXINIT = 1, ICXINIT = 2)
+      PARAMETER (CNVMSSEC = 0.001, NSECPDAY = 86400.0)
+      PARAMETER (CNVMSEC = 60)
+      DATA NUMVOLS_WITHOUT_STORMS/0/, INIT_CELL_POINTERS/.TRUE./
+C
+C****************** BEGIN MAIN PROCESSING SECTION *******************
+C
+C** Compare the current volume time with previous.  If difference
+C** too large, set the STARTUP flag and initialize COSPD.
+C
+      IF (.NOT. STARTUP) THEN
+C$INSERTC
+C$INSERTC** Read in the trend data itc.
+C$INSERTC
+C$INSERT         call rpg_itc_read( A315TRND_ID, ITC_READ_STATUS )
+C
+C** COMPUTE (TIME (Scan) difference)
+C
+         DELTA_VOLUME_TIME = (VOLTIME*CNVMSSEC) - TIMEHIST(IXCUR)
+C
+C** Check for midnight crossover.
+C
+         IF (DELTA_VOLUME_TIME .LT. 0.0) DELTA_VOLUME_TIME =
+     $       DELTA_VOLUME_TIME + NSECPDAY
+C
+C** Check delta time against adaptation data threshold.
+C
+         TIME_DIFF_MAX = ADPMXTIM*CNVMSEC
+C
+C** IF (TIME (Scan) difference greater than TIME (Maximum)) THEN
+C
+         IF (DELTA_VOLUME_TIME .GE. TIME_DIFF_MAX) THEN
+            STARTUP = .TRUE.
+C
+C** SET the number of STORM CELLs at the previous time to zero. (By
+C** virtue of setting COSPD, the number of storm cells history will
+C** initialized to zero).
+C
+            COSPD = SPEEDINIT
+         END IF
+C
+C** If the number of storm cells in the current volume scan is zero,
+C** increment the number of volumes without storm cells by one.  If
+C** the number of consecutive volumes without storm cells reaches
+C** the limit, set the start-up flag.  This will cause the history
+C** and correlation tables to be reinitilized.
+C
+         IF (.NOT. STARTUP) THEN
+            IF (NSTORMS .EQ. 0) THEN
+               NUMVOLS_WITHOUT_STORMS = NUMVOLS_WITHOUT_STORMS + 1
+               IF (NUMVOLS_WITHOUT_STORMS .EQ. ADPNPVOL) THEN
+C
+C** Number of consecutive volumes without storms reached!
+C
+                  STARTUP = .TRUE.
+                  COSPD = SPEEDINIT
+               END IF
+            ELSE
+C
+C** Storm Cells detected this volume scan.  Initialize the counter
+C** for number of consecutive volumes without storm cells.
+C
+               NUMVOLS_WITHOUT_STORMS = 0
+            END IF
+         END IF
+      END IF
+C
+C** If restarting, define circular list of Storm-ID Labels and
+C** initialize list with desired labels.
+C
+      IF ( STARTUP )  THEN
+         CALL DEFLST( STRMLABL,NST_LAB )
+C
+         DO 100  I = 1, NST_LAB
+            CALL ABL( I,STRMLABL,ISTAT )
+ 100     CONTINUE
+C
+C** Set the number of volume scans without storms to maximum
+C** allowed.  This will prevent the Storm-ID Labels list from
+C** being reinitialized until storm cells are once again
+C** detected.
+C
+         NUMVOLS_WITHOUT_STORMS = ADPNPVOL
+C
+C** Set the flag for initializing the cell pointers array for trend
+C** data.
+C
+         INIT_CELL_POINTERS = .TRUE.
+C
+C** Initialize the trend data list.
+C
+         DO 125 I = 1, TREND_SIZE4
+            CELL_TREND_DATA4(I) = 0
+ 125     CONTINUE
+C
+C** Initialize the volume scan time list and counter.
+C
+         VOLUME_COUNTER = 0
+         TIMEPTR = 0
+         DO 175 I = 1, VOLUME_SIZE4
+            VOLUME_TIMES4( I ) = 0
+ 175     CONTINUE
+C
+C** Reset the startup flag.
+C
+         STARTUP = .FALSE.
+C
+      END IF
+C
+C** Examine Adaptation data. If changed since last volume, recompute
+C** derived variables & reinitialize History and Correlation tables.
+C
+      IF ( ADPCOSPD.NE.COSPD .OR. ADPNPVOL.NE.NPVOL )  THEN
+         COSPD = ADPCOSPD
+         NPVOL = ADPNPVOL
+C
+C** Set the flag for initializing the cell pointers array for trend
+C** data.
+C
+         INIT_CELL_POINTERS = .TRUE.
+C
+C**  Reset Number-of-Storms, Time, and Correlation-History tables
+C**  to all zeroes.
+C
+         DO 200  I = 1, NPV_MAX
+            NSTMHIST( I ) = 0
+C
+C**  Initialize the TIMEHIST array to the current volume scan time.
+C**  This is done to prevent a midnight crossover problem in the
+C**  unlikely event the crossover occurs within the first
+C**  ADPNPVOL scans after startup.
+C
+            TIMEHIST( I ) = VOLTIME*CNVMSSEC
+C
+            DO 250  N = 1, NST_MAX
+               CORLTABL( N,I ) = 0
+ 250        CONTINUE
+ 200     CONTINUE
+C
+C**  Initialize indices for Storm Correlation and History tables.
+C
+         IXPRE = IPINIT
+         IXCUR = ICINIT
+         IXNEX = ININIT
+C
+C**  Initialize indices for Forecast-Error History tables.
+C
+         IXP = IPXINIT
+         IXC = ICXINIT
+C
+      END IF
+C
+C**  If cell pointers initialization flag is set, then....
+C
+      IF ( INIT_CELL_POINTERS ) THEN
+C
+C**  Define the trend data index circular list.
+C
+         CALL DEFLST(CELL_POINTERS, NSTF_MAX)
+C
+C**  Initialize the trend data index circular list.
+C
+         DO 300 I = 1, TREND_SIZE, PER_CELL
+            CALL ATL(I, CELL_POINTERS, ISTAT)
+ 300     CONTINUE
+C
+C**  Reset flag.
+C
+         INIT_CELL_POINTERS = .FALSE.
+C
+      END IF
+C
+C************** END OF PROCESSING FOR SUBROUTINE ********************
+C
+      RETURN
+      END

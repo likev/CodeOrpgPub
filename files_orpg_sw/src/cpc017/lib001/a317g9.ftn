@@ -1,0 +1,306 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/17 15:32:49 $
+C $Id: a317g9.ftn,v 1.2 2002/12/17 15:32:49 christie Exp $
+C $Revision: 1.2 $
+C $State: Exp $
+C
+      SUBROUTINE A317G9__SAVE_TVS(TVSTYPE,NUMTVS3D,F3D_IDX)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A317G9__SAVE_TVS
+*.
+*.  MODULE VERSION: 0001
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       07/21/97      0000      DAVE ZITTEL          CCR NA95-21503
+*.       03/16/99      0001      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A317G9__SAVE_TVS(TVSTYPE,NUMTVS3D,F3D_IDX)
+*.
+*.  MODULE FUNCTION:
+*.
+*.  Count the number of TVSs and ETVSs that are found and save the
+*.  3D feature attributes in the array TVS3D.  Order of TVSs or ETVSs
+*.  is ignored.  However, if number of TVSs or ETVSs exceeds an
+*.  adaptable threshold, module A317K9 is called to replace the
+*.  weakest TVS or ETVS.
+*.
+*.  MODULES CALLED: A317K9__FIND_WEAKEST 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT    TYPE        DESCRIPTION
+*.    -   -----    ----        -----------
+*.    G   ADPMNET  I*4         TDA MAXIMUM # ETVS THRESHOLD (PER VOLUME SCAN)
+*.    G   ADPMNT   I*4         TDA MAXIMUM # TVS THRESHOLD (PER VOLUME SCAN)
+*.    G   TV_ADV   I*4         (CONSTANT)INDEX INTO TVS_MAIN TO THE TVS
+*.                             FEATURE AVERAGE DELTA VELOCITY (IN M/S)
+*.    G   TV_AZM   I*4         (CONSTANT)INDEX INTO TVS_MAIN TO THE TVS
+*.                             FEATURE AZIMUTH (IN DEGREES)
+*.    G   TV_BAS   I*4         (CONSTANT)INDEX INTO TVS_MAIN TO THE TVS
+*.                             FEATURE BASE HEIGHT (IN KM)
+*.    G   TV_BEL   I*4         (CONSTANT)Parameter for TVS feature base
+*.                             elevation
+*.    G   TV_DEP   I*4         (CONSTANT)INDEX INTO TVS_MAIN TO THE TVS
+*.                             FEATURE DEPTH (IN KM)
+*.    G   TV_LDV   I*4         (CONSTANT)INDEX INTO TVS_MAIN TO THE TVS
+*.                             FEATURE LOW-LEVEL DELTA VELOCITY (IN M/S)
+*.    G   TV_MDV   I*4         (CONSTANT)INDEX INTO TVS_MAIN TO THE TVS
+*.                             FEATURE MAXIMUM DELTA VELOCITY (IN M/S)
+*.    G   TV_MVH   I*4         (CONSTANT)INDEX INTO TVS_MAIN TO THE TVS
+*.                             FEATURE HEIGHT OF THE MAXIMUM DELTA VELOCITY
+*.                             (IN KM)
+*.    G   TV_RAN   I*4         (CONSTANT)INDEX INTO TVS_MAIN TO THE TVS
+*.                             FEATURE RANGE (IN KM)
+*.    G   TV_SHR   I*4         (CONSTANT)INDEX INTO TVS_MAIN TO THE TVS
+*.                             FEATURE MAXIMUM SHEAR (IN M/S/KM)
+*.    G   TV_SRH   I*4         (CONSTANT)INDEX INTO TVS_MAIN TO THE TVS
+*.                             FEATURE HEIGHT OF THE MAXIMUM SHEAR (IN KM)
+*.    G   TV_TOP   I*4         (CONSTANT)INDEX INTO TVS_MAIN TO THE TVS
+*.                             FEATURE TOP HEIGHT (IN KM)
+*.    G   TV_TYP   I*4         (CONSTANT)INDEX INTO TVS_MAIN TO THE TVS
+*.                             FEATURE TYPE (TVS=1 OR ETVS=2)
+*.    C   ETVCOUNT I*4         Counter for number of ETVSs detected
+*.    C   FEAT3D   R*4         Array containing three-dimensional feature
+*.                             attributes
+*.    C   TVSCOUNT I*4         Counter for number of TVSs detected.
+*.    C   F3D_ADV  I*4         (CONSTANT)Position of the average delta
+*.                             velocity attribute (m/s) of a three-dimensional
+*.                             feature in the array FEAT3D
+*.    C   F3D_BAS  I*4         (CONSTANT)Position of the base height attribute
+*.                             (km) of a three-dimensional feature in the
+*.                             array FEAT3D
+*.    C   F3D_BAZ  I*4         (CONSTANT)Position of the base azimuth
+*.                             attribute (degrees) of a three-dimensional
+*.                             feature in the array FEAT3D
+*.    C   F3D_BEL  I*4         (CONSTANT)Index to the position of the base
+*.                             elevation attribute (degrees) of a
+*.                             three-dimensional feature in the array FEAT3D
+*.    C   F3D_BRN  I*4         (CONSTANT)Position of the base range attribute
+*.                             (km) of a three-dimensional feature in the
+*.                             array FEAT3D
+*.    C   F3D_DEP  I*4         (CONSTANT)Position of the depth attribute (km)
+*.                             of a three-dimensional feature in the array
+*.                             FEAT3D
+*.    C   F3D_HDV  I*4         (CONSTANT)Position of the height attribute (km)
+*.                             of a three-dimensional feature's maximum delta
+*.                             velocity in the array FEAT3D
+*.    C   F3D_HSH  I*4         (CONSTANT)Position of the height attribute (km)
+*.                             of a three-dimensional feature's maximum shear
+*.                             in the array FEAT3D
+*.    C   F3D_LDV  I*4         (CONSTANT)Position of the base low-level delta
+*.                             velocity attribute (m/s) of a three-dimensional
+*.                             feature in the array FEAT3D
+*.    C   F3D_MDV  I*4         (CONSTANT)Position of the maximum delta
+*.                             velocity attribute (m/s) of a three-dimensional
+*.                             feature in the array FEAT3D
+*.    C   F3D_MSH  I*4         (CONSTANT)Position of the maximum shear
+*.                             attribute (1/s) of a three-dimensional feature
+*.                             in the array FEAT3D
+*.    C   F3D_TOP  I*4         (CONSTANT)Position of the top attribute (km) of
+*.                             a three-dimensional feature in the array FEAT3D
+*.    P   F3D_IDX  I*4         Index into FEAT3D array to indicate which
+*.                             three-dimensional feature to move to the array
+*.                             TVS3D
+*.    P   NUMTVS3D I*4         The count of the number of TVS 3D features
+*.    P   TVSTYPE  I*4         Variable to indicate if feature is a TVS or an
+*.                             ETVS.
+*.
+*.    *   OUTPUT   TYPE        DESCRIPTION
+*.    -   ------   ----        -----------
+*.    G   ADPMNET  I*4         TDA MAXIMUM # ETVS THRESHOLD (PER VOLUME SCAN)
+*.    G   ADPMNT   I*4         TDA MAXIMUM # TVS THRESHOLD (PER VOLUME SCAN)
+*.    C   ETVCOUNT I*4         Counter for number of ETVSs detected
+*.    C   ETV_BFLG L*4         Flag indicating that more than ADPMNET ETVSs
+*.                             were detected.
+*.    C   TVS3D    R*4         Array of attributes of three-dimensional
+*.                             features that are either TVSs or ETVSs.
+*.    C   TVSCOUNT I*4         Counter for number of TVSs detected.
+*.    C   TVS_BFLG L*4         Flag indicating that more than ADPMNT TVSs were
+*.                             detected.
+*.    P   NUMTVS3D I*4         The count of the number of TVS 3D features
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    P   F3D_IDX           I*4         Index into FEAT3D array to indicate
+*.                                      which three-dimensional feature to
+*.                                      move to the array TVS3D
+*.    P   TVSTYPE           I*4         Variable to indicate if feature is a
+*.                                      TVS or an ETVS.
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME     TYPE        DESCRIPTION
+*.    ----     ----        -----------
+*.    REPL_IDX I*4         Index indicating the position of the weakest
+*.                         (according to maximum delta velocity) TVS or ETVS
+*.                         in the array TVS3D.
+*.    SAV_FLG  L*4         Passed flag indicating TVS/ETVS feature in array is
+*.                         to replace a TVS/ETVS feature in array TVS3D.
+*.    TVIDX    I*4         Variable used to store a running count of TVSs and
+*.                         ETVSs without regard for any adaptable parameter
+*.                         limits on either.
+*.    TVS      I*4         Flag to show a three-dimensional feature meets TVS
+*.                         criteria.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A317CTAD
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A317C3DB
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     Compiled using COMP17.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     Linked using LINK17.CSS
+*.
+*.  MISC:  None
+*.
+C********************************************************************
+C
+C             TDA 3D PROCESSING: SAVE TVS
+C
+C********************************************************************
+C
+C
+      IMPLICIT NONE
+C
+$INCLUDE A317BUF.INC/G, **A317TP9 (NLIST)
+$INCLUDE A317BUF.INC/G, **A317PTAD (NLIST)
+$INCLUDE A317BUF.INC/G, **A317CTAD (NLIST)
+$INCLUDE A317.INC/G, **A317TP2 (NLIST)
+$INCLUDE A317.INC/G, **A317TC2 (NLIST)
+$INCLUDE A317.INC/G, **A317C3DA (NLIST)
+$INCLUDE A317.INC/G, **A317P3DB (NLIST)
+$INCLUDE A317.INC/G, **A317C3DB (NLIST)
+C
+C********************** LOCAL DECLARATIONS *************************
+C
+      INTEGER TVIDX, TVS, ETVS, TVSTYPE,F3D_IDX
+      INTEGER REPL_IDX, NUMTVS3D
+      LOGICAL SAV_FLG
+      PARAMETER (TVS = 1, ETVS = 2)
+C
+C****************** BEGIN EXECUTABLE CODE ***************************
+C
+      SAV_FLG = .TRUE.
+C
+C***  Set TVIDX to the count of the number of TVS 3D features.
+C***  TVSs and ETVSs are stored in TVS3D without regard for type.
+C
+      TVIDX = NUMTVS3D
+C
+C***  If the feature is a TVS then increment the count of TVSs
+C
+      IF( TVSTYPE .EQ. TVS) THEN
+C
+        TVSCOUNT = TVSCOUNT + 1
+C
+C***  Check if we've exceeded the maximum number of TVSs allowed
+C
+        IF( TVSCOUNT .GT. ADPMNT )THEN
+C
+C***  set the count of TVSs to the adaptable threshold limit and
+C***  set the flag TVS_BFLG to TRUE to indicate there were more
+C***  TVSs detected than the buffer would hold.
+C
+          TVSCOUNT = ADPMNT
+          NUMTVS3D = NUMTVS3D - 1
+          TVS_BFLG = .TRUE.
+C
+C***  Call A317K9 to find the index in TVS3D of the weakest TVS
+C
+          CALL A317K9__FIND_WEAKEST(TVSTYPE,F3D_IDX,REPL_IDX,
+     >        SAV_FLG)
+C
+C***  Set the index pointer for TVS3D to the replacement index
+C
+          TVIDX = REPL_IDX
+        ENDIF
+      ELSE
+C
+C***  We have an elevated TVS (ETVS).  Increment its counter.
+C
+        ETVCOUNT = ETVCOUNT + 1
+        IF(ETVCOUNT .GT. ADPMNET) THEN
+C
+C*** If we've exceeded the threshold for the adaptable maximum number
+C***  of elevated TVSs allowed then set the ETVSCOUNT to ADPMNET and
+C***  set the ETV_BFLG to true to show there were more than allowed.
+C
+          ETVCOUNT = ADPMNET
+          NUMTVS3D = NUMTVS3D - 1
+          ETV_BFLG = .TRUE.
+C
+C***  Call subroutine A317K9 to see if there is a weaker ETVS that
+C***  the current one could replace.  The flag SAV_FLG is returned
+C***  FALSE if the current ETVS is weaker than any others already
+C***  saved.
+C
+          CALL A317K9__FIND_WEAKEST(TVSTYPE,F3D_IDX, REPL_IDX,
+     >       SAV_FLG)
+          TVIDX = REPL_IDX
+        ENDIF
+      ENDIF
+C
+C***  Now save the 3D feature information in the array TVS3D.
+C
+      IF(SAV_FLG) THEN
+C
+C***  Save the feature type: either a TVS or an Elevated TVS.
+C
+        TVS3D(TV_TYP,TVIDX) = TVSTYPE
+C
+C***  Save the azimuth and range of the feature.
+C
+        TVS3D(TV_AZM,TVIDX) = FEAT3D(F3D_BAZ,F3D_IDX)
+        TVS3D(TV_RAN,TVIDX) = FEAT3D(F3D_BRN,F3D_IDX)
+C
+C***  Save the base elevation angle, the base and top height, and
+C***  depth.
+C
+        TVS3D(TV_BEL,TVIDX) = FEAT3D(F3D_BEL,F3D_IDX)
+        TVS3D(TV_BAS,TVIDX) = FEAT3D(F3D_BAS,F3D_IDX)
+        TVS3D(TV_TOP,TVIDX) = FEAT3D(F3D_TOP,F3D_IDX)
+        TVS3D(TV_DEP,TVIDX) = FEAT3D(F3D_DEP,F3D_IDX)
+C
+C***  Save the low-level delta velocity, the maximum delta velocity,
+C***  the height of the maximum delta velocity, and the average delta
+C***  velocity.
+C
+        TVS3D(TV_LDV,TVIDX) = FEAT3D(F3D_LDV,F3D_IDX)
+        TVS3D(TV_MDV,TVIDX) = FEAT3D(F3D_MDV,F3D_IDX)
+        TVS3D(TV_MVH,TVIDX) = FEAT3D(F3D_HDV,F3D_IDX)
+        TVS3D(TV_ADV,TVIDX) = FEAT3D(F3D_ADV,F3D_IDX)
+C
+C***  Save the feature's maximum shear, and the height of the maximum
+C***  shear.
+C
+        TVS3D(TV_SHR,TVIDX) = FEAT3D(F3D_MSH,F3D_IDX)
+        TVS3D(TV_SRH,TVIDX) = FEAT3D(F3D_HSH,F3D_IDX)
+C
+      ENDIF
+      RETURN
+      END

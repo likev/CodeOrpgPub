@@ -1,0 +1,268 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/05 16:06:24 $
+C $Id: a3082b.ftn,v 1.8 2002/12/05 16:06:24 christie Exp $
+C $Revision: 1.8 $
+C $State: Exp $
+C
+      SUBROUTINE A3082B__PARTA_HEADER(SPLIT_DATE,HMTIME,IROW,ICOL,
+     $   NVOL,NBYTES,RCMBUF)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3082B__PARTA_HEADER
+*.
+*.  MODULE VERSION: 0011
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       2/10/88       0000      VALERIE HOLDEN       SPR # 80002
+*.       2/07/90       0001      VALERIE HOLDEN       SPR # 90611
+*.       2/26/90       0001      VALERIE HOLDEN       SPR # 90613
+*.       1/29/91       0002      VALERIE HOLDEN       SPR # 91249
+*.       12 03 91      0003      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0004      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/20/92      0005      Toolset              SPR 91895
+*.       03/25/93      0006      Toolset              SPR NA93-06801
+*.       01/28/94      0007      Toolset              SPR NA94-01101
+*.       03/03/94      0008      Toolset              SPR NA94-05501
+*.       04/11/96      0009      Toolset              CCR NA95-11802
+*.       12/23/96      0010      Toolset              CCR NA95-11807
+*.       03/16/99      0011      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A3082B__PARTA_HEADER (SPLIT_DATE,HMTIME,
+*.                    IROW,ICOL,NVOL,NBYTES,RCMBUF)
+*.
+*.  MODULE FUNCTION: ENCODES PART A HEADER LINE
+*.
+*.  MODULES CALLED: A3082K__STORE_LINE 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT       TYPE        DESCRIPTION
+*.    -   -----       ----        -----------
+*.    G   RDA_PRIMARY I*4         Line number of the primary RDA.
+*.    G   RDA_STATUS  I*2         Last received RDA status message.
+*.    G   SIRPGID     I*4         Site Adaptation - RPG ID Number.
+*.    G   SUMMARY     I*4         Volume Scan Summary Table
+*.    G   SCAN_MODE   I*4         (CONSTANT)Weather Mode index into Scan
+*.                                Summary Table
+*.    G   SCAN_VCP    I*4         (CONSTANT)Volume Coverage Pattern index into
+*.                                Scan Summary Table
+*.    C   SAVE_BYTE   I*4         Offset into Part-A divider flagging
+*.                                intermediate graphic and alphanumeric
+*.                                graphic product. (from top of buffer)
+*.    C   NACOLS      I*4         (CONSTANT)Number of columns available for
+*.                                Radar Coded Message product.
+*.    P   HMTIME      I*4         HOURS AND MINUTES OF TIME DATA
+*.    P   ICOL        I*4         COLUMN NUMBER
+*.    P   IROW        I*4         ROW NUMBER
+*.    P   NBYTES      I*4         NUMBER OF BYTES
+*.    P   NVOL        I*4         VOLUME SCAN NUMBER
+*.    P   RCMBUF      I*2         RADAR-CODED-MESSAGE BUFFER
+*.    P   SPLIT_DATE  I*2         DATE IN THREE I*2 WORDS
+*.
+*.    *   OUTPUT    TYPE        DESCRIPTION
+*.    -   ------    ----        -----------
+*.    C   OPMODEOFF I*4         Operational mode offset.
+*.    C   RCMOFF    I*4         Offset into Part-A for RADNE (no reportable
+*.                              reflectivity intensity values) and RADOM
+*.                              (radar down for maintenance) (from top of
+*.                              product buffer header).
+*.    P   ICOL      I*4         COLUMN NUMBER
+*.    P   IROW      I*4         ROW NUMBER
+*.    P   NBYTES    I*4         NUMBER OF BYTES
+*.    P   RCMBUF    I*2         RADAR-CODED-MESSAGE BUFFER
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    P   ICOL              I*4         COLUMN NUMBER
+*.    P   IROW              I*4         ROW NUMBER
+*.    P   NBYTES            I*4         NUMBER OF BYTES
+*.    P   RCMBUF            I*2         RADAR-CODED-MESSAGE BUFFER
+*.
+*.  DATABASE/FILE REFERENCE: NONE
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME        TYPE        DESCRIPTION
+*.    ----        ----        -----------
+*.    BLANK       CHAR*1      ONE BLANK CHARACTER
+*.    BLANKS      CHAR*4      FOUR BLANK CHARACTERS
+*.    COLON       CHAR*1      COLON CHARACTER
+*.    DOWN_STATUS I*4         STATUS OF RDA
+*.    I           I*4         Index control variable.
+*.    K           I*4         Loop control index variable.
+*.    MODEA       I*4         PRECIPITATION MODE
+*.    MODEB       I*4         CLEAR AIR MODE
+*.    MODES       CHAR*4      OPERATIONAL MODES (PCPN OR CLAR)
+*.    MODE_OUT    CHAR*4      CURRENT OPERATIONAL MODE VALUES
+*.    NUM_INIT    I*4         INITIALIZED NUMBER OF INTENSITIES
+*.    NUM_INTS    CHAR*3      Header for Number of INTENSITUES
+*.    ONE         I*4         Program parameter value for one used as lower
+*.                            index in do loop.
+*.    OPMOD_OFF   I*4         OPERATIONAL MODE OFFSET
+*.    OPSTAT      I*4         OPERATIONAL MODE STATUS
+*.    OP_MODE     CHAR*3      OPERATIONAL MODE HEADER /MD
+*.    PARAM2      I*4         PROGRAM PARAMETER FOR RADAR STATUS
+*.    PARTA       CHAR*8      PART A IDENTIFIER
+*.    RADAR_DOWN  I*4         RADAR DOWN FLAG.
+*.    RADNE_OFF   I*4         RADNE OFFSET
+*.    RADOM       CHAR*6      RADAR DOWN FOR MAINTENANCE FLAG
+*.    RCM_LINE    CHAR*70     RADAR CODED MESSAGE LINE
+*.    SCAN1       I*4         (Constant) Scan strategy #1.
+*.    SCAN2       I*4         (Constant) Scan strategy #2.
+*.    SCAN3       I*4         (Constant) Scan strategy #3.
+*.    SCANS       CHAR*4      SCAN STRATEGY MODES (1405,0906,0510)
+*.    SCANST      I*4         SCAN STRATEGY NUMBER
+*.    SCAN_MIN    CHAR*3      SCAN STRATEGY HEADER
+*.    SCAN_OUT    CHAR*4      CURRENT SCAN STRATEGY
+*.    UNEDIT      CHAR*8      RCM UNEDITED FLAG
+*.    VCP11       I*4         VOLUME COVERAGE PATTERN 11
+*.    VCP21       I*4         VOLUME COVERAGE PATTERN 21
+*.    VCP31       I*4         VOLUME COVERAGE PATTERN 31
+*.    VCP32       I*4         VOLUME COVERAGE PATTERN 32
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD05
+*.    SITEADP
+*.    STATFIL
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A308P2
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS: NONE
+*.
+*.  DEVIATION FROM STANDARDS: NONE
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     THIS MODULE IS COMPILED USING COMP08.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     THIS MODULE IS LINKED USING LINK08.CSS
+*.
+*.  MISC: NONE
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+C*
+$INCLUDE A309ADPT.INC/G,**A3CD70P6 (NEND NLIST)
+$INCLUDE                **A3CD70CA (NEND NLIST)
+$INCLUDE                **A3CD70C8 (NEND NLIST)
+$INCLUDE A309.INC/G,**A3PM00       (NEND NLIST)
+$INCLUDE            **A3PM01       (NEND NLIST)
+$INCLUDE            **A3PM06       (NEND NLIST)
+$INCLUDE            **A3CD05       (NEND NLIST)
+$INCLUDE            **A3CD07       (NEND NLIST)
+$INCLUDE A308.INC,**A308P2         (NEND NLIST)
+C*
+      INTEGER*2    SPLIT_DATE(3),RCMBUF(*)
+      INTEGER*4    HMTIME,IROW,ICOL,NBYTES,I,K,SCANST,OPSTAT,ONE
+      INTEGER*4    NVOL,YES,NUM_INIT,DOWN_STATUS,RADAR_DOWN
+      INTEGER*4    RADNE_OFF,OPMOD_OFF,MODEA,MODEB
+      INTEGER*4    VCP11,VCP21,VCP31,VCP32,SCAN1,SCAN2,SCAN3,PARAM2
+      PARAMETER    (RADNE_OFF=102,OPMOD_OFF=156,MODEA=1,MODEB=2)
+      PARAMETER    (YES=1,NUM_INIT=0,RADAR_DOWN=32,ONE=1)
+      PARAMETER    (VCP11=11,VCP21=21,VCP31=31,VCP32=32,PARAM2=2)
+      PARAMETER    (SCAN1=1,SCAN2=2,SCAN3=3)
+      CHARACTER*1  BLANK,COLON
+      CHARACTER*3  OP_MODE,SCAN_MIN,NUM_INTS
+      CHARACTER*4  MODE_OUT,MODES(2),SCAN_OUT,SCANS(3),BLANKS
+      CHARACTER*6  RADNE,RADOM
+      CHARACTER*8  PARTA,UNEDIT
+      CHARACTER*70 RCM_LINE
+      DATA         PARTA/'/NEXRAA '/,UNEDIT/'UNEDITED'/
+      DATA         RADNE/' RADNE'/,RADOM/' RADOM'/
+      DATA         MODES/'CLAR','PCPN'/,SCANS/'1405','0906','0510'/
+      DATA         OP_MODE/'/MD'/,SCAN_MIN/'/SC'/,NUM_INTS/'/NI'/
+      DATA         BLANK/' '/,COLON/':'/,BLANKS/'    '/
+C$INSERTC
+C$INSERT      INTEGER*2 RDA_STATUS(40)
+C$INSERT      INTEGER READ_STATUS
+C*
+C*    CLEAR RCM_LINE TO BLANKS
+      DO 5 I = ONE,NACOLS
+         RCM_LINE(I:I) = BLANK
+ 5    CONTINUE
+C*
+C*    CHECK IF STATUS OF RADAR IS DOWN, APPEND RADOM TO OUTPUT
+C*    WRITE /NEXRAA, SIDD, DATE/TIME, UNEDITED
+C$INSERTC
+C$INSERTC*    Read the lastest RDA status data.
+C$INSERTC
+C$INSERT      Call rcm_read_rdastatus_lb( RDA_STATUS, READ_STATUS )
+      DOWN_STATUS = RDA_STATUS(PARAM2)
+      IF (DOWN_STATUS.EQ.RADAR_DOWN) THEN
+         WRITE(RCM_LINE,90) PARTA,SIRPGID,(SPLIT_DATE(K),K=1,3),
+     $      HMTIME,UNEDIT,RADOM
+ 90      FORMAT(A8,I4.4,' ',3(I2.2),I4.4,' ',A8,A6)
+      ELSE
+C*
+         WRITE(RCM_LINE,95) PARTA,SIRPGID,(SPLIT_DATE(K),K=1,3),
+     $      HMTIME,UNEDIT
+ 95      FORMAT(A8,I4.4,' ',3(I2.2),I4.4,' ',A8)
+      ENDIF
+C*
+C*    STORE LINE INTO RADAR CODED MESSAGE PRODUCT BUFFER
+      CALL A3082K__STORE_LINE(IROW,ICOL,NBYTES,RCM_LINE,RCMBUF)
+C*
+C*    FIND OPERATIONAL MODE
+      OPSTAT = SUMMARY(SCAN_MODE,NVOL)
+C$DELETE
+      IF (OPSTAT.EQ.MODEA) THEN
+         MODE_OUT = MODES(MODEA)
+      ELSE
+         MODE_OUT = MODES(MODEB)
+      ENDIF
+C$ENDDELETE
+C$INSERT      IF (OPSTAT.EQ.PFWXCONV) THEN
+C$INSERT         MODE_OUT = MODES(PFWXCONV)
+C$INSERT      ELSE
+C$INSERT         MODE_OUT = MODES(PFWXCLA)
+C$INSERT      ENDIF
+C*
+C*    FIND SCAN STRATEGY
+      SCANST = SUMMARY(SCAN_VCP,NVOL)
+      IF (SCANST.EQ.VCP11) THEN
+         SCAN_OUT = SCANS(SCAN1)
+      ELSEIF (SCANST.EQ.VCP21) THEN
+         SCAN_OUT = SCANS(SCAN2)
+      ELSEIF (SCANST.EQ.VCP31.OR.SCANST.EQ.VCP32) THEN
+         SCAN_OUT = SCANS(SCAN3)
+      ELSE
+         SCAN_OUT = BLANKS
+      ENDIF
+C*
+C*    CLEAR RCM_LINE TO BLANKS
+      DO 9 I = ONE,NACOLS
+         RCM_LINE(I:I) = BLANK
+ 9    CONTINUE
+C*
+C*    WRITE OPERATIONAL MODE, SCAN STRATEGY, AND INITIALIZED NUMBER
+C*       OF INTENSITIES
+      WRITE(RCM_LINE,105) OP_MODE,MODE_OUT,SCAN_MIN,SCAN_OUT,
+     $   NUM_INTS,NUM_INIT,COLON
+ 105  FORMAT(A3,A4,' ',A3,A4,' ',A3,I4.4,A1)
+C*
+C*    SAVE INDEX FOR /NEXRAA LINE FOR RADNE
+      RCMOFF = RADNE_OFF + SAVE_BYTE
+C*
+C*    SAVE INDEX FOR OPERATIONAL MODE LINE FOR TOTAL COUNT
+      OPMODEOFF = OPMOD_OFF + SAVE_BYTE
+C*
+C*    STORE LINE INTO RADAR CODED MESSAGE PRODUCT BUFFER
+      CALL A3082K__STORE_LINE(IROW,ICOL,NBYTES,RCM_LINE,RCMBUF)
+      RETURN
+      END

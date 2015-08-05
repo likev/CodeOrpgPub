@@ -1,0 +1,208 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/17 16:24:52 $
+C $Id: a317s9.ftn,v 1.2 2002/12/17 16:24:52 christie Exp $
+C $Revision: 1.2 $
+C $State: Exp $
+C
+      SUBROUTINE A317S9__STORE_TVS( VOLTIME,VOLDATE,NTVFEAT,NETFEAT,
+     >                              TVS_MAIN )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A317S9__STORE_TVS
+*.
+*.  MODULE VERSION: 0001
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       07/22/97      0000      DAVE ZITTEL          CCR NA95-21503
+*.       03/16/99      0001      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A317S9__STORE_TVS( VOLTIME,VOLDATE,NTVFEAT
+*.                          ,NETFEAT, TVS_MAIN )
+*.
+*.  MODULE FUNCTION:  Stores all TVSATTR output buffer information
+*.      minus the TVS Adaptation Data.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT        TYPE        DESCRIPTION
+*.    -   -----        ----        -----------
+*.    G   TV_ADV       I*4         (CONSTANT)INDEX INTO TVS_MAIN TO THE TVS
+*.                                 FEATURE AVERAGE DELTA VELOCITY (IN M/S)
+*.    G   TV_AZM       I*4         (CONSTANT)INDEX INTO TVS_MAIN TO THE TVS
+*.                                 FEATURE AZIMUTH (IN DEGREES)
+*.    G   TV_BAS       I*4         (CONSTANT)INDEX INTO TVS_MAIN TO THE TVS
+*.                                 FEATURE BASE HEIGHT (IN KM)
+*.    G   TV_BEL       I*4         (CONSTANT)Parameter for TVS feature base
+*.                                 elevation
+*.    G   TV_DEP       I*4         (CONSTANT)INDEX INTO TVS_MAIN TO THE TVS
+*.                                 FEATURE DEPTH (IN KM)
+*.    G   TV_LDV       I*4         (CONSTANT)INDEX INTO TVS_MAIN TO THE TVS
+*.                                 FEATURE LOW-LEVEL DELTA VELOCITY (IN M/S)
+*.    G   TV_MDV       I*4         (CONSTANT)INDEX INTO TVS_MAIN TO THE TVS
+*.                                 FEATURE MAXIMUM DELTA VELOCITY (IN M/S)
+*.    G   TV_MVH       I*4         (CONSTANT)INDEX INTO TVS_MAIN TO THE TVS
+*.                                 FEATURE HEIGHT OF THE MAXIMUM DELTA
+*.                                 VELOCITY (IN KM)
+*.    G   TV_RAN       I*4         (CONSTANT)INDEX INTO TVS_MAIN TO THE TVS
+*.                                 FEATURE RANGE (IN KM)
+*.    G   TV_SHR       I*4         (CONSTANT)INDEX INTO TVS_MAIN TO THE TVS
+*.                                 FEATURE MAXIMUM SHEAR (IN M/S/KM)
+*.    G   TV_SRH       I*4         (CONSTANT)INDEX INTO TVS_MAIN TO THE TVS
+*.                                 FEATURE HEIGHT OF THE MAXIMUM SHEAR (IN KM)
+*.    G   TV_TOP       I*4         (CONSTANT)INDEX INTO TVS_MAIN TO THE TVS
+*.                                 FEATURE TOP HEIGHT (IN KM)
+*.    G   TV_TYP       I*4         (CONSTANT)INDEX INTO TVS_MAIN TO THE TVS
+*.                                 FEATURE TYPE (TVS=1 OR ETVS=2)
+*.    C   BEG_VOL_DATE I*4         JULIAN DATE OF THE VOLUME SCAN
+*.    C   BEG_VOL_TIME I*4         TIME OF THE VOLUME SCAN IN MILLISECONDS
+*.                                 SINCE MIDNIGHT
+*.    C   ETVCOUNT     I*4         Counter for number of ETVSs detected
+*.    C   ETV_BFLG     L*4         Flag indicating that more than ADPMNET
+*.                                 ETVSs were detected.
+*.    C   NBRTVS       I*4         Sum of number of TVSs and ETVSs detected.
+*.    C   TVORDER      I*4         TVS/ETVS rank-order array; first TVSs then
+*.                                 ETVSs.  Each sorted by max low-level delta
+*.                                 velocity in descending order.
+*.    C   TVS3D        R*4         Array of attributes of three-dimensional
+*.                                 features that are either TVSs or ETVSs.
+*.    C   TVSCOUNT     I*4         Counter for number of TVSs detected.
+*.    C   TVS_BFLG     L*4         Flag indicating that more than ADPMNT TVSs
+*.                                 were detected.
+*.
+*.    *   OUTPUT   TYPE        DESCRIPTION
+*.    -   ------   ----        -----------
+*.    P   NETFEAT  I*4         # OF ETVS FEATURES IDENTIFIED IN THE VOLUME
+*.                             SCAN; NEGATIVE INDICATES MAX. ADAPTABLE WAS
+*.                             EXCEEDED
+*.    P   NTVFEAT  I*4         # OF TVS FEATURES IDENTIFIED IN THE VOLUME
+*.                             SCAN; NEGATIVE INDICATES MAX. ADAPTABLE WAS
+*.                             EXCEEDED
+*.    P   TVS_MAIN R*4         TVS FEATURE ATTRIBUTE ARRAY, WITH TVSes 1ST
+*.                             THEN ETVSes.  FEATURES SORTED FROM STRONGEST TO
+*.                             WEAKEST LLDV
+*.    P   VOLDATE  I*4         VOLUME SCAN DATE IN JULIAN DAYS SINCE 1970
+*.    P   VOLTIME  I*4         VOLUME SCAN TIME IN MSECS SINCE MIDNIGHT
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME  TYPE        DESCRIPTION
+*.    ----  ----        -----------
+*.    ITVX  I*4         Do loop index to point to position in TVS_MAIN to put
+*.                      characteristics of each TVS and ETVS
+*.    TVIND I*4         Index obtained from array TVORDER for entry into array
+*.                      TVS3D to obtain rank order of TVSs and ETVSs.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A317C3DB
+*.    A317TDNE
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     Compiled using COMP17.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     Linked using LINK17.CSS
+*.
+*.  MISC:  None
+*.
+C********************************************************************
+C
+C         TDA STORE TVS ATTRIBUTE DATA ROUTINE
+C
+C********************************************************************
+C
+      IMPLICIT NONE
+C
+C**Attach local TDA Parameter and common data
+$INCLUDE A317BUF.INC/G, **A317TP9 (NLIST)
+$INCLUDE                  **A317D4 (NLIST)
+C
+$INCLUDE A317.INC/G, **A317TDNE (NLIST)
+$INCLUDE               **A317P3DB (NLIST)
+$INCLUDE               **A317C3DB (NLIST)
+C
+C
+C********************** LOCAL DECLARATIONS **************************
+C
+      INTEGER ITVX, TVIND
+C
+C******************* BEGIN MAIN PROCESSING SECTION ******************
+C
+C***  Transfer all TVSs and ETVSs from TVS3D to array TVS_MAIN.
+C
+      DO 100 ITVX = 1, NBRTVS
+C
+C***  Get the order of the TVSs/ETVSs from TVORDER.  The order is
+C***  by first TVSs versus ETVSs, then by maximum low-level delta
+C***  velocity, and then by maximum delta velocity at any level.
+C
+         TVIND = TVORDER( ITVX )
+C
+C***  Transfer the characteristics for each TVS/ETVS.
+C
+         TVS_MAIN(TV_TYP, ITVX ) = TVS3D( TV_TYP, TVIND )
+         TVS_MAIN(TV_AZM, ITVX ) = TVS3D( TV_AZM, TVIND )
+         TVS_MAIN(TV_RAN, ITVX ) = TVS3D( TV_RAN, TVIND )
+         TVS_MAIN(TV_LDV, ITVX ) = TVS3D( TV_LDV, TVIND )
+         TVS_MAIN(TV_ADV, ITVX ) = TVS3D( TV_ADV, TVIND )
+         TVS_MAIN(TV_MDV, ITVX ) = TVS3D( TV_MDV, TVIND )
+         TVS_MAIN(TV_MVH, ITVX ) = TVS3D( TV_MVH, TVIND )
+         TVS_MAIN(TV_DEP, ITVX ) = TVS3D( TV_DEP, TVIND )
+         TVS_MAIN(TV_BAS, ITVX ) = TVS3D( TV_BAS, TVIND )
+         TVS_MAIN(TV_BEL, ITVX ) = TVS3D( TV_BEL, TVIND )
+         TVS_MAIN(TV_TOP, ITVX ) = TVS3D( TV_TOP, TVIND )
+         TVS_MAIN(TV_SHR, ITVX ) = TVS3D( TV_SHR, TVIND )
+         TVS_MAIN(TV_SRH, ITVX ) = TVS3D( TV_SRH, TVIND )
+C
+C***  Get the next TVS/ETVS.
+C
+ 100  CONTINUE
+C
+C** Store the # of TVSes and ETVSes
+C
+      NTVFEAT = TVSCOUNT
+      NETFEAT = ETVCOUNT
+C
+C***  If either the number of TVSs or ETVSs would have exceeded the
+C***  adaptable thresholds then negate the count in the
+C***  output buffer as a flag for the TVS product code.
+C
+      IF(TVS_BFLG) NTVFEAT = - TVSCOUNT
+      IF(ETV_BFLG) NETFEAT = - ETVCOUNT
+C
+C***  Put the volume date and time into the output buffer.
+C
+      VOLTIME = BEG_VOL_TIME
+      VOLDATE = BEG_VOL_DATE
+C
+C************** END OF PROCESSING FOR SUBROUTINE ********************
+C
+      RETURN
+      END

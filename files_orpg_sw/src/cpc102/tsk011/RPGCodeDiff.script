@@ -1,0 +1,1162 @@
+#!/bin/sh
+# RCS info
+# $Author: jclose $
+# $Locker:  $
+# $Date: 2009-04-09 09:27:26-05 $
+# $Id: RPGCodeDiff.script,v 1.5 2009-04-09 09:27:26-05 jclose Exp $
+# $Revision: 1.5 $
+# $State: Exp $
+#
+#
+###############################################################################
+#  @Author: Jason Close
+#  @File: RPGCodeDiff
+#  @Description: 
+#  This essentially supplies all of the same information as a diff, but it 
+#   does so in a way that is a little easier to read.  It performs a diff, 
+#   then it does some grep searching on the file that is supplied by diffstat.
+#   This does do a little extra work in that you can give this script 2 build
+#   numbers for the RPG, and it will perform a diff between the two builds. 
+#   It will perform a diff between directories as well if the user so chooses.
+#   Execute: RPGCodeDiff.sh --help 
+#       to view all of the help information.
+#
+###############################################################################
+
+## Global variables
+##  These are primarily used to set flags that we have received from 
+##   user input.
+
+USE_BUILD=0
+ADDED_FILES=0
+DELETED_CODE_FILES=0
+INSERTED_CODE_FILES=0
+MODIFIED_CODE_FILES=0
+REMOVED_FILES=0
+TOTAL_INSERTIONS_LOC=-1
+TOTAL_DELETIONS_LOC=-1
+ALL_OPTIONS=0
+INPLACE=0
+SUMMARY_REPORT=0
+SHOW_IGNORE=0
+DIR1=0
+DIR1_BASE=0
+DIR2=0
+DIR2_BASE=0
+FILE_COUNT=0
+CMDIR=/import/builds_cmlnxsvr
+CURRENT_DIR=$(pwd)
+TMP_DIR=$CURRENT_DIR/tmp
+TMP_REPORT_FILE=$CURRENT_DIR/tmp_report.txt
+REPORT_FILE=$CURRENT_DIR/diff_report.txt
+
+###############################################################################
+#
+#  NAME: removeFiles
+#
+#  DESCRIPTION:
+#             Removes all temporary files and directories.
+#
+#  PASS: Nothing
+#
+#  RETURN: Nothing.
+#
+###############################################################################
+removeFiles()
+{
+  if [ $INPLACE -eq 0 ]
+  then
+     rm -rf $TMP_DIR
+  fi
+  printf "%b" "** Removing temporary files\n"
+  rm -rf $CURRENT_DIR/files_to_ignore.txt
+  rm -rf $TMP_REPORT_FILE
+}
+
+###############################################################################
+#
+#  NAME: deleteOriginalReport
+#
+#  DESCRIPTION:
+#             If $REPORT_FILE already exists, delete it and create a new one.
+#
+#  PASS: Nothing
+#
+#  RETURN: Nothing.
+#
+###############################################################################
+deleteOriginalReport()
+{
+  if [ -f $REPORT_FILE ]
+  then
+     rm -f $REPORT_FILE
+  fi
+  touch $REPORT_FILE
+}
+
+###############################################################################
+#
+#  NAME: printHeading
+#
+#  DESCRIPTION:
+#             This function prints a heading for different sections of the 
+#              code.  It will look at the length of the argument string and
+#              insert enough stars/astericks* into the heading to make things
+#              look right.
+#
+#  PASS: The string to be displayed in the header.
+#
+#  RETURN: Nothing.
+#
+###############################################################################
+printHeading()
+{
+  TMP_STRING="********************************************************"
+  
+  ## Appends a * for every character in the argument
+  for ((i=0; i<${#1}; i+=1))
+  do
+    TMP_STRING="$TMP_STRING*"
+  done
+
+  printf "%b" "$TMP_STRING\n" >> $REPORT_FILE
+  printf "%b" "*************************   $1   *************************\n" >> $REPORT_FILE
+  printf "%b" "$TMP_STRING\n" >> $REPORT_FILE
+}
+
+###############################################################################
+#
+#  NAME: runOnlySummaryReport
+#
+#  DESCRIPTION:
+#             This function runs the report that is used if the user 
+#              input the --summary flag.  This means that we just find the 
+#              specific things we want and output them.
+#
+#  PASS: Nothing.
+#
+#  RETURN: Nothing.
+#
+###############################################################################
+runOnlySummaryReport()
+{
+  deleteOriginalReport
+  printHeading "SUMMARY"
+  getNumberOfAddedFiles
+  ADDED_FILES=$FILE_COUNT
+  printf "%b" " - Total number of files added to $DIR2_BASE: $FILE_COUNT\n" >> $REPORT_FILE
+  getNumberOfRemovedFiles
+  REMOVED_FILES=$FILE_COUNT
+  printf "%b" " - Total number of files deleted from $DIR1_BASE: $FILE_COUNT\n" >> $REPORT_FILE
+  getNumOfFilesWithInsertedLines
+  printf "%b" " - Total number of files that had code inserted from $DIR1_BASE to $DIR2_BASE: $FILE_COUNT\n" >> $REPORT_FILE
+  getNumOfFilesWithDeletedLines
+  printf "%b" " - Total number of files that had code deleted from $DIR1_BASE to $DIR2_BASE: $FILE_COUNT\n" >> $REPORT_FILE
+  getNumOfFilesWithModifiedLines
+  MODIFIED_CODE_FILES=$FILE_COUNT
+  printf "%b" " - Total number of files that were modified from $DIR1_BASE to $DIR2_BASE: $MODIFIED_CODE_FILES\n" >> $REPORT_FILE
+  TOTAL_CHANGED_FILES=$(($ADDED_FILES + $REMOVED_FILES + $MODIFIED_CODE_FILES))
+  printf "%b" " - Total number of changed files: $TOTAL_CHANGED_FILES\n" >> $REPORT_FILE
+  getNumInsertedLines
+  printf "%b" " - Total lines of code inserted into $DIR2_BASE: $TOTAL_INSERTIONS_LOC\n" >> $REPORT_FILE
+  getNumDeletedLines
+  printf "%b" " - Total lines of code deleted from $DIR1_BASE: $TOTAL_DELETIONS_LOC\n" >> $REPORT_FILE
+}
+
+###############################################################################
+#
+#  NAME: runTailSummaryReport
+#
+#  DESCRIPTION:
+#             This function prints out a summary report according to the 
+#              information requested in the command line.  Only values that 
+#              were requested will be summarized.
+#
+#  PASS: Nothing.
+#
+#  RETURN: Nothing.
+#
+###############################################################################
+runTailSummaryReport()
+{
+  printHeading "SUMMARY"
+  if [ $ADDED_FILES -gt 0 ]
+  then
+     printf "%b" " - Total number of files added to $DIR2_BASE: $ADDED_FILES\n" >> $REPORT_FILE
+  fi
+  if [ $REMOVED_FILES -gt 0 ]
+  then
+     printf "%b" " - Total number of files deleted from $DIR1_BASE: $REMOVED_FILES\n" >> $REPORT_FILE
+  fi
+  if [ $INSERTED_CODE_FILES -gt 0 ]
+  then
+     printf "%b" " - Total number of files that had code inserted from $DIR1_BASE to $DIR2_BASE: $INSERTED_CODE_FILES\n" >> $REPORT_FILE
+  fi
+  if [ $DELETED_CODE_FILES -gt 0 ]
+  then
+     printf "%b" " - Total number of files that had code deleted from $DIR1_BASE to $DIR2_BASE: $DELETED_CODE_FILES\n" >> $REPORT_FILE
+  fi
+  if [ $MODIFIED_CODE_FILES -gt 0 ]
+  then
+     printf "%b" " - Total number of files that were modified from $DIR1_BASE to $DIR2_BASE: $MODIFIED_CODE_FILES\n" >> $REPORT_FILE
+  fi
+  if [ $ADDED_FILES -gt 0 -a $REMOVED_FILES -gt 0 -a $MODIFIED_CODE_FILES -gt 0 ]
+  then
+     TOTAL_CHANGED_FILES=$(($ADDED_FILES + $REMOVED_FILES + $MODIFIED_CODE_FILES))
+     printf "%b" " - Total number of changed files: $TOTAL_CHANGED_FILES\n" >> $REPORT_FILE
+  fi
+  if [ $TOTAL_INSERTIONS_LOC -gt -1 ]
+  then
+     printf "%b" " - Total lines of code inserted into $DIR2_BASE: $TOTAL_INSERTIONS_LOC\n" >> $REPORT_FILE
+  fi
+  if [ $TOTAL_DELETIONS_LOC -gt -1 ]
+  then
+     printf "%b" " - Total lines of code deleted from $DIR1_BASE: $TOTAL_DELETIONS_LOC\n" >> $REPORT_FILE
+  fi
+
+}
+
+###############################################################################
+#
+#  NAME: getNumOfFilesWithModifiedLines
+#
+#  DESCRIPTION:
+#             Gets the number of files that were modified.  Done by looking at
+#              the diff file and counting the number of lines that include
+#              a pipe followed by a number (i.e. "| 10").  This lets us know
+#              that the file was modified, as new or deleted files are tagged
+#              with the "| only" column.
+#
+#  PASS: Nothing.
+#
+#  RETURN: Nothing.
+#
+###############################################################################
+getNumOfFilesWithModifiedLines()
+{
+  FILE_COUNT=`grep -c '.*|.*[0-9]\+' $TMP_REPORT_FILE`
+}
+
+###############################################################################
+#
+#  NAME: addModifiedCodeFileListToReport
+#
+#  DESCRIPTION:
+#             Prints out the files that were modified in some way.  
+#
+#  PASS: Nothing.
+#
+#  RETURN: Nothing.
+#
+###############################################################################
+addModifiedCodeFileListToReport()
+{
+  printf "%b" "Files with modified (and number of modified lines of code):\n" >> $REPORT_FILE
+  grep '.*|.*[0-9]\+' $TMP_REPORT_FILE | sed 's/|[ \t]*//g' | sed 's/[ \t]*[0-9]\+ +.*//g' >> $REPORT_FILE
+  printf "%b" "\n\n" >> $REPORT_FILE
+}
+
+###############################################################################
+#
+#  NAME: runModifiedFilesReport
+#
+#  DESCRIPTION:
+#             This function prints the information that corresponds to the 
+#              -m or -M flags.  
+#
+#  PASS: Nothing.
+#
+#  RETURN: Nothing.
+#
+###############################################################################
+runModifiedFilesReport()
+{
+  printHeading "MODIFIED CODE"
+  getNumOfFilesWithModifiedLines
+  printf "%b" "Number of files in $DIR2_BASE that were modified (code was added or deleted): $FILE_COUNT\n\n" >> $REPORT_FILE
+  if [ $MODIFIED_CODE_FILES -eq 2 ]
+  then
+     addModifiedCodeFileListToReport
+  fi
+  MODIFIED_CODE_FILES=$FILE_COUNT
+}
+
+###############################################################################
+#
+#  NAME: getNumDeletedLines
+#
+#  DESCRIPTION:
+#             Gets the number of lines of code that were deleted.  This is 
+#              done by just looking at the last line of the diffstat file.
+#
+#  PASS: Nothing.
+#
+#  RETURN: Nothing.
+#
+###############################################################################
+getNumDeletedLines()
+{
+  if [ $TOTAL_DELETIONS_LOC -lt 0 ]
+  then 
+     TOTAL_DELETIONS_LOC=`tail -n 1 $TMP_REPORT_FILE | sed 's/.*(+), //g' | sed 's/ deletions.*//g'`
+  fi
+}
+
+###############################################################################
+#
+#  NAME: getNumOfFilesWithDeletedLines
+#
+#  DESCRIPTION:
+#             Gets the number of files that had code that was deleted.  This 
+#              just looks at the number of lines in the diffstat file that 
+#              have a number followed by a minus sign (i.e. "1010 -") and 
+#              counts them.
+#
+#  PASS: Nothing.
+#
+#  RETURN: Nothing.
+#
+###############################################################################
+getNumOfFilesWithDeletedLines()
+{
+  FILE_COUNT=`grep '[0-9]\+ -' $TMP_REPORT_FILE | grep -v '0 -' | wc -l`
+}
+
+###############################################################################
+#
+#  NAME: addDeletedCodeFileListToReport
+#
+#  DESCRIPTION:
+#             Prints out the files that had some code deleted.
+#
+#  PASS: Nothing.
+#
+#  RETURN: Nothing.
+#
+###############################################################################
+addDeletedCodeFileListToReport()
+{
+  printf "%b" "Files with code deleted (and number of lines deleted):\n" >> $REPORT_FILE
+  grep '.*[0-9]\+ -' $TMP_REPORT_FILE | grep -v '0 -' | sed 's/|[ \t]*[0-9]\+.*+[ \t]*/-/g' | sed 's/\-[ \t]*[0-9][ \t]*\!//g' >> $REPORT_FILE
+  printf "%b" "\n\n" >> $REPORT_FILE
+}
+
+###############################################################################
+#
+#  NAME: runDeletedFilesReport
+#
+#  DESCRIPTION:
+#             This function prints the information that corresponds to the 
+#              -d or -D flags.  
+#
+#  PASS: Nothing.
+#
+#  RETURN: Nothing.
+#
+###############################################################################
+runDeletedFilesReport()
+{
+  printHeading "DELETED CODE"
+  getNumDeletedLines
+  printf "%b" "Number of total lines of code removed from $DIR1_BASE: $TOTAL_DELETIONS_LOC\n" >> $REPORT_FILE
+  getNumOfFilesWithDeletedLines
+  printf "%b" "Number of files in $DIR2_BASE that had code deleted: $FILE_COUNT\n\n" >> $REPORT_FILE
+  if [ $DELETED_CODE_FILES -eq 2 ]
+  then
+     addDeletedCodeFileListToReport
+  fi
+  DELETED_CODE_FILES=$FILE_COUNT
+}
+
+###############################################################################
+#
+#  NAME: getNumInsertedLines
+#
+#  DESCRIPTION:
+#             Gets the number of lines that had code inserted in them.  
+#              Essentially, this is just counting the new lines of code.  This
+#              is done by looking at the last line of the diffstat file.
+#
+#  PASS: Nothing.
+#
+#  RETURN: Nothing.
+#
+###############################################################################
+getNumInsertedLines()
+{
+  if [ $TOTAL_INSERTIONS_LOC -lt 0 ]
+  then
+     TOTAL_INSERTIONS_LOC=`tail -n 1 $TMP_REPORT_FILE | sed 's/.*changed, //g' | sed 's/ insertions.*//g'`
+  fi
+}
+
+###############################################################################
+#
+#  NAME: getNumOfFilesWithInsertedLines
+#
+#  DESCRIPTION:
+#             Gets the number of files that had code that was inserted.  This 
+#              just looks at the number of lines in the diffstat file that 
+#              have a number followed by a plus sign (i.e. "1010 +") and 
+#              counts them.
+#
+#  PASS: Nothing.
+#
+#  RETURN: Nothing.
+#
+###############################################################################
+getNumOfFilesWithInsertedLines()
+{
+  FILE_COUNT=`grep '[0-9]\+ +' $TMP_REPORT_FILE | grep -v '0 +' | wc -l`
+}
+
+###############################################################################
+#
+#  NAME: addInsertedCodeFileListToReport
+#
+#  DESCRIPTION:
+#             Prints the file list that had code inserted.
+#
+#  PASS: Nothing.
+#
+#  RETURN: Nothing.
+#
+###############################################################################
+addInsertedCodeFileListToReport()
+{
+  printf "%b" "Files with code inserted (and number of lines inserted):\n" >> $REPORT_FILE
+  grep '.*[0-9]\+ +' $TMP_REPORT_FILE | sed 's/|[ \t]*[0-9]\+[ \t]*/+/g' | sed 's/+[ \t]*[0-9]\+ -.*//g' >> $REPORT_FILE
+  printf "%b" "\n\n" >> $REPORT_FILE
+}
+
+###############################################################################
+#
+#  NAME: addInsertedCodeFileListToReport
+#
+#  DESCRIPTION:
+#             This function prints the information that corresponds to the 
+#              -i or -I flags.  
+#
+#  PASS: Nothing.
+#
+#  RETURN: Nothing.
+#
+###############################################################################
+runInsertedFilesReport()
+{
+  printHeading "INSERTED CODE"
+  getNumInsertedLines
+  printf "%b" "Number of total lines of code inserted into $DIR2_BASE: $TOTAL_INSERTIONS_LOC\n" >> $REPORT_FILE
+  getNumOfFilesWithInsertedLines
+  printf "%b" "Number of files in $DIR2_BASE that had code inserted: $FILE_COUNT\n\n" >> $REPORT_FILE
+  if [ $INSERTED_CODE_FILES -eq 2 ]
+  then
+     addInsertedCodeFileListToReport
+  fi
+  INSERTED_CODE_FILES=$FILE_COUNT
+}
+
+###############################################################################
+#
+#  NAME: getNumberOfAddedFiles
+#
+#  DESCRIPTION:
+#             Gets the number of new files that exist.  This is done by 
+#              looking at the diffstat file and seeing the lines that have 
+#              the 2nd directory's base, as well as the word "only".
+#
+#  PASS: Nothing.
+#
+#  RETURN: Nothing.
+#
+###############################################################################
+getNumberOfAddedFiles()
+{
+  FILE_COUNT=`grep -c "^ $DIR2_BASE\/.*\(only\)$" $TMP_REPORT_FILE`
+}
+
+###############################################################################
+#
+#  NAME: addAddedFilesListToReport
+#
+#  DESCRIPTION:
+#             This function prints the list of new files added to $DIR2 
+#
+#  PASS: Nothing.
+#
+#  RETURN: Nothing.
+#
+###############################################################################
+addAddedFilesListToReport()
+{
+  printf "%b" "Added File List:\n" >> $REPORT_FILE
+  grep "^ $DIR2_BASE\/.*\(only\)$" $TMP_REPORT_FILE | sed 's/[ \t]*|only//g' >> $REPORT_FILE
+  printf "%b" "\n\n" >> $REPORT_FILE
+}
+
+###############################################################################
+#
+#  NAME: runAddedFilesReport
+#
+#  DESCRIPTION:
+#             This function prints the information that corresponds to the 
+#              -a or -A flags.  
+#
+#  PASS: Nothing.
+#
+#  RETURN: Nothing.
+#
+###############################################################################
+runAddedFilesReport()
+{
+  printHeading "ADDED FILES"
+  getNumInsertedLines
+  printf "%b" "Number of total lines of code inserted into $DIR2_BASE: $TOTAL_INSERTIONS_LOC\n" >> $REPORT_FILE
+  getNumberOfAddedFiles 
+  printf "%b" "Number of files added to $DIR2_BASE: $FILE_COUNT\n\n" >> $REPORT_FILE
+  if [ $ADDED_FILES -eq 2 ]
+  then
+     addAddedFilesListToReport
+  fi
+  ADDED_FILES=$FILE_COUNT
+}
+
+###############################################################################
+#
+#  NAME: getNumberOfRemovedFiles
+#
+#  DESCRIPTION:
+#             Gets the number of files that were removed from $DIR1.
+#              looking at the diffstat file and seeing the lines that have 
+#              the 1st directory's base, as well as the word "only".
+#
+#  PASS: Nothing.
+#
+#  RETURN: Nothing.
+#
+###############################################################################
+getNumberOfRemovedFiles()
+{
+  FILE_COUNT=`grep -c "^ $DIR1_BASE\/.*\(only\)$" $TMP_REPORT_FILE`
+}
+
+###############################################################################
+#
+#  NAME: addRemovedFileListToReport
+#
+#  DESCRIPTION:
+#             This function prints the list of files removed from $DIR1
+#
+#  PASS: Nothing.
+#
+#  RETURN: Nothing.
+#
+###############################################################################
+addRemovedFileListToReport()
+{
+  printf "%b" "Removed File List:\n" >> $REPORT_FILE
+  grep "^ $DIR1_BASE\/.*\(only\)$" $TMP_REPORT_FILE | sed 's/[ \t]*|only//g' >> $REPORT_FILE
+  printf "%b" "\n\n" >> $REPORT_FILE
+}
+
+###############################################################################
+#
+#  NAME: runRemovedFilesReport
+#
+#  DESCRIPTION:
+#             This function prints the information that corresponds to the 
+#              -r or -R flags.  
+#
+#  PASS: Nothing.
+#
+#  RETURN: Nothing.
+#
+###############################################################################
+runRemovedFilesReport()
+{
+  printHeading "REMOVED FILES"
+  getNumDeletedLines
+  printf "%b" "Number of total lines of code removed from $DIR1_BASE: $TOTAL_DELETIONS_LOC\n" >> $REPORT_FILE
+  getNumberOfRemovedFiles
+  printf "%b" "Number of files removed from $DIR1_BASE: $FILE_COUNT\n\n" >> $REPORT_FILE
+  if [ $REMOVED_FILES -eq 2 ]
+  then
+     addRemovedFileListToReport
+  fi
+  REMOVED_FILES=$FILE_COUNT
+}
+
+###############################################################################
+#
+#  NAME: runReport
+#
+#  DESCRIPTION:
+#             This function calls all of the appropriate functions to create 
+#              the report. It will check to see if the $ALL_OPTIONS (--all) 
+#              flag was set, and if so, will call all of the available
+#              reports.  If not, it will do them on a flag-by-flag basis.
+#
+#  PASS: Nothing.
+#
+#  RETURN: Nothing.
+#
+###############################################################################
+runReport()
+{
+  deleteOriginalReport
+  if [ $ALL_OPTIONS -eq 1 ]
+  then
+     ADDED_FILES=2
+     DELETED_CODE_FILES=2
+     INSERTED_CODE_FILES=2
+     MODIFIED_CODE_FILES=2
+     REMOVED_FILES=2
+     runAddedFilesReport
+     runRemovedFilesReport
+     runInsertedFilesReport
+     runDeletedFilesReport
+     runModifiedFilesReport
+     runTailSummaryReport
+  else
+     if [ $ADDED_FILES -gt 0 ]
+     then
+        runAddedFilesReport
+     fi
+     if [ $REMOVED_FILES -gt 0 ]
+     then
+        runRemovedFilesReport
+     fi
+     if [ $INSERTED_CODE_FILES -gt 0 ]
+     then
+        runInsertedFilesReport
+     fi
+     if [ $DELETED_CODE_FILES -gt 0 ]
+     then
+        runDeletedFilesReport
+     fi
+     if [ $MODIFIED_CODE_FILES -gt 0 ]
+     then
+        runModifiedFilesReport
+     fi
+     runTailSummaryReport
+  fi
+}
+
+###############################################################################
+#
+#  NAME: runDiff
+#
+#  DESCRIPTION:
+#             This function actually runs the diff on the two directories 
+#              passed to it.  
+#
+#  PASS: 2 directories
+#
+#  RETURN: Nothing.
+#
+###############################################################################
+runDiff()
+{
+  printf "%b" "** Running diff\n"
+  diff -urbB --exclude-from=$CURRENT_DIR/files_to_ignore.txt -I '^ *\(#\+\|\*\|\/\*\|C\|\!\|XCOMM\| *\) *\(RCS info\|$Author:\|$Locker:\|$Date:\|$Id:\|$Revision\|$State:\)' $1 $2 2> /dev/null | diffstat -f0 &> $TMP_REPORT_FILE
+}
+
+###############################################################################
+#
+#  NAME: createIgnoreFiles 
+#
+#  DESCRIPTION:
+#             This function creates a file with all of the file types and 
+#              directories that are to be skipped when doing the diff.
+#
+#  PASS: Nothing.
+#
+#  RETURN: Nothing.
+#
+###############################################################################
+createIgnoreFiles ()
+{
+  filestring="*.gz\n*.tar\n*.tgz\n*.Z\n*.bz2\n*.a\n*.so\n*.o\n*.lnux_x86\n*.map\n*.dat\n*.dll\n*.doc\n*.pdf\n*.vsd\n*.1\n*.4\n*.5\n*.hgt\nlnux_x86"
+  printf "%b\n" "$filestring" > $CURRENT_DIR/files_to_ignore.txt
+  if [ $SHOW_IGNORE -eq 1 ]
+  then
+     printf "%b" "******** IGNORED FILES & DIRECTORIES ********\n"
+     cat $CURRENT_DIR/files_to_ignore.txt
+     printf "%b" "\n"
+  fi
+}
+ 
+###############################################################################
+#
+#  NAME: createTempDirectory
+#
+#  DESCRIPTION:
+#             This function creates the temporary directory used if the 
+#              --inplace flag is not set.  It checks to see if a tmp directory
+#              already exists in the current directory.  If not, then it starts
+#              a loop that attempts to append a number to the word "tmp", and 
+#              checks to see if that directory.  If it doesn't exist, then it
+#              will be created and set to the TMP_DIR variable.  So for 
+#              example, if the directories tmp, tmp0, and tmp01 already exist
+#              in the current directory, then this function will create the
+#              tmp02 directory so that it can be used for this script.
+#
+#  PASS: Nothing.
+#
+#  RETURN: Nothing.
+#
+###############################################################################
+createTempDirectory()
+{ 
+   if [ -d $TMP_DIR ]
+   then
+      COUNTER=0
+      while [ $COUNTER -lt 100 ]
+      do
+         if [ ! -d $CURRENT_DIR/tmp$COUNTER ]
+         then
+            TMP_DIR=$CURRENT_DIR/tmp$COUNTER
+            COUNTER=101
+         fi
+         COUNTER+=1
+         if [ $COUNTER -eq 100 ]
+         then
+            printf "%b" "**ERROR: You have too many tmp directories.  Please remove one.\n"
+            exit 1
+         fi
+      done
+   fi
+
+   ## Make the temp directory
+   printf "%b" "** Creating directory $TMP_DIR\n"
+   mkdir -p $TMP_DIR > /dev/null 2>&1
+
+   ## Make sure that worked
+   if [ ! -d $TMP_DIR ]
+   then
+      printf "%b" "ERROR: There was a problem creating the temp directory $TMP_DIR\n"
+      printf "%b" "       Please check the file permissions and try again.\n"
+      exit 1
+   fi
+}
+
+###############################################################################
+#
+#  NAME: normalDiff
+#
+#  DESCRIPTION:
+#             This function is called when a normal diff is to be performed, 
+#              which means that the -B flag was not set.  It copies over the 
+#              source code (if the --inplace flag was not set), and sets the
+#              proper values into the variables.
+#
+#  PASS: Nothing.
+#
+#  RETURN: Nothing.
+#
+###############################################################################
+normalDiff()
+{
+   ##  We need to know the base names
+   DIR1_BASE=`basename $DIR1`
+   DIR2_BASE=`basename $DIR2`
+
+   if [ $INPLACE -eq 0 ]
+   then
+      createTempDirectory
+      
+      ## Copy the source directories
+      printf "%b" "** Copying $DIR1 to $TMP_DIR\n"
+      cp -rf $DIR1 $TMP_DIR > /dev/null 2>&1
+      printf "%b" "** Copying $DIR2 to $TMP_DIR\n"
+      cp -rf $DIR2 $TMP_DIR > /dev/null 2>&1
+
+      ## Update these to where the copied code resides.
+      DIR1=$TMP_DIR/$DIR1_BASE
+      DIR2=$TMP_DIR/$DIR2_BASE
+   fi
+   runDiff $DIR1 $DIR2
+}
+
+###############################################################################
+#
+#  NAME: buildDiff
+#
+#  DESCRIPTION:
+#             This function is called when a build diff is to be performed, 
+#              which means that the -B flag was set.  It copies over the 
+#              source code (if the --inplace flag was not set), and sets the
+#              proper values into the variables.
+#
+#  PASS: Nothing.
+#
+#  RETURN: Nothing.
+#
+###############################################################################
+buildDiff()
+{
+   ##  We need to know the base names
+   DIR1_BASE=`basename $DIR1`
+   DIR2_BASE=`basename $DIR2`
+   if [ $INPLACE -eq 0 ]
+   then
+      createTempDirectory
+      
+      ## Copy the source directories
+      printf "%b" "** Copying $DIR1 to $TMP_DIR\n"
+      cp -rf $DIR1 $TMP_DIR > /dev/null 2>&1
+      printf "%b" "** Copying $DIR2 to $TMP_DIR\n"
+      cp -rf $DIR2 $TMP_DIR > /dev/null 2>&1
+
+      ## Update these to where the copied code resides.
+      DIR1=$TMP_DIR/$DIR1_BASE
+      DIR2=$TMP_DIR/$DIR2_BASE
+   fi
+   runDiff $DIR1 $DIR2
+}
+
+###############################################################################
+#
+#  NAME: decipherDirectories
+#
+#  DESCRIPTION:
+#             This function will make sure that our global variables have the 
+#              right values in them according to the flags that were set from
+#              the command line.  Basically, we just need to do some special
+#              checking if the -B flag was set, in which we need to set the 
+#              $DIR1 and $DIR2 directories to the location in which the builds
+#              are located.
+#
+#  PASS: Nothing.
+#
+#  RETURN: Nothing.
+#
+###############################################################################
+decipherDirectories()
+{
+   ##  They want to use build numbers instead of directories.
+   if [ $USE_BUILD -eq 1 ]
+   then
+     ## Test to make sure we got numbers.
+     if [ $DIR1 -eq $DIR1 > /dev/null 2>&1 ]
+     then
+        if [ ! -d $CMDIR/linux$DIR1 ]
+        then
+           printf "%b" "The directory $CMDIR/linux$DIR1 does not exist.\n"
+           exit 1
+        else
+           DIR1=$CMDIR/linux$DIR1  
+        fi
+     else
+        nonBuildError
+     fi
+
+     ## Test to make sure we got numbers.
+     if [ $DIR2 -eq $DIR2 > /dev/null 2>&1 ]
+     then
+        if [ ! -d $CMDIR/linux$DIR2 ]
+        then
+           printf "%b" "The directory $CMDIR/linux$DIR2 does not exist.\n"
+           exit 1
+        else
+           DIR2=$CMDIR/linux$DIR2
+        fi
+     else
+        nonBuildError
+     fi
+  fi
+}
+
+###############################################################################
+#
+#  NAME: nonBuildError
+#
+#  DESCRIPTION:
+#             Spits out an error message if the user gave the -B option and
+#              did not include the right numbers.
+#
+#  PASS: Nothing
+#
+#  RETURN: Nothing.  
+#
+###############################################################################
+nonBuildError()
+{
+   printf "%b" "You gave the -B option, but did not specify a build number\n"
+   printf "%b" "   for a build argument.  Please try again and specify a\n"
+   printf "%b" "   valid build number (and one that exists in the \n"
+   printf "%b" "   $CMDIR directory\n"
+   exit 1
+}
+
+
+###############################################################################
+#
+#  NAME: usage
+#
+#  DESCRIPTION:
+#             This function prints our help output. 
+#
+#  PASS: Nothing
+#
+#  RETURN: Nothing.  
+#
+###############################################################################
+usage()
+{
+   printf "%b" "Usage: RPGCodeDiff [OPTION]... DIR1 DIR2\n"
+   printf "%b" "Retrieve diff statistics for the ORPG software.\n"
+   printf "%b" "-a  Shows the count of all of the files added to DIR2.\n"
+   printf "%b" "-A  Shows all of the files that have been added to DIR2,\n"
+   printf "%b" "      as well as the number of files added.\n"
+   printf "%b" "-B  Tell RPGCodeDiff to operate off of build numbers\n"
+   printf "%b" "      instead of directories.  $CMDIR is the build directory.\n"
+   printf "%b" "-d  Shows the count of all of the files that had code deleted\n"
+   printf "%b" "      from DIR1 to DIR2.\n"
+   printf "%b" "-D  Shows all of the files that had code deleted from DIR1 to\n"
+   printf "%b" "      DIR2, as well as the number of files affected.\n"
+   printf "%b" "-i  Shows the count of all of the files in DIR2 that had\n"
+   printf "%b" "      code inserted (code not in a respective DIR1 file).\n"
+   printf "%b" "-I  Shows all of the files in DIR2 that had code inserted,\n"
+   printf "%b" "      as well as the number of files that were affected.\n"
+   printf "%b" "-m  Shows all of the modification statistics (number of \n"
+   printf "%b" "      files modified, inserted lines, and deleted lines.\n"
+   printf "%b" "-M  Shows all of the files that have been modified, added,\n"
+   printf "%b" "      and removed, as well as the statistics.\n"
+   printf "%b" "-r  Shows the count of all of the files in DIR1 which were\n"
+   printf "%b" "      removed and were not included in DIR2\n"
+   printf "%b" "-R  Shows all of the files in DIR1 which were removed and\n"
+   printf "%b" "      were not included in DIR2, as well as the count.\n"
+   printf "%b" "--all   Equivalent of -ADIRM\n"
+   printf "%b" "--inplace  This will not copy the source directories to a\n"
+   printf "%b" "            temp directory in this directory.  It will do\n"
+   printf "%b" "            the diffs in place.\n"
+   printf "%b" "--summary  This will give a summary report of all information\n"
+   printf "%b" "            that can be gathered.\n"
+   printf "%b" "--show-ignore  This will show all of the file extensions and\n"
+   printf "%b" "                directories that are ignored.  This will be\n"
+   printf "%b" "                printed in STDOUT and not in the report file.\n\n"
+   printf "%b" "Example Usage:\n"
+   printf "%b" " # To view the number of new files and files with inserted code: \n"
+   printf "%b" " ./RPGCodeDiff.pl -a -i src1_dir/ src2_dir/\n\n"
+   printf "%b" " # To view a summary of all information\n"
+   printf "%b" " ./RPGCodeDiff.pl --summary src1_dir/ src2_dir/\n\n"
+   printf "%b" " # To view all new files, all modified files, and the number of\n"
+   printf "%b" " #   deleted files\n"
+   printf "%b" " ./RPGCodeDiff.pl -AMd src1_dir/ src2_dir/\n\n"
+   printf "%b" " # To view all information, and prevent the directories from being\n"
+   printf "%b" " #   copied and removed from a temporary directory\n"
+   printf "%b" " ./RPGCodeDiff.pl --inplace --all src1_dir/ src2_dir/\n\n"
+   printf "%b" " # To view a summary of the information for builds 11 and 12\n"
+   printf "%b" " ./RPGCodeDiff.pl -B --summary 11 12\n\n"
+}
+
+###############################################################################
+#
+#  NAME: verify_user_input
+#
+#  DESCRIPTION:
+#             This function performs our basic argument checking.  It makes
+#             sure that the right number of arguments were passed, and then
+#             checks the flags/options passed from the command line (setting 
+#             the appropriate global variables).
+#
+#  PASS: $@
+#
+#  RETURN: Nothing.  It sets global variables.
+#
+###############################################################################
+verify_user_input()
+{
+  
+  ## This is where we get our info.
+  while getopts ":hmMaAdDiIrRB" option $1; do
+       case $option in 
+            h )
+                 usage
+            ;;
+            m )
+                 MODIFIED_CODE_FILES=1
+            ;;
+            M )
+                 MODIFIED_CODE_FILES=2
+            ;;
+            a )
+                 ADDED_FILES=1
+            ;;
+            A )
+                 ADDED_FILES=2
+            ;;
+            d )
+                 DELETED_CODE_FILES=1
+            ;;
+            D )
+                 DELETED_CODE_FILES=2
+            ;;
+            i )
+                 INSERTED_CODE_FILES=1
+            ;;
+            I )
+                 INSERTED_CODE_FILES=2
+            ;;
+            r )
+                 REMOVED_FILES=1
+            ;;
+            R )
+                 REMOVED_FILES=2
+            ;;
+            B )
+                 USE_BUILD=1
+            ;;
+            * )
+                 #echo "$option argument"
+            ;;
+       esac
+  done
+
+  ## If they gave us directories, make sure that they exist.
+  if [ $USE_BUILD -eq 0 ]
+  then
+     if [ ! -d $DIR1 ]
+     then
+        printf "%b" "**ERROR: The directory $DIR1 does not exist.\n"
+        exit 1
+     fi
+     if [ ! -d $DIR2 ]
+     then
+        printf "%b" "**ERROR: The directory $DIR2 does not exist.\n"
+        exit 1
+     fi
+  fi
+
+}
+
+###############################################################################
+#
+#  NAME: getArgs
+#
+#  DESCRIPTION:
+#             This function simply takes the arguments from the command line
+#             and performs a few checks.  It checks to see if the --all was 
+#             passed, and if so, sets the appropriate flag.  It then gets the 
+#             last 2 arguments and assumes that they are directories(or builds)
+#             which will be verified later.
+#
+#  PASS: "${@:$argstart}"
+#
+#  RETURN: Nothing.  It sets global variables.
+#
+###############################################################################
+getArgs () 
+{
+  i=0
+  ## The number of arguments minus one
+  nextToLast=$(expr $# - 1)
+
+  ## If we didn't get the right number of arguments
+  if [ $# -lt 3 ]
+  then
+    case $1 in 
+       --help ) 
+           usage
+           ;;
+       --h ) 
+           usage
+           ;;
+       -help )
+           usage
+           ;;
+       -h )
+           usage
+           ;;
+       * )
+           printf "%b" "You did not enter in the proper number of arguments.  Try RPGCodeDiff --help\n"
+           ;;
+    esac
+    exit 1
+  fi
+
+
+
+  ## For each argument
+  for p in "$@"
+  do
+    ((++i))
+
+    ## Set the flag if found
+    if [ "$p" == "--all" ]
+    then
+       ALL_OPTIONS=1
+    fi
+
+    if [ "$p" == "--inplace" ]
+    then
+       INPLACE=1
+    fi
+
+    if [ "$p" == "--summary" ]
+    then
+       SUMMARY_REPORT=1
+    fi
+
+    if [ "$p" == "--show-ignore" ]
+    then
+       SHOW_IGNORE=1
+    fi
+
+    if [ "$p" == "--help" ]
+    then
+       usage
+       exit 1
+    fi 
+
+    ## At ($# - 1), get the value
+    if [ $i -eq $nextToLast ]
+    then
+       DIR1=$p
+    fi
+
+    ## Get the last value
+    if [ $i -eq $# ]
+    then
+       DIR2=$p
+    fi
+  done
+
+  ## Just in case
+  if [ $ALL_OPTIONS -eq 1 -a $SUMMARY_REPORT -eq 1 ]
+  then
+     printf "%b" "** You entered both --all and --summary.  The --all option will take precedence.\n"
+     SUMMARY_REPORT=0
+  fi
+
+}
+
+getArgs "$@" 
+
+## This is to rip out all of the flags 
+for p in "$@"
+do
+   if [ "$p" != "--all" -a  "$p" != "--inplace" -a  "$p" != "--summary" -a  "$p" != "--show-ignore" ]
+   then
+       TMP_STRING="$TMP_STRING $p"
+   fi
+done
+
+verify_user_input $TMP_STRING
+decipherDirectories
+createIgnoreFiles
+if [ $USE_BUILD -eq 1 ]
+then
+   buildDiff
+else
+   normalDiff    
+fi
+if [ $SUMMARY_REPORT -eq 1 ]
+then
+   runOnlySummaryReport
+else
+   runReport 
+fi
+removeFiles
+printf "%b" "***** The file $REPORT_FILE was generated.  Please view it to view your results. *****\n"

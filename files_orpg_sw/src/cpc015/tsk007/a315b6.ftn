@@ -1,0 +1,179 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/16 19:40:26 $
+C $Id: a315b6.ftn,v 1.3 2002/12/16 19:40:26 christie Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A315B6__BEST_POSITS( DELTIME )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A315B6__BEST_POSITS
+*.
+*.  MODULE VERSION: 0012
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       04 05 89      0000      CHI CHAN             SPR # 90299
+*.       03 22 90      0001      RICH MIHOCI          SPR # 90697
+*.       02 22 91      0002      DENNIS MILLER        SPR # 91256
+*.       02 15 91      0002      JOHN DEPHILIP        SPR # 91762
+*.       04 12 91      0002      DENNIS MILLER        SPR # 90956
+*.       12 03 91      0003      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0004      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0005      Toolset              SPR 91895
+*.       03/25/93      0006      Toolset              SPR NA93-06801
+*.       01/28/94      0007      Toolset              SPR NA94-01101
+*.       03/03/94      0008      Toolset              SPR NA94-05501
+*.       04/01/95      0009      Toolset              CCR NA95-11802
+*.       05/25/95      0010      STEVE SMITH          CCR NA94-26302
+*.       12/23/96      0011      Toolset              CCR NA95-11807
+*.       03/16/99      0012      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A315B6__BEST_POSITS( DELTIME )
+*.
+*.  MODULE FUNCTION:
+*.
+*.  This routine will compute the Best X-Position & Best Y Position
+*.  for all "Continuing" storms from the previous volume scan.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT    TYPE        DESCRIPTION
+*.    -   -----    ----        -----------
+*.    C   IXPRE    I*4         Index to the previous volume scan in the
+*.                             correlation table
+*.    C   NSTMHIST I*4         Array of the # of cells/volume scan in
+*.                             correlation table.
+*.    C   POSITABL R*4         Table of cell-X and Y centroid positions thru
+*.                             the time spanned in the Correlation History
+*.                             table.
+*.    C   STMSPD   R*4         An array of cell motions including X & Y
+*.                             movement (km) in the preceding volume scan and
+*.                             speed (km/sec) and direction (deg) for the
+*.                             cells history.
+*.    C   X_DIR    I*4         (CONSTANT)Index to the x-direction of a storm
+*.                             cell in the STMSPD and BESTPOS arrays.
+*.    C   X_POS    I*4         (CONSTANT)Index to the x-coordinate of a storm
+*.                             cell, the first attribute, in the POSITABLE
+*.                             array.
+*.    C   Y_DIR    I*4         (CONSTANT)Index to the y-direction of a storm
+*.                             cell in the STMSPD and BESTPOS arrays.
+*.    C   Y_POS    I*4         (CONSTANT)Index to the y-coordinate of a storm
+*.                             cell, the second attribute, in the POSITABLE
+*.                             array.
+*.    P   DELTIME  R*4         Time difference between current volume scan and
+*.                             previous volume scan.
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    C   BESTPOS R*4         An array of  best positions  for cells in the
+*.                            previous volume scan.  (The 3rd position is not
+*.                            used.)
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME  TYPE        DESCRIPTION
+*.    ----  ----        -----------
+*.    BXP   R*4         BEST X_POSITION
+*.    BYP   R*4         BEST Y_POSITION
+*.    I     I*4         Do loop counter.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A315C6T
+*.    A315CFF
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     Compiled using COMP15.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     Linked using LINK15.CSS
+*.
+*.  MISC:  None
+*.
+C********************************************************************
+C
+C              FIND  BEST POSITION STORM SUBROUTINE
+C
+C********************************************************************
+C
+      IMPLICIT NONE
+C
+C**Attach input parameter-definition file (from "STORM_CENTROIDS")
+$INCLUDE A315BUF.INC/G,**A315P5C (NLIST)
+$INCLUDE **A315P7F (NLIST)
+C
+C**Attach local STORMS Adaptation Data parameter file:
+$INCLUDE **A315PSAD (NLIST)
+C
+C**Attach local STORMS Adaptation Data definitions:
+$INCLUDE **A315CSAD (NLIST)
+C
+C**Attach internal common block (of "STORM_TRACK" output variables).
+$INCLUDE A315.INC/G,**A315C6T (NLIST)
+$INCLUDE **A315CFF (NLIST)
+C
+C**Attach internal common block (of "STORM_TRACK" local variables).
+$INCLUDE **A315CTT(NLIST)
+C
+C*********************** DATA DECLARATIONS **************************
+C
+C** From input buffer:
+C
+      REAL     DELTIME
+C
+C** Local:
+C
+      INTEGER  I
+      REAL     BXP, BYP
+C
+C********************* DATA INITIALIZATIONS *************************
+C
+C
+C****************** BEGIN MAIN PROCESSING SECTION *******************
+C
+C** DO FOR ALL (STORM CELLs at the previous time)
+C
+      DO 100 I = 1, NSTMHIST( IXPRE )
+C
+C** COMPUTE (BEST X-Position) and COMPUTE (BEST Y-Position):
+C
+         BXP = POSITABL(X_POS,I,IXPRE) + (STMSPD(X_DIR,I)*DELTIME)
+         BYP = POSITABL(Y_POS,I,IXPRE) + (STMSPD(Y_DIR,I)*DELTIME)
+C
+C** Fill in best position data.
+C
+         BESTPOS(X_DIR,I) = BXP
+         BESTPOS(Y_DIR,I) = BYP
+100   CONTINUE
+C
+C************** END OF PROCESSING FOR SUBROUTINE ********************
+C
+      RETURN
+      END

@@ -1,0 +1,386 @@
+C 
+C RCS info 
+C $Author: nolitam $ 
+C $Locker:  $ 
+C $Date: 2002/11/27 15:17:22 $ 
+C $Id: a3147h.ftn,v 1.4 2002/11/27 15:17:22 nolitam Exp $ 
+C $Revision: 1.4 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A3147H__SUMMATION(USPBUF,SUMBUF,CLEAR_FLG,STATUS)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3147H__SUMMATION
+*.
+*.  MODULE VERSION: 0003
+*.
+*.  MODULE LANGUAGE:  FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       10/19/95      0000      Cheryl Stephenson    CCR NA94-08462
+*.       12/23/96      0001      Toolset              CCR NA95-11807
+*.       03/16/99      0002      Toolset              CCR NA98-23803
+*.       01/31/02      0003      Dennis A. Miller     CCR NA01-27501
+*.
+*.  CALLING SEQUENCE: CALL A3147H__SUMMATION(USPBUF,SUMBUF,STATUS)
+*.
+*.  MODULE FUNCTION:This module is passed a summation buffer and a product
+*.  buffer. If the clear flag is set, it resets the BIAS, its related fields
+*.  and other flags because this information is not needed for this next USP
+*.  product because there is no overlap.  If the clear flag is not set, then
+*.  the summation buffer will contain the summation of hourly accumulations
+*.  from the previous USP product.
+*.  This module reads the either the unadjusted or adjusted hourly
+*.  accumulations from the User Selectable Data base dependent on
+*.  Bias Applied flag. If the hourly is successfully read, then it is
+*.  to the summation buffer by A3147Q.  Then the product array values are
+*.  biased for use with the color tables  by calling A3147T. Then the
+*.  product array values are run length and encoded and stored in the product
+*.  buffer.
+*.  If the read was not successful, then a bad status is set so that the
+*.   calling module can generate a Null USP product.
+*.
+*.  MODULES CALLED: A31215__GET_OUTBUF, A31216__REL_OUTBUF, A31478__USDB_IO, 
+*.                  A3147Q__GET_SUM, A3147T__BIAS_ARRAY, 
+*.                  A3148L__PPS_RUN_LENGTH_ENCODE 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT              TYPE        DESCRIPTION
+*.    -   -----              ----        -----------
+*.    G   MEM                I*4         Array in RPG shared memory set aside
+*.                                       for buffer sharing.
+*.    G   DESTROY            I*4         (CONSTANT)Mnemonic used as input to
+*.                                       A31216__REL_OUTBUF. Indicates "do not
+*.                                       pass data to other tasks".
+*.    G   FLAG_SET           I*4         (CONSTANT)Parameter for a set flag.
+*.    G   NORMAL             I*4         (CONSTANT)Parameter which indicates
+*.                                       normal completion of requested
+*.                                       operation to acquire input or output
+*.                                       buffer
+*.    G   SCRATCH            I*4         (CONSTANT)DATA BUFFER TYPE FOR TASK
+*.                                       SCRATCH DATA BUFFERS
+*.    C   ADJ_BEG_INDX       I*2         Adjusted beginning index for
+*.                                       optmization on handling customized
+*.                                       request
+*.    C   ADJ_END_INDX       I*2         Adjusted end index for optimization
+*.                                       on handling customized requests
+*.    C   BIAS_TOGGLE        L*4         Flag indicating whether to apply the
+*.                                       Bias to the USP product
+*.    C   NDX                I*4         Working subscript for moving data
+*.                                       into output buffer
+*.    C   SCALE              I*4         Scale for threshold and color table
+*.                                       for run-length encoding this product
+*.    C   USDB_ADJU_RECNO    I*2         An array of the record numbers for
+*.                                       the adjusted hourly accumulations
+*.    C   USDB_CUR_BIAS      R*4         An array of the the calculated BIAS
+*.                                       for the hourly accumulation
+*.    C   USDB_CUR_GRPSIZ    R*4         An array of the the effective gage-
+*.                                       radar pair sizes associated with the
+*.                                       BIAS for the hourly accumulation
+*.    C   USDB_CUR_MSPAN     R*4         An array of the the memory spans     
+*.                                       associated with the BIAS for the
+*.                                       hourly accumulation
+*.    C   USDB_FIL_STAT      I*4         Status of read or write operation on
+*.                                       the USDB file
+*.    C   USDB_FLG_NO_HRLY   I*4         An array of the flags indicating if
+*.                                       the hourly accumulation has been
+*.                                       flagged as a bad hourly accumulation
+*.    C   USDB_FLG_ZERO_HRLY I*4         An array of the flags indicating if
+*.                                       the hourly accumulation has zero
+*.                                       accumulation
+*.    C   USDB_HRLY_RECNO    I*2         An array of the record numbers for
+*.                                       the unadjusted hourly accumulations
+*.    C   USDB_HRS_OLD       I*2         An array of indexs for the hourly
+*.                                       accumulation
+*.    C   BAD_FILE           I*4         (CONSTANT)Error code for when unable
+*.                                       to read or write to the User
+*.                                       Selectable data base
+*.    C   GOOD               I*4         (CONSTANT)Status flag value.
+*.    C   INCRMENT           I*4         (CONSTANT)Parameter used to increment
+*.                                       by one.
+*.    C   KPOLAR_WORDS       I*4         (CONSTANT)Scratch buffer size for
+*.                                       polar grid.
+*.    C   NUM_POLAR_BYTES    I*4         (CONSTANT)Number of polar bytes to
+*.                                       read or write  (KBINS*KRADS*2=82,800)
+*.    C   READKODE           I*4         (CONSTANT)I/O code indicating input
+*.                                       should be read.
+*.    P   CLEAR_FLG          L*4         Flag to indicate whether to clear
+*.                                       summation buffer or retain summation
+*.                                       for further summation
+*.    P   SUMBUF             I*2         Scratch buffer for one hourly
+*.                                       accumulation summations
+*.    P   USPBUF             I*2         USP product buffer
+*.
+*.    *   OUTPUT      TYPE        DESCRIPTION
+*.    -   ------      ----        -----------
+*.    G   MEM         I*4         Array in RPG shared memory set aside for
+*.                                buffer sharing.
+*.    C   BIAS_ESTM   R*4         The average bias estimate for the USP
+*.                                product
+*.    C   BIAS_GRPSIZ R*4         The average effective gage-radar pair size
+*.                                associated with the bias for the USP product
+*.    C   BIAS_MSPAN  R*4         The average memory span associated with the
+*.                                bias for the USP product
+*.    C   MAXVAL      I*4         The maximum value in the USP product
+*.    C   NDX         I*4         Working subscript for moving data into
+*.                                output buffer
+*.    P   STATUS      I*4         Status of success of summation operation
+*.    P   SUMBUF      I*2         Scratch buffer for one hourly accumulation
+*.                                summations
+*.    P   USPBUF      I*2         USP product buffer
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    G   MEM               I*4         Array in RPG shared memory set aside
+*.                                      for buffer sharing.
+*.    C   NDX               I*4         Working subscript for moving data into
+*.                                      output buffer
+*.    C   SCALE             I*4         Scale for threshold and color table
+*.                                      for run-length encoding this product
+*.    P   SUMBUF            I*2         Scratch buffer for one hourly
+*.                                      accumulation summations
+*.    P   USPBUF            I*2         USP product buffer
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME        TYPE        DESCRIPTION
+*.    ----        ----        -----------
+*.    GOT_1HR     L*4         Flag indicating whether the one hour buffer was
+*.                            successfully requested
+*.    HOUR_COUNT  I*4         Number of hours included in USP product
+*.    I           I*4         LOOP COUNTER
+*.    IDX         I*4         Index into USB_HRS_OLD array
+*.    MAX_VALUE   I*4         Maximum value in the summation of the hourly
+*.                            accumulations
+*.    ONE_HR_PTR  I*4         Pointer to starting position of buffer that
+*.                            contains one hour accumulations
+*.    ONE_HR_STAT I*4         Status of call to A31215 for getting scratch
+*.                            buffer for one hour accumulations
+*.    RECNUM      I*4         Record number in USP data base
+*.    RZERO       R*4         Parameter value for real zero.
+*.    SUM_BIAS    R*4         The sum of the hourly accumulation BIAS values
+*.    SUM_GRPSIZ  R*4         The sum of the hourly accumulation effective
+*.                            gage-radar pair sizes associated with the bias
+*.    SUM_MSPAN   R*4         The sum of the hourly accumulation memory spans
+*.                            associated with the bias
+*.    ZERO        I*2         PARAMETER VALUE '0'
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD00
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3147C2
+*.    A3147C3
+*.    A3147C6
+*.    A3147C8
+*.    A3147C9
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  NONE
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK14.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+$INCLUDE A309ADPT.INC/G,**A3CD70CA (NLIST)
+$INCLUDE                **A3CD70C7 (NLIST)
+$INCLUDE                **A3CD70C5 (NLIST)
+$INCLUDE A309.INC/G,**A3PM00 (NLIST)
+$INCLUDE            **A3PM01 (NLIST)
+$INCLUDE            **A3PM04 (NLIST)
+$INCLUDE            **A3PM06 (NLIST)
+$INCLUDE            **A3PM50 (NLIST)
+$INCLUDE            **A3CD00 (NLIST)
+$INCLUDE            **A3CD05 (NLIST)
+$INCLUDE A313HBUF.INC/G,**A313HYPP  (NLIST)
+$INCLUDE A3146.INC/G,**A3146P1  (NLIST)
+$INCLUDE             **A3146P2  (NLIST)
+$INCLUDE A3147.INC/G,**A3147P2  (NLIST)
+$INCLUDE             **A3147P3  (NLIST)
+$INCLUDE             **A3147P9  (NLIST)
+$INCLUDE             **A3147C1  (NLIST)
+$INCLUDE             **A3147C2  (NLIST)
+$INCLUDE             **A3147C3  (NLIST)
+$INCLUDE             **A3147C4  (NLIST)
+$INCLUDE             **A3147C5  (NLIST)
+$INCLUDE             **A3147C6  (NLIST)
+$INCLUDE             **A3147C8  (NLIST)
+$INCLUDE             **A3147C9  (NLIST)
+C
+C*************** L O C A L    D A T A *****************************
+C
+      INTEGER   ONE_HR_PTR, ONE_HR_STAT, IDX
+      INTEGER   I, J, RECNUM, IOSTAT, STATUS
+      INTEGER   MAX_VALUE
+      INTEGER*2 ZERO
+      PARAMETER (ZERO=0)
+      INTEGER   HOUR_COUNT
+      INTEGER*2 END_HOUR, TIME_SPAN
+      INTEGER*2 USPBUF(*), SUMBUF(*)
+      LOGICAL CLEAR_FLG
+      REAL      SUM_BIAS, SUM_GRPSIZ, SUM_MSPAN, TEN, RZERO
+      PARAMETER  (RZERO = 0.0, TEN = 10.0)
+C
+C
+      LOGICAL   GOT_1HR
+      DATA GOT_1HR/.FALSE./
+C
+C*************** E X E C U T A B L E ******************************
+C
+X     WRITE(14,*)'ENTER A3147H'
+X     WRITE(14,*)'BEG INDEX =',ADJ_BEG_INDX,' END INDEX = ',
+X    &    ADJ_END_INDX,' CLEAR FLAG = ',CLEAR_FLG
+X      WRITE(14,*)'MAX VALUE = ',MAX_VALUE
+C
+C  INITIALIZE LOCAL VARIABLES IF CLEAR FLAG IS TRUE
+C  OTHERWISE DOING SUMMATIONS WITH OVERLAP AND
+C  NEED TO SAVE
+C
+      IF (CLEAR_FLG)THEN
+        BIAS_ESTM = RZERO
+        BIAS_GRPSIZ = RZERO
+        BIAS_MSPAN  = RZERO
+C
+        SUM_BIAS = RZERO
+        SUM_GRPSIZ = RZERO
+        SUM_MSPAN  = RZERO
+C
+        MAX_VALUE = ZERO
+        HOUR_COUNT = ZERO
+      ENDIF
+      STATUS = ZERO
+C
+C  Get buffer to bring in one hour totals
+C
+      CALL A31215__GET_OUTBUF(SCRATCH, KPOLAR_WORDS, ONE_HR_PTR,
+     $                ONE_HR_STAT)
+      IF (ONE_HR_STAT .EQ. NORMAL) THEN
+          GOT_1HR = .TRUE.
+C
+C  Generate summation total in .1 mm
+C
+          DO 300 I=ADJ_END_INDX,ADJ_BEG_INDX,1
+             IDX = USDB_HRS_OLD(I)
+C
+C  If status of database good and not zero data, read hourly files and sum
+C
+             IF (USDB_FIL_STAT .EQ. GOOD .AND.
+     &             USDB_FLG_ZERO_HRLY(IDX) .NE. FLAG_SET .AND.
+     &             USDB_FLG_NO_HRLY(IDX) .NE. FLAG_SET) THEN
+C
+C  If Bias toggle set read adjusted Hourly Scan
+C
+                 IF(BIAS_TOGGLE) THEN
+                    RECNUM = USDB_ADJU_RECNO(IDX)
+                 ELSE
+C
+C Else read the unadjusted Hourly Scan
+C
+                    RECNUM = USDB_HRLY_RECNO(IDX)
+                 ENDIF
+CX               WRITE(14,*)'7H:READ HOURLY SCAN FROM RECORD ',RECNUM
+C
+C$DELETE
+                 CALL A31478__PDB_IO(READKODE,RECNUM,NUM_POLAR_BYTES,
+C$ENDDELETE
+C$INSERT                 CALL A31478__USDB_IO(READKODE,RECNUM,NUM_POLAR_BYTES,
+     $               MEM(ONE_HR_PTR))
+             ELSEIF(USDB_FIL_STAT .NE.GOOD)THEN
+                STATUS = BAD_FILE
+                GO TO 999
+             ENDIF
+             IF (USDB_FIL_STAT.EQ.GOOD.AND.USDB_FLG_NO_HRLY(IDX).NE.
+     &          FLAG_SET)THEN
+C
+C  Successful read or zero accumulation.  Increment number of
+C  increment number of hours included in the product.
+C
+                HOUR_COUNT = HOUR_COUNT + INCRMENT
+C
+C  Call A3147Q to add the one hour into the sum
+C  if it is not a zero accumulation
+C
+               IF(USDB_FLG_ZERO_HRLY(IDX) .NE. FLAG_SET)THEN
+                    CALL A3147Q__GET_SUM(MEM(ONE_HR_PTR),
+     $                            SUMBUF,MAX_VALUE)
+X              WRITE(14,*)'7H:AFTER CALL TO 7Q MAXVAL = ', MAX_VALUE
+               ENDIF
+C
+C  Sum the BIAS and related fields
+C
+                SUM_BIAS   = SUM_BIAS   + USDB_CUR_BIAS  (IDX)
+                SUM_GRPSIZ = SUM_GRPSIZ + USDB_CUR_GRPSIZ(IDX)
+                SUM_MSPAN  = SUM_MSPAN  + USDB_CUR_MSPAN (IDX)
+X               WRITE (14,*)'A3147H: SUM_BIAS = ',SUM_BIAS,
+     $                 'SUM_GRPSIZ = ',SUM_GRPSIZ
+     $                 'SUM_MSPAN  = ',SUM_MSPAN
+C
+             ELSEIF(USDB_FIL_STAT .NE.GOOD)THEN
+C
+C  Could not read hourly scan.  Return status of BAD_FILE
+C
+                STATUS = BAD_FILE
+                GO TO 999
+             ENDIF
+ 300      CONTINUE
+C
+C  Calculate the average BIAS and related fields for the USP product
+C  for the product header
+C
+X          WRITE(14,*)'7H: HOUR COUNT OF PRODUCT = ',HOUR_COUNT
+           BIAS_ESTM = SUM_BIAS / HOUR_COUNT
+           BIAS_GRPSIZ = SUM_GRPSIZ / HOUR_COUNT
+           BIAS_MSPAN  = SUM_MSPAN  / HOUR_COUNT
+CX         WRITE (14,*)'A3147H: AVG BIAS = ',BIAS_ESTM,
+CX   $                    ' AVG GRPSIZ = ',BIAS_GRPSIZ,
+CX   $                    ' AVG MSPAN  = ',BIAS_MSPAN
+C
+C  Bias the product array values for use with the color tables
+C  use the one_hr buffer to store the I*2 output by calling
+C  A3147T
+C
+            MAXVAL = MAX_VALUE
+            CALL A3147T__BIAS_ARRAY(SUMBUF,MEM(ONE_HR_PTR))
+C
+C  Run-length-encode the output from scaling and
+C  put the output into the product buffer
+C
+            CALL A3148L__PPS_RUN_LENGTH_ENCODE (MEM(ONE_HR_PTR),
+     $                   USPBUF, NDX, SCALE)
+CX          WRITE (14,*)'7H: CALLED 8L NDX = ',NDX
+C
+C  COULD NOT GET ONE HOUR SCRATCH BUFFER
+C
+      ELSE
+         STATUS = ONE_HR_STAT
+      ENDIF
+
+C
+C  RELEASE SCRATCH BUFFERS IF NOT NEEDED
+C
+999   CONTINUE
+      IF(GOT_1HR) CALL A31216__REL_OUTBUF(ONE_HR_PTR,DESTROY)
+X     WRITE (14,*)'A3147H: EXITING'
+C
+      RETURN
+      END

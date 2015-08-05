@@ -1,0 +1,642 @@
+C
+C RCS info
+C $Author: steves $
+C $Locker:  $
+C $Date: 2006/04/07 19:47:32 $
+C $Id: rpg_a3cm.ftn,v 1.5 2006/04/07 19:47:32 steves Exp $
+C $Revision: 1.5 $
+C $State: Exp $
+C
+C***********************************************************************
+C
+C   Description: This is the emulated A3CM04__FULL_NAME function.
+C		The original description says:
+C
+C     This routine will combine working directory path and FILE (file name) 
+C     to form a full file specification for use in opening a file.
+C
+C   Inputs:	FILE - filename (12 char max)
+C
+C		ACCT - unused
+C
+C   Outputs:	FULL_NAME - set to concatenation of working directory
+C                           and value of FILE.  Assumes FULL_NAME is
+C                           a character array of 255 characters.
+C
+C   Notes: ORPG dispenses with the OS32 concept of account number.
+C
+C***********************************************************************
+      SUBROUTINE A3CM04__FULL_NAME(FILE,ACCT,FULL_NAME)
+      IMPLICIT NONE
+C  Input Arguments  - - - - - - - - - - - - - - - - - -
+      CHARACTER*(*) FILE, ACCT
+C  Output Arguments - - - - - - - - - - - - - - - - - -
+      CHARACTER*(*) FULL_NAME
+
+      call a3cm04e__full_name( file, full_name )
+
+      END
+
+C***********************************************************************
+C
+C   Description: This is the emulated A3CM24__GET_CUST_INFO function.
+C		The original description says:
+C
+C	THIS COMMON ROUTINE IS CALLED BY ANY PRODUCT THAT NEEDS
+C	THE PARAMETERS THAT ARE SENT TO THE RPG BY A PUP IN THE
+C	REQUEST PACKET.
+C
+C   This function is implemented according to the following requirments:
+C
+C   Inputs:	ELIX - elevation index; only if this matches the 
+C		elevation index in the request, the request is returned. 
+C		The following exceptions apply: If NTRCOD == WERCOD 
+C		OR XSECCOD, the request is returned regardless of ELIX.
+C
+C		NTRCOD - NTR product number. An NTR product number can 
+C		correspond to several products.
+C
+C   Outputs:	USER_ARRAY - returns the requests; It it assumed this 
+C               buffer is large enough for the requests; The meaning of 
+C		the last two fields (out of the 10 fields) are changed. 
+C		Field 9 is now a generic request number instead of J
+C		(a sequence number) and field 10 is unused instead of 
+C		VIDX (volume scan index for indexing PGENCUST array). 
+C
+C		NUMREQ - returns number of requests;
+C
+C		STAT - returns status: 0 on success; 1 if failed due to 
+C		out-of-range NTRCOD.
+C
+C***********************************************************************
+      SUBROUTINE A3CM24__GET_CUST_INFO(ELIX,NTRCOD,USER_ARRAY,
+     *                                 NUMREQ,STAT)
+
+      IMPLICIT NONE
+
+      INTEGER*2 USER_ARRAY(10,*)
+      INTEGER ELIX,NTRCOD,NUMREQ,STAT
+
+      INTEGER WERCOD,XSECCOD
+      PARAMETER (WERCOD = 14, XSECCOD = 15)
+
+      ;initialize the number of requests to 0.
+      numreq = 0
+
+      ;check NTRCOD.  Only return if less than 0.
+      if (NTRCOD.lt.1) then
+         STAT = 1
+         return;
+      endif
+      STAT = 0
+
+      ;get customizing data for this NTRCOD.
+      if( NTRCOD .eq. WERCOD .or. NTRCOD .eq. XSECCOD )
+     >   elix = -1
+      call RPG_get_customizing_info( elix, user_array,
+     >                               numreq, stat )
+      return
+      end
+
+C***********************************************************************
+C
+C   Description: This is the emulated A3CM53__WHAT_MOMENTS function.
+C		The original description says:
+C
+C	DETERMINE WHICH MOMENTS OF AN INPUT RADIAL ARE ENABLED
+C
+C   Inputs:	RADIAL - RPG base data header.
+C
+C   Output:	REFFLAG - reflactivity field (.TRUE. or .FALSE.)
+C		VELFLAG - velocity field (.TRUE. or .FALSE.)
+C		SWFLAG - spectrum field (.TRUE. or .FALSE.)
+C
+C   Notes:	The original A3CM53 used the three fields: SPOFST1, 
+C		SPOFST2 and SPOFST3. Their values are copied from the 
+C		RDA basedata fields of BDSP, BDVP and BDSWP (offsets of 
+C		data location in the RDA data message). These numbers 
+C		are not used in our new RPG base data messages and 
+C		SPOFST? are used for other purposes. Thus we 
+C		reimplement the A3CM53__WHAT_MOMENTS here.
+C
+C***********************************************************************
+      SUBROUTINE A3CM53__WHAT_MOMENTS(RADIAL,REFFLAG,VELFLAG,SWFLAG)
+      IMPLICIT NONE
+
+      INTEGER*2 RADIAL (*)
+      LOGICAL REFFLAG,VELFLAG,SWFLAG
+
+      call RPG_what_moments( radial, refflag, velflag, swflag )
+
+      RETURN
+      END
+C 
+C***********************************************************************
+C
+C   Description: 
+C
+C      This is a stub function only here for compatibility.
+C
+C***********************************************************************
+      SUBROUTINE A3CM54__CUST_PROD_MEMSHED(CUST_INDX,COPY,BUFSTAT)
+      IMPLICIT NONE
+
+      INTEGER*2 CUST_INDX,COPY
+      INTEGER*4 BUFSTAT
+
+       return
+       end
+
+      SUBROUTINE A3CM56__GET_ELEV_ANGLE(VCP,ELVNUM,ELVANG,FOUND)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3CM56__GET_ELEV_ANGLE
+*.
+*.  MODULE VERSION: 0009
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       04 21 87      0000      Mike Istok           SPR # 70238
+*.       08 23 88      0001      W.B. EIDSON          SPR # 80248
+*.       03 09 90      0002      BRADLEY SUTKER       SPR # 80016
+*.       11 08 90      0003      JOSEPH WHEELER       SPR # 91250
+*.       12 03 91      0004      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0005      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0006      Toolset              SPR 91895
+*.       03/25/93      0007      Toolset              SPR NA93-06801
+*.       03/03/94      0008      Toolset              SPR NA94-05501
+*.       12/23/96      0009      Toolset              CCR NA95-11807
+*.
+*.  CALLING SEQUENCE: A3CM56__GET_ELEV_ANGLE(VCP,ELVNUM,ELVANG,FOUND)
+*.
+*.  MODULE FUNCTION:
+*.
+*.      This module returns the elevation angle (degrees*10)
+*.      and sucess status (FOUND=.TRUE.) given the volume coverage
+*.      pattern(11-?) and elevation index (1-14).
+*.      Note: The terms elevation cuts and elevation index do NOT
+*.            mean the same. As in the case where two elevation cuts
+*.            comprise the same elevation index (i.e. split cut scans)
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT    TYPE        DESCRIPTION
+*.    -   -----    ----        -----------
+*.    G   RDCVCPTA I*2         RDA Control Adaptation Data for Volume Coverage
+*.                             Pattern.
+*.    G   EL_ATTR  I*4         (CONSTANT)Number of elevation angle attributes.
+*.    G   PFELANG  I*4         (CONSTANT)VCP Table Index to Elevation Angle
+*.                             Data.
+*.    G   PFNELEV  I*4         (CONSTANT)VCP Table Index to Number of
+*.                             Elevation Cuts Data.
+*.    G   PFPATNUM I*4         (CONSTANT)VCP Table Index to Pattern Number
+*.                             Data.
+*.    G   VCPMAX   I*4         (CONSTANT)Maximum Number of VCPs.
+*.    G   VOL_ATTR I*4         (CONSTANT)Number of half words defining VCP.
+*.    P   ELVNUM   I*4         ELEVATION INDEX (1-14)
+*.    P   VCP      I*4         VOLUME COVERAGE PATTERN # OF VOLUME.
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    P   ELVANG  I*4         ELEVATION ANGLE (DEG*10)
+*.    P   FOUND   L*4         FLAG (TRUE-SUCESS, FALSE-FAILURE)
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME      TYPE        DESCRIPTION
+*.    ----      ----        -----------
+*.    ANGLE     I*4         CURRENT ELEVATION ANGLE
+*.    ELINDEX   I*4         ELEVATION INDEX IN RDCVCPTA
+*.    ELVCUT    I*4         ELEVATION CUT NUMBER
+*.    ELVOFF    I*4         OFFSET INTO RDCVCPTA TO ELEV ANGLE
+*.    LASTANGLE I*4         ELEVATION ANGLE BEFORE CURRENT ONE
+*.    VCPIDX    I*4         INDEX INTO RDCVCPTA TO VCP
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    RDACNT
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS:
+*.
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.        THIS MODULE IS COMPILED USING THE COMP09.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.        THIS MODULE IS LINKED USING THE LINK09.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+$INCLUDE rpg_port.inc, **rpg_port
+
+      INTEGER*4 VCP,ELVNUM,ELVANG
+      LOGICAL*4 FOUND
+
+      CALL PS_get_elev_angle( VCP, ELVNUM, ELVANG, FOUND )
+ 
+      RETURN
+      END
+
+C********************************************************************
+
+C	This function returns the current target elevation angle 
+C	(degrees*10). It returns 0 on failure.
+
+C********************************************************************
+
+      INTEGER*4 FUNCTION A3CM57__VCP_ELEV( ELEVINDEX, VCPNUMBER )
+
+      IMPLICIT NONE
+      INTEGER*4  ELEVINDEX, VCPNUMBER
+      integer elev
+
+      call RPG_get_current_target_elev (elev)
+
+      A3CM57__VCP_ELEV = elev
+
+      RETURN
+      END
+C
+      SUBROUTINE A3CM58__NUM_RAD_BINS( RADIALPTR, MAXBINS, NUMBINS,
+     +                                 RADSTEP, WAVE_TYPE)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3CM58__NUM_RAD_BINS
+*.
+*.  MODULE VERSION: 0009
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       08 27 87      0000      W.B. EIDSON          SPR# 70466
+*.       07 26 88      0001      BILL EIDSON          SPR# 70089
+*.       08 23 88      0001      BILL EIDSON          SPR # 80248
+*.       02 09 89      0002      BILL EIDSON          SPR # 90013
+*.       11 08 90      0003      JOE WHEELER          SPR # 91250
+*.       12 03 91      0004      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0005      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0006      Toolset              SPR 91895
+*.       03/25/93      0007      Toolset              SPR NA93-06801
+*.       03/03/94      0008      Toolset              SPR NA94-05501
+*.       12/23/96      0009      Toolset              CCR NA95-11807
+*.
+*.  CALLING SEQUENCE: CALL A3CM58__(RADIALPTR, MAXBINS, NUMBINS,
+*.                                  RADSTEP, WAVE_TYPE)
+*.
+*.  MODULE FUNCTION:
+*.
+*.     This module is for Product Support. A3CM58 determines the
+*.     number of bins in a radial buffer. Scan summary data
+*.     is obtained from A3CD05. Volume coverage pattern information
+*.     is optained from A3CM70CA. The module is activated by a
+*.     FORTRAN call from another module within CPCI 03.
+*.
+*.  MODULES CALLED: A31218__BUF_VOL, A31219__BUF_ELEV, A3CM56__GET_ELEV_ANGLE 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT     TYPE        DESCRIPTION
+*.    -   -----     ----        -----------
+*.    G   SUMMARY   I*4         Volume Scan Summary Table
+*.    G   SCAN_VCP  I*4         (CONSTANT)(CONSTANT)Volume Coverage Pattern
+*.                              index into Scan Summary Table
+*.    P   MAXBINS   I*4         Max number of bins possible in
+*.    P   NUMBINS   I*4         Actual numberof bins in the radial
+*.    P   RADIALPTR I*4         Current radial buffer's pointer
+*.    P   RADSTEP   I*4         Radial bin resolution
+*.    P   WAVE_TYPE I*4         WAVE TYPE
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    P   NUMBINS I*4         Actual numberof bins in the radial
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    G   SUMMARY           I*4         Volume Scan Summary Table
+*.    P   RADIALPTR         I*4         Current radial buffer's pointer
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME       TYPE        DESCRIPTION
+*.    ----       ----        -----------
+*.    BINS_QKM   I*4         Dimension of BIN_FACTOR.
+*.    BIN_FACTOR R*4         Bin resolutin values
+*.    BY10       R*4         SCALING FACTOR.
+*.    DTR        R*4         Degrees-to-radians conversion factor
+*.    ELANG      I*4         Elevation angle
+*.    ELINDX     I*4         Elevation index
+*.    FOUND      L*4         Flag indicating if elevation
+*.    IRRE       R*4         Parameterized factor for earths curvature.
+*.    PI         R*4         (Constant) The standard mathematical constant,
+*.                           PI.
+*.    SINANG     R*4         Sine of elevation angle
+*.    SRTO70     R*4         Number of bins at angle
+*.    SURV_DATA  I*4         (Constant) Used in comparison statement to
+*.                           determine the calculation of NUMBINS (actual
+*.                           number of bins in radial).
+*.    T2         R*4         Parameterized multiplyer ( 2 times)
+*.    TOPHGT     R*4         Top height of elevation angle (21.21)
+*.    VOLSCN     I*4         Volume scan number
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD05
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS:
+*.
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.        THIS MODULE IS COMPILED USING THE COMP09.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.        THIS MODULE IS LINKED USING THE LINK09.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+$INCLUDE A309.INC/G,**A3PM06 (NLIST)
+$INCLUDE            **A3CD05 (NLIST)
+      INTEGER RADIALPTR, MAXBINS, NUMBINS, ELINDX, VOLSCN, ELANG
+      INTEGER A31219__BUF_ELEV, A31218__BUF_VOL, RADSTEP
+      INTEGER VCPNUM, WAVE_TYPE, SURV_DATA, BINS_QKM
+      LOGICAL FOUND
+      REAL SINANG, BY10, DTR, PI, IRRE, TOPHGT, T2, SRTO70
+      PARAMETER (BY10 = 10.0)
+      PARAMETER (PI   = 3.14159)
+      PARAMETER (DTR  = PI / 180.0)
+      PARAMETER (IRRE = 1.2 * 6371.0)
+      PARAMETER (TOPHGT = 21.21)
+      PARAMETER (T2     = 2.0)
+      PARAMETER (SURV_DATA = 1, BINS_QKM = 4)
+      REAL BIN_FACTOR(BINS_QKM)
+      DATA BIN_FACTOR/4.0, 2.0, 0.0, 1.0/
+
+      CHARACTER*80 TEXT
+*
+****  EXECUTABLE CODE FOLLOWS:
+*
+** EXTRACT ELEVATION INDEX AND CURRENT VOLUME SCAN NUMBER FROM THE
+** CURRENT RADIAL.
+*
+      ELINDX = A31219__BUF_ELEV( RADIALPTR )
+      VOLSCN = A31218__BUF_VOL ( RADIALPTR )
+*
+** GET THE CURRENT VCP
+*
+      VCPNUM = SUMMARY( SCAN_VCP, VOLSCN )
+*
+** EXTRACT THE ELEVATION ANGLE FROM THE VOLUME COVERAGE PATTERN.
+*
+      CALL PS_get_elev_angle( VCPNUM, ELINDX, ELANG, FOUND )
+*
+** ELEVATION ANGLE IS FOUND, THEN CALCULATE NUMBER OF BINS
+** ASSIGN THE MINIMUM OF THE VALUES OF MAXBINS AND THE CALCULATED
+** NUMBER OF BINS TO RETAIN THE RESOLUTION.
+** OTHERWISE, ASSIGN THE MAXBINS AS NUMBER OF BINS
+*
+      IF (FOUND) THEN
+
+         SINANG  = SIN( DTR*FLOAT(ELANG)/BY10 )
+         SRTO70 = IRRE*( SQRT(SINANG**2 + T2*TOPHGT/IRRE) - SINANG)
+
+         IF (WAVE_TYPE .EQ. SURV_DATA) THEN
+            NUMBINS = SRTO70 / RADSTEP
+         ELSE
+            NUMBINS = SRTO70 * BIN_FACTOR(RADSTEP)
+         ENDIF
+
+         NUMBINS = MIN0( MAXBINS, NUMBINS )
+
+      ELSE
+
+         NUMBINS = MAXBINS
+
+         WRITE( TEXT, 1000 ) 
+ 1000    FORMAT( 1x,'A3CM58: PS_get_elev_angle() Returned Not Found $' )
+         CALL RPG_send_msg( TEXT )
+         WRITE( TEXT, 1001 ) VOLSCN, VCPNUM, ELINDX
+ 1001    FORMAT( 1x,'VOLSCN: ',I10,' VCPNUM: ',I8,' ELINDX: ',I8,'$' )
+         CALL RPG_send_msg( TEXT )
+
+      ENDIF
+*
+** EXIT THE SUBROUTINE
+*
+      RETURN
+      END
+C 
+      SUBROUTINE A3CM59__MAX_BIN( RADIALPTR, MAXBINS, NUMBINS,
+     +                            RADSTEP, WAVE_TYPE, ELEVANG )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3CM59__MAX_BIN
+*.
+*.  MODULE VERSION: 0001
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       01 26 96      0000      STEVE SMITH          CCR NA94-26302
+*.       12/23/96      0001      Toolset              CCR NA95-11807
+*.
+*.  CALLING SEQUENCE: CALL A3CM59__(RADIALPTR, MAXBINS, NUMBINS,
+*.                                  RADSTEP, WAVE_TYPE, ELEVANG )
+*.
+*.  MODULE FUNCTION:
+*.
+*.     This module is for Product Support. A3CM59 determines the
+*.     number of bins in a radial buffer. Scan summary data
+*.     is obtained from A3CD05. Volume coverage pattern information
+*.     is optained from A3CM70CA. The module is activated by a
+*.     FORTRAN call from another module within CPCI 03.
+*.
+*.     This module also returns the VCP elevation angle in degrees.
+*.     NOTE: This module is identical to A3CM58 with the exception
+*.           of returning the elevation angle.
+*.
+*.  MODULES CALLED: A31218__BUF_VOL, A31219__BUF_ELEV, A3CM56__GET_ELEV_ANGLE 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT     TYPE        DESCRIPTION
+*.    -   -----     ----        -----------
+*.    G   SUMMARY   I*4         Volume Scan Summary Table
+*.    G   SCAN_VCP  I*4         (CONSTANT)(CONSTANT)Volume Coverage Pattern
+*.                              index into Scan Summary Table
+*.    P   ELEVANG   R*4         Elevation angle of this radial.
+*.    P   MAXBINS   I*4         Maximum number of bin possible in the current
+*.                              radial.
+*.    P   NUMBINS   I*4         Actual number of bins in the current radial.
+*.    P   RADIALPTR I*4         Current radial buffer's pointer.
+*.    P   RADSTEP   I*4         Radial bin resolution.
+*.    P   WAVE_TYPE I*4         Waveform type for this radial.
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    P   ELEVANG R*4         Elevation angle of this radial.
+*.    P   NUMBINS I*4         Actual number of bins in the current radial.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    G   SUMMARY           I*4         Volume Scan Summary Table
+*.    P   RADIALPTR         I*4         Current radial buffer's pointer.
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME       TYPE        DESCRIPTION
+*.    ----       ----        -----------
+*.    BINS_QKM   I*4         Dimension of BIN_FACTOR.
+*.    BIN_FACTOR R*4         Bin resolutin values
+*.    BY10       R*4         Program parameter for 10.0.
+*.    DTR        R*4         Program parameter for degrees to radians
+*.                           conversion.
+*.    ELANG      I*4         Elevation angle of current radial.
+*.    ELINDX     I*4         Elevation index
+*.    FOUND      L*4         Flag, if set, indicates volume scan and elevation
+*.                           index where found in the scan summary table.
+*.    IRRE       R*4         Parameterized factor for earths curvature.
+*.    PI         R*4         Program parameter for the constant PI.
+*.    SINANG     R*4         The sine of the current elevation angle.
+*.    SRTO70     R*4         Number of bins at angle
+*.    SURV_DATA  I*4         (Constant) Used in comparison statement to
+*.                           determine the calculation of NUMBINS (actual
+*.                           number of bins in radial).
+*.    T2         R*4         Program parameter for the constant 2.
+*.    TOPHGT     R*4         Top height of elevation angle (21.21)
+*.    VOLSCN     I*4         Volume scan number of current volume.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD05
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS:
+*.
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.        THIS MODULE IS COMPILED USING THE COMP09.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.        THIS MODULE IS LINKED USING THE LINK09.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+$INCLUDE A309.INC/G,**A3PM06 (NLIST)
+$INCLUDE            **A3CD05 (NLIST)
+      INTEGER RADIALPTR, MAXBINS, NUMBINS, ELINDX, VOLSCN, ELANG
+      INTEGER A31219__BUF_ELEV, A31218__BUF_VOL, RADSTEP
+      INTEGER VCPNUM, WAVE_TYPE, SURV_DATA, BINS_QKM
+      LOGICAL FOUND
+      REAL SINANG, BY10, DTR, PI, IRRE, TOPHGT, T2, SRTO70
+      REAL ELEVANG
+      PARAMETER (BY10 = 10.0)
+      PARAMETER (PI   = 3.14159)
+      PARAMETER (DTR  = PI / 180.0)
+      PARAMETER (IRRE = 1.2 * 6371.0)
+      PARAMETER (TOPHGT = 21.21)
+      PARAMETER (T2     = 2.0)
+      PARAMETER (SURV_DATA = 1, BINS_QKM = 4)
+      REAL BIN_FACTOR(BINS_QKM)
+      DATA BIN_FACTOR/4.0, 2.0, 0.0, 1.0/
+
+      CHARACTER*80 TEXT
+*
+****  EXECUTABLE CODE FOLLOWS:
+*
+** EXTRACT ELEVATION INDEX AND CURRENT VOLUME SCAN NUMBER FROM THE
+** CURRENT RADIAL.
+*
+      ELINDX = A31219__BUF_ELEV( RADIALPTR )
+      VOLSCN = A31218__BUF_VOL ( RADIALPTR )
+*
+** GET THE CURRENT VCP
+*
+      VCPNUM = SUMMARY( SCAN_VCP, VOLSCN )
+*
+** EXTRACT THE ELEVATION ANGLE FROM THE VOLUME COVERAGE PATTERN.
+*
+      CALL PS_get_elev_angle( VCPNUM, ELINDX, ELANG, FOUND )
+*
+** ELEVATION ANGLE IS FOUND, THEN CALCULATE NUMBER OF BINS
+** ASSIGN THE MINIMUM OF THE VALUES OF MAXBINS AND THE CALCULATED
+** NUMBER OF BINS TO RETAIN THE RESOLUTION.
+** OTHERWISE, ASSIGN THE MAXBINS AS NUMBER OF BINS
+*
+      IF (FOUND) THEN
+
+         ELEVANG = FLOAT(ELANG)/BY10
+         SINANG  = SIN( DTR*ELEVANG )
+         SRTO70 = IRRE*( SQRT(SINANG**2 + T2*TOPHGT/IRRE) - SINANG)
+         IF (WAVE_TYPE .EQ. SURV_DATA) THEN
+            NUMBINS = SRTO70 / RADSTEP
+         ELSE
+            NUMBINS = SRTO70 * BIN_FACTOR(RADSTEP)
+         ENDIF
+         NUMBINS = MIN0( MAXBINS, NUMBINS )
+
+      ELSE
+ 
+         NUMBINS = MAXBINS
+
+         WRITE( TEXT, 1000 ) 
+ 1000    FORMAT( 1x,'A3CM59: PS_get_elev_angle() Returned Not Found $' )
+         CALL RPG_send_msg( TEXT )
+         WRITE( TEXT, 1001 ) VOLSCN, VCPNUM, ELINDX
+ 1001    FORMAT( 1x,'VOLSCN: ',I10,' VCPNUM: ',I8,' ELINDX: ',I8,'$' )
+         CALL RPG_send_msg( TEXT )
+
+      ENDIF
+*
+** EXIT THE SUBROUTINE
+*
+      RETURN
+      END

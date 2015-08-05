@@ -1,0 +1,294 @@
+#!/bin/sh
+
+# RCS info
+# $Author: steves $
+# $Locker:  $
+# $Date: 2014/03/07 19:36:14 $
+# $Id: build_install_files,v 1.49 2014/03/07 19:36:14 steves Exp $
+# $Revision: 1.49 $
+# $State: Exp $
+
+#    File: build_install_files
+#
+# Purpose: build the multi-os/architecture installation "tar" file
+#
+#          We currently support the following Operating System/Architecture
+#          combinations:
+#
+#          lnux_x86 - LINUX X86 
+#
+#   Notes:
+#       This script contains one or more script functions.  These functions
+#       are defined in alphabetical order at the top of this file (must
+#       precede the main body of the script).
+#
+# Changes:
+#       12FEB2004 - add call to build_install_adaptation
+#       08SEP1999 - add shared libraries with version appended to tared files
+#       01SEP1999 - add install_rpg script to files saved
+#       05JAN1999 - ABDodson corrected Buildfile_timestamp() to properly
+#               handle months 01 through 09
+#       03NOV1998 - ABDodson added timestamp to end of buildfile name
+#	23JUN1998 - ABDodson added .dtprofile
+#	19JUN1998 - ABDodson replace hpux and sunos with hpux_rsk and
+#               slrs_spk, respectively
+#	17JUN1998 - ABDodson added code for lnux_x86
+#	22MAR1998 - ABDodson removed extraneous chmod switch (HP-UX
+#		does not support)
+#	19DEC1997 - ABDodson added code for slrs_x86
+#	06AUG97 - AB Dodson added code to ensure the config and data
+#		subdirectories have proper permissions
+#	01JUL97 - AB Dodson
+#		added code to compress and relocate the installation file
+#	30JUN97 - AB Dodson
+#		added reference to POSIX-shell Profile file
+#	06JUN97 - AB Dodson
+#		changed the name of the build configuration
+#		file (to accomodate displaying build information at HCI)
+#	01FEB97 - AB Dodson
+#		ensure shared libraries have mode of 0555
+#	30JAN97 - AB Dodson
+#		use getops (will eventually add options)
+#		do not generate checksum data for static libraries
+#		do generate checksum data for ./data files
+#		place empty ./logs and ./tmp subdirs in installation file
+
+
+#---------------SCRIPT FUNCTION Buildfile_timestamp------------------------
+#
+# Purpose: Echo the timestamp for the "buildfile" name.  The timestamp is in
+#          the form of "DDMMMYY" (e.g., 03NOV98)
+#
+#   Notes: We use the RCS "log" function to retrieve the modification
+#          timestamp of the RCS file that corresponds to this project
+#          thread (a.k.a. "thread of threads").
+
+Buildfile_timestamp()
+{
+timestamp1=`rlog -r$version $sdotfile | grep date: | sed 's/\//_/g' | awk ' /date/ {print $2}'`
+    echo $timestamp1 | awk '
+   BEGIN {
+        listmonths="JAN,FEB,MAR,APR,MAY,JUN,JUL,AUG,SEP,OCT,NOV,DEC"
+        ignore=split(listmonths, month, ",")
+    }
+    {
+        ignore=split($0, array, "_")
+        # Note that, to avoid problems caused by leading zeroes in
+        # (associative) array subscripts, we "coerce" the type of
+        # array[2] by adding zero to it
+        array[2] += 0
+        printf("%s%s%s", array[3], month[array[2]], array[1])
+    }'
+
+}
+
+
+
+#---------------SCRIPT BODY -----------------------------------------------
+
+rcsid="$Id: build_install_files,v 1.49 2014/03/07 19:36:14 steves Exp $"
+echo " "
+echo $rcsid
+echo " "
+
+usage="Usage: `basename $0` [options] -t thread_name -v thread_version \n
+       Options: \n
+               -h print usage message \n\n
+               -d workdir (build files using specified directory; default: current working directory)\n\n
+       For example: \n
+       \n
+       `basename $0` -t mb1_swit -v 1.7\n\n"
+
+workdir=`pwd`
+orgdir=`pwd`
+thread=
+version=
+
+while getopts d:ht:v: input
+do
+   case $input in
+      h) echo $usage
+	exit 0 ;;
+      d) workdir="$OPTARG";;
+      t) thread="$OPTARG";;
+      v) version="$OPTARG";;
+      \?) echo $usage
+          exit 1 ;;
+   esac
+done
+
+if [ -z "$thread" ]
+then
+   echo $usage
+   exit 1
+fi
+
+if [ -z "$version" ]
+then
+   echo $usage
+   exit 1
+fi
+
+# This is where the compressed installation file will be stored ...
+
+repository=/builds/archive
+
+# Identify the "s-dot" file (we need this in order to create the
+# Build File timestamp) ...
+
+sdotdir="$RAZOR_UNIVERSE_DIR/DOMAIN_01/++PROJECT++/Archive"
+sdotdir_tmp=/tmp/rpg_rcs
+sdotfile=$sdotdir"/RZ_VCS/"$thread,v
+
+#-------------------- Retrieve Project Thread Version File ----------------
+
+if [ ! -r $sdotfile ]
+then
+   echo "Cannot find RCS file for $thread!"
+   echo "sdotfile: $sdotfile"
+   echo $usage
+   exit 1
+fi
+
+#-------------------- Name the Build and Installation Files ---------------
+timestamp=`Buildfile_timestamp $sdotfile`
+echo $timestamp
+buildfile="bld_"$thread"_v"$version"_"$timestamp
+tarfile="orpg_"$buildfile".tar"
+
+cd $workdir/cfg
+rm -fr $sdotdir_tmp
+mkdir -p $sdotdir_tmp/RCS
+cp $sdotdir/RCS/$thread,v $sdotdir_tmp/RCS 
+co  -r$version $sdotdir_tmp/$thread 
+cp $sdotdir_tmp/$thread $workdir/cfg
+rm -fr $sdotdir_tmp
+#-------------------- Create the Build Configuration File -----------------
+#  ensure removal of any previous build configuration files ...
+
+if [ ! -r $thread ]
+then
+   echo "Cannot retrieve RCS archive file for $thread version $version!"
+   echo $usage
+   exit 1
+else
+  rm -f bld_*
+  touch $buildfile
+  echo "Thread List for Project: $thread Version: $version" >> $buildfile
+  cat $thread >> $buildfile
+  rm -f $thread
+fi
+
+# Ensure that the ./cfg files have proper permissions ...
+
+chmod  -R ug+rw * *.*
+
+#-------------------- Ensure Shared Libraries have Proper Mode ------------
+
+for arch in \
+	lnux_x86
+do
+   if [ -d "$workdir/lib/$arch" ]
+   then
+      chmod 0555 $workdir/lib/$arch/lib*.so*
+   fi
+done
+
+cd $workdir
+
+#-------------------- Create Checksum Files -------------------------------
+
+# We make use of the SunOS and HP-UX shared-library naming conventions
+# (*.sl and *.so, respectively).
+
+data_cksum="$workdir/cfg/data_cksum"
+rm -f $data_cksum
+touch $data_cksum
+echo "Generating data checksum file: $data_cksum"
+cd $workdir/data
+
+# Ensure that the ./data files have proper permissions ...
+
+chmod 0664 * *.*
+
+cksum * | awk '{printf("%15s %15s %s\n",$1,$2,$3)}' >> $data_cksum
+
+for arch in \
+	lnux_x86
+do
+   if [ -d "$workdir/bin/$arch" ]
+   then
+      bin_cksum="$workdir/cfg/bin_"$arch"_cksum"
+      lib_cksum="$workdir/cfg/lib_"$arch"_cksum"
+
+      rm -f $bin_cksum
+      rm -f $lib_cksum
+      touch $bin_cksum
+      touch $lib_cksum
+
+      echo "Generating $arch checksum files: $bin_cksum"
+      echo "                                 $lib_cksum"
+      cd $workdir/bin/$arch
+      cksum * | awk '{printf("%15s %15s %s\n",$1,$2,$3)}' >> $bin_cksum
+      cd $workdir/lib/$arch
+      cksum *.s? | awk '{printf("%15s %15s %s\n",$1,$2,$3)}' >> $lib_cksum
+   fi
+done
+
+#-------------------- Create Empty Subdirectories -------------------------
+
+for subdir in \
+	$workdir/tmp
+do
+   if [ -d $subdir ] 
+   then
+      rm -rf $subdir
+   fi
+
+   mkdir $subdir
+   chmod 0775 $subdir
+done
+
+#-------------------- Create Installation File ----------------------------
+
+# Note that we do not archive the static library files (*.a)
+
+cd $workdir
+
+# remove any old installation files ...
+
+rm -f orpg_bld_*
+
+echo "Building installation file: $tarfile at $workdir ..."
+
+rm -f $tarfile
+
+if [ -d "$workdir/bin/lnux_x86" ]
+then
+  tar cXf excludefile $tarfile ./install_rpg ./.bashrc ./.cshrc ./.bash_profile ./.rssd.conf ./.rssd.conf.faa ./orda ./bin ./cfg ./data ./man ./lib/lnux_x86/*.so* ./tmp
+fi
+
+echo "Compressing $tarfile ..."
+bzip2 $tarfile
+
+echo "Copying ${tarfile}.bz2 into $repository ..."
+cp ${tarfile}.bz2 $repository
+
+#-------------------- Restore Shared Libraries Modes ----------------------
+
+for arch in \
+	lnux_x86
+do
+   if [ -d "$workdir/lib/$arch" ]
+   then
+      chmod 0775 $workdir/lib/$arch/lib*.so*
+   fi
+done
+
+#-------------------- Build Installation File for the Tools ---------------
+
+$orgdir/build_install_tools -d $workdir -t $thread -v $version
+$orgdir/build_install_adaptation -d $workdir -t $thread -v $version
+$orgdir/build_install_comms -d $workdir -t $thread -v $version
+
+

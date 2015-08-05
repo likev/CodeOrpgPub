@@ -1,0 +1,193 @@
+rmt_client(3) 		   ORPG SDD Manpage   		rmt_client(3)
+
+NAME
+rmt_client - Remote Execution Tool (RMT) client routines
+
+SYNOPSIS
+#include <rmt.h>
+void RMT_ask_password (char *prompt, int pw_size, char *password)
+int RMT_check_connection ()
+int RMT_close_connection ()
+int RMT_create_connection (char *remote_host_name)
+int RMT_lock_connection (int sw)
+void RMT_messages (int sw)
+int RMT_port_number (int port_number)
+int RMT_set_current (int fd)
+void RMT_set_password (char *password)
+int RMT_terminate_service (char *host_name, char *host_list)
+void RMT_time_out (int time)
+void RMT_use_buffer (int size, char *buf)
+
+DESCRIPTION
+RMT_ask_password
+----------------
+This is a utility function that asks the user to type in a 
+password. The user entered password is returned in "password". 
+The size of the "password" space is at least "pw_size" bytes. 
+The function has no return value. 
+
+
+RMT_check_connection
+--------------------
+RMT_check_connection checks the current connection by sending a 
+"NOOP" control message to the server for a response. It returns 
+RMT_SUCCESS on success or one of the negative error numbers list 
+in section B.
+
+
+RMT_close_connection
+--------------------
+RMT_close_connection closes the current socket connection. 
+The closing will terminate the child server process 
+on the remote side of the connection. This function returns 
+RMT_SUCCESS (0) on success or RMT_FAILURE (-1) if the connection 
+is locked or there is no current connection.
+
+
+RMT_create_connection
+---------------------
+RMT_create_connection causes the remote RMT server to fork a 
+child server and then builds a TCP connection to that server. 
+This function returns the socket file descriptor for the 
+connection on success. It returns a negative value on failure. If 
+the connection to "remote_host_name" exists, the existing fd is 
+returned. This function also sets the current connection (Refer 
+to the next function). The "remote_host_name" argument can be 
+either a formal name such as "virga" or a Internet address form 
+such as "128.117.192.15". The errors as indicated by the negative 
+return values are:
+
+	RMT_BAD_REMOTE_HOST_NAME
+			Connection creation failed due to faulty 
+			remote_host_name.
+
+	RMT_TOO_MANY_CONNECTIONS
+			Failed in registering the new server. 
+			Probably too many connections have been made.
+
+	RMT_PORT_NUMBER_NOT_FOUND
+			Failed in finding the port number to the 
+			server on the remote host.
+
+	RMT_GETHOSTBYNAME_FAILED
+			Failed in gethostbyname call.
+
+	RMT_OPEN_SOCKET_FAILED
+			Failed in opening a socket.
+
+	RMT_CONNECT_FAILED
+			The connect call failed. The server is 
+			probably not running.
+
+	RMT_SET_SOCK_PROP_FAILED
+			Failed in setting socket properties.
+
+	RMT_AUTHENTICATION_FAILED
+			Failed in passing authentication check.
+
+	RMT_TIMED_OUT
+			Failed due to timed-out.
+
+
+RMT_lock_connection
+-------------------
+This function locks and unlocks the server on the current 
+connection when "sw" is respectively RMT_LOCK and RMT_UNLOCK. A 
+locked server cannot be closed (the RMT_close_connection call is 
+ignored). This function returns the lock count on success or 
+RMT_FAILURE (-1) if the current connection is not set. 
+
+The connection lock is useful when an application simultaneously 
+uses several modules independently developed on top of the RMT 
+module where some of the modules make RMT_close_connection calls. 
+For example, an application may use two modules, one implementing
+file access and another implementing signaling. The signaling 
+module may call RMT_close_connection to close a connection after 
+it sends a signal. However, the connection should not be closed 
+if the file module has a remote file opened on that connection. 
+To solve this problem, the file module may lock the connection if 
+it has any file opened on that connection.
+
+
+RMT_messages
+------------
+RMT_messages (RMT_ON) switches error message printing on in RMT 
+library functions. RMT_messages (RMT_OFF) switches it off.
+
+
+RMT_port_number
+---------------
+RMT_port_number sets the port number to "port_number". It returns
+the port number set on success or RMT_FAILURE (-1) if the 
+port_number is not suitable. RMT_port_number 
+(RMT_USE_DEFAULT_PORT) sets the default RMT port number and 
+return the default port number. Note that, because 
+RMT_USE_DEFAULT_PORT = 0, the user can never use the port number 
+0.
+
+
+RMT_set_current
+---------------
+The RMT library keeps a current remote connection. Any remote
+procedure call will use the current connection (and thus the
+function is executed on the remote host on the other end of the
+connection). RMT_set_current sets the current connection to
+the one specified by the socket fd. The RMT_create_connection 
+call, by default, sets the current connection to the newly 
+created fd. RMT_set_current returns RMT_INVALID_FD (-1017) if 
+"fd" is invalid. It returns RMT_SUCCESS (0) on success.
+
+
+RMT_set_password
+----------------
+If the server is in password mode, a client application
+must call RMT_set_password to provide the RMT library with an
+appropriate password. This function must be called before
+calling RMT_create_connection.
+
+
+RMT_terminate_service
+---------------------
+RMT_terminate_service terminates existing child servers that are
+on host "host_name" and serve clients on hosts listed in 
+"host_list". "host_list" is a NULL-terminated character string
+containing a list of host names separated by the space character.
+
+A connection to "host_name" must not exist when 
+RMT_terminate_service is called. RMT_terminate_service makes a 
+connection to "host_name" and sends a control message to the server 
+to perform the job. RMT_terminate_service will then terminate the 
+connection before returning.
+
+RMT_terminate_service returns RMT_SUCCESS on success or one of the 
+following negative error numbers:
+
+	RMT_ALREADY_CONNECTED 
+				The connection to "host_name" exists.
+	RMT_create_connection error return values.
+	
+
+RMT_time_out
+------------
+RMT_time_out resets the time-out period to "time" seconds. This 
+time out period is used for opening all connections and 
+performing all remote procedure calls on all connections. If one 
+needs different time out periods, multiple calls to this function 
+are necessary. The default time out period is 60 seconds.
+
+
+RMT_use_buffer
+--------------
+RMT_use_buffer receives a user specified buffer for the output
+string in the next remote function call. By default RMT will 
+allocate appropriate space for the output string. The user, however,
+can provide his own buffer by calling this function. This will save
+both an extra copy of the output and a duplicated memory allocation 
+sometimes. If the size of the buffer, "size", is not sufficient for 
+the output string, RMT will allocate a buffer and not use the user
+provided buffer. The RMT_use_buffer call only affects the immediate
+next RPC call.
+
+
+SEE ALSO
+rmt(3), rmt_server(3)

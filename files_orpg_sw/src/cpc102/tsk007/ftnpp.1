@@ -1,0 +1,174 @@
+
+NAME
+    ftnpp
+
+SYNOPSIS
+    ftnpp [-tlDIsr] FORTRAN_file_list
+
+DESCRIPTION
+    ftnpp is a preprocessor for converting CONCURRENT NEXRAD FORTRAN code 
+    into FORTRAN code that can be compiled on the local UNIX machine.
+
+    ftnpp processes the following non-standard FORTRAN features:
+
+    a. INCLUDE. The following are valid INCLUDE lines:
+
+    $INCLUDE A309ADPT.INC/G,**A3CD70C8
+    $INCLUDE A304.INC,**A304P4 (NEND NLIST)
+    $INCLUDE            **A3PM01 (NEND NLIST)
+    $INCLUDE a3cd70s.ftn		;initialize adaptation data
+
+    An include line must start with "$INCLUDE" or "$include". Following 
+    this token are a file name and a section name. The two fields are 
+    separated by a ",". Character "/" and following characters in the 
+    file name are ignored. (E.g. "/G" in the first example is ignored). 
+    Any valid UNIX file name can be used for the include file name. 
+    Specifically, the file name does not have to have suffix ".INC". File 
+    name field can be missing (example 3) in which case the file name on 
+    a previous line is assumed. The section name must be started with 
+    "**" if it is not missing. If the section name is not specified 
+    (example 4), the entire file is included. Any characters after the 
+    section name field are not interpreted. A named section in an include 
+    file is and must be terminated by a line starting with string "/*" . 
+    The file name and the section name can not be both missing. No space 
+    is allowed between "**" and the section name.
+
+    INCLUDE is processed recursively, which means that an include file 
+    can contain INCLUDE statements. The include files are assumed to be 
+    located in the current directory by default or alternative directories 
+    specified with -I options.
+
+    If a named include section or a non-named include file is multiply 
+    included in a subroutine, only the first $INCLUDE is processed and 
+    later ones are ignored.
+
+    b. #IFDEF key_word ... #ELSE ... #ENDIF. These directives can be used
+    to select a particular part of the code to be used in a compilation. 
+    Any of the three directive words must be in a separate line and start 
+    at the first character of the line. These directives can not be used 
+    in a nested way. I.e. there can not be another #IFDEF within a #IFDEF 
+    section. The IFDEF key word is specified through -D option. This is a 
+    non-CONCURRENT feature.
+
+    c. Directives $INLINE, $INSKIP, $TCOM are ignored.
+
+    d. The leading character of "X" on a line is replaced by "C" by 
+    default. If -t option is specified, the "X" is replaced by a space 
+    " ", which allows the line to be compiled.
+
+    e. Hexadecimal constants. Formats Y'???' and Z??? are converted to 
+    X'???', where ? represents a hexadecimal character.
+
+    f. In line comment. All characters after character ";" on a line are
+    ignored together with that ";".
+
+    g. Line length. If a line, excluding the in line comment, is longer 
+    than 70 characters, the line is split into multiple lines such that 
+    each line is no longer than 70 characters. Continuing line symbols 
+    are added as necessary.
+
+    h. Non-destructive code modification support: Leading string C$INSERT
+    in a line is removed. Two lines started with C$DELETE and C$ENDDELETE 
+    define a section of lines to be deleted. All lines in between the two 
+    lines (including the two lines) are deleted.
+
+    i. We assume that BLOCK DATA is processed via INCLUDE. Thus BLOCK DATA 
+    and its following END lines are commented. A BLOCK DATA file without 
+    END statement is not treated as an error.
+
+    j. Duplicated IMPLICIT NONE statement in a subroutine is commented out.
+
+    k. The MEM array used in the existing RPG code as a space for 
+    dynamically allocatable memory segments. In the ported code, if a 
+    shared memory input data LB is used and LB_DIRECT is used in get_inbuf 
+    to return the MEM array offset, the offset may be too large to be used 
+    as an offset. ftnpp displays a warning message when it detects any use 
+    of MEM in a direct arithmetic computation or assignment. Here MEM is
+    case sensitive.
+
+    l. By option (-l), ftnpp truncates all characters after "__" in an 
+    identifier.
+
+    ftnpp modifies the FORTRAN code in the following processing. ftnpp 
+    prints a message every time the code is modified.
+
+    m. ftnpp optionally processes identifier replacement. For example, 
+    some FORTRAN compiler does not support intrinsic function "INT2". 
+    Assume that one can use "INT" instead of "INT2". Then by specifying 
+    -r INT2=INT as a ftnpp command line option, all identifier "INT2"
+    will be replaced by "INT".
+
+    n. RPG code uses INTEGER*2 for certain flags with its highest bit set.
+    If those flags are set with untyped constant such as X'8000', it is
+    fine because in this case a bit-by-bit assignment is assumed. However,
+    sometimes RPG code first assigns the value to an INTEGER constant, and
+    then a INTEGER*2 flag variable is assigned by the latter. This causes
+    confusion because an INTEGER constant, when assigned by X'8000',
+    represents a large positive value that is beyond the range of a 
+    INTEGER*2 variable. Some compiler catches this fault and fails. To fix 
+    this problem, ftnpp replaces such problematic INTEGER-to-INTEGER*2 
+    assignment by a suitable untyped literal constant assignment.
+    
+    Other CONCURRENT FORTRAN specific features except those listed above
+    are not processed.
+
+    ftnpp accepts a list of source file names. A source file name must 
+    has a suffix ".ftn". For each input source file, it generates an 
+    output file with name suffix ".f" that can be compiled with a local 
+    FORTRAN compiler. The "-s" option can be used to specify directories 
+    for the source files. If and only if no directory is specified with
+    the "-s" option, current directory is assumed for the source files.
+    The output files (*.f files) are always generated in the current 
+    working directory. The "-I" option can be used to specify directories 
+    for the include files. If and only if no directory is specified with
+    the "-I" option, current directory is assumed for the include files.
+
+    The -I, -s and -r options may be specified multiply. For example,
+    "ftnpp -r OLDNAME=NEWNAME -r OLD1=NEW1 -I . -I ../include filename"
+    is fine.
+
+OPTIONS:
+
+    -t	Specifies the test mode - replacing leading X on a line by a space.
+
+    -l	Characters after __ are truncated in identifiers
+
+    -D	string
+	Specifies the IFDEF key word.
+
+    -I	include_dir_path
+	Specifies a directory for finding include files. The default is 
+	the current working directory.
+
+    -s: source_file_path
+	Specifies a directory for finding the source (.ftn) files. The 
+	default is the current working directory.
+
+    -r	Old_name=New_name
+	Specifies a identifier replacement. This option can be used multiply.
+
+EXAMPLES
+
+    ftnpp -s ../shared -I ../include -r INT2=INT a3cm17.ftn a3cm25.ftn
+	Processes the two files a3cm17.ftn and a3cm25.ftn and generates
+	a3cm17.f and a3cm25.f. The *.ftn files are located in ../shared and the
+	include files are to be found in ../include. The identifier "INT2" in
+	the code will be replaced by "INT".
+
+EXIT STATUS
+    0:		Terminated normally. 
+
+    non-zero:	Terminated because an error was detected.
+
+FILES
+    input files: FORTRAN source files with CONCURRENT NEXRAD FORTRAN 
+	extensions. Must have suffix .ftn.
+
+    output files: Standard FORTRAN source files that can be compiled by the 
+	FORTRAN compiler on the local UNIX host. The suffix used is .f.
+
+SEE ALSO
+    f77(1)
+
+NOTES
+

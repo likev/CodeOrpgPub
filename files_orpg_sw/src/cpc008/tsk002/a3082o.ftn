@@ -1,0 +1,297 @@
+C
+C RCS info
+C $Author: steves $
+C $Locker:  $
+C $Date: 2006/12/18 20:27:34 $
+C $Id: a3082o.ftn,v 1.7 2006/12/18 20:27:34 steves Exp $
+C $Revision: 1.7 $
+C $State: Exp $
+C
+      SUBROUTINE A3082O__HEADER_LAYERS(CAT_NUM_STORMS,CAT_FEAT,
+     $   COMB_ATT,NUM_FPOSITS,FORCST_POSITS,CAT_TVST,LEN_LAY1,
+     $   BUFOUT,RCMGRID)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3082O__HEADER_LAYERS
+*.
+*.  MODULE VERSION: 0011
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       07 22 88      0000      VALERIE HOLDEN       SPR # 80002
+*.       02 06 89      0001      VALERIE HOLDEN       SPR # 90027
+*.       01 29 91      0002      VALERIE HOLDEN       SPR # 91249
+*.       12 03 91      0003      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0004      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/20/92      0005      Toolset              SPR 91895
+*.       03/25/93      0006      Toolset              SPR NA93-06801
+*.       01/28/94      0007      Toolset              SPR NA94-01101
+*.       03/03/94      0008      Toolset              SPR NA94-05501
+*.       04/11/96      0009      Toolset              CCR NA95-11802
+*.       12/23/96      0010      Toolset              CCR NA95-11807
+*.       03/16/99      0011      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A3082O__HEADER_LAYERS(CAT_NUM_STORMS,
+*.                       CAT_FEAT,COMB_ATT,NUM_FPOSITS,FORCST_POSITS,
+*.                       CAT_TVST,LEN_LAY1,BUFOUT,RCMGRID)
+*.
+*.  MODULE FUNCTION: STORES THE HEADER DATA RADAR CODED MESSAGE FOR
+*.                   (LFM PARAMETERS, STORM CENTROIDS, AND RASTER
+*.                   RUN_LENGTH) INTO THE OUTPUT BUFFER FOR THE
+*.                   INTERMEDIATE GRAPHIC PRODUCT FOR RADAR CODED
+*.                   MESSAGE
+*.
+*.  MODULES CALLED: A3082S__PACKET_CENT, A3CM22__RASTER_RUN_LENGTH 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT          TYPE        DESCRIPTION
+*.    -   -----          ----        -----------
+*.    G   BOXSIZ         R*4         Radar Coded Message Parameter: LFM Grid
+*.                                   Box Size (with a range of 5.0 to 20.0).
+*.    G   DELTATHE       R*4         Radar coded Msg param: Angle of rotation
+*.                                   from north LFM grid column AXIS, with a
+*.                                   range of -50 to +50, (-for East of 105
+*.                                   Deg. Lon, + for West of 105 Deg.)
+*.    G   NCENTROIDS     I*4         Number of Centroids to report in the
+*.                                   Radar Coded Message. Default is 12.
+*.    G   XOFF           R*4         Index to distance from radar to upper
+*.                                   right corner of unrotated mm box (x-axis
+*.                                   distance).
+*.    G   YOFF           R*4         Index to distance from radar to upper
+*.                                   right corner of unrotated mm box (y-axis
+*.                                   distance).
+*.    G   CAT_RNG        I*4         (CONSTANT)Combined attributes index for
+*.                                   projected range of storm centroid.
+*.    G   LRLSWOFF       I*4         (CONSTANT)Product block offset: Length of
+*.                                   product block portion of product (LSW).
+*.    G   LRMSWOFF       I*4         (CONSTANT)Product block offset: Length of
+*.                                   product block portion of product (MSW).
+*.    G   PHBYTES        I*4         (CONSTANT)Number of bytes in product
+*.                                   header.
+*.    C   RCMIDX         I*4         Index to current position in Radar Coded
+*.                                   Message output buffer (from top of
+*.                                   buffer).
+*.    C   VB             I*4         Valid buffer array that contains volume
+*.                                   number.
+*.    C   NCOLS          I*4         (CONSTANT)Number of columns in Radar
+*.                                   Coded Message LFM grid.
+*.    C   NROWS          I*4         (CONSTANT)Number of rows in Radar Coded
+*.                                   Message LFM grid.
+*.    P   BUFOUT         I*2         PRODUCT HEADER ARRAY
+*.    P   CAT_FEAT       I*4         Table of associated severe features.
+*.    P   CAT_NUM_STORMS I*4         Number of storms processed for the
+*.                                   combined attributes table.
+*.    P   COMB_ATT       R*4         Table of combined attributes.
+*.    P   LEN_LAY1       I*4         LENGTH OF LAYER ONE
+*.    P   RCMGRID        I*2         RCM GRID SPACE
+*.
+*.    *   OUTPUT   TYPE        DESCRIPTION
+*.    -   ------   ----        -----------
+*.    C   MSG_SIZ1 I*4         Length of message for product number 83.
+*.    C   RCMIDX   I*4         Index to current position in Radar Coded
+*.                             Message output buffer (from top of buffer).
+*.    P   BUFOUT   I*2         PRODUCT HEADER ARRAY
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    C   RCMIDX            I*4         Index to current position in Radar
+*.                                      Coded Message output buffer (from top
+*.                                      of buffer).
+*.    P   BUFOUT            I*2         PRODUCT HEADER ARRAY
+*.    P   CAT_FEAT          I*4         Table of associated severe features.
+*.    P   CAT_NUM_STORMS    I*4         Number of storms processed for the
+*.                                      combined attributes table.
+*.    P   COMB_ATT          R*4         Table of combined attributes.
+*.    P   RCMGRID           I*2         RCM GRID SPACE
+*.
+*.  DATABASE/FILE REFERENCE: NONE
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME         TYPE        DESCRIPTION
+*.    ----         ----        -----------
+*.    BLOCK_OVER   I*4         BLOCK OVERHEAD LENGTH
+*.    BUFSTAT      I*4         BUFFER STATUS RETURNED FROM A3CM22
+*.    CABUF        I*4         VALID BUFFER INDEX FOR COMBINED ATTRIB
+*.    CENT_TOTAL   I*4         TOTAL # CENTROIDS WITHIN 230 KM RANGE
+*.    DIVIDER      I*4         DIVIDER FLAG
+*.    I            I*4         INDEX CONTROL VARIABLE
+*.    I2WRD        I*2         TEMP SPACE TO HOLD TWO I*2 WORDS
+*.    I4WRD        I*4         I*4 WORD EQUIVALENCED TO I2WRD
+*.    INC1         I*4         INCREMENTAL VALUE OF 1
+*.    INC11        I*4         Variable to increment by 11.
+*.    INC5         I*4         INCREMENTAL VALUE OF 5
+*.    ISTAR2S      I*4         NUMBER OF I*2 WORDS STORED
+*.    LAY2_OVER    I*4         LAYER TWO OVERHEAD
+*.    LAY3_OVER    I*4         LAYER THREE OVERHEAD
+*.    LEN_CENTROID I*4         LENGTH OF CENTROID LAYER DATA
+*.    LEN_LAY2     I*4         LENGTH OF LAYER TWO
+*.    LEN_LAY3     I*4         LENGTH OF LAYER THREE
+*.    LFM10OFF     I*4         LFM offset parameter value.
+*.    LFM1OFF      I*4         LFM offset parameter value.
+*.    LFM2OFF      I*4         LFM offset parameter value.
+*.    LFM3OFF      I*4         LFM offset parameter value.
+*.    LFM4OFF      I*4         LFM offset parameter value.
+*.    LFM5OFF      I*4         LFM offset parameter value.
+*.    LFM6OFF      I*4         LFM offset parameter value.
+*.    LFM7OFF      I*4         LFM offset parameter value.
+*.    LFM8OFF      I*4         LFM offset parameter value.
+*.    LFM9OFF      I*4         LFM offset parameter value.
+*.    LFM_LYRCD    I*4         LFM LAYER CODE
+*.    MAXIND       I*4         MAXIMUM INDEX FOR A3CM22 ROUTINE
+*.    NUM_BYTES    I*4         NUMBER OF BYTES IN I*2 WORD
+*.    OFF1         I*4         Constant respresenting offset 1.
+*.    OFF2         I*4         Constant representing offset 2.
+*.    OFF3         I*4         Constant representing offset 3.
+*.    OFF4         I*4         Constant representing offset 4.
+*.    ONE          I*4         INDEX INTO 1ST POSITION OF I2WRD
+*.    RANGE_MAX    R*4         MAXIMUM RANGE VALUE = 230.0 KM
+*.    RCMIGP       I*4         Index into the color level table COLDAT for all
+*.                             the color tables in the RPG: Radar coded
+*.                             message 9 level (int. Graphic product).
+*.    RUN_LYRCD    I*4         RUN LENGTH LAYER CODE
+*.    SAVE         I*4         SAVED VALUE OF RCMIDX
+*.    SID_LYRCD    I*4         STORM LAYER CODE
+*.    TWO          I*4         INDEX INTO 2ND POSITION OF I2WRD
+*.    YES          I*4         Flag indicating valid buffer retrieval.
+*.    ZERO         I*4         Program parameter for 0.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    PRODSEL
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A308P2
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS: NONE
+*.
+*.  DEVIATION FROM STANDARDS: NONE
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     THIS MODULE IS COMPILED USING COMP08.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     THIS MODULE IS LINKED USING LINK08.CSS
+*.
+*.  MISC: NONE
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+C*
+$INCLUDE A309.INC/G,**A3PM01       (NEND NLIST)
+$INCLUDE            **A3PM04       (NEND NLIST)
+$INCLUDE A308BUF.INC/G,**A308P3    (NEND NLIST)
+$INCLUDE               **A308D3    (NEND NLIST)
+$INCLUDE A309ADPT.INC/G,**A3CD70C7 (NEND NLIST)
+$INCLUDE A308.INC,**A308P2         (NEND NLIST)
+C*
+      INTEGER*2   BUFOUT(*),RCMGRID(NCOLS,NROWS)
+      INTEGER*4   DIVIDER,ONE,TWO,I4WRD,I,SID_LYRCD,YES,NO,CABUF
+      INTEGER*4   MAXIND,SAVE,RUN_LYRCD,BUFSTAT,ISTAR2S,LFM_LYRCD
+      INTEGER*4   LEN_LAY1,LEN_LAY2,LEN_LAY3,BLOCK_OVER,CENT_TOTAL
+      INTEGER*4   ZERO,INC11,LFM1OFF,LFM2OFF,LFM3OFF,LFM4OFF,LFM5OFF
+      INTEGER*4   LFM6OFF,LFM7OFF,LFM8OFF,LFM9OFF,LFM10OFF,INC1
+      INTEGER*4   OFF1,OFF2,OFF3,OFF4,LEN_CENTROID,NUM_BYTES,INC5
+      INTEGER*4   LAY2_OVER,LAY3_OVER
+      REAL        RANGE_MAX
+      PARAMETER   (BLOCK_OVER=28,RANGE_MAX=230.0,LFM_LYRCD=30)
+      PARAMETER   (DIVIDER=-1,ONE=1,TWO=2,SID_LYRCD=31,ZERO=0)
+      PARAMETER   (MAXIND=10000,RUN_LYRCD=32,YES=1,NO=0,INC1=1)
+      PARAMETER   (INC11=11,LFM1OFF=1,LFM2OFF=2,LFM3OFF=3,LFM4OFF=4)
+      PARAMETER   (LFM5OFF=5,LFM6OFF=6,LFM7OFF=7,LFM8OFF=8,LFM9OFF=9)
+      PARAMETER   (LFM10OFF=10,OFF1=1,OFF2=2,OFF3=3,OFF4=4,INC5=5)
+      PARAMETER   (LEN_CENTROID=10,NUM_BYTES=2,LAY2_OVER=4,CABUF=4)
+      PARAMETER   (LAY3_OVER=4)
+C*
+C*    STORE LFM GRID PARAMETERS
+C*    STORE LAYER CODE AND ADAPTATION PARAMETERS FOR USE BY PUP
+C*    GROUP IN DISPLAYING THE LFM GRID
+      BUFOUT(RCMIDX  ) = LFM_LYRCD
+C*
+C*    STORE DELTATHE- ANGLE ROTATION FROM NORTH TO LFM GRID COLUMN
+C*       AXIS (- FOR EAST OF 105 DEGREES LONGITUDE, + FOR WEST OF 105)
+      call RPG_set_product_float( BUFOUT(RCMIDX+LFM1OFF), DELTATHE )
+C*
+C*    STORE XOFF- DISTANCE FROM RADAR TO UPPER RIGHT CORNER OF
+C*       UNROTATED MM BOX (X AXIS DISTANCE)
+      call RPG_set_product_float( BUFOUT(RCMIDX+LFM3OFF), XOFF )
+C*
+C*    STORE YOFF- DISTANCE FROM RADAR TO UPPER RIGHT CORNER OF
+C*       UNROTATED MM BOX (Y AXIS DISTANCE)
+      call RPG_set_product_float( BUFOUT(RCMIDX+LFM5OFF), YOFF )
+C*
+C*    STORE BOXSIZ- 1/16TH LFM GRID BOX SIZE
+      call RPG_set_product_float( BUFOUT(RCMIDX+LFM7OFF), BOXSIZ )
+      BUFOUT(RCMIDX+LFM9OFF) = ZERO
+      BUFOUT(RCMIDX+LFM10OFF)= ZERO
+      RCMIDX = RCMIDX + INC11
+C*
+C*    CHECK IF COMBINED ATTRIBUTE INPUT BUFFER WAS OBTAINED
+C*    ADJUST CENTROID TOTAL TO REFLECT THE TOTAL NUMBER OF CENTROIDS
+C*       WITHIN THE 230 KM RANGE
+      IF (VB(CABUF).EQ.YES) THEN
+         CENT_TOTAL = CAT_NUM_STORMS
+         DO 15 I = ONE,CAT_NUM_STORMS
+            IF (COMB_ATT(CAT_RNG,I).GT.RANGE_MAX)
+     $         CENT_TOTAL = CENT_TOTAL - INC1
+ 15      CONTINUE
+C*
+C*    COMBINED ATTRIBUTES INPUT BUFFER WAS NOT OBTAINED, SO SET
+C*       CENTROID TOTAL TO ZERO
+      ELSE
+         CENT_TOTAL = ZERO
+      ENDIF
+C*
+C*    STORE STORM INFORMATION FOR CENTROIDS
+C*    STORE LAYER DIVIDER, LENGTH OF DATA LAYER, LAYER CODE, AND
+C*       TOTAL NUMBER OF CENTROIDS
+      BUFOUT(RCMIDX) = DIVIDER
+      LEN_LAY2 = (LEN_CENTROID*NUM_BYTES*MIN(NCENTROIDS,CENT_TOTAL))
+     $   + LAY2_OVER
+      call RPG_set_product_int( BUFOUT(RCMIDX+OFF1), LEN_LAY2 )
+
+      BUFOUT(RCMIDX+OFF3) = SID_LYRCD
+      BUFOUT(RCMIDX+OFF4) = MIN(NCENTROIDS,CENT_TOTAL)
+      RCMIDX = RCMIDX + INC5
+C*
+C*    BUILD PACKETS FOR STORM CENTROID DATA ONLY IF COMBINED
+C*       ATTRIBUTES INPUT BUFFER WAS OBTAINED
+      IF (VB(CABUF).EQ.YES.AND.CAT_NUM_STORMS.GT.ZERO)
+     $   CALL A3082S__PACKET_CENT(CAT_NUM_STORMS,CAT_FEAT,COMB_ATT,
+     $   NUM_FPOSITS,FORCST_POSITS,CAT_TVST,BUFOUT)
+C*
+C*    STORE RASTER RUN LENGTH DATA
+C*    STORE LAYER DIVIDER, RUN LENGTH LAYER CODE, NUMBER OF ROWS
+      SAVE = RCMIDX
+      BUFOUT(RCMIDX  ) = DIVIDER
+      BUFOUT(RCMIDX+OFF3) = RUN_LYRCD
+      BUFOUT(RCMIDX+OFF4) = NROWS
+      RCMIDX = RCMIDX + INC5
+C*
+C*    CALL A3CM22 TO ENCODE THE RASTER RUN-LENGTH VALUES
+      CALL A3CM22__RASTER_RUN_LENGTH(NROWS,NCOLS,BUFSTAT,RCMGRID,
+     $   RCMIGP,BUFOUT,RCMIDX,ISTAR2S,MAXIND)
+C*
+C*    STORE LENGTH OF DATA LAYER
+      LEN_LAY3 = (ISTAR2S * NUM_BYTES) + LAY3_OVER
+      call RPG_set_product_int( BUFOUT(SAVE+1), LEN_LAY3 )
+C*
+C*    STORE LENGTH OF BLOCK
+      I4WRD = LEN_LAY1 + LEN_LAY2 + LEN_LAY3 + BLOCK_OVER
+      MSG_SIZ1 = I4WRD + PHBYTES
+      call RPG_set_product_int( BUFOUT(LRMSWOFF), I4WRD )
+C*
+C*    NOTE: RCMIDX IS THE NEXT AVAILABLE LOCATION FOR BUFFER STORAGE!!
+      RCMIDX = RCMIDX + ISTAR2S
+      END

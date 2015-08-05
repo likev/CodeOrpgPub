@@ -1,0 +1,184 @@
+C 
+C RCS info 
+C $Author: ryans $ 
+C $Locker:  $ 
+C $Date: 2006/02/09 19:38:24 $ 
+C $Id: a3136q.ftn,v 1.3 2006/02/09 19:38:24 ryans Exp $ 
+C $Revision: 1.3 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A3136Q__TABLE_DATE_TIME( DATE_TIME,
+     $                                    DATE_JULN, TIME_SECS )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3136Q__TABLE_DATE_TIME
+*.
+*.  MODULE VERSION: 0001
+*.
+*.
+*.  MODULE LANGUAGE:  FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       01/31/02      0000      Dennis A. Miller     CCR NA01-27501
+*.       10/26/05      0001      Cham Pham            CCR NA05-21401
+*.
+*.  CALLING SEQUENCE:
+*.
+*.     CALL A3136Q__TABLE_DATE_TIME( DATE_TIME, DATE_JULN, TIME_SECS )
+*.
+*.  MODULE FUNCTION:
+*.
+*.     Convert Bias Table date & time fields (YR;MO;DA;HR;MN;SC) to
+*.     Date (modified Julian since 1/1/70) and Time (seconds in day). 
+*.
+*.
+*.  MODULES CALLED: DATE, ICLOCK, T41194__GETTIME 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.
+*.    *   INPUT       TYPE    DESCRIPTION
+*.    -   -----       ----    -----------
+*.    P   DATE_TIME   I*2     Array of Date & Time fields from Bias Table Msg
+*.
+*.
+*.    *   OUTPUT      TYPE    DESCRIPTION
+*.    -   ------      ----    -----------
+*.    C   DATE_JULN   I*4     Generation date of Bias Table (Julian)
+*.    C   TIME_SECS   I*4     Generation time of Bias Table (seconds)
+*.
+*.
+*.    *   ACTUAL ARGUMENTS    TYPE   DESCRIPTION
+*.    -   ----------------    ----   -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME      TYPE       DESCRIPTION
+*.    ----      ----       -----------
+*.    YR        I*4        Bias Table time stamp: Year
+*.    MO        I*4        Bias Table time stamp: Month
+*.    DA        I*4        Bias Table time stamp: Day
+*.    HR        I*4        Bias Table time stamp: Hour
+*.    MN        I*4        Bias Table time stamp: Minute
+*.    SC        I*4        Bias Table time stamp: Second 
+*.    IX_YR     I*4        Index into Date-Time array for Year
+*.    IX_MO     I*4        Index into Date-Time array for Month
+*.    IX_DA     I*4        Index into Date-Time array for Day
+*.    IX_HR     I*4        Index into Date-Time array for Hour
+*.    IX_MN     I*4        Index into Date-Time array for Minute
+*.    IX_SC     I*4        Index into Date-Time array for Second
+*.    JULN      I*2        Julian date 
+*.    IMSEC     I*4        Milliseconds of day 
+*.    HMS       R*8        Packed Bias Table time fields (hr, mn, sc)
+*.    YMDHMS    R*8        Packed table date & time (yr, mo, da, hr, mn, sc)
+*.    REF       R*8        Packed Reference date for modified Julian
+*.    THOU      R*4        Parameter for one thousand
+*.    HALF      R*4        Parameter for one-half
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP09.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK09.CSS
+*.
+*.  MISC:  None
+*.
+*.**********************************************************************
+      IMPLICIT NONE
+C
+$INCLUDE A313HBUF.INC/G,**A313HYPP (NLIST)
+$INCLUDE A313H.INC,**A3136P5       (NLIST)
+C
+C************************* DATA DECLARATIONS ***************************
+C
+      INTEGER*2 DATE_TIME( n_datim_elems )
+      INTEGER   DATE_JULN, TIME_SECS
+C
+      REAL*8  YMDHMS, HMS, REF
+      INTEGER  YR, MO, DA, HR, MN, SC, IMSEC
+      INTEGER*2 JULN
+C
+      INTEGER  CENT20, CENT21
+      PARAMETER( CENT20=1900, CENT21=2000 )
+C
+      REAL  THOU
+      PARAMETER( THOU = 1000.0 )
+C
+      DATA REF/700100.000000/
+C
+C**************************** EXECUTABLE *******************************
+c
+X     type *
+X     type *, '...Enter module a3136q__table_date_time...'
+X     type *
+C
+C** Retrieve Date & Time fields (YR;MO;DA;HR;MN;SC) from latest Bias Table
+C** received from AWIPS
+C
+      YR = DATE_TIME(ix_yr)
+      MO = DATE_TIME(ix_mo)
+      DA = DATE_TIME(ix_da)
+      HR = DATE_TIME(ix_hr)
+      MN = DATE_TIME(ix_mn)
+      SC = DATE_TIME(ix_sc)
+C
+C** Reformat 4-digit year to 2-digit format needed for call to T41194
+C
+      IF( YR.GE.CENT21 ) THEN
+         YR = YR - CENT21
+      ELSE IF( YR.GE.CENT20 ) THEN
+         YR = YR - CENT20
+      END IF
+C
+C** Convert Date & Time fields to Double Precision fields needed for call
+C** to subroutine t41194__gettime
+C
+      HMS = ( HR*10000.D0 + MN*100.D0 + SC )/ 1.0D6
+      YMDHMS = YR*10000.D0 + MO*100.D0 + DA + HMS
+C   
+X     type *
+X     type *,' Before call to T41194: YMDHMS =',YMDHMS,
+X    $        '; REF =',REF,'; IMSEC =',IMSEC,'; JULN =',JULN
+C   
+      CALL T41194__GETIME( YMDHMS, REF, IMSEC, JULN )
+C   
+X     type *,' After call to T41194: YMDHMS =',YMDHMS,
+X    $        '; REF =',REF,'; IMSEC =',IMSEC,'; JULN =',JULN
+X     type *
+C
+C** Convert Bias Table Date & Time fields to modified Julian; seconds
+C
+      DATE_JULN = JULN
+C
+C** Note: Changed for LINUX - Used RPG_NINT library function instead of
+C         adding 0.5 for rounding to the nearest integer.
+
+      call RPG_NINT(IMSEC/THOU, TIME_SECS)
+C
+X     type *
+X     type *, '...Exit module a3136q__table_date_time...'
+X     type *
+C
+      RETURN
+      END

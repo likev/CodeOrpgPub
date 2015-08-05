@@ -1,0 +1,95 @@
+C 
+C RCS info 
+C $Author: steves $ 
+C $Locker:  $ 
+C $Date: 2009/06/17 14:36:28 $ 
+C $Id: a3148a.ftn,v 1.1 2009/06/17 14:36:28 steves Exp $ 
+C $Revision: 1.1 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A3148A__GET_RLE_SIZE( INBUF, RLE_SIZE )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3148A__GET_RLE_SIZE
+*.
+*.  MODULE VERSION: 0000
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       06 16 09      0000      Steven Smith         
+*.
+*.  CALLING SEQUENCE: CALL A3148A__GET_RLE_SIZE( INBUF, RLE_SIZE )
+*.
+*.  MODULE FUNCTION:
+*.    Determines the size of the RLE product data.
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+C
+$INCLUDE A309.INC/G,**A3PM01 (NEND NLIST)
+$INCLUDE A3146.INC/G, **A3146P1(NEND NLIST)
+C
+      INTEGER*2 INBUF(*)
+      INTEGER RLE_SIZE
+C
+C  RADIAL DATA PACKET HEADER VARIABLES
+C
+      INTEGER*2 OPCODE
+      PARAMETER (OPCODE=X'AF1F')
+
+      INTEGER*2 NUMRAD, BUFFIND, AZ, OP_CODE
+C
+C  LOCAL VARIABLES
+C
+      CHARACTER*80 TEXT
+C
+C*************** EXECUTABLE ****************
+C
+C  SET UP RADIAL DATA PACKET HEADER BLOCK
+C
+      OP_CODE = OPCODE
+      IF (INBUF(OPCDOFF) .NE. OP_CODE ) THEN
+
+         WRITE( TEXT, 200 ) INBUF(OPCDOFF)
+ 200     FORMAT( 1X, 'UNEXPECTED OP CODE: ',I8,'$' )
+         CALL RPG_SEND_MSG( TEXT )
+         RLE_SIZE = 0
+         RETURN
+
+      END IF
+
+      IF( INBUF(RADOFF) .NE. 360 ) THEN
+
+         WRITE( TEXT, 300 ) INBUF(RADOFF)
+ 300     FORMAT( 1X, 'UNEXPECTED NUM RADS: ',I4,'$' )
+         CALL RPG_SEND_MSG( TEXT )
+         RLE_SIZE = 0
+         RETURN
+
+      END IF
+
+      NUMRAD = INBUF(RADOFF)
+C
+C  INITIALIZE SIZE
+C
+      BUFFIND = RADOFF+1
+C
+C  DO FOR EACH AZIMUTH.  COUNTS THE NUMBER OF HALFWORDS.
+C
+      DO 100 AZ = 1, NUMRAD
+C
+         BUFFIND = BUFFIND + INBUF(BUFFIND) + 3
+
+ 100  CONTINUE 
+C
+C  RETURN THE NUMBER OF HALFWORDS OF PACKET AF1F DATA.
+C
+      RLE_SIZE = BUFFIND
+
+      RETURN
+      END

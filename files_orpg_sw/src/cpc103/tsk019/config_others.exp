@@ -1,0 +1,2058 @@
+
+# 
+# RCS info
+# $Author: steves $
+# $Locker:  $
+# $Date: 2014/10/03 18:00:41 $
+# $Id: config_others.exp,v 1.45 2014/10/03 18:00:41 steves Exp $
+# $Revision: 1.45 $
+# $State: Exp $
+#
+
+proc CO_process_exception { } {
+    global Retry_cnt
+
+    Close_console_server
+    if { $Retry_cnt > 0 } {
+	incr Retry_cnt -1
+	Send_user  "[exec date]: Failed - we retry\n"
+	sleep 1
+	Config_non_cisco_devices
+	exit 0
+    } else {
+	send_error "[exec date]: Failed - exit\n"
+	exit 1
+    }
+}
+
+# sends "cmd" and waits for response "resp". "v1" and "v2", if specified, must 
+# be in the response. "resp", "v1" and "v2" are regular expressions.
+# I increased tmout to 45 (from 30) because UPS 1500 
+
+proc Send_config { cmd resp {v1 ""} {v2 ""} { tmout 45 } } {
+
+    set verified1 0
+    set verified2 0
+    set tout 0
+    if { $cmd == "\033" } {
+	send "$cmd"
+    } else {
+	send "$cmd\r"
+    }
+    set timeout $tmout
+    if { $v1 == "" } {
+	set verified1 1
+	set verified2 1
+	expect {
+	    timeout { set tout 1 }
+	    -re $resp { }
+	}
+    } elseif { $v2 == "" } {
+	set verified2 1
+	expect {
+	    timeout { set tout 1 }
+	    -re $v1 {
+		set verified1 1
+		exp_continue
+	    }
+	    -re $resp { }
+	}
+    } else {
+	expect {
+	    timeout { set tout 1 }
+	    -re $v1 {
+		set verified1 1
+		exp_continue
+	    }
+	    -re $v2 {
+		set verified2 1
+		exp_continue
+	    }
+	    -re $resp { }
+	}
+    }
+    if { $tout } {
+	send_error "[exec date]: timeout waiting response ($cmd $resp $v1 $v2)\n"
+	expect "*" {send_log ">Unread RESP: <$expect_out(buffer)>\n"}
+	CO_process_exception
+    }
+    if { $verified1 == 0 || $verified2 == 0 } {
+	send_error "[exec date]: Response verification failed ($cmd $resp $v1 $v2)\n"
+	CO_process_exception
+    }
+}
+
+proc Login_apc { prompt dev_name vers model_n { retry_login 0 } } {
+    upvar $vers ver $model_n model
+
+    # login and make sure we are in the top level and get version
+    set esc \033
+    set ver ""
+    set model 0
+    set cnt 0
+    set r_cnt 0
+    set logname "apc"
+    set password "apc"
+    set pwd_sent 0
+    set ups_1500 ""
+    send "\r"
+    set timeout 12
+    expect {
+	timeout {
+	    if { $r_cnt < 2 } {
+		incr r_cnt 1
+		send \r
+		exp_continue
+	    }
+	    send_error "[exec date]: timeout in $dev_name login\n"
+	    expect "*" {send_log ">Unread RESP: <$expect_out(buffer)>\n"}
+	    CO_process_exception
+	}
+	-re {AOS .* (v[0-9].[0-9].[0-9])} {
+	    set ver $expect_out(1,string)
+	    exp_continue
+	}
+	-re {Smart-UPS ([0-9]*) } {
+	    set model $expect_out(1,string)
+	    exp_continue
+	}
+	-re {Network Management Card} {
+	    set ups_1500 "ups_1500"
+	    exp_continue
+	}
+	-re {User Name : } {
+	    send "$logname\r"
+	    if { $logname == "apc" } {
+		set password "apc"
+	    } else {
+		set password "radarups"
+	    }
+	    if { $retry_login == 1 && $pwd_sent } {
+		if { $logname == "apc" } {
+		    set logname "rdaups"
+		} else {
+		    set logname "apc"
+		}
+	    }
+	    exp_continue
+	}
+	-re {Password [ ]?:} {
+	    send "$password\r"
+	    set pwd_sent 1
+	    exp_continue
+	}
+	-re $prompt {
+	    if { $ver == "" } {
+		if { $cnt >= 8 } {
+		    send_error "[exec date]: Login failed or $dev_name version not found\n"
+		    CO_process_exception
+		}
+		incr cnt 1
+		send $esc
+		exp_continue
+	    }
+	}
+    }
+    if { $ups_1500 != "" } {
+	set model $ups_1500
+    }
+
+    set timeout 4		;# wait until all output is read
+    expect {
+	"\n" {
+	    exp_continue
+	}
+    }
+
+    if { $retry_login == 1 && $password != "apc" } {
+	Send_user "[exec date]: Change RDA UPS user and password...\n"
+	Send_config 3 $prompt		;# Device Manager
+	Send_config 1 $prompt		;# user manager
+	Send_config 1 {password :}	;# administrator
+	Send_config $password {user name :}	;#
+	Send_config "apc" {to skip :}	;#
+	Send_config "apc" {password :}	;#
+	Send_config "apc" {to skip :}	;#
+	Send_config "\r" {to continue}	;#
+	Send_config "\r" $prompt	;#
+	Send_config 4 $prompt		;# Accept Changes
+	Send_config $esc $prompt
+	Send_config $esc $prompt
+	Send_config $esc $prompt
+    }
+}
+
+proc Wait_for_apc_reboot { prompt device_name } {
+    global Device_name
+
+    Send_user "[exec date]: Waiting for $device_name to reboot...\n"
+    set timeout 15
+    set login_done 0
+    set cnt 0
+    expect {
+	timeout {
+	    if { $cnt < 12 } {
+		incr cnt 1
+		send \r
+		exp_continue
+	    }
+	    send_error "[exec date]: timeout in Wait_for_apc_reboot\n"
+	    expect "*" {send_log ">Unread RESP: <$expect_out(buffer)>\n"}
+	    CO_process_exception
+	}
+	-re {User Name : } {
+	    send "apc\r"
+	    set login_done 1
+	    exp_continue
+	}
+	-re {Password [ ]?:} {
+	    send "apc\r"
+	    exp_continue
+	}
+	-re $prompt {
+	    if { !$login_done } {
+		exp_continue
+	    }
+	}
+    }
+    # ups needs to sleep 20 seconds after reboot due to maybe a bug
+    if { $Device_name == "ups" } {
+	sleep 20
+    }
+}
+
+proc Config_mps_outlet {index outlet_name prompt esc} {
+
+    set cr_name ""
+    send "$index\r"
+    set timeout 12
+    expect {
+	timeout {
+	    send_error "[exec date]: timeout in Config_mps_outlet\n"
+	    expect "*" {send_log ">Unread RESP: <$expect_out(buffer)>\n"}
+	    CO_process_exception
+	}
+	-re {Outlet Name :[ ]*(.*)\r} {
+	    set cr_name $expect_out(1,string)
+	    exp_continue
+	}
+	-re $prompt { }
+    }
+    if { $cr_name == $outlet_name } {	;# already set
+	Send_config $esc $prompt
+	return
+    }
+
+    Send_config 2 $prompt
+    Send_config 1 {Outlet Name : }
+    Send_config $outlet_name $prompt
+    Send_config 12 $prompt
+    Send_config $esc $prompt
+    Send_config $esc $prompt
+}
+
+proc Upload_a_msp_file {fname rpg_ip prompt} {
+
+    Send_user "[exec date]: Uploading CM image $fname...\n"
+    Send_config 3 $prompt
+    Send_config 4 $prompt
+    Send_config 6 $prompt
+    Send_config 3 {Enter (.*) to cancel : }
+    Send_config YES {Server Address: }
+    Send_config $rpg_ip {Filename to transfer: }
+    Send_config $fname {to continue...}
+    send "\r"
+}
+
+proc Upload_a_ups_file {fname rpg_ip prompt} {
+
+    Send_user "[exec date]: Uploading CM image $fname...\n"
+    Send_config 3 $prompt
+    Send_config 4 $prompt
+    Send_config 3 {Enter (.*) to cancel : }
+    Send_config YES {Server Address}
+    Send_config $rpg_ip {Filename to transfer}
+    Send_config $fname {to continue...}
+    send "\r"
+}
+
+proc Reboot_ups { } {
+
+    send "reboot\r"
+    set timeout 10
+    expect {
+	timeout {
+	    send_error "[exec date]: timeout in starting UPS reboot\n"
+	    expect "*" {send_log ">Unread RESP: <$expect_out(buffer)>\n"}
+	    CO_process_exception
+	}
+	-re {Enter 'YES' to continue or <ENTER> to cancel : } {
+	    send "yes\r"
+	    exp_continue
+	}
+	-re {Rebooting...} { }
+    }
+}
+
+proc Wait_for_ups_reboot { apc_ip } {
+    global spawn_id
+
+    set status 1
+    set cnt 0
+    while { $status == 1 && $cnt < 10 } {
+	set status [catch { exec ping -c 1 $apc_ip > /dev/null }]
+	incr cnt 1
+	sleep 4
+    }
+    if { $status == 1 } {
+	send_error "[exec date]: Timedout waiting for UPS reboot.\n"
+	exit 1
+    }
+    set timeout 6	;# wait for a new more seconds
+    expect {
+	timeout { }
+    }
+}
+
+proc Ftp_ups_file { apc_ip file_name t_out } {
+    global spawn_id
+
+    send "ftp $apc_ip\r"
+    set timeout $t_out
+    expect {
+	timeout {
+	    send_error "[exec date]: timeout in ftping UPS file $file_name\n"
+	    expect "*" {send_log ">Unread RESP: <$expect_out(buffer)>\n"}
+	    CO_process_exception
+	}
+	-re {Name (.*): } {
+	    send "apc\r"
+	    exp_continue
+	}
+	-re {Password:} {
+	    send "apc\r"
+	    exp_continue
+	}
+	-re {User logged in.*ftp> } {
+	    send "bin\rput $file_name\r"
+	    exp_continue
+	}
+	-re {bytes sent in.*ftp> } {
+	    send "exit\r"
+	    exp_continue
+	}
+	-re {No such file or directory} {
+	    Send_user "[exec date]: ftp UPS file $file_name failed\n"
+	    CO_process_exception
+	}
+	-re {Stopped|Goodbye|Thank you} { }
+    }
+    Send_user "[exec date]: ftp UPS file $file_name done\n"
+}
+
+proc Login_ups { prompt vers } {
+    upvar $vers ver
+
+    Wait_for_output 2		;# wait and flush all UPS output
+
+    # login to UPS
+    set ver ""
+    set r_cnt 0
+    send "\r"
+    send "\r"			;# need second \r to wakeup apc
+    set timeout 4
+    expect {
+	timeout {
+	    if { $r_cnt < 10 } {
+		incr r_cnt 1
+		send \r
+		exp_continue
+	    }
+	    send_error "[exec date]: timeout in UPS login\n"
+	    expect "*" {send_log ">Unread RESP: <$expect_out(buffer)>\n"}
+	    CO_process_exception
+	}
+	-re {American Power Conversion .* (v[0-9].[0-9].[0-9])} {
+	    set ver $expect_out(1,string)
+	    exp_continue
+	}
+	-re {User Name : } {
+	    send "apc\r"
+	    exp_continue
+	}
+	-re {Password  : } {
+	    send "apc\r"
+	    exp_continue
+	}
+	-re $prompt { }
+    }
+
+    set timeout 4		;# wait until all output is read
+    expect {
+	"\n" {
+	    exp_continue
+	}
+    }
+}
+
+proc Config_ups_new { } {
+    global spawn_id Channel_num Subnet_id Faa_radar Use_ssh Dev_ctl
+    global mscf_ipo3 mscf_ipo4
+
+    set dev_port "16"
+    set prompt {\napc>}
+    if { $Channel_num == 2 } {
+	set apc_ip "172.25.$Subnet_id.72"
+	set gateway "172.25.$Subnet_id.77"
+	set rpg_ip "172.25.$Subnet_id.71"
+	set rpgb_ip "172.25.$Subnet_id.83"
+    } else {
+	set apc_ip "172.25.$Subnet_id.2"
+	set gateway "172.25.$Subnet_id.7"
+	set rpg_ip "172.25.$Subnet_id.1"
+	set rpgb_ip "172.25.$Subnet_id.22"
+    }
+    set mscf_ip "172.25.$mscf_ipo3.$mscf_ipo4"
+    set snmp_com npios
+    set dev_name $Dev_ctl(full_name)
+
+    Send_user "[exec date]: Configuring $dev_name...\n"
+    if { [Connect_to_a_port $dev_port] } {
+	CO_process_exception
+    }
+
+    Send_user "[exec date]: login to $dev_name...\n"
+    Login_ups $prompt ver
+    Send_user "[exec date]: Firmware version is $ver\n"
+
+    Send_user "[exec date]: Configuring UPS IP address...\n"
+    Send_config "tcpip -i $apc_ip -s 255.255.255.128" $prompt {Success}
+    Send_config "snmp -c1 $snmp_com -a1 write -n1 $rpg_ip" $prompt {Success}
+    Send_config "snmp -c2 $snmp_com -a2 write -n2 $rpgb_ip" $prompt {Success}
+    Send_config "snmp -c3 $snmp_com -a3 write -n3 $mscf_ip" $prompt {Success}
+    Send_config "snmptrap -c1 $snmp_com -r1 $rpg_ip -t1 snmpV1 -g1 enable -a1 enable" $prompt {Success}
+    Send_config "snmptrap -c2 $snmp_com -r2 $rpgb_ip -t2 snmpV1 -g2 enable -a2 enable" $prompt {Success}
+    Send_config "snmptrap -c3 $snmp_com -r3 $mscf_ip -t3 snmpV1 -g3 enable -a3 enable" $prompt {Success}
+
+    Send_user "[exec date]: Reboot the device after setting IP...\n"
+    Reboot_ups
+  
+    Send_user "[exec date]: Reboot started - leaving ups\n"
+    Close_console_server
+
+    Send_user "[exec date]: Waiting for reboot to finish...\n"
+    cd /tftpboot	;# must before spawn
+    spawn /bin/sh
+    Wait_for_ups_reboot $apc_ip
+
+    regsub -all "v|\\." $ver "" ver3	;# removing v and . in ver
+#    set ver3 [exec echo $ver | sed -e s/\\.//g | sed -e s/v//]
+    set status [catch { exec ls | grep apc_hw05_aos } filename ]
+    if { $status != 0 } {
+	send_error "[exec date]: file apc_hw05_aos* not found in /tftpboot\n"
+	exit 1
+    }
+    if [string match "*$ver3*" $filename] {
+	Send_user "[exec date]: $filename does not need to be loaded.\n"
+    } else {
+	Send_user "[exec date]: ftp $filename...\n"
+	Ftp_ups_file $apc_ip $filename 60
+    }
+
+    set status [catch { exec ls | grep apc_hw05_sumx } filename ]
+    if { $status != 0 } {
+	send_error "[exec date]: file apc_hw05_sumx* not found in /tftpboot\n"
+	exit 1
+    }
+    if [string match "*$ver3*" $filename] {
+	Send_user "[exec date]: $filename does not need to be loaded.\n"
+    } else {
+	Send_user "[exec date]: ftp $filename...\n"
+	Ftp_ups_file $apc_ip $filename 60
+    }
+
+    Send_user "[exec date]: ftp UPS configuration...\n"
+    Ftp_ups_file $apc_ip "config.ini" 20
+    close	;# exit from spawn /bin/sh
+
+    Send_user "[exec date]: Connect to UPS again...\n"
+    if { [Connect_to_a_port $dev_port] } {
+	CO_process_exception
+    }
+
+    Send_user "[exec date]: login to $dev_name...\n"
+    Login_ups $prompt ver
+
+    Send_user "[exec date]: Reboot the device after loading config...\n"
+    Reboot_ups
+    Close_console_server
+
+    Send_user "[exec date]: Waiting for reboot to finish...\n"
+    spawn /bin/sh
+    Wait_for_ups_reboot $apc_ip
+    close	;# exit from spawn /bin/sh
+
+    Send_user "[exec date]: UPS configuration done.\n"
+    exit 0
+}
+
+# This procedues configures the 1500 UPS (RDA UPS)
+# We are already in apc when started
+proc Config_1500_ups { } {
+    global spawn_id Channel_num Subnet_id Faa_radar Dev_ctl mscf_ipo3 mscf_ipo4
+
+    set esc \033
+    set dev_port "16"
+    set prompt {\n> }
+    set user "ups"
+    if { $Channel_num == 2 } {
+	set apc_ip "172.25.$Subnet_id.72"
+	set gateway "172.25.$Subnet_id.77"
+	set rpg_ip "172.25.$Subnet_id.71"
+	set bdds_ip "172.25.$Subnet_id.83"
+	set user "ups2"
+    } else {
+	set apc_ip "172.25.$Subnet_id.2"
+	set gateway "172.25.$Subnet_id.7"
+	set rpg_ip "172.25.$Subnet_id.1"
+	set bdds_ip "172.25.$Subnet_id.22"
+	if { $Faa_radar } {
+	    set user "ups1"
+	}
+    }
+    set mscf_ip "172.25.$mscf_ipo3.$mscf_ipo4"
+    set password "apc"
+    set snmp_com npios
+    set dev_name $Dev_ctl(full_name)
+
+    Send_user "[exec date]: Configuring 1500 ups host IP, name and user...\n"
+    Send_config 2 $prompt		;# network
+    Send_config 1 $prompt		;# TCP/IP
+    Send_config 1 {System IP : }	;# IP
+    Send_config $apc_ip $prompt
+    Send_config 2 {Subnet Mask : }
+    Send_config 255.255.255.128 $prompt
+    Send_config 3 {Default Gateway : }
+    Send_config $gateway $prompt
+    Send_config $esc $prompt
+    Send_config $esc $prompt
+    Send_config 4 {Logging out}
+    Send_user "[exec date]: Leaving ups\n"
+    Close_console_server
+
+    Send_user "[exec date]: ftping system files...\n"
+    cd /tftpboot	;# must before spawn
+    spawn /bin/sh
+    Ftp_ups_file $apc_ip apc_hw02_aos_373.bin 60
+    Ftp_ups_file $apc_ip apc_hw02_sumx_372.bin 60
+    close	;# exit from spawn /bin/sh
+    Send_user "[exec date]: Wait 2 minutes for rebooting...\n"
+    sleep 120
+
+    Send_user "[exec date]: Connect to UPS again...\n"
+    if { [Connect_to_a_port $dev_port] } {
+	CO_process_exception
+    }
+
+    Send_user "[exec date]: login to $dev_name...\n"
+    Login_apc $prompt $dev_name ver model
+
+    Send_user "[exec date]: Set system and user...\n"
+    Send_config 3 $prompt		;# System
+    Send_config 2 $prompt		;# Identification
+    Send_config 1 {Name :}		;# Name
+    Send_config $user $prompt		;# set name to ups
+    Send_config 4 $prompt		;# Accept Changes
+    Send_config $esc $prompt
+
+    Send_config 1 $prompt		;# User Manager
+    Send_config 2 {password :}		;# Device Manager User
+    Send_config $password {user name :}		;#
+    Send_config device {Manager user name}	;#
+    Send_config $user {Manager password}		;#
+    Send_config $password {Manager password :}		;#
+    Send_config $password {to continue}		;#
+    Send_config "\r" $prompt
+    Send_config 4 $prompt		;# Accept Changes
+    Send_config $esc $prompt
+    Send_config $esc $prompt
+
+    Send_user "[exec date]: Set Device Manager...\n"
+    Send_config 1 $prompt		;# Device Manager
+    Send_config 1 $prompt		;# Smart-UPS 1500 RM
+    Send_config 3 $prompt		;# Configuration
+    Send_config 2 $prompt		;# Line Transfer
+    Send_config 4 $prompt		;# Sensitivity
+    Send_config 2 $prompt		;# Medium
+    Send_config 5 $prompt		;# Accept Changes
+    Send_config $esc $prompt
+
+    Send_config 3 $prompt		;# Shutdown Parameters
+    Send_config 2 $prompt		;# Return Delay
+    Send_config 2 $prompt		;# 060
+    Send_config 6 $prompt		;# Accept Changes
+    Send_config $esc $prompt
+    Send_config $esc $prompt
+    Send_config $esc $prompt
+    Send_config $esc $prompt
+
+    Send_user "[exec date]: Set SNMP...\n"
+    Send_config 2 $prompt		;# Network
+    Send_config 8 $prompt		;# SNMP
+    Send_config 1 $prompt		;# Settings
+    Send_config 1 $prompt		;# SNMPv1 Access
+    Send_config 2 $prompt		;# Enabled
+    Send_config 3 $prompt		;# Accept Changes
+    Send_config $esc $prompt
+    Send_config 2 $prompt		;# SNMPv1 Specific Settings
+    Send_config 1 $prompt		;# SNMPv1 Access Control 1
+    Send_config 1 {Community Name :}		;#
+    Send_config $snmp_com $prompt		;#
+    Send_config 4 $prompt		;# Accept Changes
+    Send_config $esc $prompt
+
+    Send_config 2 $prompt		;# SNMPv1 Access Control 2
+    Send_config 1 {Community Name :}		;#
+    Send_config $snmp_com $prompt		;#
+    Send_config 4 $prompt		;# Accept Changes
+    Send_config $esc $prompt
+    Send_config $esc $prompt
+
+    Send_config 4 $prompt		;# Trap Receiver 1
+    Send_config 1 {Community Name :}		;# 
+    Send_config $snmp_com $prompt		;#
+    Send_config 5 {IP/Name :}		;# 
+    Send_config $mscf_ip $prompt		;#
+    Send_config 7 $prompt		;# Accept Changes
+    Send_config $esc $prompt
+
+    Send_config 5 $prompt		;# Trap Receiver 2
+    Send_config 1 {Community Name :}		;# 
+    Send_config $snmp_com $prompt		;#
+    Send_config 5 {IP/Name :}		;# 
+    Send_config $rpg_ip $prompt		;#
+    Send_config 7 $prompt		;# Accept Changes
+    Send_config $esc $prompt
+
+    Send_config 6 $prompt		;# Trap Receiver 3
+    Send_config 1 {Community Name :}		;# 
+    Send_config $snmp_com $prompt		;#
+    Send_config 5 {IP/Name :}		;# 
+    Send_config $bdds_ip $prompt		;#
+    Send_config 7 $prompt		;# Accept Changes
+    Send_config $esc $prompt
+    Send_config $esc $prompt
+    Send_config $esc $prompt
+
+    # logout
+    Send_user "[exec date]: Configuring done - logout $dev_name\n"
+    send "4\r"
+    sleep 4
+    Close_console_server
+    exit 0
+}
+
+# This procedure will be deleted when all UPs are updated
+# Config_non_cisco_devices will directly call Config_ups_new
+proc Config_ups { } {
+    global Channel_num Subnet_id Faa_radar Dev_ctl mscf_ipo3 mscf_ipo4
+
+    set dev_name $Dev_ctl(full_name)
+    if { ![Is_new_ups] } {
+	Send_user "[exec date]: Old $dev_name detected\n"
+    } else {
+	Send_user "[exec date]: New $dev_name detected\n"
+	Config_ups_new
+    }
+
+    set esc \033
+    set dev_port "16"
+    set prompt {\n> }
+    set user "ups"
+    if { $Channel_num == 2 } {
+	set apc_ip "172.25.$Subnet_id.72"
+	set gateway "172.25.$Subnet_id.77"
+	set rpg_ip "172.25.$Subnet_id.71"
+	set bdds_ip "172.25.$Subnet_id.83"
+	set user "ups2"
+    } else {
+	set apc_ip "172.25.$Subnet_id.2"
+	set gateway "172.25.$Subnet_id.7"
+	set rpg_ip "172.25.$Subnet_id.1"
+	set bdds_ip "172.25.$Subnet_id.22"
+	if { $Faa_radar } {
+	    set user "ups1"
+	}
+    }
+    set mscf_ip "172.25.$mscf_ipo3.$mscf_ipo4"
+    set password "apc"
+    set snmp_com npios
+    set dev_name $Dev_ctl(full_name)
+
+    Send_user "[exec date]: Configuring $dev_name...\n"
+    if { [Connect_to_a_port $dev_port] } {
+	CO_process_exception
+    }
+
+    Send_user "[exec date]: login to $dev_name...\n"
+    Login_apc $prompt $dev_name ver model 1
+    if { $model == "ups_1500" } {
+	Send_user "[exec date]: Smart-UPS (RDA) 1500 ($ver) detected\n"
+	Config_1500_ups
+	return
+    }
+
+    if { $model == "1400" } {
+	Send_user "[exec date]: Smart $dev_name 1400 ($ver) detected\n"
+    } elseif { $model == "1500" } {
+	Send_user "[exec date]: Smart $dev_name 1500 ($ver) detected\n"
+    } else {
+	Send_user "[exec date]: $dev_name device model not found - assume 1400 ($ver)\n"
+	set model "1400"
+    }
+
+    Send_user "[exec date]: Configuring host IP, name and user...\n"
+    # config host IP
+    Send_config 2 $prompt
+
+    set bootp_enabled 0
+    send "1\r"
+    set timeout 16
+    expect {
+	timeout {
+	    send_error "[exec date]: timeout in testing BOOTP\n"
+	    expect "*" {send_log ">Unread RESP: <$expect_out(buffer)>\n"}
+	    CO_process_exception
+	}
+	-re {BOOTP[ ]*: Enabled} {
+	    set bootp_enabled 1
+	    exp_continue
+	}
+	-re $prompt { }
+    }
+    if { $bootp_enabled && $model == "1400" } {
+	Send_config 1 $prompt
+	Send_config 1 $prompt
+	Send_config 2 $prompt
+    }
+
+    Send_config 1 {System IP : }
+    Send_config $apc_ip $prompt			;# apc IP 172.25.===.2[72]
+    Send_config 2 {Subnet Mask : }
+    Send_config 255.255.255.128 $prompt		;# subnet mask
+    Send_config 3 {Default Gateway : }
+    Send_config $gateway $prompt		;# 172.25.===.7	(rpg router)
+    if { $model == "1400" } {
+	Send_config 5 $prompt
+    } else {
+	Send_config 5 $prompt
+	Send_config 4 $prompt
+	Send_config $esc $prompt
+    }
+    Send_config $esc $prompt
+    Send_config $esc $prompt {Control Console}
+    send 4\r				;# reboot to make settings effective
+    sleep 10
+    Wait_for_apc_reboot $prompt $dev_name
+
+#    if { $ver != "v3.2.6" } {			;# load firmware
+	Upload_a_ups_file aos326b.bin $rpg_ip $prompt
+	Wait_for_apc_reboot $prompt $dev_name
+	Upload_a_ups_file sumx326a.bin $rpg_ip $prompt
+	Wait_for_apc_reboot $prompt $dev_name
+#    }
+
+    # assign a name and user to the UPS
+    Send_config 3 $prompt
+    Send_config 2 $prompt
+    Send_config 1 {Name : }
+    Send_config $user $prompt
+    Send_config 4 $prompt
+    Send_config $esc $prompt {System}
+    Send_config 1 $prompt
+    Send_config 2 {Administrator password :}
+    Send_config $password {to skip : } {user name}
+    Send_config $user {to skip : } {password}
+    Send_config $password {Confirm new Device Manager password :|Confirm new Device Manager User password :}
+    Send_config $password {to skip : }
+    Send_config "" {to continue}
+    Send_config "" $prompt
+    Send_config 5 $prompt
+    Send_config $esc $prompt
+    Send_config $esc $prompt {Control Console}
+
+    # configure the UPS sensitivity and the UPS wakeup delay
+    Send_user "[exec date]: Configuring $dev_name sensitivity, $dev_name wakeup delay...\n"
+    Send_config 1 $prompt
+    Send_config 1 $prompt
+    if { $model == "1400" } {
+	Send_config 2 $prompt
+    } else {
+	Send_config 3 $prompt
+    }
+    Send_config 2 $prompt
+    Send_config 4 $prompt
+    if { $model == "1400" } {
+	Send_config 4 $prompt
+    } else {
+	Send_config 3 $prompt
+    }
+    Send_config 5 $prompt
+    Send_config $esc $prompt {Configuration}
+    Send_config 3 $prompt
+    Send_config 2 $prompt
+    if { $model == "1400" } {
+	Send_config 3 $prompt
+	Send_config 6 $prompt
+    } else {
+	Send_config 2 $prompt
+	Send_config 6 $prompt
+    }
+    Send_config $esc $prompt
+    Send_config $esc $prompt
+    Send_config $esc $prompt
+    Send_config $esc $prompt {Control Console}
+
+    # configure the SNMP
+    Send_user "[exec date]: Configuring SNMP...\n"
+    Send_config 2 $prompt
+
+    if { $model == "1400" } {
+	Send_config 9 $prompt
+    } else {
+	Send_config 8 $prompt
+    }
+
+    Send_config 2 $prompt
+    Send_config 1 {Community : }
+    Send_config $snmp_com $prompt {Access Type[ ]*: Read}
+    Send_config 4 $prompt
+    Send_config $esc $prompt
+
+    Send_config 3 $prompt
+    Send_config 1 {Community : }
+    Send_config $snmp_com $prompt {Access Type[ ]*: Write}
+    Send_config 4 $prompt
+    Send_config $esc $prompt
+
+    Send_config 6 $prompt
+    Send_config 1 {Community Name : }
+    Send_config $snmp_com $prompt {Trap Generation[ ]*: Enabled} {Authentication Traps: Enabled}
+    Send_config 4 {Receiver NMS IP : }
+    Send_config $mscf_ip $prompt
+    Send_config 5 $prompt
+    Send_config $esc $prompt
+
+    Send_config 7 $prompt
+    Send_config 1 {Community Name : }
+    Send_config $snmp_com $prompt {Trap Generation[ ]*: Enabled} {Authentication Traps: Enabled}
+    Send_config 4 {Receiver NMS IP : }
+    Send_config $rpg_ip $prompt
+    Send_config 5 $prompt
+    Send_config $esc $prompt
+
+    Send_config 8 $prompt
+    Send_config 1 {Community Name : }
+    Send_config $snmp_com $prompt {Trap Generation[ ]*: Enabled} {Authentication Traps: Enabled}
+    Send_config 4 {Receiver NMS IP : }
+    Send_config $bdds_ip $prompt
+    Send_config 5 $prompt
+    Send_config $esc $prompt
+    Send_config $esc $prompt
+    Send_config $esc $prompt {Control Console}
+
+    # logout
+    Send_user "[exec date]: Configuring done - logout $dev_name\n"
+    send "4\r"
+    sleep 4
+    Close_console_server
+    exit 0
+}
+
+proc Login_cdu { prompt dev_name} {
+
+    Wait_for_output 2		;# wait and flush all CDU output
+
+    # login to CDU
+    set r_cnt 0
+    send "\r"
+    set timeout 10
+    expect {
+	timeout {
+	    if { $r_cnt < 3 } {
+		incr r_cnt 1
+		send \r
+		exp_continue
+	    }
+	    send_error "[exec date]: timeout in $dev_name login\n"
+	    expect "*" {send_log ">Unread RESP: <$expect_out(buffer)>\n"}
+	    CO_process_exception
+	}
+	-re {Username: } {
+	    send "admn\r"
+	    exp_continue
+	}
+	-re {Password: } {
+	    send "admn\r"
+	    exp_continue
+	}
+	-re $prompt { }
+    }
+
+    set timeout 4		;# wait until all output is read
+    expect {
+	"\n" {
+	    exp_continue
+	}
+    }
+}
+
+proc Change_outlet_name {index prompt chan_name} {
+
+    set timeout 12
+    set cr_name ""
+    send "list outlets\r"
+    expect {
+	timeout {
+	    send_error "[exec date]: timeout in Change_outlet_name\n"
+	    expect "*" {send_log ">Unread RESP: <$expect_out(buffer)>\n"}
+	    CO_process_exception
+	}
+	-re " \\$index \(.*)\n" {
+	    if { $cr_name == "" } {
+		set cr_name $expect_out(1,string)
+		set cr_name [lindex $cr_name 0]
+	    }
+	    exp_continue
+	}
+	-re $prompt { }
+    }
+
+    if { [string match "*$chan_name" $cr_name] == 1 } {
+	return
+    }
+
+    Send_config "set outlet name $index $cr_name$chan_name" $prompt {Command successful}
+}
+
+proc Config_msp_new { } {
+    global spawn_id Channel_num Subnet_id Faa_radar Use_ssh Dev_ctl
+    global mscf_ipo3 mscf_ipo4
+
+    set dev_port "15"
+    set prompt {\nSwitched CDU: }
+    if { $Channel_num == 2 } {
+	set apc_ip "172.25.$Subnet_id.73"
+	set gateway "172.25.$Subnet_id.77"
+	set rpg_ip "172.25.$Subnet_id.71"
+	set other_rpg "172.25.$Subnet_id.1"
+    } else {
+	set apc_ip "172.25.$Subnet_id.3"
+	set gateway "172.25.$Subnet_id.7"
+	set rpg_ip "172.25.$Subnet_id.1"
+	set other_rpg "172.25.$Subnet_id.71"
+    }
+    set mscf_ip "172.25.$mscf_ipo3.$mscf_ipo4"
+    set snmp_com npios
+    set dev_name $Dev_ctl(full_name)
+
+    Send_user "[exec date]: Configuring $dev_name...\n"
+    if { [Connect_to_a_port $dev_port] } {
+	CO_process_exception
+    }
+
+    Send_user "[exec date]: login to $dev_name...\n"
+    Login_cdu $prompt $dev_name
+
+    Send_user "[exec date]: Configuring CDU IP address...\n"
+    Send_config "set DHCP disabled" $prompt {Command successful}
+    Send_config "set ipaddress $apc_ip" $prompt {Command successful}
+    Send_config "set subnet 255.255.255.0" $prompt {Command successful}
+    Send_config "set gateway $gateway" $prompt {Command successful}
+
+    Send_user "[exec date]: Reboot the device...\n"
+    send "restart\r"
+    set timeout 90
+    expect {
+	timeout {
+	    send_error "[exec date]: timeout in restarting CDU\n"
+	    expect "*" {send_log ">Unread RESP: <$expect_out(buffer)>\n"}
+	    CO_process_exception
+	}
+	-re {Are you sure you want to restart (.*): } {
+	    send "y\r"
+	    exp_continue
+	}
+	-re {System Restarting|System Booting} {
+	    exp_continue
+	}
+	-re {System Boot Complete} { }
+    }
+  
+    Send_user "[exec date]: Reboot done - leaving device\n"
+    Close_console_server
+
+    Send_user "[exec date]: ftp CDU configuration...\n"
+    spawn /bin/sh
+    send "cd /tftpboot\r"
+    send "ftp $apc_ip\r"
+    set timeout 20
+    expect {
+	timeout {
+	    send_error "[exec date]: timeout in ftping CDU configuration\n"
+	    expect "*" {send_log ">Unread RESP: <$expect_out(buffer)>\n"}
+	    CO_process_exception
+	}
+	-re {Name (.*): } {
+	    send "admn\r"
+	    exp_continue
+	}
+	-re {Password:} {
+	    send "admn\r"
+	    exp_continue
+	}
+	-re {Password OK.*ftp> } {
+	    send "binary\rput config.bin\r"
+	    exp_continue
+	}
+	-re {Transfer complete.*ftp> } {
+	    send "exit\r"
+	    exp_continue
+	}
+	-re {Goodbye} { }
+    }
+    Send_user "[exec date]: ftp CDU configuration done\n"
+
+    Send_user "[exec date]: Wait 60 seconds for CDU to finish auto-rebooting...\n"
+    set timeout 60
+    expect {
+	timeout { }
+    }
+
+    Send_user "[exec date]: Connect to CDU again...\n"
+    if { [Connect_to_a_port $dev_port] } {
+	CO_process_exception
+    }
+
+    Send_user "[exec date]: login to $dev_name...\n"
+    Login_cdu $prompt $dev_name
+
+    Send_user "[exec date]: configure snmp...\n"
+    Send_config "set snmp getComm $snmp_com" $prompt {Command successful}
+    Send_config "set snmp setComm $snmp_com" $prompt {Command successful}
+    Send_config "set snmp trapComm $snmp_com" $prompt {Command successful}
+    Send_config "set snmp trapdest1 $rpg_ip" $prompt {Command successful}
+    Send_config "set snmp trapdest2 $mscf_ip" $prompt {Command successful}
+    Send_config "set snmp IPRESTRICT NONE" $prompt {Command successful}
+#    Send_config "set snmp iprestrict trapdests" $prompt {Command successful}
+    Send_user "[exec date]: CDU configuration done\n"
+
+    if { $Faa_radar } {
+	Send_user "[exec date]: configure FAA outlet names\n"
+	if { $Channel_num == 2 } {
+	    set chan_name "-CH2"    
+	} else {
+	    set chan_name "-CH1"    
+	}
+	Change_outlet_name .A1 $prompt $chan_name
+	Change_outlet_name .A2 $prompt $chan_name
+	Change_outlet_name .A3 $prompt $chan_name
+	Change_outlet_name .A4 $prompt $chan_name
+	Change_outlet_name .A5 $prompt $chan_name
+	Change_outlet_name .A6 $prompt $chan_name
+	Change_outlet_name .A7 $prompt $chan_name
+	Send_config "set outlet name .B8 +28v_PS$chan_name" $prompt {Command successful}
+    }
+
+    Send_user "[exec date]: exiting CDU\n"
+    send "exit\r"
+    Close_console_server
+    exit 0
+}
+
+proc Is_new_pwradm { } {
+
+    if [catch {set file [open "/home/rpg/cfg/New_mps_detected" r] } ] {
+	return 0
+    } else {
+	close $file
+	return 1
+    }
+}
+
+proc Is_new_ups { } {
+
+    if [catch {set file [open "/home/rpg/cfg/New_ups_detected" r] } ] {
+	return 0
+    } else {
+	close $file
+	return 1
+    }
+}
+
+# This procedure will be deleted when all power admins are updated
+# Config_non_cisco_devices will directly call Config_msp_new
+proc Config_msp { } {
+    global spawn_id Channel_num Subnet_id Faa_radar Use_ssh Dev_ctl
+    global mscf_ipo3 mscf_ipo4
+
+    set dev_name $Dev_ctl(full_name)
+    if { ![Is_new_pwradm] } {
+	Send_user "[exec date]: Old $dev_name detected\n"
+    } else {
+	Send_user "[exec date]: New $dev_name detected\n"
+	Config_msp_new
+    }
+
+    set esc \033
+    set dev_port "15"
+    set prompt {\n> }
+    set user "pwradm"
+    set user2 "pwradmexp"
+    if { $Channel_num == 2 } {
+	set apc_ip "172.25.$Subnet_id.73"
+	set gateway "172.25.$Subnet_id.77"
+	set user "pwradm2"
+	set user2 "pwradmexp2"
+	set rpg_ip "172.25.$Subnet_id.71"
+    } else {
+	set apc_ip "172.25.$Subnet_id.3"
+	set gateway "172.25.$Subnet_id.7"
+	if { $Faa_radar } {
+	    set user "pwradm1"
+	    set user2 "pwradmexp1"
+	}
+	set rpg_ip "172.25.$Subnet_id.1"
+    }
+    set mscf_ip "172.25.$mscf_ipo3.$mscf_ipo4"
+    set rpg1_ip "172.25.$Subnet_id.1"
+    set rpg2_ip "172.25.$Subnet_id.71"
+    set password "apc"
+    set snmp_com npios
+
+    Send_user "[exec date]: Configuring $dev_name...\n"
+    if { [Connect_to_a_port $dev_port] } {
+	CO_process_exception
+    }
+
+    Send_user "[exec date]: login to $dev_name...\n"
+    Login_apc $prompt $dev_name ver model
+
+    Send_user "[exec date]: Configuring host IP addresses...\n"
+    # put to default mode
+    Send_config 3 $prompt
+    Send_config 4 $prompt
+    Send_config 2 "to cancel :"
+    Send_config yes $prompt
+    Send_config $esc $prompt
+    Send_config $esc $prompt
+
+    # config host IP
+    Send_config 2 $prompt {Network}
+    set boot_manual 0
+    send "1\r"
+    set timeout 16
+    expect {
+	timeout {
+	    send_error "[exec date]: timeout in testing boot Manual\n"
+	    expect "*" {send_log ">Unread RESP: <$expect_out(buffer)>\n"}
+	    CO_process_exception
+	}
+	-re {Boot Mode (.*): Manual} {
+	    set boot_manual 1
+	    exp_continue
+	}
+	-re $prompt { }
+    }
+    if { !$boot_manual } {
+	Send_config 1 $prompt
+	Send_config 4 $prompt
+    }
+    Send_config 1 {System IP : }
+    Send_config $apc_ip $prompt
+    Send_config 2 {Subnet Mask : }
+    Send_config 255.255.255.128 $prompt		;# subnet mask
+    Send_config 3 {Default Gateway : }
+    Send_config $gateway $prompt		;# rpg router
+    Send_config $esc $prompt
+    Send_config $esc $prompt {Control Console}
+    Send_config 4 {passthru}
+    Wait_for_apc_reboot $prompt $dev_name
+
+    Upload_a_msp_file aos9225.bin $rpg_ip $prompt
+    Wait_for_apc_reboot $prompt $dev_name
+    Upload_a_msp_file ms9225.bin $rpg_ip $prompt
+    Wait_for_apc_reboot $prompt $dev_name
+
+    # verify if uploading was successful
+    Wait_for_output 10
+    Send_user "[exec date]: Verifying uploading...\n"
+    Send_config 3 $prompt
+    Send_config 4 $prompt
+    Send_config 6 $prompt {Successful}
+    Send_config $esc $prompt
+    Send_config $esc $prompt
+    Send_config $esc $prompt {Control Console}
+
+#   This section implements configuration file based procedure
+    if { [catch { exec test /tftpboot/config.ini } buf ] } {
+	Send_user "[exec date]: Uploading config.ini...\n"
+	Upload_a_msp_file config.ini $rpg_ip $prompt
+	set success 0
+	set timeout 60
+	expect {
+	    timeout {
+		send_error "[exec date]: timeout in uploading config.ini\n"
+		expect "*" {send_log ">Unread RESP: <$expect_out(buffer)>\n"}
+		CO_process_exception
+	    }
+	    "Successful" {
+		set success 1
+		exp_continue
+	    }
+	    -re $prompt { }
+	}
+	if { $success } {
+	    Send_user "[exec date]: Configuring done - logout $dev_name\n"
+	} else {
+	    CO_process_exception
+	}
+    #    Send_config 4 {passthru}
+	Close_console_server
+	exit 0
+    }
+
+#   This following implements script based procedure
+    if { $Use_ssh } {
+	Send_user "[exec date]: Exit $dev_name and login from telnet\n"
+	Send_config 4 {passthru}
+	Close_console_server
+	spawn telnet $apc_ip
+	Login_apc $prompt $dev_name ver model
+    }
+
+    Send_user "[exec date]: Configuring SNMP...\n"
+    Send_config 2 $prompt
+    Send_config 7 $prompt
+    Send_config 2 $prompt
+    Send_config 1 {Community : }
+    Send_config $snmp_com $prompt {Access Type[ ]*: Read}
+    Send_config 4 $prompt
+    Send_config $esc $prompt
+    Send_config 3 $prompt
+    Send_config 1 {Community : }
+    Send_config $snmp_com $prompt {Access Type[ ]*: Write}
+    Send_config 4 $prompt
+    Send_config $esc $prompt
+
+    Send_config 6 $prompt
+    Send_config 1 {Community Name : }
+    Send_config $snmp_com $prompt {Trap Generation[ ]*: Enabled} {Authentication Traps: Enabled}
+    Send_config 4 {Receiver NMS IP/Name : }
+    Send_config $mscf_ip $prompt
+    Send_config 5 $prompt
+    Send_config $esc $prompt
+
+    Send_config 7 $prompt
+    Send_config 1 {Community Name : }
+    Send_config $snmp_com $prompt {Trap Generation[ ]*: Enabled} {Authentication Traps: Enabled}
+    Send_config 4 {Receiver NMS IP/Name : }
+    Send_config $rpg1_ip $prompt
+    Send_config 5 $prompt
+    Send_config $esc $prompt
+
+    Send_config 8 $prompt
+    Send_config 1 {Community Name : }
+    Send_config $snmp_com $prompt {Trap Generation[ ]*: Enabled} {Authentication Traps: Enabled}
+    Send_config 4 {Receiver NMS IP/Name : }
+    Send_config $rpg2_ip $prompt
+    Send_config 5 $prompt
+    Send_config $esc $prompt
+    Send_config $esc $prompt
+    Send_config $esc $prompt {Control Console}
+
+    Send_user "[exec date]: Assigning a name, device manager and password...\n"
+    Send_config 1 $prompt
+    Send_config 1 $prompt
+    Send_config 9 $prompt
+    Send_config 2 $prompt
+    Send_config 1 {Name/Location : }
+    Send_config $user $prompt
+    Send_config 7 $prompt
+    Send_config $esc $prompt
+    Send_config $esc $prompt
+    Send_config $esc $prompt {Device Manager}
+
+    Send_config 2 $prompt
+    Send_config 9 $prompt
+    Send_config 2 $prompt
+    Send_config 1 {Name/Location : }
+    Send_config $user2 $prompt
+    Send_config 7 $prompt
+    Send_config $esc $prompt
+    Send_config $esc $prompt
+    Send_config $esc $prompt
+    Send_config $esc $prompt {Control Console}
+
+    Send_config 3 $prompt
+    Send_config 1 $prompt
+    Send_config 2 {Administrator password : }
+    Send_config apc { to skip : }
+    Send_config $user { to skip : } {Manager password}
+    Send_config $password {Manager password : }
+    Send_config $password {Press <ENTER> to continue...}
+    Send_config "" $prompt
+    Send_config 5 $prompt
+    Send_config $esc $prompt
+    Send_config $esc $prompt {Control Console}
+
+    Send_user "[exec date]: Configuring outlets...\n"
+    Send_config 1 $prompt
+    Send_config 1 $prompt
+    Config_mps_outlet 1 "RPGA" $prompt $esc
+    Config_mps_outlet 2 "LAN" $prompt $esc
+    Config_mps_outlet 3 "Router" $prompt $esc
+    Config_mps_outlet 4 "Comm Server A" $prompt $esc
+    Config_mps_outlet 5 "Console Server" $prompt $esc
+    Config_mps_outlet 6 "RPGB" $prompt $esc
+    Config_mps_outlet 7 "Comm Server B" $prompt $esc
+    Config_mps_outlet 8 "outlet 1-8" $prompt $esc
+    Send_config $esc $prompt
+    Send_config $esc $prompt {Control Console}
+
+    # second MSP
+    Send_config 1 $prompt
+    Send_config 2 $prompt
+    Config_mps_outlet 1 "outlet 2-1" $prompt $esc
+    Config_mps_outlet 2 "outlet 2-2" $prompt $esc
+    Config_mps_outlet 3 "outlet 2-3" $prompt $esc
+    Config_mps_outlet 4 "outlet 2-4" $prompt $esc
+    Config_mps_outlet 5 "outlet 2-5" $prompt $esc
+    Config_mps_outlet 6 "outlet 2-6" $prompt $esc
+    Config_mps_outlet 7 "outlet 2-7" $prompt $esc
+    if { $Faa_radar } {			;# second MSP - outlet 8
+	Config_mps_outlet 8 "28V Power Supply" $prompt $esc
+    } else {
+	Config_mps_outlet 8 "outlet 2-8" $prompt $esc
+    }
+    Send_config $esc $prompt
+    Send_config $esc $prompt {Control Console}
+
+    # logout
+    Send_user "[exec date]: Configuring done - logout $dev_name\n"
+    if { !$Use_ssh } {
+	Send_config 4 {passthru}
+	Close_console_server
+    }
+    exit 0
+}
+
+proc Config_pti { which_dev } {
+    global Channel_num Subnet_id
+
+    if { $which_dev == "a" } {
+	set dev_port "12"
+	set outlet 4
+	if { $Channel_num == 2 } {
+	    set pti_ip "172.25.$Subnet_id.79"
+	    set hostname mps2a
+	} else {
+	    set pti_ip "172.25.$Subnet_id.9"
+	    set hostname mps1a
+	}
+    } elseif { $which_dev == "b" } {
+	set dev_port "13"
+	set outlet 7
+	if { $Channel_num == 2 } {
+	    set pti_ip "172.25.$Subnet_id.80"
+	    set hostname mps2b
+	} else {
+	    set pti_ip "172.25.$Subnet_id.10"
+	    set hostname mps1b
+	}
+    } else {
+	set dev_port "14"
+	set outlet 8
+	if { $Channel_num == 2 } {
+	    set pti_ip "172.25.$Subnet_id.81"
+	    set hostname mps2c
+	} else {
+	    set pti_ip "172.25.$Subnet_id.11"
+	    set hostname mps1c
+	}
+    }
+
+    set prompt {\r-> }
+    if { $Channel_num == 2 } {
+	set rpg_ip "172.25.$Subnet_id.71"
+	set msp_ip "172.25.$Subnet_id.73"
+    } else {
+	set rpg_ip "172.25.$Subnet_id.1"
+	set msp_ip "172.25.$Subnet_id.3"
+    }
+
+    Send_user "[exec date]: Configuring PTI ($which_dev)...\n"
+    if { [Connect_to_a_port $dev_port] } {
+	CO_process_exception
+    }
+
+    if { [Is_new_pwradm] } {
+	set snmp_act "outletControlAction.1.1.$outlet"
+	set snmp_reboot "3"
+    } else {
+	set snmp_act "sPDUOutletControlMSPOutletCommand.1.1.$outlet"
+	set snmp_reboot "5"
+    }
+
+    Send_user "[exec date]: Reboot PTI and login to it...\n"
+    set cnt 0
+    while { 1 } {
+	set ret [catch { exec snmpset -m ALL -c npios -v 1 -IR $msp_ip $snmp_act i $snmp_reboot } buf ]
+	send_log "snmpset ret $ret, <$buf>\n"
+	incr cnt 1
+	if { $ret == 0 || $cnt == 4 } break
+	sleep 10
+    }
+    if { $ret != 0 } {
+	send_error "[exec date]: snmpset failed\n"
+	CO_process_exception
+    }
+
+    # login
+    set version ""
+    set r_cnt 0
+    set s_cnt 0
+    set timeout 40
+    expect {
+	timeout {
+	    if { $r_cnt < 1 } {
+		incr r_cnt 1
+		send \r
+		set timeout 20
+		exp_continue
+	    }
+	    send_error "[exec date]: timeout in PTI login\n"
+	    expect "*" {send_log ">Unread RESP: <$expect_out(buffer)>\n"}
+	    CO_process_exception
+	}
+	-re { for configuration menu} {
+	    if { $s_cnt < 20 } {
+		incr s_cnt 1
+		send " "
+		exp_continue
+	    }
+	    send_error "[exec date]: Config menu not found\n"
+	    CO_process_exception
+	}
+	-re {PTI Prom Version ([0-9].[0-9])} {
+	    set version $expect_out(1,string)
+	    exp_continue
+	}
+	-re {\[(.*)] > } {
+	    send "$expect_out(1,string)\r"
+	    send "q\r"
+	    exp_continue
+	}
+	-re {\[(.*)]: } {
+	    send "\r"
+	    exp_continue
+	}
+	-re {Enter Offset (.*) > } {
+	    send "0\r"
+	    exp_continue
+	}
+	-re $prompt {
+	    if { $s_cnt == 0 } {
+		exp_continue
+	    }
+	}
+    }
+
+    Send_user "[exec date]: Configuring PTI...\n"
+    Send_config c {\[.*] > }
+    Send_config $rpg_ip {\[.*] > }
+    Send_config q $prompt
+    Send_config i {\[.*] > }
+    Send_config $pti_ip $prompt
+    if { $version != "1.7" } {
+	Send_config w {Flash Code Pathname > }
+	Send_config "mps800.abs.V1.7" $prompt "" "" 60
+	Send_config c {\[.*] > }
+	Send_config $rpg_ip {\[.*] > }
+	Send_config q $prompt
+	Send_config i {\[.*] > }
+	Send_config $pti_ip $prompt
+    }
+    Send_config n {\[.*] > }
+    Send_config $hostname $prompt
+    Send_config u {Enter Offset (.*) > }
+    Send_config 0 {\[.*] > }
+    Send_config 00 {\[.*] > }
+    Send_config 00 {\[.*] > }
+    Send_config A0 {\[.*] > }
+    Send_config D0 {\[.*] > }
+    Send_config q $prompt
+
+    Send_config f {\[.*] > }
+    Send_config "Cmdfile.x25" $prompt
+    Send_config e { \[.*]: }
+    Send_config 1 { \[.*]: }
+    Send_config 1 { \[.*]: }
+    Send_config 1 { \[.*]: }
+    Send_config 1 $prompt
+    Send_config p {\[.*] > }
+    Send_config 5555 {\[.*] > }
+    Send_config "" {\[.*] > }
+    Send_config "" $prompt
+
+    Send_user "[exec date]: Saving config...\n"
+    Send_config s $prompt {Save complete}
+
+    Send_user "[exec date]: Downloading...\n"
+    send "x\r"
+    set timeout 40
+    expect {
+	timeout {
+	    send_error "[exec date]: timeout in PTI download\n"
+	    expect "*" {send_log ">Unread RESP: <$expect_out(buffer)>\n"}
+	    CO_process_exception
+	}
+	-re { for configuration menu} {
+	    send_error "[exec date]: PTI download failed\n"
+	    CO_process_exception
+	}
+	"Bytes free:" { }
+    }
+
+    Close_console_server
+    exit 0
+}
+
+proc Start_kermit { } {
+    global spawn_id Serial_port_dev Serial_port_baud_rate
+
+    # Start kermit session.
+    Send_user "[exec date]: Spawning kermit...\n"
+    spawn kermit
+    expect_before {
+	eof {
+	    send_error "[exec date]: kermit to Console Server lost unexpectedly\n"
+	    exit 1
+	}
+    }
+    set timeout 8
+    expect {
+	timeout {
+	    send_error "[exec date]: Error spawning kermit.\n"
+	    exit 1
+	}
+	-ex "C-Kermit>" { }
+    }
+
+    Send_config "set line $Serial_port_dev" {C-Kermit>}
+    Send_config "set speed $Serial_port_baud_rate" {C-Kermit>}
+    Send_config "set carrier-watch off" {C-Kermit>}
+}
+
+proc Config_dio { } {
+    global Faa_radar Channel_num Subnet_id Dev_ctl
+
+    if { !$Faa_radar } {
+	exit 0
+    }
+    set dev_name $Dev_ctl(full_name)
+
+    Send_user "[exec date]: Configuring $dev_name...\n"
+    if { $Channel_num == 2 } {
+	set dio_name "diomodule2"
+	set msp_ip "172.25.$Subnet_id.73"
+	set msp_ip_other_chan "172.25.$Subnet_id.3"
+    } else {
+	set dio_name "diomodule"
+	set msp_ip "172.25.$Subnet_id.3"
+	set msp_ip_other_chan "172.25.$Subnet_id.73"
+    }
+    if { [catch { exec grep -w $dio_name /etc/hosts | awk \{printf("%s",\$1)\} } dio_ip ] } {
+	send_error "[exec date]: $dev_name IP not found in /etc/hosts.\n"
+	exit 1
+    }
+
+    if { [Is_new_pwradm] } {
+	set snmp_act "outletControlAction.2.1.8"
+	set snmp_on "1"
+	set snmp_off "2"
+	set snmp_reboot "3"
+    } else {
+	set snmp_act "sPDUOutletControlMSPOutletCommand.2.1.8"
+	set snmp_on "1"
+	set snmp_off "3"
+	set snmp_reboot "5"
+    }
+
+    # turn off dio power of the other channel
+    if { [catch { exec snmpset -m ALL -c npios -v 1 -IR $msp_ip_other_chan $snmp_act i $snmp_off } buf ] } {
+	send_log "[exec date]: Turning off $dev_name on the other channal failed.\n"
+    }
+    sleep 10
+
+    set diom_config_failed 0
+    if { [catch { exec diom_config -a $dio_ip } buf ] } {
+	send_error "    $buf\n"
+	send_error "[exec date]: diom_config -a $dio_ip failed.\n"
+	set diom_config_failed 1
+    }
+    send_log "    $buf\n"
+
+    # turn on dio power of the other channel
+    if { [catch { exec snmpset -m ALL -c npios -v 1 -IR $msp_ip_other_chan $snmp_act i $snmp_on } buf ] } {
+	send_log "[exec date]: Turning on $dev_name on the other channal failed.\n"
+    }
+    if { $diom_config_failed == 1 } {
+	exit 1
+    }
+
+    # Cycle dio power by sending SNMP command to pwradmin module 2, outlet 8
+    if { [catch { exec snmpset -m ALL -c npios -v 1 -IR $msp_ip $snmp_act i $snmp_reboot } buf ] } {
+	send_error "    $buf\n"
+	send_error "[exec date]: snmpset for $dev_name power cycling failed.\n"
+	exit 1
+    }
+
+    set status 1		;# wait, up to 60 sec, until dio is up
+    set cnt 0
+    while { $status == 1 && $cnt < 10 } {
+	set status [catch { exec ping -c 1 $dio_ip > /dev/null }]
+	incr cnt 1
+	sleep 4
+    }
+    if { $status == 1 } {
+	send_error "[exec date]: Timedout waiting for $dev_name reboot.\n"
+	exit 1
+    }
+    Send_user "[exec date]: $dev_name configuration completed.\n"
+    exit 0
+}
+
+proc Wait_for_console_server_reboot { t_out } {
+    global spawn_id Serial_port_dev
+
+    send "open line $Serial_port_dev\r"
+    set timeout $t_out
+    send connect\r
+    set cnt 0
+    expect {
+	timeout {
+	    incr cnt 1
+	    if { $cnt <= 6 } {
+		send connect\r
+		exp_continue
+	    }
+	    send_error "[exec date]: Timeout waiting for Console Server reboot\n"
+	    expect "*" {send_log ">Unread RESP: <$expect_out(buffer)>\n"}
+	    CO_process_exception
+	}	
+	-re {---------------------------------------------------\r} {
+	    send \r
+	    exp_continue
+	}
+	-re {System Ready\.} {}
+    }
+}
+
+proc Config_console_server { } {
+    global spawn_id Serial_port_dev Subnet_id Channel_num Dev_ctl
+    global Manual_mode
+
+    if { $Manual_mode } {
+	send_user "* Useful console server commands: configmenu; connect port_#; *\n"
+	Connect_to_a_port -1
+	exit 0
+    }
+
+    # Initialize variables.
+    set esc \033
+    set prompt {----->}
+    if { $Channel_num == 2 } {
+	set console_ip 172.25.$Subnet_id.75
+	set gateway_ip 172.25.$Subnet_id.77
+	set rda_ip 172.25.$Subnet_id.234
+	set rpg_ip 172.25.$Subnet_id.71
+    } else {
+	set console_ip 172.25.$Subnet_id.5
+	set gateway_ip 172.25.$Subnet_id.7
+	set rda_ip 172.25.$Subnet_id.134
+	set rpg_ip 172.25.$Subnet_id.1
+    }
+    set console_subnet_mask 255.255.255.128
+    set cs_pswd "tR5~V3s@"
+    set dev_name $Dev_ctl(full_name)
+
+    Send_user "[exec date]: Configuring $dev_name...\n"
+    Start_kermit
+    Send_user "[exec date]: Set kermit...\n"
+    Send_config "set proto zmodem" {C-Kermit>}
+
+    Send_user "[exec date]: Connect to $dev_name and log in as admin...\n"
+    send connect
+    if { [Connect_to_console_server admin admin] } {
+	send_error "[exec date]: Please make sure the serial cable is plugged in the console port\n"
+	Send_config \034c {C-Kermit>}
+	send "quit\r"
+	send y\r
+	exit 1
+    }
+
+    set ver ""
+    set cnt 0
+    set top_menu 0
+    send \r
+    set timeout 6
+    expect {
+	timeout {
+	    if { $cnt < 5 } {
+		incr cnt 1
+		send \r
+		exp_continue
+	    }
+	    send_error "[exec date]: Failed in getting top menu\n"
+	    expect "*" {send_log ">Unread RESP: <$expect_out(buffer)>\n"}
+	    CO_process_exception
+	}
+	"Welcome to Digi" {
+	    set top_menu 1
+	    exp_continue
+	}
+	-re {F/W REV\. .* (v[0-9]\.[0-9]\.[0-9])} {
+	    set ver $expect_out(1,string)
+	    exp_continue
+	}
+	-re $prompt {
+	    if { !$top_menu } {			;# go to the top level menu
+		send $esc
+		exp_continue
+	    }
+	}
+    }
+
+    if { ![catch { exec grep DigiCM16 /tftpboot/digiCM16.hash | awk -F, \{printf("%s",\$4)\} } buf ] } {
+	set target_ver $buf
+    } else {
+	set target_ver ""
+    }
+    if { $target_ver != "" && $target_ver != $ver } {
+	Send_user "[exec date]: Firmware $ver needs to be updated to $target_ver\n"
+	set update_firmware "yes"
+    } else {
+	set update_firmware "no"
+    }
+
+    if { $update_firmware == "yes" } {
+	Send_user "[exec date]: Logged in as admin. Update firmware...\n"\
+
+	# set IP address - This is needed for a new box 
+	Send_config 1 $prompt
+	Send_config 1 $prompt
+	Send_config 1 $prompt
+	Send_config 1 $prompt
+	Send_config 2 {Enter IP Address :}
+	Send_config $console_ip $prompt
+	Send_config 3 {Enter Subnet mask :}
+	Send_config $console_subnet_mask $prompt
+	Send_config 4 {Enter Default gateway :}
+	Send_config $gateway_ip $prompt
+	Send_config $esc $prompt
+	Send_config $esc $prompt
+	Send_config 8 {\(y/n\) :}
+	Send_config y {Press Any Key..}
+	Send_config "" $prompt
+
+	Send_config 7 $prompt
+	Send_config 7 $prompt
+	Send_config 2 {1 = Enable, 2 = Disable\) :}
+	Send_config 1 $prompt
+	Send_config 4 {DHCP option \? \(y/n\)}
+	Send_config n $prompt
+	Send_config 5 {Remote Server :}
+	Send_config $rpg_ip $prompt
+	Send_config 6 {File Name :}
+	Send_config "digiCM16.hash" $prompt
+	Send_config $esc $prompt
+	Send_config $esc $prompt
+
+	Send_config b {\(y/n\)}
+	Send_config y {C-Kermit>|System halted}
+	Send_user "[exec date]: Waiting for reboot to complete (up to 6 minutes)...\n"
+	Wait_for_output 50
+	Wait_for_console_server_reboot 50
+	if { [Connect_to_console_server admin admin] } {
+	    send_error "[exec date]: Failed in logging to admin after firmware update\n"
+	    CO_process_exception
+	}
+    }
+
+    Send_user "[exec date]: Logged in as admin. Configuring $dev_name...\n"
+    Send_config 1 $prompt
+    Send_config 1 $prompt
+    Send_config 1 $prompt
+    Send_config 1 $prompt
+    Send_config 2 {Enter IP Address :}
+    Send_config $console_ip $prompt
+    Send_config 3 {Enter Subnet mask :}
+    Send_config $console_subnet_mask $prompt
+    Send_config 4 {Enter Default gateway :}
+    Send_config $gateway_ip $prompt
+    Send_config $esc $prompt
+    Send_config $esc $prompt
+    Send_config 8 {\(y/n\) :}
+    Send_config y {Press Any Key..}
+    Send_config "" $prompt
+    Send_config 7 $prompt
+    Send_config 5 $prompt
+    Send_config 2 $prompt
+    Send_config 1 $prompt
+    Send_config 4 $prompt
+    Send_config 4 $prompt
+    Send_config 0 {\(y/n\) }
+    Send_config y {B01ff000005b157}
+    Send_config \034c {C-Kermit>}
+
+    # Tell kermit to send configuration file.
+    Send_user "[exec date]: Loading config file...\n"
+    send "s /tftpboot/digi_console_server.syscm\r"
+    set timeout 30
+    expect {
+	timeout {
+	    send_error "[exec date]: Error with kermit sending configuration file.\n"
+	    CO_process_exception
+	}
+	-ex "C-Kermit>" { }
+    }
+
+    Send_user "[exec date]: Waiting for reboot to complete (about 2 minutes)...\n"
+    Wait_for_output 10
+    Wait_for_console_server_reboot 20
+
+    # set time and passwords
+    Send_user "[exec date]: Connect to console again...\n"
+    if { [Connect_to_console_server root dbps] } {
+	send_error "[exec date]: Failed in logging to $dev_name for setting passwords\n"
+	CO_process_exception
+    }
+
+    # test the power administrator
+    # This section will not be needed when all power admins are updated
+    Send_user "[exec date]: Testing whether the power admin is new...\n"
+    set old_msp "YES"
+    send "connect 15\r"
+    set timeout 3
+    set r_cnt 0
+    expect {
+	timeout { 
+	    if { $r_cnt < 3 } {
+		incr r_cnt 1
+		send \r
+		exp_continue
+	    }
+	    set old_msp "NO"
+	}
+	-re {American Power Conversion} { }
+	-re {User Name : } { }
+	-re {Password [ ]?:} { }
+	-re {\n> } { }
+    }
+    Disconnect_port
+    if { $old_msp == "NO" } {
+	Send_user "[exec date]: New power administrator detected\n"
+    } else {
+	Send_user "[exec date]: Old power administrator detected\n"
+    }
+
+    # test the UPS
+    # This section will not be needed when all UPS are updated
+    Send_user "[exec date]: Testing whether the UPS is new...\n"
+    set old_ups "YES"
+    send "connect 16\r"
+    set timeout 3
+    set r_cnt 0
+    expect {
+	timeout { 
+	    if { $r_cnt < 3 } {
+		incr r_cnt 1
+		send \r
+		exp_continue
+	    }
+	    set old_ups "NO"
+	}
+	-re {American Power Conversion} { }
+	-re {User Name : } { }
+	-re {Password [ ]?:} { }
+	-re {\napc> } { }
+    }
+    Disconnect_port
+    if { $old_ups == "NO" } {
+	Send_user "[exec date]: New UPS detected\n"
+    } else {
+	Send_user "[exec date]: Old UPS detected\n"
+    }
+
+    Send_user "[exec date]: login to manu ...\n"
+    set ver_new ""
+    set timeout 20
+    send \r
+    send configmenu\r
+    expect {
+	timeout {
+	    send_error "[exec date]: Failed in configmenu\n"
+	    expect "*" {send_log ">Unread RESP: <$expect_out(buffer)>\n"}
+	    CO_process_exception
+	}
+	-re {F/W REV\. .* (v[0-9]\.[0-9]\.[0-9])} {
+	    set ver_new $expect_out(1,string)
+	    exp_continue
+	}
+	-re $prompt { }
+    }
+    if { $target_ver != "" && $target_ver != $ver_new } {
+	Send_user "[exec date]: Firmware not updated - Currently $ver_new\n"
+	set update_firmware "failed"
+    }
+
+    # change baud rate of port 15 to 9600 - power administrator
+    # This section will not be needed when all power admins are updated
+    if { $old_msp == "NO" } {
+	Send_user "[exec date]: Change baud rate of port 15 to 9600...\n"
+	Send_config 2 $prompt			;# Serial Port Configuration
+	Send_config 15 $prompt			;# port 15
+	Send_config 4 $prompt			;# Port Parameters
+	Send_config 2 $prompt			;# Baud rate
+	Send_config a $prompt			;# set 9600
+	Send_config $esc $prompt
+	Send_config $esc $prompt
+	Send_config $esc $prompt		;# return to top memu
+
+	# create a file so other config_device knows the msp is new
+	if [catch {set file [open "/home/rpg/cfg/New_mps_detected" w] } out] {
+	    Send_user "[exec date]: Failed in creating a file in /tmp: $out\n"
+	    CO_process_exception
+	}
+	close $file
+    }
+
+    # change baud rate of port 16 to 9600 - UPS
+    # This section will not be needed when all UPS are updated
+    if { $old_ups == "NO" } {
+	Send_user "[exec date]: Change baud rate of port 16 to 9600...\n"
+	Send_config 2 $prompt			;# Serial Port Configuration
+	Send_config 16 $prompt			;# port 16
+	Send_config 4 $prompt			;# Port Parameters
+	Send_config 2 $prompt			;# Baud rate
+	Send_config a $prompt			;# set 9600
+	Send_config $esc $prompt
+	Send_config $esc $prompt
+	Send_config $esc $prompt		;# return to top memu
+
+	# create a file so other config_device knows the ups is new
+	if [catch {set file [open "/home/rpg/cfg/New_ups_detected" w] } out] {
+	    Send_user "[exec date]: Failed in creating a file in /tmp: $out\n"
+	    CO_process_exception
+	}
+	close $file
+    }
+
+    Send_config 7 $prompt
+    send 4\r
+    set timeout 20
+    set ntp_enabled 0
+    expect {				;# find if NTP enabled
+	timeout {
+	    send_error "[exec date]: Timeout waiting for menu 4\n"
+	    expect "*" {send_log ">Unread RESP: <$expect_out(buffer)>\n"}
+	    CO_process_exception
+	}	
+	-re {Use NTP : Enable} {
+	    set ntp_enabled 1
+	    exp_continue
+	}
+	-re {Use NTP : Disable} {
+	    set ntp_enabled 0
+	    exp_continue
+	}
+	-re $prompt {}
+    }
+
+    if {$ntp_enabled} {
+	Send_config 1 {: }		;# disable NTP
+	Send_config 2 $prompt
+    }
+
+    # set time and passwords
+    Send_user "[exec date]: Setting passwords...\n"
+    set format "+%m/%d/%Y %T"
+    catch { exec date -u $format } buf
+    set cr_date [lindex $buf 0]
+    set cr_time [lindex $buf 1]
+    Send_config 2 {: }
+    Send_config $cr_date $prompt	;# set to current date mm/dd/yyyy
+    Send_config 3 {: }
+    Send_config $cr_time $prompt	;# set to current time hh:mm:ss
+
+    Send_config 1 {: }			;# enable NTP
+    Send_config 1 $prompt
+    Send_config 2 {: }
+    Send_config $rda_ip $prompt		;# 0.0.0.0
+    Send_config 3 $prompt
+    Send_config 1h $prompt
+    Send_config $esc $prompt
+    Send_config 1 $prompt
+    Send_config 3 {username : }
+    Send_config root $prompt
+    Send_config 2 {password : }
+    Send_config $cs_pswd {password : }
+    Send_config $cs_pswd $prompt
+    Send_config 3 {username : }
+    Send_config admin $prompt
+    Send_config 2 {password : }
+    Send_config $cs_pswd {password : }
+    Send_config $cs_pswd $prompt
+    Send_config $esc $prompt
+    Send_config $esc $prompt
+    Send_config a {Save change}
+    Send_config y {Apply changes}
+    Send_config y {exit from menu|exit from the menu}
+    Send_config y {Bye}
+
+    Send_config "exit" {logout}
+
+    Send_user "[exec date]: Done - quitting kermit...\n"
+    Send_config \034c {C-Kermit>}
+    send "quit\r"
+    send y\r
+    if { $update_firmware == "failed" } {
+	exit 2
+    }
+    exit 0
+}
+
+proc Config_non_cisco_devices { } {
+    global Device_name Retry_cnt
+
+    if { $Device_name == "console" } {
+	set Retry_cnt 0
+	Config_console_server
+    }
+    if { $Device_name == "ups" } {
+	set Retry_cnt 0
+	Config_ups
+    }
+    if { $Device_name == "msp" } {
+	set Retry_cnt 0
+	Config_msp
+    }
+    if { $Device_name == "dio" } {
+	set Retry_cnt 0
+	Config_dio
+    }
+    if { [lindex [split $Device_name "-"] 0] == "pti" } {
+	Config_pti [lindex [split $Device_name "-"] 1]
+    }
+}

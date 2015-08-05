@@ -1,0 +1,88 @@
+EN_deregister(3) 		   ORPG SDD Manpage   		EN_deregister(3)
+
+NAME
+EN_deregister - deregister a callback routine for a given event
+
+SYNOPSIS
+#include <en.h>
+int EN_deregister(en_t evtcd,void (*encallback)())
+
+ENVIRONMENT VARIABLES
+The environment variable corresponding to EN_CLIENT_SOCKNAME_ENVAR
+(refer to en.h) may be used to override the default base EN client socket
+name ($HOME/en_client.s).  Such an alternative EN client socket name must,
+of course, be known by the target EN daemon.  Note that the library
+adds the hostname to the base EN client socket (default or specified).
+For example, if the hostname is "osrpg002", the default EN client socket name
+is "$HOME/en_client.s.osrpg002".
+
+DESCRIPTION
+The specified EN callback routine is deregistered for the given event.
+
+"evtcd" is assumed to be a valid event code identifier.  The event
+codes 1-EN_POST_MAX_RESERVED_EVTCD are reserved.  Of these, only
+EN_NTFYR_EXCEPTION_EVTCD is currently of interest to clients.
+Registration for an unknown event will produce indeterminate results,
+the most likely of which is that the notification will never be delivered.
+
+"encallback" is a pointer to an event notification callback routine
+that the user wishes to have deregistered for a given event code.
+
+Any process using the "EN_deregister" library routine must not trap
+or otherwise interact with the EN client notification signal (default:
+SIGUSR1).
+
+POSIX.1 guarantees that any current call to the sleep() function will be
+interrupted following execution of the callback routine.  Any interruptible
+system call should behave in a similar fashion. 
+
+The EN client notification signal (default: SIGUSR1) is blocked while an
+event is deregistered.  SIGPIPE is ignored while an event is deregistered.
+
+The POSIX HOME environment variable must be defined.
+
+RETURN VALUES
+Zero on success or a negative value corresponding to one of the following
+macros on failure:
+
+EN_BAD_EVTCD		attempt to deregister an invalid event code
+EN_NULL_CALLBACK_PTR	attempt to deregister a null EN callback routine
+				pointer
+EN_IMPROPER_DEREG	attempt to deregister an EN callback routine without
+				previously registering any EN callback routines
+				for any event codes
+EN_NVLD_DEREG		attempt to deregister an EN callback routine that is
+				not registered for the specified event code
+EN_SIGACTION_FAILED
+EN_SIGADDSET_FAILED
+EN_SIGDELSET_FAILED
+EN_SIGEMPTYSET_FAILED
+EN_SIGISMEMBER_FAILED
+EN_SIGPROCMASK_FAILED
+EN_WRITE_FAILED
+
+EXAMPLES
+
+Following is an example showing the use of arrays to deregister for events 3,
+9, and 15:
+
+#define NUMEVTS 3
+
+   int i ;
+   int evtcds[] = {3, 9, 15};
+   void (*encallback[])() = {encallback3, encallback9, encallback15} ;
+
+   for (i=0; i < NUMEVTS; i++){
+      retval = EN_deregister(evtcds[i],encallback[i]) ;
+      if (retval != 0){
+         /* handle the error */
+      }
+   }
+
+FILES
+$HOME/en_client.s - default client socket
+
+SEE ALSO
+rssd(1), EN_post(3), EN_register(3)
+
+				$Revision: 1.7 $

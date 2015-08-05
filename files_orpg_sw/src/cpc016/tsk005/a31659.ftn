@@ -1,0 +1,151 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/16 20:36:42 $
+C $Id: a31659.ftn,v 1.4 2002/12/16 20:36:42 christie Exp $
+C $Revision: 1.4 $
+C $State: Exp $
+C
+      SUBROUTINE A31659__FORMAT_TREND_DATA(NUMSTORM,STORMID,STORMAIN,
+     >                                     BUFOUT)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A31659__FORMAT_TREND_DATA
+*.
+*.  MODULE VERSION: 0002
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       06/20/95      0000      STEVE SMITH          CCR NA94-26302
+*.       12/23/96      0001      Toolset              CCR NA95-11807
+*.       03/16/99      0002      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A31659__FORMAT_TREND_DATA(NUMSTORM,
+*.                                       STORMID,STORMAIN,BUFOUT)
+*.
+*.  MODULE FUNCTION:
+*.
+*.     THIS MODULE IS CALLED BY THE BUFFER CONTROL MODULE.  IT
+*.     MANAGES THE FORMATTING OF THE CELL TREND DATA . IT CALLS
+*.     A31658__TREND_DATA_PACKET FORMAT THE CELL TREND DATA PACKETS.
+*.
+*.  MODULES CALLED: A31658__TREND_DATA_PACKET 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT    TYPE        DESCRIPTION
+*.    -   -----    ----        -----------
+*.    G   NSTM_CHR I*4         (CONSTANT)Maximum number of storm
+*.                             characteristics  (dimension of STORMAIN)
+*.    G   NSTM_MAX I*4         (CONSTANT)Maximum number of storms (Dimension
+*.                             for STORMAIN)
+*.    C   GPHLNG   I*4         Length of graphics block in halfwords.
+*.    C   NDX      I*4         Working subscript for moving data.
+*.    P   BUFOUT   I*2         The Product Output Buffer
+*.    P   NUMSTORM I*4         Number of storms
+*.    P   STORMAIN R*4         2-d array of Storm Cell attributes
+*.    P   STORMID  I*4         Array of Storm Cell IDs
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    C   GPHLNG  I*4         Length of graphics block in halfwords.
+*.    C   GRFXOFF I*4         Cell trend data graphic offset
+*.    P   BUFOUT  I*2         The Product Output Buffer
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    P   BUFOUT            I*2         The Product Output Buffer
+*.    P   NUMSTORM          I*4         Number of storms
+*.    P   STORMAIN          R*4         2-d array of Storm Cell attributes
+*.    P   STORMID           I*4         Array of Storm Cell IDs
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME  TYPE        DESCRIPTION
+*.    ----  ----        -----------
+*.    BIDX  I*4         Pointer to beginning of output buffer
+*.    EIDX  I*4         Pointer to the end of the output buffer
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3165B
+*.
+*.  ERROR CONDITIONS:  NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP16.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK16.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+      IMPLICIT NONE
+C
+$INCLUDE A315BUF.INC/G,**A315P5C (NEND NLIST)
+$INCLUDE               **A315P7F (NEND NLIST)
+$INCLUDE               **A315P8T (NEND NLIST)
+$INCLUDE               **A315D8 (NEND NLIST)
+$INCLUDE A309.INC/G,**A3PM01 (NEND NLIST)
+$INCLUDE A316.INC/G,**A3165B (NEND NLIST)
+C
+C**  PASSED ARGUMENTS.
+C
+      INTEGER*2 BUFOUT(*)
+      REAL STORMAIN(NSTM_CHR, NSTM_MAX)
+C
+C**  INTERNAL VARIABLES.
+C
+      INTEGER NUMLYRS,DIVIDER,SYMBLKID,BIDX,EIDX
+      PARAMETER(NUMLYRS=1,DIVIDER=-1,SYMBLKID=1)
+C
+C...................................................................
+C
+C**  PROCESS ALL THE CONTINUING STORM CELLS.
+C
+      IF(NUMSTORM .NE. 0) THEN
+C
+C**  SAVE OUTPUT BUFFER INDEX BEFORE DATA TRANSER.
+C
+         BIDX = NDX
+         EIDX = NDX
+C
+C**  STORE INDEX AS START OF THE GRAPHIC ALPHANUMERIC (FOR TREND
+C**  DATA.)
+C
+         GRFXOFF = NDX
+C
+C**  BUILD CELL TREND DATA PACKETS.
+C
+         CALL A31658__TREND_DATA_PACKET(NUMSTORM, STORMID, STORMAIN,
+     >                                   BUFOUT, EIDX)
+C
+C**  CALCULATE THE TREND DATA PACKET LENGTH.  ADD THIS TO THE LENGTH
+C**  OF THE STAND-ALONE ALPHANUMERIC (IN HALFWORDS).
+C
+         GPHLNG = GPHLNG + (EIDX - BIDX) + 1
+      ENDIF
+C
+C**  RETURN TO CALLER.
+C
+      RETURN
+      END

@@ -1,0 +1,200 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/17 18:26:28 $
+C $Id: a31873.ftn,v 1.3 2002/12/17 18:26:28 christie Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A31873__VAD2_GRID(BPTR,VADBUF)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A31873__VAD2_GRID
+*.
+*.  MODULE VERSION: 0011
+*.
+*.  MODULE LANGUAGE:  FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       09 08 88      0000      VALERIE HOLDEN       SPR # 80273
+*.       08 09 90      0001      MIKE ISTOK           SPR # 90928
+*.       11 07 90      0002      CHARLIE BAUMHER      SPR # 91259
+*.       12 03 91      0003      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0004      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0005      Toolset              SPR 91895
+*.       03/25/93      0006      Toolset              SPR NA93-06801
+*.       01/28/94      0007      Toolset              SPR NA94-01101
+*.       03/03/94      0008      Toolset              SPR NA94-05501
+*.       04/11/96      0009      Toolset              CCR NA95-11802
+*.       12/23/96      0010      Toolset              CCR NA95-11807
+*.       03/16/99      0011      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A31873__VAD2_GRID(BPTR,VADBUF)
+*.
+*.  MODULE FUNCTION:
+*.
+*.     GENERATES THE BACKGROUND GRID FOR THE VAD PRODUCT WHICH
+*.     CONSISTS OF THE FRAME, VELOCITY AXIS, AZIMUTH ANGLE AXIS,
+*.     AND REFERENCE LINES.  IT CALLS THE UNIFORM VALUE UNLINKED
+*.     VECTOR PACKET MODULE TO SET UP THE APPROPRIATE PACKETS.
+*.
+*.  MODULES CALLED: A31875__COUNLV_PKT 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT  TYPE        DESCRIPTION
+*.    -   -----  ----        -----------
+*.    C   LABELS I*2         (CONSTANT)Color value to use for message.
+*.    C   YMAX   R*4         (CONSTANT)Maximum screen coordinate of Y-axis.
+*.    P   BPTR   I*4         LENGTH OF VAD PRODUCT BUFFER (RUNNING TOTAL),
+*.                           HALF-WORDS. ALSO USED AS THE POINTER TO A
+*.                           HALF-WORD IN THE PRODUCT BUFFER
+*.    P   VADBUF I*2         VAD PRODUCT BUFFER.
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    P   BPTR    I*4         LENGTH OF VAD PRODUCT BUFFER (RUNNING TOTAL),
+*.                            HALF-WORDS. ALSO USED AS THE POINTER TO A
+*.                            HALF-WORD IN THE PRODUCT BUFFER
+*.    P   VADBUF  I*2         VAD PRODUCT BUFFER.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    P   BPTR              I*4         LENGTH OF VAD PRODUCT BUFFER (RUNNING
+*.                                      TOTAL), HALF-WORDS. ALSO USED AS THE
+*.                                      POINTER TO A HALF-WORD IN THE PRODUCT
+*.                                      BUFFER
+*.    P   VADBUF            I*2         VAD PRODUCT BUFFER.
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME       TYPE        DESCRIPTION
+*.    ----       ----        -----------
+*.    AZIM_INC   I*4         PIXEL INCREMENT FOR X PIXEL VALUES
+*.    BOT_AXIS   R*4         NUMBER OF BLANK PIXELS AT THE BOTTOM FOR AZIMUTH
+*.                           LABELS.
+*.    C          I*4         COLOR NUMBER
+*.    GRIDS      I*2         Indicates velocity and azimuth lines should be
+*.                           grey.
+*.    I          I*4         INDEX CONTROL VARIABLE
+*.    LEFT_AXIS  R*4         NUMBER OF BLANK PIXELS AT THE LEFT FOR THE
+*.                           VELOCITY AXIS LABELS.
+*.    NEW        L*4         INDICATES THAT CURRENT ENTRY INTO PACKET
+*.                           SUBROUTINE IS THE FIRST TIME
+*.    NUM_ALINES I*4         NUMBER OF AZIMUTH ANGLE LINES
+*.    NUM_VLINES I*4         NUMBER OF VELOCITY LINES
+*.    ONE        R*4         PROGRAM PARAMETER FOR 1
+*.    RTPX       R*4         RIGHT SCREEN EDGE PIXEL VALUE
+*.    START      I*4         PROGRAM PARAMETER FOR LOOP.
+*.    VELOC_INC  I*4         PIXEL INCREMENT FOR Y PIXEL VALUES
+*.    X          R*4         PIXEL COLUMN NUMBER
+*.    XL         R*4         LEFT END OF VECTOR PIXEL VALUE
+*.    XR         R*4         RIGTH END OF VECTOR PIXEL VALUE
+*.    Y          R*4         PIXEL ROW NUMBER
+*.    YB         R*4         BOTTOM PIXEL ROW NUMBER OF A VECTOR
+*.    YT         R*4         TOP PIXEL ROW NUMBER OF A VECTOR
+*.    ZERO       I*4         PROGRAM PARAMETER FOR 0
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  NONE
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP18.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK18.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+C*
+$INCLUDE A309ADPT.INC/G,**A3CD70C7 (NEND NLIST)
+$INCLUDE A318.INC,**A318C7 (NLIST)
+C*
+      REAL X,Y,YB,YT,RTPX,XR,XL,LEFT_AXIS,BOT_AXIS,ONE
+      INTEGER*4 BPTR,C,I,ZERO,START
+      INTEGER*4 VELOC_INC,NUM_VLINES,NUM_ALINES,AZIM_INC
+      PARAMETER (RTPX=511.0,ZERO=0,ONE=1.0,START=1)
+      PARAMETER (BOT_AXIS=52.0,VELOC_INC=45,NUM_VLINES=9)
+      PARAMETER (NUM_ALINES=7,AZIM_INC=55,LEFT_AXIS=71.0)
+      INTEGER*2 VADBUF(*)
+      LOGICAL*4 NEW
+C*
+C*    SET NEW TO TRUE TO SIGNAL FIRST VECTOR PACKET BLOCK
+X     TYPE *,'73: ENTERED HERE ... '
+      NEW=.TRUE.
+C*
+C*    MAKE BOARDER COLOR WHITE
+      C=LABELS
+C*
+C*    DRAW 4 VECTORS FOR THE OUTSIDE BOARDER
+      XL=ZERO
+      XR=ZERO
+      YT=ZERO
+      YB=ZERO
+      CALL A31875__COUNLV_PKT(NEW,XL,YT,RTPX,YB,C,BPTR,VADBUF)
+      CALL A31875__COUNLV_PKT(NEW,RTPX,YT,RTPX,RTPX,C,BPTR,VADBUF)
+      CALL A31875__COUNLV_PKT(NEW,RTPX,RTPX,XR,RTPX,C,BPTR,VADBUF)
+      CALL A31875__COUNLV_PKT(NEW,XL,RTPX,XR,YB,C,BPTR,VADBUF)
+C*
+C*    BUILD VELOCITY AXIS VECTOR AND AZIMUTH ANGLE AXIS VECTOR
+      CALL A31875__COUNLV_PKT(NEW,LEFT_AXIS,YT,LEFT_AXIS,RTPX,C,
+     $ BPTR,VADBUF)
+C*
+X     TYPE *,'73: NEW,XL,YMAX,RTPX = ',NEW,XL,YMAX,RTPX
+      CALL A31875__COUNLV_PKT(NEW,XL,YMAX,RTPX,YMAX,C,BPTR,VADBUF)
+C*
+C*    MAKE THE VELOCITY AND AZIMUTH LINES GREY
+      C=GRIDS
+C*
+C*    SET NEW TO TRUE FOR A NEW COLOR
+      NEW=.TRUE.
+      X=LEFT_AXIS + ONE
+      Y=RTPX-BOT_AXIS
+X     TYPE *,'73: NEW,X,Y = ',NEW,X,Y
+C*
+C*    COMPUTE Y PIXEL LOCATION, AND CALL COUNLV_PKT TO PLACE
+C*       VECTOR INTO THE PACKET
+      XR = RTPX - ONE
+      DO 10 I = START,NUM_VLINES
+         Y = Y - VELOC_INC
+         CALL A31875__COUNLV_PKT(NEW,X,Y,XR,Y,C,BPTR,VADBUF)
+ 10   CONTINUE
+X     TYPE *,'73: DID 10 LOOP ',I-1,' TIMES '
+C*
+C*    SET UP Y BOTTOM AND TOP, AND X VALUE FOR AZIMUTH LINES
+      YB=YMAX
+      YT=ZERO
+      X = LEFT_AXIS
+X     TYPE *,'73: YB,YT,X = ',YB,YT,X
+C*
+C*    COMPUTE X PIXEL LOCATION, AND CALL COUNLV_PKT TO PLACE
+C*       VECTOR INTO THE PACKET
+      DO 11 I = START,NUM_ALINES
+         X = X + AZIM_INC
+         CALL A31875__COUNLV_PKT(NEW,X,YT,X,YB,C,BPTR,VADBUF)
+ 11   CONTINUE
+X     TYPE *,'73: DID 11 LOOP ',I-1,' TIMES '
+C
+X     TYPE *,'73: EXIT HERE ... '
+      RETURN
+      END

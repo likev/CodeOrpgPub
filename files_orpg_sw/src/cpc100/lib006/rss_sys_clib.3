@@ -1,0 +1,74 @@
+rss_sys_clib(3) 		   ORPG SDD Manpage   		rss_sys_clib(3)
+
+NAME
+rss_sys_clib - Remote System Services (RSS) System C Library Routines
+
+SYNOPSIS
+#include <rss.h>
+int RSS_exec (char *path, char **argv);
+int RSS_kill (char *host, pid_t pid, int sig);
+int RSS_process (char *host, pid_t pid, RSS_process_info *info);
+int RSS_system (char *path);
+int RSS_time (char *host, time_t *t);
+
+DESCRIPTION
+RSS_exec
+--------
+RSS_exec is an RPC implementation of execv UNIX system call. It 
+requests the server to fork a child which then spawns a new process 
+with execv. The "path" argument here is the executable file name with 
+host name extension as the "path" argument in RSS_open. RSS_exec does 
+not try to find out whether the new process is started successfully. 
+The function returns the process id of the new process if it succeeds 
+in forking a child or, otherwise, a negative error number. If this 
+function is used on a local host, a local "rssd" must be running. 
+Because a local rssd is used, the command name "path" is assumed to 
+be started from $(HOME) if it does not start with "/".
+
+
+RSS_kill
+--------
+RSS_kill sends a signal "sig" to process of id "pid" on host "host".
+If "host" is NULL or a NULL string, the host is assumed to be local.
+
+If "host" is NULL or a NULL string, the host is assumed to be local. 
+This function requires an "rssd" running on the "host" even if it is
+a local host.
+
+
+RSS_process
+-----------
+RSS_process returns in "info" the information about process "pid" 
+on host "host". If "host" is NULL or a NULL string, the host is assumed 
+to be local.
+
+
+RSS_system
+----------
+RSS_system is an RPC implementation of the standard C function "system".
+It executes a command on a remote host or the local host. The argument
+"path", similar to the "path" argument in RSS_open (), can have the 
+host name part before the normal UNIX file path.
+
+For example
+
+	system ("virga:ls > /home/dave/tmp");
+
+will execute the "ls" command on the host "virga" and redirect the 
+output to "virga:/home/dave/tmp".
+
+If the command is executed on a remote host and the command uses 
+standard input, standard output or standard error, the result is 
+undefined. Thus one should always redirect standard input, standard 
+output and standard error to files if any of these ports are expected
+to be used. When executed remotely and in background, the return value 
+of the remote "system" function is meaningless.
+
+
+RSS_time
+--------
+RSS_time returns in "t" the current time (the UNIX time) on host "host". 
+
+	
+SEE ALSO
+rss(3), rss_file(3), rss_lb(3), rss_util(3)

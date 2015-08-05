@@ -1,0 +1,345 @@
+C
+C RCS info
+C $Author: steves $
+C $Locker:  $
+C $Date: 2005/02/04 15:21:52 $
+C $Id: a30786.ftn,v 1.10 2005/02/04 15:21:52 steves Exp $
+C $Revision: 1.10 $
+C $State: Exp $
+C
+      SUBROUTINE A30786__ASSM_PRODUCT(RAST_BUFF,ISTAR2S,PROD_BUFF,
+     $  VOLNUM, HEAD, REQTAB, INDEXX, COLORI, MAX, MIN, MAX_X,
+     $  MAX_Y, MIN_X, MIN_Y, NYROW )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A30786__ASSM_PRODUCT
+*.
+*.  MODULE VERSION: 0017
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       06 09 85      0000      BOB BENEDICT         RPG BUILD 2
+*.       06 20 86      0001      MARK STEWART         SPR # 60313
+*.       01 22 87      0002      ATARA WEINSTEIN      SPR # 70069
+*.       04 14 87      0003      JO STALEY            SPR # 70119
+*.       08 22 88      0004      VALERIE HOLDEN       SPR # 80248
+*.       05 02 89      0005      CHARLIE BAUMHER      SPR # 80271
+*.       05 09 90      0006      CHI CHAN             SPR # 90697
+*.       02 13 91      0007      MARK FRESCH          SPR # 91248
+*.       12 03 91      0008      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0009      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/20/92      0010      Toolset              SPR 91895
+*.       03/25/93      0011      Toolset              SPR NA93-06801
+*.       01/28/94      0012      Toolset              SPR NA94-01101
+*.       03/03/94      0013      Toolset              SPR NA94-05501
+*.       04/01/95      0014      Toolset              CCR NA95-11802
+*.       04/05/95      0015      C. Stephenson        CCR NA94-35301
+*.       12/23/96      0016      Toolset              CCR NA95-11807
+*.       03/16/99      0017      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:
+*.  CALL A30786__ASSM_PRODUCT(RAST_BUFF,ISTAR2S,PROD_BUFF,VOLNUM,
+*.        HEAD,REQTAB,INDEXX,COLORI,MAX,MIN,MAX_X,MAX_Y,MIN_X,MIN_Y,
+*.        NYROW)
+*.
+*.
+*.  MODULE FUNCTION:
+*.    VERTICAL CROSS SECTION ROUTINE. ALL INFORMATION TO BUILD THE
+*.  FINAL PRODUCT IS NOW AVAILABLE. THIS ROUTINE WILL FILL IN THE
+*.  PRODUCT HEADER, AND MOVE THE RASTER DATA, GRID VECTOR ANNOTATION
+*.  AND THE GRID TEXT ANNOTATION INTO THE FINAL PRODUCT BUFFER.
+*.
+*.
+*.
+*.  MODULES CALLED: A3078I__ASSM_PROD2, A3CM25__GET_DATE_TIME 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT          TYPE        DESCRIPTION
+*.    -   -----          ----        -----------
+*.    G   SIRDAHGT       I*4         Site Adaptation - RDA Height.
+*.    G   SIRDALAT       I*4         Site Adaptation - RDA Latitude.
+*.    G   SIRDALON       I*4         Site Adaptation - RDA Longitude.
+*.    G   SIRPGID        I*4         Site Adaptation - RPG ID Number.
+*.    G   SUMMARY        I*4         Volume Scan Summary Table
+*.    G   THRESH         I*2         Adaptation Data for Color Data Table
+*.                                   Thresholds (color-level code, color table
+*.                                   number).
+*.    G   DAOFFSET       I*4         (CONSTANT)Offset to generation date of
+*.                                   radial (Julian days) in preprocessed
+*.                                   radial header.
+*.    G   DIV1OFF        I*4         (CONSTANT)Product header offset: First
+*.                                   divider.
+*.    G   DL16OFF        I*4         (CONSTANT)Product header offset: data
+*.                                   level 16.
+*.    G   DL1OFF         I*4         (CONSTANT)Product header offset: data
+*.                                   level 1.
+*.    G   ELINDOFF       I*4         (CONSTANT)Product header offset:
+*.                                   Elevation index.
+*.    G   GDPRDOFF       I*4         (CONSTANT)Product header offset:
+*.                                   generation date of product.
+*.    G   GTLSWOFF       I*4         (CONSTANT)Product header
+*.                                   offset:Generation time of product (LSW).
+*.    G   GTMSWOFF       I*4         (CONSTANT)Product header offset.
+*.                                   Generation time of product (MSW).
+*.    G   LGMSWOFF       I*4         (CONSTANT)Product header offset: Length
+*.                                   of message (MSW).
+*.    G   LNLSWOFF       I*4         (CONSTANT)Product header offset:
+*.                                   Longitude of radar (LSW).
+*.    G   LNMSWOFF       I*4         (CONSTANT)Product header offset:
+*.                                   Longitude of radar (MSW).
+*.    G   LTLSWOFF       I*4         (CONSTANT)Product header offset: Latitude
+*.                                   of radar (LSW).
+*.    G   LTMSWOFF       I*4         (CONSTANT)Product header offset: Latitude
+*.                                   of radar (MSW)
+*.    G   MESCDOFF       I*4         (CONSTANT)Product header offset: Message
+*.                                   code.
+*.    G   NBLKSOFF       I*4         (CONSTANT)Product header offset: Number
+*.                                   of blocks in product.
+*.    G   NMAPSOFF       I*4         (CONSTANT)Product header offset
+*.                                   descriptions: Number of maps.
+*.    G   PACKDESC       I*4         (CONSTANT)Display header offset (For
+*.                                   raster formatted products): Packing
+*.                                   descriptor offset.
+*.    G   PRDCODOFF      I*4         (CONSTANT)Product header offset
+*.                                   descriptions: Product code.
+*.    G   RADHGTOFF      I*4         (CONSTANT)Product header offset
+*.                                   descriptions: Height of radar.
+*.    G   SBON           I*2         (CONSTANT)Spot Blanking flag indicating
+*.                                   it is enabled in product
+*.    G   SCAN_SB        I*4         (CONSTANT)Spot Blanking Flag index into
+*.                                   Volume Scan Summary Table
+*.    G   SCAN_VCP       I*4         (CONSTANT)Volume Coverage Pattern index
+*.                                   into Scan Summary Table
+*.    G   SRCIDOFF       I*4         (CONSTANT)Product header offset: Source
+*.                                   ID-Number.
+*.    G   VCPOFF         I*4         (CONSTANT)Product header offset:  Volume
+*.                                   coverage pattern.
+*.    G   VOFFSET1       I*4         (CONSTANT)Offset to beginning of volume
+*.                                   scan time (first half of I*4) for this
+*.                                   radial in preprocessed radial header.
+*.    G   VOFFSET2       I*4         (CONSTANT)Offset to beginning of volume
+*.                                   scan time (second half of I*4) for this
+*.                                   radial in preprocessed radial header.
+*.    G   VOL_SPOT_BLANK I*2         (CONSTANT)Spot Blank field in Scan
+*.                                   Summary table definition
+*.    G   VSDATOFF       I*4         (CONSTANT)Product header offset: Volume
+*.                                   scan date.
+*.    G   VSNUMOFF       I*4         (CONSTANT)Product header offset
+*.                                   descriptions: Volume scan number.
+*.    G   VSTLSWOFF      I*4         (CONSTANT)Product header offset: Volume
+*.                                   scan time (LSW).
+*.    G   VSTMSWOFF      I*4         (CONSTANT)Product header offset:  Volume
+*.                                   scan time (MSW).
+*.    G   WMOFFSET       I*4         (CONSTANT)Offset to weather mode in
+*.                                   preprocessed radial header.
+*.    G   WTMODOFF       I*4         (CONSTANT)Product header offset:  Weather
+*.                                   mode.
+*.    C   INC1           I*4         (CONSTANT)Constant, used as an
+*.                                   incrementor value.
+*.    C   ONE            I*4         (CONSTANT)Constant value of one.
+*.    C   PCODE          I*4         (CONSTANT)Constant used as an index to
+*.                                   requested product code from the request
+*.                                   table (REQTAB) buffer.
+*.    C   REQCOLS        I*4         (CONSTANT)Maximum number of request
+*.                                   columns in the request table.
+*.    C   REQROWS        I*4         (CONSTANT)Number of request rows
+*.                                   (parameters) in the request table.
+*.    C   TWO            I*4         (CONSTANT)Constant value of an integer 2.
+*.    C   ZERO           I*4         (CONSTANT)Program parameter for 0.
+*.    P   COLORI         I*4         COLOR/THRESHOLD TABLE INDEX
+*.    P   HEAD           I*2         HEADER FROM THE 1ST RADIAL
+*.    P   INDEXX         I*4         RECORD NUM IN TABLE OF RQUESTS
+*.    P   ISTAR2S        I*4         Number of I*2 words in raster data.
+*.    P   MAX            R*4         MAX DATA LEVEL
+*.    P   MAX_X          I*4         GRID X OF MAX VALUE
+*.    P   MAX_Y          I*4         GRID Y OF MAX VALUE
+*.    P   MIN            R*4         MAX NEG. DATA LEVEL FOR VELOC.
+*.    P   MIN_X          I*4         GRID X OF MIN VALUE
+*.    P   MIN_Y          I*4         GRID Y OF MIN VALUE
+*.    P   NYROW          I*4         NUMBER OF ROWS
+*.    P   PROD_BUFF      I*2         PRODUCT OUTPUT BUFFER
+*.    P   RAST_BUFF      I*2         SCRATCH OUTPUT BUFFER THAT CONTAINS THE
+*.                                   RASTER DATA.
+*.    P   REQTAB         I*2         TABLE OF PROD.REQUEST INFO
+*.    P   VOLNUM         I*4         CURRENT VOLUME NUMBER
+*.
+*.    *   OUTPUT    TYPE        DESCRIPTION
+*.    -   ------    ----        -----------
+*.    P   PROD_BUFF I*2         PRODUCT OUTPUT BUFFER
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    P   COLORI            I*4         COLOR/THRESHOLD TABLE INDEX
+*.    P   HEAD              I*2         HEADER FROM THE 1ST RADIAL
+*.    P   ISTAR2S           I*4         Number of I*2 words in raster data.
+*.    P   MAX               R*4         MAX DATA LEVEL
+*.    P   MAX_X             I*4         GRID X OF MAX VALUE
+*.    P   MAX_Y             I*4         GRID Y OF MAX VALUE
+*.    P   MIN               R*4         MAX NEG. DATA LEVEL FOR VELOC.
+*.    P   MIN_X             I*4         GRID X OF MIN VALUE
+*.    P   MIN_Y             I*4         GRID Y OF MIN VALUE
+*.    P   NYROW             I*4         NUMBER OF ROWS
+*.    P   PROD_BUFF         I*2         PRODUCT OUTPUT BUFFER
+*.    P   RAST_BUFF         I*2         SCRATCH OUTPUT BUFFER THAT CONTAINS
+*.                                      THE RASTER DATA.
+*.    P   REQTAB            I*2         TABLE OF PROD.REQUEST INFO
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME     TYPE        DESCRIPTION
+*.    ----     ----        -----------
+*.    ELINDEX  I*4         Requested elevation index offset.
+*.    I        I*4         LOOP INDEX
+*.    J        I*4         LOOP INDEX
+*.    NEGONE   I*4         CONSTANT VALUE OF - 1
+*.    THREE    I*4         CONSTANT VALUE OF 3
+*.    TIME     I*4         CURRENT TIME
+*.    VTIME    I*4         VOLUME SCAN TIME
+*.    XDATE    I*4         CURRENT DATE
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD05
+*.    COLRTBL
+*.    SITEADP
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  NONE
+*.
+*.  DEVIATION FROM STANDARDS:  NONE
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP07.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK07.CSS
+*.
+*.  MISC:  NONE
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+C*
+C$DELETE
+$TITLE A30786__ASSEMBLE_THE_PRODUCTS
+C$ENDDELETE
+C*
+C*  COMMON DECLARATIONS
+C*
+$INCLUDE A309ADPT.INC/G,**A3CD70CA (NEND NLIST)
+$INCLUDE                **A3CD70C5 (NEND NLIST)
+$INCLUDE A304.INC/G,**A304P4 (NEND NLIST)
+$INCLUDE A309.INC/G,**A3PM00 (NEND NLIST)
+$INCLUDE            **A3PM01 (NEND NLIST)
+$INCLUDE            **A3PM04 (NEND NLIST)
+$INCLUDE            **A3PM06 (NEND NLIST)
+$INCLUDE            **A3CD05 (NEND NLIST)
+$INCLUDE A307.INC,**A30788   (NEND NLIST)
+C*
+C*********************************************************************
+C*  LOCAL DECLARATIONS
+C*
+      INTEGER*4    ISTAR2S
+      INTEGER*2    RAST_BUFF(ISTAR2S),  PROD_BUFF(*)
+      INTEGER*2    HEAD(*)
+
+      INTEGER*2    REQTAB(REQROWS,REQCOLS)
+C
+      INTEGER*4    THREE
+      INTEGER*4    NEGONE
+      INTEGER*4    VOLNUM, I, INDEXX
+      INTEGER*4    NYROW
+      INTEGER*4    MAX_X, MAX_Y, MIN_X, MIN_Y
+C
+      REAL         MIN, MAX
+C
+      PARAMETER    ( THREE = 3 )
+      PARAMETER    ( NEGONE = -1 )
+
+      INTEGER*4    COLORI, J, VTIME
+      INTEGER*4    XDATE
+      INTEGER*4    TIME
+
+      logical os32btests
+C*
+C******************************************************************
+C*          A 3 0 7 8 6 __ ASSEMBLE THE PRODUCTS
+C*
+C*
+C*  ALL INFORMATION TO BUILD THE FINAL PRODUCT IS NOW AVAILABLE.
+C*
+C*
+C*********************************************************************
+C*
+C*  INITIALIZE THE THE PRODUCT BUFFER HEADER TO ZEROES.
+C*
+      DO 50 I = ONE, PACKDESC
+        PROD_BUFF(I) = ZERO
+50    CONTINUE
+C*
+C*********************************************************************
+C*
+C*    BUILD THE HEADER BLOCK AND PRODUCT DESCRIPTION BLOCK.
+C*
+C*
+      PROD_BUFF( MESCDOFF  ) = REQTAB(PCODE,INDEXX)
+      PROD_BUFF( LGMSWOFF  ) = ZERO
+      PROD_BUFF( SRCIDOFF  ) = SIRPGID
+      PROD_BUFF( NBLKSOFF  ) = THREE
+      PROD_BUFF( DIV1OFF   ) = NEGONE
+C*
+C*********************************************************************
+C*
+      call RPG_set_product_int( PROD_BUFF( LTMSWOFF  ), SIRDALAT )
+      call RPG_set_product_int( PROD_BUFF( LNMSWOFF  ), SIRDALON )
+      PROD_BUFF( RADHGTOFF ) = SIRDAHGT
+      PROD_BUFF( PRDCODOFF ) = REQTAB(PCODE, INDEXX)
+      PROD_BUFF( WTMODOFF  ) = SUMMARY( SCAN_MODE, VOLNUM )
+      PROD_BUFF( VCPOFF    ) = SUMMARY( SCAN_VCP, VOLNUM )
+      PROD_BUFF( VSNUMOFF  ) = VOLNUM
+      PROD_BUFF( VSDATOFF  ) = SUMMARY( SCAN_DATE, VOLNUM )
+C
+      VTIME = SUMMARY( SCAN_TIME, VOLNUM )
+      call RPG_set_product_int( PROD_BUFF( VSTMSWOFF ), VTIME )
+C
+C** CALL A3CM25 MODULE TO OBTAIN DATE AND TIME)
+C
+      CALL A3CM25__GET_DATE_TIME(XDATE,TIME)
+C
+      PROD_BUFF( GDPRDOFF  ) = XDATE
+      call RPG_set_product_int( PROD_BUFF( GTMSWOFF  ), TIME )
+C
+C**** SET SPOT BLANK STATUS
+C
+      IF (os32btests(SUMMARY(SCAN_SB,VOLNUM),VOL_SPOT_BLANK))
+     >         PROD_BUFF(NMAPSOFF)= SBON
+C*
+C*********************************************************************
+C*  FILL IN THE DATA LEVEL THRESHOLDS.
+C*
+       J = ONE
+       DO 400 I = DL1OFF, DL16OFF
+          PROD_BUFF(I) = THRESH( J,COLORI )
+          J = J + INC1
+400    CONTINUE
+C
+C** CALL A3078I MODULE TO BUILD THE REMAINING PRODUCT
+C
+      CALL A3078I__ASSM_PROD2(RAST_BUFF,ISTAR2S,PROD_BUFF,HEAD,REQTAB,
+     $           INDEXX,COLORI,NYROW,MAX,MIN,MAX_X,MAX_Y,MIN_X,MIN_Y)
+C
+      RETURN
+      END

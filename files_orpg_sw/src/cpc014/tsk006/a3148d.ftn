@@ -1,0 +1,356 @@
+C 
+C RCS info 
+C $Author: nolitam $ 
+C $Locker:  $ 
+C $Date: 2002/11/27 15:17:41 $ 
+C $Id: a3148d.ftn,v 1.3 2002/11/27 15:17:41 nolitam Exp $ 
+C $Revision: 1.3 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A3148D__1HOUR_PROD78 (ADJHRLY, HYDRADAP, HYDRSUPL,
+     +                   VSNUM,P78STAT)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3148D__1HOUR_PROD78
+*.
+*.  MODULE VERSION: 0002
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.      07/31/95       0000      TIM O'BANNON         CCR 94-33207
+*.       12/23/96      0001      Toolset              CCR NA95-11807
+*.       03/16/99      0002      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A3148D__1HOUR_PROD78(ADJHRLY,HYDRADAP,
+*.                                  HYDRSUPL,VSNUM,P78STAT)
+*.
+*.  MODULE FUNCTION:
+*.    This module is the product generation control routine for the graphic
+*.    One-Hour Accumulation product (#78).
+*.
+*.  MODULES CALLED: A31169__ABORT_DATATYPE_BECAUSE, A31215__GET_OUTBUF, 
+*.                  A31216__REL_OUTBUF, A31466__PRODUCT_HEADER, 
+*.                  A3146S__FORMAT_BLOCK3, A3148L__PPS_RUN_LENGTH_ENCODE, 
+*.                  A3148P__BIAS_ARRAY 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT         TYPE        DESCRIPTION
+*.    -   -----         ----        -----------
+*.    G   MEM           I*4         Array in RPG shared memory set aside for
+*.                                  buffer sharing.
+*.    G   CUR_BIAS      I*4         (CONSTANT)Bias between rain gage and radar
+*.                                  estimates positional parameter.
+*.    G   DESTROY       I*4         (CONSTANT)Mnemonic used as input to
+*.                                  A31216__REL_OUTBUF. Indicates "do not pass
+*.                                  data to other tasks".
+*.    G   FLAG_SET      I*4         (CONSTANT)Parameter for a set flag.
+*.    G   FLG_BADSCN    I*4         (CONSTANT)Indicator in hydromet scan that
+*.                                  data is bad.
+*.    G   FLG_NOHRLY    I*4         (CONSTANT)Index to flag indicating hourly
+*.                                  scan data is not there.
+*.    G   FLG_ZERHLY    I*4         (CONSTANT)Index to flag indicating hourly
+*.                                  scan data is zero-filled.
+*.    G   FORWARD       I*4         (CONSTANT)Parameter to indicate that an
+*.                                  output buffer is to be forwarded to
+*.                                  successor tasks
+*.    G   MAX_ADJBINS   I*4         (CONSTANT)Maximum number of range bins
+*.                                  (index into output buffer of adjusted
+*.                                  values).
+*.    G   MAX_AZMTHS    I*4         (CONSTANT)Maximum number of azimuths in a
+*.                                  scan (index into output buffer of adjusted
+*.                                  values).
+*.    G   MM_TO_IN      R*4         (CONSTANT)SCALING FACTOR FOR MILLIMETERS
+*.                                  TO INCHES
+*.    G   NORMAL        I*4         (CONSTANT)Parameter which indicates normal
+*.                                  completion of requested operation to
+*.                                  acquire input or output buffer
+*.    G   PPHRLYNC      I*4         (CONSTANT)Color table index for
+*.                                  precipitation, 1 and 3HR products (Not
+*.                                  clear air).
+*.    G   PROD_MEM_SHED I*4         (CONSTANT)(CONSTANT)Parameter which
+*.                                  indicates that product aborted due to
+*.                                  memory load shedding
+*.    G   SCRATCH       I*4         (CONSTANT)DATA BUFFER TYPE FOR TASK
+*.                                  SCRATCH DATA BUFFERS
+*.    C   BIAS_TOGGLE   L*4         Local adaptaion copy of BIAS_FLAG
+*.    C   CODE_1HR      I*4         (CONSTANT)1 HR. Accumulation product code
+*.    C   HY1HRACC      I*4         (CONSTANT)Constant indicating 1 hour
+*.                                  accumulation product buffer data type.
+*.    C   INCRMENT      I*4         (CONSTANT)Parameter used to increment by
+*.                                  one.
+*.    C   IPROD_I4SIZE  I*4         (CONSTANT)Product buffer size requested
+*.                                  (in words) from call to A31215 to get
+*.                                  product buffer.
+*.    C   KPOLAR_WORDS  I*4         (CONSTANT)Scratch buffer size for polar
+*.                                  grid.
+*.    C   SCALE_78_79   R*4         (CONSTANT)Scaling parameter for converting
+*.                                  hundreths of inches to 20ths of inches for
+*.                                  quantizing the OHP/THP product.
+*.    P   ADJHRLY       I*2         Array containing adjusted hourly
+*.                                  precipitation accumulation data
+*.    P   HYDRADAP      R*4         Array of RPG adaptation parameters.
+*.    P   HYDRSUPL      I*4         Supplemental data array.
+*.    P   P78STAT       I*4         Status on obtaining Product 78 output
+*.                                  buffer
+*.    P   VSNUM         I*4         Volume scan number
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    G   MEM     I*4         Array in RPG shared memory set aside for buffer
+*.                            sharing.
+*.    P   P78STAT I*4         Status on obtaining Product 78 output buffer
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    G   MEM               I*4         Array in RPG shared memory set aside
+*.                                      for buffer sharing.
+*.    P   ADJHRLY           I*2         Array containing adjusted hourly
+*.                                      precipitation accumulation data
+*.    P   HYDRADAP          R*4         Array of RPG adaptation parameters.
+*.    P   HYDRSUPL          I*4         Supplemental data array.
+*.    P   P78STAT           I*4         Status on obtaining Product 78 output
+*.                                      buffer
+*.    P   VSNUM             I*4         Volume scan number
+*.
+*.  DATABASE/FILE REFERENCE: None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME          TYPE        DESCRIPTION
+*.    ----          ----        -----------
+*.    B3ENIDX       I*4         Ending index of the OHP product's Block 3
+*.                              address
+*.    B3STIDX       I*4         Beginning index of OHP Block 3 address.
+*.    BAD_SCAN      I*4         Error code indicating the hourly data has been
+*.                              flagged as a bad scan.
+*.    CONV_AND_BIAS R*4         Factor which combines mm to inch conversion
+*.                              and current BIAS (if selected) in the
+*.                              generation of the OHP product. INCHES PER
+*.                              MILLIMETER
+*.    ERRCODE       I*4         Error code used in building OHP product
+*.    I             I*4         Do loop counter.
+*.    IBIAS         I*4         Current BIAS stored in HYDRSUPL array.
+*.                              Equivalenced to RBIAS.
+*.    MAXVAL        I*4         Maximum value found within the OHP array.
+*.                              MILLIMETERS and HUNDREDTHS OF AN INCH
+*.    NO_HOURLY     I*4         Error flag indicating that no hourly data is
+*.                              available to generate a OHP product.
+*.    NULL          I*4         Value used to build null OHP product
+*.    ONEHOUR_PTR   I*4         Pointer to OHP scratch buffer.
+*.    ONEHOUR_STAT  I*4         Status of OHP scratch buffer.
+*.    P78PTR        I*4         Pointer to location of product 78 output
+*.                              buffer.
+*.    RBIAS         R*4         Current BIAS, multiplied times OHP if
+*.                              BIAS_TOGGLE is set totrue.
+*.    SCALE_1HR     R*4         Combines mm to inch conversion, current BIAS
+*.                              (if selected), and scale factor to generate
+*.                              OHP product data categories from one hour
+*.                              precipitation data.  TWE
+*.    SCALE_78_D    R*4         Scale factor for converting one hour data to
+*.                              0.05 inch product data categories  TWENTIETHS
+*.                              OF AN INCH PER TENTH OF AN INCH
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD00
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A314C3
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING THE COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING THE LINK14.CSS
+*.
+*.  MISC:  N/A
+*.
+*.*******************************************************************
+C
+C...'X' IN COLUMN-1 INDICATES CONDITIONALLY COMPILED DEBUG CODE...
+C
+      IMPLICIT NONE
+C
+$INCLUDE A309.INC/G,**A3PM00 (NEND NLIST)
+$INCLUDE            **A3PM01 (NEND NLIST)
+$INCLUDE            **A3PM04 (NEND NLIST)
+$INCLUDE            **A3PM07 (NEND NLIST)
+$INCLUDE            **A3PM50 (NLIST)
+$INCLUDE            **A3CD00 (NEND NLIST)
+C
+$INCLUDE A313HBUF.INC/G,**A313HYPP (NEND NLIST)
+$INCLUDE                **A313HYDD (NEND NLIST)
+C
+$INCLUDE A3146.INC/G,**A3146P1 (NEND NLIST)
+$INCLUDE             **A3146P2 (NEND NLIST)
+$INCLUDE             **A314C3  (NEND NLIST)
+C
+C
+      INTEGER   VSNUM,MAXVAL, NULL,I,
+     $          B3ENIDX,P78PTR,P78STAT, B3STIDX, ERRCODE
+      INTEGER   IBIAS
+      REAL      RBIAS, CONV_AND_BIAS
+C
+      EQUIVALENCE (IBIAS,RBIAS)
+C
+      REAL      BIASIT, SCALE_78_D, SCALE_1HR
+C
+      PARAMETER (NULL=0)
+      PARAMETER (BIASIT=1.0, SCALE_78_D=SCALE_78_79*10.0)
+C
+      INTEGER*2 ADJHRLY(MAX_ADJBINS,MAX_AZMTHS)
+C
+      INTEGER   MAX_VALUE,NO_HOURLY,BAD_SCAN
+      PARAMETER (MAX_VALUE=255, NO_HOURLY=6)
+      PARAMETER (BAD_SCAN=7)
+
+C
+      INTEGER   ONEHOUR_PTR, ONEHOUR_STAT
+C
+C
+C*************** EXECUTABLE *******************
+C
+X     TYPE *,'A3148D: BUILDING 1-HOUR ACCUMULATION PRODUCT'
+C
+      ERRCODE = NULL
+      MAXVAL = NULL
+C
+C  REQUEST SCRATCH BUFFER
+C
+      CALL A31215__GET_OUTBUF (SCRATCH, KPOLAR_WORDS,
+     $                         ONEHOUR_PTR, ONEHOUR_STAT)
+CX     TYPE *,'A3148D: GOT SCRATCH BUFFER- STATUS =',ONEHOUR_STAT
+C
+C  IF SUCCESSFUL
+C
+      IF (ONEHOUR_STAT .EQ. NORMAL) THEN
+C
+C  BUILD PRODUCT BUFFER
+C
+C  REQUEST PRODUCT BUFFER SPACE FOR 1-HOUR ACCUMULATION PRODUCT.
+C  IF BUFFER IS RECEIVED NORMALLY, PROCEED...
+C
+         CALL A31215__GET_OUTBUF(HY1HRACC,IPROD_I4SIZE,P78PTR,P78STAT)
+CX        TYPE *,'A3148D: CALLED A31215; P78STAT = ',P78STAT
+C
+         IF (P78STAT .EQ. NORMAL) THEN
+C
+C  CHECK TO SEE THAT THE HOURLY-DATA BUFFER IS NOT ALL ZEROS...
+C
+CX           TYPE*,'A3148D: HOURLY DATA FLAGS =',HYDRSUPL(FLG_ZERHLY),
+CX    $                                          HYDRSUPL(FLG_NOHRLY)
+C
+            IF (HYDRSUPL(FLG_ZERHLY) .NE. FLAG_SET .AND.
+     $          HYDRSUPL(FLG_NOHRLY) .NE. FLAG_SET) THEN
+C
+C  COMPUTE THE SCALING FACTOR (SCALE_1HR) FOR CONVERTING FROM
+C  MILLIMETERS TO THE 16 DATA LEVELS USED IN THE COLOR TABLES
+C
+C  IF THE BIAS TOGGLE IS SET, THE GAGE BIAS ADJUSTMENT IS APPLIEX
+C
+CX              TYPE *,'A3148D: BIAS TOGGLE IS ',BIAS_TOGGLE
+C
+               IBIAS = HYDRSUPL(CUR_BIAS)
+               IF(BIAS_TOGGLE)THEN
+                  CONV_AND_BIAS = MM_TO_IN*RBIAS
+               ELSE
+                  CONV_AND_BIAS = MM_TO_IN
+               ENDIF
+C
+               SCALE_1HR = CONV_AND_BIAS*SCALE_78_D
+C
+C  BIAS THE PRODUCT ARRAY VALUES FOR USE WITH THE COLOR TABLES
+C
+               CALL A3148P__BIAS_ARRAY(SCALE_1HR,MAXVAL,ADJHRLY,
+     $                      MEM(ONEHOUR_PTR))
+C
+X              TYPE *,'A3148D: BACK FROM A3148P - MAXVAL =',MAXVAL
+C
+C  CONVERT MAXVAL FROM MM TO 10THS OF AN INCH
+C
+               MAXVAL = NINT (MAXVAL * CONV_AND_BIAS)
+C
+C  $NCOMP
+CX             WRITE(6,2)
+CX 2           FORMAT(' A3148D: ONE_HOUR ACCUMULATION')
+CX             IF (MAXVAL.GT.0) CALL PLOTSCAN(360,115,0,ADJHRLY)
+CX             WRITE(6,1)
+CX 1           FORMAT(' A3148D: ONE_HOUR AFTER BIASING')
+CX             IF (MAXVAL.GT.0) CALL PLOTSCAN(360,115,1,
+CX   $                                        MEM(ONEHOUR_PTR))
+C  $COMP
+C
+            ELSE
+C
+C  IF NO DATA, SET ARRAY TO ZERO
+C
+X              TYPE *,'A3148D: ERROR CONDITION= ',ERRCODE
+X              TYPE *,'A3148D: SET ARRAY TO ZERO'
+               DO 100 I=NULL,KPOLAR_WORDS-INCRMENT
+                  MEM(ONEHOUR_PTR + I) = NULL
+ 100           CONTINUE
+            ENDIF
+C
+C  RUN LENGTH ENCODE THE OUTPUT ARRAY
+C
+            CALL A3148L__PPS_RUN_LENGTH_ENCODE (MEM(ONEHOUR_PTR),
+     $                   MEM(P78PTR), B3STIDX, PPHRLYNC)
+C
+C
+C  SET ERRCODE
+C
+            IF(HYDRSUPL(FLG_BADSCN) .EQ. FLAG_SET) THEN
+               ERRCODE = BAD_SCAN
+            ELSE IF(HYDRSUPL(FLG_NOHRLY) .EQ. FLAG_SET) THEN
+               ERRCODE = NO_HOURLY
+            END IF
+C
+C  FORMAT THE SUPPLEMENTAL DATA HERE
+C
+            CALL A3146S__FORMAT_BLOCK3 (MEM(P78PTR),VSNUM,CODE_1HR,
+     $                   HYDRADAP,HYDRSUPL,ERRCODE,B3STIDX,B3ENIDX)
+C
+C  BUILD THE PRODUCT HEADER
+C
+            CALL A31466__PRODUCT_HEADER (MEM(P78PTR),VSNUM,
+     $                   CODE_1HR,MAXVAL,HYDRSUPL,B3ENIDX)
+C
+C  RELEASE THE PRODUCT BUFFER AND FORWARD IT TO STORAGE
+C
+            CALL A31216__REL_OUTBUF(P78PTR,FORWARD)
+C
+         ENDIF
+C
+C  RELEASE THE SCRATCH BUFFER
+C
+         CALL A31216__REL_OUTBUF(ONEHOUR_PTR, DESTROY)
+C
+      ELSE
+C
+C  COULDN'T GET SCRATCH BUFFER, THEN NOTIFY SYSTEM THAT PRODUCT IS
+C  NOT AVAILABLE
+C
+X        TYPE *,' NO SCRATCH BUFFER, ABORT DATATYPES VIA A31169'
+         CALL A31169__ABORT_DATATYPE_BECAUSE(HY1HRACC, PROD_MEM_SHED)
+C
+      ENDIF
+X     TYPE *,'A3148D: FINISHED BUILDING 1-HOUR ACCUM. PRODUCT'
+C
+      RETURN
+      END

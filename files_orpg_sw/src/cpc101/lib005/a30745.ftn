@@ -1,0 +1,427 @@
+C 
+C RCS info 
+C $Author: steves $ 
+C $Locker:  $ 
+C $Date: 2004/01/21 23:00:52 $ 
+C $Id: a30745.ftn,v 1.4 2004/01/21 23:00:52 steves Exp $ 
+C $Revision: 1.4 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A30745__CARTESIAN_MAP(POLGRID,NUMBINS,NBOX,
+     1                   BOXRES,CARGRID,CGRIDHDR)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A30745__CARTESIAN_MAP
+*.
+*.  MODULE VERSION: 0013
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       05 15 85      0000      ATARA WEINSTEIN
+*.                               & DENNIS MILLER
+*.       04 25 86      0001      BRADLEY SUTKER       SPR # 60159
+*.       08 04 86      0002      MIKE ISTOK           SPR # 60313
+*.       02 10 88      0003      ATARA WEINSTEIN      SPR # 80290
+*.       08 22 88      0003      VALERIE HOLDEN       SPR # 80248
+*.       10 16 90      0004      PENNY J YELSHIN      SPR # 91119
+*.       02 22 91      0004      MARK FRESCH          SPR # 91248
+*.       02 15 91      0004      JOHN DEPHILIP        SPR # 91762
+*.       12 03 91      0005      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0006      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/20/92      0007      Toolset              SPR 91895
+*.       03/25/93      0008      Toolset              SPR NA93-06801
+*.       01/28/94      0009      Toolset              SPR NA94-01101
+*.       03/03/94      0010      Toolset              SPR NA94-05501
+*.       04/11/96      0011      Toolset              CCR NA95-11802
+*.       12/23/96      0012      Toolset              CCR NA95-11807
+*.       03/16/99      0013      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A30745__CARTESIAN_MAP(POLGRID,NUMBINS,
+*.                                 NBOX,BOXRES,CARGRID,CGRIDHDR)
+*.  MODULE FUNCTION:
+*.    Map polar composite grid onto a Cartesian map using
+*.    beam subdivision method.
+*.
+*.  MODULES CALLED: A3074A__HOLE_FILL 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT       TYPE        DESCRIPTION
+*.    -   -----       ----        -----------
+*.    G   GRID_COL    I*4         (CONSTANT)Index in buffer header to number
+*.                                of columns in cartesian grid.
+*.    G   GRID_MAXI   I*4         (CONSTANT)Index in buffer header to
+*.                                I-coordinate of maximum value.
+*.    G   GRID_MAXJ   I*4         (CONSTANT)Index in buffer header to
+*.                                J-coordinate of maximum value.
+*.    G   GRID_MAXVAL I*4         (CONSTANT)INDEX IN GRID BUFFER HEADER TO
+*.                                MAXIMUM DATA VALUE
+*.    G   GRID_ROW    I*4         (CONSTANT)Index in buffer header to number
+*.                                of rows in cartesian grid.
+*.    G   NRADS       I*4         (CONSTANT)Number of radials in the Polar
+*.                                Grid.
+*.    G   RDBLTH      I*4         (CONSTANT)Flag value indicating sample bin
+*.                                Below Threshold
+*.    P   BOXRES      R*4         Resolution of Cartesian grid
+*.    P   CARGRID     I*2         Cartesian grid
+*.    P   NBOX        I*4         Number of boxes per side in CARTGRID
+*.    P   NUMBINS     I*4         Number of bins per radial in PGRID
+*.    P   POLGRID     I*2         Polar grid portion of polar grid buffer.
+*.
+*.    *   OUTPUT   TYPE        DESCRIPTION
+*.    -   ------   ----        -----------
+*.    P   CARGRID  I*2         Cartesian grid
+*.    P   CGRIDHDR I*4         Array containing header portion of cartesian
+*.                             grid buffer.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    P   CARGRID           I*2         Cartesian grid
+*.    P   NBOX              I*4         Number of boxes per side in CARTGRID
+*.
+*.  DATABASE/FILE REFERENCE: NONE
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME     TYPE        DESCRIPTION
+*.    ----     ----        -----------
+*.    ANG_SFT  R*4         The radial difference(+/-) of each subbeam that the
+*.                         bim is split into.
+*.    AZ       I*4         Index for radial being processed
+*.    AZM_RAD  R*4         Azimuth angle in radians.
+*.    BOXRES1  R*4         (Constant) = 1.0; FOR CARTESIAN GRID RESOLUTION
+*.                         TEST
+*.    COLEL    R*4         Cosine of the elevation angle.
+*.    COLFACT  I*4         A column mapping variable.
+*.    CT_CONST R*4         COSINE TIMES CONSTANT
+*.    DTR      R*4         Conversion constant: degrees=>radians
+*.    DX       I*4         Incremental function along X axis
+*.    DY       I*4         Incremental function along Y axis
+*.    ED_ZONE  I*4         Last zone of the data in the radial.
+*.    FRSTBIN  I*4         Used to compute starting zone.
+*.    GRID_RES I*4         Index in buffer header to grid resolution.
+*.    HALF     R*4         Program parameter for 0.5.
+*.    HDRLNG   I*4         Length of header portion of cartesian grid buffer.
+*.    I        I*4         Loop index variable.
+*.    IBEAM    I*4         Do loop index for beam subdivision zones in polar
+*.                         to cartesian conversion routine.
+*.    IBIN     I*4         Do loop index for bins on a radial in polar to
+*.                         cartesian conversion routine
+*.    ILSTBIN  I*4         Array containing the last bin for each zone.
+*.    ISRTBIN  I*4         Internal variable array - used in calculation of
+*.                         start bus in each zone.
+*.    IZONE    I*4         Loop control.
+*.    LASTBIN  I*4         Holds number of last bin for cartesian mapping.
+*.    MAXI     I*4         Maximum I coordinate on grid.
+*.    MAXJ     I*4         Maximum J coordinate on grid.
+*.    MAXVAL   I*4         Maximum value on grid.
+*.    MX_BEAMS I*4         Maximum number of beams a radial is split into.
+*.    MX_ZONES I*4         MAXIMUM NUMBER OF BINS FOR EACH ZONE.
+*.    NBEAMS   I*4         Used subscripted by IZONE for number of sub-beams.
+*.    NNN      I*4         Variable used as the control variable in a do loop
+*.                         and as the index (within the do loop) into CGRIDHDR
+*.                         (the cartesian grid buffer-header).
+*.    NULL     I*4         Parameter for zero used for initializations.
+*.    RATCNST  I*4         Constant for cartesian mapping.
+*.    RATIO    R*4         Resolution of cartesian grid per sample size for
+*.                         polar grid.
+*.    ROWFACT  I*4         A row mapping variable.
+*.    RSS      R*4         Resolution sample size for polar grid
+*.    SCFACT   R*4         Scale factor for mapping radial bins to polar grid.
+*.    STPOS    R*4         Variable used in the calculation of the arrays X
+*.                         and Y (real value for X and Y coordinate in the
+*.                         cartesian grid).
+*.    ST_CONST R*4         Sine of radians (converted from azimuth angle)
+*.                         times the constant COLEL.
+*.    ST_ZONE  I*4         Starting zone of the polar grid, used as the
+*.                         starting count of a do loop.
+*.    X        I*4         Real value for X coordinate in the cartesian grid
+*.    X1       I*4         Coordinate of cartesian grid box.
+*.    XH1      I*2         Equivalenced to X1, X coordinate of cartesian grid
+*.                         box.
+*.    Y        I*4         Real value for Y coordinate in the cartesian grid
+*.    Y1       I*4         Y coordinate of cartesian grid box.
+*.    YH1      I*2         Equivalenced to Y1, Y coordinate of cartesian grid
+*.                         box.
+*.    Z10MNBIN I*4         Zone 10 first bin number.
+*.    Z10MXBIN I*4         Zone 10 last bin number.
+*.    Z11MNBIN I*4         Zone 11 first bin number.
+*.    Z11MXBIN I*4         Zone 11 last bin number.
+*.    Z12MNBIN I*4         Zone 12 first bin number.
+*.    Z12MXBIN I*4         Zone 12 last bin number.
+*.    Z13MNBIN I*4         Zone 13 first bin number.
+*.    Z13MXBIN I*4         Zone 13 last bin number.
+*.    Z14MNBIN I*4         Zone 14 first bin number.
+*.    Z14MXBIN I*4         Zone 14 last bin number.
+*.    Z15MNBIN I*4         Zone 15 first bin number.
+*.    Z15MXBIN I*4         Zone 15 last bin number.
+*.    Z16MNBIN I*4         Zone 16 first bin number.
+*.    Z16MXBIN I*4         Zone 16 last bin number.
+*.    Z1MNBIN  I*4         Zone 1 first bin number.
+*.    Z1MXBIN  I*4         Zone 1 last bin number.
+*.    Z2MNBIN  I*4         Zone 2 first bin number.
+*.    Z2MXBIN  I*4         Zone 2 last bin number.
+*.    Z3MNBIN  I*4         Zone 3 first bin number.
+*.    Z3MXBIN  I*4         Zone 3 last bin number.
+*.    Z4MNBIN  I*4         Zone 4 first bin number.
+*.    Z4MXBIN  I*4         Zone 4 last bin number.
+*.    Z5MNBIN  I*4         Zone 5 first bin number.
+*.    Z5MXBIN  I*4         Zone 5 last bin number.
+*.    Z6MNBIN  I*4         Zone 6 first bin number.
+*.    Z6MXBIN  I*4         Zone 6 last bin number.
+*.    Z7MNBIN  I*4         Zone 7 first bin number.
+*.    Z7MXBIN  I*4         Zone 7 last bin number.
+*.    Z8MNBIN  I*4         Zone 8 first bin number.
+*.    Z8MXBIN  I*4         Zone 8 last bin number.
+*.    Z9MNBIN  I*4         Zone 9 first bin number.
+*.    Z9MXBIN  I*4         Zone 9 last bin number.
+*.    ZMNBIN   I*4         The first radial bin in each beam splitting range
+*.                         zone.
+*.    ZMXBIN   I*4         The last radial bin in each beam splitting range
+*.                         zone.
+*.    ZONE_LEN I*4         Zone length
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: NONE.
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP07.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK07.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+$EJECT
+C
+      IMPLICIT NONE
+C
+$INCLUDE A307BUF.INC/G,**A307P4 (NLIST)
+$INCLUDE               **A307D4 (NLIST)
+$INCLUDE               **A307P9 (NLIST)
+$INCLUDE               **A307D9 (NLIST)
+C
+$INCLUDE A304.INC/G,**A304P4 (NLIST)
+#IFDEF LINUX
+      INTEGER NBOX,NUMBINS,I,RATCNST,MAXVAL,MAXI,MAXJ,AZ
+#ENDIF
+C
+C*** CARTESIAN GRID DEFINITION
+C    ---------------------
+      INTEGER*2 CARGRID(NBOX,NBOX)
+C
+C*** LOCAL DECLARATIONS:
+C    ------------------
+#IFDEF LINUX
+C     NOTHING
+#ELSE
+      INTEGER NBOX,NUMBINS,I,RATCNST,MAXVAL,MAXI,MAXJ,AZ
+#ENDIF
+      INTEGER NULL,NNN
+      PARAMETER( NULL=0 )
+C
+      REAL BOXRES,RSS,RATIO,HALFGRID,HALFBIN,ROUNDUP,SCFACT
+      REAL BOXRES1
+      PARAMETER (BOXRES1=1.0)
+C
+      REAL COLEL
+      INTEGER*4 FRSTBIN,LASTBIN,ROWFACT,COLFACT
+C
+      INTEGER*4 MX_ZONES,MX_BEAMS
+      PARAMETER (MX_ZONES=16,MX_BEAMS=16)
+C
+      INTEGER*4 X(MX_BEAMS),DX(MX_BEAMS)
+      INTEGER*4 Y(MX_BEAMS),DY(MX_BEAMS)
+      INTEGER*4 ZMNBIN(MX_ZONES),ZMXBIN(MX_ZONES),NBEAMS(MX_ZONES)
+C
+      REAL ANG_SFT(MX_ZONES,MX_BEAMS),STPOS(MX_ZONES)
+      INTEGER*4 X1,XH1,Y1,YH1,ST_ZONE,ED_ZONE
+C
+      REAL ST_CONST,CT_CONST
+      REAL DTR,AZM_RAD,HALF
+C
+      INTEGER*4 ZONE_LEN,IBIN,IBEAM,IZONE
+      INTEGER*4 ISRTBIN(MX_ZONES),ILSTBIN(MX_ZONES)
+      PARAMETER (DTR=0.01745329,ZONE_LEN=40,HALF=0.5)
+C
+      INTEGER*4 Z1MNBIN, Z1MXBIN, Z2MNBIN, Z2MXBIN
+      INTEGER*4 Z3MNBIN, Z3MXBIN, Z4MNBIN, Z4MXBIN
+      INTEGER*4 Z5MNBIN, Z5MXBIN, Z6MNBIN, Z6MXBIN
+      INTEGER*4 Z7MNBIN, Z7MXBIN, Z8MNBIN, Z8MXBIN
+C
+      INTEGER*4 Z9MNBIN, Z9MXBIN, Z10MNBIN,Z10MXBIN
+      INTEGER*4 Z11MNBIN,Z11MXBIN,Z12MNBIN,Z12MXBIN
+      INTEGER*4 Z13MNBIN,Z13MXBIN,Z14MNBIN,Z14MXBIN
+      INTEGER*4 Z15MNBIN,Z15MXBIN,Z16MNBIN,Z16MXBIN
+C
+      PARAMETER (Z1MNBIN=1,   Z1MXBIN=40,  Z2MNBIN=41,  Z2MXBIN=80)
+      PARAMETER (Z3MNBIN=81, Z3MXBIN=120, Z4MNBIN=121, Z4MXBIN=160)
+      PARAMETER (Z5MNBIN=161, Z5MXBIN=200, Z6MNBIN=201, Z6MXBIN=240)
+      PARAMETER (Z7MNBIN=241, Z7MXBIN=280, Z8MNBIN=281, Z8MXBIN=320)
+C
+      PARAMETER (Z9MNBIN=321, Z9MXBIN=360, Z10MNBIN=361,Z10MXBIN=400)
+      PARAMETER (Z11MNBIN=401,Z11MXBIN=440,Z12MNBIN=441,Z12MXBIN=480)
+      PARAMETER (Z13MNBIN=481,Z13MXBIN=520,Z14MNBIN=521,Z14MXBIN=560)
+      PARAMETER (Z15MNBIN=561,Z15MXBIN=600,Z16MNBIN=601,Z16MXBIN=640)
+C
+C*** DATA INITIALIZATIONS:
+C    --------------------
+$INCLUDE A307.INC,**A30799 (NLIST)
+C
+C*** EXECUTABLE CODE:
+C    ---------------
+******
+C*** INITIALIZE THE CARTESIAN GRID BUFFER-HEADER TO NULL VALUES:
+C
+      DO 12 NNN=1,HDRLNG
+         CGRIDHDR(NNN) = NULL
+  12  CONTINUE
+C
+C*** INITIALIZE MAXIMUM-VALUE & COORDINATES WHERE FOUND ON GRID:
+C
+      MAXVAL = NULL
+      MAXI   = NULL
+      MAXJ   = NULL
+C
+C*** COMPUTE SCALING FACTOR AND OTHER CONSTANTS FOR CARTESIAN MAPPING:
+C
+      SCFACT = 2.**16
+      ROWFACT = ((NBOX * HALF)+1)*SCFACT
+      COLFACT = ((NBOX * HALF)+1)*SCFACT
+      COLEL = (RSS / BOXRES)*SCFACT
+C
+      RATIO = BOXRES / RSS
+      FRSTBIN = 1
+      LASTBIN = NUMBINS
+      RATCNST = RATIO - 1
+C
+C* compute starting and ending zones and make sure
+C* we don't exceed the maximum zone
+C
+      ST_ZONE=(FRSTBIN-1)/(ZONE_LEN*RATIO)+1
+      ED_ZONE=(LASTBIN-1)/(ZONE_LEN*RATIO)+1
+      IF (ED_ZONE.GT.MX_ZONES) ED_ZONE=MX_ZONES
+C
+C* do for all zones which apply to the polar grid
+C
+      DO 15 IZONE=ST_ZONE,ED_ZONE
+C* compute start and end bins in each zone
+         ISRTBIN(IZONE)=(ZMNBIN(IZONE)*RATIO) - RATCNST
+         ILSTBIN(IZONE)=ZMXBIN(IZONE)*RATIO
+C
+C If the computed last bin in this zone is greater than
+C the last bin in the radial...reset it
+C
+         IF (ILSTBIN(IZONE).GT.LASTBIN)ILSTBIN(IZONE)=LASTBIN
+C* compute start bin position
+         STPOS(IZONE) = ISRTBIN(IZONE) - HALF
+ 15   CONTINUE
+C
+C*** MAP EACH 'RADIAL' OF THE POLAR GRID TO THE CARTESIAN GRID:
+C
+      DO 10 AZ=1,NRADS
+C
+C* convert azimuth angle to radians
+C
+        AZM_RAD=(AZ-HALF)*DTR
+C
+C* compute sine and cosine times constant COLEL
+C
+        ST_CONST=COLEL*SIN(AZM_RAD)
+        CT_CONST=COLEL*COS(AZM_RAD)
+C
+C* do for all zones which the radial lies within
+C
+        DO 20 IZONE=ST_ZONE,ED_ZONE
+C
+C* do for all sub-beams (i.e. # of times the beam is split)
+           DO 25 IBEAM=1,NBEAMS(IZONE)
+C* compute DX and DY for this radials azimuth position(s).
+              DX(IBEAM)=ST_CONST+CT_CONST*ANG_SFT(IZONE,IBEAM)
+              DY(IBEAM)=CT_CONST-ST_CONST*ANG_SFT(IZONE,IBEAM)
+C* compute initial X and Y positions for this radial and zone
+              X(IBEAM)=COLFACT+(DX(IBEAM)*STPOS(IZONE))
+              Y(IBEAM)=ROWFACT-(DY(IBEAM)*STPOS(IZONE))
+ 25        CONTINUE
+C* do for all bins along the radial which fall within this zone
+           DO 30 IBIN=ISRTBIN(IZONE),ILSTBIN(IZONE)
+C
+C If the bin has a below threshold value don't split it
+C
+              IF(POLGRID(IBIN,AZ).GT.RDBLTH) THEN
+C* do for all sub-beams (i.e. # of times the beam is split)
+                DO 40 IBEAM=1,NBEAMS(IZONE)
+                   X1=X(IBEAM)
+                   Y1=Y(IBEAM)
+C
+                   call RPG_set_mssw_to_uint( X1, XH1 )
+                   call RPG_set_mssw_to_uint( Y1, YH1 )
+C
+C Get max value, compare polgrid to cartgrid value
+C
+                   IF(POLGRID(IBIN,AZ).GT.CARGRID(XH1,YH1)) THEN
+                     CARGRID(XH1,YH1) = POLGRID(IBIN,AZ)
+C
+C Get max value in entire grid
+C
+                     IF (POLGRID(IBIN,AZ).GT.MAXVAL) THEN
+                       MAXVAL = POLGRID(IBIN,AZ)
+                       MAXI = XH1
+                       MAXJ = YH1
+                     END IF
+C
+                   END IF
+C
+ 40             CONTINUE
+C
+              END IF
+C
+              DO 50 IBEAM=1,NBEAMS(IZONE)
+C* compute X and Y positions within the data grid (x=horz. y=-vert.)
+                 Y(IBEAM)=Y(IBEAM)-DY(IBEAM)
+                 X(IBEAM)=X(IBEAM)+DX(IBEAM)
+ 50           CONTINUE
+C
+ 30        CONTINUE
+C
+ 20     CONTINUE
+C
+ 10   CONTINUE
+C
+C*** STORE THE GRID SIZE & RESOLUTION IN THE CARTESIAN GRID HEADER:
+C
+      CGRIDHDR(GRID_COL) = NBOX
+      CGRIDHDR(GRID_ROW) = NBOX
+      CGRIDHDR(GRID_RES) = BOXRES
+C
+C*** STORE MAX FIELD VALUE ON CART GRID AND ITS LOCS IN BUFFER-HEADER:
+C
+      CGRIDHDR(GRID_MAXVAL) = MAXVAL
+      CGRIDHDR(GRID_MAXI)   = MAXI
+      CGRIDHDR(GRID_MAXJ)   = MAXJ
+C
+C   CALL ROUTINE TO FILL IN HOLES IN 1KM RESOLUTION GRID
+        IF (BOXRES.EQ.BOXRES1) CALL A3074A__HOLE_FILL(NBOX,CARGRID)
+C
+C    --------------------------------
+C*** END OF PROCESSING FOR SUBROUTINE:
+C
+      RETURN
+      END

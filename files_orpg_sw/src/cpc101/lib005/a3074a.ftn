@@ -1,0 +1,171 @@
+C 
+C RCS info 
+C $Author: nolitam $ 
+C $Locker:  $ 
+C $Date: 2002/12/11 20:00:15 $ 
+C $Id: a3074a.ftn,v 1.2 2002/12/11 20:00:15 nolitam Exp $ 
+C $Revision: 1.2 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A3074A__HOLE_FILL (NBOX,CTGRID)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3074A__HOLE_FILL
+*.
+*.  MODULE VERSION: 0010
+*.
+*.  MODULE LANGUAGE:  FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       02 02 88      0000      ATARA WEINSTEIN      ORIGINAL VERSION
+*.       02 10 88      0000      ATARA WEINSTEIN      SPR #80290
+*.       11 06 90      0001      MARK FRESCH          SPR #91248
+*.       12 03 91      0002      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0003      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/20/92      0004      Toolset              SPR 91895
+*.       03/25/93      0005      Toolset              SPR NA93-06801
+*.       01/28/94      0006      Toolset              SPR NA94-01101
+*.       03/03/94      0007      Toolset              SPR NA94-05501
+*.       04/11/96      0008      Toolset              CCR NA95-11802
+*.       12/23/96      0009      Toolset              CCR NA95-11807
+*.       03/16/99      0010      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A3074A__HOLE_FILL (NBOX,CTGRID)
+*.
+*.  MODULE FUNCTION: FILLS HOLES IN CARTESIAN GRID.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT  TYPE        DESCRIPTION
+*.    -   -----  ----        -----------
+*.    C   HI     I*2         Table of I-coordinates of holes in cartesian
+*.                           grid. Number of boxes along I-axis of cartesian
+*.                           grid
+*.    C   HJ     I*2         Table of J-coordinates of holes in cartesian
+*.                           grid. Number of boxes along J-axis of cartesian
+*.                           grid
+*.    P   CTGRID I*2         CARTESIAN GRID
+*.    P   NBOX   I*4         NUMBER OF BOXES ON EACH SIDE OF GRID
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    C   HI      I*2         Table of I-coordinates of holes in cartesian
+*.                            grid. Number of boxes along I-axis of cartesian
+*.                            grid
+*.    C   HJ      I*2         Table of J-coordinates of holes in cartesian
+*.                            grid. Number of boxes along J-axis of cartesian
+*.                            grid
+*.    P   CTGRID  I*2         CARTESIAN GRID
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  NONE
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME     TYPE        DESCRIPTION
+*.    ----     ----        -----------
+*.    BLOTHRSH I*2         PARAMETER FOR BELOW-THRESHOLD VALUE
+*.    CLEAR    I*4         Parameter used to clear a variable.
+*.    H        I*4         DO LOOP INDEX FOR HOLE NUMBER
+*.    HN       I*4         Do loop control variable
+*.    I        I*4         TABLE OF I-COORDINATES FOR NEIGHBORS
+*.    J        I*4         TABLE OF J-COORDINATES FOR NEIGHBORS
+*.    MISSDATA I*2         Value indicating 'Missing Data' in bin.
+*.    NB       I*4         NUMBER OF NEIGHBORS (=4)
+*.    NBTH     I*4         NUMBER OF NEIGHBORS BELOW-THRESHOLD
+*.    NHOLES   I*4         Number of holes in cartesian grid.
+*.    NMD      I*4         NUMBER OF NEIGHBORS MISSING-DATA
+*.    NUM      I*4         COUNT OF NEIGHBORS ABOVE THRESHOLD
+*.    SUBTOT   I*4         SUBTOTAL OF NEIGHBORS ABOVE THRESHOLD
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS: NO TWO HOLES ARE NEIGHBORS
+*.                            IN THE SAME COLUMN OR ROW
+*.
+*.  DEVIATION FROM STANDARDS:  NONE
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP07.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK07.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+      IMPLICIT NONE
+C
+      INTEGER    NBOX, NB, CLEAR
+      INTEGER*2  CTGRID(NBOX,NBOX), BLOTHRSH, MISSDATA
+      PARAMETER (NB=4 , BLOTHRSH=0 , CLEAR=0, MISSDATA=256)
+C
+      INTEGER    H, HN, I(NB), J(NB)
+      INTEGER    NUM, SUBTOT, NBTH, NMD
+C
+$INCLUDE A307.INC,**A3074C (NLIST NEND)
+$INCLUDE          **A3074H (NLIST NEND)
+C--------------------
+C
+C   INITIALIZE COUNT OF NUMBER BELOW THRESHOLD AND NUMBER OF
+C       NEIGHBORS WITH 'MISSING-DATA' VALUE
+      NBTH = CLEAR
+      NMD  = CLEAR
+C
+      DO 100 H=1,NHOLES
+C
+         I(1) = HI(H)
+         J(1) = HJ(H)-1
+         I(2) = HI(H)-1
+         J(2) = HJ(H)
+         I(3) = HI(H)+1
+         J(3) = HJ(H)
+         I(4) = HI(H)
+         J(4) = HJ(H)+1
+C
+         NUM=CLEAR
+         SUBTOT=CLEAR
+C
+         DO 200 HN=1,NB
+            IF (CTGRID(I(HN),J(HN)) .NE. BLOTHRSH .AND.
+     +          CTGRID(I(HN),J(HN)) .NE. MISSDATA) THEN
+                NUM=NUM+1
+                SUBTOT=SUBTOT + CTGRID(I(HN),J(HN))
+            ELSE IF (CTGRID(I(HN),J(HN)) .EQ. BLOTHRSH) THEN
+                NBTH=NBTH+1
+            ELSE IF (CTGRID(I(HN),J(HN)) .EQ. MISSDATA) THEN
+                NMD=NMD+1
+            ENDIF
+  200    CONTINUE
+
+C     FILL HOLE WITH VALUE OF MAJORITY OF NEIGHBORS:
+         IF (NUM .GE. 2) THEN
+             CTGRID(HI(H),HJ(H)) = SUBTOT/NUM
+         ELSE IF (NBTH.GE.2) THEN
+             CTGRID(HI(H),HJ(H)) = BLOTHRSH
+         ELSE
+             CTGRID(HI(H),HJ(H)) = MISSDATA
+         ENDIF
+C
+C
+  100 CONTINUE
+C
+      RETURN
+      END

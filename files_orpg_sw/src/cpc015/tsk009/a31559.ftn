@@ -1,0 +1,153 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/16 19:40:18 $
+C $Id: a31559.ftn,v 1.3 2002/12/16 19:40:18 christie Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A31559__COMP_POSH_MEHS
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A31559__COMP_POSH_MEHS
+*.
+*.  MODULE VERSION: 0002
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       06/20/95      0000      MARK FRESCH          CCR NA94-26301
+*.       12/23/96      0001      Toolset              CCR NA95-11807
+*.       03/16/99      0002      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: A31559__COMP_POSH_MEHS
+*.
+*.  MODULE FUNCTION:
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT  TYPE        DESCRIPTION
+*.    -   -----  ----        -----------
+*.    C   HS_COF R*4         The SHI Hail Size Coefficient in local common
+*.                           adaptation data.
+*.    C   HS_EXP R*4         The SHI Hail Size Exponent in local common
+*.                           adaptation data.
+*.    C   POH    R*4         The Probability of Hail estimate for the cell
+*.                           being processed.
+*.    C   POSH   R*4         The Probability of Severe Hail estimate for the
+*.                           cell being processed.
+*.    C   P_COF  R*4         The scaled POSH Coefficient - scaled for rounding
+*.                           the POSH to the nearest 10%.
+*.    C   P_OFS  R*4         The scaled POSH Offset - scaled for rounding the
+*.                           POSH to he nearest 10%.
+*.    C   SHI    R*4         The Severe Hail Index for the cell being
+*.                           processed.
+*.    C   WT     R*4         The Warning Threshold Selection Model - a
+*.                           weighting factor based on the freezing level used
+*.                           in the POSH computation.
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    C   MEHS    R*4         The maximum expected hail size estimate for the
+*.                            cell being processed.
+*.    C   POH     R*4         The Probability of Hail estimate for the cell
+*.                            being processed.
+*.    C   POSH    R*4         The Probability of Severe Hail estimate for the
+*.                            cell being processed.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME       TYPE        DESCRIPTION
+*.    ----       ----        -----------
+*.    MAXSIZE    R*4         The maximum allowed MEHS.  If the MEHS is large
+*.                           it is flagged by making it negative.
+*.    MEHS_PREL  R*4         The raw, unrounded maximum expected hail size.
+*.    RND_QUARTR R*4         Parameter used to round the MEHS to the nearest
+*.                           quarter inch.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A315CHH
+*.    A315CIH
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.     THIS MODULE IS COMPILED USING THE COMP15.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.     THIS MODULE IS LINKED USING THE LINK15.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+      IMPLICIT NONE
+C
+$INCLUDE A315BUF.INC/G, **A315P9H (NLIST NEND)
+$INCLUDE                **A315CHH (NLIST NEND)
+$INCLUDE A315.INC/G,    **A315CIH (NLIST NEND)
+C
+C** VARIABLE AND PARAMETER DECLARATIONS
+C
+      REAL MEHS_PREL, MAXSIZE, RND_QUARTR
+      PARAMETER (MAXSIZE = 4., RND_QUARTR = 4.)
+C
+C** EXECUTABLE CODE
+C
+C** Check for a negative SHI to prevent an error in the LN function
+C
+      IF (SHI .GT. 0.) THEN
+C
+C** Compute the POSH, rounding to the nearest 10 percent
+C
+         POSH = NINT(P_COF * (ALOG(SHI/WT)) + P_OFS) * 10.
+         IF (POSH .GT. 100.) THEN
+            POSH = 100.
+         ELSE IF (POSH .LT. 0.) THEN
+            POSH = 0.
+         END IF
+C
+C** If POSH is greater than POH, set POH equal to POSH
+C
+         IF (POH .LT. POSH) THEN
+            POH = POSH
+         END IF
+C
+C** Since the SHI is greater than zero, compute the MEHS
+C
+         MEHS_PREL = HS_COF * SHI**HS_EXP
+C
+C** Flag very large Hail Sizes
+C
+         IF (MEHS_PREL .GT. MAXSIZE) THEN
+            MEHS = -MAXSIZE
+         ELSE
+C
+C** Round to the nearest quarter inch
+C
+            MEHS = (NINT(RND_QUARTR * MEHS_PREL))/RND_QUARTR
+         END IF
+      END IF
+C
+      RETURN
+      END

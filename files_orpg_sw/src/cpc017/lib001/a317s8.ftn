@@ -1,0 +1,730 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/17 16:24:51 $
+C $Id: a317s8.ftn,v 1.2 2002/12/17 16:24:51 christie Exp $
+C $Revision: 1.2 $
+C $State: Exp $
+C
+      SUBROUTINE A317S8__PROCESS_SCAN(TDABFPTR, TDARIPTR, TDAAZPTR)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A317S8__PROCESS_SCAN
+*.
+*.  MODULE VERSION: 0001
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       05/29/97      0000      MARK FRESCH          CCR NA95-21503
+*.       03/16/99      0001      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:  A317S8__PROCESS_SCAN ()
+*.
+*.  MODULE FUNCTION:
+*.
+*.  Controls the building of potential 2D features from pattern
+*.  vectors.  Each elevation scan is processed once for each
+*.  Differential Velocity Threshold.  The pattern vectors
+*.  in the current radial are compared to the previous few radials
+*.  for azimuthal and radial proximity.  Pattern vectors within
+*.  threshold proximity are correlated to the same pot. 2D feature.
+*.  After the pattern vectors in the current radial are compared to
+*.  those in the previous radials, the pattern vectors in the
+*.  current radial are compared to each other for radial proximity.
+*.
+*.  When a pattern vector is added to a (pot. 2D) feature, it is
+*.  flagged (RAD_FLAG) as correlated and given an ID from a circular
+*.  list.  At the beginning of the elevation scan, each pattern
+*.  vector's ID and correlation flag is initialized to 0 or
+*.  un-correlated.  After processing the current radial, the pattern
+*.  vectors are reflagged as un-correlated.
+*.
+*.  MODULES CALLED: A317J8__CLOSE_P2D, A317L8__COMPARE_RADS, 
+*.                  A317N8__COMPLETE_SCAN, A317P8__2DF_CONTROL, 
+*.                  A317Q8__COMP_SAME_RAD, A317Z8__REM_UNC_PVS 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT          TYPE        DESCRIPTION
+*.    -   -----          ----        -----------
+*.    G   ADPMVAD        R*4         TDA 2D VECTOR AZIMUTHAL DISTANCE
+*.                                   THRESHOLD
+*.    G   PV_AZIM        R*4         Azimuth of each radial.
+*.    G   PV_INDX        I*2         Index to the first and last pattern
+*.                                   vector in a radial.
+*.    G   TDAMAIN        R*4         An array that holds pattern attributes.
+*.    G   N1D_MAX        I*4         (CONSTANT)MAXIMUM # OF PATTERN VECTORS
+*.                                   THAT CAN BE IDENTIFIED IN AN ELEVATION
+*.                                   SCAN
+*.    C   AZC            I*4         A INDEX TO THE CURRENT RADIAL IN RAD_PV
+*.                                   AND OTHER ASSOCIATED ARRAYS
+*.    C   AZCOUNT        I*4         RADIAL COUNTER
+*.    C   AZT            I*4         A TEMPORARY INDEX FOR ROTATING THE
+*.                                   INDICES TO VARIOUS RADIALS IN RAD_PV AND
+*.                                   OTHER ASSOCIATED ARRAYS
+*.    C   BAZM_NDX       I*4         INDEX TO THE FIRST RADIAL IN THE PATTERN
+*.                                   VECTOR ARRAY, PV_AZIM, FOR THE ELEVATION
+*.                                   SCAN
+*.    C   BPV_NXC        I*4         INDEX TO THE FIRST PATTERN VECTOR IN THE
+*.                                   CURRENT RADIAL INTO THE PATTERN VECTOR
+*.                                   ARRAY, TDAMAIN
+*.    C   EAZM_NDX       I*4         INDEX TO THE LAST RADIAL IN THE PATTERN
+*.                                   VECTOR ARRAY, PV_AZIM, FOR THE ELEVATION
+*.                                   SCAN
+*.    C   EPV_NXC        I*4         INDEX TO THE LAST PATTERN VECTOR IN THE
+*.                                   CURRENT RADIAL INTO THE PATTERN VECTOR
+*.                                   ARRAY, TDAMAIN.  A VALUE OF 0 MEANS NO
+*.                                   PATTERN VECTORS IN RADIAL
+*.    C   HALF_PVAD      R*4         HALF THE VECTOR AZIMUTH DIFFERENCE FOR
+*.                                   THE ABOVE THRESHOLD PATTERN VECTORS IN
+*.                                   THE "CURRENT" AND "PREVIOUS" RADIALS
+*.    C   MIN_VD_TH_INDX I*4         INDEX TO THE LOWEST DIFFERENTIAL VELOCITY
+*.                                   THRESHOLD
+*.    C   NO_ROOM_2D     L*4         FLAG INDICATING WHETHER THERE IS NO ROOM
+*.                                   FOR MORE 2D FEATURES; ALG. PROCESSING
+*.                                   SHOULD SKIP TO 3D
+*.    C   NRPV_TH        I*4         NUMBER OF PATTERN VECTORS FOUND WITH A
+*.                                   DIFFERENTIAL VELOCITY THRESHOLD THAT
+*.                                   BEGIN ON A RADIAL
+*.    C   NUM_PREV_RADS  I*4         # OF PREVIOUS RADIALS WITH PATTERN
+*.                                   VECTORS BEING COMPARED IN THE 2D
+*.                                   PROCESSING - RELATED TO THE MAX. PATTERN
+*.                                   VECTOR AZIMUTHAL DISTANCE THRESH.
+*.    C   N_PREV_2       I*4         TWO TIMES THE # OF PREVIOUS RADIALS WITH
+*.                                   PATTERN VECTORS BEING COMPARED IN THE 2D
+*.                                   PROCESSING
+*.    C   P2DFEAT        R*4         ARRAY CONTAINING ATTRIBUTES OF THE P2DF's
+*.    C   PREV_PTR       I*4         POINTER TO PREVIOUS RADIAL IN VARIOUS
+*.                                   PATTERN VECTOR ARRAYS
+*.    C   PVAD           R*4         VECTOR AZIMUTH DIFFERENCE FOR THE ABOVE
+*.                                   THRESHOLD PATTERN VECTORS IN THE
+*.                                   "CURRENT" AND "PREVIOUS" RADIALS
+*.    C   PVBAZ          R*4         BEGINNING AZIMUTH FOR THE ABOVE THRESHOLD
+*.                                   PATTERN VECTORS IN THE "CURRENT" AND
+*.                                   "PREVIOUS" RADIALS
+*.    C   PVEAZ          R*4         ENDING AZIMUTH FOR THE ABOVE THRESHOLD
+*.                                   PATTERN VECTORS IN THE "CURRENT" AND
+*.                                   "PREVIOUS" RADIALS
+*.    C   RADFLAG        I*4         ARRAY WITH FLAG VALUES INDICATING WHETHER
+*.                                   PATTERN VECTOR HAS BEEN CORRELATED WITH
+*.                                   ANOTHER PATTERN VECTOR
+*.    C   RAD_PV         R*4         CONTAINS THE CORRELATION FLAG, BIN #
+*.                                   (RANGE), AND INDEX INTO TDAMAIN OF THE
+*.                                   ABOVE THRESHOLD PATTERN VECTORS IN THE
+*.                                   "CURRENT" AND "PREVIOUS" RADIALS
+*.    C   VD_INDX        I*4         INDEX TO THE SIX DIFFERENTIAL VELOCITY
+*.                                   THRESHOLDS, PROCESSED FROM LARGEST TO
+*.                                   SMALLEST
+*.    C   VD_TH          R*4         ARRAY OF DIFFERENTIAL VELOCITY THRESHOLDS
+*.                                   ORGANIZED FROM SMALLEST TO GREATEST
+*.    C   BEG_PTR        I*4         (CONSTANT)INDEX INTO P2DF_INDX TO THE
+*.                                   BEGINNING POINTS P2DFEAT OF THE POTENTIAL
+*.                                   2D FEATURES FOUND W/ EACH DIF. VEL.
+*.                                   THRESHOLD
+*.    C   END_PTR        I*4         (CONSTANT)INDEX INTO P2DF_INDX TO THE
+*.                                   ENDING POINTS P2DFEAT OF THE POTENTIAL 2D
+*.                                   FEATURES FOUND W/ EACH DIF. VEL.
+*.                                   THRESHOLD
+*.    C   FLG_FIN        I*4         (CONSTANT)FLAG VALUE INDICATING A PATTERN
+*.                                   VECTOR IS CORRELATED TO A COMPLETED 2D
+*.                                   FEATURE
+*.    C   FLG_UNC        I*4         (CONSTANT)FLAG VALUE INDICATING A PATTERN
+*.                                   VECTOR IS NOT CORRELATED TO A PATTERN
+*.                                   VECTOR IN THE CURRENT 2D FEATURE
+*.    C   MAX_PV_RAD     I*4         (CONSTANT)MAXIMUM NUMBER OF PATTERN
+*.                                   VECTORS PER RADIAL IN THE RAD_PV ARRAY
+*.    C   MAX_TOT_RADS   I*4         (CONSTANT)MAXIMUM NUMBER OF RADIALS IN
+*.                                   THE RAD_PV ARRAY
+*.    C   NUM_P2D_ATR    I*4         (CONSTANT)NUMBER OF POTENTIAL 2D FEATURE
+*.                                   ATTRIBUTES IN P2DFEAT AND OTHER ARRAYS
+*.    C   NUM_VD_TH      I*4         (CONSTANT)NUMBER OF DIFFERENTIAL VELOCITY
+*.                                   THRESHOLDS
+*.    C   P2D_BAZ        I*4         (CONSTANT)INDEX INTO P2DFEAT TO THE
+*.                                   BEGINNING AZIMUTH OF A POTENTIAL 2D
+*.                                   FEATURE IN DEGREES
+*.    C   PI_DEG         R*4         (CONSTANT)PI = 180 DEGREES
+*.    C   PV_BIN         I*4         (CONSTANT)Index in TDAMAIN to pattern
+*.                                   vector bin numbers
+*.    C   PV_DV          I*4         (CONSTANT)Index to Pattern vector delta
+*.                                   velocity
+*.    C   PV_ID          I*4         (CONSTANT)INDEX INTO RAD_PV TO THE 2D
+*.                                   FEATURE ID NUMBER TO WHICH A PATTERN
+*.                                   VECTOR IS ASSIGNED
+*.    C   PV_INX         I*4         (CONSTANT)INDEX INTO RAD_PV TO THE
+*.                                   PATTERN VECTOR POINTER INTO THE PATTERN
+*.                                   VECTOR ARRAY - TDAMAIN
+*.    C   TERM_NATE      I*4         (CONSTANT)FLAG VALUE IN P2DF_PV_INDX
+*.                                   INDICATING THE END OF THE PATTERN VECTOR
+*.                                   LINKED LIST FOR EACH POTENTIAL 2D FEATURE
+*.    C   TWOPI_DEG      R*4         (CONSTANT)TWO TIMES PI = 360 DEGREES
+*.
+*.    *   OUTPUT         TYPE        DESCRIPTION
+*.    -   ------         ----        -----------
+*.    G   ADPMVAD        R*4         TDA 2D VECTOR AZIMUTHAL DISTANCE
+*.                                   THRESHOLD
+*.    C   AZC            I*4         A INDEX TO THE CURRENT RADIAL IN RAD_PV
+*.                                   AND OTHER ASSOCIATED ARRAYS
+*.    C   AZCOUNT        I*4         RADIAL COUNTER
+*.    C   AZT            I*4         A TEMPORARY INDEX FOR ROTATING THE
+*.                                   INDICES TO VARIOUS RADIALS IN RAD_PV AND
+*.                                   OTHER ASSOCIATED ARRAYS
+*.    C   BPV_NXC        I*4         INDEX TO THE FIRST PATTERN VECTOR IN THE
+*.                                   CURRENT RADIAL INTO THE PATTERN VECTOR
+*.                                   ARRAY, TDAMAIN
+*.    C   EPV_NXC        I*4         INDEX TO THE LAST PATTERN VECTOR IN THE
+*.                                   CURRENT RADIAL INTO THE PATTERN VECTOR
+*.                                   ARRAY, TDAMAIN.  A VALUE OF 0 MEANS NO
+*.                                   PATTERN VECTORS IN RADIAL
+*.    C   HALF_PVAD      R*4         HALF THE VECTOR AZIMUTH DIFFERENCE FOR
+*.                                   THE ABOVE THRESHOLD PATTERN VECTORS IN
+*.                                   THE "CURRENT" AND "PREVIOUS" RADIALS
+*.    C   LAB_TABL       I*4         ARRAY OF ACTIVE POTENTIAL 2D FEATURE ID'S
+*.                                   FOR THE DIFFERENTIAL VELOCITY THRESHOLD
+*.    C   NEW_P2DF_CNT   I*4         # OF POTENTIAL 2D FEATURES IDENTIFIED FOR
+*.                                   THE DIFFERENTIAL VELOCITY THRESHOLD ON
+*.                                   THE ELEVATION SCAN
+*.    C   NRPV_TH        I*4         NUMBER OF PATTERN VECTORS FOUND WITH A
+*.                                   DIFFERENTIAL VELOCITY THRESHOLD THAT
+*.                                   BEGIN ON A RADIAL
+*.    C   P2DFEAT        R*4         ARRAY CONTAINING ATTRIBUTES OF THE P2DF's
+*.    C   P2DF_PTR       I*4         POINTER TO THE FIRST PATTERN VECTOR OF A
+*.                                   P2DF IN THE LINKED LIST
+*.    C   P2DF_PV_INDX   I*4         LINKED LIST OF PAT. VECTS BELONGING TO
+*.                                   P2DFs CONTAINING THE INDICES INTO TDAMAIN
+*.                                   OF THE LAST, CURRENT, AND NEXT PATTERN
+*.                                   VECTORS IN THE P2DF
+*.    C   PREV_PTR       I*4         POINTER TO PREVIOUS RADIAL IN VARIOUS
+*.                                   PATTERN VECTOR ARRAYS
+*.    C   PVAD           R*4         VECTOR AZIMUTH DIFFERENCE FOR THE ABOVE
+*.                                   THRESHOLD PATTERN VECTORS IN THE
+*.                                   "CURRENT" AND "PREVIOUS" RADIALS
+*.    C   PVBAZ          R*4         BEGINNING AZIMUTH FOR THE ABOVE THRESHOLD
+*.                                   PATTERN VECTORS IN THE "CURRENT" AND
+*.                                   "PREVIOUS" RADIALS
+*.    C   PVEAZ          R*4         ENDING AZIMUTH FOR THE ABOVE THRESHOLD
+*.                                   PATTERN VECTORS IN THE "CURRENT" AND
+*.                                   "PREVIOUS" RADIALS
+*.    C   PV_ZERO_CROSS  L*4         FLAG INDICATING WHETHER A PATTERN VECTOR
+*.                                   SPANS ZERO DEGREES
+*.    C   RADFLAG        I*4         ARRAY WITH FLAG VALUES INDICATING WHETHER
+*.                                   PATTERN VECTOR HAS BEEN CORRELATED WITH
+*.                                   ANOTHER PATTERN VECTOR
+*.    C   RAD_PV         R*4         CONTAINS THE CORRELATION FLAG, BIN #
+*.                                   (RANGE), AND INDEX INTO TDAMAIN OF THE
+*.                                   ABOVE THRESHOLD PATTERN VECTORS IN THE
+*.                                   "CURRENT" AND "PREVIOUS" RADIALS
+*.    C   RAD_ZERO_CROSS L*4         FLAG INDICATING WHETHER THE VECTOR
+*.                                   AZIMUTH DISTANCE (TWO PATTERN VECTORS)
+*.                                   SPANS ZERO DEGREES
+*.    C   VD_INDX        I*4         INDEX TO THE SIX DIFFERENTIAL VELOCITY
+*.                                   THRESHOLDS, PROCESSED FROM LARGEST TO
+*.                                   SMALLEST
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    C   NRPV_TH           I*4         NUMBER OF PATTERN VECTORS FOUND WITH A
+*.                                      DIFFERENTIAL VELOCITY THRESHOLD THAT
+*.                                      BEGIN ON A RADIAL
+*.    C   P2DFEAT           R*4         ARRAY CONTAINING ATTRIBUTES OF THE
+*.                                      P2DF's
+*.    C   RAD_PV            R*4         CONTAINS THE CORRELATION FLAG, BIN #
+*.                                      (RANGE), AND INDEX INTO TDAMAIN OF THE
+*.                                      ABOVE THRESHOLD PATTERN VECTORS IN THE
+*.                                      "CURRENT" AND "PREVIOUS" RADIALS
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME          TYPE        DESCRIPTION
+*.    ----          ----        -----------
+*.    ATR           I*4         Do loop variable for the potential 2D
+*.                              attributes
+*.    AZM_NDX       I*4         Do loop index for processing all the azimuths
+*.    AZP           I*4         An array of azimuth pointers
+*.    AZ_PTR        I*4         Do loop variable for searching previous
+*.                              radials
+*.    CLOSE_FLG     L*4         Flag indicating that potential 2D feature is
+*.                              closed
+*.    CUR_PV        I*4         Do loop variable for current pattern vector
+*.    DEL_PV        L*4         Flag indicating that the pattern vector will
+*.                              be deleted.
+*.    I             I*4         Do loop index for previous radials
+*.    INDX1         I*4         Parameter for first azimuth
+*.    INDX2         I*4         Parameter for the second azimuth
+*.    IXP           I*4         Loop index used for referencing "previous"
+*.                              radial pattern vectors
+*.    IXX           I*4         Do loop index
+*.    LAB           I*4         Potential 2D feature label
+*.    MAX_2D_FEAT   I*4         MAXIMUM # OF 2D FEATURES PER VOLUME SCAN OR
+*.                              MAXIMUM # OF POTENTIAL 2D FEATURES PER
+*.                              ELEVATION SCAN
+*.    NRPV_CURAD    I*4         Number of pattern vectors for the current
+*.                              radial
+*.    NUM_PVIND_ATR I*4         NUMBER OF ATTRIBUTES IN P2DF_PV_INDX AND OTHER
+*.                              ARRAYS
+*.    N_PREV_1      I*4         Number of previous radials plus one
+*.    PV            I*4         Do loop variable for pattern vector
+*.    VEC_AZ_DIS    R*4         The Vector Azimuthal Distance
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A317CTAD
+*.    PVECS09
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A315P2DC
+*.    A317CDAD
+*.    A317TCA
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:
+*.
+*.     Pattern vectors from radials within a few radials of each
+*.     other will be compared.  The number of radials of separation
+*.     was computed from the 2D Vector Azimuthal Distance Threshold
+*.     assuming a 1 degree beam width.  Here the actual azimuthal
+*.     separation will be checked.
+*.
+*.     The PV_INDX( END_PTR, X) array will be zero whenever
+*.     there are no pattern vectors on radial X.
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     Compiled using COMP17.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     Linked using LINK17.CSS
+*.
+*.  MISC:  None
+*.
+C********************************************************************
+C
+C            TDA 2D PROCESSING: PROCESS SCAN SUBROUTINE
+C
+C********************************************************************
+C
+      IMPLICIT NONE
+C
+C**Attach Pattern Vector shared segments info
+$INCLUDE A317BUF.INC/G, **A317P3T (NLIST)
+$INCLUDE                  **A317PTAD (NLIST)
+$INCLUDE                  **A317CTAD (NLIST)
+C
+$INCLUDE A309.INC/G, **A3PM50 (NLIST NEND)
+$INCLUDE             **A3CD09BL (NLIST)
+C
+C**Attach internal common and parameter info. for building P2DFs.
+$INCLUDE A317.INC/G, **A317TD1 (NLIST)
+$INCLUDE             **A317TDNE (NLIST)
+$INCLUDE             **A317TCP (NLIST)
+$INCLUDE             **A317TCA (NLIST)
+$INCLUDE             **A317CDAD (NLIST)
+$INCLUDE             **A317P2DP (NLIST)
+$INCLUDE             **A317P2DC (NLIST)
+$INCLUDE             **A317TP2 (NLIST)
+$INCLUDE             **A317TC2 (NLIST)
+C
+C
+C********************** DATA DECLARATIONS ***************************
+C
+      REAL VEC_AZ_DIS, AVE_ELEV
+      INTEGER ISTAT, AZM_NDX, IXX, IXP, IXC, AZ_PTR
+      INTEGER LAB, ID, PV, ATR, I, INDX1, INDX2
+      INTEGER AZP(MAX_TOT_RADS), N_PREV_1
+      INTEGER NRPV_CURAD, CUR_PV, PROC_PREV_RADS
+      INTEGER J,FID
+      INTEGER II
+C
+      LOGICAL  DEL_PV, CLOSE_FLG
+C
+      PARAMETER  (INDX1 = 1, INDX2 = 2)
+C
+C****************** BEGIN MAIN PROCESSING SECTION *******************
+C
+      N_PREV_1 = NUM_PREV_RADS + 1
+C
+C** Init the potential 2D feature attribute array.
+C
+      DO 40 IXX = 1, MAX_2D_FEAT
+        DO 50 ATR = 1, NUM_P2D_ATR
+          P2DFEAT( ATR, IXX) = 0.0
+ 50     CONTINUE
+ 40   CONTINUE
+C
+C** Do for all Vel. Dif. Thresholds from largest to smallest
+C
+      DO 1000 VD_INDX = NUM_VD_TH, MIN_VD_TH_INDX, -1
+C
+C** Init. the P2DF_PV_INDX array which points to the pattern vectors
+C** assigned to the potential 2D features, the array which points
+C** to the first pattern vector of each potential 2D feature
+C** in the P2DF_PV_INDX array, and the array which points to the
+C** feature ID.
+C
+        DO 20 IXX = 1, NUM_PVIND_ATR
+          DO 30 PV = 1, N1D_MAX
+            P2DF_PV_INDX(IXX, PV) = TERM_NATE
+ 30       CONTINUE
+ 20     CONTINUE
+C
+        DO 70 IXX = 1, MAX_2D_FEAT
+          P2DF_PTR(IXX) = 0
+          LAB_TABL( IXX ) = 0
+ 70     CONTINUE
+C
+C** Initialize the array with the number of above threshold pattern
+C** vectors in the current and (multiple) previous radials. It is
+C** initialized to zero to avoid problems with the 1st few radials.
+C
+        DO 10 IXX = 1, N_PREV_2
+          NRPV_TH( IXX ) = 0
+ 10     CONTINUE
+C
+C** Set azimuth pointers for processing 1st few azimuths.
+C** AZP array points to all the previous radials.  During 2D
+C** potential 2D feature building, as the index to the AZP
+C** array decreases, it points to a radial
+C** farther away (more clockwise) from the current radial.  Hence,
+C** after the 1st few radials are processed, AZP(NUM_PREV_RADS)
+C** will point to the radial just left of the current radial. The
+C** 1st few positions will always point to the first few radials.
+C
+      AZC = INDX1
+      AZT = INDX2
+C
+C** Init. the pointers to the 1st few radials - the info. in these
+C** radials will be saved & used at the end of the elevation scan.
+C
+      DO 11 I = 1, NUM_PREV_RADS
+        AZP(I) = I
+ 11   CONTINUE
+C
+      AZP(N_PREV_2) = AZC + 1
+C
+      DO 12 I = N_PREV_2 - 1, N_PREV_1, -1
+        AZP(I) = AZP(I + 1) + 1
+ 12   CONTINUE
+C
+C** Init. the radial counter, the assigned pattern vector counter,
+C** and the pot. 2D feature counter for this dif. vel. threshold.
+C
+        AZCOUNT = 0
+        NEW_P2DF_CNT = 0
+C
+C** DO FOR ALL AZIMUTHS
+C
+        DO 100 AZM_NDX = BAZM_NDX, EAZM_NDX
+C
+C** Increment the radial counter.
+C
+          AZCOUNT = AZCOUNT + 1
+C
+C** For each radial initialize the zero-cross flag.
+C
+          PV_ZERO_CROSS = .FALSE.
+C
+C** Get the beginning & ending p-vector indices for this radial.
+C
+          BPV_NXC = PV_INDX( BEG_PTR, AZM_NDX )
+          EPV_NXC = PV_INDX( END_PTR, AZM_NDX )
+C
+C** Initialize the number of pattern vectors at this differential
+C** velocity threshold to zero.
+C
+          NRPV_TH(AZC) = 0
+C
+C** If there are any pattern vectors in this radial...
+C
+          IF(EPV_NXC.GT.0) THEN
+C
+C** Compute the pattern vector beginning & ending az. and delta
+C** azimuth in degrees.
+C** These will be the same for all pattern vectors in the radial
+C
+            PVBAZ(AZC) = PV_AZIM(AZM_NDX)
+C
+            IF (AZM_NDX .LT. EAZM_NDX) THEN
+              PVEAZ(AZC) = PV_AZIM(AZM_NDX+1)
+            ELSE
+              PVEAZ(AZC) = PV_AZIM(BAZM_NDX)
+            ENDIF
+C
+            PVAD(AZC) = ABS(PVEAZ(AZC) - PVBAZ(AZC))
+C
+C** Check that the pattern vector delta azimuth did not cross 0 deg
+C
+            IF (PVAD(AZC) .GT. PI_DEG) THEN
+              PVAD(AZC) = TWOPI_DEG - PVAD(AZC)
+C
+C** Set the zero-cross flag to true; any potential 2D feature
+C** containing a pattern vector on this radial will cross zero.
+C
+              PV_ZERO_CROSS = .TRUE.
+            ENDIF
+C
+C** For efficiency, compute the half pattern vector delta azimuth
+C
+            HALF_PVAD(AZC) = PVAD(AZC) * 0.5
+C
+C** Set the number of p-vectors for this radial
+C** as the difference between the ending & beginning indices + 1.
+C** If EPV_NXD = 0 (i.e. no pattern vectors), then processing
+C** wouldn't get this far.
+C
+            NRPV_CURAD = EPV_NXC - BPV_NXC + 1
+C
+C** Loop through all pattern vectors in this radial to count &
+C** identify those that exceed the Vel. Dif. Threshold(VD_INDX)
+C
+            DO 60 CUR_PV = BPV_NXC, NRPV_CURAD + BPV_NXC - 1
+              IF (TDAMAIN(PV_DV, CUR_PV)
+     1            .GE. VD_TH(VD_INDX)) THEN
+C
+C** Ensure there is enough room for the pattern vector in the array
+C
+                IF (NRPV_TH(AZC) .LT. MAX_PV_RAD) THEN
+C
+C** Save and count the above threshold pattern vectors
+C
+                  NRPV_TH(AZC) = NRPV_TH(AZC) + 1
+C
+C** Save the above threshold pattern vectors & their range(bins)
+C** on this radial for future processing
+C
+                  RAD_PV(PV_BIN, NRPV_TH(AZC), AZC) =
+     1               TDAMAIN(PV_BIN, CUR_PV)
+C
+C** Set the pattern vector pointer to the original TDAMAIN.  This
+C** way, when the pattern vector is added to a feature downstream
+C** it's place in TDAMAIN will be known.
+C
+                  RAD_PV(PV_INX, NRPV_TH(AZC), AZC) = CUR_PV
+C
+C** Initialize each pattern vector's potential 2D feature ID
+C** and correlation flag to uncorrelated (or 0).
+C
+                  RAD_PV(PV_ID, NRPV_TH(AZC), AZC) = FLG_UNC
+                  RADFLAG( AZC, NRPV_TH(AZC)) = FLG_UNC
+                ENDIF
+              ENDIF
+ 60         CONTINUE
+          ENDIF
+C
+C** Begin building 2D features by joining (above threshold) pattern
+C** vectors from nearby radials.  The pattern vectors in the current
+C** radial will be compared with those in the previous few radials
+C** and others in the current radial for radial and azimuthal
+C** proximity.  The number of previous radials compared comes from
+C** the 2D Vector Azimuthal Distance Threshold.  First, ensure that
+C** there are above threshold pattern vectors on the current radial.
+C
+          IF (NRPV_TH(AZC) .GT. 0) THEN
+           DO 110 AZ_PTR = N_PREV_2, N_PREV_1, -1
+C
+C** Init. whether the two radials cross zero
+C
+            RAD_ZERO_CROSS = .FALSE.
+C
+C** For efficiency...
+C
+            PREV_PTR = AZP(AZ_PTR)
+C
+C** First, ensure that there are above
+C** threshold pattern vectors on the previous radial.
+C
+            IF (NRPV_TH(PREV_PTR) .GT. 0) THEN
+C
+C** Compute the Vector Azimuthal Distance.  This value will be the
+C** same for all pattern vectors on this and the previous radial.
+C
+              VEC_AZ_DIS = ABS((HALF_PVAD(PREV_PTR) +
+     >          PVBAZ(PREV_PTR)) - (HALF_PVAD(AZC) + PVBAZ(AZC)))
+C
+C** If the difference in azimuth is more than 180 degrees, then
+C** then the two radials cross zero degrees.
+C
+              IF (VEC_AZ_DIS .GT. PI_DEG) THEN
+                VEC_AZ_DIS = TWOPI_DEG - VEC_AZ_DIS
+                RAD_ZERO_CROSS = .TRUE.
+              END IF
+C
+C** Check the Vector Azimuthal Distance against the 2D Vector
+C** Azimuthal Distance Threshold.
+C
+              IF (VEC_AZ_DIS .LE. ADPMVAD) THEN
+C
+C** If the azimuthal distance between radials is less than or
+C** equal to threshold, compare the pattern vectors of both the
+C** "current" and "previous" radials & combine into 2D features
+C** if they are close in range.
+C
+                CALL A317L8__COMPARE_RADS( NRPV_TH(PREV_PTR),
+     >             NRPV_TH(AZC), RAD_PV(1,1,PREV_PTR),
+     >             RAD_PV(1,1,AZC) )
+              END IF
+            END IF
+ 110       CONTINUE
+C
+C Reinitialize the RAD_ZERO_CROSS to ensure it is not TRUE when
+C A317Q8 is called.
+C
+           RAD_ZERO_CROSS = .FALSE.
+C
+C** Call A317Q8_COMP_SAME_RAD to compare the pattern vectors on the
+C** current radial against each other for radial distance proximity.
+C** Also, after all pattern vectors have been tested (in A317Q8),
+C** begin a new potential 2D feature for any pattern vector in the
+C** current radial which emerged from the comparison uncorrelated.
+C** Each time a new potential 2D feature is begun, we must test
+C** whether there is a feature ID available.  If no ID is available,
+C** the pattern vector will be removed.  During this processing,
+C** DEL_PV will indicate whether pattern vectors are be removed.
+C
+           DEL_PV = .FALSE.
+C
+           CALL A317Q8__COMP_SAME_RAD( DEL_PV, NRPV_TH(AZC),
+     >                                  RAD_PV(1, 1, AZC))
+C
+C** Remove pattern vectors from RAD_PV if the ID stack was exhausted
+C
+           IF( DEL_PV ) CALL A317Z8__REM_UNC_PVS( NRPV_TH( AZC),
+     >          RAD_PV( 1, 1, AZC ) )
+C
+          END IF
+C
+C** After all pattern vectors are tested on the last previous
+C** radial, close any potential 2D features w/ pattern vectors
+C** in the LAST previous radial (most counter-clockwise) which
+C** weren't correlated, unless it's associated feature was alive
+C** in the first few radials.
+C** (The # of pattern vectors in the previous radials was
+C** init. to 0 for the 1st few radials. Therefore, this loop won't be
+C** executed until AZCOUNT is > to NUM_PREV_RADS * 2).
+C
+          IF (AZCOUNT .GT. N_PREV_2) THEN
+C
+            PREV_PTR = AZP(N_PREV_1)
+C
+C** Ensure that enough previous radials have been processed.
+C** At this point, PREV_PTR points to the LAST previous radial.
+C
+            DO 130  IXP = 1, NRPV_TH( PREV_PTR )
+              IF ( RADFLAG(PREV_PTR, IXP) .EQ. FLG_UNC )  THEN
+C
+                LAB = RAD_PV(PV_ID, IXP, PREV_PTR)
+C
+               CLOSE_FLG = .TRUE.
+               DO 1301 I = BAZM_NDX, BAZM_NDX - 1 + NUM_PREV_RADS
+                 IF(P2DFEAT(P2D_BAZ,LAB) .EQ. PV_AZIM(I))
+     >                                    CLOSE_FLG = .FALSE.
+ 1301          CONTINUE
+               IF( CLOSE_FLG )
+     >           CALL A317J8__CLOSE_P2D(P2DFEAT(1,LAB),LAB)
+C
+C** Mark any additional branches (i.e. pattern vectors of closed
+C** pot. 2D features) as finished to avoid duplicate processing
+C** (i.e. reclosing of previously closed pot. 2D features).
+C** When a pattern vector is correlated to a pot. 2D feature, then
+C** (in A317L8) all pattern vectors in the first previous radial
+C** belonging to the same pot. 2D feature are also flagged as
+C** correlated.  If a pattern vector in the farthest previous radial
+C** remains uncorrelated, so are all other pattern vectors belonging
+C** to the same pot. 2D feature.
+C
+                DO 140  IXX = 1, NRPV_TH(PREV_PTR)
+                  IF (RAD_PV(PV_ID, IXX, PREV_PTR) .EQ. LAB)
+     $                          RADFLAG(PREV_PTR, IXX) = FLG_FIN
+ 140            CONTINUE
+C
+             END IF
+ 130       CONTINUE
+         END IF
+C
+C
+C** Flip-flop indices of current & previous radials to prepare for
+C** processing next pair.
+C** Set AZC and the pointer to the next radial
+C** unless its the last radial.
+C
+         IF(AZM_NDX .LT. EAZM_NDX) THEN
+          AZP(N_PREV_2) = AZC
+          AZC = AZT
+C
+C** Now set the rest of AZP, depending on AZCOUNT
+C
+          IF (AZCOUNT .LE. NUM_PREV_RADS) THEN
+C
+C** If AZCOUNT is in the first few radials then only set
+C** as much of AZP as is needed.
+C
+            DO 13 I = 1, AZCOUNT-1
+              AZP(N_PREV_2 - I) = AZP(N_PREV_2 - I + 1) - 1
+ 13         CONTINUE
+          ELSE
+C
+C** Otherwise, set all of the top half of AZP
+C
+            DO 14 I = 1, NUM_PREV_RADS - 1
+              AZP(N_PREV_2 - I) = AZP(N_PREV_2 - I + 1) - 1
+C
+C** If the azimuth count is greater than 2*NUM_PREV_RADS, then
+C** ensure that the value remains higher than N_PREV_1
+C
+              IF (AZP(N_PREV_2 - I) .LT. N_PREV_1) THEN
+                IF (AZCOUNT .GT. N_PREV_2) THEN
+                  AZP(N_PREV_2 - I) = N_PREV_2 + 1
+                END IF
+              END IF
+ 14         CONTINUE
+          END IF
+C
+C** Now set AZT
+C
+          IF (AZCOUNT .LT. N_PREV_2) THEN
+             AZT = AZC + 1
+          ELSE
+             AZT = AZP(N_PREV_1)
+          END IF
+         END IF
+C
+ 100    CONTINUE
+C
+C** Complete elevation scan processing by comparing pattern vectors
+C** in the last few radials of the scan w/ the 1st few in the scan.
+C
+        CALL A317N8__COMPLETE_SCAN( AZP )
+C
+C** Call the routine which controls the processing of potential
+C** 2D features, A317P8.  Potential 2D features will be thresholded
+C** for min. # of pattern vectors; have their pattern vectors
+C** sorted by range; have their pattern vectors trimmed so
+C** that only one pattern vector remains at each range; thresholded
+C** for aspect ratio; tested for overlap with previously found &
+C** saved 2D Features (overlapping features are not saved); and
+C** stored as a 2D Feature.
+C
+        CALL A317P8__2DF_CONTROL()
+C
+C** If the maximum # of 2D features have already been identified,
+C** jump out of 2D processing for this elevation and volume scan.
+C
+        IF (NO_ROOM_2D) GOTO 1010
+ 1000 CONTINUE
+ 1010 CONTINUE
+C
+C************** END OF PROCESSING FOR SUBROUTINE ********************
+C
+      RETURN
+      END

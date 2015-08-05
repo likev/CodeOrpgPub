@@ -1,0 +1,234 @@
+C 
+C RCS info 
+C $Author: steves $ 
+C $Locker:  $ 
+C $Date: 2005/08/04 14:33:34 $ 
+C $Id: a313g1.ftn,v 1.6 2005/08/04 14:33:34 steves Exp $ 
+C $Revision: 1.6 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A313G1__CART_MAP1(NSTBIN,LASTBIN,HEIGHT,SINAZ,COSAZ,
+     $                             XAZFUNC_PTL,YAZFUNC_PTL,LIQWAT,
+     $                             PTLVIL,MXLIQWAT,ETVAL,BEAM_DEPTH)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A313G1__CART_MAP1
+*.
+*.  MODULE VERSION: 0012
+*.
+*.  MODULE LANGUAGE:  FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       05 25 85      0000      Bradley Sutker       RPG Build #1
+*.       09 28 88      0001      CHI CHAN             SPR #80293
+*.       02 13 91      0002      BAYARD JOHNSTON      SPR # 91254
+*.       12 03 91      0003      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0004      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0005      Toolset              SPR 91895
+*.       03/25/93      0006      Toolset              SPR NA93-06801
+*.       01/28/94      0007      Toolset              SPR NA94-01101
+*.       03/03/94      0008      Toolset              SPR NA94-05501
+*.       05/05/94      0009      STEVE SMITH          CCR 93158-003A00
+*.       04/11/96      0010      Toolset              CCR NA95-11802
+*.       12/23/96      0011      Toolset              CCR NA95-11807
+*.       03/16/99      0012      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:
+*.
+*.    CALL A313G1__CART_MAP1(NSTBIN,LASTBIN,HEIGHT,COSEL,SINAZ,COSAZ
+*.                           XAZFUNC_PTL,YAZFUNC_PTL,LIQWAT,PTLVIL,
+*.                           MXLIQWAT,ETVAL,BEAM_DEPTH)
+*.
+*.  MODULE FUNCTION:
+*.     This routine takes polar radial data and transforms
+*.     it onto a Cartesian grid box array.  For each value
+*.     that is mapped (ie. a maximum) a current  Echo  Top
+*.     is determined or  a partial  VIL is calculated  for
+*.     that box.   That particular value  remains  in that
+*.     box until, or  unless it is surpassed in magnitude
+*.     by a polar grid value that falls into that box.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT         TYPE        DESCRIPTION
+*.    -   -----         ----        -----------
+*.    G   NCOL          I*4         (CONSTANT)Number of analysis box columns.
+*.    G   NROW          I*4         (CONSTANT)Number of analysis box rows.
+*.    C   GRID_CENTER_I R*4         (CONSTANT)Parameter for the center of the
+*.                                  grid in the i-direction
+*.    C   GRID_CENTER_J R*4         (CONSTANT)Parameter for the center of the
+*.                                  grid in the j-direction
+*.    C   MAXBINS       I*4         (CONSTANT)Maximum number of bins to be
+*.                                  processed.
+*.    P   BEAM_DEPTH    R*4         COMPUTED beam depth TABLE array, in km.
+*.    P   COSAZ         R*4         Cosine of the radial azimuth angle
+*.    P   ETVAL         I*2         The Echo Tops Cartesian output array
+*.                                  (size: NCOL x NROW), in 1000 feet.
+*.    P   HEIGHT        I*2         The echo height array, in thousands of
+*.                                  feet.
+*.    P   LASTBIN       I*4         The number of the last bin to be processed
+*.                                  in a given radial.
+*.    P   LIQWAT        I*2         The liquid water value array, in
+*.                                  hundredths of g/m**3.
+*.    P   MXLIQWAT      I*2         The maximum liquid water value array, in
+*.                                  hundreths of g/m**3.
+*.    P   NSTBIN        I*2         The range of the first reflectivity
+*.                                  sample, in number of bins.
+*.    P   SINAZ         R*4         Sine of radial azimuth
+*.    P   XAZFUNC_PTL   R*4         Partial x Cartesian mapping parameter
+*.    P   YAZFUNC_PTL   R*4         Partial y Cartesian mapping parameter
+*.
+*.    *   OUTPUT   TYPE        DESCRIPTION
+*.    -   ------   ----        -----------
+*.    P   ETVAL    I*2         The Echo Tops Cartesian output array (size:
+*.                             NCOL x NROW), in 1000 feet.
+*.    P   MXLIQWAT I*2         The maximum liquid water value array, in
+*.                             hundreths of g/m**3.
+*.    P   PTLVIL   R*4         The partial VIL array, in kg/m**3.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME    TYPE        DESCRIPTION
+*.    ----    ----        -----------
+*.    I       I*4         The I box start position.
+*.    IH      I*2         The I axis cartesian mapping variable.
+*.    J       I*4         The J box start position.
+*.    JH      I*2         J axis cartesian mapping variable.
+*.    MAXRBIN I*4         Dimension of array BEAM_DEPTH.
+*.    NBIN    I*4         A bin number index.
+*.    STPOS   R*4         The position of the first good radial bin being
+*.                        mapped, in km.
+*.    XAZFUNC I*4         An initial x-axis Cartesian mapping parameter, in
+*.                        1/km.
+*.    YAZFUNC I*4         An initial y-axis Cartesian mapping parameter, in
+*.                        1/km.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:
+*.
+*.    The surveillance sample interval size is assumed 1 kilometer.  If
+*.    the sample interval size changes, the variable STPOS must be multipled
+*.    by the sample interval size in kilometers.
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP13.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK13.CSS
+*.
+*.  MISC:
+*.
+*.     Further description of the Product Index and Disk Space Map
+*.     organization may be found in the CPCI 03 C5 document.
+*.
+*.*******************************************************************
+C
+C*****************************************************
+C*             THE THIRD OF FIVE                     *
+C*           OF THE VIL/ECHO TOPS                    *
+C*          PROCESSING SUBROUTINES                   *
+C*               A313G1.FTN                          *
+C*        *** CARTESIAN MAPPING ***                  *
+C*****************************************************
+      IMPLICIT NONE
+C
+C Include common parameter file
+C
+$INCLUDE A313BUF.INC/G,**A313P0 (NLIST)
+$INCLUDE               **A313ZA (NLIST)
+C
+C  Local declarations
+C
+      INTEGER XAZFUNC,YAZFUNC
+      REAL STPOS,COSAZ,SINAZ,XAZFUNC_PTL,YAZFUNC_PTL
+C
+      INTEGER I,J,NBIN,LASTBIN
+C
+      INTEGER*2 NSTBIN,HEIGHT(MAXBINS)
+      INTEGER*2 LIQWAT(MAXBINS),MXLIQWAT(NCOL,NROW)
+      INTEGER*2 IH(2),JH(2)
+      INTEGER   MAXRBIN
+      PARAMETER (MAXRBIN=230)
+      INTEGER W
+#IFDEF LITTLE_ENDIAN_MACHINE
+      PARAMETER (W=2)
+#ELSE
+      PARAMETER (W=1)
+#ENDIF
+C
+      REAL BEAM_DEPTH(MAXRBIN), PTLVIL(NCOL,NROW)
+      EQUIVALENCE (IH(1),I)
+      EQUIVALENCE (JH(1),J)
+
+C
+C  Initialize mapping parameters
+C
+      STPOS=FLOAT(NSTBIN)-0.5
+C
+      XAZFUNC = INT(XAZFUNC_PTL*SINAZ)
+      YAZFUNC = INT(YAZFUNC_PTL*COSAZ)
+C
+      I = GRID_CENTER_I+(XAZFUNC*STPOS)
+      J = GRID_CENTER_J-(YAZFUNC*STPOS)
+C
+C Do for all analysis BOXes
+C
+        DO 10 NBIN=NSTBIN,LASTBIN
+
+C
+C Determine the partial VIL from the maximum liquid water
+C value within the VIL analysis BOX times the beam depth
+C
+          IF (LIQWAT(NBIN) .GT. MXLIQWAT(IH(W),JH(W))) THEN
+C
+C Set the current maximum liquid water
+C
+            MXLIQWAT(IH(W),JH(W))=LIQWAT(NBIN)
+C
+C Compute partial VIL rounding to the nearest integer by adding
+C 50, units in hundredths of kg/m**2.
+C
+            PTLVIL(IH(W),JH(W)) = FLOAT(LIQWAT(NBIN))*BEAM_DEPTH(NBIN) 
+
+          END IF
+
+C
+C Determine the echo top (biased by +1) from the maximum height
+C within the ECHO TOP analysis BOX. NOTE: 1 has been previously added
+C HEIGHT to to distinguish between rounded 0 and
+C preset 0 (background), in 1000 feet.
+C
+          IF (HEIGHT(NBIN) .GT. ETVAL(IH(W),JH(W))) THEN
+              ETVAL(IH(W),JH(W)) = HEIGHT(NBIN)
+          ENDIF
+C
+C Increment I and J counters
+C
+          I = I + XAZFUNC
+          J = J - YAZFUNC
+  
+10      CONTINUE
+      RETURN
+      END

@@ -1,0 +1,385 @@
+#!/bin/sh
+
+# RCS info
+# $Author: ccalvert $
+# $Locker:  $
+# $Date: 2011/08/29 14:41:23 $
+# $Id: ROC_update.script,v 1.22 2011/08/29 14:41:23 ccalvert Exp $
+# $Revision: 1.22 $
+# $State: Exp $
+
+#**************************************************************************
+#
+# Title:        ROC_update
+#
+# Description:  Update currently installed RPG software
+#
+#**************************************************************************
+
+CD_DIR=""
+INSTALL_SCRIPT_NAME=INSTALL
+UNINSTALL_SCRIPT_NAME=UNINSTALL
+VERSION_FILE_NAME=version_rpg
+CURRENT_VERSION_FILE=$CFG_DIR/$VERSION_FILE_NAME
+TEMP_FILE=/tmp/.tmp_rpg_build_file
+INTERACTIVE_FLAG=YES
+DISPLAY_BUILD_INFO_FLAG=NO
+
+#**************************************************************************
+#**************************************************************************
+#
+# Start of Functions
+#
+#**************************************************************************
+#**************************************************************************
+
+#**************************************************************************
+# PRINT_USAGE: Display "help" to screen.
+#**************************************************************************
+
+print_usage ()
+{
+  echo
+  echo
+  echo "************************************************"
+  echo "This script installs updates to the system software"
+  echo
+  echo "The following are valid flags"
+  echo
+  echo "-h - help"
+  echo "-b - display current build information"
+  echo "-N - non-interactive (invoked from script)"
+  echo "************************************************"
+  echo
+  echo
+}
+
+#**************************************************************************
+# ECHO_STDOUT: Echo to stdout.
+#**************************************************************************
+
+echo_stdout ()
+{
+  echo -e $1
+  echo -e $1 | $LE_LOG_CMD
+}
+
+#**************************************************************************
+# ECHO_STDERR: Echo to stderr.
+#**************************************************************************
+
+echo_stderr ()
+{
+  echo -e $1 >&2
+  echo -e $1 | $LE_ERR_CMD
+}
+
+#**************************************************************************
+# ECHO_INT: Echo if interactive. Output does not go to log file.
+#**************************************************************************
+
+echo_int ()
+{
+  if [ $INTERACTIVE_FLAG = "YES" ]
+  then
+    echo -e $1
+  fi
+}
+
+#**************************************************************************
+# ECHO_ERROR: Echo error message and exit.
+#**************************************************************************
+
+echo_error ()
+{
+  if [ $# -eq 1 ]
+  then
+    exit_code=1
+  else
+    exit_code=$2
+  fi
+
+  echo_int
+  echo_int
+  echo_int "IN SCRIPT: $0"
+  echo_stderr "ERROR: $1"
+  echo_int "Stopping script"
+  echo_int "Use -h option for help"
+  echo_int
+  echo_int
+
+  exit $exit_code
+}
+
+#**************************************************************************
+# INIT_LE_LOG: Initialize logging.
+#**************************************************************************
+
+init_le_log ()
+{
+  LE_NUM_LINES=100
+
+  LE_UID=`id -u 2>/dev/null`
+  if [ $? -ne 0 -o "$LE_UID" = "" ]
+  then
+    echo_error "Command \"id -u 2>/dev/null\" failed ($?)"
+  fi
+  LE_GID=`id -g 2>/dev/null`
+  if [ $? -ne 0 -o "$LE_GID" = "" ]
+  then
+    echo_error "Command \"id -g 2>/dev/null\" failed ($?)"
+  fi
+  LE_FILE_NAME=`basename $0 2>/dev/null`
+  if [ $? -ne 0 -o "$LE_FILE_NAME" = "" ]
+  then
+    echo_error "Command \"basename $0 2>/dev/null\" failed ($?)"
+  fi
+
+  LE_LOG_CMD="le_pipe -t $LE_FILE_NAME -n $LE_NUM_LINES -w $LE_UID -g $LE_GID"
+  LE_ERR_CMD="$LE_LOG_CMD -e GL_ERROR"
+}
+
+#**************************************************************************
+# PARSE_INPUT: Parse command line input.
+#**************************************************************************
+
+parse_input ()
+{
+  # Parse input options/arguments. If option doesn't have an argument (and
+  # requires one) or option isn't valid, print message and exit.
+
+  while getopts hblN optionflag
+  do
+    case $optionflag in
+       h) print_usage; exit 0;;
+       b) DISPLAY_BUILD_INFO_FLAG=YES;;
+       N) INTERACTIVE_FLAG=NO;;
+      \?) echo_error "Invalid input flag"
+    esac
+  done
+
+  # If user only wants build info, do it now. Put this here (instead of
+  # calling in getopts loop) so all flags can be processed.
+
+  if [ $DISPLAY_BUILD_INFO_FLAG = "YES" ]
+  then
+    display_build_info
+  fi
+}
+
+#**************************************************************************
+# INITIAL_SETUP: Set initial variables.
+#**************************************************************************
+
+initial_setup ()
+{
+  # Make sure version file exists
+
+  if [ ! -f $CURRENT_VERSION_FILE ]
+  then
+    echo_error "File: $CURRENT_VERSION_FILE does not exist"
+  fi
+
+  # Make sure user has root priviliges
+
+  if [ `whoami` != "root" ]
+  then
+    echo_error "You do not have root priviliges"
+  fi
+
+  # Mount CD
+
+  echo_stdout "Mounting Patch CD"
+
+  CD_DIR=`medcp -pm cd`
+
+  if [ $? -ne 0 ]
+  then
+    echo_error "Unable to mount CD" 2
+  elif [ "$CD_DIR" = "" ]
+  then
+    echo_error "CD directory undefined"
+  fi
+}
+
+#**************************************************************************
+# DISPLAY_BUILD_INFO: Display build information from version file.
+#**************************************************************************
+
+display_build_info ()
+{
+  build_record=`cat $CURRENT_VERSION_FILE | egrep '^[0-9]+\.[0-9]+:.*:c[0-9]+\.[0-9]+*:[0-9]+\.[0-9]+:[0-9]+\.[0-9]+:[0-9]+\/[0-9]+\/[0-9]+$'`
+
+  # If build info wasn't found, something is wrong.
+  if [ "$build_record" = "" ]
+  then
+    echo_error "Could not find build information in $CURRENT_VERSION_FILE"
+  fi
+
+  # Pull overall version from first token (colon delimited) of record
+  overall_version=`echo $build_record | awk -F : '{print $1}'`
+  # Pull apps info from second token (colon delimited) of record
+  apps_info=`echo $build_record | awk -F : '{print $2}'`
+  # Pull apps version from second token (space delimited) of apps info
+  apps_version=`echo $apps_info | awk '{print $2}'`
+
+  echo_int
+  echo_int
+  echo_stdout "RPG Build: $overall_version Version: $apps_version"
+  echo_int
+  echo_int
+  exit 0
+}
+
+#**************************************************************************
+# INSTALL_SYSTEM_UPDATES: Install updates to the system
+#**************************************************************************
+
+install_system_updates ()
+{
+  # Get list of updates to install from the CD. 
+  # It is assumed that anything in the $CD_DIR
+  # directory is an update that needs to get
+  # installed. Sort the list so that the lowest
+  # numbered update is installed first.
+
+  update_list=`ls $CD_DIR 2> /dev/null | egrep '^[0-9]+\.[0-9]+$' | sort`
+
+  # If build list is empty, something is wrong.
+
+  if [ "$update_list" = "" ]
+  then
+    echo_error "No updates found in $CD_DIR"
+  fi
+
+  # Loop through list of updates to install.
+
+  for update_num in $update_list
+  do
+    # Construct path to update
+    update_dir=$CD_DIR/$update_num 
+
+    # Make sure it is a directory
+    if [ ! -d $update_dir ]
+    then
+      echo_error "$update_dir is not a directory"
+    fi
+
+    # Each update must contain an install and uninstall script
+    # and a new version file
+    if [ ! -f $update_dir/$INSTALL_SCRIPT_NAME ]
+    then
+      echo_error "File $INSTALL_SCRIPT_NAME does not exist in $update_dir"
+    fi
+    if [ ! -f $update_dir/$UNINSTALL_SCRIPT_NAME ]
+    then
+      echo_error "File $UNINSTALL_SCRIPT_NAME does not exist in $update_dir"
+    fi
+    if [ ! -f $update_dir/$VERSION_FILE_NAME ]
+    then
+      echo_error "File $VERSION_FILE_NAME does not exist in $update_dir"
+    fi
+
+    # Execute the install script
+    $update_dir/$INSTALL_SCRIPT_NAME
+    ret_code=$?
+
+    # If there is an error, uninstall the update and exit.
+    if [ $ret_code -ne 0 ]
+    then
+      $update_dir/$UNINSTALL_SCRIPT_NAME
+      echo_error "Error installing update $update_num ($ret_code)"
+    fi
+
+    # Update version file with new information.
+    edit_version_file $update_dir/$VERSION_FILE_NAME
+
+    echo_int
+    echo_int
+    echo_stdout "Successfully installed update $update_num"
+    echo_int
+    echo_int
+  done
+}
+
+#**************************************************************************
+# EDIT_VERSION_FILE: Edit version file with updated build number.
+#**************************************************************************
+
+edit_version_file ()
+{
+  # Name of new version file was passed into function
+  new_version_file=$1
+
+  new_build_record=`cat $new_version_file | egrep '^[0-9]+\.[0-9]+:.*:c[0-9]+\.[0-9]+*:[0-9]+\.[0-9]+:[0-9]+\.[0-9]+:[0-9]+\/[0-9]+\/[0-9]+$'`
+
+  # If build info wasn't found, something is wrong
+  if [ "$new_build_record" = "" ]
+  then
+    echo_error "Could not find build information in $new_version_file"
+  fi
+
+  grep "$new_build_record" $CURRENT_VERSION_FILE > /dev/null 2>&1
+  if [ $? -eq 0 ]
+  then
+    echo_stdout "Record in $new_version_file already in $CURRENT_VERSION_FILE"
+    echo_stdout "Skipping update of $CURRENT_VERSION_FILE"
+    return
+  fi
+
+  # Comment out build record of current version file
+  awk '
+  {
+    if( $0 ~ /^[0-9]/ ){ print "#"$0 }
+    else{ print $0 }
+  }' $CURRENT_VERSION_FILE > $TEMP_FILE
+
+  # Append new build record to version file to show update history
+  echo $new_build_record >> $TEMP_FILE
+
+  cp -f $TEMP_FILE $CURRENT_VERSION_FILE > /dev/null 2>&1
+  rm -f $TEMP_FILE > /dev/null 2>&1
+}
+
+#**************************************************************************
+# CLEANUP_FUNCTION: Clean up loose ends.
+#**************************************************************************
+
+cleanup_function ()
+{
+  echo_stdout "Unmount and eject Patch CD"
+  # Change directory to make sure CD unmounts/ejects
+  cd > /dev/null 2>&1
+  medcp -ue cd 2> /dev/null
+}
+
+#**************************************************************************
+#**************************************************************************
+#
+# End of Functions
+#
+#**************************************************************************
+#**************************************************************************
+
+#**************************************************************************
+#**************************************************************************
+#
+# Main Body of Script
+#
+#**************************************************************************
+#**************************************************************************
+
+init_le_log
+parse_input "$@"
+initial_setup
+install_system_updates
+cleanup_function
+
+echo_int
+echo_int
+echo_stdout "Successful update of RPG"
+echo_int
+echo_int
+
+exit 0
+

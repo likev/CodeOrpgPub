@@ -1,0 +1,1193 @@
+
+NAME
+    p_server - The ORPG product server.
+
+SYNOPSIS
+    p_server [-fvs] p_server_index
+
+DESCRIPTION
+
+    The ORPG product server (p_server) is the task that implements product 
+    distribution procedures for all users. Multiple instances of p_server 
+    can be invoked in an ORPG runtime system. Each p_server instance, 
+    identified by a unique p_server index, serves a specified subset of 
+    configured product distribution lines. The p_server index must be 
+    specified on the p_server command line.
+
+    p_server uses the comm_manager's services to exchange messages with the 
+    users on the WAN lines. This allows a communication hardware/software
+    independent p_server implementation.
+
+    A user profile based product distribution control approach is adopted. 
+    Each user accesses selected ORPG product distribution services defined 
+    in the user's user profile. With this approach, the availability of 
+    each service is controlled on user bases and every user has access to 
+    an individually defined set of services. The user profile based 
+    product distribution control approach supports flexible product 
+    distribution service configuration.
+
+    Each dedicated line has a defined user profile. For dial users, each 
+    user has a specific user profile. User profiles are field editable and 
+    can be modified while ORPG is in operation. However any modification to
+    a user's user profile does not become effective until the next time the 
+    user connects to a product distribution line. There are no predefined 
+    user classes. Special user profiles may be created for emulating the 
+    legacy user classes.
+
+    One of the ORPG design concepts is to make the product distribution 
+    control independent of the product generation control.
+
+    p_server functions:
+
+	In the following, a product is an ORPG product with all its parameters 
+	specified. A product has a product ID, specified parameters including 
+	elevation, if applicable, and a volume scan time if it has been 
+	generated. A product type is specified by an ORPG product ID and an 
+	elevation index if the product is elevation based. Any product of a 
+	given product type is thus generated per volume. Note that the CFC 
+	product is an exception. It does not use any radar data and thus is, 
+	strictly speaking, not a radar product. It is a piece of information 
+	about the current processing parameters used in RDA.
+
+	A. Serve routine products
+
+	p_server accepts user routine product distribution request messages.
+	When a routine product request is received, p_server verifies the total
+	numbers of products requested, checks the permission for each product 
+	in the request, marks those products that are not permitted and sends 
+	the request to the routine product scheduler for product generation 
+	scheduling. 
+
+	A user can only request up to a certain number of products in terms of
+	the user's user profile. When a user requests more products than the
+	limit allows, the entire request is considered as invalid. An invalid
+	request is rejected and an RR message (ILLEGAL_REQ) is sent to the
+	user. The previously accepted request is still in effect after this
+	event.
+
+	Product types subject to be requested for routine distribution are
+	controlled by the user profile's distribution permission table. All
+	permissible product types must be in the permission table. If a product
+	in a request message is found not in the permission table, an RR
+	message with ILLEGAL_REQ code is sent to the user and the product is
+	not scheduled and distributed. This is implemented by setting the
+	"num_products" field for the product in the request to 0.
+
+	A permission checked user routine product request message is sent to
+	the ps_routine for product generation scheduling. A routine product
+	request remains effective until the next request message from the same
+	user is received or the user is disconnected. Each new routine product
+	request message cancels (overrides) the previous routine product
+	request.
+
+	For each user, a routine product distribution list is maintained. The 
+	list contains all permitted products found in the previous routine 
+	product request message. Any newly generated product that is in the 
+	list is put in the user's distribution queue immediately and will be 
+	sent to the user according to its distribution priority. The 
+	distribution terminates when the specified total distribution numbers 
+	are reached.
+
+	Routine products are sent to each user at specified frequency when 
+	they are generated. The distribution starts from the current volume 
+	scan when the request is received. Products generated in the current 
+	volume scan and before the request is received is not distributed.
+	Already distributed products are not re-distributed.
+
+	A Request Response message is sent to the user when a product in the
+	user's distribution list cannot be distributed for any of the following
+	reasons:
+
+	Product not transmitted due to NB load-shedding.
+	Product generation failed due to memory load-shed, CPU load-shed,
+	    data unavailable, task busy or task failure.
+
+	The RR message is sent with an appropriate error code. Several product
+	generation failure conditions, e.g. volume restarted, are indicated as
+	CPU Load Shed in current RPG. New error codes may be added in ORPG. We
+	need to clarify the error code.
+
+	A user may have a "default distribution list" if so defined in the
+	user's user profile. The default distribution list specifies a list of
+	products that are automatically distributed to the user after
+	connection. Distribution frequency and priority, applicable weather
+	modes and the total distribution number are specified for each product
+	in the default distribution list.
+
+	The default distribution list is treated as a "default routine product
+	request", which means that, after the connection is made to a user,
+	p_server processes the default distribution list as if such a request
+	is received from the user right after connection. No permission checks
+	are performed for products in the default distribution list. Like a
+	normal routine product request, it can be overridden by a valid user
+	routine product request.
+
+	User Alert message and Free Text message may not appear in a routine 
+	product request list. This is implemented by not allowing them to be
+	in the permission table of a user profile.
+
+	If a format transformation is needed, the product is transformed before
+	sending to the user.
+
+	Product dependent parameters are signed short integers (16 bit). Almost
+	six parameters are allowed for product request. The following special
+	values are used (See prod_user_msg.h) for "wild card" and other special
+	meanings:
+
+	    PARAM_UNUSED (-32768): This parameter is not used.
+
+	    PARAM_ANY_VALUE (-32767): This parameter can be of any value.
+
+	    PARAM_ALG_SET (-32766): This parameter value is to be determined 
+				    by the product generator.
+
+	    PARAM_ALL_VALUES (-32765): A multiple requests for products of
+				       all possible values for this parameter. 
+
+	    PARAM_ALL_EXISTING (-32764): A multiple requests for existing 
+					 products of all values for this 
+					 parameter.
+
+	B. Serve one-time requested products
+
+	For a one-time product request, p_server sends it to the one-time
+	product scheduler (ps_onetime) to process. A one-time requested product
+	may already have been generated by routine product generation or a
+	previous one-time product generation. If it does not exist, ps_onetime
+	will schedule generation from either the real time data or playback
+	data. In response to each request, upon receiving a response from
+	ps_onetime, p_server sends to the user either the product or a Request
+	Response message indicating the failure condition.
+
+	Currently, all products that can be generated by playback data are
+	elevation based. The legacy RPG accepts at most 10 per type and 40 in 
+	total one-time requested products. This is implemented in ps_onetime.
+
+	Each one-time product request message can request multiple products. 
+	Each product will have a separate response from ps_onetime. However, a 
+	product request message can not request both one-time and routine 
+	products.
+
+	A dial-in user can send multiple requests after connection. When all
+	requests are responded, the connection will be disconnected.
+
+	One-time products that can be distributed to a user is controlled by 
+	the distribution permission table specified in the user's user profile. 
+	p_server performs the permission check for each product in a request
+	message. If a product is found not in the permission table, an RR
+	message (ILLEGAL_REQ) is sent to the user and the "num_products" field 
+	is set to 0 for the product in the request before the request is sent
+	to ps_onetime.
+
+	A Request Response message will be sent to the user when a requested 
+	product cannot be distributed for any of the following reasons:
+
+	Product not transmitted due to NB load-shedding.
+	Product not available:
+	    product unavailable in the product stores and not subject to 
+	    one-time generation.
+	    one-time generation failed due to memory load-shed, CPU load-shed,
+	    data unavailable, task busy or task failure.
+
+	If a format transformation is needed, the product is transformed before
+	sending to the user.
+
+	p_server allows multiple products in one product request. However, all
+	of them must be either routine products or one-time products. In the
+	legacy RPG, the one-time request message normally contains only
+	one-product. There is also a special case for SWA products, which is
+	processed by ps_one_time. A class 1 user may issue a one-time request
+	for 4 SWA type products all in the same request message block (i.e., 5
+	blocks in message with 4 being one-time requests). That is, they
+	request SWR, SWV, SWS, SWW for all the same elevation and center point.
+	They can also substitute SRR for SWV in this package. The purpose of
+	this type of request packaging is to assure that all 4 panels of the
+	SWA display are generated from the same volume scan. Otherwise, if they
+	are requested sequentially and a elevation or volume transition occurs,
+	a mix may occur. DISTRIB handles this by not scheduling one-time
+	product generation for this type of request until all requests in the
+	package of 4 requests are processed (i.e., they are all processed for
+	generation at the same time). In addition, logic to handle database
+	lookup for this type of packaged one-time request is affected in that
+	they must all be from the same volume scan.
+
+	The FAA WARP uses their dedicated line for redirecting one-time 
+	requests from many other WARP. Thus the requests from the WARP on the 
+	dedicated line have different source IDs. And in the return message, 
+	the destination ID must be set to the source ID of the corresponding 
+	requests. This behavior is supported if we set the control bit 
+	UP_CD_MULTI_SRC in the user profiles. Otherwise, the messages from
+	a dedicated user must have correct source ID and the destination ID in 
+	the response will be the user's ID. If the source ID is incorrect,
+	the user message is discarded and an ORPG LE message is reported.
+
+	There is no limit on the maximum number of pending one-time requested 
+	products. However, an implementation specific limit may exist and, 
+	when the limit is reached, new requests will be discarded and error 
+	messages will be posted.
+
+	How do we treat bad user messages? For dedicated lines, we send Request
+	Response messages in responding to these messages. For dial-up lines, 
+	we terminate the connection after 3 consecutive invalid requests. 
+	Invalid requests include connection time extension request from a 
+	non-privileged user, message requesting an unauthorized product and 
+	messages containing invalid fields.
+
+	C. Distribute messages
+
+	Free text messages received from the users, who have the permission
+	of sending user messages according to the user profiles, will be stored
+	and transmitted to the users designated in the message headers. The
+	free message is distributed with high priority. There is no way to send
+	message from PUP to RPG in the legacy system.
+
+	The messages received from RPGOP/PUP are of code 75 (id FTXTMSG). RPG
+	generated text messages will have the same code. In the legacy RPG, a
+	message generated by the RPGOP for all users will be sent to all
+	connected users. However, if it is generated by PUP for all, it will be
+	sent to all dedicated users. We implement this too.
+
+	We convert a user text message, after it is received, to the ORPG
+	format (using product dependent parameters for receiving user specs).
+	It is then saved in FTXTMSG. The RPG text message generated by the HCI
+	will be stored in the same LB. An even is posted when such a message is
+	written. p_server then distributes each message to the specified users.
+
+	D. Send status and other info to the users
+
+	General Status messages are sent to the user if so specified in the
+	user's user profile (UP_CD_STATUS control bit). p_server sends a
+	General Status message to the user after the connection is built and
+	the sign-on, if applicable, is completed. The message is also sent
+	every time the general status changes.
+
+	RPG product list message, which contains a list of all products that
+	are currently scheduled by default for generation, is transmitted to
+	the user upon request if so specified in the user's user profile
+	(UP_CD_PROD_GEN_LIST control bit). Only valid final products (code >=
+	16) are in the list.
+
+	The list of products that are available for one-time requests is sent
+	to the user if so specified in the user's user profile
+	(UP_CD_PROD_DISTRI_LIST control bit). It is sent upon connection and at
+	the beginning of each new volume scan if the message is updated. The
+	list contains all products that are scheduled for generation and
+	allowed for request in terms of the user's product distribution
+	permission list. Only valid final products (code >= 16) are in the
+	list.
+
+	Mike commented: 10. Section 2D para. 3 sentence 2. Currently, for class
+	1 users the Product List Message is sent only upon request.
+
+	E. Send Alerts
+
+	Certain users are defined as alert users in terms of the user profiles
+	(UP_CD_ALERTS control bit).
+
+	Alerts and user alerts are sent to the alert users as soon as they are
+	generated. Alert products are sent to the alert users based on
+	requests.
+
+	Alert Request messages from alert users, are received and sent to the
+	routine product scheduler for processing.
+
+	The alert users are notified when the alert condition is first detected
+	by the ORPG, and when the alert condition ends, via the Alert message.
+
+	An Alert Adaptation Parameters message is sent to each alert user after
+	the initial General Status message. Each alert user will also receive
+	this message if any changes are made to the Alert Thresholds or Product
+	Alert Pairing by the ORPG.
+
+	The Alert Adaptation Parameters message will be sent to the user upon
+	connection if the user does not use alerts and the UP_CD_AAPM control
+	bit is set. This feature is in response to Mike's comments 11.
+
+	F. Product annotation
+
+	Product annotation is not implemented.
+
+	Steve called Mike Istok (03/31/99). The decision is that the annotation
+	functionality is not of a high priority. We will postpone its 
+	implementation when we are further notified.
+
+	G. Background map distribution
+
+	Background map distribution is not implemented.
+
+	Mike Istok's comment: Currently, only class 4 users have the capability
+	to get the set of maps upon connection (which they don't do unless new
+	maps become available and they coordinate with a site to turn on the
+	flags and get them). Only class 2 users can request associated maps
+	with products. Class 3(PUES) and 5b(RFC) users can request specific
+	maps (but these maps may be going away). Maps are big and users
+	generally don't like waiting for them unless they absolutely need them.
+
+	H. Prioritized transmission
+
+	All outgoing messages are put in a queue for each user. The messages
+	are sent according to the following priority list:
+
+	    1a. Alerts
+	    1b. Product Request Response and General Status Messages
+	    2. Alert products
+	    3. One-time products (High Priority)
+	    4. Routine products (High Priority)
+	    5. Low priority products (one-time and routine)
+
+	The above priority list can not be modified.
+
+	We use a numerical priority measure for implementing the above
+	prioritized distribution. The product, in the queue, with the highest
+	distribution priority number is first distributed. The distribution
+	priority number is defined as:
+
+	p (distri) = category * 10000000 + priority * 10000 + ot * 1000
+
+	where:
+
+	category:	message category: 
+
+		3 - Alerts; 
+		2 - Product Request Response and General Status Messages; 
+		1 - Alert products; 
+		0 - products.
+
+	priority:	priority specified in user requests:
+
+		1 - high;
+		0 - low.
+
+	ot:	one-time or routine product:
+
+		1 - one-time;
+		0 - routine.
+
+	I. Get user (APUP) status
+
+	The user Status (i.e. APUP status) message is expected to be received
+	upon link connection, upon change or in response to a Request PUP/RPGOP
+	Status message if the user is specified to do so in the user's user
+	profile (UP_CD_APUP_STATUS control bit). The message is published. We
+	do not track and report the successfulness after sending a Request
+	RPGOP/PUP message.
+
+	J. Authentication
+
+	User profile for each user is retrieved from the user table after the
+	user is connected. For users on a dedicated line the user profile
+	associated with the line is used. For a user on a line other than the
+	dedicated line, the user ID, received from the sign-on message, is used
+	to retrieve the user's profile. The user profiles are generated when
+	new users are added to the product user table. All dedicated lines must
+	have user profiles defined in the table. If the user profile for a
+	dedicate line is found to be missing, p_server will terminate. If the
+	user profile for a dial-in user is not found the user is notified and
+	the line is disconnected.
+
+	Authentication applies to dial-in users. After connection, the user
+	sends a sign-on request. p_server retrieves the user profile based on
+	the user ID and verifies both the port password and the user password
+	stored in the user profile. If the user's sign-on message is not valid
+	or the user does not have a user profile or fails to provide the right
+	passwords, a Request Response Message (Illegal Request) will be sent to
+	the user indicating the access was denied due to an invalid password.
+	The id of the failed user is reported. Upon completion of password
+	verification, the maximum connect time for that port will be sent to
+	the user through the General Status Message.
+
+	The line will be disconnected if the password check fails or a Sign-on 
+	request was not received within a specified time period (AUTH_TIME, 60 
+	seconds).
+
+	K. Accept connection
+
+	A link is either enabled or disabled. The state may be changed by the
+	Enable/Disable Link command. The link enable state is part of the
+	product distribution control information. Thus when p_server restarts,
+	it is possible to inherit the link enable states for all links.
+
+	The link state can only be changed while the p_server state is
+	disconnected. In any other states, the link state must be enabled. Upon
+	receiving a link disable command, the disabling link procedure starts
+	while the link state remains in enabled until the link is disconnected
+	and the p_server state turns into disconnected. While conducting the
+	disabling link procedure, another enable/disable command will not
+	become effect until the procedure finishes.
+
+	Every configured dial-in or dedicated line is ready to accept an
+	incoming connect request, if the line is enabled and in disconnected
+	status, excluding the following exceptions. There is a time period
+	(CONNECT_FAILURE_TIME, 3 seconds), after a line connection failure,
+	within which a line does not accept an incoming connection. In test
+	mode, the dedicated lines except those connected to RPGOP users are not
+	accepting a connection.
+
+	A user on a non-dedicated line will have a connection time limit. When
+	this time expires, the user will be disconnected. This time is
+	specified in the user profile.
+
+	A user can extend this time limit by sending a Maximum Connection Time
+	Disable Request message after sign-on or setting the
+	disconn_override_flag flag in the sign-on message. Connection time
+	extension request is granted only if the user has the privilege as
+	defined in the user's user profile (UP_CD_OVERRIDE control bit). A user
+	can only extend the time once and the extended connection time can not
+	exceed a maximum value (connect_time_limit) set up in the adaptation
+	data. If a connection time extension request is not granted, a Request
+	Response message (errno code = Illegal Request) will be sent to the
+	user. When the disconn_override_flag flag is used, the connection time
+	is extended to the maximum value (connect_time_limit). When the Maximum
+	Connection Time Disable Request is used, the connection time is
+	extended to the smaller of the specified extended time or the maximum
+	allowable value (connect_time_limit).
+
+	For non-privileged users a connect time extension request is considered
+	as an invalid user message. The request will not be processed and three
+	consecutive invalid user messages will cause connection termination.
+
+	L. Process RCM
+
+	When an RCM product is generated, it is sent to a specified APUP (RCM 
+	User ID in the adaptation data) for editing. The APUP should send back 
+	a RCM Edit/No-Edit message as a response. It will also sent the Edited 
+	Post-Edit RCM back if it edits the RCM.
+
+	The RCM is marked as Unedited Post-Edit RCM, if
+
+	    that APUP is not connected,
+	    RCM Edit/No-Edit message is not received within Edit Decision Time 
+	    in the adaptation data,
+	    RCM Edit/No-Edit message indicates No Edit, or
+	    Edited Post-Edit RCM version is not received within Editing 
+	    Time-out in the adaptation data.
+
+	The Edited or Unedited Post-Edit RCM is sent to all RCM users.
+	Distribution of Unedited Post-Edit RCM to Other Users may be prohibited
+	if RCM Class IV Restriction in the adaptation data is set.
+
+	M. Monitor and report status (lines and users)
+
+	A report containing the following status items for each link is 
+	published upon change (Refer to data struct Prod_user_status in 
+	prod_status.h):
+
+	Enable Status: US_ENABLED or US_DISABLED. The following 
+		       items are valid only if Enable Status is US_ENABLED.
+	Link Status: US_DISCONNECTED, US_CONNECT_PENDING or US_CONNECTED.
+	Load-shed Status: US_LOAD_NORMAL, US_LOAD_SHED. Valid only if Link 
+			  Status is US_CONNECTED.
+	Line Status: US_LINE_NORMAL, US_LINE_NOISY (only if Link Status is 
+		     US_CONNECTED), US_UNABLE_CONN_DEDIC, (repeated connection 
+		     trials failed on a dedicated line) or US_LINE_FAILED 
+		     (a hardware or comms server configuration error has been 
+		     detected and operator's intervention may be needed).
+	Disconnection Reason: (Valid only if Link Status is US_DISCONNECTED)
+
+	    US_SOLICITED: 	Transaction finished.
+	    US_SESSION_EXPIRED:	Session time limit reached.
+	    US_IN_TEST_MODE: 	RPG enters or is in test mode.
+	    US_OTHER_SIDE_REQ: 	User originated disconnection.
+	    US_IO_ERROR: 	Fatal I/O error (fatal error detected in a 
+				lower comms layer, connection lost, 
+				comm_manager restarts, read/write timed-out,
+				connection trial failed due to an error).
+	    US_BAD_ID:		User profile not found.
+	    US_BAD_PASSWORD: 	Incorrect port or user password.
+	    US_INVALID_MSGS:	Too many (3) consecutive invalid messages or 
+				invalid sign-on message.
+	    US_NOT_RESPONDING: 	User is not responding for certain time (e.g 
+				sign-on timed-out).
+	    US_SHUTDOWN:	The system is commanded to be shutdown.
+	    US_LINK_DISABLED:	The link is commanded to be disabled.
+	    US_CONNECT_TIMED_OUT: Connection can not be made before time-out.
+
+
+	User ID: Valid only if Link Status is US_CONNECTED or US_DISCONNECTED 
+		 (for certain disconnection reasons only).
+	Achieved Baud Rate: This is valid whenever available.
+	Time: The reporting time.
+
+	The product user status for each line is stored in
+	ORPGDAT_PROD_USER_STATUS, a LB_REPLACEABLE type LB, as a message with
+	ID = line index. When a message in ORPGDAT_PROD_USER_STATUS is updated,
+	an event ORPGEVT_PROD_USER_STATUS is posted. The line index is
+	specified in the event message (a character). Each product user status
+	message is an array of Prod_user_status data structure. The size of the
+	array is US_STATUS_SIZE. The array contains a history of latest product
+	user status for the line. The first element is the latest. Any status
+	change on a line will cause a product status message update for that
+	line.
+
+	Note that US_OTHER_SIDE_REQ disconnection is not implemented because
+	there is no way for the product user to tell ORPG for requesting a
+	disconnection in the current ICD.
+
+	N. NB load-shed
+
+	NB load-shed applies only to selected users specified in the user 
+	profiles (UP_CD_COMM_LOAD_SHED control bit).
+
+	The Narrow band Comm Line Utilization is evaluated based on the amount 
+	of data queued and the Narrow band Baud Rate in the adaptation data:
+
+	    (n_bits_in_the_queue / baud_rate) / volume_time. 
+
+	If the line utilization exceeds the Overload Alarm Threshold in the 
+	adaptation data, the following steps are performed in the order given 
+	until the line utilization drops below the Overload Warning Threshold:
+
+	    1. Load-shed any product whose transmission priority is a 4 or 5 
+	    and whose volume scan time is not the current or previous.
+
+	    2. Load-shed products based on product priority as defined in the 
+	    Product Load Shedding Priorities Table for Modes A and B in 
+	    the adaptation data.
+
+	We use a numerical priority measure, similar to that used for 
+	prioritized distribution, for implementing the above NB load-shed 
+	requirements. The product, in the queue, with the lowest in-queue 
+	priority number is first load-shed. The in-queue priority number is 
+	defined as:
+
+	p (in-queue) = category * 10000000 + vol * 100000 + 
+				priority * 10000 + ot * 1000 + pp
+
+	where category, priority and ot are explained earlier and
+
+	vol:	message time:
+
+		10 - current volume;
+		9 - previous volume;
+		...
+		0 - older than 9 previous volumes;
+
+	pp:	product priority value:
+
+		0 - 255.
+
+	Each ORPG product has a specified priority value (0 - 255 with a higher
+	number indicating a higher relative priority) as defined in product
+	gen/distri info. This value is used for determining load-shed
+	priorities.
+
+	NB load-shed is performed when line utilization exceeds the Overload
+	Alarm Threshold. The product with the lowest in-queue priority is
+	discarded recursively until the line utilization is lower than the
+	Overload Warning Threshold.
+
+	A GSM (with NB status = Narrow-band Load-shed) is sent to the user
+	after NB load shed.
+
+	The legacy NB load shed priority is determined only by the priority
+	specified in the requests. If two products have the same priority, the
+	first one put in queue is shed first (according to Joe, OSF training).
+
+	O. Terminate a user connection
+
+	Upon disabling NB:
+
+	    Complete transmission of the product being transmitted. The user 
+	    is notified of an impending line disconnection by a general status 
+	    message with rpg_nb_status set to commanded disconnect. The 
+	    disconnection then follows.
+
+	Upon connection time-out:
+
+	    This applies to dial-in users. The current product transmission 
+	    will be completed and the user is notified of an impending 
+	    disconnection (Commanded Disconnect, General Status Message). The 
+	    disconnection then follows.
+
+	Bad requests:
+
+	    Requesting either a unlisted product or a connection extension 
+	    without the appropriate privilege will be considered as invalid. 
+	    Other bad user messages may also treated as invalid. For dial-in 
+	    users, three consecutive invalid requests will cause an impending 
+	    line disconnection notification (Illegal Request) followed by 
+	    line disconnection. This event is reported through a status LE 
+	    message.
+
+	Product distribution completed:
+
+	    This applies to users that are specified to be disconnected after
+	    product distribution completion (UP_CD_DAC control bit). When all 
+	    products scheduled for routine transmission have been sent, the 
+	    user is notified of an impending line disconnection (Commanded 
+	    Disconnect, General Status Message). The disconnection then 
+	    follows. This feature is designed for users receiving default 
+	    product distribution.
+
+	    For dial-in users, the line is disconnected if all one-time 
+	    requested products are responded.
+	  
+	RPS list is not received in 30 seconds:
+
+	    This applies to users that are specified to be disconnected after
+	    failing to receive the RPS list (UP_CD_RPS_REQUIRED control bit).
+	    If no RPS list is received in 30 seconds after connection, the 
+	    user is notified of an impending line disconnection (Commanded 
+	    Disconnect, General Status Message). The disconnection then 
+	    follows. This feature guarantees that p_server receives an RPS
+	    list for routine product distribution after a disconnect/connect
+	    cycle in which PUP fails to detect the disconnection.
+  
+	Unsolicited disconnect or transaction time-out:
+
+	    If a connected dedicated or dial-in line experiences 
+
+		a. an unsolicited disconnect,
+		b. a message read/write that can not finish within Data 
+		   Transmission Time-Out (adaptation data) time period, 
+		c. an I/O error,
+		d. other unrecoverable error.
+
+	    the line is disconnected.
+
+	    Note: These events are detected by the comm_manager. p_server is
+	    notified by the comm_manager via CM_EVENT responses.
+
+	Shutdown command:
+
+	    Complete transmission of the current product.
+	    Notify the user of expected shutdown by a general status message 
+		with rpg_op_status set to commanded shutdown.
+	    Disconnect the line.
+	    The line can not be enabled after shutdown. When all lines are 
+		shutdown, p_server terminates.
+
+	When a line is disconnected, the write queue is cleared and all user
+	requests are canceled. p_server sends each message to the routine
+	product scheduler, the one-time product scheduler and the product
+	reformator to cancel its previous requests.
+
+	If a connect request failed or can not be completed within a certain
+	time period (CONNECTION TRY TIME), we consider it as a failed connect
+	trial. If the number of consecutive failed connect trials on a
+	dedicated line exceeds "Narrow band Retries" defined in the adaptation,
+	we set the line to be "failed". A failed line will not accept any
+	incoming connect request until the line is enabled by the operator.
+
+	If the UP_CD_IMM_DISCON control flag is set in the user's user profile,
+	lines are disconnected immediately instead of waiting for completion of
+	the current product. Refer to Mike's comment 19.
+
+	P. RPG Test mode
+
+	Entering test mode:
+
+	    Finishing current product transmission.
+	    Send status to all users, except those specified as RPGOP,  
+	    indicating the test mode and thus a pending disconnect. 
+	    Disconnection then follows. RPGOP user service will continue.
+
+	In test mode:
+
+	    The dial-in lines are available for connection. When a dial-in 
+	    user gets connected, the user will be sent a general 
+	    status message indicating test mode. Disconnection then follows.
+
+	    Dedicated lines except those for RPGOP users are not accepting 
+	    connection.
+
+	    RPGOP users get the same service as in normal operational mode.
+
+	    Mike (comment 20): Only dial-in users will get this since all of 
+	    the dedicated users (except RPGOP) are already disconnected.  
+	    Also, note that currently the system can leave test mode in the 
+	    middle of a volume scan.  Still have to send a GSM to the RPGOP 
+	    since they will supply a new RPS list (for maintenance weather 
+	    mode).
+
+	    Steve said: The test mode, as other operation mode, is strictly
+	    dependent on the VCP. VCP can not change within a volume. A change
+	    has to cause a volume scan abort. Thus in order to detect test mode 
+	    change it is sufficient to check it at beginning of every volume.
+
+	Exiting test mode:
+
+	    A General Status message is sent to RPGOP users indicating 
+	    "exiting test mode". Non-RPGOP dedicated lines are ready for
+	    accepting connection.
+
+	The entering/exiting test mode commands are trigged by the volume start
+	event and the RDA/RPG status data.
+
+	For RPGOP users (as indicated by the UP_CD_RPGOP bit in the user
+	profile), we assume that the UP_CD_STATUS control bit is already set
+	and thus we don't need to send a GSM to the user upon Entering/Exiting
+	test mode. For other users, we send a GSM message upon Entering test
+	mode. This requires UP_CD_STATUS control bit set. Duplicated GSM
+	messages are eliminated.
+
+    Inputs, outputs and events:
+
+	A. Product distribution adaptation data
+
+	p_server uses the adaptation data stored in message PD_LINE_INFO_MSG_ID
+	in LB ORPGDAT_PROD_INFO. The message contains a data structure
+	Pd_distri_info and a structure of Pd_line_entry for each configured
+	product distribution line. These data structures are defined in
+	prod_distri_info.h. Pd_distri_info provides basic product distribution
+	adaptation data. Pd_line_entry supplies the necessary distribution line
+	related adaptation info.
+
+	LB message PD_LINE_INFO_MSG_ID must exist when p_server is started. It
+	can be modified while p_server is running. Event ORPGEVT_PD_LINE is
+	expected when the message is updated. All updated fields will become
+	effective immediately. Note that the current state resulted from the
+	old values before the update will not change. For example, if the
+	current user's connection time was already extended based on the old
+	"connect_time_limit", the new value of "connect_time_limit" will not
+	change the current user's connection time. In the current
+	implementation, the following fields can not change without terminating
+	and restarting p_server: "n_lines" - the number of configured NB comm
+	lines; "line_ind", "cm_ind" and "p_server_ind" for each line.
+
+	Command "ipi" can be used for initializing the PD_LINE_INFO_MSG_ID
+	message. For this purpose, "ipi" reads info from two ASCII files. The
+	first file provides the basic product distribution adaptation data. The
+	name of this file is provided through an ipi command line option with a
+	default of "pd_table". The second file provides the comm line
+	information. Because this file is shared by other ORPG tasks, its name
+	is defined in the ORPG system configuration with key
+	"ORPGDAT_COMM_LINK_CONFIG". Refer to samples of these two files for how
+	to prepare those files.
+
+	p_server requires the product priority information from the product
+	attribute table stored in message PD_PROD_ATTR_MSG_ID in LB
+	ORPGDAT_PROD_INFO. Event ORPGEVT_PROD_ATTR is expected when the message
+	is updated.
+
+	B. User profiles
+
+	p_server retrieves a user's profile from the RPG user profile database.
+	Each user profile contains a Pd_user_entry structure followed by
+	tables. The table "pms_list", an array of structure Pd_pms_entry, is
+	the distribution permission table. The table "dd_list", an array of
+	structure Pd_prod_item, specifies the default distribution list. The
+	table "map_list", an array of prod_id_t, is the map list for the user.
+	All these data structures and data types are defined in
+	prod_distri_info.h.
+
+	Pd_user_entry contains the basic user profile fields and the locations
+	of the other tables. The "cntl" field defines all binary distribution
+	control functions. For example, if bit UP_CD_OVERRIDE is set, the
+	maximum connection time override is enabled. The bits in field
+	"defined" tell us which fields in Pd_user_entry are defined and which
+	are not. See prod_distri_info.h for further details.
+
+	The product distribution permission table is a list of the following
+	data structure Pd_pms_entry:
+
+	typedef struct {
+	    prod_id_t prod_id;	/* product buffer number or PD_PMS_NONE or
+				   PD_PMS_ALL*/
+	    char wx_modes;	/* applicable weather modes: setting bit n 
+				   (0, 1, 2, ... ; 0 is LSB) indicates that 
+				   this entry is applied to weather mode n */ 
+	    char types;		/* applicable distri type bits: PD_TYPE_ROUTINE
+				   and PD_TYPE_ONETIME */
+	} Pd_pms_entry;
+
+	Where PD_TYPE_ROUTINE = 1 and PD_TYPE_ONETIME = 2;
+
+	The product distribution permission table lists all products that can
+	possibly be requested for either routine distribution and/or one-time
+	distribution.
+
+	The following is an example list (each line is one item in the list).
+
+	2	6	3
+	4	2	2
+	4	2	1
+
+	The first line indicates that product 2 (2) can be requested for both
+	routine and one-time distributions (3) for weather modes 1 and 2 (6).
+	The second line indicates that product 4 (4) can be requested for
+	one-time distributions (2) for weather mode 1 (2). The third line
+	indicates that product 4 (4) can be requested for routine distributions
+	(1) for weather mode 1 (2).
+
+	Two special values PD_PMS_ALL (-1) and PD_PMS_NON (-2) can be used in
+	the prod_id field to indicate "all products" and "no product". E.g.
+
+	If the following lines exist in the table,
+
+	-1	6	3
+	-2	1	3
+
+	then all ORPG products (-1) are allowed for requesting for both
+	one-time and routine (3) distribution for weather modes 1 and 2 (6),
+	but no product (-2) is allowed for requesting for either routine or
+	one-time distribution (3) for whether mode 0 (1).
+
+	The list is checked sequentially from the first entry. Conflicting
+	specifications are not checked and allowed. Thus a later entry may
+	override a previous entry.
+
+	If the product distribution permission table is empty, no product is
+	allowed for requesting.
+
+	A user can have a default product distribution list which specifies a
+	set of products that will be automatically distributed to the user
+	after connection is made. The default distribution list functions like
+	a default routine product request message as described earlier. If the
+	default product distribution table is empty, no product is distributed
+	automatically. If all products are completely delivered and the
+	termination upon completion flag is set in the user's user profile, the
+	connection to the user is terminated.
+
+	p_server searches for a user's profile after the user is connected. For
+	dedicated lines, each line is associated with a unique user profile.
+	For dial-in users, the user profile corresponding to the user's ID is
+	retrieved. If the expected user file is not found, the user is rejected
+	and a line disconnection follows. For dial-in user, this is considered
+	as a sign-on failure.
+
+	The user profiles can be modified while p_server is running. The event
+	ORPGEVT_PD_USER is expected when the message is updated. The updated
+	user profile will become effective for the each user's next user
+	session.
+
+	User profiles are stored in the RPG user profile database data store
+	(ORPGDAT_USER_PROFILES). Command "ipi" can be used for initializing the
+	data store. For this purpose, "ipi" reads data from an ASCII file,
+	which provides the user profiles in the ASCII text form. The name of
+	this file is provided through an ipi command line option with a default
+	of "user_profiles". In the following we explain how the user profile
+	information is stored. Refer to the sample ASCII user profile file for
+	an example.
+
+	Four types of user profiles are allowed: Class type, Line_user type,
+	Dedicated_user type and Dial_user type. A Class type user profile
+	specifies a generic user behavior, which can be incorporated by other
+	types of user profiles. For example, Class type blocks can be prepared
+	for emulating the legacy user classes. In other cases, for instance, it
+	may simply contain only a permission table that is to be shared by
+	multiple users. A Line_user type user profile specifies common user
+	behavior for a dedicated line. A Dial_user type user profile applies to
+	a dial-in user. A Dedicated_user type user profile specifies additional
+	user information (e.g. user name) for the connected user on a dedicated
+	line.
+
+	A Line_user or Dial_user user profile can incorporate a Class user
+	profile in its specification, through the optional "class" field, to
+	share common user profile definitions. Any field that is undefined in
+	the block will assume the value in the incorporated Class block. This
+	implies that the specification in the primary block overrides that in
+	the incorporated Class block. If a field is undefined in both blocks, a
+	default value is used. No recursive incorporation is supported for the
+	moment.
+
+	C. Operator commands
+
+	p_server accepts the following commands:
+
+	    CMD_SHUTDOWN - Shutting down p_server. This command will disconnect
+			   all users and, when all connections are terminated, 
+			   terminate p_server.
+
+	    CMD_LINK_STATE_CHANGED - Changing link enable states 
+				     (Enable/Disable links).
+
+	    CMD_REQUEST_APUP_STATUS - Requesting user (APUP) status. This 
+				      command will cause a APUP/RPGOP status 
+				      request message sent to each of the 
+				      specified lines.
+
+	    CMD_DISCONNECT - Disconnect specified links.
+
+	    CMD_VV_ON, CMD_VV_OFF - Turns on/off the p_server V&V mode.
+
+	To send a command to p_server, one needs to post an event of
+	ORPGEVT_PD_LINE with appropriate event message (data structure
+	Pd_distri_cmd defined in prod_distri_info.h). For command
+	CMD_LINK_STATE_CHANGED, one also needs to update message
+	PD_LINE_INFO_MSG_ID in LB ORPGDAT_PROD_INFO before posting the event.
+	Convenience functions implemented in liborpg (ORPGNBC module) should be
+	used for sending commands to p_server. These functions include
+	ORPGNBC_enable_disable_NB_links, ORPGNBC_connect_disconnect_NB_links,
+	ORPGNBC_request_APUP_status, ORPGNBC_send_NB_link_control_command and
+	ORPGNBC_send_NB_vv_control_command. When a command is issued, all 
+	p_server instances will receive it.
+	
+	Switching p_server to inactive/active mode does not require a command.
+	p_server uses the RPG state information to determine the RPG
+	inactive/active state and performs appropriate mode switching. p_server
+	is in active mode when it is started. Currently commands 
+	CMD_SWITCH_TO_INACTIVE and CMD_SWITCH_TO_ACTIVE are ignored.
+
+	Because p_server always makes all enabled links ready for accepting
+	user connection, it does not make sense to have a connection command.
+	Currently the CMD_CONNECT command is ignored.
+
+	D. RDA/RPG status
+
+	p_server receives the current RDA status info from message 
+	RDA_STATUS_ID in ORPGDAT_GSM_DATA. Event ORPGEVT_RDA_STATUS_CHANGE
+	is expected when this info updates.
+
+	p_server receives the current RPG status info through the
+	ORPGINFO_statefl_get_rpg* liborpg API. One of events
+	ORPGEVT_RPG_STATUS_CHANGE, ORPGEVT_RPG_ALARM or
+	ORPGEVT_RPG_OPSTAT_CHANGE, is expected when this info updates.
+
+	p_server receives the current scan volume info from message 
+	VOL_STAT_GSM_ID in ORPGDAT_GSM_DATA. Event ORPGEVT_START_OF_VOLUME
+	is expected when this info updates.
+
+	p_server receives the current RPG state info from message 
+	MRPG_RPG_STATE_MSGID in ORPGDAT_TASK_STATUS.
+
+	p_server receives the current RPG and volume scan information
+	from the messages RDA_STATUS_MSG_ID, RPG_STATUS_GSM_ID and 
+	VOL_STAT_GSM_ID in LB ORPGDAT_GSM_DATA respectively. Events 
+	ORPGEVT_RDA_STATUS_CHANGE, ORPGEVT_RPG_STATUS_CHANGE and 
+	ORPGEVT_START_OF_VOLUME are expected when one of these messages is 
+	updated. Because certain info, such as the volume time, in 
+	message VOL_STAT_GSM_ID is required for p_server to work, if this 
+	message does not exist when p_server starts to run, p_server will wait 
+	until it is available before proceeds to do any processing. This 
+	feature can be used for preventing p_server from using out-of-date 
+	info in the message by removing the old message before invoking 
+	p_server.
+
+	These messages are defined in gen_stat_msg.h.
+
+	E. Product user status (output)
+
+	p_server publishes product user status in LB ORPGDAT_PROD_USER_STATUS. 
+	The product user status for each line is stored as a message with ID = 
+	line index. The ORPGDAT_PROD_USER_STATUS data store must be of 
+	LB_REPLACEABLE type.
+
+	When a message in ORPGDAT_PROD_USER_STATUS is updated, an event 
+	ORPGEVT_PROD_USER_STATUS is posted. The line index is specified in
+	the event message (a character). Each product user status message is an
+	array of Prod_user_status data structure as defined in prod_status.h. 
+	The size of the array is US_STATUS_SIZE. The array contains a history 
+	of latest product user status for the line. The first element is the 
+	latest. Any status change on a line will cause a product status message
+	update for that line.
+
+	F. Interfacing the comm_manager (input/output)
+
+	p_server uses the comm_manager's services for exchanging messages with 
+	the users on the product distribution lines. The outgoing messages and 
+	comm requests are sent to the comm_managers through LBs 
+	ORPGDAT_CM_REQUEST + cm_ind, where cm_ind represents the indexes of 
+	the comm_manager instances. p_server posts event ORPGEVT_NB_COMM_REQ + 
+	cm_ind after a message is sent to the LB. For each comm link, the 
+	incoming messages and comm responses are received from the related 
+	comm_manager through LB ORPGDAT_CM_RESPONSE + line_ind, where line_ind 
+	is the comm line index. Events ORPGEVT_NB_COMM_RESP + line_ind is 
+	expected when a new message is available in the LB. Refer to 
+	comm_manager man page for additional information.
+
+	The messages exchanges with the users are defined in the RPG ICDs.
+	p_server uses ORPG internal data structures that are slightly 
+	different from the ICD definitions. p_server uses the ORPG UMC library 
+	routines for converting the messages between the two formats. The new 
+	format is defined in prod_user_msg.h. Using the internal format 
+	simplifies the code and improves the software portability.
+
+	Refer to comm_manager man-page for comm_manager request/response
+	message formats.
+
+	G. Product status
+
+	p_server reads product generation information from LB 
+	ORPGDAT_PROD_STATUS, message ID PROD_STATUS_MSG. The message format 
+	is defined in prod_status.h. Event ORPGEVT_PROD_STATUS is expected 
+	when product generation information is updated. p_server relies on 
+	this info for distributing routine products to the users, getting
+	a list of scheduled products and generating the product list message. 
+
+	H. Interfacing ps_routine - the routine product scheduler.
+
+	Routine product request messages from users are processed and sent 
+	to ps_routine through LB ORPGDAT_RT_REQUEST. p_server instance index
+	is used for the message ID. Event ORPGEVT_RT_REQUEST is posted after
+	a request is sent. The message format, as defined in prod_user_msg.h,
+	is a modified version of the ICD product request message.
+
+	The following processing is performed on the product request messages
+	before they are sent to ps_routine:
+
+	The line_ind field is assigned with the user's line index and the time
+	field is assigned with the current clock time. The number of requested
+	products is checked and permission check is done for each product in
+	the request. Products that are not permitted are marked by setting
+	the num_products field to 0.
+
+	p_server does not expect other messages from ps_routine other than
+	the product status published by the latter.
+
+	I. Interfacing ps_onetime - the one-time product scheduler.
+
+	One-time product request messages from users are processed and sent 
+	to ps_onetime through LB ORPGDAT_OT_REQUEST. p_server instance index
+	is used for the message ID. Event ORPGEVT_OT_REQUEST is posted after
+	a request is sent. The message format, as defined in prod_user_msg.h,
+	is a modified version of the ICD product request message.
+
+	Multiple one-time distribution products can be requested in a request
+	message. However, a request message can not contain both routine and 
+	one-time distribution products.
+
+	The following processing is performed on the product request messages
+	before they are sent to ps_one-time:
+
+	The line_ind field is assigned with the users line index and the time
+	field is assigned with the current clock time. The time field will be
+	used for verifying whether a ps_onetime response is out-of-date (e.g.
+	the response was for a previous user session). Permission check is done
+	for each product in the request. Products that are not permitted are
+	marked by setting the num_products field to 0.
+
+	p_server receives response messages from ps_onetime. The response 
+	messages are read from LB ORPGDAT_OT_RESPONSE + P_server_index, where
+	P_server_index is the p_server's instance index. The message format is
+	data structure One_time_prod_req_response defined in 
+	prod_distri_info.h. Event ORPGEVT_OT_RESPONSE is expected when such a 
+	message comes. ps_onetime sends to p_server a response every time a 
+	requested product is generated or failed. It may send multiple products
+	responding to a single request. 
+
+	p_server sends a message to both ps_routine and ps_onetime when a user
+	is disconnected. This message will cause all previous requests from the
+	user to be canceled.
+
+	J. Products
+
+	p_server reads product header info from the RPG product database when a
+	product is queued for distribution. It reads the entire product from
+	the RPG product database when it is ready for distributing to the user.
+
+OPTIONS
+
+    -f	max_number_open_files
+	Specifies the maximum number of open files in the p_server instance. 
+	The default is using the OS default. This option is not needed any 
+	longer because p_server now reads products from the product database.
+
+    -v	LE_message_verbosity_level
+	Specifies the LE message verbosity level. The default is 0.
+
+    -s	log_size
+	Specifies the maximum number of LE messages. The default is 500.
+
+EXAMPLES
+
+    Example 1: p_server -v 3 0
+	Starts p_server of instance 0 with LE message verbosity level of 3.
+
+ENVIRONMENT VARIABLES
+    CFG_DIR and CFG_SRC
+	Specify the location for configuration files. See "man cs" for more 
+	details.
+
+    LE_DIR_EVENT
+	Environmental variable used by the log/error module. See "man le" for 
+	more details.
+
+    HOME
+	The RPG user's home directory.
+
+EXIT STATUS
+    0:		Terminated normally. 
+
+    non-zero:	Terminated because an error was detected.
+
+FILES
+    RPG system configuration file
+	The name of the file is defined by CFG_DIR and CFG_SRC. An example of 
+	the file is $HOME/cfg/syscfg.
+
+    Log file
+	The name of the file is defined by LE_DIR_EVENT. An example of the file
+	is $HOME/data/logs/p_server.#.log. p_server log messages are stored 
+	here.
+ 
+    p_server uses the following RPG data stores for its operation:
+
+	ORPGDAT_TASK_STATUS
+	ORPGDAT_PROD_INFO
+	ORPGDAT_USER_PROFILES
+	ORPGDAT_PROD_STATUS
+	ORPGDAT_GSM_DATA
+	ORPGDAT_PROD_INFO
+	ORPGDAT_PROD_USER_STATUS
+	ORPGDAT_TASK_STATUS
+	FTXTMSG
+	RADARMSG
+	POSEDRCM
+	ALRTMSG
+	ALRTPROD
+	ORPGDAT_WX_ALERT_REQ_MSG
+	ORPGDAT_OT_REQUEST
+	ORPGDAT_OT_RESPONSE
+	ORPGDAT_PRODUCTS
+	ORPGDAT_RT_REQUEST
+	ORPGDAT_PROD_GEN_MSGS
+	ORPGDAT_PUP_STATUS_MSG
+	ORPGDAT_PUP_TXT_MSG
+	ORPGDAT_CM_REQUEST
+	ORPGDAT_CM_RESPONSE
+ 
+    p_server uses the following ORPG library modules for its operation:
+
+	ORPGPAT
+	ORPGTASK
+	ORPGLOAD 
+	ORPGSITE
+	ORPGVST
+	ORPGMISC
+	ORPGMGR
+	ORPGADPT
+	ORPGALT
+	ORPGINFO
+	ORPGRDA
+	ORPGCMI
+	ORPGNBC
+
+    Events posted by p_server:
+
+	ORPGEVT_EDITED_RCM_READY
+	ORPGEVT_PROD_STATUS
+	ORPGEVT_PUP_STATUS_MSG
+	ORPGEVT_FREE_TXT_MSG
+	ORPGEVT_PUP_TXT_MSG
+	ORPGEVT_PROD_USER_STATUS
+	ORPGEVT_NB_COMM_REQ
+	ORPGEVT_NB_COMM_REQ
+	ORPGEVT_RT_REQUEST
+	ORPGEVT_OT_REQUEST
+
+    Events registered by p_server:
+
+	ORPGEVT_RDA_STATUS_CHANGE
+	ORPGEVT_RPG_STATUS_CHANGE
+	ORPGEVT_RPG_ALARM
+	ORPGEVT_RPG_OPSTAT_CHANGE
+	ORPGEVT_START_OF_VOLUME
+	ORPGEVT_PROD_GEN_CONTROL
+	ORPGEVT_PD_LINE
+	ORPGEVT_OT_RESPONSE
+	ORPGEVT_PROD_STATUS
+	ORPGEVT_WX_ALERT_ADAPT_UPDATE
+	ORPGEVT_WX_USER_ALERT_MSG
+	ORPGEVT_WX_ALERT_MESSAGE
+	ORPGEVT_FREE_TXT_MSG
+	ORPGEVT_NB_COMM_RESP
+	ORPGEVT_EDITED_RCM_READY
+
+
+SEE ALSO
+    ps_routine(1), ps_onetime(1), comm_manager(1), orpg(3), mrpg(1)
+
+NOTES
+
+

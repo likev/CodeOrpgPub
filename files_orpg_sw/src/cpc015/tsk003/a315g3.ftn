@@ -1,0 +1,293 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/16 19:40:35 $
+C $Id: a315g3.ftn,v 1.3 2002/12/16 19:40:35 christie Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A315G3__INIT_SCAN(HIBUFFLG,BSEGPTR,BNDXPTR,BAZMPTR,
+     >                             SEG_BUF_UNAVAIL,KEY)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A315G3__INIT_SCAN
+*.
+*.  MODULE VERSION: 0002
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       06 20 95      0000      DAVID ZITTEL         CCR NA94-26302
+*.       12/23/96      0001      Toolset              CCR NA95-11807
+*.       03/16/99      0002      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:  CALL A315G3__INIT_SCAN( HIBFFLG, BSEGPTR,
+*.                                             BNDXPTR, BAZMPTR,
+*.                                             SEG_BUF_UNAVAIL, KEY )
+*.
+*.  MODULE FUNCTION:
+*.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT        TYPE        DESCRIPTION
+*.    -   -----        ----        -----------
+*.    G   SEG_BUF_LOCK L*4         If the lock is set to true for a half, then
+*.                                 that half of the image is in use by a task.
+*.                                 When a task is done accessing a half of the
+*.                                 image, the lock for th
+*.    C   ADPNSGMX     I*4         Maximum # of Segments per Elevation
+*.                                 Threshold in segments
+*.    C   REF_MAX_NDX  I*4         The index of the highest reflectivity
+*.                                 threshold.
+*.    C   REF_MIN_NDX  I*4         Upper limit of reflectivity index for
+*.                                 processing segments and components.
+*.    C   SEGAZPTR     I*4         The pointer to the first good azimuthal
+*.                                 (radial) index (i.e. which half) w/in the
+*.                                 segments attributes array (1 or 401).
+*.    C   SEGBFPTR     I*4         Segment Buffer pointer to either low or
+*.                                 high section
+*.    C   SEGCOUNT     I*4         Incremental segment count for the elevation
+*.                                 scan offset by the SEGBFPTR (0 or 6000).
+*.    C   SEGCTPTR     I*4         The pointer to the first good radial index
+*.                                 (i.e. which half) w/in the segments
+*.                                 attributes array (1 or 401).
+*.    C   SEGHIFLG     L*4         Flag to indicate which half (hi = 6000 or
+*.                                 low = 0) of the segment data shared image
+*.                                 is or was updated.
+*.    C   HIGH         I*4         (CONSTANT)Index to logical array
+*.                                 SEG_BUF_LOCK for locking access to the high
+*.                                 area of the segment buffer.
+*.    C   LOW          I*4         (CONSTANT)Index to logical array
+*.                                 SEG_BUF_LOCK for locking access to the low
+*.                                 area of the segment buffer.
+*.
+*.    *   OUTPUT          TYPE        DESCRIPTION
+*.    -   ------          ----        -----------
+*.    G   SEGINDX         I*2         Array of indices to the 1st & last
+*.                                    segments for radials in the SEGMAIN
+*.                                    array.  One half is updated each
+*.                                    elevation.
+*.    G   SEG_BUF_LOCK    L*4         If the lock is set to true for a half,
+*.                                    then that half of the image is in use by
+*.                                    a task.  When a task is done accessing a
+*.                                    half of the image, the lock for th
+*.    C   BUFF_FULL       L*4         A flag indicating the segment data
+*.                                    shared image is full.
+*.    C   MXSEGCNT        I*4         Last segment position in the current
+*.                                    half of the segment data shared image.
+*.    C   RFSEGSUM        I*4         An accumulating sum through the
+*.                                    elevation scan of the # of segments
+*.                                    identified for each reflectivity
+*.                                    threshold.
+*.    C   SEGAZPTR        I*4         The pointer to the first good azimuthal
+*.                                    (radial) index (i.e. which half) w/in
+*.                                    the segments attributes array (1 or
+*.                                    401).
+*.    C   SEGBFPTR        I*4         Segment Buffer pointer to either low or
+*.                                    high section
+*.    C   SEGCOUNT        I*4         Incremental segment count for the
+*.                                    elevation scan offset by the SEGBFPTR (0
+*.                                    or 6000).
+*.    C   SEGCTPTR        I*4         The pointer to the first good radial
+*.                                    index (i.e. which half) w/in the
+*.                                    segments attributes array (1 or 401).
+*.    C   SEGHIFLG        L*4         Flag to indicate which half (hi = 6000
+*.                                    or low = 0) of the segment data shared
+*.                                    image is or was updated.
+*.    C   SGBUFFLG        L*4         A flag indicating whether the segments
+*.                                    data shared image is full for segments
+*.                                    of a reflectivity threshold.
+*.    P   BAZMPTR         I*4         Beginning azimuth pointer
+*.    P   BNDXPTR         I*4         The pointer to the first good radial
+*.                                    index within the segments attribute
+*.                                    array
+*.    P   BSEGPTR         I*4         Beginning segment buffer pointer
+*.    P   HIBUFFLG        L*4         Flag indicating whether high portion of
+*.                                    Segment buffer is locked
+*.    P   KEY             I*4         A flag that toggles alternatively
+*.                                    between LOW and HIGH which points to
+*.                                    SEG_BUF_UNLOCK
+*.    P   SEG_BUF_UNAVAIL L*4         Flag indicating the segments buffer is
+*.                                    unavailable.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME      TYPE        DESCRIPTION
+*.    ----      ----        -----------
+*.    AZMBUF_HI I*4         Max number of azimuths to process
+*.    AZMBUF_LO I*4         The min number of azimuths to process
+*.    AZM_NDX   I*4         Do loop index for azimuth processing
+*.    MXAZMCNT  I*4         Maximum azimuth count
+*.    ONE       I*4         Parameter value of one.
+*.    RINDX     I*4         Do loop variable for reflectivity thresholds
+*.    SEGBF_HI  I*4         Parameter for the high segment buffer
+*.    SEGBF_LO  I*4         Parameter for segments low buffer
+*.    SGCNT_HI  I*4         Initial value for SEGCTPTR if processing high
+*.                          segment
+*.    SGCNT_LO  I*4         Initial value for SEGCTPTR if processing low
+*.                          segment
+*.    TWO       I*4         Program parameter value of 2.
+*.    ZERO      I*4         PARAMETER VALUE '0'
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A315LOCK
+*.    SGMTS09
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A315C3
+*.    A315CD
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     Compiled using COMP15.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     Linked using LINK15.CSS
+*.
+*.  MISC:  None
+*.
+C********************************************************************
+C
+      IMPLICIT NONE
+C
+C**  Attach pointers for A3CD09 common block
+$INCLUDE A315BUF.INC/G,**A315P3S
+C
+C**  Attach segment buffer lock defintions.
+$INCLUDE A315BUF.INC/G, **A315LOCK (NLIST NEND)
+C
+C**  Attach pointers for segment buffer pool in A3CD09
+$INCLUDE A315.INC/G,**A315C3S (NLIST)
+C
+C**  Attach common block for derived adaptable parameters
+$INCLUDE **A315CDS (NLIST)
+C
+C** Attach segments common block for A3CD09DZ
+$INCLUDE A309.INC/G,**A3CD09DZ (NLIST)
+C
+C** LOCAL VARIABLES DECLARATION
+C
+      INTEGER ONE, TWO, ZERO, AZM_NDX, RINDX
+      INTEGER MXAZMCNT, KEY
+      INTEGER BSEGPTR,BNDXPTR,BAZMPTR
+      LOGICAL HIBUFFLG, SEG_BUF_UNAVAIL
+C
+C**  Parameter declarations
+C
+      PARAMETER ( ONE = 1, TWO = 2, ZERO = 0 )
+C
+C------------------------------------------------------------
+C**  Start of executable code
+C------------------------------------------------------------
+C
+C**  Set the flag for indicating segmain array is full to false
+C
+      BUFF_FULL = .FALSE.
+C
+C**  Check flag to determine which portion of the SEGMAIN array
+C**  was last used.  Toggle the flag to the opposite state
+C
+      IF ( SEGHIFLG ) THEN
+C
+C**  Check the low segment buffer lock.  If locked (i.e., .TRUE.),
+C**  COMPONENTS is not done processing data already in the buffer.
+C**  This constitutes an ABORT condition.
+C
+         IF ( SEG_BUF_LOCK( LOW ) ) THEN
+            SEG_BUF_UNAVAIL = .TRUE.
+            GO TO 200
+         ELSE
+C
+C**  It is safe to write in this area of the buffer.  Lock the
+C**  low segment buffer so COMPONENTS can't process this data yet.
+C
+            SEG_BUF_LOCK( LOW ) = .TRUE.
+            KEY = LOW
+            SEG_BUF_UNAVAIL = .FALSE.
+         END IF
+C
+         SEGHIFLG = .FALSE.
+         SEGBFPTR = SEGBF_LO
+         SEGCTPTR = SGCNT_LO
+         SEGAZPTR = AZMBUF_LO
+         MXAZMCNT = AZMBUF_HI
+      ELSE
+C
+C**  Check the high segment buffer lock.  If locked (i.e., .TRUE.),
+C**  COMPONENTS is not done processing data already in the buffer.
+C**  This constitutes an ABORT condition.
+C
+         IF ( SEG_BUF_LOCK( HIGH ) ) THEN
+            SEG_BUF_UNAVAIL = .TRUE.
+            GO TO 200
+         ELSE
+C
+C**  It is safe to write in this area of the buffer.  Lock the
+C**  high segment buffer so COMPONENTS can't process this data yet.
+C
+            SEG_BUF_LOCK( HIGH ) = .TRUE.
+            KEY = HIGH
+            SEG_BUF_UNAVAIL = .FALSE.
+         END IF
+C
+         SEGHIFLG = .TRUE.
+         SEGBFPTR = SEGBF_HI
+         SEGCTPTR = SGCNT_HI
+         SEGAZPTR = AZMBUF_HI
+         MXAZMCNT = AZMBUF_HI + AZMBUF_HI
+      ENDIF
+C
+      HIBUFFLG = SEGHIFLG
+      BSEGPTR = SEGBFPTR
+      BNDXPTR = SEGCTPTR
+      BAZMPTR = SEGAZPTR
+C
+C**  Set SEGCOUNT to begin counting segments for either the low or hi
+C**  portion of SEGMAIN
+C
+      SEGCOUNT = SEGBFPTR
+C
+C**  Set the maximum value that SEGCOUNT can have to the maximum
+C**  adaptable number of segments plus the pointer offset.
+C
+      MXSEGCNT = ADPNSGMX + SEGCOUNT
+C
+C**  Initialize the segment index array for pointing to segments in
+C**  in SEGMAIN by azimuth
+C
+      DO 100 RINDX = REF_MAX_NDX, REF_MIN_NDX
+        RFSEGSUM( RINDX ) = ZERO
+        SGBUFFLG( RINDX ) = .FALSE.
+        DO 110 AZM_NDX = SEGAZPTR + ONE,MXAZMCNT
+          SEGINDX( ONE, RINDX, AZM_NDX ) = ZERO
+          SEGINDX( TWO, RINDX, AZM_NDX ) = ZERO
+ 110    CONTINUE
+ 100  CONTINUE
+C
+C**  Return to the caller module.
+C
+ 200  CONTINUE
+      RETURN
+      END

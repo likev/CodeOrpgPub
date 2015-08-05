@@ -1,0 +1,324 @@
+C 
+C RCS info 
+C $Author: christie $ 
+C $Locker:  $ 
+C $Date: 2002/12/02 17:56:22 $ 
+C $Id: a3146m.ftn,v 1.4 2002/12/02 17:56:22 christie Exp $ 
+C $Revision: 1.4 $ 
+C $State: Exp $ 
+C
+       SUBROUTINE A3146M__DETERMINE_SCANS(HYDRSUPL,NWORDS)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3146M__DETERMINE_SCANS
+*.
+*.  MODULE VERSION: 0010
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       08 22 90      0000      Paul Jendrowski      SPR# 90899
+*.       11 04 90      0001      PAUL JENDROWSKI      SPR# 91255
+*.       12 03 91      0002      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0003      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0004      Toolset              SPR 91895
+*.       03/25/93      0005      Toolset              SPR NA93-06801
+*.       01/28/94      0006      Toolset              SPR NA94-01101
+*.       03/03/94      0007      Toolset              SPR NA94-05501
+*.       04/11/96      0008      Toolset              CCR NA95-11802
+*.       12/23/96      0009      Toolset              CCR NA95-11807
+*.       03/16/99      0010      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A3146M__DETERMINE_SCANS(HYDRSUPL,NWORDS)
+*.
+*.  MODULE FUNCTION:
+*.
+*.      This module determines which rate scans in the database were
+*.   used in computing the current hourly accumulation.  Scans
+*.   adjacent to the begin and end hour times may be included if a
+*.   missing period does not end (begin) before the begin (end) hour
+*.   time.  This module also sums the number of RLE words for the scans
+*.   in the hour for output buffer sizing.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT          TYPE        DESCRIPTION
+*.    -   -----          ----        -----------
+*.    G   BEG_HRDATE     I*4         (CONSTANT)Offset into precipitation
+*.                                   accumulation array pointing to the date
+*.                                   for the beginning of the hour.
+*.    G   BEG_HRTIME     I*4         (CONSTANT)Offset into precipitation
+*.                                   accumulation array pointing to the time
+*.                                   for the beginning of the hour.
+*.    G   END_HRDATE     I*4         (CONSTANT)Positional parameter for end
+*.                                   date of the input hourly scan.
+*.    G   END_HRTIME     I*4         (CONSTANT)Positional parameter for ending
+*.                                   time of hourly scan.
+*.    C   BASE_DATE      I*4         Minimum date of rate scans and hourly
+*.                                   period.
+*.    C   BHT            I*4         Normalized begin hour time.
+*.    C   EHT            I*4         Normalized end hour time.
+*.    C   NEWEST_RS_INDX I*4         Index in database of newest rate scan.
+*.    C   OLDEST_RS_INDX I*4         Index in database of oldest rate scan.
+*.    C   SUP_DB         I*4         Supplemental database array.
+*.    C   USE_RS         L*4         Flag array indicating which rate scans
+*.                                   are used in the hourly period.
+*.    C   AS_BMPD        I*4         (CONSTANT)Offset in Sup_DB for the begin
+*.                                   missing period date.
+*.    C   AS_BMPT        I*4         (CONSTANT)Offset in SUP_DB for the begin
+*.                                   missing period time.
+*.    C   AS_EMPD        I*4         (CONSTANT)Offset in SUP_DB for the end
+*.                                   missing period date.
+*.    C   AS_EMPT        I*4         (CONSTANT)Offset in SUP_DB for the end
+*.                                   missing period time.
+*.    C   MAX_RATESCANS  I*4         (CONSTANT)Maximum number of rate scans in
+*.                                   database.
+*.    C   RS_DATE        I*4         (CONSTANT)Offset in SUP_DB for rate scan
+*.                                   date.
+*.    C   RS_NRLE        I*4         (CONSTANT)Offset in SUP_DB for rate scan
+*.                                   RLE halfwords.
+*.    C   RS_TIME        I*4         (CONSTANT)Offset in SUP_DB for rate scan
+*.                                   time.
+*.    P   HYDRSUPL       I*4         Supplemental data array.
+*.    P   NWORDS         I*4         NUMBER OF RLE WORDS IN HOUR PERIOD
+*.
+*.    *   OUTPUT    TYPE        DESCRIPTION
+*.    -   ------    ----        -----------
+*.    C   BASE_DATE I*4         Minimum date of rate scans and hourly period.
+*.    C   BHT       I*4         Normalized begin hour time.
+*.    C   EHT       I*4         Normalized end hour time.
+*.    C   USE_RS    L*4         Flag array indicating which rate scans are
+*.                              used in the hourly period.
+*.    P   NWORDS    I*4         NUMBER OF RLE WORDS IN HOUR PERIOD
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE: NONE
+*.
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME       TYPE        DESCRIPTION
+*.    ----       ----        -----------
+*.    BMT        I*4         NORMALIZED BEGIN MISSING TIME
+*.    EMT        I*4         NORMALIZED END MISSING TIME
+*.    I          I*4         CURRENT RATE SCAN (LOOP) INDEX
+*.    INC        I*4         PARAMETER FOR 1
+*.    NEXT_INDX  I*4         NEXT RATE SCAN INDEX
+*.    NULL       I*4         PARAMETER FOR ZERO
+*.    PREV_INDX  I*4         PREVIOUS RATE SCAN INDEX
+*.    RST        I*4         NORMALIZED RATE SCAN TIME
+*.    SEC_IN_DAY I*4         NUMBER OF SECONDS IN A DAY
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3146CD
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS: None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK14.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+C
+$INCLUDE A313HBUF.INC/G, **A313HYPP (NEND NLIST)
+$INCLUDE                 **A313HYDD (NEND NLIST)
+$INCLUDE A3146.INC, **A3146PD (NEND NLIST)
+$INCLUDE            **A3146CD (NEND NLIST)
+C
+      INTEGER I, NEXT_INDX, PREV_INDX, NWORDS
+      INTEGER BMT, EMT
+      INTEGER RST(MAX_RATESCANS)
+      INTEGER NULL, INC, SEC_IN_DAY
+      PARAMETER (NULL = 0, INC = 1, SEC_IN_DAY = 86400)
+C
+C********************************************************************
+C
+C** DETERMINE THE MINIMUM DATE OF THE RATE SCANS AND THE HOURLY
+C** PERIOD AND MAKE IT THE REFERENCE DATE
+C
+      BASE_DATE = MIN(SUP_DB(RS_DATE,OLDEST_RS_INDX),
+     $                HYDRSUPL(BEG_HRDATE))
+C
+X     TYPE *,' BASE DATE = ',BASE_DATE
+C
+C** INITIALIZE
+C
+      NWORDS = NULL
+      I = OLDEST_RS_INDX - INC
+C
+C** DO UNTIL INDEX EQUALS NEWEST INDEX
+C
+  10  CONTINUE
+        I = I + INC
+        IF (I.GT.MAX_RATESCANS) I=INC
+C
+C** COMPUTE NORMALIZED TIMES FOR ALL RATE SCANS IN DATABASE AND CLEAR
+C** FLAG TO USE THE RATE SCAN
+C
+        RST(I) = ( SUP_DB(RS_DATE,I) - BASE_DATE )*SEC_IN_DAY +
+     $                        SUP_DB(RS_TIME,I)
+        USE_RS(I) = .FALSE.
+C
+X       TYPE *,' RATE SCAN ',I,' TIME = ',RST(I),', BMPD = ',
+     $      SUP_DB(AS_BMPD,I),', BMPT = ',SUP_DB(AS_BMPT,I),
+     $      ', EMPT = ',SUP_DB(AS_EMPT,I)
+C
+C** SIMULATE DO UNTIL WITH A GO TO
+C
+      IF (I.NE.NEWEST_RS_INDX) GO TO 10
+C
+C** COMPUTE NORMALIZED BEGIN AND END HOUR TIMES IN SECONDS OF DAY
+C
+      BHT = ( HYDRSUPL(BEG_HRDATE) - BASE_DATE )*SEC_IN_DAY +
+     $                     HYDRSUPL(BEG_HRTIME)
+      EHT = ( HYDRSUPL(END_HRDATE) - BASE_DATE )*SEC_IN_DAY +
+     $                     HYDRSUPL(END_HRTIME)
+C
+X     TYPE *,' NORMALIZED BEGIN AND END HOUR TIMES = ',BHT,EHT
+C
+C** NOW LOOP THROUGH ALL RATE SCANS AND CHECK IF THEY WERE USED IN
+C** COMPUTING THE HOURLY ACCUMULATION. IF A SCAN WAS USED, SET A FLAG
+C
+      I = OLDEST_RS_INDX - INC
+  20  CONTINUE
+C
+C** GET INDEX OF NEXT RATE SCAN INFORMATION
+C
+        I = I + INC
+        IF (I.GT.MAX_RATESCANS) I = INC
+C
+X       TYPE *,' '
+X       TYPE *,' CURRENT RATE SCAN INDEX = ',I
+C
+        IF ( RST(I).GE.BHT .AND. RST(I).LE.EHT) THEN
+C
+C** THIS RATE SCAN IS IN THE HOURLY ACCUMULATION PERIOD
+C
+          USE_RS(I) = .TRUE.
+C
+X         TYPE *,' IF(1): USE RATE SCAN ',I
+C
+        ELSE IF (RST(I).LT.BHT .AND. I.NE.NEWEST_RS_INDX) THEN
+C
+C** THIS RATE SCAN IS EARLIER THAN THE BEG HOUR TIME, CHECK IF THE
+C** NEXT RATE SCAN IS IN THE HOUR PERIOD. FIRST COMPUTE INDEX
+C
+          NEXT_INDX = I + INC
+          IF (NEXT_INDX.GT.MAX_RATESCANS) NEXT_INDX = INC
+C
+X         TYPE *,' IF(2): CHECKING NEXT RATE SCAN INDEX = ',NEXT_INDX
+C
+C** IF THE NEXT RATE SCAN IS IN THE HOUR, THEN A PORTION OF THE CURRENT
+C** RATE SCAN COULD HAVE BEEN USED IN THE ACCUMULATION CALCULATION
+C
+          IF (RST(NEXT_INDX).GT.BHT) THEN
+C
+C** THESE TWO RATE SCANS BRACKET THE BEGINNING OF THE HOUR
+C** CHECK IF THERE IS A MISSING PERIOD BETWEEN THE TWO RATE SCANS
+C
+            IF (SUP_DB(AS_EMPD,NEXT_INDX).EQ.NULL) THEN
+C
+C** NO MISSING PERIOD, USE THE RATE SCAN
+C
+              USE_RS(I) = .TRUE.
+C
+X             TYPE *,' IF(3): NO MISSING PERIOD, USE RATE SCAN ',I
+C
+            ELSE
+C
+C** COMPUTE NORMALIZED BEGIN MISSING PERIOD TIME
+C
+              BMT = (SUP_DB(AS_BMPD,NEXT_INDX)-BASE_DATE)*SEC_IN_DAY
+     $                           + SUP_DB(AS_BMPT,NEXT_INDX)
+C
+C** IF THE MISSING PERIOD BEGINS AFTER THE START OF THE HOUR PERIOD
+C** BOTH RATE SCANS WERE USED TO COMPUTE THE ACCUMULATION
+C
+              IF (BMT.GT.BHT) USE_RS(I) = .TRUE.
+C
+X             TYPE *,' IF(4): BMT = ',BMT,', USE_RS(',I,') = ',
+     $                 USE_RS(I)
+C
+            END IF
+          END IF
+        ELSE IF (RST(I).GT.EHT .AND. I.NE.OLDEST_RS_INDX) THEN
+C
+C** THIS RATE SCAN IS AFTER THE END HOUR TIME, CHECK IF THE
+C** PREVIOUS RATE SCAN IS IN THE HOUR PERIOD. FIRST COMPUTE INDEX
+C
+          PREV_INDX = I - INC
+          IF (PREV_INDX.LT.INC) PREV_INDX = MAX_RATESCANS
+C
+X         TYPE *,' IF(5): CHECKING PREVIOUS RATE SCAN INDEX = ',
+     $                 PREV_INDX
+C
+C** IF THE PREVIOUS RATE SCAN IS IN THE HOUR, THEN A PORTION OF THE
+C** RATE SCAN COULD HAVE BEEN USED IN THE ACCUMULATION CALCULATION
+C
+          IF (RST(PREV_INDX).LT.EHT) THEN
+C
+C** THESE TWO RATE SCANS BRACKET THE END OF THE HOUR
+C** CHECK IF THERE IS A MISSING PERIOD BETWEEN THE TWO RATE SCANS
+C
+            IF (SUP_DB(AS_EMPD,I).EQ.NULL) THEN
+C
+C** NO MISSING PERIOD, USE THE RATE SCAN
+C
+              USE_RS(I) = .TRUE.
+C
+X             TYPE *,' IF(6): NO MISSING PERIOD, USE RATE SCAN ',I
+C
+            ELSE
+C
+C** COMPUTE NORMALIZED END MISSING PERIOD TIME
+C
+              EMT = ( SUP_DB(AS_EMPD,I) - BASE_DATE)*SEC_IN_DAY +
+     $                             SUP_DB(AS_EMPT,I)
+C
+C** IF THE MISSING PERIOD BEGINS AFTER THE START OF THE HOUR PERIOD
+C** BOTH RATE SCANS WERE USED TO COMPUTE THE ACCUMULATION
+C
+              IF (EMT.LT.EHT) USE_RS(I) = .TRUE.
+C
+X             TYPE *,' IF(7): EMT = ',EMT,', USE_RS(',I,') = ',
+     $                 USE_RS(I)
+C
+            END IF
+          END IF
+        END IF
+C
+C** SUM THE NUMBER OF WORDS FOR VALID RATES SCANS FOR OUTPUT BUFFER
+C** SIZE
+C
+        IF (USE_RS(I)) NWORDS = NWORDS + SUP_DB(RS_NRLE,I)
+C
+C** SIMULATE DO UNTIL WITH A GO TO
+C
+      IF (I.NE.NEWEST_RS_INDX) GO TO 20
+C
+X     TYPE *,' EXIT A3146M: NWORDS = ',NWORDS
+C
+      END

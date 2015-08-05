@@ -1,0 +1,1191 @@
+#!/bin/sh
+
+# RCS info
+# $Author: cmn $
+# $Locker:  $
+# $Date: 2011/05/22 16:48:19 $
+# $Id: perf_mon_plotter.script,v 1.1 2011/05/22 16:48:19 cmn Exp $
+# $Revision: 1.1 $
+# $State: Exp $
+
+#**************************************************************************
+#
+# Purpose: Read output of perf_mon and create PNG images using GNUPLOT.
+#
+#**************************************************************************
+
+INPUT_DIR=$HOME/tmp
+OUTPUT_DIR=$HOME/tmp
+CPU_STATS_TAG=cpu.stats
+DISK_STATS_TAG=disk.stats
+ETH0_STATS_TAG=eth0.stats
+ETH1_STATS_TAG=eth1.stats
+MEM_STATS_TAG=mem.stats
+SWAP_STATS_TAG=swap.stats
+LDM_STATS_TAG=LDM.stats
+DISPLAY_IMAGES=YES
+DEBUG_MODE=NO
+FIREFOX_STRING=""
+CUT_NUMBER_TO_MARK=""
+
+#**************************************************************************
+#**************************************************************************
+#
+# Start of Functions
+#
+#**************************************************************************
+#**************************************************************************
+
+#**************************************************************************
+# PRINT_USAGE: Display "help" to screen.
+#**************************************************************************
+
+print_usage ()
+{
+  echo
+  echo
+  echo "***************************************************"
+  echo "HELP SCREEN FOR SCRIPT: `basename $0`"
+  echo "***************************************************"
+  echo
+  echo
+  echo "OPTIONS:"
+  echo
+  echo "-h  -    Display help"
+  echo
+  echo "-i  -    Directory containing input files"
+  echo "           (default is $INPUT_DIR)"
+  echo
+  echo "-o  -    Directory to write output files"
+  echo "           (default is $OUTPUT_DIR)"
+  echo
+  echo "-d  -    Suppress display of images in Firefox"
+  echo
+  echo "-e  -    Cut number to highlight in graphs (i.e. 1,2,...)"
+  echo
+  echo "-x  -    Debug mode"
+  echo
+  echo
+  echo
+}
+
+#**************************************************************************
+# ECHO_DEBUG: Echo if debug flag set.
+#**************************************************************************
+
+echo_debug ()
+{
+  if [ $DEBUG_MODE = "YES" ]
+  then
+    echo_stdout "$1"
+  fi
+}
+
+#**************************************************************************
+# ECHO_STDOUT: Echo to stdout.
+#**************************************************************************
+
+echo_stdout ()
+{
+  echo -e $1
+}
+
+#**************************************************************************
+# ECHO_STDERR: Echo to stderr.
+#**************************************************************************
+
+echo_stderr ()
+{
+  echo -e $1 >&2
+}
+
+#**************************************************************************
+# ECHO_ERROR: Echo error message and exit.
+#**************************************************************************
+
+echo_error ()
+{
+  if [ $# -eq 1 ]
+  then
+    exit_code=1
+  else
+    exit_code=$2
+  fi
+
+  echo_stderr
+  echo_stderr
+  echo_stderr "IN SCRIPT: $0"
+  echo_stderr "ERROR: $1"
+  echo_stderr "Stopping script"
+  echo_stderr "Use -h option for help"
+  echo_stderr
+  echo_stderr
+  
+  exit $exit_code
+}
+
+#**************************************************************************
+# PARSE_INPUT: Parse command line input.
+#**************************************************************************
+
+parse_input ()
+{
+  # Parse input options/arguments. If option doesn't have an argument (and
+  # requires one) or option isn't valid, print message and exit.
+
+  user_input_dir=""
+  user_output_dir=""
+
+  while getopts hi:o:de:x options
+  do
+    case $options in
+      h)  print_usage; exit 0;;
+      i)  user_input_dir=$OPTARG;;
+      o)  user_output_dir=$OPTARG;;
+      d)  DISPLAY_IMAGES=NO;;
+      e)  CUT_NUMBER_TO_MARK=$OPTARG;;
+      x)  DEBUG_MODE=YES;;
+      \?) echo_error "OPTION: $OPTARG IS NOT A VALID OPTION";;
+    esac
+  done
+
+  # If user defined cut to mark, make sure it is a valid number.
+  if [ "$CUT_NUMBER_TO_MARK" != "" ]
+  then
+    echo "$CUT_NUMBER_TO_MARK" | egrep '^[0-9]+$' > /dev/null 2>&1
+    if [ $? -ne 0 ]
+    then
+      echo_error "Cut number ($CUT_NUMBER_TO_MARK) for option -e is invalid"
+    fi
+  fi
+
+  # If user defined input directory make sure it exists.
+  if [ "$user_input_dir" != "" ]
+  then
+    if [ ! -d $user_input_dir ]
+    then
+      echo_error "Input directory: $user_input_dir does not exist"
+    fi
+    INPUT_DIR=$user_input_dir
+  fi
+
+  # If user defined output directory make sure it exists
+  # or can be created.
+  if [ "$user_output_dir" != "" ]
+  then
+    if [ ! -d $user_output_dir ]
+    then
+      mkdir -p $user_output_dir > /dev/null 2>&1
+      if [ $? -ne 0 ]
+      then
+        echo_error "Unable to create output directory: $user_output_dir"
+      fi
+    fi
+    OUTPUT_DIR=$user_output_dir
+  fi
+
+  # Make sure input directory is readable.
+  if [ ! -r $INPUT_DIR ]
+  then
+    echo_error "Cannot read input directory: $INPUT_DIR"
+  fi
+
+  # Make sure output directory is writable.
+  if [ ! -w $OUTPUT_DIR ]
+  then
+    echo_error "Cannot write to output directory: $OUTPUT_DIR"
+  fi
+
+  echo_debug
+  echo_debug "Input Directory:  $INPUT_DIR"
+  echo_debug "Output Directory: $OUTPUT_DIR"
+  echo_debug "Display Images:   $DISPLAY_IMAGES"
+  echo_debug "Cut to highlight: $CUT_NUMBER_TO_MARK"
+  echo_debug
+}
+
+#**************************************************************************
+# GET_NODE_LIST: Get list of nodes in input directory.
+#**************************************************************************
+
+get_node_list ()
+{
+  NUM_NODES=0
+  NODE_NAMES=""
+  # Search input directory for *.uname.info files. Each file corresponds
+  # to a node. Keep a count of nodes.
+  for infile in `find $INPUT_DIR -type f -name "*.uname.info" | sort -r`
+  do
+    node_name=`cat $infile | awk -F: '{if($1=="Node Name"){print $2}}'`
+    NODE_NAMES="$node_name $NODE_NAMES"
+    NUM_NODES=`expr $NUM_NODES + 1`
+  done
+
+  echo_debug "Number of nodes: $NUM_NODES"
+  if [ $NUM_NODES -ne 0 ]
+  then
+    for node in $NODE_NAMES
+    do
+      echo_debug "Node: $node"
+    done
+  fi
+  echo_debug
+}
+
+#**************************************************************************
+# USER_SELECT_NODE: Prompt user to select node for plotting.
+#**************************************************************************
+
+user_select_node ()
+{
+  valid_choice=NO
+  select_string=""
+  until [ $valid_choice = YES ]
+  do
+    echo
+    echo "Select node to plot:"
+    echo
+    option_num=1
+    for node in $NODE_NAMES
+    do
+      output_string="$option_num - $node"
+      echo_stdout "$output_string"
+      select_string="$output_string:`echo $select_string`"
+      option_num=`expr $option_num + 1`
+    done
+    echo
+    read user_select_num
+
+    echo_debug "User selection node: $user_select_num"
+
+    # Make sure user made valid selection.
+    echo $user_select_num | egrep -q '^[0-9]+$'
+    if [ $? -ne 0 ]
+    then
+      echo_stderr "$user_select_num is not a valid number...try again"
+    elif [ $user_select_num -lt 1 -o $user_select_num -gt $NUM_NODES ]
+    then
+      echo_stderr "$user_select_num is outside the valid range...try again"
+    else
+      valid_choice=YES
+    fi
+  done
+  # Take user input and determine which node it corresponds to.
+  option_num=1
+  for node in $NODE_NAMES
+  do
+    if [ $option_num -eq $user_select_num ]
+    then
+      SELECTED_NODE=$node
+      break;
+    fi
+    option_num=`expr $option_num + 1`
+  done
+
+  echo_debug "Selected node: $SELECTED_NODE"
+}
+
+#**************************************************************************
+# CHECK_FILE_STATUS: Check if file exists and is readable.
+#**************************************************************************
+
+check_file_status ()
+{
+  if [ ! -f $FILE_TO_CHECK ]
+  then
+    echo_stderr "WARNING: $FILE_TO_CHECK does not exist...skipping"
+    FILE_TO_CHECK=""
+  elif [ ! -r $FILE_TO_CHECK ]
+  then
+    echo_stderr "WARNING: $FILE_TO_CHECK is not readable...skipping"
+    FILE_TO_CHECK=""
+  fi
+}
+
+#**************************************************************************
+# VALIDATE_NODE__INFO: Validate the node.
+#**************************************************************************
+
+validate_node_info ()
+{
+  # Make sure selected node has all the necessary output files.
+  FILE_TO_CHECK=$INPUT_DIR/$SELECTED_NODE.$CPU_STATS_TAG
+  check_file_status
+  CPU_STATS_FILE=$FILE_TO_CHECK
+  echo_debug "CPU stats file: $CPU_STATS_FILE"
+  FILE_TO_CHECK=$INPUT_DIR/$SELECTED_NODE.$DISK_STATS_TAG
+  check_file_status
+  DISK_STATS_FILE=$FILE_TO_CHECK
+  echo_debug "Disk stats file: $DISK_STATS_FILE"
+  FILE_TO_CHECK=$INPUT_DIR/$SELECTED_NODE.$MEM_STATS_TAG
+  check_file_status
+  MEM_STATS_FILE=$FILE_TO_CHECK
+  echo_debug "Memory stats file: $MEM_STATS_FILE"
+  FILE_TO_CHECK=$INPUT_DIR/$SELECTED_NODE.$SWAP_STATS_TAG
+  check_file_status
+  SWAP_STATS_FILE=$FILE_TO_CHECK
+  echo_debug "Swap stats file: $SWAP_STATS_FILE"
+  FILE_TO_CHECK=$INPUT_DIR/$SELECTED_NODE.$ETH0_STATS_TAG
+  check_file_status
+  ETH0_STATS_FILE=$FILE_TO_CHECK
+  echo_debug "Eth0 stats file: $ETH0_STATS_FILE"
+  FILE_TO_CHECK=$INPUT_DIR/$SELECTED_NODE.$ETH1_STATS_TAG
+  check_file_status
+  ETH1_STATS_FILE=$FILE_TO_CHECK
+  echo_debug "Eth1 stats file: $ETH1_STATS_FILE"
+  FILE_TO_CHECK=$INPUT_DIR/$SELECTED_NODE.$LDM_STATS_TAG
+  check_file_status
+  LDM_STATS_FILE=$FILE_TO_CHECK
+  echo_debug "LDM stats file: $LDM_STATS_FILE"
+
+  # The CPU stats file is used for determining volume scans (and times)
+  # to choose from. If the file doesn't exist, then exit.
+
+  if [ "$CPU_STATS_FILE" = "" ]
+  then
+    echo_error "Missing $SELECTED_NODE.$CPU_STATS_TAG. Unable to determine valid times."
+  else
+    NUM_VALID_TIMES=`cat $CPU_STATS_FILE | egrep -c 'Stats:'`
+  fi
+
+  echo_debug "Number of valid times: $NUM_VALID_TIMES"
+
+  # No valid times means something is wrong.
+
+  if [ $NUM_VALID_TIMES -eq 0 ]
+  then
+    echo_error "No valid times found in $check_file"
+  fi
+}
+
+#**************************************************************************
+# USER_SELECT_TIME: Prompt user to select time interval for plotting.
+#**************************************************************************
+
+user_select_time ()
+{
+  check_file=$INPUT_DIR/$SELECTED_NODE.$CPU_STATS_TAG
+
+  valid_choice=NO
+  until [ $valid_choice = YES ]
+  do
+    echo
+    echo "Select time interval method:"
+    echo
+    echo "1: All times"
+    echo "2: User-defined time interval"
+    echo
+    echo
+    read user_select_num
+
+    echo_debug "User selection timer interval: $user_select_num"
+
+    # Make sure user made valid selection.
+    echo $user_select_num | egrep -q '^[12]$'
+    if [ $? -ne 0 ]
+    then
+      echo_stderr "$user_select_num is not a valid number...try again"
+    else
+      valid_choice=YES
+    fi
+  done
+
+  if [ $user_select_num -eq 1 ]
+  then
+    # User wants to plot all times.
+    SELECTED_START_NUM=1
+    SELECTED_STOP_NUM=$NUM_VALID_TIMES
+  else
+    # User wants to choose plot start/stop times. Do start time first.
+    valid_choice=NO
+    until [ $valid_choice = YES ]
+    do
+      echo
+      echo "Select start time:"
+      echo
+      awk 'BEGIN{i=1}{if($0 ~ /^# [0-1][0-9]\/[0-3][0-9]\//){if(i<=num_times){print i," "$0;i++}}}' num_times=$NUM_VALID_TIMES $check_file
+      echo
+      read user_select_num
+
+      echo_debug "User selection start number: $user_select_num"
+
+      # Make sure user made valid selection.
+      echo $user_select_num | egrep -q '^[0-9]+$'
+      if [ $? -ne 0 ]
+      then
+        echo_stderr "$user_select_num is not a valid number...try again"
+      elif [ $user_select_num -lt 1 -o $user_select_num -gt $NUM_VALID_TIMES ]
+      then
+        echo_stderr "$user_select_num is outside the valid range...try again"
+      else
+        valid_choice=YES
+      fi
+    done
+    SELECTED_START_NUM=$user_select_num
+
+    # Now pick stop time.
+    valid_choice=NO
+    until [ $valid_choice = YES ]
+    do
+      echo
+      echo "Select stop time:"
+      echo
+      awk 'BEGIN{i=1}{if($0 ~ /^# [0-1][0-9]\/[0-3][0-9]\//){if(i>=start_num && i<=num_times){print i," "$0}i++}}' start_num=$SELECTED_START_NUM num_times=$NUM_VALID_TIMES $check_file
+      echo
+      read user_select_num
+
+      echo_debug "User selection stop number: $user_select_num"
+
+      # Make sure user made valid selection.
+      echo $user_select_num | egrep -q '^[0-9]+$'
+      if [ $? -ne 0 ]
+      then
+        echo_stderr "$user_select_num is not a valid number...try again"
+      elif [ $user_select_num -lt $SELECTED_START_NUM -o $user_select_num -gt $NUM_VALID_TIMES ]
+      then
+        echo_stderr "$user_select_num is outside the valid range...try again"
+      else
+        valid_choice=YES
+      fi
+    done
+    SELECTED_STOP_NUM=$user_select_num
+  fi
+
+  echo_debug "Selected start num: $SELECTED_START_NUM"
+  echo_debug "Selected stop num:  $SELECTED_STOP_NUM"
+
+  # Take user input and determine which time strings were selected.
+  SELECTED_START_TIME=`awk 'BEGIN{i=1}{if($0 ~ /^# [0-1][0-9]\/[0-3][0-9]\//){if(i==user_num){print $0;exit}else{i++}}}' user_num=$SELECTED_START_NUM $check_file`
+  SELECTED_STOP_TIME=`awk 'BEGIN{i=1}{if($0 ~ /^# [0-1][0-9]\/[0-3][0-9]\//){if(i==user_num){print $0;exit}else{i++}}}' user_num=$SELECTED_STOP_NUM $check_file`
+
+  echo_debug "Selected start time: $SELECTED_START_TIME"
+  echo_debug "Selected stop time:  $SELECTED_STOP_TIME"
+
+  # Parse time strings to get properly formatted start time and date. This
+  # is the same as the time/date of the starting volume scan.
+  PLOT_START_TIME=`echo $SELECTED_START_TIME | awk '{print $3}'`
+  PLOT_START_DATE=`echo $SELECTED_START_TIME | awk '{print $2}'`
+
+  echo_debug "Selected plot start time: $PLOT_START_DATE $PLOT_START_TIME"
+
+  # Parse time strings to get properly formatted end time and date. This
+  # is not as straightforward as the start time. First get the time/date
+  # and duration of the ending volume scan. Add the duration to the ending
+  # volume's date/time to get the plot's stop time/date.
+  last_volume_time=`echo $SELECTED_STOP_TIME | awk '{print $3}'`
+  last_volume_date=`echo $SELECTED_STOP_TIME | awk '{print $2}'`
+  last_volume_duration=`awk 'BEGIN{i=1}{if($0 ~ /Stats:/){if(i==stop_num){print $3;exit}i++}}' stop_num=$SELECTED_STOP_NUM $check_file`
+  end_date=`date -u -d "$last_volume_date $last_volume_time $last_volume_duration seconds"`
+  PLOT_END_TIME=`date -u -d "$end_date" +%H:%M:%S`
+  PLOT_END_DATE=`date -u -d "$end_date" +%m/%d/%y`
+
+  echo_debug "Selected plot start time: $PLOT_END_DATE $PLOT_END_TIME"
+}
+
+#**************************************************************************
+# CREATE_PLOTS: Create plots from perf_mon output.
+#**************************************************************************
+
+create_plots ()
+{
+  if [ "$CPU_STATS_FILE" != "" ]
+  then
+    echo_debug "Creating CPU Stats plot"
+    create_cpu_stats_plot
+  else
+    echo_stderr "CPU stats file not found. No plot created."
+  fi
+  if [ "$MEM_STATS_FILE" != "" ]
+  then
+    echo_debug "Creating Memory Stats plot"
+    create_mem_stats_plot
+  else
+    echo_stderr "Memory stats file not found. No plot created."
+  fi
+  if [ "$DISK_STATS_FILE" != "" ]
+  then
+    echo_debug "Creating Disk Stats plot"
+    create_disk_stats_plot
+  else
+    echo_stderr "Disk stats file not found. No plot created."
+  fi
+  if [ "$SWAP_STATS_FILE" != "" ]
+  then
+    echo_debug "Creating Swap Stats plot"
+    create_swap_stats_plot
+  else
+    echo_stderr "Swap stats file not found. No plot created."
+  fi
+  if [ "$ETH0_STATS_FILE" != "" ]
+  then
+    echo_debug "Creating Eth0 Stats plot"
+    create_eth0_stats_plot
+  else
+    echo_stderr "ETH0 stats file not found. No plot created."
+  fi
+  if [ "$ETH1_STATS_FILE" != "" ]
+  then
+    echo_debug "Creating Eth1 Stats plot"
+    create_eth1_stats_plot
+  else
+    echo_stderr "ETH1 stats file not found. No plot created."
+  fi
+  if [ "$LDM_STATS_FILE" != "" ]
+  then
+    echo_debug "Creating LDM Stats plot"
+    create_ldm_stats_plot
+  else
+    echo_stderr "LDM stats file not found. No plot created."
+  fi
+}
+
+#**************************************************************************
+# BUILD_HIGHLIGHT_COMMAND: Build GNUPLOT command to highlight selected cut.
+#**************************************************************************
+
+build_highlight_command ()
+{
+  HIGHLIGHT_CUT_CMD=""
+  cut_number_times=`cat $1 | awk '{if($1==cut_mark){print $2}}' cut_mark=$CUT_NUMBER_TO_MARK`
+  if [ "$cut_number_times" != "" ]
+  then
+    HIGHLIGHT_CUT_CMD="set multiplot\nf(t)=t\nset trange[$2:$3]\nset parametric\n"
+    for cut_time in $cut_number_times
+    do
+      HIGHLIGHT_CUT_CMD="$HIGHLIGHT_CUT_CMD\nplot ($cut_time-t2),f(t) with lines lt -1 notitle"
+    done
+    HIGHLIGHT_CUT_CMD="$HIGHLIGHT_CUT_CMD\nunset parametric\n"
+  else
+    echo_stderr "Cut number $CUT_NUMBER_TO_MARK not found"
+  fi
+}
+
+#**************************************************************************
+# SHOW_PLOTS: Display images in Firefox.
+#**************************************************************************
+
+show_plots ()
+{
+  if [ $DISPLAY_IMAGES = "YES" ]
+  then
+    echo_debug "Launching firefox"
+    firefox $FIREFOX_STRING &
+  fi
+}
+
+#**************************************************************************
+# CREATE_CPU_STATS_PLOT: Create plot of CPU status.
+#**************************************************************************
+
+create_cpu_stats_plot ()
+{
+  output_file=$OUTPUT_DIR/$SELECTED_NODE.$CPU_STATS_TAG.png
+
+  if [ "$CUT_NUMBER_TO_MARK" != "" ]
+  then
+    build_highlight_command $CPU_STATS_FILE 0.0 100.0
+  fi
+
+  gnuplot_input="\n
+# GNU Plot script for displaying CPU utilization\n
+unset log\n
+unset label\n
+#\n
+# All times need to be relative to 1/1/2000\n
+t2=946684800\n
+
+set title \"CPU Utilization\"\n
+set xlabel \"Time\"\n
+set ylabel \"Percent (%)\"\n
+set yrange [0.0:100.0]\n
+set ytics 0, 20\n
+set mytics 2\n
+set grid ytics mytics\n
+
+set xdata time\n
+set format x \"%H:%M\"\n
+set timefmt \"%H:%M:%S %m/%d/%y\"\n
+set xrange [\"$PLOT_START_TIME $PLOT_START_DATE\":\"$PLOT_END_TIME $PLOT_END_DATE\"]\n
+set timefmt \"%s\"\n
+set terminal png\n
+set output \"$output_file\"\n
+
+$HIGHLIGHT_CUT_CMD\n
+
+plot \
+\"$CPU_STATS_FILE\" using (\$2-t2):5 with lines lw 1.2 title \"Busy\",\\
+\"$CPU_STATS_FILE\" using (\$2-t2):6 with lines lw 1.2 title \"IOwait\",\\
+\"$CPU_STATS_FILE\" using (\$2-t2):7 with lines lw 1.2 title \"System\"\n
+"
+
+  echo_debug "GNUPLOT command\n$gnuplot_input"
+  echo -e "$gnuplot_input" | gnuplot
+  FIREFOX_STRING="$FIREFOX_STRING file://$output_file"
+#\"$CPU_STATS_FILE\" using (\$2-t2):( \$1 == 1 ? \$5 : 1/0) with points pointtype 7 lt -1 title \"1st Cut\"\n
+}
+
+#**************************************************************************
+# CREATE_MEM_STATS_PLOT: Create plot of memory statistics.
+#**************************************************************************
+
+create_mem_stats_plot ()
+{
+  output_file=$OUTPUT_DIR/$SELECTED_NODE.$MEM_STATS_TAG.png
+
+  if [ "$CUT_NUMBER_TO_MARK" != "" ]
+  then
+    build_highlight_command $MEM_STATS_FILE 0.0 100.0
+  fi
+
+  gnuplot_input="\n
+# GNU Plot script for displaying CPU Memory Usage\n
+unset log\n
+unset label\n
+#\n
+# All times need to be relative to 1/1/2000\n
+t2=946684800\n
+
+set title \"CPU Memory Usage\"\n
+set xlabel \"Time\"\n
+set ylabel \"Percent (%)\"\n
+set yrange [0.0:100.0]\n
+set ytics 0, 20\n
+set mytics 2\n
+set grid ytics mytics\n
+
+set xdata time\n
+set format x \"%H:%M\"\n
+set timefmt \"%H:%M:%S %m/%d/%y\"\n
+set xrange [\"$PLOT_START_TIME $PLOT_START_DATE\":\"$PLOT_END_TIME $PLOT_END_DATE\"]\n
+set timefmt \"%s\"\n
+set terminal png\n
+set output \"$output_file\"\n
+
+$HIGHLIGHT_CUT_CMD\n
+
+plot \
+\"$MEM_STATS_FILE\" using (\$2-t2):6 with lines lw 1.2 notitle\n
+"
+
+  echo_debug "GNUPLOT command\n$gnuplot_input"
+  echo -e "$gnuplot_input" | gnuplot
+  FIREFOX_STRING="$FIREFOX_STRING file://$output_file"
+}
+
+#**************************************************************************
+# CREATE_DISK_STATS_PLOT: Create plot of disk statistics.
+#**************************************************************************
+
+create_disk_stats_plot ()
+{
+  output_file=$OUTPUT_DIR/$SELECTED_NODE.$DISK_STATS_TAG.rw.png
+
+  if [ "$CUT_NUMBER_TO_MARK" != "" ]
+  then
+    build_highlight_command $DISK_STATS_FILE 0.0 2000.0
+  fi
+
+  gnuplot_input="\n
+# GNU Plot script for displaying CPU Disk Usage\n
+unset log\n
+unset label\n
+#\n
+# All times need to be relative to 1/1/2000\n
+t2=946684800\n
+
+set title \"CPU Disk Read Write\"\n
+set xlabel \"Time\"\n
+set ylabel \"Kilobytes (Kb)\"\n
+set yrange [0.0:2000.0]\n
+set ytics 0, 200\n
+set mytics 2\n
+set grid ytics mytics\n
+
+set xdata time\n
+set format x \"%H:%M\"\n
+set timefmt \"%H:%M:%S %m/%d/%y\"\n
+set xrange [\"$PLOT_START_TIME $PLOT_START_DATE\":\"$PLOT_END_TIME $PLOT_END_DATE\"]\n
+set timefmt \"%s\"\n
+set terminal png\n
+set output \"$output_file\"\n
+
+$HIGHLIGHT_CUT_CMD\n
+
+plot \
+\"$DISK_STATS_FILE\" using (\$2-t2):4 with lines lw 1.2 title \"Read\",\\
+\"$DISK_STATS_FILE\" using (\$2-t2):5 with lines lw 1.2 title \"Write\"\n
+"
+
+  echo_debug "GNUPLOT command\n$gnuplot_input"
+  echo -e "$gnuplot_input" | gnuplot
+  FIREFOX_STRING="$FIREFOX_STRING file://$output_file"
+
+  output_file=$OUTPUT_DIR/$SELECTED_NODE.$DISK_STATS_TAG.srvc_time.png
+
+  if [ "$CUT_NUMBER_TO_MARK" != "" ]
+  then
+    build_highlight_command $DISK_STATS_FILE 0.0 1000.0
+  fi
+
+  gnuplot_input="\n
+# GNU Plot script for displaying CPU Disk Usage\n
+unset log\n
+unset label\n
+#\n
+# All times need to be relative to 1/1/2000\n
+t2=946684800\n
+
+set title \"CPU Disk Service Time\"\n
+set xlabel \"Time\"\n
+set ylabel \"Milliseconds (ms)\"\n
+set yrange [0.0:1000.0]\n
+set ytics 0, 100\n
+set mytics 2\n
+set grid ytics mytics\n
+
+set xdata time\n
+set format x \"%H:%M\"\n
+set timefmt \"%H:%M:%S %m/%d/%y\"\n
+set xrange [\"$PLOT_START_TIME $PLOT_START_DATE\":\"$PLOT_END_TIME $PLOT_END_DATE\"]\n
+set timefmt \"%s\"\n
+set terminal png\n
+set output \"$output_file\"\n
+
+$HIGHLIGHT_CUT_CMD\n
+
+plot \
+\"$DISK_STATS_FILE\" using (\$2-t2):6 with lines lw 1.2 title \"Wait\",\\
+\"$DISK_STATS_FILE\" using (\$2-t2):7 with lines lw 1.2 title \"Service\"\n
+"
+
+  echo_debug "GNUPLOT command\n$gnuplot_input"
+  echo -e "$gnuplot_input" | gnuplot
+  FIREFOX_STRING="$FIREFOX_STRING file://$output_file"
+
+  output_file=$OUTPUT_DIR/$SELECTED_NODE.$DISK_STATS_TAG.util.png
+
+  if [ "$CUT_NUMBER_TO_MARK" != "" ]
+  then
+    build_highlight_command $DISK_STATS_FILE 0.0 100.0
+  fi
+
+  gnuplot_input="\n
+# GNU Plot script for displaying CPU Disk Usage\n
+unset log\n
+unset label\n
+#\n
+# All times need to be relative to 1/1/2000\n
+t2=946684800\n
+
+set title \"CPU I/O Utilization\"\n
+set xlabel \"Time\"\n
+set ylabel \"Percent (%)\"\n
+set yrange [0.0:100.0]\n
+set ytics 0, 20\n
+set mytics 2\n
+set grid ytics mytics\n
+
+set xdata time\n
+set format x \"%H:%M\"\n
+set timefmt \"%H:%M:%S %m/%d/%y\"\n
+set xrange [\"$PLOT_START_TIME $PLOT_START_DATE\":\"$PLOT_END_TIME $PLOT_END_DATE\"]\n
+set timefmt \"%s\"\n
+set terminal png\n
+set output \"$output_file\"\n
+
+$HIGHLIGHT_CUT_CMD\n
+
+plot \
+\"$DISK_STATS_FILE\" using (\$2-t2):8 with lines lw 1.2 notitle\n
+"
+
+  echo_debug "GNUPLOT command\n$gnuplot_input"
+  echo -e "$gnuplot_input" | gnuplot
+  FIREFOX_STRING="$FIREFOX_STRING file://$output_file"
+}
+
+#**************************************************************************
+# CREATE_SWAP_STATS_PLOT: Create plot of swap statistics.
+#**************************************************************************
+
+create_swap_stats_plot ()
+{
+  output_file=$OUTPUT_DIR/$SELECTED_NODE.$SWAP_STATS_TAG.png
+
+  if [ "$CUT_NUMBER_TO_MARK" != "" ]
+  then
+    build_highlight_command $SWAP_STATS_FILE 0.0 100.0
+  fi
+
+  gnuplot_input="\n
+# GNU Plot script for displaying CPU Swap Usage\n
+unset log\n
+unset label\n
+#\n
+# All times need to be relative to 1/1/2000\n
+t2=946684800\n
+
+set title \"CPU Swap Usage\"\n
+set xlabel \"Time\"\n
+set ylabel \"Percent (%)\"\n
+set yrange [0.0:100.0]\n
+set ytics 0, 20\n
+set mytics 2\n
+set grid ytics mytics\n
+
+set xdata time\n
+set format x \"%H:%M\"\n
+set timefmt \"%H:%M:%S %m/%d/%y\"\n
+set xrange [\"$PLOT_START_TIME $PLOT_START_DATE\":\"$PLOT_END_TIME $PLOT_END_DATE\"]\n
+set timefmt \"%s\"\n
+set terminal png\n
+set output \"$output_file\"\n
+
+$HIGHLIGHT_CUT_CMD\n
+
+plot \
+\"$SWAP_STATS_FILE\" using (\$2-t2):5 with lines lw 1.2 notitle\n
+"
+
+  echo_debug "GNUPLOT command\n$gnuplot_input"
+  echo -e "$gnuplot_input" | gnuplot
+  FIREFOX_STRING="$FIREFOX_STRING file://$output_file"
+}
+
+#**************************************************************************
+# CREATE_ETH0_STATS_PLOT: Create plot of eth0 statistics.
+#**************************************************************************
+
+create_eth0_stats_plot ()
+{
+  output_file=$OUTPUT_DIR/$SELECTED_NODE.$ETH0_STATS_TAG.io.png
+
+  if [ "$CUT_NUMBER_TO_MARK" != "" ]
+  then
+    build_highlight_command $ETH0_STATS_FILE 0.0 10000000.0
+  fi
+
+  gnuplot_input="\n
+# GNU Plot script for displaying Eth0 Usage\n
+unset log\n
+unset label\n
+#\n
+# All times need to be relative to 1/1/2000\n
+t2=946684800\n
+
+set title \"Eth0 Interface Usage\"\n
+set xlabel \"Time\"\n
+set ylabel \"Bytes (b)\"\n
+set yrange [0.0:10000000.0]\n
+set ytics 0, 2000000\n
+set mytics 2\n
+set grid ytics mytics\n
+
+set xdata time\n
+set format x \"%H:%M\"\n
+set timefmt \"%H:%M:%S %m/%d/%y\"\n
+set xrange [\"$PLOT_START_TIME $PLOT_START_DATE\":\"$PLOT_END_TIME $PLOT_END_DATE\"]\n
+set timefmt \"%s\"\n
+set terminal png\n
+set output \"$output_file\"\n
+
+$HIGHLIGHT_CUT_CMD\n
+
+plot \
+\"$ETH0_STATS_FILE\" using (\$2-t2):6 with lines lw 1.2 title \"Input\",\\
+\"$ETH0_STATS_FILE\" using (\$2-t2):7 with lines lw 1.2 title \"Output\"\n
+"
+
+  echo_debug "GNUPLOT command\n$gnuplot_input"
+  echo -e "$gnuplot_input" | gnuplot
+  FIREFOX_STRING="$FIREFOX_STRING file://$output_file"
+
+  output_file=$OUTPUT_DIR/$SELECTED_NODE.$ETH0_STATS_TAG.rate.png
+
+  if [ "$CUT_NUMBER_TO_MARK" != "" ]
+  then
+    build_highlight_command $ETH0_STATS_FILE 0.0 300000.0
+  fi
+
+  gnuplot_input="\n
+# GNU Plot script for displaying Eth0 Usage\n
+unset log\n
+unset label\n
+#\n
+# All times need to be relative to 1/1/2000\n
+t2=946684800\n
+
+set title \"Eth0 Interface Rate\"\n
+set xlabel \"Time\"\n
+set ylabel \"Bytes per Second (b/s)\"\n
+set yrange [0.0:300000.0]\n
+set ytics 0, 60000\n
+set mytics 2\n
+set grid ytics mytics\n
+
+set xdata time\n
+set format x \"%H:%M\"\n
+set timefmt \"%H:%M:%S %m/%d/%y\"\n
+set xrange [\"$PLOT_START_TIME $PLOT_START_DATE\":\"$PLOT_END_TIME $PLOT_END_DATE\"]\n
+set timefmt \"%s\"\n
+set terminal png\n
+set output \"$output_file\"\n
+
+$HIGHLIGHT_CUT_CMD\n
+
+plot \
+\"$ETH0_STATS_FILE\" using (\$2-t2):8 with lines lw 1.2 title \"Input\",\\
+\"$ETH0_STATS_FILE\" using (\$2-t2):9 with lines lw 1.2 title \"Output\"\n
+"
+
+  echo_debug "GNUPLOT command\n$gnuplot_input"
+  echo -e "$gnuplot_input" | gnuplot
+  FIREFOX_STRING="$FIREFOX_STRING file://$output_file"
+}
+
+#**************************************************************************
+# CREATE_ETH1_STATS_PLOT: Create plot of ETH1 statistics.
+#**************************************************************************
+
+create_eth1_stats_plot ()
+{
+  output_file=$OUTPUT_DIR/$SELECTED_NODE.$ETH1_STATS_TAG.io.png
+
+  if [ "$CUT_NUMBER_TO_MARK" != "" ]
+  then
+    build_highlight_command $ETH1_STATS_FILE 0.0 10000000.0
+  fi
+
+  gnuplot_input="\n
+# GNU Plot script for displaying Eth1 I/O\n
+unset log\n
+unset label\n
+#\n
+# All times need to be relative to 1/1/2000\n
+t2=946684800\n
+
+set title \"Eth1 Interface Usage\"\n
+set xlabel \"Time\"\n
+set ylabel \"Bytes (b)\"\n
+set yrange [0.0:10000000.0]\n
+set ytics 0, 2000000\n
+set mytics 2\n
+set grid ytics mytics\n
+
+set xdata time\n
+set format x \"%H:%M\"\n
+set timefmt \"%H:%M:%S %m/%d/%y\"\n
+set xrange [\"$PLOT_START_TIME $PLOT_START_DATE\":\"$PLOT_END_TIME $PLOT_END_DATE\"]\n
+set timefmt \"%s\"\n
+set terminal png\n
+set output \"$output_file\"\n
+
+$HIGHLIGHT_CUT_CMD\n
+
+plot \
+\"$ETH1_STATS_FILE\" using (\$2-t2):6 with lines lw 1.2 title \"Input\",\\
+\"$ETH1_STATS_FILE\" using (\$2-t2):7 with lines lw 1.2 title \"Output\"\n
+"
+
+  echo_debug "GNUPLOT command\n$gnuplot_input"
+  echo -e "$gnuplot_input" | gnuplot
+  FIREFOX_STRING="$FIREFOX_STRING file://$output_file"
+
+  output_file=$OUTPUT_DIR/$SELECTED_NODE.$ETH1_STATS_TAG.rate.png
+
+  if [ "$CUT_NUMBER_TO_MARK" != "" ]
+  then
+    build_highlight_command $ETH1_STATS_FILE 0.0 300000.0
+  fi
+
+  gnuplot_input="\n
+# GNU Plot script for displaying Eth1 Rate\n
+unset log\n
+unset label\n
+#\n
+# All times need to be relative to 1/1/2000\n
+t2=946684800\n
+
+set title \"Eth1 Interface Rate\"\n
+set xlabel \"Time\"\n
+set ylabel \"Bytes per Second (b/s)\"\n
+set yrange [0.0:300000.0]\n
+set ytics 0, 60000\n
+set mytics 2\n
+set grid ytics mytics\n
+
+set xdata time\n
+set format x \"%H:%M\"\n
+set timefmt \"%H:%M:%S %m/%d/%y\"\n
+set xrange [\"$PLOT_START_TIME $PLOT_START_DATE\":\"$PLOT_END_TIME $PLOT_END_DATE\"]\n
+set timefmt \"%s\"\n
+set terminal png\n
+set output \"$output_file\"\n
+
+$HIGHLIGHT_CUT_CMD\n
+
+plot \
+\"$ETH1_STATS_FILE\" using (\$2-t2):8 with lines lw 1.2 title \"Input\",\\
+\"$ETH1_STATS_FILE\" using (\$2-t2):9 with lines lw 1.2 title \"Output\"\n
+"
+
+  echo_debug "GNUPLOT command\n$gnuplot_input"
+  echo -e "$gnuplot_input" | gnuplot
+  FIREFOX_STRING="$FIREFOX_STRING file://$output_file"
+}
+
+#**************************************************************************
+# CREATE_LDM_STATS_PLOT: Create plot of LDM statistics.
+#**************************************************************************
+
+create_ldm_stats_plot ()
+{
+  output_file=$OUTPUT_DIR/$SELECTED_NODE.$LDM_STATS_TAG.rate.png
+
+  if [ "$CUT_NUMBER_TO_MARK" != "" ]
+  then
+    build_highlight_command $LDM_STATS_FILE 0.0 20000.0
+  fi
+
+  gnuplot_input="\n
+# GNU Plot script for displaying LDM Stats\n
+unset log\n
+unset label\n
+#\n
+# All times need to be relative to 1/1/2000\n
+t2=946684800\n
+
+set title \"LDM Rate\"\n
+set xlabel \"Time\"\n
+set ylabel \"Bytes per Second (b/s)\"\n
+set yrange [0.0:20000.0]\n
+set ytics 0, 4000\n
+set mytics 2\n
+set grid ytics mytics\n
+
+set xdata time\n
+set format x \"%H:%M\"\n
+set timefmt \"%H:%M:%S %m/%d/%y\"\n
+set xrange [\"$PLOT_START_TIME $PLOT_START_DATE\":\"$PLOT_END_TIME $PLOT_END_DATE\"]\n
+set timefmt \"%s\"\n
+set terminal png\n
+set output \"$output_file\"\n
+
+$HIGHLIGHT_CUT_CMD\n
+
+plot \
+\"$LDM_STATS_FILE\" using (\$2-t2):6 with lines lw 1.2 notitle\n
+"
+
+  echo_debug "GNUPLOT command\n$gnuplot_input"
+  echo -e "$gnuplot_input" | gnuplot
+  FIREFOX_STRING="$FIREFOX_STRING file://$output_file"
+
+  output_file=$OUTPUT_DIR/$SELECTED_NODE.$LDM_STATS_TAG.elev.png
+
+  if [ "$CUT_NUMBER_TO_MARK" != "" ]
+  then
+    build_highlight_command $LDM_STATS_FILE 0.0 450000.0
+  fi
+
+  gnuplot_input="\n
+# GNU Plot script for displaying LDM Stats\n
+unset log\n
+unset label\n
+#\n
+# All times need to be relative to 1/1/2000\n
+t2=946684800\n
+
+set title \"LDM Compressed Bytes\"\n
+set xlabel \"Time\"\n
+set ylabel \"Bytes (b)\"\n
+set yrange [0.0:450000.0]\n
+set ytics 0, 50000\n
+set mytics 2\n
+set grid ytics mytics\n
+
+set xdata time\n
+set format x \"%H:%M\"\n
+set timefmt \"%H:%M:%S %m/%d/%y\"\n
+set xrange [\"$PLOT_START_TIME $PLOT_START_DATE\":\"$PLOT_END_TIME $PLOT_END_DATE\"]\n
+set timefmt \"%s\"\n
+set terminal png\n
+set output \"$output_file\"\n
+
+$HIGHLIGHT_CUT_CMD\n
+
+plot \
+\"$LDM_STATS_FILE\" using (\$2-t2):5 with lines lw 1.2 notitle\n
+"
+
+  echo_debug "GNUPLOT command\n$gnuplot_input"
+  echo -e "$gnuplot_input" | gnuplot
+  FIREFOX_STRING="$FIREFOX_STRING file://$output_file"
+
+  output_file=$OUTPUT_DIR/$SELECTED_NODE.$LDM_STATS_TAG.ratio.png
+
+  if [ "$CUT_NUMBER_TO_MARK" != "" ]
+  then
+    build_highlight_command $LDM_STATS_FILE 0.0 50.0
+  fi
+
+  gnuplot_input="\n
+# GNU Plot script for displaying LDM Stats\n
+unset log\n
+unset label\n
+#\n
+# All times need to be relative to 1/1/2000\n
+t2=946684800\n
+
+set title \"LDM Compression Ratio\"\n
+set xlabel \"Time\"\n
+set ylabel \"Ratio\"\n
+set yrange [0.0:50.0]\n
+set ytics 0, 10\n
+set mytics 2\n
+set grid ytics mytics\n
+
+set xdata time\n
+set format x \"%H:%M\"\n
+set timefmt \"%H:%M:%S %m/%d/%y\"\n
+set xrange [\"$PLOT_START_TIME $PLOT_START_DATE\":\"$PLOT_END_TIME $PLOT_END_DATE\"]\n
+set timefmt \"%s\"\n
+set terminal png\n
+set output \"$output_file\"\n
+
+$HIGHLIGHT_CUT_CMD\n
+
+plot \
+\"$LDM_STATS_FILE\" using (\$2-t2):7 with lines lw 1.2 notitle\n
+"
+
+  echo_debug "GNUPLOT command\n$gnuplot_input"
+  echo -e "$gnuplot_input" | gnuplot
+  FIREFOX_STRING="$FIREFOX_STRING file://$output_file"
+}
+
+#**************************************************************************
+#**************************************************************************
+#
+# End of Functions
+#
+#**************************************************************************
+#**************************************************************************
+
+#**************************************************************************
+#**************************************************************************
+#
+# Main Body of Script
+#
+#**************************************************************************
+#**************************************************************************
+
+parse_input "$@"
+get_node_list
+user_select_node
+validate_node_info
+user_select_time
+create_plots
+show_plots
+
+exit 0

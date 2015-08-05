@@ -1,0 +1,384 @@
+#!/bin/sh
+#
+# RCS info
+# $Author: ccalvert $
+# $Locker:  $
+# $Date: 2007/02/26 16:04:17 $
+# $Id: mscf9600,v 1.13 2007/02/26 16:04:17 ccalvert Exp $
+# $Revision: 1.13 $
+# $State: Exp $
+#
+# File name:            mscf9600
+# Author:               Chris Gilbert
+# Creation Date:	10/24/01
+#
+# Purpose: To copy over the files needed to run the MSCF at 9.6K.
+#     
+#set -x      #Debug option
+
+#*******************************************************************************
+# Global Variables   
+#*******************************************************************************
+
+TARGDIR=/home/rpg/cfg
+REVERTOPTION=NO
+MSCF_CONF=mscf.conf
+MSCF_CONF_FAA1=mscf.conf.faa1
+MSCF_CONF_FAA2=mscf.conf.faa2
+MSCF_CONF_NWSR=mscf.conf.nwsr
+MARKER_FILE=MSCF9600_CONFIG_INSTALLED 
+TMP0=/tmp/mscf9600.tmp
+
+#*******************************************************************************
+# Start of Functions
+#*******************************************************************************
+
+######################################################
+# REVERTOPTION: Removes low bandwidth files.
+######################################################
+
+revertoption ()
+{
+   echo
+   echo "Original configuration files will be installed."
+   echo "Are you sure (y/n)?  [Default: y]"
+   echo
+   read PROMPT
+   echo
+   if [ "$PROMPT" = "n" -o "$PROMPT" = "N" -o   \
+        "$PROMPT" = "No" -o "$PROMPT" = "no" -o \
+        "$PROMPT" = "NO" ]
+   then
+      exit 0
+   fi
+
+   #
+   # Check for original files
+   #
+   if [ ! -f $TARGDIR/${MSCF_CONF}.high ] 
+   then
+      echo "Error: Cannot find $TARGDIR/${MSCF_CONF}.high file."
+      exit 1
+   fi
+  
+   if [ ! -f $TARGDIR/${MSCF_CONF_FAA1}.high ] 
+   then
+      echo "Error: Cannot find $TARGDIR/${MSCF_CONF_FAA1}.high file."
+      exit 1
+   fi
+
+   if [ ! -f $TARGDIR/${MSCF_CONF_FAA2}.high ] 
+   then
+      echo "Error: Cannot find $TARGDIR/${MSCF_CONF_FAA2}.high file."
+      exit 1
+   fi
+
+   if [ ! -f $TARGDIR/${MSCF_CONF_NWSR}.high ] 
+   then
+      echo "Error: Cannot find $TARGDIR/${MSCF_CONF_NWSR}.high file."
+      exit 1
+   fi
+
+   #
+   # check permissions 
+   #
+   touch $TARGDIR/$MSCF_CONF > /dev/null 2>&1
+   if [ ! -f $TARGDIR/$MSCF_CONF ]
+   then
+      echo "Error: Cannot write to $TARGDIR/$MSCF_CONF !"
+      exit 1
+   fi
+
+   touch $TARGDIR/$MSCF_CONF_FAA1 > /dev/null 2>&1
+   if [ ! -f $TARGDIR/$MSCF_CONF_FAA1 ]
+   then
+      echo "Error: Cannot write to $TARGDIR/$MSCF_CONF_FAA1 !"
+      exit 1
+   fi
+
+   touch $TARGDIR/$MSCF_CONF_FAA2 > /dev/null 2>&1
+   if [ ! -f $TARGDIR/$MSCF_CONF_FAA2 ]
+   then
+      echo "Error: Cannot write to $TARGDIR/$MSCF_CONF_FAA2 !"
+      exit 1
+   fi
+
+   touch $TARGDIR/$MSCF_CONF_NWSR > /dev/null 2>&1
+   if [ ! -f $TARGDIR/$MSCF_CONF_NWSR ]
+   then
+      echo "Error: Cannot write to $TARGDIR/$MSCF_CONF_NWSR !"
+      exit 1
+   fi
+
+   #
+   # Copy back in the original files
+   # 
+   cp $TARGDIR/${MSCF_CONF}.high $TARGDIR/$MSCF_CONF
+   cp $TARGDIR/${MSCF_CONF_FAA1}.high $TARGDIR/$MSCF_CONF_FAA1
+   cp $TARGDIR/${MSCF_CONF_FAA2}.high $TARGDIR/$MSCF_CONF_FAA2
+   cp $TARGDIR/${MSCF_CONF_NWSR}.high $TARGDIR/$MSCF_CONF_NWSR
+
+   # 
+   # Remove the marker file
+   #
+   rm -f $HOME/$MARKER_FILE
+
+   #
+   # Restart the software
+   #
+   pkill -9 -x mscf
+   pkill -9 -x hci
+   echo
+   echo "Restart the MSCF Software and main HCI..."
+
+   echo
+   echo "Finished! Original Files Installed."
+   echo
+   exit 0
+}
+
+##################################################
+# PRINT_USAGE: Display script usage.
+##################################################
+
+print_usage ()
+{
+  echo
+  echo
+  echo "Usage: `basename $0` [options]"
+  echo "      Options:"
+  echo "        -h Print usage information"
+  echo "        -d software location (default is $TARGDIR)"
+  echo "        -r remove existing low bandwidth files and revert to original"
+  echo
+  echo
+}
+
+#*******************************************************************************
+# End of Functions
+#*******************************************************************************
+
+#*******************************************************************************
+# Main Body of Script
+#*******************************************************************************
+
+#
+# Set OS dependent variables
+#
+
+while getopts rhd: INPUT
+do
+   case $INPUT in
+      r) REVERTOPTION=YES;;
+      h) print_usage; exit 0 ;;
+      d) TARGDIR="$OPTARG";;
+      \?) print_usage; exit 1 ;;
+   esac
+done
+
+#
+# Make sure the target directory exists
+#
+if [ ! -d $TARGDIR ]
+then
+   echo "Error: $TARGDIR does not exist!"
+   exit 1
+fi
+
+
+#
+# Are the config files in the target directory
+#
+if [ ! -f $TARGDIR/$MSCF_CONF  ]
+then
+   echo "Error: Cannot find config file $MSCF_CONF in $TARGDIR !"
+   exit 1
+fi
+
+if [ ! -f $TARGDIR/$MSCF_CONF_FAA1 ]
+then
+   echo "Error: Cannot find config file $MSCF_CONF_FAA1 in $TARGDIR !"
+   exit 1
+fi
+
+if [ ! -f $TARGDIR/$MSCF_CONF_FAA2 ]
+then
+   echo "Error: Cannot find config file $MSCF_CONF_FAA2 in $TARGDIR !"
+   exit 1
+fi
+
+if [ ! -f $TARGDIR/$MSCF_CONF_NWSR ]
+then
+   echo "Error: Cannot find config file $MSCF_CONF_NWSR in $TARGDIR !"
+   exit 1
+fi
+
+#
+# Can we write to the target directory?
+#
+touch $TARGDIR/$$test > /dev/null 2>&1
+
+if [ ! -f $TARGDIR/$$test ]
+then
+   echo "Error: Cannot write to $TARGDIR !"
+   rm -f $TARGDIR/$$test
+   exit 1
+fi
+
+rm -f $TARGDIR/$$test
+
+#
+# Figure out who is running this script
+#
+USER=`ps -o ruser | awk ' { if ( $1 != "RUSER" ) { print $1; exit } }' `
+GRP=`id -ng`
+
+#
+# See if we have been asked to remove the tools
+#
+if [ "$REVERTOPTION" = "YES" ]
+then
+   revertoption
+fi
+
+#
+# Backup the original files
+#
+if [ ! -f $TARGDIR/${MSCF_CONF}.high ]
+then
+   cp $TARGDIR/$MSCF_CONF $TARGDIR/${MSCF_CONF}.high
+fi
+
+if [ ! -f $TARGDIR/${MSCF_CONF_FAA1}.high ]
+then
+   cp $TARGDIR/$MSCF_CONF_FAA1 $TARGDIR/${MSCF_CONF_FAA1}.high
+fi
+
+if [ ! -f $TARGDIR/${MSCF_CONF_FAA2}.high ]
+then
+   cp $TARGDIR/$MSCF_CONF_FAA2 $TARGDIR/${MSCF_CONF_FAA2}.high
+fi
+
+if [ ! -f $TARGDIR/${MSCF_CONF_NWSR}.high ]
+then
+   cp $TARGDIR/$MSCF_CONF_NWSR $TARGDIR/${MSCF_CONF_NWSR}.high
+fi
+
+#
+# Change the config files      
+#
+
+#
+# Change Start_rpg_command in $MSCF_CONF
+#
+
+HCI_STRING=" \"hci -L -A 1 & \" "
+
+awk  '
+{
+   # Change Start_rpg_command
+
+   if ( $1 == "Start_rpg_command:" )
+   {
+     $2 = hci_string
+     print $1 "\t" $2
+   }
+   else
+   {
+     print $0
+   }
+}' hci_string="${HCI_STRING}" $TARGDIR/$MSCF_CONF > $TMP0
+
+cp $TMP0 $TARGDIR/$MSCF_CONF
+
+#
+# Change Start_rpg_command in $MSCF_CONF_FAA1
+#
+
+HCI_STRING=" \"hci -L -A 1 & \" "
+
+awk  '
+{
+   # Change Start_rpg_command
+
+   if ( $1 == "Start_rpg_command:" )
+   {
+     $2 = hci_string
+     print $1 "\t" $2
+   }
+   else
+   {
+     print $0
+   }
+}' hci_string="${HCI_STRING}" $TARGDIR/$MSCF_CONF_FAA1 > $TMP0
+
+cp $TMP0 $TARGDIR/$MSCF_CONF_FAA1
+
+#
+# Change Start_rpg_command in $MSCF_CONF_FAA2
+#
+
+HCI_STRING=" \"hci -L -A 2 & \" "
+
+awk  '
+{
+   # Change Start_rpg_command
+
+   if ( $1 == "Start_rpg_command:" )
+   {
+     $2 = hci_string
+     print $1 "\t" $2
+   }
+   else
+   {
+     print $0
+   }
+}' hci_string="${HCI_STRING}" $TARGDIR/$MSCF_CONF_FAA2 > $TMP0
+
+cp $TMP0 $TARGDIR/$MSCF_CONF_FAA2
+
+#
+# Change Start_rpg_command in $MSCF_CONF_NWSR
+#
+
+HCI_STRING=" \"hci -L -A 1 & \" "
+
+awk  '
+{
+   # Change Start_rpg_command
+
+   if ( $1 == "Start_rpg_command:" )
+   {
+     $2 = hci_string
+     print $1 "\t" $2
+   }
+   else
+   {
+     print $0
+   }
+}' hci_string="${HCI_STRING}" $TARGDIR/$MSCF_CONF_NWSR > $TMP0
+
+cp $TMP0 $TARGDIR/$MSCF_CONF_NWSR
+
+#
+# Restart the software
+#
+pkill -9 -x mscf
+pkill -9 -x hci
+echo
+echo "Restart the MSCF Software and main HCI..."
+
+#
+# Put out a marker on what happened
+#
+touch $HOME/$MARKER_FILE > /dev/null 2>&1
+if [ ! -f $HOME/$MARKER_FILE ]
+then
+   echo "Error: Cannot write marker file $HOME/$MARKER_FILE !"
+fi
+
+echo ""
+echo "Finished! Configuration is updated for low bandwidth option."
+echo ""
+
+

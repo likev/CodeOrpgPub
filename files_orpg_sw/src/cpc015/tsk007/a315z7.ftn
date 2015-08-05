@@ -1,0 +1,204 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/16 19:41:16 $
+C $Id: a315z7.ftn,v 1.3 2002/12/16 19:41:16 christie Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A315Z7__COMPUTE_VARS( IC, XAVG, YAVG, TAVG,
+     >                                 VARXT,VARYT,VARTT )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A315Z7__COMPUTE_VARS
+*.
+*.  MODULE VERSION: 0014
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       08 16 85      0000      DENNIS MILLER        BUILD 2
+*.       05 07 86      0001      DENNIS MILLER        SPR # 304
+*.       11 15 86      0002      M STEWART            SPR # 60346
+*.       11 15 86      0002      M STEWART            SPR # 60650
+*.       02 26 87      0003      DENNIS MILLER        SPR # 70106
+*.       02 22 91      0004      DENNIS MILLER        SPR # 91256
+*.       02 15 91      0004      JOHN DEPHILIP        SPR # 91762
+*.       12 03 91      0005      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0006      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0007      Toolset              SPR 91895
+*.       03/25/93      0008      Toolset              SPR NA93-06801
+*.       01/28/94      0009      Toolset              SPR NA94-01101
+*.       03/03/94      0010      Toolset              SPR NA94-05501
+*.       04/01/95      0011      Toolset              CCR NA95-11802
+*.       05/25/95      0012      STEVE SMITH          CCR NA94-26302
+*.       12/23/96      0013      Toolset              CCR NA95-11807
+*.       03/16/99      0014      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A315Z7__COMPUTE_VARS( IC,XAVG,YAVG,TAVG,
+*.                                               VARXT,VARYT,VARTT )
+*.
+*.  MODULE FUNCTION:
+*.
+*.  This routine searches through the Storm-History and Correlation
+*.  tables in order to compute the variance and covariance fields
+*.  regarding the X and Y position histories and the Time histories
+*.  of "continuing" storm cells, for use in determining their storm
+*.  speeds.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT    TYPE        DESCRIPTION
+*.    -   -----    ----        -----------
+*.    G   ADPNPVOL I*4         Adaptation data number of volume scans without
+*.                             storms threshold stored in Storm Data
+*.    C   CORLTABL I*4         Correlation table containing IDs to the cells
+*.                             for all previous volumes (up to the maximum).
+*.    C   IXCUR    I*4         Index to the current volume scan in the
+*.                             correlation table
+*.    C   IXPRE    I*4         Index to the previous volume scan in the
+*.                             correlation table
+*.    C   POSITABL R*4         Table of cell-X and Y centroid positions thru
+*.                             the time spanned in the Correlation History
+*.                             table.
+*.    C   TIMEHIS2 R*4         Table of the times of past and present volume
+*.                             scans corrected for possible change of day.
+*.    C   X_POS    I*4         (CONSTANT)Index to the x-coordinate of a storm
+*.                             cell, the first attribute, in the POSITABLE
+*.                             array.
+*.    C   Y_POS    I*4         (CONSTANT)Index to the y-coordinate of a storm
+*.                             cell, the second attribute, in the POSITABLE
+*.                             array.
+*.    P   IC       I*4         Index within "Current" volume scan
+*.    P   TAVG     R*4         Average storm Time through its known positions
+*.    P   VARTT    R*4         Sum of squares of storm Times
+*.    P   VARXT    R*4         Sum of product of storm (X-pos - X-avg)
+*.    P   VARYT    R*4         Sum of product of storm (Y-pos - Y-avg)
+*.    P   XAVG     R*4         Average storm X-position through its history
+*.    P   YAVG     R*4         Average storm Y-position through its history
+*.
+*.    *   OUTPUT   TYPE        DESCRIPTION
+*.    -   ------   ----        -----------
+*.    G   ADPNPVOL I*4         Adaptation data number of volume scans without
+*.                             storms threshold stored in Storm Data
+*.    C   IXCUR    I*4         Index to the current volume scan in the
+*.                             correlation table
+*.    P   VARTT    R*4         Sum of squares of storm Times
+*.    P   VARXT    R*4         Sum of product of storm (X-pos - X-avg)
+*.    P   VARYT    R*4         Sum of product of storm (Y-pos - Y-avg)
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME  TYPE        DESCRIPTION
+*.    ----  ----        -----------
+*.    IX    I*4         Index for a storm within a past volume scan.
+*.    IXVOL I*4         Index of a past volume scan
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A315CSAD
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A315C6T
+*.    A315CFF
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     Compiled using COMP15.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     Linked using LINK15.CSS
+*.
+*.  MISC:  None
+*.
+C********************************************************************
+C
+C        STORM POSITION FORECAST : COMPUTE VARIANCES  SUBROUTINE
+C
+C********************************************************************
+C
+C
+      IMPLICIT NONE
+C
+C**Attach local STORMS Adaptation Data parameter file:
+$INCLUDE A315BUF.INC/G,**A315PSAD (NLIST)
+C
+C**Attach local STORMS Adaptation Data definitions:
+$INCLUDE **A315CSAD (NLIST)
+C
+C**Attach internal common block (of "STORM_TRACK" output variables).
+$INCLUDE A315.INC/G,**A315C6T (NLIST)
+C
+C**Attach internal common block (of "FORECAST" local variables).
+$INCLUDE **A315CFF (NLIST)
+C
+C*********************** DATA DECLARATIONS **************************
+C
+      INTEGER  IC, IX, IXVOL
+      REAL     XAVG, YAVG, TAVG
+      REAL     VARXT, VARYT, VARTT
+C
+C******************* BEGIN MAIN PROCESSING SECTION ******************
+C
+C**  Initialize variance & covariance fields (of X*T; Y*T; T**2)
+C**  for continuing storm cells from values at current time.
+C
+      VARXT = (POSITABL(X_POS,IC,IXCUR)-XAVG)*(TIMEHIS2(IXCUR)-TAVG)
+      VARYT = (POSITABL(Y_POS,IC,IXCUR)-YAVG)*(TIMEHIS2(IXCUR)-TAVG)
+      VARTT = (TIMEHIS2(IXCUR)-TAVG)*(TIMEHIS2(IXCUR)-TAVG)
+C
+C**  Update storm cell no., column no. indices to get previous
+C**  position of current storm cell.
+C
+      IX = CORLTABL( IC,IXCUR )
+      IXVOL = IXPRE
+C
+C**  Enter loop to process variance-fields at all previous positions
+C**  of present storm cell until end of linked chain is reached.
+C
+ 880  CONTINUE
+C
+      VARXT =  VARXT + (POSITABL(X_POS,IX,IXVOL)-XAVG) *
+     >                 (TIMEHIS2(IXVOL)-TAVG)
+      VARYT =  VARYT + (POSITABL(Y_POS,IX,IXVOL)-YAVG) *
+     >                 (TIMEHIS2(IXVOL)-TAVG)
+      VARTT =  VARTT + (TIMEHIS2(IXVOL)-TAVG)*(TIMEHIS2(IXVOL)-TAVG)
+C
+C**  Test linked pointer at present position. If positive, update
+C**  indices & process storm cell at next-previous position.
+C
+      IF ( CORLTABL(IX,IXVOL) .GT. 0 )  THEN
+         IX = CORLTABL( IX,IXVOL )
+         IXVOL = IXVOL - 1
+         IF ( IXVOL.LT.1 )  IXVOL = ADPNPVOL
+         GO TO 880
+      END IF
+C
+C**  When negative linked-pointer reached, all past positions of
+C**  storm cells have been tabulated.  Return variance fields to
+C**  calling routine.
+C
+C************** END OF PROCESSING FOR SUBROUTINE ********************
+C
+      RETURN
+      END

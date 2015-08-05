@@ -1,0 +1,109 @@
+hci_status.doc			    NOTES			hci_status.doc
+
+
+This file contains information about the HCI RPG Status task.  It is intended
+to be used by those interested in how the software is designed rather than by
+a typical user.  More detailed information about data stores and events used by
+this task is presented.
+
+Design
+------
+
+The RPG Status task was created as a sub task in the HCI family of tasks.  A
+typical user would normally activate it by selecting the "Status" pushbutton in
+the RPG container of the RPG Control/Status window.  However, as a
+stand-alone application, it can be launched from the command line using the
+"hci_status" command or by invoking a system call in any other application
+wishing to launch it.  This modular approach has a number of benefits which
+are described in the doc file for the hci task (hci.doc).
+
+The RPG Status task provides functionality provided by the "RPG ALARMS" and
+"SYSTEM STATUS" menus in the legacy UCP.  A full description can be found in
+the man page hci_status(1).
+
+The RPG Status window can be resized directly by the user.  Vertical scrollbars
+are provided to navigate through the system log message and selected message
+information lists.
+
+The RPG Status task takes a considerable amount of time to start up.  This is
+because of the number of label widgets defined in the System Log Messages
+scrolled list (currently 1600).  This task could be improved significantly by
+reducing the list size and adding a paging feature.  This would probably be
+much better for low bandwidth configurations.  Also, under the current design,
+if the system log LB contains over 1600 messages, only the latest 1600 can
+be displayed.  If the paging capability was implemented, there would be no
+limit to the number of messages that can be processed.
+
+In the RPG Alarm Summary container the "Task Failure" object is a pushbutton.
+Selecting it displays a popup window containing a list of all failed RPG
+control tasks.  This information is published by the HCI Agent task (refer to
+the doc file and man page for the "hci_agent" task).
+
+The timer procedure is activated approximately every second.  The system status
+objects are refreshed whenver any of the following conditions happen:
+
+	RDA/RPG wideband status changes
+	RPG state changes
+	RPG mode changes
+	RPG alarm state changes
+	Weather mode changes
+	Product distribution load shed info changes
+	
+The system log message list is updated by the timer procedure whenever a new
+system log message is detected.
+
+The failed task list is updated by the timer procedure whever the task info
+has been updated and the Failed Task window is open.
+
+Testing
+-------
+
+To test this function fully one should have the RPG running.
+
+SOURCE FILES
+------------
+
+	hci_RPG_status.c
+			This module contains all of the code to build and
+			manage the RPG Status task.
+				
++++ PROC
+
+DATA IN
+
+	ORPGDAT_REDMGR_CHAN_MSGS.4
+	ORPGDAT_ADAPT.4
+	ORPGDAT_SYSLOG.4
+	ORPGDAT_HCI_DATA.4
+	ORPGDAT_RPG_INFO.4
+	ORPGDAT_LOAD_SHED_CAT.4
+	ORPGDAT_GSM_DATA.4
+
+EVENTS OUT
+
+	ORPGEVT_HCI_COMMAND_ISSUED
+					
+APIs USED
+
+	orpg.3
+	
+		ORPGRED.3
+		ORPGSITE.3
+		ORPGMISC.3
+		ORPGMGR.3
+		ORPGVST.3
+		ORPGLOAD.3
+		ORPGINFO.3
+		ORPGRDA.3
+
+	hci.3
+
+---
+
+SEE ALSO
+
+hci(1) hci_status(1) hci(3) orpg(3) orpgred(3) orpgsite(3) orpgmisc(3)
+orpgmgr(3) orpgvst(3) orpgload(3) orpginfo(3) orpgrda(3)
+
+
+hci_status.doc						     hci_status.doc

@@ -1,0 +1,426 @@
+C
+C RCS info
+C $Author: steves $
+C $Locker:  $
+C $Date: 2009/02/25 19:19:17 $
+C $Id: a317g7.ftn,v 1.5 2009/02/25 19:19:17 steves Exp $
+C $Revision: 1.5 $
+C $State: Exp $
+C
+      SUBROUTINE A317G7__INIT_SCAN(IPR,HIBUFFLG,BTDAPTR,BNDXPTR,BAZMPTR,
+     >                   DBINSIZ,REFL,VEL,HDR,TDA_BUF_UNAVAIL,KEY)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A317G7__INIT_SCAN
+*.
+*.  MODULE VERSION: 0001
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       05/29/97      0000      BOB/LEE              CCR NA94-26302
+*.       03/16/99      0001      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:  CALL A317G3__INIT_SCAN( HIBFFLG, BSEGPTR,
+*.                                             BNDXPTR, BAZMPTR,
+*.                                             TDA_BUF_UNAVAIL, KEY )
+*.
+*.  MODULE FUNCTION:
+*.
+*.
+*.  MODULES CALLED: A3CM59__MAX_BIN 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT        TYPE        DESCRIPTION
+*.    -   -----        ----        -----------
+*.    G   ADPMNPV      I*4         Adaptable Parameter Max Number Pattern
+*.                                 Vectors
+*.    G   ADPMPVH      R*4         Adaptable Parameter Max Pattern Vector
+*.                                 Height
+*.    G   ADPMPVR      I*4         Adaptable Parameter Max Pattern Vector
+*.                                 Range
+*.    G   TDA_BUF_LOCK L*4         Flag inidcating whether the TDA buffer is
+*.                                 available for processing
+*.    G   DIOFFSET     I*4         (CONSTANT)Offset to Doppler range sample
+*.                                 interval (meters) in preprocessed radial
+*.                                 header.
+*.    G   M_TO_KM      R*4         (CONSTANT)Conversion factor from meters to
+*.                                 kilometers.
+*.    G   NDOFFSET     I*4         (CONSTANT)Offset to number of Doppler bins
+*.                                 in preprocessed radial header (relative 1
+*.                                 from beginning) in halfwords.
+*.    G   NSOFFSET     I*4         (CONSTANT)Offset to number of surveillance
+*.                                 bins in preprocessed radial header
+*.                                 (relative 1 from beginning) in halfwords.
+*.    G   ONE_RADIAN   R*4         (CONSTANT)PARAMETER VALUE FOR ONE RADIAN
+*.    G   PHEDSIZE     I*4         (CONSTANT)Size of preprocessed base radial
+*.                                 header.
+*.    G   PREFSIZE     I*4         (CONSTANT)Size of preprocessed base radial
+*.                                 reflectivity data.
+*.    G   PVELSIZE     I*4         (CONSTANT)Size of preprocessed base radial
+*.                                 velocity data.
+*.    G   RGFDBOFF     I*4         (CONSTANT)Offset to range to first Doppler
+*.                                 bin (in bins) in preprocessed radial header
+*.                                 (relative 1 from beginning).
+*.    G   SIOFFSET     I*4         (CONSTANT)Offset to surveillance range
+*.                                 sample interval (meters) in preprocessed
+*.                                 radial header (relative 1 from beginning).
+*.    C   DBINSIZE     R*4         Doppler bin size multiplied by one radian
+*.    C   PROG_ELEVANG R*4         System programmed elevation angle.
+*.    C   PVCOUNT      I*4         Count of pattern vectors found in an
+*.                                 elevation scan
+*.    C   TDAAZPTR     I*4         Pointer to 1st good azimuthal index within
+*.                                 the TDA1D attributes array (1 or 401)
+*.    C   TDABFPTR     I*4         Pointer to 1st good pattern vector index
+*.                                 within the TDA1D attributes array (0 or
+*.                                 3000).
+*.    C   TDACTPTR     I*4         Not used.
+*.    C   TDAHIFLG     L*4         Flag to indicate which half of the tda1d
+*.                                 attributes array was updated most recently.
+*.    C   HIGH         I*4         (CONSTANT)Index to logical array
+*.                                 TDA_BUF_LOCK for locking access to the high
+*.                                 area of the segment buffer
+*.    C   LOW          I*4         (CONSTANT)A toggle flag that points to the
+*.                                 low section of TDA1D and indexes
+*.                                 TDA_BUF_LOCK
+*.    P   DBINSIZ      I*4         Biased Doppler bin size
+*.    P   HDR          I*2         Array holding radial header information
+*.    P   IPR          I*4         Input buffer pointer
+*.    P   REFL         I*2         Array holding a radial of biased
+*.                                 reflectivity values.
+*.    P   VEL          I*2         Biased velocity values.
+*.
+*.    *   OUTPUT          TYPE        DESCRIPTION
+*.    -   ------          ----        -----------
+*.    G   ADPMNPV         I*4         Adaptable Parameter Max Number Pattern
+*.                                    Vectors
+*.    G   ADPMPVH         R*4         Adaptable Parameter Max Pattern Vector
+*.                                    Height
+*.    G   ADPMPVR         I*4         Adaptable Parameter Max Pattern Vector
+*.                                    Range
+*.    G   PV_INDX         I*2         Index to the first and last pattern
+*.                                    vector in a radial.
+*.    G   TDA_BUF_LOCK    L*4         Flag inidcating whether the TDA buffer
+*.                                    is available for processing
+*.    C   BUFF_FULL       L*4         Logical flag that is set when TDA buffer
+*.                                    is full
+*.    C   DBINSIZE        R*4         Doppler bin size multiplied by one
+*.                                    radian
+*.    C   DBRNGSTART      R*4         Starting range for processing pattern
+*.                                    vectors
+*.    C   IPRLOR          I*2         Input array holding biased reflectivity
+*.                                    data
+*.    C   IPRLOV          I*2         Input array holding biased velocity data
+*.    C   MAX_DOP_BIN     I*4         Maximum Doppler bin number in a radial.
+*.    C   MXTDACNT        I*4         Maximum number allowable for TDACOUNT.
+*.    C   NUMBINS         I*4         The number of bins required for
+*.                                    processing TDA1D data.  Min of: max # of
+*.                                    bins, # of bins for max PV height, or #
+*.                                    of bins for max PV range.)
+*.    C   NUMVELBINS      I*4         Number of velocity bins to process along
+*.                                    a radial.
+*.    C   PROG_ELEVANG    R*4         System programmed elevation angle.
+*.    C   PVCOUNT         I*4         Count of pattern vectors found in an
+*.                                    elevation scan
+*.    C   TDAAZPTR        I*4         Pointer to 1st good azimuthal index
+*.                                    within the TDA1D attributes array (1 or
+*.                                    401)
+*.    C   TDABFPTR        I*4         Pointer to 1st good pattern vector index
+*.                                    within the TDA1D attributes array (0 or
+*.                                    3000).
+*.    C   TDACTPTR        I*4         Not used.
+*.    C   TDAHIFLG        L*4         Flag to indicate which half of the tda1d
+*.                                    attributes array was updated most
+*.                                    recently.
+*.    P   BAZMPTR         I*4         Beginning azimuth pointer
+*.    P   BNDXPTR         I*4         Pointer to the TDA1D buffer of where to
+*.                                    begin storing pattern vectors
+*.    P   BTDAPTR         I*4         POINTER TO THE FIRST GOOD PATTERN VECTOR
+*.                                    INDEX WITHIN TDAMAIN
+*.    P   DBINSIZ         I*4         Biased Doppler bin size
+*.    P   HIBUFFLG        L*4         Used to lock and unlock the TDA1D high
+*.                                    buffer area
+*.    P   KEY             I*4         A flag that toggles alternatively
+*.                                    between LOW and HIGH which points to
+*.                                    different areas of the TDA1D buffer
+*.    P   TDA_BUF_UNAVAIL L*4         Flag which specifies whether the TDA
+*.                                    buffer is available for use or not.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    C   PROG_ELEVANG      R*4         System programmed elevation angle.
+*.    P   IPR               I*4         Input buffer pointer
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME             TYPE        DESCRIPTION
+*.    ----             ----        -----------
+*.    AZMBUF_HI        I*4         Max number of azimuths to process
+*.    AZMBUF_LO        I*4         The min number of azimuths to process
+*.    CLIPPED_NUM_BINS I*4         Number of radar bins clipped when
+*.                                 determining programed elevation angle
+*.    FIRSTPV          I*4         FIRST PATTERN VECTOR NUMBER, 1.
+*.    I                I*4         Used as loop counter.
+*.    LASTPV           I*4         Index of PV_INDX which points to the last
+*.                                 pattern vector of a radial
+*.    MAX_NUM_BINS     I*4         Parameter for maximum number of
+*.                                 reflectivity bins
+*.    MXAZMCNT         I*4         The maximum number of azimuths allowed for
+*.                                 processing TDA1D.
+*.    NUM_DOP_BINS     I*4         Number of Doppler bins in a radial.
+*.    NUM_SURV_BINS    I*4         Number of reflectivity bins in a radial.
+*.    ONE              I*4         Parameter value of one.
+*.    RADIAL           I*4         Loop counter.
+*.    RAD_STEP         I*4         Radial bin resolution
+*.    SINEL            R*4         Sine of the elevation scan angle.
+*.    SURV_TYPE        I*4         Parameter for surveillance wave type
+*.    TDABF_HI         I*4         A pointer to the high area of TDA1D buffer
+*.                                 area.
+*.    TDABF_LO         I*4         A pointer to the low area of TDA1D buffer
+*.                                 area.
+*.    TDCNT_HI         I*4         Maximum number of radials per elevation
+*.                                 scan.
+*.    TDCNT_LO         I*4         Minimum number of radials per elevation
+*.                                 scan.
+*.    THPVRBIN         I*4         Sample volume bin at the maximum pattern
+*.                                 vector range.
+*.    THTBIN           I*4         Sample volume bin at the maximum pattern
+*.                                 vector height.
+*.    TWOIRRE          R*4         Parameter constant inverse ratio of two
+*.                                 times the radius of the earth.
+*.    ZERO             I*4         Program parameter for 0.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A317CTAD
+*.    A317LOCK
+*.    PVECS09
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A317C3T
+*.    A317CGT
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     Compiled using COMP15.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     Linked using LINK15.CSS
+*.
+*.  MISC:  None
+*.
+C********************************************************************
+C
+      IMPLICIT NONE
+C
+C
+$INCLUDE A304.INC/G,**A304P4
+C**  Attach pointers for A3CD09 common block
+$INCLUDE A317BUF.INC/G,**A317P3T
+$INCLUDE A317BUF.INC/G,**A317PTAD
+$INCLUDE A317BUF.INC/G,**A317CTAD
+C
+C**  Attach TDA1D buffer lock defintions.
+$INCLUDE A317BUF.INC/G, **A317LOCK ( NEND)
+$INCLUDE A317BUF.INC/G, **A317CLOK ( NEND)
+C
+C**  Attach pointers for TDA1D buffer pool in A3CD09
+$INCLUDE A317.INC/G,**A317C3T
+$INCLUDE A317.INC/G,**A317CGT
+C
+C** Attach TDA common block for A3CD09DZ
+$INCLUDE A309.INC/G,**A3CD09BL
+$INCLUDE A309.INC/G,**A3PM50
+C
+C** Passed arguments.
+C
+      INTEGER   IPR, BTDAPTR, BNDXPTR, BAZMPTR
+      INTEGER   DBINSIZ, KEY, MAX_DOP_BINS
+      INTEGER*2 REFL(PREFSIZE), HDR(PHEDSIZE), VEL(PVELSIZE)
+      LOGICAL   HIBUFFLG, TDA_BUF_UNAVAIL
+C
+C** Local variable declarations
+C
+      INTEGER   MAX_NUM_BINS, SURV_TYPE, RAD_STEP, ONE, ZERO
+      INTEGER   CLIPPED_NUM_BINS, MXAZMCNT, THTBIN, I
+      INTEGER   THPVRBIN, FIRSTPV, LASTPV, RADIAL, NUM_SURV_BINS
+      INTEGER   NUM_DOP_BINS, RNGFSBIN, RNGFDBIN
+      REAL      SINEL, TWOIRRE
+C
+C**  Parameter declarations
+C
+      PARAMETER ( MAX_NUM_BINS = 460, SURV_TYPE = 1, RAD_STEP = 1 )
+      PARAMETER ( ONE = 1, ZERO = 0 )
+      PARAMETER ( MAX_DOP_BINS = 920 )
+      PARAMETER ( FIRSTPV = 1, LASTPV = 2 )
+      PARAMETER ( TWOIRRE = 1.0 / (2.0 *1.21 * 6371.0) )
+C
+C------------------------------------------------------------
+C**  Start of executable code
+C------------------------------------------------------------
+C
+C**  Set the flag for indicating tdamain array is full to false.
+C
+      BUFF_FULL = .FALSE.
+C
+C**  Check flag to determine which portion of the TDAMAIN array
+C**  was last used.  Toggle the flag to the opposite state.
+C
+      IF ( TDAHIFLG ) THEN
+C
+C**  Check the low tda1d buffer lock.  If locked (i.e., .TRUE.),
+C**  TDA2D is not done processing data already in the buffer.
+C**  This constitutes an ABORT condition.
+C
+         IF ( TDA_BUF_LOCK( LOW ) ) THEN
+            TDA_BUF_UNAVAIL = .TRUE.
+            GO TO 200
+         ELSE
+C
+C**  It is safe to write in this area of the buffer.  Lock the
+C**  low tda1d buffer so TDA2D can't process this data yet.
+C
+            TDA_BUF_LOCK( LOW ) = .TRUE.
+            KEY = LOW
+            TDA_BUF_UNAVAIL = .FALSE.
+         END IF
+C
+         TDAHIFLG = .FALSE.
+         TDABFPTR = TDABF_LO
+         TDACTPTR = TDCNT_LO
+         TDAAZPTR = AZMBUF_LO
+         MXAZMCNT = AZMBUF_HI
+      ELSE
+C
+C**  Check the high tda1d buffer lock.  If locked (i.e., .TRUE.),
+C**  TDA2D is not done processing data already in the buffer.
+C**  This constitutes an ABORT condition.
+C
+         IF ( TDA_BUF_LOCK( HIGH ) ) THEN
+            TDA_BUF_UNAVAIL = .TRUE.
+            GO TO 200
+         ELSE
+C
+C**  It is safe to write in this area of the buffer.  Lock the
+C**  high tda1d buffer so TDA2D can't process this data yet.
+C
+            TDA_BUF_LOCK( HIGH ) = .TRUE.
+            KEY = HIGH
+            TDA_BUF_UNAVAIL = .FALSE.
+         END IF
+C
+         TDAHIFLG = .TRUE.
+         TDABFPTR = TDABF_HI
+         TDACTPTR = TDCNT_HI
+         TDAAZPTR = AZMBUF_HI
+         MXAZMCNT = AZMBUF_HI + AZMBUF_HI
+      ENDIF
+C
+      HIBUFFLG = TDAHIFLG
+      BTDAPTR = TDABFPTR
+      BNDXPTR = TDACTPTR
+      BAZMPTR = TDAAZPTR
+C
+C**  Set PVCOUNT to begin counting tda1d for either the low or hi
+C**  portion of TDAMAIN AND RADCOUNT ALSO
+C
+      PVCOUNT = ZERO
+C
+C**  Set the maximum value that TDACOUNT can have to the maximum
+C**  adaptable number of tda1d plus the pointer offset.
+C
+      MXTDACNT = ADPMNPV + PVCOUNT
+C
+C**  Initialize the tda1d index array for pointing to PV in
+C**  in TDAMAIN by azimuth.
+C
+      DO 110 RADIAL = TDAAZPTR + ONE,MXAZMCNT
+
+        PV_INDX( FIRSTPV, RADIAL ) = ZERO
+        PV_INDX( LASTPV, RADIAL ) = ZERO
+
+ 110  CONTINUE
+C
+C**  HDR(DIOFFSET) is the sample interval for velocity, in meters.
+C**  HDR(RGFDBOFF) is the sample volume of the first valid Doppler
+C**  bin.
+C
+      DBINSIZ = HDR(DIOFFSET)
+      DBINSIZE = DBINSIZ * ONE_RADIAN
+      DBRNGSTART = (FLOAT(HDR(RGFDBOFF))-0.5)*DBINSIZE
+C
+C** What is the programmed elevation angle?
+C
+      CALL A3CM59__MAX_BIN( IPR, MAX_NUM_BINS, CLIPPED_NUM_BINS,
+     >                      RAD_STEP, SURV_TYPE, PROG_ELEVANG )
+C
+C**  Calculate the sine of the elevation angle.
+C
+      SINEL = SIN( PROG_ELEVANG*ONE_RADIAN )
+C
+C**  Calculate the bin number that is at the max height allowed.
+C
+      THTBIN = (-SINEL/(2*TWOIRRE)+SQRT((ADPMPVH/TWOIRRE)+
+     1         (SINEL*SINEL/(4*TWOIRRE*TWOIRRE))))*
+     2         (1/(HDR(SIOFFSET)*M_TO_KM))
+C
+C**  Find the bin at the PV max range.
+C
+      THPVRBIN = (ADPMPVR/(HDR(SIOFFSET)*M_TO_KM))
+C
+C**  Only process the number of bins required, i.e., the minimum
+C**  number of bins based on the PV height threshold, or the
+C**  number of good bins in the radial, or the number of bins
+C**  within the range limitation.
+C
+      NUM_SURV_BINS = HDR(NSOFFSET)
+      NUMBINS = MIN(THTBIN,THPVRBIN,NUM_SURV_BINS)
+C
+C**  Determine the range offset of the begining of Doppler bin 1 
+C**  from the beginning of surveillance bin 1.  This information
+C**  is used in a317d7.ftn 
+C
+      RNGFSBIN = HDR(RBRSOFF)
+      RNGFDBIN = HDR(RBFDOFF)
+      CALL RPG_NINT( FLOAT(RNGFSBIN - RNGFDBIN)/FLOAT(HDR(DIOFFSET)),
+     >               BIN_OFFSET )
+C
+C**  Calculate the number of velocity bins per reflectivity bin.
+C**  HDR(SIOFFSET) is the sample interval for reflectivity.  Also
+C**  extract the maximum Doppler bin number.
+C
+      NUM_DOP_BINS = HDR(NDOFFSET)
+      IF( NUM_DOP_BINS .GT. MAX_DOP_BINS )
+     >   NUM_DOP_BINS = MAX_DOP_BINS
+      NUMVELBINS = HDR(SIOFFSET) / HDR(DIOFFSET)
+      MAX_DOP_BIN = HDR(RGFDBOFF) + NUM_DOP_BINS - 1
+C
+C** Loop through bins along a radial to save the first radial.
+C
+      DO 230 I=1,NUM_SURV_BINS
+         IPRLOR(I)=REFL(I)
+ 230  CONTINUE
+      DO 210 I=1,NUM_DOP_BINS
+         IPRLOV(I)=VEL(I)
+ 210  CONTINUE
+C
+C**  Return to the caller module.
+C
+ 200  CONTINUE
+      RETURN
+      END

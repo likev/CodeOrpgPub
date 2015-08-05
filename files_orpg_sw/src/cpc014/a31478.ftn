@@ -1,0 +1,247 @@
+C 
+C RCS info 
+C $Author: nolitam $ 
+C $Locker:  $ 
+C $Date: 2002/11/27 15:17:14 $ 
+C $Id: a31478.ftn,v 1.6 2002/11/27 15:17:14 nolitam Exp $ 
+C $Revision: 1.6 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A31478__USDB_IO(WORKCODE,RECNO,NBYTES,BUF)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A31478__USDB_IO
+*.
+*.  MODULE VERSION: 0002
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   -----------------    --------------------
+*.       12/08/95      0000      ELLIOTT P. FRIEND    CCR NA94-08462
+*.       12/23/96      0001      Toolset              CCR NA95-11807
+*.       03/16/99      0002      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A31478__USDB_IO(WORKCODE,RECNO,NBYTES,BUF)
+*.
+*.  MODULE FUNCTION:  Performs input & output on the product database
+*.                    disk file.
+*.
+*.  MODULES CALLED: A3CM08__CHANGE_NOTICE, A3CM94__DEVICE_DISK_INDEX, IOERR, 
+*.                  SYSIO 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT          TYPE        DESCRIPTION
+*.    -   -----          ----        -----------
+*.    G   DISK_BY_READ   I*4         Disk performance monitoring information -
+*.                                   Number of bytes read from disk.
+*.    G   DISK_BY_WRITE  I*4         Disk performance monitoring information -
+*.                                   Number of bytes written to disk.
+*.    G   USERSEL_DEV    CHAR*5      User Selectable Database device name
+*.    G   CNDISKFILE     I*4         (CONSTANT)FILE/DISK ACCESS CHANGE
+*.                                   NOTIFICATION CONSTANT-DISTRIBUTION TASK
+*.    G   HYALARM_FLG    I*4         (CONSTANT)HYDROMET ALARM FLAG VALUE -
+*.                                   CONSTANT
+*.    C   USDB_SCTR_OFFS I*4         An array of starting sectors for the
+*.                                   different USDB records
+*.    C   IINIT          I*4         (CONSTANT)Parameter indicating initial
+*.                                   value.
+*.    C   READKODE       I*4         (CONSTANT)I/O code indicating input
+*.                                   should be read.
+*.    C   USDB_DISK_LU   I*4         (CONSTANT)User Selectable Data Base disk
+*.                                   logical unit
+*.    C   WRITKODE       I*4         (CONSTANT)I/O code indicating write to
+*.                                   disk I/O operation should be performed.
+*.    P   BUF            I*2         Data base buffer to to either read data
+*.                                   from or write data into
+*.    P   NBYTES         I*4         Number of bytes for I/O
+*.    P   RECNO          I*4         Record number for the I/O
+*.    P   WORKCODE       I*4         Code indicating whether a read or write
+*.                                   operation needs to be performed. NA
+*.
+*.    *   OUTPUT          TYPE        DESCRIPTION
+*.    -   ------          ----        -----------
+*.    G   DISK_BY_READ    I*4         Disk performance monitoring information
+*.                                    - Number of bytes read from disk.
+*.    G   DISK_BY_WRITE   I*4         Disk performance monitoring information
+*.                                    - Number of bytes written to disk.
+*.    C   USDB_FIL_STAT   I*4         Status of read or write operation on the
+*.                                    USDB file
+*.    C   USDB_LAST_OPER  I*4         Last I/O operation of USDB file
+*.    C   USDB_LAST_RECNO I*4         Record number of last I/O operation of
+*.                                    USDB file
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    G   USERSEL_DEV       CHAR*5      User Selectable Database device name
+*.    P   BUF               I*2         Data base buffer to to either read
+*.                                      data from or write data into
+*.    P   NBYTES            I*4         Number of bytes for I/O
+*.
+*.  DATABASE/FILE REFERENCE:  USERSEL.DAT; STORE, RETRIEVE
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME            TYPE        DESCRIPTION
+*.    ----            ----        -----------
+*.    IDX_USERSEL_DEV I*4         (CONSTANT) Index into status of User
+*.                                Selectable disk
+*.    INITIALIZED     L*4         Flag which permits initialization of disk
+*.                                index to be done once
+*.    IOSTATUS        I*4         Status returned from IOERR
+*.    PB              I*4         Parameter block for I/O
+*.    RFC             I*4         (CONSTANT)Parameter value for read function
+*.                                code
+*.    SCTR_OFFSET     I*4         Sector offset into USDB
+*.    WFC             I*4         (CONSTANT)Parameter value for write function
+*.                                code
+*.    YES             L*4         Logical parameter indicating "true".
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD07
+*.    ENVIRON
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3147C8
+*.    A3147C9
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK14.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+
+
+C
+C** 'X' IN COLUMN-1 INDICATES CONDITIONALLY COMPILED DEBUG CODE...
+C
+      IMPLICIT NONE
+C
+$INCLUDE A309ADPT.INC/G,**A3CD70P6 (NEND NLIST)
+$INCLUDE                **A3CD70CA (NLIST)
+$INCLUDE                **A3CD70C8 (NLIST)
+$INCLUDE                **A3CD70C4 (NLIST)
+$INCLUDE A309.INC/G,**A3PM00 (NEND NLIST)
+$INCLUDE            **A3PM01 (NEND NLIST)
+$INCLUDE            **A3CD07 (NEND NLIST)
+$INCLUDE A313HBUF.INC/G,**A313HYPP (NEND NLIST)
+$INCLUDE A3146.INC/G,**A3146P1 (NEND NLIST)
+$INCLUDE A3147.INC/G,**A3147P9 (NEND NLIST)
+$INCLUDE             **A3147C8 (NEND NLIST)
+$INCLUDE             **A3147C9 (NEND NLIST)
+C
+C--------------------------LOCAL DATA ------------------------
+C
+      INTEGER WORKCODE, RECNO, NBYTES, SCTR_OFFSET, IOSTATUS, I
+      INTEGER*2 BUF(*)
+C
+C** Set up stuff for SYSIO
+C
+      INTEGER PB(6),RFC,WFC
+      DATA RFC,WFC/92,60/
+      INTEGER IDX_USERSEL_DEV
+      DATA IDX_USERSEL_DEV /1/
+C$DELETE
+      LOGICAL INITIALIZED,YES
+      DATA INITIALIZED /.FALSE./
+C$ENDDELETE
+C$INSERT      LOGICAL YES
+      PARAMETER (YES=.TRUE.)
+C
+C-------------------------- EXECUTABLE CODE --------------------
+C
+X     WRITE(6,*)'STARTING A31478'
+X     WRITE(6,*)'A31478: ...WORKCODE=',WORKCODE,' RECNO=',RECNO
+C
+C GET THE SECTOR OFFSET IN THE FILE FOR THIS RECORD
+C
+      SCTR_OFFSET = USDB_SCTR_OFFS(RECNO)
+X     WRITE(6,*)'SCTR OFFSET = ',SCTR_OFFSET
+C$DELETE
+C
+C GET THE INDEX FOR DISK PERFORMANCE MONITORING VARIABLE
+C
+      IF (.NOT.INITIALIZED) THEN
+        CALL A3CM94__DEVICE_DISK_INDEX(USERSEL_DEV,IDX_USERSEL_DEV)
+        INITIALIZED=YES
+      ENDIF
+C$ENDDELETE
+C
+      IF (WORKCODE .EQ. WRITKODE ) THEN
+C
+C INCREMENT PERFORMANCE MONITOR VARIABLE BY NUMBER OF BYTES WRITTEN
+C
+C$DELETE
+         DISK_BY_WRITE(IDX_USERSEL_DEV)=
+     >       DISK_BY_WRITE(IDX_USERSEL_DEV)+NBYTES
+C$ENDDELETE
+C
+C
+C** WRITE THE SPECIFIED RECORD TO THE USDB FILE.
+C
+         CALL SYSIO(PB,WFC,USDB_DISK_LU,BUF,NBYTES,SCTR_OFFSET,IINIT)
+C
+X     WRITE(6,*)'78: WROTE TO DISK, RECNO=', RECNO,' NBYTES=',NBYTES
+C
+      ENDIF
+      IF (WORKCODE .EQ. READKODE) THEN
+C
+C INCREMENT PERFORMANCE MONITOR VARIABLE BY NUMBER OF BYTES READ
+C
+C$DELETE
+         DISK_BY_READ(IDX_USERSEL_DEV)=
+     >       DISK_BY_READ(IDX_USERSEL_DEV)+NBYTES
+C$ENDDELETE
+C
+C** READ THE SPECIFIED RECORD INTO THE SPECIFIED BUFFER
+C
+         CALL SYSIO(PB,RFC,USDB_DISK_LU,BUF,NBYTES,SCTR_OFFSET,IINIT)
+C
+X     WRITE(6,*)'78: READ FROM DISK, RECNO=', RECNO,' NBYTES=',NBYTES
+C
+      ENDIF
+C
+C** The status of the operation is in the lower 2 bytes of
+C** the PB array.
+C
+      CALL IOERR(PB, IOSTATUS)
+      IF (IOSTATUS.NE.IINIT) THEN
+C
+C** SEND MESSAGE TO CPC 10
+C
+CX       WRITE(6,*)'A31478: I/O ERROR = ',IOSTATUS,', CALLING A3CM08'
+C
+         CALL A3CM08__CHANGE_NOTICE(CNDISKFILE, HYALARM_FLG, IOSTATUS,
+     $            USDB_DISK_LU, IINIT, IINIT)
+C
+      ENDIF
+
+      USDB_FIL_STAT    = IOSTATUS
+      USDB_LAST_OPER   = WORKCODE
+      USDB_LAST_RECNO  = RECNO
+
+C
+X     WRITE(6,*)'A31478: IOSTAT=', IOSTATUS, 'WORKCODE=', WORKCODE,
+     >                                           'RECNO=', RECNO
+X     WRITE(6,*)'EXITING A31478'
+C
+      RETURN
+      END

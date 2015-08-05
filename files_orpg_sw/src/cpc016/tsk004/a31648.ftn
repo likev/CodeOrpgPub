@@ -1,0 +1,234 @@
+C
+C RCS info
+C $Author: steves $
+C $Locker:  $
+C $Date: 2004/01/12 16:57:08 $
+C $Id: a31648.ftn,v 1.5 2004/01/12 16:57:08 steves Exp $
+C $Revision: 1.5 $
+C $State: Exp $
+C
+      SUBROUTINE A31648__HAIL_SYMBOL(NUMHAIL,HAILSTATS,BUF)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A31648__HAIL_SYMBOL
+*.
+*.  MODULE VERSION: 0014
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       10 18 85      0000      JSGROMMONS
+*.       05 01 86      0001      JSGROMMONS           SPR#  60157
+*.       06 03 86      0002      JSGROMMONS           SPR#  60313,60367
+*.       12 12 88      0003      STEVE ANDERSON       SPR # 80528
+*.       11 06 90      0004      David M. Lynch       SPR # 91257
+*.       12 03 91      0005      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0006      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0007      Toolset              SPR 91895
+*.       03/25/93      0008      Toolset              SPR NA93-06801
+*.       01/28/94      0009      Toolset              SPR NA94-01101
+*.       03/03/94      0010      Toolset              SPR NA94-05501
+*.       04/01/95      0011      Toolset              CCR NA95-11802
+*.       04/24/95      0012      STEVE SMITH          CCR NA94-26301
+*.       12/23/96      0013      Toolset              CCR NA95-11807
+*.       03/16/99      0014      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:
+*.    CALL A31648__HAIL_SYMBOL(NUMHAIL,HAILSTATS,BUF)
+*.
+*.  MODULE FUNCTION:
+*.     BUILD THE SYMBOLOGY BLOCK
+*.
+*.
+*.  MODULES CALLED: A3164C__HAIL_SYMB 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT     TYPE        DESCRIPTION
+*.    -   -----     ----        -----------
+*.    G   H_CID     I*4         (CONSTANT)Index to the cell ID, the sixth
+*.                              position, in the HAILSTATS arrays.
+*.    G   NHAL_MAX  I*4         (CONSTANT)A sizing parameter equal to the max.
+*.                              number of cells processed by the hail
+*.                              algorithm.
+*.    G   NHAL_STS  I*4         (CONSTANT)A sizing parameter equal to the
+*.                              number of hail attributes stored in the
+*.                              HAILSTATS array.
+*.    C   NDX       I*4         Working subscript for moving data.
+*.    C   SVSIDX    I*4         SAVE VALUE OF STORAGE INDEX TO BLOCK
+*.    C   SYMLNG    I*4         Length of symbology block.
+*.    C   DIVIDER   I*2         (CONSTANT)Tabular block divider for output
+*.                              buffer.
+*.    P   BUF       I*2         OUTPUT BUFFER
+*.    P   HAILSTATS R*4         Array containing hail attribute information
+*.                              for all cells.
+*.    P   NUMHAIL   I*4         The number of storm cells with hail
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    C   K1      I*4         Lower limit of fields to be written.
+*.    C   K2      I*4         Upper limit of fields to be written.
+*.    C   KI      I*4         Subscript for Hail ID.
+*.    C   N1      I*4         Lower limit of lines to be written.
+*.    C   N2      I*4         Upper limit of lines to be written.
+*.    C   NDX     I*4         Working subscript for moving data.
+*.    C   SVSIDX  I*4         SAVE VALUE OF STORAGE INDEX TO BLOCK
+*.    C   SYMLNG  I*4         Length of symbology block.
+*.    P   BUF     I*2         OUTPUT BUFFER
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    P   BUF               I*2         OUTPUT BUFFER
+*.    P   HAILSTATS         R*4         Array containing hail attribute
+*.                                      information for all cells.
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME        TYPE        DESCRIPTION
+*.    ----        ----        -----------
+*.    CHARIDTABLE CHAR*2      Character table of storm IDs.
+*.    I           I*4         Loop index variable.
+*.    K           I*4         SUBSCRIPT FOR HAIL DATA
+*.    ODX         I*4         VALUE OF INDEX FOR STORING DATA
+*.    SBLKID      I*2         (Constant) Indicates symbology block ID.
+*.    SLNGTHX     I*4         LENGTH OF SYMBOL PACKET AS AN I*4 WORD.
+*.    SLOFF       I*4         Offset to beginning of first symbology layer.
+*.    SPOFF       I*4         Offset to beginning of symbology block within
+*.                            layer.
+*.    STID        CHAR*2      HAIL ID ARRAY FOR WRITING
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3164B
+*.    A3164D
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP16.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK16.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+      IMPLICIT NONE
+#IFDEF LINUX
+      INTEGER*4  I,K,SLNGTHX,HIND,ODX,NUMHAIL
+#ENDIF
+C
+C** HAIL DEFINITIONS:
+C
+$INCLUDE A315BUF.INC/G,**A315P9H  (NEND NLIST)
+C
+C** LOCAL COMMON
+C
+$INCLUDE A316.INC/G,**A3164P4 (NLIST)
+C
+C**  STORM CELL ID TABLE
+C
+$INCLUDE A309.INC/G, **A3CD08 (NLIST NEND)
+$INCLUDE A309.INC/G,**A3CD08D (NEND NLIST)
+C
+C**  LOCAL DEFINITIONS:
+C
+      INTEGER*2  BUF(*)
+      INTEGER*2  PACKETCODE
+C
+#IFDEF LINUX
+C     NOTHING
+#ELSE
+      INTEGER*4  I,K,SLNGTHX,HIND,ODX,NUMHAIL
+#ENDIF
+      REAL HAILSTATS(NHAL_STS,NHAL_MAX)
+C
+      CHARACTER*2  STID
+C
+      PARAMETER (PACKETCODE = 19)
+C
+C................................................................
+C
+C** INITIALIZE
+C
+      SVSIDX = NDX
+      NDX = NDX + SLOFF + SPOFF
+C
+C** SET POINTERS
+C
+      K1 = 0
+      K2 = 0
+      N1 = 1
+      N2 = 0
+      KI = 0
+C
+C** DO FOR ALL STORMS
+C
+      IF (NUMHAIL .GT. 0) THEN
+         DO 200  I = 1,NUMHAIL
+            K = I
+            N1 = 1
+            N2 = 1
+C
+C** GET STORM ID IN ASCII
+C
+            STID = CHARIDTABLE(INT(HAILSTATS(H_CID,K)))
+C
+C** BUILD HAIL PACKETS
+C
+            CALL A3164C__HAIL_SYMB(K,HAILSTATS,STID,BUF)
+C
+  200    CONTINUE
+C
+C** DETERMINE LENGTH OF LAYER
+C
+         SYMLNG = SYMLNG
+         SLNGTHX = SYMLNG * 2
+C
+C** STORE DIVIDER, LENGTH OF LAYER
+C
+         ODX = SVSIDX + SLOFF
+         BUF(ODX) = DIVIDER
+         ODX = ODX + 1
+         call RPG_set_product_int( BUF(ODX), SLNGTHX )
+C
+C** DETERMINE LENGTH OF BLOCK
+C
+         SYMLNG = SYMLNG + SLOFF + SPOFF
+         SLNGTHX = SYMLNG * 2
+C
+C** STORE BLOCK DIVIDER, BLOCK ID
+C
+         ODX = SVSIDX
+         BUF(ODX) = DIVIDER
+         ODX = ODX + 1
+         BUF(ODX) = SBLKID
+         ODX = ODX + 1
+C
+C** STORE BLOCK TOTALS, NUMBER OF LAYERS
+C
+         call RPG_set_product_int( BUF(ODX), SLNGTHX )
+         ODX = ODX + 2
+         BUF(ODX) = 1
+      ENDIF
+C
+C** RETURN TO CALLER ROUTINE
+C
+      RETURN
+      END

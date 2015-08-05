@@ -1,0 +1,378 @@
+user_profiles(4)      User Profiles Configuration       user_profiles(4)
+
+   DESCRIPTION
+    
+       The user_profiles configuration file contains a list of product
+       distribution class entries, line user entries, dedicated user entries,
+       and dial up user entries.  This configuration file contains product
+       distribution controls, line specific information, and user information
+       needed for product distribution and status screen displays.  The
+       configuration file entries define configuration settings applicable to
+       each class, line, dedicated user, and dial up user for the ORPG.  The
+       keywords indicate the start of a definition for one of the types, and the
+       keywords for each of type are:  Class, Line_user, Dedicated_user, and
+       Dial_user.  Also, there are three global parameters defined.
+
+   Global Parameters
+   
+       The global parameters are given below.  These parameters will be set to
+       the default values specified.  The connect_time_limit parameter is a
+       global maximum value and cannot be increased by connection time limit
+       entries defined in the Class, Line_user, or Dial_user profile entries.
+
+                                Global Parameters
+Parameter              Description               Range of Values  Units Default
+===============================================================================
+nb_retries          Number of connection retries  1  <=x <= 999             3
+nb_timeout          Max msg transmissions time    60 <=x <= 999           120
+connect_time_limit  Maximum connect time allowed  4 byte integer  minutes 120
+                    when disconnect override is   1 - 1440
+                    invoked See Maximum Connect
+                    Time notes below.
+===============================================================================
+
+   Class Definition
+   
+       Class UP entries define the generic class characteristics for product
+       distribution and generation.  The settings from a particular class entry
+       can be incorporated into the settings of any Line_user, Dedicated_user,
+       or Dial_user entry.  The number in the class field of a Line_user,
+       Dedicated_user, or Dial_user entry refers to the class entry that will be
+       incorporated into a particular entry.  For example, a Dial_user entry
+       with a class equal to 1 would incorporte the settings from the class
+       entry with its class field set equal to 1.  Any additional settings in
+       the Dial_user entry would override the settings in the class entry.  An
+       additional connection_time_limit setting for a user entry will be ignored
+       if it exceeds the global connection_time_limit setting.  The possible
+       fields for class definition entries are defined in the table below.  The
+       contents of each class entry are enclosed with {} pairs of braces.  The
+       class field is required for each class definition entry.
+
+                                        Class Parameters
+Parameter               Description                             Possible Values    Default
+==================================================================================================
+class                   Unique number associated with           Integer, Defined values   none
+                        this class definition.  Required.       are 1, 2, 4, or 99
+max_connect_time        Maximum connect time.  See Maximum      4 byte integer            0
+                        Connect Time notes below.               0  1440 minutes.
+                        When set to zero, use the global
+                        default value. If this time is larger
+                        than the global connect_time_limit
+                        value, it will be ignored.
+line_ind                Which types of users profiles can       0=CLASS_ALL,              0
+                        incorporate this class                  1=CLASS_DEDICATED,
+                                                                2=CLASS_DIAL
+n_req_prods             max number of routines products         range of a 2 byte         Class 99:  50
+                        requested.  Dependent on class.         integer                   Class 1:   31
+                                                                                          Class 2:   0
+                                                                                          Class 4:   30
+wait_time_for_rps       rps waiting time before disconnecting   range of 2 byte integer   0
+                        the user.  Applicable for classes 1     A zero indicates the
+                        and 99.                                 wait time is indefinite.
+UP_CD_APUP_STATUS       Whether APUP status can be requested    0 - off,                  Class 99:  1
+                        or not.  Optional for Class 1 or        1 - on                    Class 1:   1
+                        Class 99.  Otherwise not used.                                    0 otherwise
+UP_CD_ALERTS            Enable/Disable receipt of alert         0 - off,                  Class 99:  1
+                        adaptation parameter messages and       1 - on,                   Class 1:   1
+                        alert request processing.  Optional                               0 otherwise
+                        for Class 1 or Class 99.  Otherwise
+                        not used.
+UP_CD_COMM_LOAD_SHED    Communications load shed enabled.       0 - off,                  1
+                        Optional.                               1 - on,
+UP_CD_STATUS            General status message reception        0 - off,                  1
+                        enabled.  Optional.                     1 - on
+class_name              Name of distribution method for         Up to 11 characters.
+                        Class 4 users.   The actual             SSET - single set
+                        distribution method is still            RSET - routine set
+                        determined by the distri_method         1TIM - onetime set
+                        field.   For example, four separate     COMB - combine set
+                        entries can be defined for Class 4,
+                        each having a unique distribution
+                        method (SSET, RSET, 1TIM, COMB).
+                        (See examples). Overridden to
+                        allow up to 4 distribution methods
+                        for each user class.  This field is
+                        just the text associated with the
+                        distribution method.
+distri_method           Distribution method for the Class 4     Integer                   SSET - 1
+                        user.                                                             RSET - 2
+                                                                                          1TIM - 3
+                                                                                          COMB - 4
+UP_CD_OVERRIDE          Max connect time override privilege.    0 - off,                  0
+                        Optional.                               1 - on,
+UP_CD_RPGOP             RPGOP privilege granted.                0 - off,                  Class 99:  1
+                        Optional.  Typically, 1 for Class 99    1 - on,                   0 otherwise
+                        and 0 for remaining classes.
+UP_CD_MAPS              Map reception enabled.                  0 - off,
+                        Optional.                               1 - on
+UP_CD_PROD_GEN_LIST     Product generation list reception       0 - off,                  Class 99:  1
+                        enabled.  Optional.                     1 - on                    Class 1:   1
+                                                                                          Otherwise 0
+UP_CD_PROD_DISTRI_LIST  Product distribution list enabled.      0 - off,                  1
+                        Optional.                               1 - on
+UP_CD_RCM               RCM reception enabled.                  0 - off,                  1
+                        Optional.                               1 - on
+UP_CD_DAC               Disconnects after distribution          0 - off,                  1 when
+                        completion.  Optional.                  1 - on                    specified for
+                                                                                          a class
+UP_CD_MULTI_SRC         Allows messages with different          0 - off,                  1
+                        source IDs on a dedicated line.         1 - on
+                        Optional.
+UP_CD_AAPM              The user receives an alert adaptation   0 - off,                  0
+                        parameters message upon connection if   1 - on
+                        the user does not use alerts
+UP_CD_IMM_DISCON        Lines are disconnected immediately      0 - off,                  0
+                        instead of waiting for completion of    1 - on
+                        current product.  Optional.
+UP_CD_NO_SCHEDULE       User requests do not cause product      0 - off,                  Class 99:   0
+                        generation.  The user gets what is        1 - on                    Class 1:    0
+                        available.  Optional.                                             Otherwise 1
+UP_CD_FREE_TEXTS        Free text message sending enabled.      0 - off,                  Class 99:   1
+                        Optional.                               1 - on                    Otherwise 0
+
+pms_len                 Number of permitted product list        2 byte integer,
+                        table entries for this user or          optional,
+                        class. The permitted product list       default list empty
+                        is contained within a {} pair that
+                        follows this field.  The following
+                        four fields are defined for the
+                        list.  Field labels for the table are
+                        contained in a comment line.
+prod_code               Permitted product code, -1              -1, or 16 - 109
+wx_modes                Weather mode bits  an integer value     1 byte integer
+                        where each bit of the integer value     values 0 - 7
+                        represents a weather mode.  Bit 0 is    the value for clear mode
+                        maintenance mode, Bit 1 is clear air    and precip mode would
+                        mode, Bit 2 is precip mode. Required    be 6 because bits 1 and
+                        within a product permissions entry.     2 would be set
+types                   Distribution type bits an integer       1 byte integer
+                        representing the type of distribution   values 0-2
+                        allowed for this user or class.  Bit 0  required within a
+                        allows/disallows reception of routine   product permissions
+                        products.  Bit 1 allows/disallows       entry
+                        reception of onetime products.
+dd_len                  Number of entries in the default        2 byte integer
+                        product distribution list.  The         optional, default list is
+                        default product distribution list is    empty
+                        contained within a {} pair that
+                        follows this field.  The following
+                        7 fields are contained within the
+                        list.  Field labels for the table are
+                        contained in a comment line.
+map_len                 Number of entries in the map_ids list   2 byte integer
+map_ids                 Map IDs for this user or class          2 byte integer
+prod_code               Product code of the product to          16-109
+wx_modes                The weather modes these product(s) will Bit 0 is maintenance mode
+                        be distributed to this user or class.   Bit 1 is Clear Air mode
+                        An integer value where each bit of the  Bit 2 is Precip mode
+                        integer value represents a weather      1 byte integer
+                        mode.                                   values 0 - 7.
+period                  Distribution period in number of        1 byte integer
+                        volumes.
+                        1 means every volume
+                        2 means every other volume
+                        etc.
+number                  Total number of products distributed,   1 byte integer
+                        <= 0 means infinity
+map
+priority                distribution priority                   1 byte integer
+                                                                0 - low priority
+                                                                1 - high priority
+p1 - p6                 See product_tables documentation for    2 byte integer or
+                        more info on product parameters.        UNU to indicate unused
+                        An array of 6 product parameters        ANY to indicate any
+                        that will be used to request this       possible parameter
+                        product.  The meaning of these          value
+                        parameters is defined in the            ALG to indicate this
+                        product_tables files.                   parameter will be set by
+
+                        Product dependent parameters.           the algorithm or task
+                        In most instances, parameter 3          ALL to indicate all
+                        represents an elevation angle           possible parameter
+                        (scaled by 10) or a slice number.       values
+                        A negative number represents a          EXS to indicate all
+                        slice number.  To accommodate           existing products
+                        negative elevation angles, 360          regardless of the value
+                        degrees is added to negative            of this parameter
+                        angles.  For example, the angle
+                        0.5 degrees would be
+                        represented by 359.5.  When
+                        properly scaled, it would appear
+                        internally as 3595.    This all
+                        positive numbers represent
+                        angles and negative numbers
+                        represent slices for elevation
+                        parameters.
+
+
+   Line_user Definitions
+   
+       Line_user entries specify the parameters associated with each
+       communications link.  A Line_user entry is required for every link.  For
+       each Line_user entry, the line_ind and class are required.  For a link
+       defined as D-in in comms_link.conf(4), the port_password parameter must be
+       defined in the corresponding line_user entry in user_profiles.  The
+       max_connect_time parameter is optional for dial lines, but, it will be
+       ignored if it is larger than the global connect_time_limit setting.  For
+       Line_user entries defined as class 4, the distri_method parameter must be
+       specified.  The name parameter is optional.  For Line_users defined as
+       dedicated, the port_password field is optional.
+
+       Any user entry can incorporate class settings in its Line_user
+       specification by including the class field to identify the class
+       definition to incorporate.  Although class settings are not generally
+       overridden, any class setting may be overridden.  See the fields defined
+       in the Class Definition section for more information on the various class
+       settings.  If a Line_user entry does not incorporate any class settings
+       and the class settings are not defined within the entry, then RPG
+       defaults will be used for those settings.  The contents for each user
+       entry are enclosed with {} pairs of braces.
+
+
+                                Line_user Parameters
+      Parameter          Description            Possible Values       Default
+      =========================================================================
+      line_ind          Link index associated   The range of valid
+                        with the link index     link indexes defined
+                        defined in              in comms_link.conf(4).
+                        comms_link.conf(4).        Integer.  Required.
+                        This is the line
+                        number
+      port_password     The port password is    4 characters. Required  LINE
+                        associated with a dial  for dial lines.
+                        in port.                Optional for dedicated.
+      distri_method     Distribution method     Integer                  2
+                        for the Class 4 user.   SSET - 1
+                        Required for Class 4    RSET - 2
+                        line type.              1TIM - 3
+                                                COMB - 4
+      name              Optional line name to   up to 11 characters
+                        provide identification
+                        information when a
+                        line is not connected
+                        to the RPG or to
+                        identify non-interactive
+                        lines that never provide
+                        identification
+                        information to the
+                        RPG  (ie.  the RPG
+                        never gets
+                        identification
+                        information from
+                        NIDS vendors).  This
+                        field is typically set
+                        for class 4 and
+                        distribution method
+                        RSET or SSET, but may
+                        be set in other
+                        line_user records also.
+      max_connect_time  Maximum connect time.   4 byte integer          0
+                        See Maximum Connect     0 - 1440 minutes.
+                        Time notes.  Dial-in    When set to zero,
+                        user connection time    use class (if
+                        limit.  Units are       defined) or global
+                        minutes.  Optional      value.  If this
+                        for dial lines.         time is larger
+                                                than the global
+                                                connect_time_limit
+                                                value, it will be
+                                                ignored.
+      class             Class number of the     Optional. If             0
+                        class definition        specified, it must
+                        settings to incorporate match a defined
+                        into the settings of    class in the Class
+                        this user.              Definition entries.
+                                                Currently defined
+                                                class numbers are
+                                                1, 2, 4, and 99.
+      Any Class         Any field in defined in Optional.  See Class    If a class definition
+      Definition        the Class Definition    Definition section for  field is not defined
+      Field             section may be include  fields and possible     in a Line_user entry,
+                        in a Dial_user or       values.                 incorporated class
+                        Dedicated_user entry.                           settings for that field
+                        If a class definition                           will be used if specified.
+                        field is specified in a                         If a class definition
+                        Dial_user or                                    field is not defined in
+                        Dedicated_user entry,                           a Line_user entry and no
+                        it will override the                            class information has been
+                        system or incorporated                          incorporated into the entry,
+                        class values for that                           then system defaults will
+                        field.                                          be used for that field.
+
+
+   Maximum Connect Time Notes
+      Maximum connect time can be defined in several places within this file.
+      It is defined globally for the RPG system using the connect_time_limit
+      global variable.  It can also be specified for a Line_user, Dial_user, or
+      Class definition.  When a user is connected, the minimum connect time
+      limit from these 4 possible sources will be used to limit the users
+      connect time.  If a user is allowed to override the maximum connect time
+      (UP_CD_OVERRIDE in user_profiles) and they request additional time from
+      the PUP, then the minimum of the system and line connect_time_limit will
+      be used as the limit for that user.  
+      
+   Dedicated_user and Dial_user Definitions 
+      
+      The Dedicated_user entries specify profiles for dedicated users.  The
+      fields user_id, and user_name fields are required.
+
+      The Dial_user entries specify profiles for dial users.  The fields
+      user_id, user_name, and user_password fields are required.  The
+      max_connect_time field is optional for a dial user, but it will be ignored
+      if it is larger than the global connect_time_limit setting.
+
+      The possible fields for user entries (Dedicated_user or Dial_user) are
+      defined in the table below.  Any user entry can incorporate class settings
+      in its specification by including the class field to identify the class
+      definition to incorporate.  Although class settings are not generally
+      overridden, any class setting may be overridden.  See the fields defined
+      in the Class Definition section for more information on the various class
+      settings.  If a user entry does not incorporate any class settings and the
+      class settings are not defined within the entry, then RPG defaults will be
+      used for those settings.  The contents for each user entry are enclosed
+      with {} pairs of braces.
+
+ 
+                         Dedicated_user and Dial_user Parameters
+      Parameter         Description                   Possible Values          Default Value
+      user_id           User ID                       1 - 9999
+                                                      Not allowed for Class
+                                                      entries
+                                                      Required for
+                                                      Dedicated_user and
+                                                      Dial_user entries
+      user_name         User Name for  Class 1        up to 11 characters
+                        Dedicated_user, all           Required for
+                        Dial_user entries, and Class  Dedicated_user and
+                        4 users not using RSET        Dial_user entries
+                        method of distribution.
+      user_password     Password for this user        up to 7 characters
+                                                      Optional for future use
+                                                      in Dedicated_user.
+                                                      Required for Dial_user
+                                                      entries.
+      class             Class number of the class     Optional.   If
+                        definition settings to        specified, it must
+                        incorporate into the settings match a defined class
+                        of this user.                 in the Class Definition
+                                                      entries.  Currently
+                                                      defined class numbers
+                                                      are 1, 2, 4, and 99.
+      Any Class         Any field in defined in the   Optional.  See Class      If a class definition field is
+      Definition        Class Definition section may  Definition section for    not defined in a Dial_user or
+      field             be include in a Dial_user or  fields and possible       Dedicated_user entry,
+                        Dedicated_user entry.  If a   values.                   incorporated class settings
+                        class definition field is                               for that field will be used if
+                        specified in a Dial_user or                             specified.  If a class
+                        Dedicated_user entry, it will                           definition field is not
+                        override the system or                                  defined in a Dial_user or
+                        incorporated class values for                           Dedicated_user entry and no
+                        that field.                                             class information has been
+                                                                                incorporated into the entry,
+                                                                                then system defaults will be
+                                                                                used for that field.
+EXAMPLES
+      The ORPG distribution contains an example user_profiles configuration file.
+
+SEE ALSO
+      ipi(1), p_server(1), hci_usr(1), hci_nb(1), comms_link.conf(4)

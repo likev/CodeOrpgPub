@@ -1,0 +1,347 @@
+#!/bin/sh
+
+# RCS info
+# $Author: ccalvert $
+# $Locker:  $
+# $Date: 2013/03/22 17:16:32 $
+# $Id: manage_setup,v 1.1 2013/03/22 17:16:32 ccalvert Exp $
+# $Revision: 1.1 $
+# $State: Exp $
+
+RPG_ICAO=
+LIST_BLOCKAGE_FILES_FLAG=NO
+PRINT_DEFAULTS_FLAG=NO
+CHANGE_ADAPT_FLAG=NO
+DEBUG_FLAG=NO
+
+#########################################################
+# ECHO_ERROR: Echo error message and exit.
+#########################################################
+
+echo_error ()
+{
+  echo
+  echo
+  echo "IN SCRIPT: $0"
+  echo "ERROR: $1"
+  echo "Stopping script"
+  echo "Use -h option for help"
+  echo
+  echo
+  exit 1
+}
+
+#########################################################
+# ECHO_DEBUG: Echo debug messages.
+#########################################################
+
+echo_debug ()
+{
+  if [ $DEBUG_FLAG = YES ]
+  then
+    echo "DEBUG: $1"
+  fi
+}
+
+#########################################################
+# PRINT_USAGE: Display "help" to screen.
+#########################################################
+
+print_usage ()
+{
+  echo
+  echo "Usage: `basename $0` [Options]"
+  echo
+  echo "Options:"
+  echo
+  echo "-h - help"
+  echo "-d - Print defaults after processing command line"
+  echo "-x - Turn debugging statements on"
+  echo "-i - ICAO (4-characters)"
+  echo "-f - Adaptable parameter modification file"
+  echo "-k - Directory containing blockage files (Default: $PLAYBACK_RPG_BLOCKAGE_DIR)"
+  echo "-K - List blockage files in $PLAYBACK_RPG_BLOCKAGE_DIR"
+  echo
+}
+
+#########################################################
+# PARSE_CMDLINE: Parse command line arguments.
+#########################################################
+
+parse_cmdline ()
+{
+  while getopts hdxi:f:k:K option
+  do
+    case $option in
+      h) print_usage; exit 0;;
+      d) PRINT_DEFAULTS_FLAG=YES;;
+      x) DEBUG_FLAG=YES;;
+      i) RPG_ICAO=`echo $OPTARG | tr '[a-z]' '[A-Z]'`;;
+      f) CHANGE_ADAPT_FILE=$OPTARG; CHANGE_ADAPT_FLAG=YES;;
+      k) PLAYBACK_RPG_BLOCKAGE_DIR=$OPTARG;;
+      K) LIST_BLOCKAGE_FILES_FLAG=YES;;
+     \?) echo_error "Invalid input flag"
+    esac
+  done
+
+  echo_debug "RPG_ICAO:                  $RPG_ICAO"
+  echo_debug "CHANGE_ADAPT_FLAG:         $CHANGE_ADAPT_FLAG"
+  if [ $CHANGE_ADAPT_FLAG = YES ]
+  then
+    echo_debug "CHANGE_ADAPT_FILE:         $CHANGE_ADAPT_FILE"
+  fi
+  echo_debug "PLAYBACK_RPG_BLOCKAGE_DIR: $PLAYBACK_RPG_BLOCKAGE_DIR"
+  echo_debug "PRINT_DEFAULTS_FLAG:       $PRINT_DEFAULTS_FLAG"
+  echo_debug "LIST_BLOCKAGE_FILES_FLAG:  $LIST_BLOCKAGE_FILES_FLAG"
+  echo_debug "DEBUG_FLAG:                $DEBUG_FLAG"
+
+  # Make sure "print defaults" and "list files" are mutually exclusive
+  if [ $PRINT_DEFAULTS_FLAG = YES -a $LIST_BLOCKAGE_FILES_FLAG = YES ]
+  then
+    echo_error "Options -d and -l are mutually exclusive"
+  fi
+
+  # Make sure directory containing blockage files exists.
+  if [ -z "$PLAYBACK_RPG_BLOCKAGE_DIR" ]
+  then
+    echo_error "\$PLAYBACK_RPG_BLOCKAGE_DIR isn't defined"
+  elif [ ! -d $PLAYBACK_RPG_BLOCKAGE_DIR ]
+  then
+    echo_error "Directory $PLAYBACK_RPG_BLOCKAGE_DIR doesn't exist"
+  fi
+
+  # List blockage files if desired
+  if [ $LIST_BLOCKAGE_FILES_FLAG = YES ]
+  then
+    list_blockage_files
+    exit 0
+  fi
+
+  # Make sure ICAO is defined and valid
+  if [ -z "$RPG_ICAO" ]
+  then
+    echo_error "Radar ICAO not defined"
+  elif ! echo $RPG_ICAO | egrep -q '[A-Z]{3}[A-Z0-9]'
+  then
+    echo_error "Radar ICAO not valid"
+  fi
+
+  # Create full path/name of blockage file for ICAO.
+  RPG_BLOCKAGE_FILE=$PLAYBACK_RPG_BLOCKAGE_DIR/${RPG_ICAO}_blockage.lb
+  echo_debug "RPG_BLOCKAGE_FILE: $RPG_BLOCKAGE_FILE"
+
+  # Print defaults if desired
+  if [ $PRINT_DEFAULTS_FLAG = YES ]
+  then
+    print_defaults
+    exit 0
+  fi
+
+  # Make sure ICAO blockage file exists.
+  if [ ! -f $RPG_BLOCKAGE_FILE ]
+  then
+    echo_error "File $RPG_BLOCKAGE_FILE doesn't exist"
+  fi
+
+  # Make sure change adaptation data file exists
+  if [ $CHANGE_ADAPT_FLAG = YES ]
+  then
+    if [ -z "$CHANGE_ADAPT_FILE" ]
+    then
+      echo_error "-f option illegally defined"
+    elif [ ! -f $CHANGE_ADAPT_FILE ]
+    then
+      echo_error "File $CHANGE_ADAPT_FILE not found"
+    fi
+  fi
+}
+
+#########################################################
+# PRINT_DEFAULTS: Print default values used by script
+#########################################################
+
+print_defaults ()
+{
+  echo
+  echo "RPG_ICAO:                  $RPG_ICAO"
+  echo_debug "CHANGE_ADAPT_FLAG:   $CHANGE_ADAPT_FLAG"
+  if [ $CHANGE_ADAPT_FLAG = YES ]
+  then
+    echo_debug "CHANGE_ADAPT_FILE:   $CHANGE_ADAPT_FILE"
+  fi
+  echo "PLAYBACK_RPG_BLOCKAGE_DIR: $PLAYBACK_RPG_BLOCKAGE_DIR"
+  echo "PRINT_DEFAULTS_FLAG:       $PRINT_DEFAULTS_FLAG"
+  echo "LIST_BLOCKAGE_FILES_FLAG:  $LIST_BLOCKAGE_FILES_FLAG"
+  echo "DEBUG_FLAG:                $DEBUG_FLAG"
+  echo
+}
+
+#########################################################
+# LIST_BLOCKAGE_FILES: List blockage files in directory
+#########################################################
+
+list_blockage_files ()
+{
+  bline=""
+  bcnt=0
+  echo
+  echo "Available blockage files in $PLAYBACK_RPG_BLOCKAGE_DIR:"
+  for bfile in `ls $PLAYBACK_RPG_BLOCKAGE_DIR | sort`
+  do
+    bline="$bline  $bfile"
+    bcnt=`expr $bcnt + 1`
+    if [ $bcnt -eq 4 ]
+    then
+      echo "$bline"
+      bline=""
+      bcnt=0
+    fi
+  done
+  if [ $bcnt -ne 0 ]
+  then
+    echo "$bline"
+  fi
+  echo
+}
+
+#########################################################
+# RUN_CHANGE_RADAR: Run change_radar script for setup.
+#########################################################
+
+run_change_radar_script ()
+{
+  # Run mrpg init to create needed directory structure
+  if ! which mrpg > /dev/null
+  then
+    echo_error "The mrpg task isn't found"
+  fi
+  cmd="mrpg init"
+  echo_debug "CMD: $cmd"
+  if ! $cmd > /dev/null 2>&1
+  then
+    echo_error "The change_radar script failed"
+  fi
+
+  # Make sure change_radar script is in path and run it.
+  if ! which change_radar > /dev/null
+  then
+    echo_error "Scirpt change_radar not found"
+  fi
+  cmd="change_radar -r $RPG_ICAO -b $RPG_BLOCKAGE_FILE -R"
+  echo_debug "CMD: $cmd"
+  if ! $cmd > /dev/null 2>&1
+  then
+    echo_error "The change_radar script failed"
+  fi
+}
+
+#########################################################
+# CHANGE_ADAPT_DATA: Change default adaptation data values.
+#########################################################
+
+change_adapt_data ()
+{
+  for input_line in `cat $CHANGE_ADAPT_FILE`
+  do
+    if echo $input_line | egrep -q '^alg\..*\=[a-zA-Z0-9]+'
+    then
+      dea_id=`echo $input_line | awk -F'=' '{print $1}'`
+      dea_val=`echo $input_line | awk -F'=' '{print $2}'`
+      echo_debug "DEA ID: $dea_id  DEA VALUE: $dea_val"
+      if ! edit_dea -n $dea_val $dea_id > /dev/null
+      then
+        echo_error "edit_dea -n $dea_val $dea_id failed"
+      fi
+    fi
+  done
+}
+
+#########################################################
+# CONFIGURE_LOCAL_WBS: Configure local wideband simulator.
+#########################################################
+
+configure_local_wbs ()
+{
+  # Get client to put in $tcp_config_file
+  client_address=`uname -a | awk '{print $2}'`
+  echo_debug "client_address: $client_address"
+  if [ -z "$client_address" ]
+  then
+    echo_error "Could not determine client address"
+  fi
+
+  # If the $tcp_config_file doesn't exist or isn't
+  # readable, exit with error.
+  tcp_config_file=$HOME/cfg/tcp.conf
+  echo_debug "tcp_config_file: $tcp_config_file"
+
+  if [ ! -f $tcp_config_file ]
+  then
+    echo_error "File: $tcp_config_file doesn't exist"
+  elif [ ! -r $tcp_config_file ]
+  then
+    echo_error "File: $tcp_config_file isn't readable"
+  elif [ ! -w $tcp_config_file ]
+  then
+    echo_error "File: $tcp_config_file isn't writable"
+  fi
+
+  # Build new record/line for $tcp_config_file
+  new_tcp_line="    0   client  10010   $client_address    DED       passwd"
+  echo_debug "new_tcp_line: $new_tcp_line"
+
+  # Modify $tcp_config_file with new wideband record
+  echo_debug "Edit $tcp_config_file"
+  sed -i "s/^ *0.*/$new_tcp_line/" $tcp_config_file
+
+  # Make sure maintenance task to switch RDA source is in
+  # path and run it.
+  if ! which mnttsk_switch_orda > /dev/null 2>&1
+  then
+    echo_error "Task mnttsk_switch_orda not found"
+  fi
+  echo_debug "Call mnttsk_switch_orda -t"
+  if ! mnttsk_switch_orda -t orda > /dev/null 
+  then
+    echo_error "mnttsk_switch_orda -t failed"
+  fi
+
+  # Modify comms link file
+  comms_link_file=$HOME/cfg/comms_link.conf
+  echo_debug "comms_link_file: $comms_link_file"
+  if [ ! -f $comms_link_file ]
+  then
+    echo_error "File: $comms_link_file doesn't exist"
+  elif [ ! -r $comms_link_file ]
+  then
+    echo_error "File: $comms_link_file isn't readable"
+  fi
+  echo_debug "Edit $comms_link_file"
+  sed -i 's/\(^ *0.*\)cm_tcp_\(.*\)/\1cm_tcp\2/' $comms_link_file
+}
+
+####################################################################
+#
+# MAIN BODY OF SCRIPT
+#
+####################################################################
+
+# Read the command line options
+parse_cmdline $*
+
+# Run change_radar script for setup
+run_change_radar_script
+
+# Run change_adapt_data for setup
+if [ $CHANGE_ADAPT_FLAG = YES ]
+then
+  change_adapt_data
+fi
+
+# Configure local wideband simulator
+configure_local_wbs
+
+echo
+echo "Finished setting up RPG in $HOME"
+echo
+

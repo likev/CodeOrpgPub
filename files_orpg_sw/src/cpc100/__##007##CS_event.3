@@ -1,0 +1,60 @@
+CS_event(3) 		   ORPG SDD Manpage   		CS_event(3)
+
+NAME
+CS_event - specify a configuration-change event number
+
+SYNOPSIS
+#include <infr.h>
+int CS_event (int syscfg_ev, int *status);
+
+DESCRIPTION
+Function CS_event specifies, through "syscfg_ev", the event number that 
+the application is used for the event of a configuration change. After
+the event number is specified, every such event will cause an update
+(reread from the file or LB) of the configuration text. Multiple event
+numbers that correspond to the configuration change can be specified
+through multiple calls of CS_event.
+
+By option CS_event allows the user to register a configuration status 
+variable in the CS module. If "status" is not NULL, this integer pointer 
+is recorded in the CS module. Later on, each time the configuration 
+changes, "status" is set to CS_UPDATED (non-zero). This provides an 
+efficient way for the calling routine to check whether or not the 
+configuration is changed. Multiple "status" variables can be registered 
+through multiple calls of CS_event. "status" is set only when an event is 
+received. The initial configuration read or forced update through calling 
+CS_control (CS_UPDATE) will not set the "status" variables.
+
+If function CS_event is never called, the event notification library is 
+not required.
+
+On success CS_event returns 0. Otherwise it returns one of the following 
+negative numbers:
+
+	CS_TOO_MANY_STATUS - Too many status variables registered;
+	CS_TOO_MANY_EVENTS - Too many event number registered;
+
+If CS_event fails in registering an event (E.g. rssd is not 
+running), CS_event will not return an error number. Because of this 
+error however later calls to functions CS_int_entry and CS_name_entry 
+will fail and return CS_EV_REGISTER_ERR if the configuration source name 
+does not have a suffix of ".dev". If the configuration source name has a 
+suffix ".dev", any failure in registering an event will be ignored. This 
+allows the user to proceed without the EN service, which may be desirable 
+in development time. An operational configuration source name should 
+never use suffix ".dev".
+
+The configuration LB or file must be on the local host.
+
+SEE ALSO
+CS_cfg_name(3), CS_control(3), CS_error(3), CS_int_entry(3),
+CS_name_entry(3), CS_next_line(3), CS_use_LB(3), cs(3), rssd(1)
+
+NOTES
+The event number definition is a part of application design. By 
+requiring the application to pass the event number (through calling 
+CS_event), we make the CS module independent of the application. For the 
+same matter CS does not define the format of each configuration entry. 
+Each entry may contain multiple fields. It is up to the application to 
+define the fields in the entries and interpret the entries. Tools may
+need to be developed for automatically creating the configuration text by 

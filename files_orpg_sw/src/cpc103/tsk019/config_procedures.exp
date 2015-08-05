@@ -1,0 +1,499 @@
+
+# 
+# RCS info
+# $Author: steves $
+# $Locker:  $
+# $Date: 2014/10/03 18:00:41 $
+# $Id: config_procedures.exp,v 1.3 2014/10/03 18:00:41 steves Exp $
+# $Revision: 1.3 $
+# $State: Exp $
+#
+
+# common procedures used by RPG hardware configuration EXPECT scripts
+
+# calls send_user and then flush stdout 
+proc Send_user { text } {
+    global Manual_mode
+
+    if { $Manual_mode } {
+	return
+    }
+    send_user "$text"
+    flush stdout
+}
+
+# waits tout seconds and discard any output
+proc Wait_for_output { tout } {
+
+    set timeout $tout
+    expect {
+	timeout { 
+	    expect "*" { }
+	}
+    }
+}
+
+proc Manual_process { label } {
+    global Manual_mode Dev_ctl Device_name
+
+    set dev_name $Dev_ctl(full_name)
+    if { $dev_name == "" } {
+	set dev_name $Device_name
+    }
+    set Manual_mode 0
+    Send_user "* CONNECTED TO $dev_name VIA $label (Use @~~ to exit) *\n"
+    interact -nobuffer "~~" return
+    Send_user "\n* LEAVING $dev_name *\n"
+    set Manual_mode 1
+}
+
+# waits up to tout checking if there is a line return coming in the output
+# Returns 1 if a line return is found, or 0 otherwise.
+
+proc Check_line_return { tout } {
+
+    set timeout $tout
+    expect -notransfer "\n" {
+	return 1
+    }
+    return 0
+}
+
+# function, used by Get_options, to return value with "value" at option "index"
+proc Get_option_value {index {value ""}} {
+    global argc argv
+    upvar $index ind $value v
+
+    if { $value != "" } {			;# no value expected
+	set optv [lindex $argv [expr $ind+1]]
+	if { $optv == "" } {
+	    send_error "Incorrect use of option &opt\n"
+	    exit 1
+	}
+	set v $optv
+	incr ind 2
+    } else {
+	incr ind 1
+    }
+    set opt [lindex $argv $ind]
+    if { [string index $opt 0] != "-" } {
+	for {set i $ind} {$i < $argc} {incr i 1} {
+	    if { [string index [lindex $argv $i] 0] == "-" } {
+		send_error "Unexpected option [lindex $argv $ind]\n"
+		exit 1
+	    }
+	}
+    }
+}
+
+# Disconnect the device on the port
+
+proc Disconnect_port { } {
+
+    set timeout 5
+    send \032\r
+    expect {
+	timeout { 
+	    send_log "[exec date]: timeout exiting from the port\n"
+	    expect "*" {send_log ">Unread RESP: <$expect_out(buffer)>\n"}
+	}
+	"close current connection to port" {
+	    send x\r
+	    exp_continue
+	}
+	-re {---------[\r|\n]} { }
+	-re " closed." { }
+    }
+}
+
+# Disconnect the device on the port and logout from the console server
+# Returns 0 on success or 1 on failure
+
+proc Disconnect_port_and_logout { } {
+
+    Disconnect_port
+    send_log "\n"
+    Wait_for_output 2
+
+    set timeout 5
+    send \r
+    expect {
+	timeout { 
+	    send_log "[exec date]: timeout exiting from the console server\n"
+	    expect "*" {send_log ">Unread RESP: <$expect_out(buffer)>\n"}
+	}
+	"root@Digi_CM_Device:~# " {
+	    send exit\r
+	    exp_continue
+	}
+	-re {---------[\r|\n]} { }
+	-re " closed." { }
+	-re "Digi_CM_Device login:" { }
+    }
+    expect "*" { }
+    Send_user "\n"
+    return 0
+}
+
+proc From_console_server_to_port { port } {
+
+    if { $port < 0 } {
+	return 0
+    }
+
+    send_log "[exec date]: Connecting to port $port...\n"
+    send "connect $port\r"
+    set timeout 16
+    expect {
+	timeout { 
+	    send_error "[exec date]: timeout connecting to port $port"
+	    expect "*" {send_log ">Unread RESP: <$expect_out(buffer)>\n"}
+	    return 1
+	}
+	"Digi CM 16 Login : " {
+	    send root\r
+	    exp_continue
+	}
+	"Digi CM 16 Password : " {
+	    send dbps\r
+	    exp_continue
+	}
+	"for port menu." { 
+	    send \r
+	}
+    }
+    send_log "\n"
+    Send_user "[exec date]: Connected to port $port\n"
+    return 0
+}
+
+proc Ssh_to_a_port { port } {
+    global spawn_id Subnet_id Channel_num
+
+    if { $Channel_num == 2 } {
+	set ssh_add root@172.25.$Subnet_id.75
+    } else {
+	set ssh_add root@172.25.$Subnet_id.5
+    }
+    sleep 1
+    spawn ssh $ssh_add
+    expect_before {
+	eof {
+	    Send_user "[exec date]: SSH to the console server lost\n"
+	    return 2
+	}
+    }
+    send_log "[exec date]: SSH $ssh_add spawned\n"
+
+    set ret [Connect_to_console_server root dbps]
+    if { $ret } {
+	return $ret
+    }
+    expect_before {
+	eof {
+	    send_error "[exec date]: SSH to the console server lost unexpectedly\n"
+	    exit 1
+	}
+    }
+
+    if { [From_console_server_to_port $port] } {
+	return 1
+    }
+    return 0
+}
+
+proc Run_stty { cmd } {
+    global Serial_port_dev
+
+    if { [catch {exec stty -F $Serial_port_dev $cmd} buf ] } {
+	send_error "stty $cmd failed ($buf)\n"
+	exit 1
+    }
+}
+
+proc Connect_to_console_server { name pswd } {
+    global Use_ssh
+
+    set pcnt 0
+    set cs_pswd "tR5~V3s@"
+    set name_sent 0
+    set passwd_sent 0
+    set timeout 8
+    set not_on_top 1
+    set r_cnt 0
+    if { !$Use_ssh } {
+	Wait_for_output 2
+	send \r
+   }
+    expect {
+	timeout {
+	    if { !$Use_ssh && $r_cnt < 12 } {
+		incr r_cnt 1
+		send \r
+		send_log "[exec date]: send return\n"
+		exp_continue
+	    }
+
+	    send_log "[exec date]: timeout connecting to the console server - cleanup\n"
+	    expect "*" {send_log ">Unread RESP: <$expect_out(buffer)>\n"}
+	    Disconnect_port_and_logout
+	    return 1
+	}
+	-re {Digi_CM_Device login: |Username :|\nlogin: } {
+	    if { $name == "admin" && $expect_out(0,string) == "Username :" } {
+		send_error "[exec date]: Error - Attempting to configure the console server from a user port\n"
+		return 1
+	    }
+	    if { $name_sent } {
+		sleep 1
+	    }
+	    send -- $name\r
+	    set name_sent 1
+	    exp_continue
+	}
+	" (yes/no)\? " {
+	    send yes\r
+	    exp_continue
+	}
+	-re {\n----------------------------------------------------[\r|\n]} {
+	    send \r
+	    exp_continue
+	}
+	-re {Login incorrect|Permission denied} {
+	    if { $passwd_sent } {
+		incr pcnt 1
+	    }
+	    exp_continue
+	}
+	-re {(P|p)assword:} {
+	    if { !$name_sent && !$Use_ssh } {
+		exp_continue
+	    }
+	    if { $pcnt == 0 } {
+		send -- $cs_pswd\r
+	    } elseif { $pcnt == 1 } {
+		send -- $pswd\r
+		set name_sent 0
+	    } else {
+		send_error "[exec date]: Failed in logging to console server - password\n"
+		return 1
+	    }
+	    set passwd_sent 1
+	    exp_continue
+	}
+	"root@Digi_CM_Device:~# " {
+	    if { $name == "admin" } {	;# left over root session
+		send exit\n
+		exp_continue
+	    }
+	}
+	"Connection to * closed" {
+	    send \r
+	    exp_continue
+	}
+	"Exit and Apply Changes" {
+	    set not_on_top 0
+	    exp_continue
+	}
+	-re {----->} {
+	    if { !$passwd_sent } {	;# left over admin session
+		if {!$not_on_top} {
+		    send 9\ry\r		;# a sequence to terminate the session
+		} else {
+		    send \033		;# esc
+		    incr not_on_top 1
+		}
+		if {$not_on_top >= 6} {
+		    send_error "[exec date]: Failed in going to top menu\n"
+		    return 1
+		}
+		exp_continue
+	    }
+	}
+    }
+    send_log "\n"
+    send_log "[exec date]: Connected to and login in the console server\n"
+    Wait_for_output 2
+    return 0
+}
+
+# Open the serial port Serial_port_dev, login to the console server and connect
+# to the device on port "port" of the console server
+# Returns 0 on success or 1 on failure
+
+proc Connect_to_a_port { port } {
+    global spawn_id Dev_ctl Serial_port_dev Serial_port_baud_rate
+    global Enable_modem_control_signal Use_ssh Manual_mode
+
+    Send_user "[exec date]: Connecting to the console server...\n"
+
+    set ssh_cnt 0
+    while { $Use_ssh } {
+	set ret [ Ssh_to_a_port $port ]
+	if { $ret == 0 } {
+	    if { $Manual_mode } {
+		Manual_process "ssh to console server"
+		exit 0
+	    }
+	    return 0
+	}
+	if { $ret != 2 || $ssh_cnt >= 2 } {
+	    send_error "[exec date]: SSH to console server failed\n"
+	    return $ret
+	}
+	incr ssh_cnt 1
+	send_log "[exec date]: Retry SSH to console server\n"
+    }
+
+    Run_stty raw        		;# no flow control
+    Run_stty -echo
+    if { $Enable_modem_control_signal } {
+	Run_stty -clocal
+    } else {
+	Run_stty clocal
+    }
+    Run_stty cs8      			;# 8 bit data
+    Run_stty $Serial_port_baud_rate
+    Run_stty -parenb  			;# no parity check
+    Run_stty crtscts  			;# enable RTS/CTS handshaking
+    Run_stty -cstopb  			;# one stop bit per character
+    spawn -open [open $Serial_port_dev w+]
+    expect_before {
+	eof {
+	    send_error "[exec date]: Connection to the console server lost unexpectedly\n"
+	    exit 1
+	}
+    }
+    send_log "[exec date]: Serial connection opened\n"
+
+    if { [Connect_to_console_server root dbps] } {
+	return 1
+    }
+
+    if { [From_console_server_to_port $port] } {
+	return 1
+    }
+    if { $Manual_mode } {
+	Manual_process "console server port"
+	Close_console_server
+	exit 0
+    }
+    return 0
+}
+
+# Disconnect the device on the port, logout from the console server and close
+# serial connection to the console server
+# Returns 0 on success or 1 on faulure
+
+proc Close_console_server { } {
+    global spawn_id Use_ssh
+
+    Send_user "[exec date]: Exiting the port and the console server...\n"
+    Disconnect_port_and_logout
+    if { [catch { close -i $spawn_id } result] } {
+	send_error "[exec date]: ERROR closing console server connection: $result\n"
+	return 1
+    } else {
+	send_log "[exec date]: Close_console_server done\n"
+	return 0
+    }
+}
+
+# Gets site info from Dev_ctl(cfg_file_name) in /tftpboot.
+# Input: Dev_ctl(cfg_file_name)
+# Output: Ios_file_name Cfg_file_name Cfg_version Subnet_id Channel_num Faa_radar.
+# If multiple file matches the IOS file pattern, the first is used.
+
+proc Get_install_info { } {
+    global Dev_ctl Ios_file_name Cfg_file_name Cfg_version Subnet_id
+    global Channel_num Faa_radar Device_name Site_name
+
+    set Cfg_file_name ""
+    if { ![catch { exec find /tftpboot -name "$Dev_ctl(cfg_file_name)" -and -type f } buf ] } {
+	set Cfg_file_name [exec basename $buf]
+    }
+    if { $Cfg_file_name == "" } {
+	return
+    }
+
+    set cfg_path /tftpboot/$Cfg_file_name
+    set Channel_num "1"
+    set Faa_radar "0"
+    set Subnet_id ""
+    set Site_name ""
+    set ios_name ""
+    set Cfg_version ""
+    set pattern "RPG ND CONFIG VERSION <"
+    if { ![catch { exec grep $pattern $cfg_path } buf ] } {\
+	set st [string first $pattern $buf]
+	set end [string first ">" $buf]
+	incr st [string length $pattern]
+	incr end -1
+	if { $st < 0 || $end < 0 } {
+	    set Cfg_version ""
+	} else {
+	    set Cfg_version [string range $buf $st $end]
+	}
+    }
+    set pattern "IOS_file_name <"
+    if { ![catch { exec grep $pattern $cfg_path } buf ] } {
+	set st [string first $pattern $buf]
+	set end [string first ">" $buf]
+	incr st [string length $pattern]
+	incr end -1
+	if { $st < 0 || $end < 0 } {
+	    set ios_name ""
+	} else {
+	    set ios_name [string range $buf $st $end]
+	}
+    }
+
+    if { ![catch { exec find_adapt -V SITE_NAME@$cfg_path } buf ] } {
+	set Site_name $buf
+    }
+    if { ![catch { exec find_adapt -V SUBNET_ID@$cfg_path } buf ] } {
+	set Subnet_id $buf
+    }
+    if { ![catch { exec find_adapt -V FAA_CH2@$cfg_path } buf ] } {
+	set Channel_num "2"
+	set Faa_radar "1"
+    }
+    if { ![catch { exec find_adapt -V FAA_CH1@$cfg_path } buf ] } {
+	set Faa_radar "1"
+    }
+
+    if { $ios_name == "" } {
+	set Ios_file_name ""
+    } else {
+	if { [catch { exec find /tftpboot -name "$ios_name" -and -type f } buf ] } {
+	    set Ios_file_name ""
+	} else {
+	    if { [string length $buf] == 0 } {
+		set Ios_file_name ""
+	    } else {
+		scan $buf "%s" Ios_file_name
+		set Ios_file_name [exec basename $Ios_file_name]
+	    }
+	}
+    }
+}
+
+# procedure for testing regular expression
+proc Test_regular_expression { } {
+
+    set timeout 20
+    expect {
+	timeout {
+	    puts stdout timeout\n
+	    expect "*" {puts stdout ">Unread RESP: <$expect_out(buffer)>"}
+	    exit 1
+	}
+	-re {\n(((([^\n <]*))))(>|#)} {
+	    puts stdout "$expect_out(0,string) $expect_out(5,string)"
+	    exp_continue
+	}
+    }
+    exit 0
+}
+
+# Test_regular_expression

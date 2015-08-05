@@ -1,0 +1,81 @@
+rss_file(3) 		   ORPG SDD Manpage   		rss_file(3)
+
+NAME
+rss_file - Remote System Services (RSS) file access routines
+
+SYNOPSIS
+#include <rss.h>
+int RSS_close (int fd);
+int RSS_copy (char *path_from, char *path_to);
+off_t RSS_lseek (int fd, off_t offset, int whence);
+int RSS_open (char *path, int flags, int mode);
+int RSS_read (int fd, char *buf, int nbyte);
+int RSS_rename (char *path_old, char *path_new);
+int RSS_unlink (char *path);
+int RSS_write (int fd, char *buf, int nbyte);
+
+DESCRIPTION
+RSS_open, RSS_read, RSS_write, RSS_lseek, RSS_close, RSS_unlink and 
+RSS_rename are RPC implementation of UNIX system calls open, read, 
+write, lseek, close, unlink and rename respectively. When used for file 
+accesses, these functions perform the same functions as their UNIX 
+version except that the file may be located on a remote host. The 
+arguments and return values of these functions are also the same as 
+their UNIX counterparts except the following.
+
+The "path" argument used in RSS_open and RSS_unlink is extended to 
+include the host name on which the function should be executed. An 
+extended path has the following form:
+
+host_name:path
+
+where "host_name" is the remote host name and "path" is the normal
+UNIX path. If the "host_name" is explicitly specified, either a remote 
+or the local host, and the path name does not start from the root, "/", 
+it is assumed that the path starts from the user's home directory. Note 
+that the user's home directory here is the one on the remote host if 
+"host_name" is a remote host name. If the "host_name" part in the 
+extended path is missing, it is assumed to be the local host. In this 
+case, if the path name does not start from the root, the current working 
+directory is assumed.
+
+	open ("virga:/home/dave/doc/my_file", flags, mode);
+
+opens a file called "/home/dave/doc/my_file" on machine "virga". If
+the user's home directory is "/home/dave" and "virga" is a remote 
+host, the call
+
+	open ("virga:doc/my_file", flags, mode);
+
+will open the same file. The following call
+
+	unlink ("virga:doc/my_file");
+
+unlinks the file "$HOME/doc/my_file" on host "virga", while
+
+	unlink ("doc/my_file");
+
+unlinks the file "current_work_dir/doc/my_file" on the local host.
+
+RSS_rename changes a file's name. The argument "path_new" and "path_old"
+specify respectively the new and old names for the file. path_new" and 
+"path_old" are both extended file paths. They must be on the same host.
+
+If rss_replace.h is included in the user's source file, the user can
+directly use function calls open, read, write, lseek, close, 
+unlink and rename. These function calls will be automatically replaced 
+by the corresponding RSS_* calls.
+
+RSS_copy copies file "path_from" to file "path_to", both of which are 
+extended paths. This function is considered useful because RSS does not 
+support other standard C file access functions such as fopen, fgets and 
+so on. With RSS_copy one can always copy a remote file to a local 
+temporary file and apply standard C library functions to the temporary 
+file. RSS_copy is not a true RPC function rather it calls other RSS 
+functions to perform the job. RSS_copy returns RSS_SUCCESS on success or 
+a negative number on failure. The negative number can be 
+RSS_NO_MEMORY_CLIENT, which means that it failed in allocating a work 
+buffer, or an error number returned by RSS_open, RSS_read or RSS_write.
+
+SEE ALSO
+rss(3), rss_lb(3), rss_sys_clib(3), rss_util(3)

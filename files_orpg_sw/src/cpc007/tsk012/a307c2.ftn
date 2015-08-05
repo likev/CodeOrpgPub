@@ -1,0 +1,127 @@
+C
+C RCS info
+C $Author: steves $
+C $Locker:  $
+C $Date: 1999/07/30 17:16:26 $
+C $Id: a307c2.ftn,v 1.1 1999/07/30 17:16:26 steves Exp $
+C $Revision: 1.1 $
+C $State: Exp $
+C
+      SUBROUTINE A307C2__ADJUST_CODES(BUFOUT)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A307C2__ADJUST_CODES
+*.
+*.  MODULE VERSION: 0000
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       02/12/99      0000      Mike Istok           CCR NA96-17803
+*.
+*.  CALLING SEQUENCE: A307C2__ADJUST_CODES(BUFOUT)
+*.
+*.  MODULE FUNCTION:
+*.     Routine to shift product buffer MESSAGE CODE and PRODUCT CODE 
+*.     values from the standard CR products to the CRE products.  Note: 
+*.     that CR products 35, 36, 37, 38 are formatted exactly the same as
+*.     CRE products 95, 96, 97, 98, respectively.  Therefore, to adjust 
+*.     product codes, this routine simply adds 60 to the product codes
+*.     placed in the product by module A30748.
+*.
+*.  MODULES CALLED: NONE 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT          TYPE        DESCRIPTION
+*.    -   -----          ----        -----------
+*.    G   MESCDOFF       I*4         (CONSTANT)Product header offset: Message
+*.                                   code.
+*.    G   PRDCODOFF      I*4         (CONSTANT)Product header offset
+*.                                   descriptions: Product code.
+*.
+*.    *   OUTPUT   TYPE        DESCRIPTION
+*.    -   ------   ----        -----------
+*.    P   BUFOUT   I*2         PRODUCT BUFFER
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE: NONE
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME           TYPE        DESCRIPTION
+*.    ----           ----        -----------
+*.    CLEAR           I*4         Parameter set to the value of zero
+*.    CR_CRE_SHIFT    I*4         Offset in product codes from CR to CRE  
+*.    MAX_VALID_CR    I*4         Maximum valid CR product code
+*.    MIN_VALID_CR    I*4         Minimum valid CR product code
+*.    PRODCODE        I*4         Product code.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: NONE.
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP07.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK07.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+C
+$INCLUDE A309.INC/G,**A3PM00 (NEND NLIST)
+$INCLUDE            **A3PM01 (NEND NLIST)
+C
+      INTEGER*2 BUFOUT(*)
+      INTEGER CR_CRE_SHIFT,CLEAR,MIN_VALID_CR,MAX_VALID_CR,PRODCODE
+      PARAMETER (CR_CRE_SHIFT = 60, CLEAR = 0)
+      PARAMETER (MIN_VALID_CR = 35, MAX_VALID_CR = 38)
+C
+C*** EXECUTABLE CODE:
+C     ---------------
+C** EXTRACT THE PRODUCT CODE STORED BY A30748
+C 
+      PRODCODE = BUFOUT(PRDCODOFF)
+C
+C** SHIFT PRODUCT CODE TO THE CRE PRODUCT CODES
+C
+      IF (PRODCODE.GE.MIN_VALID_CR.AND.PRODCODE.LE.MAX_VALID_CR) THEN
+         PRODCODE = PRODCODE + CR_CRE_SHIFT
+      ELSE
+C
+C*** IN THIS CASE THERE IS AN ERROR SOMEWHERE
+C
+         PRODCODE = CLEAR
+      ENDIF
+C
+C** STORE MESSAGE CODE
+C
+      BUFOUT(MESCDOFF) = PRODCODE
+
+C** STORE PRODUCT CODE
+C
+      BUFOUT(PRDCODOFF) = PRODCODE
+C
+C*** RETURN TO PRODUCT GENERATION CONTROL ROUTINE
+C
+      RETURN
+      END

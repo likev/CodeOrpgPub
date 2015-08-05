@@ -1,0 +1,413 @@
+C
+C RCS info
+C $Author: steves $
+C $Locker:  $
+C $Date: 2011/06/09 19:05:19 $
+C $Id: a30789.ftn,v 1.6 2011/06/09 19:05:19 steves Exp $
+C $Revision: 1.6 $
+C $State: Exp $
+C
+      SUBROUTINE A30789__INIT_REQ(RADINPTR, FLG_NO_MEM, NUMREQS,
+     $        REQTAB, BUFFTAB, VOLNUM, REF_FLAG, VEL_FLAG, WID_FLAG )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A30789__INIT_REQ
+*.
+*.  MODULE VERSION: 0011
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       09 02 88      0000      CHARLIE BAUMHER      SPR # 80271
+*.       05 08 90      0001      CHI CHAN             SPR # 90697
+*.       12 20 90      0002      PAUL JENDROWSKI      SPR # 91576
+*.       02 13 91      0002      D. ERICKSON          SPR # 91248
+*.       12 03 91      0003      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0004      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/20/92      0005      Toolset              SPR 91895
+*.       03/25/93      0006      Toolset              SPR NA93-06801
+*.       01/28/94      0007      Toolset              SPR NA94-01101
+*.       03/03/94      0008      Toolset              SPR NA94-05501
+*.       04/11/96      0009      Toolset              CCR NA95-11802
+*.       12/23/96      0010      Toolset              CCR NA95-11807
+*.       03/16/99      0011      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:
+*.          CALL A30789__INIT_REQ(RADINPTR, FLG_NO_MEM, NUMREQS,
+*.            REQTAB, BUFFTAB, VOLNUM, REF_FLAG, VEL_FLAG, WID_FLAG )
+*.
+*.  MODULE FUNCTION:
+*.
+*.     THIS IS CALLED BY THE BUFFER CONTROL ROUTINE. IT DETERMINES HOW
+*.       MANY PRODUCTS ARE TO BE GENERATED FOR THE VOLUME SCAN BY
+*.       CALLING A3CM24. IT ALSO COMPUTES THE INITIAL DATA VALUES
+*.       BASED ON THE INPUT POINT P1 AND P2.
+*.
+*.
+*.  MODULES CALLED: A3078H__INIT_QUAD, A3078P__FLAG_GRID, A31215__GET_OUTBUF, 
+*.                  A31218__BUF_VOL, A3CM24__GET_CUST_INFO, 
+*.                  A3CM54__CUST_PROD_MEMSHED 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT      TYPE        DESCRIPTION
+*.    -   -----      ----        -----------
+*.    G   MEM        I*4         Array in RPG shared memory set aside for
+*.                               buffer sharing.
+*.    G   NORMAL     I*4         (CONSTANT)Parameter which indicates normal
+*.                               completion of requested operation to acquire
+*.                               input or output buffer
+*.    G   SCRATCH    I*4         (CONSTANT)DATA BUFFER TYPE FOR TASK SCRATCH
+*.                               DATA BUFFERS
+*.    C   GRID_XCOLS I*4         Contains the number of Columns calculated for
+*.                               each product.
+*.    C   GRID_YROWS I*4         Contains the number of rows calculated for
+*.                               each product.
+*.    C   CCOPYNO    I*4         (CONSTANT)Custom copy number used as an index
+*.                               into request table (REQTAB, REQTAB_TEMP).
+*.    C   CUSTIDX    I*4         (CONSTANT)Index into table of product
+*.                               requests.
+*.    C   INC1       I*4         (CONSTANT)Constant, used as an incrementor
+*.                               value.
+*.    C   ONE        I*4         (CONSTANT)Constant value of one.
+*.    C   PCODE      I*4         (CONSTANT)Constant used as an index to
+*.                               requested product code from the request table
+*.                               (REQTAB) buffer.
+*.    C   REFLPROD16 I*4         (CONSTANT)Product code for Cross Section
+*.                               (Reflectivity) 16 data levels.
+*.    C   REFLPROD8  I*4         (CONSTANT)Product code for Cross Section
+*.                               (Reflectivity) 8 data levels
+*.    C   REQCOLS    I*4         (CONSTANT)Maximum number of request columns
+*.                               in the request table.
+*.    C   REQROWS    I*4         (CONSTANT)Number of request rows (parameters)
+*.                               in the request table.
+*.    C   SPECTPROD8 I*4         (CONSTANT)Eight level spectrum width product
+*.                               code for cross section
+*.    C   VELOPROD16 I*4         (CONSTANT)Velocity PCODE data level 16.
+*.    C   VELOPROD8  I*4         (CONSTANT)Velocity PCODE data level 8.
+*.    C   ZERO       I*4         (CONSTANT)Program parameter for 0.
+*.    P   NUMREQS    I*4         NUMBER OF PRODUCTS REQUESTED WHICH CAN BE
+*.                               GENERATED
+*.    P   RADINPTR   I*4         PTR TO INPUT BUFFER
+*.    P   REF_FLAG   L*4         FLAG FOR ENABLED REFL. MOMENT
+*.    P   REQTAB     I*2         Table of product requests.
+*.    P   VEL_FLAG   L*4         FLAG FOR ENABLED VEL. MOMENT
+*.    P   WID_FLAG   L*4         FLAG FOR ENABLED SP-W. MOMENT
+*.
+*.    *   OUTPUT     TYPE        DESCRIPTION
+*.    -   ------     ----        -----------
+*.    G   MEM        I*4         Array in RPG shared memory set aside for
+*.                               buffer sharing.
+*.    P   BUFFTAB    I*4         BUFFER POINTERS TO SCRATCH MEMORY FOR
+*.                               CARTESIAN GRID. 0=BUFFER NOT NEEDED OR NOT
+*.                               SUCESSFULLY OBTAINED FROM GET_INBUFF ( NO
+*.                               PRODUCT PRODUCED).
+*.    P   FLG_NO_MEM L*4         FLAG INDICATING NO PRODUCTS CAN BE GENERATED
+*.                               BECAUSE OF NO SCRATCH BUFFERS
+*.    P   NUMREQS    I*4         NUMBER OF PRODUCTS REQUESTED WHICH CAN BE
+*.                               GENERATED
+*.    P   REQTAB     I*2         Table of product requests.
+*.    P   VOLNUM     I*4         CURRENT VOLUME SCAN NUMBER
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    G   MEM               I*4         Array in RPG shared memory set aside
+*.                                      for buffer sharing.
+*.    C   GRID_XCOLS        I*4         Contains the number of Columns
+*.                                      calculated for each product.
+*.    C   GRID_YROWS        I*4         Contains the number of rows calculated
+*.                                      for each product.
+*.    P   NUMREQS           I*4         NUMBER OF PRODUCTS REQUESTED WHICH CAN
+*.                                      BE GENERATED
+*.    P   RADINPTR          I*4         PTR TO INPUT BUFFER
+*.    P   REQTAB            I*2         Table of product requests.
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME             TYPE        DESCRIPTION
+*.    ----             ----        -----------
+*.    BUFPTR           I*4         PTR TO SCRATCH OUTPUT BUFFER
+*.    BUFSIZ           I*4         SIZE OF OUTPUT BUFFER
+*.    DATATYPE_AVLABLE L*4         PRODUCT TYPES ABLE TO BE MADE
+*.    DUMELIX          I*4         ELEVATION INDEX
+*.    I                I*4         LOOP INDEX
+*.    K                I*4         LOOP INDEX
+*.    LFLAG_CLEAR      L*4         CLEARED LOGICAL FLAG
+*.    LFLAG_SET        L*4         SET LOGICAL FLAG
+*.    MAX_PRODS        I*4         MAXIMUM PRODUCT INDEX
+*.    NTR              I*4         NTR number of this task.
+*.    NUM              I*4         NUMBER OF PRODUCTS REQUESTED THAT WERE ABLE
+*.                                 TO BE BUILT
+*.    OPSTAT           I*4         STATUS FROM GET_INBUFF
+*.    REQTAB_TEMP      I*2         TABLE OF PRODUCT REQUESTS
+*.    STAT             I*4         STATUS OF A3CM24 CALL
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD00
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3078CA
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  NONE
+*.
+*.  DEVIATION FROM STANDARDS:  NONE
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP07.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK07.CSS
+*.
+*.  MISC:  NONE
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+C*
+C*  INCLUDE COMMON PARAMETER FILES
+C*
+$INCLUDE A309.INC/G,**A3PM00 (NEND NLIST)
+$INCLUDE            **A3PM06 (NEND NLIST)
+$INCLUDE            **A3CD00 (NEND NLIST)
+$INCLUDE A307.INC,**A30788  (     NLIST )
+$INCLUDE          **A3078CA (     NLIST )
+$INCLUDE PROD_GEN_MSG.INC,**PROD_GEN_MSG (NEND NLIST)
+C*
+C*********************************************************************
+C* LOCAL DECLARATIONS
+C*
+      INTEGER*2    REQTAB(REQROWS,REQCOLS)
+      INTEGER*2    REQTAB_TEMP(REQROWS,REQCOLS)
+C
+      INTEGER*4    I, J, K
+      INTEGER*4    BUFFTAB(REQROWS)
+      INTEGER*4    BUFSIZ
+      INTEGER*4    VOLNUM
+      INTEGER*4    RADINPTR, OPSTAT, NUMREQS, STAT
+      INTEGER*4    NUM, BUFPTR
+      INTEGER*4    DUMELIX
+      INTEGER*4    A31218__BUF_VOL
+      INTEGER*4    MAX_PRODS
+      PARAMETER  ( MAX_PRODS = 150 )
+C
+      LOGICAL      FLG_NO_MEM
+      LOGICAL      DATATYPE_AVLABLE( MAX_PRODS )
+      LOGICAL      REF_FLAG, VEL_FLAG, WID_FLAG
+      LOGICAL      LFLAG_SET, LFLAG_CLEAR
+C
+      EXTERNAL     A31218__BUF_VOL
+C
+C$DELETE
+      PARAMETER    ( DUMELIX = 1)
+C$ENDDELETE
+C$INSERT      DATA DUMELIX/1/
+
+      PARAMETER    ( LFLAG_SET = .TRUE.,  LFLAG_CLEAR = .FALSE. )
+C
+      REAL*4       P1P2LEN
+      INTEGER*4    P1P2LEN_I
+      INTEGER*4    MINIMUM_XS_LENGTH
+      PARAMETER    (MINIMUM_XS_LENGTH = 2)
+
+      CHARACTER*80 TEXT
+
+      DATA DATATYPE_AVLABLE/ MAX_PRODS*.FALSE. /
+C
+C*********************************************************************
+      VOLNUM = A31218__BUF_VOL (RADINPTR)
+C
+C*********************************************************************
+C    SET UP ELEVATION INDEX AS 1 FOR INPUT TO A3CM24
+C    VOLUME BASED PRODUCTS USE 1 AS ELEVATION INDEX IN
+C    THE PGENCUST TABLES.
+C
+      CALL A3CM24__GET_CUST_INFO (DUMELIX, NTR, REQTAB_TEMP,
+     $        NUMREQS, STAT )
+C
+C*
+C*********************************************************************
+C*  CHECK WHICH PRODUCTS CAN NOT BE GENERATED BECAUSE OF DISABLED
+C*  MOMENTS
+C*
+C* REFLECTIVITY MOMENT USERS
+C
+      IF ( REF_FLAG ) THEN
+         DATATYPE_AVLABLE(REFLPROD16) = LFLAG_SET
+         DATATYPE_AVLABLE(REFLPROD8)  = LFLAG_SET
+      ELSE
+         DATATYPE_AVLABLE(REFLPROD16) = LFLAG_CLEAR
+         DATATYPE_AVLABLE(REFLPROD8)  = LFLAG_CLEAR
+      END IF
+C
+C*  VELOCITY MOMENT USERS
+C
+      IF ( VEL_FLAG ) THEN
+         DATATYPE_AVLABLE(VELOPROD16) = LFLAG_SET
+         DATATYPE_AVLABLE(VELOPROD8)  = LFLAG_SET
+      ELSE
+         DATATYPE_AVLABLE(VELOPROD16) = LFLAG_CLEAR
+         DATATYPE_AVLABLE(VELOPROD8)  = LFLAG_CLEAR
+      END IF
+C
+C* SPECTRUM WIDTH MOMENT USER
+C
+      IF ( WID_FLAG ) THEN
+         DATATYPE_AVLABLE(SPECTPROD8)  = LFLAG_SET
+      ELSE
+         DATATYPE_AVLABLE(SPECTPROD8)  = LFLAG_CLEAR
+      END IF
+C*
+C*********************************************************************
+C*  LOOP THROUGH ALL REQUESTS IN THE TEMPORAY TABLE AND COUNT THE
+C*  NUMBER OF REQUESTS THAT CAN BE FILLED
+C
+      NUM = ZERO
+      FLG_NO_MEM = LFLAG_CLEAR
+      DO 100 I = ONE, NUMREQS
+C
+C*  CHECK IF THIS DATATYPE IS AVAILABLE
+C
+        IF ( DATATYPE_AVLABLE(REQTAB_TEMP(PCODE,I))) THEN
+C
+C*********************************************************************
+C VALIDATE THE REQUEST PARAMETERS .... ABORT INVALID REQUESTS
+C
+C MAKE SURE PARAMETERS ARE WITHIN RANGE
+C
+          IF( (REQTAB_TEMP(P1_AZ,I) .LT. 0) .OR.
+     >        (REQTAB_TEMP(P1_AZ,I) .GT. 3600) .OR.
+     >        (REQTAB_TEMP(P1_RANGE,I) .LT. 0) .OR.
+     >        (REQTAB_TEMP(P1_RANGE,I) .GT. 1240) .OR.
+     >        (REQTAB_TEMP(P2_AZ,I) .LT. 0) .OR.
+     >        (REQTAB_TEMP(P2_AZ,I) .GT. 3600) .OR.
+     >        (REQTAB_TEMP(P2_RANGE,I) .LT. 0) .OR.
+     >        (REQTAB_TEMP(P2_RANGE,I) .GT. 1240) ) THEN
+
+             WRITE( TEXT, 1111 )
+ 1111        FORMAT( 1x, 'Bad Request Parameters.  Abort Request $' )
+             call RPG_send_msg( text )
+             WRITE( TEXT, 1112 ) REQTAB_TEMP(P1_AZ,I),
+     >                           REQTAB_TEMP(P1_RANGE,I)
+ 1112        FORMAT( 1x, '--->A1: ',I10,' R1: ',I10,'$' )
+             call RPG_send_msg( text )
+             WRITE( TEXT, 1113 ) REQTAB_TEMP(P2_AZ,I),
+     >                           REQTAB_TEMP(P2_RANGE,I)
+ 1113        FORMAT( 1x, '--->A2: ',I10,' R2: ',I10,'$' )
+             call RPG_send_msg( text )
+
+             CALL RPG_ABORT_REQUEST( REQTAB_TEMP(1,I), 
+     >                               PGM_INVALID_REQUEST )
+
+             GO TO 100
+          END IF
+C
+C MAKE SURE PARAMETERS ARE NOT IDENTICAL
+C
+          IF( (REQTAB_TEMP(P1_AZ,I).EQ.REQTAB_TEMP(P2_AZ,I)) .AND.
+     >       (REQTAB_TEMP(P1_RANGE,I).EQ.REQTAB_TEMP(P2_RANGE,I)) ) THEN
+
+             WRITE( TEXT, 1111 )
+             call RPG_send_msg( text )
+             WRITE( TEXT, 1112 ) REQTAB_TEMP(P1_AZ,I),
+     >                           REQTAB_TEMP(P1_RANGE,I)
+             call RPG_send_msg( text )
+             WRITE( TEXT, 1113 ) REQTAB_TEMP(P2_AZ,I),
+     >                           REQTAB_TEMP(P2_RANGE,I)
+             call RPG_send_msg( text )
+
+             CALL RPG_ABORT_REQUEST( REQTAB_TEMP(1,I),
+     >                               PGM_INVALID_REQUEST )
+
+             GO TO 100
+          END IF
+
+C
+C DETERMINE THE LENGTH OF THE LINE BETWEEN THE 2 POINTS.  A CROSS SECTION
+C HAS TO HAVE A MINIMUM LENGTH TO BE VALID
+C
+          CALL A3078T__TEST_REQ( REQTAB_TEMP, I, P1P2LEN )
+          CALL RPG_NINT( P1P2LEN, P1P2LEN_I )
+          IF( IABS(P1P2LEN_I) .LT. MINIMUM_XS_LENGTH ) THEN
+
+             WRITE( TEXT, 1111 )
+             call RPG_send_msg( text )
+             WRITE( TEXT, 1112 ) REQTAB_TEMP(P1_AZ,I),
+     >                           REQTAB_TEMP(P1_RANGE,I)
+             call RPG_send_msg( text )
+             WRITE( TEXT, 1113 ) REQTAB_TEMP(P2_AZ,I),
+     >                           REQTAB_TEMP(P2_RANGE,I)
+             call RPG_send_msg( text )
+
+             CALL RPG_ABORT_REQUEST( REQTAB_TEMP(1,I), 
+     >                               PGM_INVALID_REQUEST )
+
+             GO TO 100
+          ENDIF
+
+C
+C*********************************************************************
+C  COPY CUSTOM REQUEST INFO TO EDITTED REQUEST TABLE
+C
+          NUM = NUM + INC1
+          DO 95 K = ONE, REQROWS
+            REQTAB(K,NUM) = REQTAB_TEMP(K,I)
+ 95       CONTINUE
+C
+C*  INITIALIZE THE GRID AND DETERMINE SCRATCH BUFFER SIZE NEEDED FOR IT
+C
+          CALL A3078H__INIT_QUAD(REQTAB, NUM, BUFSIZ)
+C
+C*
+C*********************************************************************
+C*  REQUEST A SCRATCH OUTPUT BUFFER FOR EACH PRODUCT REQUESTED,
+C*  TO BUILD THE CARTESIAN MAP IN. IF A SCRATCH BUFFER IS NOT
+C*  AVAILABLE FOR A PRODUCT REQUEST, THEN CANCEL THE PRODUCT REQUEST.
+C*
+C
+          CALL A31215__GET_OUTBUF (SCRATCH, BUFSIZ, BUFPTR, OPSTAT)
+C
+          IF ( OPSTAT .EQ. NORMAL ) THEN
+            BUFFTAB (NUM) = BUFPTR
+C
+C*********************************************************************
+C  INITIALIZE THE SCRATCH BUFFER FOR THE CROSS-SECTION GRID TO A
+C  FLAG VALUE
+C
+            CALL A3078P__FLAG_GRID( GRID_XCOLS(NUM), GRID_YROWS(NUM),
+     $                              MEM(BUFPTR) )
+C
+          ELSE
+C
+C*********************************************************************
+C  NO SCRATCH BUFFER SPACE.  CALL A3CM54 TO NOTIFY DISTRIBUTION THAT
+C  A CUSTOM PRODUCT CANNOT BE MADE
+C
+            CALL A3CM54__CUST_PROD_MEMSHED( REQTAB_TEMP(CUSTIDX,I),
+     $                  REQTAB_TEMP(CCOPYNO,I), OPSTAT )
+            NUM = NUM - INC1
+            FLG_NO_MEM = LFLAG_SET
+          END IF
+C
+        ENDIF
+100   CONTINUE
+C
+C*********************************************************************
+C
+      NUMREQS = NUM
+      IF (NUMREQS .NE. ZERO) FLG_NO_MEM = LFLAG_CLEAR
+C
+C*
+C*********************************************************************
+      RETURN
+      END

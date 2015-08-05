@@ -1,0 +1,166 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/05 16:39:18 $
+C $Id: a3082v.ftn,v 1.3 2002/12/05 16:39:18 christie Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A3082V__BUFFER_NOTAVAIL(FUNC,NBYTES,IROW,ICOL,RCMBUF)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3082V__BUFFER_NOTAVAIL
+*.
+*.  MODULE VERSION: 0010
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       08 01 88      0000      VALERIE HOLDEN       SPR #80002
+*.       01 29 91      0001      VALERIE HOLDEN       SPR #91249
+*.       12 03 91      0002      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0003      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/20/92      0004      Toolset              SPR 91895
+*.       03/25/93      0005      Toolset              SPR NA93-06801
+*.       01/28/94      0006      Toolset              SPR NA94-01101
+*.       03/03/94      0007      Toolset              SPR NA94-05501
+*.       04/11/96      0008      Toolset              CCR NA95-11802
+*.       12/23/96      0009      Toolset              CCR NA95-11807
+*.       03/16/99      0010      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A3082V__BUFFER_NOTAVAIL(FUNC,NBYTES,IROW,
+*.                       ICOL,RCMBUF)
+*.
+*.  MODULE FUNCTION:
+*.
+*.     THIS MODULE WILL ENTER INTO THE ALPHA-NUMERIC RADAR CODED
+*.     MESSAGE LINE FOR /MT, /NCEN, /NTVS, AND /NMES A FIELD OF
+*.     NA (NOT AVAILABLE) IF THE INPUT BUFFER DATA IS NOT AVAILABLE
+*.
+*.  MODULES CALLED: A3082K__STORE_LINE 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT  TYPE        DESCRIPTION
+*.    -   -----  ----        -----------
+*.    C   NACOLS I*4         (CONSTANT)Number of columns available for Radar
+*.                           Coded Message product.
+*.    P   FUNC   I*4         FUNCTION VALUE, 1 = MAXTOP, 2 = CENTROID PART A,
+*.                           3 = TVS, MESO AND CENTROID PART C
+*.    P   ICOL   I*4         NUMBER OF COLUMN
+*.    P   IROW   I*4         NUMBER OF ROW
+*.    P   NBYTES I*4         NUMBER OF BYTES
+*.    P   RCMBUF I*2         RCM OUTPUT BUFFER
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    P   ICOL    I*4         NUMBER OF COLUMN
+*.    P   IROW    I*4         NUMBER OF ROW
+*.    P   NBYTES  I*4         NUMBER OF BYTES
+*.    P   RCMBUF  I*2         RCM OUTPUT BUFFER
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    P   ICOL              I*4         NUMBER OF COLUMN
+*.    P   IROW              I*4         NUMBER OF ROW
+*.    P   NBYTES            I*4         NUMBER OF BYTES
+*.    P   RCMBUF            I*2         RCM OUTPUT BUFFER
+*.
+*.  DATABASE/FILE REFERENCE:  NONE
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME        TYPE        DESCRIPTION
+*.    ----        ----        -----------
+*.    BLANK       CHAR*1      ONE BLANK CHARACTER
+*.    CENTROID_NA CHAR*8      ENCODE CENTROID NOT AVAILABLE (/NCENNA:)
+*.    I           I*4         Do loop index.
+*.    MAXTOP_NA   CHAR*6      ENCODE MAX TOP NOT AVAILABLE /MTNA:
+*.    MESO_NA     CHAR*8      ENCODE MESO NOT AVAILABLE /NMESNA:
+*.    NUM1        I*4         Function flag value of one.
+*.    NUM2        I*4         Function flag value of 2.
+*.    NUM3        I*4         Function flag value of three.
+*.    ONE         I*4         Program parameter value for one used as lower
+*.                            index in do loop.
+*.    RCM_LINE    CHAR*70     RADAR CODED MESSAGE LINE
+*.    TVS_NA      CHAR*8      ENCODE TVS NOT AVAILABLE /NTVSNA:
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     THIS MODULE IS COMPILED USING COMP08.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     THIS MODULE IS LINKED USING LINK08.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C*
+      IMPLICIT NONE
+C*
+$INCLUDE A308.INC,**A308P2   (NEND NLIST)
+C*
+      INTEGER*2     RCMBUF(*)
+      INTEGER*4     IROW,ICOL,NBYTES,I,FUNC,NUM1,NUM2,NUM3,ONE
+      PARAMETER     (NUM1=1,NUM2=2,NUM3=3,ONE=1)
+      CHARACTER*1   BLANK
+      CHARACTER*6   MAXTOP_NA
+      CHARACTER*8   CENTROID_NA,TVS_NA,MESO_NA
+      CHARACTER*70  RCM_LINE
+      DATA          BLANK/' '/,MAXTOP_NA/'/MTNA:'/
+      DATA          CENTROID_NA/'/NCENNA:'/,TVS_NA/'/NTVSNA:'/
+      DATA          MESO_NA/'/NMESNA:'/
+C*
+C*    CLEAR RCM_LINE TO BLANKS
+      DO 10 I = ONE,NACOLS
+ 10      RCM_LINE(I:I) = BLANK
+C*
+C*    IF FUNCTION FLAG = 1, ECHO TOPS BUFFER NOT AVAILABLE, WRITE
+C*       /MTNA: INTO PRODUCT BUFFER
+      IF (FUNC.EQ.NUM1) THEN
+         WRITE(RCM_LINE,20) MAXTOP_NA
+ 20      FORMAT(A6)
+         CALL A3082K__STORE_LINE(IROW,ICOL,NBYTES,RCM_LINE,RCMBUF)
+C*
+C*    IF FUNCTION FLAG = 2, COMBINED ATTRIBUTES BUFFER NOT AVAILABLE
+C*       FOR PART A, WRITE /NCENNA: INTO PRODUCT BUFFER
+      ELSEIF (FUNC.EQ.NUM2) THEN
+         WRITE(RCM_LINE,30) CENTROID_NA
+ 30      FORMAT(A8)
+         CALL A3082K__STORE_LINE(IROW,ICOL,NBYTES,RCM_LINE,RCMBUF)
+C*
+C*    IF FUNCTION FLAG = 3, COMBINED ATTRIBUTES BUFFER NOT AVAILABLE
+C*       FOR PART C, WRITE /NTVSNA:, /NMESNA: AND /NCENNA: INTO
+C*       PRODUCT BUFFER
+      ELSEIF (FUNC.EQ.NUM3) THEN
+         WRITE(RCM_LINE,30) TVS_NA
+         CALL A3082K__STORE_LINE(IROW,ICOL,NBYTES,RCM_LINE,RCMBUF)
+         DO 40 I = ONE,NACOLS
+ 40         RCM_LINE(I:I) = BLANK
+         WRITE(RCM_LINE,30) MESO_NA
+         CALL A3082K__STORE_LINE(IROW,ICOL,NBYTES,RCM_LINE,RCMBUF)
+         DO 50 I = ONE,NACOLS
+ 50         RCM_LINE(I:I) = BLANK
+         WRITE(RCM_LINE,30) CENTROID_NA
+         CALL A3082K__STORE_LINE(IROW,ICOL,NBYTES,RCM_LINE,RCMBUF)
+      ENDIF
+      RETURN
+      END

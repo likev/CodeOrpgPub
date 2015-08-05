@@ -1,0 +1,149 @@
+task_table(4) 		   ORPG SUM Manpage   		task_table(4)
+
+NAME
+task_table
+
+DESCRIPTION
+   This ASCII file includes the following sections:  RPG task attributes, 
+   install commands, startup initialization commands, restart initialization 
+   commands, shutdown commands,  operational processes and common process 
+   attributes.  Each section is defined in CS format.  
+
+   At RPG startup, the ASCII task_table is parsed.  The RPG task attribute
+   section is processed and converted into the operational, binary Task 
+   Attribute Table (TAT).  The TAT contains a data structure for each task,
+   the format of this structure defined in orpgtat.h.  The ORPGTAT functions
+   in the ORPG library provide convenient access to this data.  
+
+   The startup initialization commands, restart initialization commands,
+   shutdown commands, and operational processes sections of the task
+   table are read and used by the manage RPG process, mrpg.  As their
+   names imply, the startup initialization commands are commands executed
+   at RPG startup prior to launching the operational processes, the restart
+   initialization commands are executed at RPG restart prior to launching 
+   the operational processes, and the shutdown commands are executed at
+   RPG shutdown.  The operational processes section list all operational
+   RPG processes.  
+
+   RPG Task Attributes:
+
+      Each operational process in the RPG must have a task table entry.  The 
+      task "id", task "name", and task "description" are required information.   
+      By convention, the task ID is the concatenation of the task's Computer
+      Program Component (CPC) number and task number within the CPC.  It has 
+      the following format:
+
+           id   xxxxx
+
+      The name is the name of the binary file or executable.  The format is 
+      as follows:
+
+           name  process_name
+
+      You can specify the entire path of the binary if the path is not the 
+      default.  
+
+      The description is a plain language string describing what the task is
+      (does).  For example:
+
+           desc  "HCI RDA performance data"
+
+      describes this task as the Human Computer Interface (HCI) RDA performance
+      data display program. 
+ 
+      The "input_stream"  keyword is optional.  By default, the input stream is
+      ORPGTAT_REALTIME_STREAM.  The format of this field is as follows:
+ 
+          input_stream <Stream ID>
+   
+      Other valid input streams are defined in orpgtat.h.
+
+      Lists of input and output Data IDs are optional.   However if the task is
+      a product generator and consequently can be scheduled, then these fields 
+      are required.  The formats of these entries are as follows:
+ 
+           input_data <first> <second> <third> ....
+           output_data <first> <second> <third> ...
+ 
+      where the list are data IDs.  The data IDs must be separated by whitespace
+      (spaces and/or tabs).  There is no harm in providing an "empty" list:
+ 
+      Other optional flags are used to characterize the type of a task.  Here 
+      are the current types and their keywords
+ 
+         respawn              Task is restarted after failure.
+         allow_duplicate      Task is allowed to fork duplicate processes.
+         monitor_only         Task is not managed but status will be reported.
+         do_not_monitor       Task is not managed nor is status reported.
+         rpg_control_task     Task is considered an rpg infrastructure process.
+         alive_in_standby     Task is kept alive in RPG standby state.
+         active_channel_only  Task is to be run only on active channel.
+   	 site_task    label   Site dependent task of type "label", which can be
+          		      COMM_MANAGER or PRODUCT_SERVER or any property
+ 			      of the "Site Information" entry of the misc_adapt 
+ 			      configuration file (ie. MLOS, RMS, etc).
+         report_ready_to_operate
+                              The task must make "ready-to-operate" report to
+                              mrpg by calling ORPGMGR_report_ready_for_operation.
+         allow_supplemental_scans
+                              The task is allowed to process supplemental 
+                              elevations scans provided by the SAILS function.
+
+      The optional "args" keyword provides the command line arguments used to 
+      launch the process.  For simplicity, a zero-ordinal instance # number must
+      be provided (even # if there is only one instance permitted).  The format
+      is as follows:
+ 
+         args
+      		<instance> "first_arg second_arg ..."
+ 
+      The default binary name is the same as the task name.  You can specify the
+      entire path of the binary if the path is not the default.  For example:
+ 
+         name   /export/home/orpg/task
+
+
+   Install Commands:
+      These are commands which need to be executed before LB creation.  The 
+      complete command and command line options need to be specified.  The optional
+      STOP_ON_ERROR command line terminator allows mrpg to suspend startup/restart
+      if the command fails (exits with non-zero exit code).
+
+      If multiple commands are listed, the commands are executed in the order 
+      listed.  A next command in the list is not invoked until successful 
+      completion of the previous command.
+
+   Startup Initialization Commands:
+      These are commands which are executed prior to operational task invocation 
+      during RPG startup.  The same rules that apply to the install commands apply 
+      to the commands listed in this section.  
+
+   Restart Initialization Commands:
+      Same as above except these commands are executed prior to operational task
+      invocation during RPG restart.
+
+   Shutdown Commands:
+      Same as above except these commands are executed during RPG shutdown.
+
+   Operational Processes:
+      This list provides the RPG operational processes.  Unless otherwise specified
+      by the task attribute table, all the processes in this list are invoked in
+      alphabetical order at startup/restart.  Some of the task invocations are 
+      controlled by the "site_task" keyword in the task attribute table.  If the 
+      task is not listed in the operational list, it will not be invoked.  Tasks
+      can be removed either by deleting or commenting out.  The # character denotes
+      comment line.
+
+   Common Process Attributes:
+      This section contains the "cpu_limit", "cpu_window", "mem_limit", and 
+      "save_log_command".  The "cpu_limit" is the maximum percent CPU a process can 
+      use within the CPU time window measure in seconds, "cpu_limit".  The "mem_limit"
+      is the maximum memory limit a task can use at any instance of time.
+
+      The "save_log_command" is specifies the save_log command and argument list 
+      whenever mrpg issues an automatic save_log.
+
+SEE ALSO
+   mrpg(1), orpgtat(3), cs(3), save_log(1)
+
+				$Revision: 1.2 $

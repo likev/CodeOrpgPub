@@ -1,0 +1,518 @@
+
+NAME
+    mrpg - manage RPG task
+
+SYNOPSIS
+    mrpg [-iwbrcvls] [command]
+
+DESCRIPTION
+
+    mrpg prerforms the following functions:
+
+	Reads the system resource configuration table and determines a node
+	configuration based on the node connectivity status at the start-up
+	time.
+
+	Creates and maintains the RPG state file and publishes RPG state info.
+
+	Checks, creates and recreated, if necessary, all RPG global data stores
+	as specified in the data table and the product table. The RPG
+	infrastructure process rssd is started in development environment.
+
+	Runs user specified initialization tasks, as specified in the RPG task
+	table, to prepare for the RPG operational execution.
+
+	Generates and distributes system configuration files.
+
+	Starts all operational processes as specified in the RPG task table.
+
+	Monitor RPG processes, as specified in the RPG task table, and
+	publishes process information.
+
+	Performs certain management tasks while RPG is running.
+
+	Provides redundant channels support, power failure handling and after
+	OS crash processing.
+
+    The RPG consists of a number of operational processes which run
+    concurrently. Each process performs a specific part of the RPG
+    functionality and communicates with other processes in a loosely coupled
+    way. That is any process's execution does not depend on any other process's
+    running condition. It is desirable to carefully partition the RPG software
+    into multiple processes in a way that each process can be independently
+    developed and tested and the inter-process interactions are minimized. An
+    RPG process can be written in any language and using any specific library
+    or tool. mrpg itself is one of the RPG processes. It is not a process
+    without which RPG will stop functioning.
+
+    Starting RPG is basically a three-step procedure: Creating global data
+    stores, initializing data stores and running operational processes.
+
+    RPG global data stores are uses as a means for exchanging information among
+    processes. They must be created and may need to be initialized before any
+    operational process can be executed. RPG global data stores provide a
+    persistent, reliable and efficient mechanism for supporting
+    publish/subscribe type of message passing among RPG processes. RPG global
+    data stores are specified in RPG product and data tables. If a data store
+    is specified in both tables, mrpg ignores the specification in RPG data
+    table. mrpg creates all global data stores that do not exist or do not have
+    the right attributes.
+
+    Data initialization is performed by running a set of initialization
+    programs (sometimes also called maintenance tasks). The initialization
+    tasks are executed one at a time in pre-defined sequence. Different sets
+    are used for RPG startup, restart and other commands. The initialization
+    commands are listed in the RPG task table. The exit status of each
+    initialization command is checked. If a command exists with a non-zero
+    status, mrpg will fail (except otherwise specified).
+
+    RPG operational processes can be started in any sequence and run in
+    background concurrently. In case of process failure, the failed process can
+    be restarted without requiring to shut down and restart any other
+    processes. RPG processes do not have to be started by mrpg. They can be
+    started manually or by any other applications. A process is started as a
+    UNIX command. No special tool is needed to start a process. An application
+    process does not need, by default, to report to mrpg when it is started or 
+    before termination.
+
+    RPG processes communicate each other through message queues, databases,
+    events and client/server connections. Reliable message passing can only be
+    conducted after all communicating parties are ready. Specifically, the
+    reader of a message queue has to open the queue before any writer can send
+    a message to the queue. If an event is used, processes receiving the event
+    have to complete their event registration before any such event can be
+    posted. In the client/server case, the server has to be ready before a
+    client can request a service. In order to support reliable RPG start up and
+    restart, mrpg, after starting all operational processes, waits for the
+    following conditions that indicate the process initialization has been
+    completed before turning the RPG into operation state: 1.
+    Ready-for-operation reports (via event ORPGEVT_PROCESS_READY) are received
+    from all tasks that are required to send the report. 2. The CPU utilization
+    levels on all nodes are below specified level. mrpg waits for these
+    conditions up to a time period limit specified by the "-w" command-line
+    option. The default value is 120 seconds.
+
+    If an RPG process is required to send the ready-for-operation report, it
+    must be specified in the task table (label "report_ready_to_operate"). A
+    task that makes this report and follows the following rules will support
+    reliable message passing upon RPG start-up or restart. 1. The task consists
+    of two phases of operation: the initialization phase and operation phase.
+    2. In initialization phase, the task opens all message queues that are
+    expected to read, registers all events it expects to receive and completes
+    any server initialization if it is a server. It must not write any message
+    to any queue or post any event in this phase. 3. It posts event
+    "ORPGEVT_PROCESS_READY" and waits for RPG to enter operation state before
+    entering into operation phase. Function ORPGMGR_report_ready_for_operation
+    can be called for reporting. 4. If an LB update notification is needed, the
+    task must complete the event registration before the first read of the LB.
+
+    RPG uses a file named "rpg_state" in the RPG data directory for storing RPG
+    run time states. The file is updated in real-time while mrpg is running.
+    One should not try to remove this file while mrpg is running. The RPG run
+    time state information is available to other processes. After RPG crash
+    (e.g. caused by a power failure), mrpg uses information in the file to
+    determine the RPG states prior the failure. The operational mrpg is able to
+    detect any data corruption in the state file caused by the power failure.
+
+    RPG uses a system configuration file for mapping resource (e.g. global data
+    stores) names to their physical locations. The name of the file is
+    specified by the environmental variables CFG_DIR (refer to the CS man-page
+    for details). mrpg generates the system configuration file when it is
+    invoked with "startup", "auto_start" or "init" commands. The system
+    configuration file mechanism supports distributed processing of RPG. The
+    system configuration file contains a version info line of format "Version
+    time_stamp channel #_chan n_nodes #_nodes node_list" where time_stamp is a
+    12 digit creation time, #_chan is a two digit redundant channel number,
+    #_nodes is the number of nodes and node_list is the list of all node names
+    in the distributed RPG. An example is "Version 001086819460 channel 00
+    n_nodes 1 osfrpg7". Channel number "00" indicates the single-channel RPG.
+    In a redundant RPG, it is either "01" or "02". The time stamp changes only
+    if the system configuration is different from the previous one (not every
+    time the system configuration file is created). One can query mrpg for the
+    system configuration version info by posting event
+    ORPGEVT_SYSTEM_CONFIG_INFO with no message. Upon receiving the event, mrpg
+    posts the same event with the version info as a response.
+
+    mrpg determines which data stores and operational processes are needed to
+    support a specific RPG communication subsystem configuration (defined, for
+    example, in comms_link.conf). mrpg creates necessary data stores and starts
+    necessary processes to support the comms subsystem.
+
+    When RPG is started and running, mrpg performs the following managing
+    functions: It collects RPG process information (process running status as
+    well as resource utilization) and makes it available to other processes. It
+    restarts a terminated process if the action is specified in the task table.
+    It detects and terminates unexpected duplicated process instances (The
+    later instances are terminated). It kills processes that use exceptional
+    resources (memory and CPU as specified in the task table).
+
+    mrpg can be started manually as a command. It can be executed from HCI
+    locally or remotely. It can also be started automatically by the OS. To do
+    this we can put the mrpg command in the "/etc/inittab" file (Refer to
+    operate_rpg). Only one instance of mrpg, however, can be running at any
+    given time. mrpg has a built-in mechanism to make sure that there is only
+    one mrpg instance that takes the responsibility in case multiple mrpg
+    commands are issued simultaneously. This can happen, for example, two
+    operators happen to start or shutdown RPG without knowing each other's
+    action.
+
+    If mrpg is started in foreground, it can be stopped, by typing control-c
+    key, at any time before RPG enters operational state when mrpg
+    automatically goes to background and continues to run there.
+
+    when mrpg is invoked in the development environment, mrpg starts rssd, the
+    RPG infrastructure deamon. mrpg shuts down rssd when executed with command
+    "cleanup".
+
+    In operational environment, mrpg executes the commands listed in the
+    "Install_cmds" section in the task table.
+
+    The functions of collecting near real-time process information are
+    implemented in a separate process called "nds". This design decision makes
+    mrpg more portable and is necessary to support distributed RPG. mrpg
+    manages execution of nds.
+
+    Commands accepted by mrpg and the procedures performed for each command are
+    explained in the following:
+
+    startup: Starts up the RPG. The following procedure is performed:
+
+	Checking node connectivity and determining a distributed configuration.
+
+	Generating and distributing the system configuration file.
+
+	Creating all global data stores as defined in the product table and the
+	data table.
+
+	Terminating any RPG operational processes that is still running.
+
+	Executing initialization commands specified in the task table for 
+	startup operation.
+
+	Starting all operational processes as defined in the task table.
+
+    shutdown: Shuts down the RPG. The following procedure is performed:
+
+	Sending termination signal to all RPG operational processes.
+
+	Terminating any RPG operational process that does not terminate within
+	a maximum termination time.
+
+    standby: Puts RPG in standby state. This command stops operational
+	processes in the same way as "shutdown" does. The RPG state is set to
+	standby state after completion. In standby state, not all operational
+	processes are stopped.
+
+    restart: Brings RPG back to operational state from standby state. The
+	following procedure is performed:
+
+	Executing initialization commands specified in the task table for
+	restart operation.
+
+	Starting all operational processes, that are not stopped, as defined
+	in the task table.
+
+    auto_start: Command used by OS to automatically start RPG after OS boots.
+	If the RPG was in operational state before the OS boots or before a
+	power failure, the command causes either RPG restart or startup
+	respectively depending on whether the OS booting or power failure was
+	within 1 hour. In cases of that RPG software has been newly installed
+	or the OS experienced a crash right before the booting, this command
+	executes the RPG startup procedure. If the RPG was in standby or
+	shutdown state before the OS boots, the command will not perform any
+	specific procedure. If the RPG was in failed state or transition state
+	before the OS boots, this command executes the RPG startup procedure.
+	Because some data stores (e.g. those implemented with shared memory
+	segments) may need to be recreated after OS reboot, data store
+	creation step is added in case when restart is performed from this
+	command.
+
+    standby_restart: Puts RPG in standby state and restarts it.
+
+    resume: Restarts mrpg for continuing management functions without any other
+	actions. This is useful in case that mrpg needs to be restarted after
+	it is terminated unexpectedly.
+
+    cleanup: Removes all RPG operational processes on all connected nodes.
+
+    remove_data: Removes all data stores on all connected nodes. This will
+	remove all files and shared memory segments associated with the global
+	data stores.
+
+    powerfail: Shuts down RPG before losing power. The following procedure is
+	performed:
+
+	The RPG state is set to powerfail.
+
+	Sending termination signal to all RPG operational processes.
+
+	mrpg terminates itself.
+
+	Note that, when RPG is in powerfail state, only auto_start command is
+	accepted. This makes sure that RPG will stay in powerfail state until
+	the power is back and the OS is rebooted. mrpg does not need to wait
+	until all operational processes to die. Any unterminated process will
+	be terminated by the OS before OS shutdown.
+
+    active: Turns RPG into active mode. In non-redundant configuration, RPG
+	starts in active mode. In redundant configuration, RPG starts in
+	inactive mode.
+
+    inactive: Turns RPG into inactive mode.
+
+    enter_tm: Turns RPG into test mode. RPG starts in operational mode.
+
+    exit_tm: Turns RPG back to operational mode from test mode.
+
+    status: Causes mrpg to publish the current RPG process status info.
+
+    no_manage: Stops mrpg management functions. RPG starts with management
+	functions turned on.
+
+    manage: Resumes mrpg management functions.
+
+    init: Creates and initialize RPG adaptation data stores. This can be used
+	for creating the binary adaptation data files for distribution. The
+	following procedure is performed:
+
+	Generating and distributing the system configuration file.
+
+	Creating all global data stores as defined in the product table and the
+	data table.
+
+	Executing initialization commands specified in the task table for
+	startup operation.
+
+	mrpg terminates after completing the above procedure.
+
+    task_control: This command is not accepted through the mrpg command line.
+    Using this command, one can stop and restart a list of operational tasks.
+    Tasks stopped via this command are not considered to be failed. They do not
+    generate task failure status messages or cause save_log file to be
+    generated. Stopped tasks are not subject to respawn. Tasks are stopped with
+    SIGKILL signal. An event is posted as an acknowledgment, if the command
+    requested, when all tasks to be stopped are detected to be terminated. The
+    ACK event is not sent if the task status can not be determined or a process
+    does not die within 20 seconds. Stopped tasks can be restarted with this
+    command. Stopped tasks are resumed upon RPG startup or restart. To send a
+    task_control command, one calls function ORPGMGR_send_msg_command with an
+    appropriate message. Examples of the messages are: "STOP basrflct basvlcty
+    ACK-3245") and "RESTART basrflct basvlcty". The first message asks for
+    stopping tasks "basrflct" and "basvlcty". It also request event "3245" as
+    acknowledgment. The second message asks to restart tasks "basrflct" and
+    "basvlcty".
+
+    In case of an OS crash (i.e. the OS is turned down without going through
+    the normal shutdown procedure including synchronizing the file system), RPG
+    data stores may become corrupted. Corrupted data stores may cause RPG to
+    fail later after RPG started to operate and thus must be removed. mrpg
+    detects OS crash every time when it starts up RPG. If the OS was crashed
+    and it is the first time mrpg starts up the RPG, mrpg will perform the
+    following additional steps. It invokes command "rescue_data save" to backup
+    necessary data stores for latter recovery. It then removes all RPG data
+    stores. After all RPG data stores are created, mrpg invokes command
+    "rescue_data restore" to perform necessary data recovery from the backup as
+    much as possible. The task "rescue_data" is external to mrpg. mrpg relies,
+    in addition to checking if the RPG state file is corrupted, on file
+    /etc/boot_time for OS crash detection. If the file does not exist and the
+    state file is not corrupted, no OS crash is assumed. The OS must be set up
+    appropriately to update this file by adding a line when the OS is either
+    booted up or shut down normally. The line, for example, must read
+
+	action 05/23/01 02:30:34
+
+    where "action" is "boot" for booting up and "shutdown" for shutting down. 
+    The boot-up/shutdown time (GMT) follows the action flag.
+
+    mrpg accepts extended task, data and product table specifications. This is
+    implemented by reading any additional files in a sub-directory called
+    "extensions" in the RPG configuration directory. If one needs to extend the
+    data table, she/he can create an additional data table file in
+    "extensions". The additional data table file must follow the same format
+    and rules as those applied to the baseline data table file in the RPG
+    configuration directory. Its name must be data_table* where "*" is any
+    character string. mrpg first reads the base line data table file and then
+    reads any additional data table files and generates a combined data table.
+    Files in "extensions" are not read in any specific order. The same
+    mechanism is applied to task and product table files. mrpg checks any
+    duplicately specified data ID, product ID, task ID and task name. If any
+    duplication is found, mrpg will quit. mrpg reads the following sections in
+    task_table: Task_attr_table, Startup_init_cmds, Restart_init_cmds,
+    Shutdown_cmds and Operational_processes. Operational processes specified in
+    Operational_processes apply only to tasks defined in the Task_attr_table
+    section of the local file. Any init/shutdown commands in the "extension"
+    files will be placed after those defined in the base line task table.
+
+    mrpg supports ORPG running in a distributed environment, in which 
+    processes, products and data stores are located on multiple nodes (hosts
+    connected through networks). One needs to prepare a configuration file
+    called "resource_table" to take advantage of this feature. Detailed 
+    descriptions on how to set up the file can be found in a sample 
+    "resource_table" file.
+
+OPTIONS
+    -i	suffix
+
+	Specifies a suffix for the name of the the RPG initialization command
+	section in the task table. i.e. the section name is
+	"Startup_init_cmds_suffix". The default name is "Startup_init_cmds"
+	(without any suffix).
+
+    -w	wait_seconds
+
+	Specifies the maximum waiting time period (in seconds) before entering 
+	the RPG operation state after all operational processes are started. 
+	The default value is 120 seconds. 
+
+    -d  resource_config
+
+	Specifies the resource config name to use in the resource configuration
+	table. Default: The first possible, in terms of the current node
+	connectivity, in the resource table.
+
+    -b  mrpg started in background. The default is: mrpg runs in foreground
+	initially and goes to background when it completes the command line
+	command. When mrpg runs in foreground, the user can stop it with
+	control-c at any time (for example, when an error is detected).
+
+    -f  mrpg stays in foreground. Default: Go to background.
+
+    -p  Startup with data store cleanup - Removes all data stores in $ORPGDIR
+	and $WORK_DIR before starting up RPG.
+
+    -v	Sets initial LE verbose level to 2 instead of 0.
+
+    -l	level
+
+	Sets initial LE verbose level to "level" (0 - 3) instead of 0.
+
+    -s	Creates an initial RPG state file and terminates.
+
+    -c  mrpg is invoked as a co-processor from another program (e.g. hci).
+
+    -S  Sends a startup command to an existing mrpg process and terminates.
+
+OPERANDS
+    command	The command to be executed by mrpg. This is required.
+
+USAGE
+
+EXAMPLES
+
+    Example 1: mrpg startup
+
+	Starts up the RPG.
+
+    Example 2: mrpg -p startup
+
+	Starts up the RPG with all global data stores newly created (old data
+	stores are removed).
+
+    Example 3: mrpg shutdown
+
+	Shuts down RPG.
+
+    Example 4: mrpg cleanup
+
+	Terminates all RPG processes. This is not to be used operationally.
+	Rather it is useful for cleanup purpose after RPG crash in development
+	and test environments.
+
+ENVIRONMENT VARIABLES
+
+    ORPGDIR	Determine the location of all RPG global data stores.
+
+    WORK_DIR	The RPG work directory which is used, for example, for putting 
+		temporary files.
+
+    CFG_DIR	Specify the location for configuration files. See "man cs" for
+		more details.
+
+    LE_DIR_EVENT
+		Environmental variable used by the log/error module. See 
+		"man le" for more details.
+
+EXIT STATUS
+
+    0:		Terminated normally. 
+
+    non-zero:	Terminated because an error was detected.
+
+FILES
+
+    RPG system configuration file
+
+	The name of the file is defined by CFG_DIR. An example of the file is 
+	$CFG_DIR/sys_cfg. mrpg creates the file.
+
+    $ORPGDIR/rpg_state
+
+	The RPG state file which contains realtime RPG state info. mrpg creates
+	and updates it.
+
+    Log file
+
+	The name of the file is defined by LE_DIR_EVENT. An example of the file
+	is $ORPGDIR/logs/mrpg.log. mrpg log messages are stored here.
+
+    $CFG_DIR/data_attr_table
+
+	This file defines the global data stores and their attributes.
+
+    $CFG_DIR/product_attr_table
+
+	This file defines the RPG products and their attributes.
+
+    $CFG_DIR/comms_link.conf
+
+	This file defines the RPG communication system configuration.
+
+    $CFG_DIR/task_tables, $CFG_DIR/task_attr_table
+
+	These files define the RPG tasks and their attributes as well as other
+	task related configuration info.
+
+    $CFG_DIR/resource_table
+
+	This file defines the resource allocation in a distributed environment.
+
+    Details on how to setup or modify some of the above files can be found in
+    the sample files found in $CFG_DIR in the RPG software installation.
+
+    /etc/boot_time:
+	mrpg reads this file to get OS boot/shutdown info which is used for
+	OS crash detection.
+
+    mrpg uses the following RPG data stores for its operation:
+
+    ORPGDAT_MRPG_CMDS
+
+	mrpg commands are queued in this data store before been processed.
+
+    ORPGDAT_TASK_STATUS
+
+	mrpg publishes RPG state and process info in this data store. Three
+	distinct messages are used:
+
+	MRPG_RPG_STATE_MSGID - For real time RPG state info.
+
+	MRPG_PS_MSGID - For detailed process info published on-demand.
+
+	MRPG_PT_MSGID - For real time process info.
+
+    ORPGDAT_RPG_INFO
+
+	mrpg publishes RPG state and process info in this data store for
+	supporting certain library routines that were developed before mrpg was
+	implemented. Only message ORPGINFO_STATEFL_MSGID is supported. This is
+	a subset of info in ORPGDAT_TASK_STATUS.
+
+ATTRIBUTES
+
+SEE ALSO
+    rpg_ps(1), nds(1), orpgmgr(3), task_tables(5), data_table(5), 
+    product_table(5)
+
+NOTES
+
+

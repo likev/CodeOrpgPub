@@ -1,0 +1,198 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/05 16:38:45 $
+C $Id: a3082u.ftn,v 1.3 2002/12/05 16:38:45 christie Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A3082U__GET_BUFFERS(OPTR_SC)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3082U__GET_BUFFERS
+*.
+*.  MODULE VERSION: 0015
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       07 22 88      0000      VALERIE HOLDEN       SPR# 80002
+*.       10 11 88      0001      STEVE D SMITH        SPR # 80338
+*.       10 27 89      0002      STAN MANOSKI         SPR # 90403
+*.       05 07 90      0003      PAUL PISANI          SPR # 90697
+*.       07 19 90      0004      JOHN DEPHILIP        SPR # 90775
+*.       02 22 91      0005      VALERIE HOLDEN       SPR # 91249
+*.       03 06 91      0005      BAYARD JOHNSTON      SPR # 91225
+*.       12 03 91      0006      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0007      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/20/92      0008      Toolset              SPR 91895
+*.       03/25/93      0009      Toolset              SPR NA93-06801
+*.       01/28/94      0010      Toolset              SPR NA94-01101
+*.       03/03/94      0011      Toolset              SPR NA94-05501
+*.       04/01/95      0012      Toolset              CCR NA95-11802
+*.       06/01/95      0013      Mike Istok           CCR NA94-32101
+*.       12/23/96      0014      Toolset              CCR NA95-11807
+*.       03/16/99      0015      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A3082U__GET_BUFFERS(OPTR_SC)
+*.
+*.  MODULE FUNCTION:
+*.
+*.     THIS SUBROUTINE GETS THE OUTPUT SCRATCH BUFFER AND THE INPUT
+*.     BUFFERS FOR COMPOSITE REFLECTIVITY POLAR GRID, COMBINED
+*.     ATTRIBUTES, ECHO TOPS, AND VAD WINDS
+*.
+*.  MODULES CALLED: A31211__GET_INBUF, A31215__GET_OUTBUF 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT    TYPE        DESCRIPTION
+*.    -   -----    ----        -----------
+*.    G   COMBATTR I*4         (CONSTANT)DATA BUFFER TYPE:  COMBINED
+*.                             ATTRIBUTES TABLE BUFFER ID
+*.    G   CRPG     I*4         (CONSTANT)Data Buffer Type: Composite
+*.                             Reflectivity Polar Grid (360x460).
+*.    G   ETTAB    I*4         (CONSTANT)Data Buffer Type: Echo Tops Table.
+*.    G   HYBRSCAN I*4         (CONSTANT)Data Buffer Type: Hybrid Scan buffer
+*.    G   NORMAL   I*4         (CONSTANT)Parameter which indicates normal
+*.                             completion of requested operation to acquire
+*.                             input or output buffer
+*.    G   NO_MEM   I*4         (CONSTANT)Parameter which indicates no memory
+*.                             available on attempt to acquire output buffer
+*.    G   SCRATCH  I*4         (CONSTANT)DATA BUFFER TYPE FOR TASK SCRATCH
+*.                             DATA BUFFERS
+*.    G   VADTMHGT I*4         (CONSTANT)Data Buffer Type: Velocity Address
+*.                             Display Time Height.
+*.    C   TIBF     I*4         Table of input buffer pointers into shared
+*.                             memory.
+*.    C   CA       I*4         (CONSTANT)Index into Combined Attributes input
+*.                             buffer.
+*.    C   ET       I*4         (CONSTANT)Echo Tops input buffer identifier.
+*.    C   HY       I*4         (CONSTANT)Identifies Hybrid Scan Input Buffer
+*.    C   PG       I*4         (CONSTANT)Polar grid input buffer identifier.
+*.    C   VW       I*4         (CONSTANT)VAD Winds input buffer identifier.
+*.    P   OPTR_SC  I*4         OUTPUT SCRATCH BUFFER POINTER
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    C   TIBF    I*4         Table of input buffer pointers into shared
+*.                            memory.
+*.    C   VB      I*4         Valid buffer array that contains volume number.
+*.    P   OPTR_SC I*4         OUTPUT SCRATCH BUFFER POINTER
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    C   TIBF              I*4         Table of input buffer pointers into
+*.                                      shared memory.
+*.    P   OPTR_SC           I*4         OUTPUT SCRATCH BUFFER POINTER
+*.
+*.  DATABASE/FILE REFERENCE:  NONE
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME      TYPE        DESCRIPTION
+*.    ----      ----        -----------
+*.    BDAT      I*4         FLAG RETURNED FROM GET_INPUT
+*.    CABUF     I*4         VALID BUFFER INDEX FOR COMBINED ATTRIB
+*.    ETBUF     I*4         VALID BUFFER INDEX FOR ECHO TOPS
+*.    HYBUF     I*4         Index into VAlid buffer array for the Hybrid Scan
+*.                          buffer.,
+*.    NOMEM     I*4         FLAG FOR NO BUFFER SPACE AVAILABLE
+*.    OPSTAT    I*4         STATUS FLAG FOR INBUF AND OUTBUF
+*.    PGBUF     I*4         VALID BUFFER INDEX FOR POLAR GRID
+*.    SCRBUF    I*4         VALID BUFFER INDEX FOR SCRATCH
+*.    SCRTH_SIZ I*4         RADAR CODED MSG SCRATCH BUFFER SIZE
+*.    VWBUF     I*4         VALID BUFFER INDEX FOR VAD WINDS
+*.    YES       I*4         Flag indicating valid buffer retrieval.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A308P2
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     THIS MODULE IS COMPILED USING COMP08.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     THIS MODULE IS LINKED USING LINK02.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+C*
+$INCLUDE A309.INC/G,**A3PM00 (NEND NLIST)
+$INCLUDE A308.INC,**A308P2   (NEND NLIST)
+C*
+      INTEGER*4     YES,OPSTAT,BDAT,SCRTH_SIZ,OPTR_SC,NOMEM
+      INTEGER*4     SCRBUF,PGBUF,CABUF,ETBUF,VWBUF,HYBUF
+      PARAMETER     (YES=1,SCRBUF=2,PGBUF=3,CABUF=4,ETBUF=5,VWBUF=6)
+      PARAMETER     (HYBUF=7)
+      PARAMETER     (SCRTH_SIZ=5408,NOMEM=-1)
+C*
+C*    GET OUTPUT SCRATCH BUFFER FOR RADAR CODED MESSAGE
+C*
+      CALL A31215__GET_OUTBUF(SCRATCH,SCRTH_SIZ,OPTR_SC,OPSTAT)
+      IF (OPSTAT.EQ.NORMAL) THEN
+        VB(SCRBUF) = YES
+X       TYPE *,'SCRATCH OUTBUF RECEIVED'
+      ELSE IF (OPSTAT .EQ. NO_MEM) THEN
+        VB(SCRBUF) = NOMEM
+      END IF
+C*
+C*    GET INPUT BUFFER FOR COMPOSITE REFLECTIVITY POLAR GRID
+C*
+      CALL A31211__GET_INBUF(CRPG,TIBF(PG),BDAT,OPSTAT)
+      IF (OPSTAT.EQ.NORMAL) THEN
+        VB(PGBUF) = YES
+X       TYPE *,'INPUT BUF FOR COMP REFL POLAR GRID RECEIVED'
+      ENDIF
+C*
+C*    GET INPUT BUFFER FOR COMBINED ATTRIBUTES
+C*
+      CALL A31211__GET_INBUF(COMBATTR,TIBF(CA),BDAT,OPSTAT)
+      IF (OPSTAT.EQ.NORMAL) THEN
+        VB(CABUF) = YES
+X       TYPE *,'COMB ATTR INBUF RECEIVED'
+      ENDIF
+C*
+C*    GET INPUT BUFFER FOR ECHO TOPS
+C*
+      CALL A31211__GET_INBUF(ETTAB,TIBF(ET),BDAT,OPSTAT)
+      IF (OPSTAT.EQ.NORMAL) THEN
+        VB(ETBUF) = YES
+X       TYPE *,'ECHO TOPS INBUF RECEIVED'
+      ENDIF
+C*
+C*    GET INPUT BUFFER FOR VAD WINDS
+C*
+      CALL A31211__GET_INBUF(VADTMHGT,TIBF(VW),BDAT,OPSTAT)
+      IF (OPSTAT.EQ.NORMAL) THEN
+        VB(VWBUF) = YES
+X       TYPE *,'VAD WINDS INBUF RECEIVED'
+      ENDIF
+C*
+C*    GET INPUT BUFFER FOR HYBRID SCAN BUFFER
+C*
+      CALL A31211__GET_INBUF(HYBRSCAN,TIBF(HY),BDAT,OPSTAT)
+      IF (OPSTAT.EQ.NORMAL) THEN
+        VB(HYBUF) = YES
+X       TYPE *,'HYBRSCAN INBUF RECEIVED'
+      ENDIF
+      RETURN
+      END

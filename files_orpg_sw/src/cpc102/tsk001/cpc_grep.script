@@ -1,0 +1,226 @@
+#!/bin/sh
+#
+# cpc_grep search ORPG CPC directories for specified pattern
+#
+# RCS info
+# $Author: jing $
+# $Locker:  $
+# $Date: 2005/12/01 19:57:46 $
+# $Id: cpc_grep.script,v 1.2 2005/12/01 19:57:46 jing Exp $
+# $Revision: 1.2 $
+# $State: Exp $
+
+##################################################
+# PRINT_USAGE: Display script usage.
+##################################################
+
+print_usage ()
+{
+  echo
+  echo
+  echo "Usage: `basename $0` [options] pattern"
+  echo "      Options:"
+  echo "        -h Print usage information"
+  echo "        -c search C files only [default: search all source files]"
+  echo "        -f search Fortran files only [default: search all source files]"
+  echo "        -i search imakefiles only [default: search source files]"
+  echo "        -l orpg_level [default: $RPG_LEVEL]"
+  echo "        -m search makefiles only [default: search source files]"
+  echo "        -v verbose mode [default: quiet]"
+  echo
+  echo
+  exit 1
+}
+
+imake_ext="*.imake"
+make_ext="*.make *.mak"
+fort_ext="*.ftn *.inc"
+c_ext="*.c *.h *.cpp"
+src_ext="$fort_ext $c_ext $make_ext"
+include_ext="*.h $fort_ext"
+level="/$RPG_LEVEL"
+imakesrch=
+makesrch=
+fortsrch=
+csrch=
+verbose=
+
+while getopts cfhil:mv input
+do
+    case $input in
+        c)  csrch=1 ;;
+        f)  fortsrch=1 ;;
+        h)  print_usage ;;
+        i)  imakesrch=1 ;;
+        l)  level="/$OPTARG";;
+        m)  makesrch=1 ;;
+        v)  verbose=1 ;;
+        \?) print_usage ;;
+    esac
+done
+
+shift `expr $OPTIND - 1`
+
+pattern=$1
+
+if [ -z "$pattern" ]
+then
+    print_usage
+fi
+
+if [ ! -d $level ]
+then
+    echo
+    echo "$level is not a directory!"
+    print_usage
+fi
+
+
+
+echo "`date` $0: looking for \"$pattern\" in the ORPG $level files"
+
+# we use a temporary file to speed things up ...
+tmpfile=/tmp/`basename $0`.$$
+touch $tmpfile
+if [ "$?" -ne "0" ]
+then
+    echo "UNABLE to create temporary file $tmpfile"
+    exit 0
+fi
+
+# open the Unix wastebin ...
+exec 2>/dev/null
+
+
+for includedir in /$level/include /$level/lib/include
+do
+    cd $includedir
+
+    grep -l "$pattern" $include_ext > $tmpfile
+    numlines=`wc -l $tmpfile | awk '{print $1}'`
+    if [ "$numlines" != "0" ]
+    then
+       echo " "
+       echo "Found \"$pattern\" in include files in directory `pwd`:"
+       echo "----------------------------------------------------------------"
+        if [ "$verbose" -gt 0 ]
+        then
+            grep "$pattern" $include_ext
+        else
+            cat $tmpfile
+        fi
+    fi
+done
+
+
+cd /$level/src
+
+for cpc in `ls | egrep 'cpc|code_util'`
+do
+
+   if [ -d ./$cpc ]
+   then
+      cd ./$cpc
+
+      for tsklib in `ls | egrep 'tsk|lib'`
+      do
+
+         if [ -d ./$tsklib ]
+         then
+
+            cd ./$tsklib
+
+            if [ "$imakesrch" -gt 0 ]
+            then
+                grep -l "$pattern" $imake_ext > $tmpfile
+                numlines=`wc -l $tmpfile | awk '{print $1}'`
+                if [ "$numlines" != "0" ]
+                then
+                   echo " "
+                   echo "Found \"$pattern\" in imake files in directory `pwd`:"
+                   echo "----------------------------------------------------------------"
+                    if [ "$verbose" -gt 0 ]
+                    then
+                        grep "$pattern" $imake_ext
+                    else
+                        cat $tmpfile
+                    fi
+                fi
+            elif [ "$makesrch" -gt 0 ]
+            then
+                grep -l "$pattern" $make_ext > $tmpfile
+                numlines=`wc -l $tmpfile | awk '{print $1}'`
+                if [ "$numlines" != "0" ]
+                then
+                   echo " "
+                   echo "Found \"$pattern\" in make files in directory `pwd`:"
+                   echo "----------------------------------------------------------------"
+                    if [ "$verbose" -gt 0 ]
+                    then
+                        grep "$pattern" $make_ext
+                    else
+                        cat $tmpfile
+                    fi
+                fi
+            elif [ "$fortsrch" -gt 0 ]
+            then
+                grep -l "$pattern" $fort_ext > $tmpfile
+                numlines=`wc -l $tmpfile | awk '{print $1}'`
+                if [ "$numlines" != "0" ]
+                then
+                   echo " "
+                   echo "Found \"$pattern\" in Fortran files in directory `pwd`:"
+                   echo "----------------------------------------------------------------"
+                    if [ "$verbose" -gt 0 ]
+                    then
+                        grep "$pattern" $fort_ext
+                    else
+                        cat $tmpfile
+                    fi
+                fi
+            elif [ "$csrch" -gt 0 ]
+            then
+                grep -l "$pattern" $c_ext > $tmpfile
+                numlines=`wc -l $tmpfile | awk '{print $1}'`
+                if [ "$numlines" != "0" ]
+                then
+                   echo " "
+                   echo "Found \"$pattern\" in C files in directory `pwd`:"
+                   echo "----------------------------------------------------------------"
+                    if [ "$verbose" -gt 0 ]
+                    then
+                        grep "$pattern" $c_ext
+                    else
+                        cat $tmpfile
+                    fi
+                fi
+            else
+                grep -l "$pattern" $src_ext > $tmpfile
+                numlines=`wc -l $tmpfile | awk '{print $1}'`
+                if [ "$numlines" != "0" ]
+                then
+                   echo " "
+                   echo "Found \"$pattern\" in files in directory `pwd`:"
+                   echo "----------------------------------------------------------------"
+                   if [ "$verbose" -gt 0 ]
+                   then
+                       grep "$pattern" $src_ext
+                   else
+                       cat $tmpfile
+                   fi
+                fi
+            fi
+
+            cd ..
+
+         fi
+
+      done
+
+      cd ..
+
+   fi
+
+done
+
+rm -f $tmpfile

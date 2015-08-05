@@ -1,0 +1,4129 @@
+# ORPG Product Attribute Table
+#
+# Purpose:
+#
+#   Notes:
+#
+# Changes:
+#       23Feb2006 R. Solomon - Add new MIGFA product,
+#                              CCR NA02-29701, Issue 2-912.
+#       15Aug2001 C. Stephenson - Add new base reflectivity data 
+#                array product - CCR NA00-19201
+#	12AUG1998 D Priegnitz added two "ghost" products to support
+#		alerting.  Products 91 and 92 are not associated
+#		with any unique data store.  The alerting function
+#		recognizes these product codes for alert product
+#		pairing to send 4 other products.
+#	11NOV1997 AB Dodson added default product generation table
+#		entry for prod. ID 28 (ETC 42) ... copied settings
+#		for prod. ID 29 (ET 41)
+#
+# RCS info
+# $Author: steves $
+# $Locker:  $
+# $Date: 2014/10/03 16:12:13 $
+# $Id: product_attr_table,v 1.77 2014/10/03 16:12:13 steves Exp $
+# $Revision: 1.77 $
+# $State: Exp $
+#
+
+# product attribute table 
+# BEGIN Attribute Table
+#
+#  Each product is defined by a set of attributes who's values are
+#  identified by a set of predefined keys.  A product entry is identified
+#  by the keyword "Product" with all attributes contained within a set
+#  of brackets "{}".  The attribute keys are defined as follows:
+#
+#	prod_id	<buf> <p_name> <p_num>
+#		where <buf> is the buffer number defined in the
+#		ORPG configuration file.
+#
+#	prod_code <num>
+#		where <num> is the product number.  NOTE: special
+#		products which are not associated with a physical
+#		file (i.e., SWA and SWM) have <num> values less than
+#		0.
+#
+#       class_id <num> 
+#               where <num> is the product ID for the class of data to
+#               which this product belongs.  In general, this need not
+#               be specified or if specified, its value is the same as
+#               prod_id.  
+#
+#       class_mask <mask_value>
+#               where <mask_value> is unique for this class of data. 
+#               It is a value used to identify this data within the class.
+#
+#	gen_task <task_name>
+#		where <task_name> is a string identifying the task.
+#
+#	wx_modes <modes>
+#		where <modes> is a integer whose bits represent
+#		the weather modes in which the product is generated.
+#			bit 0 = wx mode 0
+#			    1 = wx mode 1
+#			    2 = wx mode 2
+#			    n = wx mode n 
+#		i.e., 7 indicates products are generated in weather
+#		modes 0, 1, and 2.
+#
+#	disabled <val>
+#		where <num> indicates if the product is disabled
+#		(0 = NO; otherwise YES);
+#
+#	n_priority <num>
+#		where (num> is the number of different priority
+#		lists defined.  There currently is one entry for
+#		each of the valid weather modes (A, B, M) and a
+#		default.
+#
+#	priority_list <default> <wx_mode_M> <wx_mode_A> <wx_mode_B>
+#		where the value for each list entry is a priority
+#		in the range 0-255; with increasing priority represented
+#		by increasing value.  A value of 255 forces product
+#		generation. <default> is the default priority,
+#		<wx_mode_M> is the priority used for the product when the
+#		weather mode is maintenance, <wx_mode_A> is the priority
+#		used for the product when the weather mode is precip (A),
+#		and <wx_mode_B> is the priority used for the product
+#		when the weather mode is clear air (B).  Setting the
+#               value to 255 forces product generation.
+#		NOTE: <default> is used when an invalid weather mode
+#		is referenced.
+#
+#	compression <type>
+#		where <type> is the type of data compression.  The supported
+#		types are:  
+#			0 - no compression (default if not specified)
+#			1 - bzip2 compression
+#			2 - gzip compression
+#
+#	format_type <type>
+#		where <type> is the type of product.  The supported
+#		types are:  
+#			0 - no type (default if not specified)
+#			1 - generic radial
+#			2 - generic hires radial
+#			3 - generic raster
+#			4 - generic hires raster
+#
+#		This field allows one to specify one of the generic product
+#		formats so that display tools can determine how to decode
+#		and display them.  Previously, software needed to be updated
+#		every time a new product code was introduced to the system.
+#		If one of these generic types does not work for the new
+#		product then the decode/display software will need to be
+#		updated.
+#
+#	x_azi_res <res>
+#		For polar and hires polar products this value is interpreted
+#		as a scaled azimuth angle (degrees*10).  For raster and
+#		hires raster products this value is interpreted as the E-W
+#		interval (meters).
+#
+#	y_ran_res <res>
+#		For polar and hires polar products this value is interpreted
+#		as a range interval (meters).  For raster and hires raster
+#		products this value is interpreted as the N-S interval
+#		(meters).
+#
+#	n_dep_prods <num>
+#		where <num> is the number of products required to
+#		generate this product.
+#
+#	dep_prods_list <prod1> <prod2> ... <prodn>
+#		where <prod#> is the product ID of the product required to
+#               to generate this product.
+#
+#	n_opt_prods <num>
+#		where <num> is the number of products used by but not required 
+#		to generate this product.
+#
+#	opt_prods_list <prod1> <prod2> ... <prodn>
+#		where <prod#> is the product ID of the product used by but not
+#               required to generate this product.  
+#
+#	desc <string>
+#		where <string> is a text string identifying the product.
+#		If the first character is non-blank, the text string up 
+#		to but not including the first blank in the string 
+#		refers to product mneumonic.  Otherwise, if the first
+#		character is blank, the first non-blank character is
+#		the start of a text string describing the product. 
+#
+#	max_size <num>
+#		where <num> is the maximum product size (in bytes).
+#
+#	type <code>
+#		where <code> determines the product type from:
+#			0 = Volume,
+#			1 = Elevation,
+#			2 = Time,
+#			3 = On Demand,
+#			4 = On Request,
+#			5 = Radial,
+#			6 = External.
+#
+#	alert <code>
+#		where <code> determines the type for alert threshold
+#		product pairing. 
+#			no bits set = No pairing
+#			bit 0 set = Volume
+#			bit 1 set = Elevation
+#			bit 2 set = Hydromet
+#
+#	warehoused <time>
+#		where <time> indicates the retention time of the warehoused
+#		product, in seconds.  If time is 0, the product is not
+#		warehoused.  Warehoused products are used to support one-time
+#		requests using historical data.
+#
+#	warehouse_id
+#		data ID where this data is to be warehoused.  Only valid 
+#		for radial messages.
+#
+#	warehouse_acct
+#		data ID of the warehouse accounting data.  Only valid for
+#		radial messages.
+#
+#	elev_index <num>
+#		where <num> is the halfword in the product message
+#		which contains the elevation parameter index (for elevation
+#		based products only).
+#
+#	params 
+#		<index> <min> <max> <default> <scale> <name> <units>
+#		......
+#		where <index> is the parameter index, <min> is the
+#		minimum allowed value for this parameter, <max> is the
+#		maximum allowed value for this parameter, <default> is
+#		the default value for this parameter,  <scale>
+#		is the scale factor applied to this parameter, <name> is a
+#		16 character descriptive name for the parameter,
+#		and <units> is an 8 character units descriptor.
+#		Each line specifies an valid parameter.
+#		For example: 
+#
+#		params  
+#			2 -20 3599 0 10 "Elevation"  "Degrees"
+#
+#		In this case, the minimum value would be unscaled to -2.0,
+#		and the maximum to 359.9.  Note: for elevation parameter
+#		a - value implies slices/10 so -2.0 would be 20 slices.
+#		A negative elevation angle is normalized by 360 so the
+#		angle -0.5 would be saved as 3595 ((-0.5+360)*10).
+#
+
+
+    Product {  
+	prod_id			1       ALRTMSG
+	prod_code		9
+	gen_task		alerting
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		255 255 255 255
+	n_dep_prods		7
+#	dependent products:	BASEVGD CRCG230 ETTAB VILTABL VADPARAM COMBATTR HYADJSCN 
+	dep_prods_list		20 93 30 86 81 21 104	
+	desc		" Alert Message"
+	type			3
+	alert			0
+	warehoused		0
+	path			alert/alrtmsg.lb
+	lb_n_msgs		1000
+	max_size		2000
+
+    }
+    Product {  
+	prod_id			2       BREF19
+	prod_code		19
+	gen_task		basrflct
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		89 89 89 89
+	n_dep_prods		1
+#	dependent products:	REFLDATA
+	dep_prods_list		79	
+	desc		"R Base Reflectivity: 16 level/0.54 nm"
+	type			1
+	alert			2
+	warehoused		0
+	elev_index		2
+	path			base/bref19.lb
+	lb_n_msgs		40
+# Note: Final products are links to product database.
+	max_size		96
+	params
+				2 -20 3599 0 10 "Elevation" "Degrees"
+    }
+
+    Product {  
+	prod_id			3       BREF16
+	prod_code		16
+	gen_task		basrflct
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		56 56 56 56
+	n_dep_prods		1
+#	dependent products:	REFLDATA
+	dep_prods_list		79	
+	desc		"R Base Reflectivity: 8 level/0.54 nm"
+	type			1
+	alert			2
+	warehoused		0
+	elev_index		2
+	path			base/bref16.lb
+	lb_n_msgs		40
+# Note: Final products are links to product database.
+	max_size		96
+	params
+				2 -20 3599 0 10 "Elevation" "Degrees"
+    }
+
+    Product {  
+	prod_id			4	BREF20
+	prod_code		20
+	gen_task		basrflct
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		88 88 88 88
+	n_dep_prods		1
+#	dependent products:	REFLDATA
+	dep_prods_list		79	
+	desc		"R Base Reflectivity: 16 level/1.1 nm"
+	type			1
+	alert			2
+	warehoused		0
+	elev_index		2
+	path			base/bref20.lb
+	lb_n_msgs		40
+# Note: Final products are links to product database.
+	max_size		96
+	params
+				2 -20 3599 0 10 "Elevation" "Degrees"
+    }
+
+    Product {  
+	prod_id			5	BREF17
+	prod_code		17
+	gen_task		basrflct
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		55 55 55 55
+	n_dep_prods		1
+#	dependent products:	REFLDATA
+	dep_prods_list		79	
+	desc		"R Base Reflectivity: 8 level/1.1 nm"
+	type			1
+	alert			2
+	warehoused		0
+	elev_index		2
+	path			base/bref17.lb
+	lb_n_msgs		40
+# Note: Final products are links to product database.
+	max_size		96
+	params
+				2 -20 3599 0 10 "Elevation" "Degrees"
+    }
+
+    Product {  
+	prod_id			6	BREF21
+	prod_code		21
+	gen_task		basrflct
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		87 87 87 87
+	n_dep_prods		1
+#	dependent products:	REFLDATA
+	dep_prods_list		79	
+	desc		"R Base Reflectivity: 16 level/2.2 nm"
+	type			1
+	alert			2
+	warehoused		0
+	elev_index		2
+	path			base/bref21.lb
+	lb_n_msgs		40
+# Note: Final products are links to product database.
+	max_size		96
+	params
+				2 -20 3599 0 10 "Elevation" "Degrees"
+    }
+
+    Product {  
+	prod_id			7	BREF18
+	prod_code		18
+	gen_task		basrflct
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		54 54 54 54
+	n_dep_prods		1
+#	dependent products:	REFLDATA
+	dep_prods_list		79	
+	desc		"R Base Reflectivity: 8 level/2.2 nm"
+	type			1
+	alert			2
+	warehoused		0
+	elev_index		2
+	path			base/bref18.lb
+	lb_n_msgs		40
+# Note: Final products are links to product database.
+	max_size		96
+	params
+				2 -20 3599 0 10 "Elevation" "Degrees"
+    }
+
+    Product {  
+	prod_id			8	BSPC28
+	prod_code		28
+	gen_task		basspect
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		60 60 60 60
+	n_dep_prods		1
+#	dependent products:	COMBBASE
+	dep_prods_list		96	
+	desc		"SW Base Spectrum Width: 8 level/0.13 nm"
+	type			1
+	alert			2
+	warehoused		0
+	elev_index		2
+	path			base/bspc28.lb
+	lb_n_msgs		40
+# Note: Final products are links to product database.
+	max_size		96
+	params
+				2 -20 3599 0 10 "Elevation" "Degrees"
+    }
+
+    Product {  
+	prod_id			9	BSPC29
+	prod_code		29
+	gen_task		basspect
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		59 59 59 59
+	n_dep_prods		1
+#	dependent products:	COMBBASE
+	dep_prods_list		96	
+	desc		"SW Base Spectrum Width: 8 level/0.27 nm"
+	type			1
+	alert			2
+	warehoused		0
+	elev_index		2
+	path			base/bspc29.lb
+	lb_n_msgs		40
+# Note: Final products are links to product database.
+	max_size		96
+	params
+				2 -20 3599 0 10 "Elevation" "Degrees"
+    }
+
+    Product {  
+	prod_id			10	BSPC30
+	prod_code		30
+	gen_task		basspect
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		58 58 58 58
+	n_dep_prods		1
+#	dependent products:	COMBBASE
+	dep_prods_list		96	
+	desc		"SW Base Spectrum Width: 8 level/0.54 nm"
+	type			1
+	alert			2
+	warehoused		0
+	elev_index		2
+	path			base/bspc30.lb
+	lb_n_msgs		40
+# Note: Final products are links to product database.
+	max_size		96
+	params
+				2 -20 3599 0 10 "Elevation" "Degrees"
+    }
+
+    Product {  
+	prod_id			11	BVEL25
+	prod_code		25
+	gen_task		basvlcty
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		86 86 86 86
+	n_dep_prods		1
+#	dependent products:	COMBBASE
+	dep_prods_list		96 
+	desc		"V Base Velocity: 16 level/0.13 nm"
+	type			1
+	alert			2
+	warehoused		0
+	elev_index		2
+	path			base/bvel25.lb
+	lb_n_msgs		40
+# Note: Final products are links to product database.
+	max_size		96
+	params
+				2 -20 3599 0 10 "Elevation" "Degrees"
+    }
+
+    Product {  
+	prod_id			12	BVEL22
+	prod_code		22
+	gen_task		basvlcty
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		53 53 53 53
+	n_dep_prods		1
+#	dependent products:	COMBBASE
+	dep_prods_list		96 
+	desc		"V Base Velocity: 8 level/0.13 nm"
+	type			1
+	alert			2
+	warehoused		0
+	elev_index		2
+	path			base/bvel22.lb
+	lb_n_msgs		40
+# Note: Final products are links to product database.
+	max_size		96
+	params
+				2 -20 3599 0 10 "Elevation" "Degrees"
+    }
+
+    Product {  
+	prod_id			13	BVEL26
+	prod_code		26
+	gen_task		basvlcty
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		85 85 85 85
+	n_dep_prods		1
+#	dependent products:	COMBBASE
+	dep_prods_list		96 
+	desc		"V Base Velocity: 16 level/0.27 nm"
+	type			1
+	alert			2
+	warehoused		0
+	elev_index		2
+	path			base/bvel26.lb
+	lb_n_msgs		40
+# Note: Final products are links to product database.
+	max_size		96
+	params
+				2 -20 3599 0 10 "Elevation" "Degrees"
+    }
+
+    Product {  
+	prod_id			14	BVEL23
+	prod_code		23
+	gen_task		basvlcty
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		52 52 52 52
+	n_dep_prods		1
+#	dependent products:	COMBBASE
+	dep_prods_list		96 
+	desc		"V Base Velocity: 8 level/0.27 nm"
+	type			1
+	alert			2
+	warehoused		0
+	elev_index		2
+	path			base/bvel23.lb
+	lb_n_msgs		40
+# Note: Final products are links to product database.
+	max_size		96
+	params
+				2 -20 3599 0 10 "Elevation" "Degrees"
+    }
+
+    Product {  
+	prod_id			15	BVEL27
+	prod_code		27
+	gen_task		basvlcty
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		84 84 84 84
+	n_dep_prods		1
+#	dependent products:	COMBBASE
+	dep_prods_list		96 
+	desc		"V Base Velocity: 16 level/0.54 nm"
+	type			1
+	alert			2
+	warehoused		0
+	elev_index		2
+	path			base/bvel27.lb
+	lb_n_msgs		40
+# Note: Final products are links to product database.
+	max_size		96
+	params
+				2 -20 3599 0 10 "Elevation" "Degrees"
+    }
+
+    Product {  
+	prod_id			16	BVEL24
+	prod_code		24
+	gen_task		basvlcty
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		51 51 51 51
+	n_dep_prods		1
+#	dependent products:	COMBBASE
+	dep_prods_list		96 
+	desc		"V Base Velocity: 8 level/0.54 nm"
+	type			1
+	alert			2
+	warehoused		0
+	elev_index		2
+	path			base/bvel24.lb
+	lb_n_msgs		40
+# Note: Final products are links to product database.
+	max_size		96
+	params
+				2 -20 3599 0 10 "Elevation" "Degrees"
+    }
+
+    Product {  
+	prod_id			20	BASEVGD
+	prod_code		0
+	gen_task		basvgrid
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		0 0 0 0
+	n_dep_prods		1
+#	dependent products:	COMBBASE
+	dep_prods_list	   	96	
+	desc		" Base Velocity Grid"
+	type			1
+	alert			0
+	warehoused		0
+	path			base/basevgd.lb
+	lb_n_msgs		5
+	max_size		46060
+    }
+
+    Product {  
+	prod_id			21	COMBATTR
+	prod_code		0
+	gen_task		combattr
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		255 255 255 255
+	n_dep_prods		5
+#	dependent products	MDATTNN CENTATTR TRFRCATR HAILATTR TVSATTR
+	dep_prods_list		295 22 50 48 65
+	desc		" Combined Attributes"
+	type			0
+	alert			0
+	warehoused		1200
+	path			base/combattr.lb
+	lb_n_msgs		5
+	max_size		16356
+    }
+
+    Product {  
+	prod_id			22	CENTATTR
+	prod_code		0
+	gen_task		cpcntalg
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		3 3 3 3
+	n_dep_prods		1
+#	dependent products	SEGATTR
+	dep_prods_list		27 
+	desc		" Centroid Attributes"
+	type			0
+	alert			0
+	warehoused		0
+	path			storm/centattr.lb
+	lb_n_msgs		5
+	max_size		53936
+    }
+
+    Product {  
+	prod_id			23	CRP37
+	prod_code		37
+	gen_task		cmprfcg
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		76 76 76 76
+	n_dep_prods		2
+#	dependent products	CRPG COMBATTR
+	dep_prods_list		91 21
+	desc		"CR Composite Reflectivity: 16 level/0.54 nm"
+	type			0
+	alert			1
+	warehoused		0
+	path			base/crp37.lb
+	lb_n_msgs		10
+# Note: Final products are links to product data base.
+	max_size		96
+    }
+
+    Product {  
+	prod_id			24	CRP35
+	prod_code		35
+	gen_task		cmprfcg
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		48 48 48 48
+	n_dep_prods		2
+#	dependent products	CRPG COMBATTR
+	dep_prods_list		91 21
+	desc		"CR Composite Reflectivity: 8 level/0.54 nm"
+	type			0
+	alert			1
+	warehoused		0
+	path			base/crp35.lb
+	lb_n_msgs		10
+# Note: Final products are links to product data base.
+	max_size		96
+    }
+
+    Product {  
+	prod_id			25	CRP38
+	prod_code		38
+	gen_task		cmprfcg
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		75 75 75 75
+	n_dep_prods		2
+#	dependent products	CRPG COMBATTR
+	dep_prods_list		91 21
+	desc		"CR Composite Reflectivity: 16 level/2.2 nm"
+	type			0
+	alert			1
+	warehoused		0
+	path			base/crp38.lb
+	lb_n_msgs		10
+# Note: Final products are links to product data base.
+	max_size		96
+    }
+
+    Product {  
+	prod_id			26	CRP36
+	prod_code		36
+	gen_task		cmprfcg
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		47 47 47 47
+	n_dep_prods		2
+#	dependent products	CRPG COMBATTR
+	dep_prods_list		91 21
+	desc		"CR Composite Reflectivity: 8 level/2.2 nm"
+	type			0
+	alert			1
+	warehoused		0
+	path			base/crp36.lb
+	lb_n_msgs		10
+# Note: Final products are links to product data base.
+	max_size		96
+    }
+
+    Product {  
+	prod_id			27	SEGATTR
+	prod_code		0
+	gen_task		segmtalg
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		3 3 3 3
+	n_dep_prods		1
+#	dependent products:	REFLDATA_ELEV
+	dep_prods_list		302
+	desc		" Segments Attributes"
+	type			1
+	alert			0
+	warehoused		0
+	path			storm/segattr.lb
+	lb_n_msgs		5
+	max_size		132
+    }
+
+    Product {  
+	prod_id			29	ETPRODD
+	prod_code		41
+	gen_task		ecotppro
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		66 66 66 66
+	n_dep_prods		1
+#	dependent products	ETTAB
+	dep_prods_list		30
+	desc		"ET Echo Tops: 16 level/2.2 nm"
+	type			0
+	alert			1
+	warehoused		0
+	path			precip/etprodd.lb
+	lb_n_msgs		10
+# NOTE: Final products are links to product data base.
+	max_size		96
+    }
+
+    Product {  
+	prod_id			30	ETTAB
+	prod_code		0
+	gen_task		viletalg
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		255 255 255 255
+	n_dep_prods		1
+#	dependent products:	REFLDATA
+	dep_prods_list		79 
+	desc		" Echo Tops Table"
+	type			0
+	alert			0
+	warehoused		1200
+	path			precip/ettab.lb
+	lb_n_msgs		5
+	max_size		28720
+    }
+
+    Product {  
+	prod_id			32	FTXTMSG
+	prod_code		75
+	gen_task		hci
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		90 90 90 90
+	n_dep_prods		0
+	dep_prods_list	 
+	desc		"FTM Free Text Message"
+	type			3
+	alert			0
+	warehoused		0
+	path			msgs/ftxtmsg.lb
+	lb_n_msgs		10
+	max_size		1000
+    }
+
+    Product {  
+	prod_id			33	HAILCAT
+	prod_code		59
+	gen_task		hailprod
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		72 72 72 72
+	n_dep_prods		1
+#	dependent products	HAILATTR
+	dep_prods_list	 	48
+	desc		"HI Hail Index"
+	type			0
+	alert			1
+	warehoused		0
+	path			storm/hailcat.lb
+	lb_n_msgs		10
+# NOTE: Final products are links to product data base.
+	max_size		96
+    }
+
+    Product {  
+	prod_id			34	TRENDATR
+	prod_code		0
+	gen_task		hailalg
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		3 3 3 3
+	n_dep_prods		2
+#	dependent products	CENTATTR TRFRCATR
+	dep_prods_list		22 50
+	desc		" Trend Attributes"
+	type			0
+	alert			0
+	warehoused		0
+	path			storm/trendatr.lb
+	lb_n_msgs		5
+	max_size		2000
+    }
+
+    Product {  
+	prod_id			35	HPLOTS
+	prod_code		48
+	gen_task		vwindpro
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		82 82 82 82
+	n_dep_prods		1
+#	dependent products:	COMBBASE
+	dep_prods_list		96
+	desc		"VWP VAD Wind Profile"
+	type			0
+	alert			1
+	warehoused		0
+	path			kinematic/hplots.lb
+	lb_n_msgs		10
+# NOTE: Final products are links to product data base.
+	max_size		96
+    }
+
+    Product {  
+	prod_id			36	RFAVLYR1
+	prod_code		63
+	gen_task		lcrflct
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		42 42 42 42
+	n_dep_prods		1
+#	dependent products:	REFLDATA
+	dep_prods_list		79
+	desc		"LRA Layer Composite Reflectivity (Layer 1 Average)"
+	type			0
+	alert			1
+	warehoused		0
+	path			precip/rfavlyr1.lb
+	lb_n_msgs		10
+# NOTE: Final products are links to product data base.
+	max_size		96
+    }
+
+    Product {  
+	prod_id			37	RFAVLYR2
+	prod_code		64
+	gen_task		lcrflct
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		41 41 41 41
+	n_dep_prods		1
+#	dependent products:	REFLDATA
+	dep_prods_list		79
+	desc		"LRA Layer Composite Reflectivity (Layer 2 Average)"
+	type			0
+	alert			1
+	warehoused		0
+	path			precip/rfavlyr2.lb
+	lb_n_msgs		10
+# NOTE: Final products are links to product data base.
+	max_size		96
+    }
+
+    Product {  
+	prod_id			38	RFMXLYR1
+	prod_code		65
+	gen_task		lcrflct
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		63 63 63 63
+	n_dep_prods		1
+#	dependent products:	REFLDATA
+	dep_prods_list		79
+	desc		"LRM Layer Composite Reflectivity (Layer 1 Maximum)"
+	type			0
+	alert			1
+	warehoused		0
+	path			precip/rfmxlyr1.lb
+	lb_n_msgs		10
+# NOTE: Final products are links to product data base.
+	max_size		96
+    }
+
+    Product {  
+	prod_id			39	RFMXLYR2
+	prod_code		66
+	gen_task		lcrflct
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		62 62 62 62
+	n_dep_prods		1
+#	dependent products:	REFLDATA
+	dep_prods_list		79
+	desc		"LRM Layer Composite Reflectivity (Layer 2 Maximum)"
+	type			0
+	alert			1
+	warehoused		0
+	path			precip/rfmxlyr2.lb
+	lb_n_msgs		10
+# NOTE: Final products are links to product data base.
+	max_size		96
+    }
+
+    Product {  
+	prod_id			43	ALRTPROD
+	prod_code		73
+	gen_task		alerting
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		255 255 255 255
+	n_dep_prods		7
+#	dependent products:	BASEVGD CRCG230 ETTAB VILTABL VADPARAM COMBATTR HYADJSCN 
+	dep_prods_list		20 93 30 86 81 21 104
+	desc		"UAM User Alert Message"
+	type			3
+	alert			0
+	warehoused		0
+	path			alert/alrtprod.lb
+	lb_n_msgs		47
+	max_size		4000
+    }
+
+    Product {  
+	prod_id			44	RMXAPLYR
+	prod_code		67
+	gen_task		lcrap
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		62 62 62 62
+	n_dep_prods		1
+#	dependent products:	RMXAPPG 
+	dep_prods_list		45
+	desc		"APR Layer Composite Reflectivity - AP Removed: 8 level/2.2 nm"
+	type			0
+	alert			1
+	warehoused		0
+	path			precip/rmxaplyr.lb
+	lb_n_msgs		10
+# NOTE: Final products are links to product data base
+	max_size		96
+    }
+
+    Product {  
+	prod_id			45	RMXAPPG
+	prod_code		 0
+	gen_task		lcrappg
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		3 3 3 3
+	n_dep_prods		1
+#	dependent products:	COMBBASE
+	dep_prods_list		96
+	desc		" Layer Composite Reflectivity Polar Grid - AP Removed"
+	type			0
+	alert			0
+	warehoused		0
+	path			precip/rmxappg.lb
+	lb_n_msgs		5
+	max_size		320000
+    }
+
+    Product {  
+	prod_id			46	TDA1DATR
+	prod_code		 0
+	gen_task		tda1d
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		3 3 3 3
+	n_dep_prods		1
+#	dependent products:	COMBBASE
+	dep_prods_list		96
+	desc		" Tornado Detection Algorthm 1-D"
+	type			1
+	alert			0
+	warehoused		0
+	path			kinematic/tda1datr.lb
+	lb_n_msgs		5
+	max_size		320000
+    }
+
+    Product {  
+	prod_id			48	HAILATTR
+	prod_code		0
+	gen_task		hailalg
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		3 3 3 3
+	n_dep_prods		2
+#	dependent products:	CENTATTR TRFRCATR 
+	dep_prods_list		22 50 
+	desc		" Hail Attributes"
+	type			0
+	alert			0
+	warehoused		0
+	path			storm/hailattr.lb
+	lb_n_msgs		5
+	max_size		3028
+    }
+
+    Product {  
+	prod_id			49	STRUCDAT
+	prod_code		62
+	gen_task		strucprod
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		73 73 73 73
+	n_dep_prods		2
+#	dependent products:	CENTATTR TRENDATR 
+	dep_prods_list		22 34
+	desc		"SS Storm Structure"
+	type			0
+	alert			1
+	warehoused		0
+	path			storm/strucdat.lb
+	lb_n_msgs		10
+# NOTE: Final products are links to product data base
+	max_size		96
+    }
+
+    Product {  
+	prod_id			50	TRFRCATR
+	prod_code		0
+	gen_task		trfrcalg
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		3 3 3 3
+	n_dep_prods		1
+#	dependent products:	CENTATTR 
+	dep_prods_list		22
+	desc		" Storm Tracking/Forecast Attributes"
+	type			0
+	alert			0
+	warehoused		0
+	path			storm/trfrcatr.lb
+	lb_n_msgs		5
+	max_size		18340
+    }
+
+    Product {  
+	prod_id			51	STMTRDAT
+	prod_code		58
+	gen_task		stmtrprd
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		74 74 74 74
+	n_dep_prods		2
+#	dependent products:	CENTATTR TRFRCATR 
+	dep_prods_list		22 50
+	desc		"STI Storm Tracking Information"
+	type			0
+	alert			1
+	warehoused		0
+	path			storm/stmtrdat.lb
+	lb_n_msgs		5
+	max_size		52852
+    }
+
+    Product {  
+	prod_id			52	PRCIPMSG
+	prod_code		 0 
+	gen_task		pcipdalg
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		255 255 255 255
+	n_dep_prods		1
+#	dependent products:	HYBRSCAN
+	dep_prods_list		101
+	desc		" Precipitation Status Message"
+	type			0
+	alert			0
+	warehoused		0
+	path			precip/prcipmsg.lb
+	lb_n_msgs		5
+	max_size		5000
+    }
+
+    Product {  
+	prod_id			54	RAWDATA
+        class_id		54	RAWDATA
+        class_mask              224     (REFLDATA_TYPE | COMBBASE_TYPE | BASEDATA_TYPE)
+	prod_code		 0 
+	gen_task		pbd
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		255 255 255 255
+	n_dep_prods		0
+	dep_prods_list		
+	desc		" Non-Dealiased Base Data"
+	type			5
+	alert			0
+	warehoused		0
+	path			base/rawdata.lb
+	lb_n_msgs		1500
+	lb_types                "LB_MEMORY LB_DIRECT LB_SINGLE_WRITER"
+	max_size		16800
+    }
+
+    Product {  
+	prod_id			55	BASEDATA
+        class_id                55      BASEDATA
+        class_mask              224     (REFLDATA_TYPE | COMBBASE_TYPE | BASEDATA_TYPE)
+	prod_code		0
+	gen_task		recomb   
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		255 255 255 255
+	n_dep_prods		0
+	dep_prods_list		
+	desc		" Processed Base Data"
+	type			5
+	alert			0
+	warehoused		1200
+        warehouse_id            8022    ORPGDAT_BASEDATA_REPLAY
+        warehouse_acct_id       8023    ORPGDAT_BASEDATA_ACCT
+	path			base/basedata.lb
+	lb_n_msgs		1500
+        lb_types		"LB_MEMORY LB_DIRECT LB_SINGLE_WRITER"
+ 	max_size		16800
+    }
+
+    Product {  
+	prod_id			56	HYUSPACC
+	prod_code		31
+	gen_task		prcpuspt
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		57 57 57 57
+	n_dep_prods		1
+#	dependent products:	HYUSPBUF 
+	dep_prods_list	 	102
+	desc		"USP User Selectable Storm Total Precipitation: 16 level/1.1 nm"
+	type			0
+	alert			0
+	warehoused		0
+	path			precip/hyuspacc.lb
+	lb_n_msgs		48
+# NOTE: Final products are links to product data base
+	max_size		96
+	params
+				0 0 23 12 1 "End Hour" "Hours"
+				1 1 24 24 1 "Time Duration" "Hours"
+    }
+
+    Product {  
+	prod_id			57	HYBRDREF
+	prod_code		32
+	gen_task		hybrprod
+	wx_modes		7
+	disabled		0
+	compression             1 
+	n_priority		4
+	priority_list		57 57 57 57
+	n_dep_prods		1
+#	dependent products:	HYBRSCAN 
+	dep_prods_list	 	101
+	desc		"DHR Digital Hybrid Scan Reflectivity: 256 level/0.54 nm"
+	type			0
+	alert			0
+	warehoused		0
+	path			precip/hybrdref.lb
+	lb_n_msgs		10
+# NOTE: Final products are links to product data base
+	max_size		96
+    }
+
+    Product {  
+	prod_id			58	HYBRGREF
+	prod_code		33
+	gen_task		hybrprod
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		57 57 57 57
+	n_dep_prods		1
+#	dependent products:	HYBRSCAN 
+	dep_prods_list	 	101
+	desc		"HSR Scan Reflectivity: 16 level/0.54 nm"
+	type			0
+	alert			0
+	warehoused		0
+	path			precip/hybrgref.lb
+	lb_n_msgs		10
+# NOTE: Final products are links to product data base
+	max_size		96
+    }
+
+    Product {  
+	prod_id			65	TVSATTR
+	prod_code		0
+	gen_task		tda2d3d
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		3 3 3 3
+	n_dep_prods		1
+#	dependent products:	TDA1DATR 
+	dep_prods_list		46 
+	desc		" Tornado Detection Algorithm 2D/3D"
+	type			0
+	alert			0
+	warehoused		0
+	path			kinematic/tvsattr.lb
+	lb_n_msgs		5
+	max_size		10000
+    }
+
+    Product {
+        prod_id                 66      REFL_RAWDATA
+        class_id                54      RAWDATA
+        class_mask              160     (REFLDATA_TYPE | BASEDATA_TYPE)
+        prod_code                0
+        gen_task                pbd
+        wx_modes                7
+        disabled                0
+        n_priority              4
+        priority_list           255 255 255 255
+        n_dep_prods             0
+        dep_prods_list
+        desc            " Non-Dealiased Base Data"
+        type                    5
+        alert                   0
+        warehoused              0
+        path                    base/rawdata.lb
+        max_size                0
+    }
+
+    Product {
+        prod_id                 67      COMB_RAWDATA
+        class_id                54      RAWDATA
+        class_mask              192     (COMBBASE_TYPE | BASEDATA_TYPE)
+        prod_code               0
+        gen_task                pbd
+        wx_modes                7
+        disabled                0
+        n_priority              4
+        priority_list           255 255 255 255
+        n_dep_prods             0
+        dep_prods_list
+        desc            " Non-Dealiased Base Data"
+        type                    5
+        alert                   0
+        warehoused              0
+        path                    base/rawdata.lb
+        max_size                0
+    }
+
+    Product {  
+	prod_id			68	SRMRVMAP
+	prod_code		56
+	gen_task		srmrmrv
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		68 68 68 68
+	n_dep_prods		1
+#	dependent products:	COMBBASE
+	dep_prods_list	 	96
+	desc		"SRM Storm Relative Velocity (Map): 16 level/0.54 nm"
+	type			1
+	alert			2
+	warehoused		0
+	elev_index		2
+	path			storm/srmrvmap.lb
+	lb_n_msgs		40
+# NOTE: Final products are links to product data base
+	max_size		96
+	params
+				2 -20  3599 0 10 "Elevation"       "Degrees"
+				3 -10  999 -10 10 "Storm Speed"     "Knots"
+				4 -10 3599 -10 10 "Storm Direction" "Degrees"
+    }
+
+    Product {  
+	prod_id			69	SRMRVREG
+	prod_code		55
+	gen_task		srmrmrv
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		67 67 67 67
+	n_dep_prods		1
+#	dependent products:	COMBBASE
+	dep_prods_list		96 
+	desc		"SRR Storm Relative Velocity (Region): 16 level/0.27 nm"
+	type			1
+	alert			2
+	warehoused		0
+	elev_index		2
+	path			storm/srmrvreg.lb
+	lb_n_msgs		40
+# NOTE: Final products are links to product data base
+	max_size		96
+	params
+				0   0 3599 0 10 "Azimuth"         "Degrees"
+				1   0 1240 0 10 "Range"           "Nmiles"
+				2 -20  3599 0 10 "Elevation"       "Degrees"
+				3 -10  999 -10 10 "Storm Speed"     "Knots"
+				4 -10 3599 -10 10 "Storm Direction" "Degrees"
+    }
+
+    Product {
+	prod_id			70	CPC2MSG
+	prod_code		0
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		3 3 3 3
+	n_dep_prods		0
+	dep_prods_list		
+	desc		" CPC 2 Message"
+	type			3
+	alert			0
+	warehoused		0
+	path			msgs/cpc2msg.lb
+	lb_n_msgs		20
+	max_size		0
+    }
+
+    Product {  
+	prod_id			76	SR_BASEDATA
+        class_id                76      SR_BASEDATA
+        class_mask              224     (REFLDATA_TYPE | COMBBASE_TYPE | BASEDATA_TYPE)
+	prod_code		0
+	gen_task		sr_veldeal 
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		255 255 255 255
+	n_dep_prods		0
+	dep_prods_list		
+	desc		" Super Resolution Base Data"
+	type			5
+	alert			0
+	warehoused		0
+#	warehoused		1200
+#       warehouse_id            8022    ORPGDAT_BASEDATA_REPLAY
+#       warehouse_acct_id       8023    ORPGDAT_BASEDATA_ACCT
+ 	path			base/sr_basedata.lb
+	lb_n_msgs		1500
+        lb_types		"LB_MEMORY LB_DIRECT LB_SINGLE_WRITER"
+ 	max_size		16800
+    }
+
+    Product {
+	prod_id			77	SR_COMBBASE
+        class_id                76      SR_BASEDATA
+        class_mask              192     (COMBBASE_TYPE | BASEDATA_TYPE)
+	prod_code		0
+	gen_task		sr_veldeal
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		255 255 255 255
+	n_dep_prods		0
+	dep_prods_list		
+	desc		" Super Resolution Combined Base Base Data"
+	type			5
+	alert			0
+ 	warehoused		0
+#	warehoused		1200
+#        warehouse_id            8022    ORPGDAT_BASEDATA_REPLAY
+#        warehouse_acct_id       8023    ORPGDAT_BASEDATA_ACCT
+	path			base/sr_basedata.lb
+	max_size		0
+    }
+
+    Product {
+	prod_id			78	SR_REFLDATA
+        class_id                76      SR_BASEDATA
+        class_mask              160     (REFLDATA_TYPE | BASEDATA_TYPE)
+	prod_code		0
+	gen_task		sr_veldeal
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		255 255 255 255
+	n_dep_prods		0
+	dep_prods_list		
+	desc		" Super Resolution Reflectivity Data"
+	type			5
+	alert			0
+ 	warehoused		0
+#	warehoused		1200
+#        warehouse_id            8022    ORPGDAT_BASEDATA_REPLAY
+#        warehouse_acct_id       8023    ORPGDAT_BASEDATA_ACCT
+	path			base/sr_basedata.lb
+	max_size		0
+    }
+
+    Product {
+	prod_id			79	REFLDATA
+        class_id                55      BASEDATA
+        class_mask              160     (REFLDATA_TYPE | BASEDATA_TYPE)
+	prod_code		0
+	gen_task		recomb 
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		255 255 255 255
+	n_dep_prods		0
+	dep_prods_list		
+	desc		" Reflectivity Data"
+	type			5
+	alert			0
+	warehoused		1200
+        warehouse_id            8022    ORPGDAT_BASEDATA_REPLAY
+        warehouse_acct_id       8023    ORPGDAT_BASEDATA_ACCT
+	path			base/basedata.lb
+	max_size		0
+    }
+
+    Product {
+	prod_id			80	TVSPROD
+	prod_code		61
+	gen_task		tvsprod
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		70 70 70 70
+	n_dep_prods		2
+#	dependent products:	TVSATTR TRFRCATR 
+	dep_prods_list		65 50
+	desc		"TVS Tornado Vortex Signature"
+	type			0
+	alert			1
+	warehoused		0
+	path			kinematic/tvsprod.lb
+	lb_n_msgs		20
+# NOTE: Final products are links to product data base
+	max_size		96
+    }
+
+    Product {
+	prod_id			81	VADPARAM
+	prod_code		0
+	gen_task		vwindpro
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		0 0 0 0
+	n_dep_prods		1
+#	dependent products:	COMBBASE
+	dep_prods_list		96
+	desc		" VAD Parameters"
+	type			0
+	alert			0
+	warehoused		0
+	path			kinematic/vadparam.lb
+	lb_n_msgs		5
+	max_size		124
+    }
+
+    Product {
+	prod_id			83	VCS53
+	prod_code		51
+	gen_task		vertxsct
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		97 97 97 97
+	n_dep_prods		1
+#	dependent products:	COMBBASE
+	dep_prods_list		96
+	desc		"VCS Cross Section (Velocity): 16 level/0.54 x 0.27 nm"
+	type			0
+	alert			1
+	warehoused		0
+	path			base/vcs53.lb
+	lb_n_msgs		40
+# NOTE: Final products are links to product data base
+	max_size		96
+	params
+				0 0 3599 0 10 "Azimuth Point 1" "Degrees"
+				1 0 1240 0 10 "Range Point 1"   "Nmiles"
+				2 0 3599 900 10 "Azimuth Point 2" "Degrees"
+				3 0 1240 1240 10 "Range Point 2"   "Nmiles"
+    }
+
+    Product {
+	prod_id			84	VCS52
+	prod_code		50
+	gen_task		vertxsct
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		98 98 98 98
+	n_dep_prods		1
+	dep_prods_list		96
+#	dependent products:	COMBBASE
+	desc		"RCS Cross Section (Reflectivity): 16 level/0.54 x 0.27 nm"
+	type			0
+	alert			1
+	warehoused		0
+	path			base/vcs52.lb
+	lb_n_msgs		40
+# NOTE: Final products are links to product data base
+	max_size		96
+	params
+				0 0 3599  0 10 "Azimuth Point 1" "Degrees"
+				1 0 1240 0 10 "Range Point 1"   "Nmiles"
+				2 0 3599 900 10 "Azimuth Point 2" "Degrees"
+				3 0 1240 1240 10 "Range Point 2"   "Nmiles"
+    }
+
+    Product {
+	prod_id			85	VILPROD
+	prod_code		57
+	gen_task		vilprod
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		83 83 83 83
+	n_dep_prods		1
+#	dependent products:	VILTABL 
+	dep_prods_list		86
+	desc		"VIL Vertically Integrated Liquid: 16 level/2.2 nm"
+	type			0
+	alert			1
+	warehoused		0
+	path			precip/vilprod.lb
+	lb_n_msgs		10
+# NOTE: Final products are links to product data base
+	max_size		96
+    }
+
+    Product {
+	prod_id			86	VILTABL
+	prod_code		0
+	gen_task		viletalg
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		3 3 3 3
+	n_dep_prods		1
+#	dependent products:	REFLDATA
+	dep_prods_list		79
+	desc		" VIL Tabular"
+	type			0
+	alert			0
+	warehoused		0
+	path			precip/viltabl.lb
+	lb_n_msgs		5
+	max_size		27040
+    }
+
+    Product {  
+	prod_id			87	ITWSDBV
+	prod_code		93
+	gen_task		itwsdbv
+	wx_modes		7
+	disabled		0
+	n_priority		4
+        priority_list		37 37 37 37
+	n_dep_prods		1
+#       dependent_products:     COMBBASE
+        dep_prods_list		96
+	desc		"DBV ITWS Digital Velocity Product: 256 level/0.54 nm"
+	type			1
+	alert			0
+        warehoused		0
+	elev_index		2
+	path			base/itwsdbv.lb
+	lb_n_msgs		40
+# NOTE: Final products are links to product data base
+	max_size		96
+	params
+				2 -20 3599 0 10 "Elevation" "Degrees"
+    }
+
+    Product {
+	prod_id			91	CRPG
+	prod_code		0
+	gen_task		cmprflct
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		255 255 255 255
+	n_dep_prods		1
+#	dependent products:	REFLDATA
+	dep_prods_list		79
+	desc		" Composite Reflectivity Polar Grid"
+	type			0
+	alert			0
+	warehoused		1200
+	path			base/crpg.lb
+	lb_n_msgs		5
+	max_size		331304
+    }
+
+    Product {
+	prod_id			92	CRCG230
+	prod_code		0
+	gen_task		cmprfcg
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		0 0 0 0
+	n_dep_prods		1
+#	dependent products:	CRPG 
+	dep_prods_list		91
+	desc		" Composite Reflectivity Cartesian Grid: 1.1 nm"
+	type			0
+	alert			0
+	warehoused		0
+	path			base/crcg230.lb
+	lb_n_msgs		5
+	max_size		430728
+    }
+
+    Product {
+	prod_id			93	CRCG460
+	prod_code		0
+	gen_task		cmprfcg
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		3 3 3 3
+	n_dep_prods		1
+#	dependent products:	CRPG 
+	dep_prods_list		91
+	desc		" Composite Reflectivity Cartesian Grid: 2.2 nm"
+	type			0
+	alert			0
+	warehoused		0
+	path			base/crcg460.lb
+	lb_n_msgs		5
+	max_size		107784
+    }
+
+Product {  
+	prod_id			94	BREF8BIT
+	prod_code		94
+	gen_task		bref8bit
+	wx_modes		7
+	disabled		0
+	compression		1
+	n_priority		4
+        priority_list		35 35 35 35
+	n_dep_prods		1
+#       dependent_products:     REFLDATA
+        dep_prods_list		96
+	desc		"DR Base Reflectivity Data Array Product: 256 level/0.54 nm"
+	type			1
+	alert			0
+        warehoused		0
+	elev_index		2
+	path			base/bref8bit.lb
+	lb_n_msgs		40
+# NOTE: Final products are links to product data base
+	max_size		96
+	params
+				2 -20 3599 0 10 "Elevation" "Degrees"
+    }
+    
+    Product {  
+	prod_id			96	COMBBASE
+        class_id                55      BASEDATA
+        class_mask              192     (COMBBASE_TYPE | BASEDATA_TYPE)
+	prod_code		0
+	gen_task		recomb  
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		255 255 255 255
+	n_dep_prods		0
+	dep_prods_list		
+	desc		" Processed Base Data"
+	type			5
+	alert			0
+	warehoused		1200
+        warehouse_id            8022    ORPGDAT_BASEDATA_REPLAY
+        warehouse_acct_id       8023    ORPGDAT_BASEDATA_ACCT
+	path			base/basedata.lb
+	max_size		0
+    }
+
+    Product {
+	prod_id			97	VADTMHGT
+	prod_code		0
+	gen_task		vwindpro
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		255 255 255 255
+	n_dep_prods		1
+#	dependent products:	COMBBASE
+	dep_prods_list		96
+	desc		" VAD Time-Height Table"
+	type			0
+	alert			0
+	warehoused		1200
+	path			kinematic/vadtmhgt.lb
+	lb_n_msgs		5
+	max_size		146192
+    }
+
+    Product {
+	prod_id			98	CPC10MSG
+	prod_code		0
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		3 3 3 3
+	n_dep_prods		0
+	dep_prods_list		
+	desc		" CPC 10 Message"
+	type			3
+	alert			0
+	warehoused		0
+	path			msgs/cpc10msg.lb
+	lb_n_msgs		10
+	max_size		0
+    }
+    
+    Product {  
+	prod_id			99	BVEL8BIT
+	prod_code		99
+	gen_task		bvel8bit
+	wx_modes		7
+	disabled		0
+	compression		1
+	n_priority		4
+        priority_list		34 34 34 34
+	n_dep_prods		1
+#       dependent_products:     COMBBASE
+        dep_prods_list		96
+	desc		"DV Base Velocity Data Array Product: 256 level/0.13 nm"
+	type			1
+	alert			0
+        warehoused		0
+	elev_index		2
+	path			base/bvel8bit.lb
+	lb_n_msgs		40
+# NOTE: Final products are links to product data base
+	max_size		96
+	params
+				2 -20 3599 0 10 "Elevation" "Degrees"
+    }
+    
+    Product {
+	prod_id			101	HYBRSCAN
+	prod_code		0
+	gen_task		epre
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		255 255 255 255
+	n_dep_prods		2
+#	dependent products:
+	dep_prods_list		302 298
+	desc		" Hybrid Scan Data"
+	type			0
+	alert			0
+	warehoused		1200
+	path			precip/hybrscan.lb
+	lb_n_msgs		40
+	max_size		331696
+    }
+
+    Product {
+	prod_id			102	HYUSPBUF
+	prod_code		0
+	gen_task		prcpprod
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		3 3 3 3
+	n_dep_prods		1
+#	dependent products:	HYADJSCN 
+	dep_prods_list          104
+	desc		" User-Selectable Precipitation Data"
+	type			0
+	alert			0
+	warehoused		0
+	path			precip/hyuspbuf.lb
+	lb_n_msgs		5
+	max_size		83000
+    }
+
+    Product {
+	prod_id			103	HYACCSCN
+	prod_code		0
+	gen_task		prcprtac
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		3 3 3 3
+	n_dep_prods		1
+#	dependent products:	HYBRSCAN 
+	dep_prods_list		101
+	desc		" Accumulation Scan Data"
+	type			0
+	alert			0
+	warehoused		0
+	path			precip/hyaccscn.lb
+	lb_n_msgs		5
+	max_size		170000
+    }
+
+    Product {
+	prod_id			104	HYADJSCN
+	prod_code		0
+	gen_task		prcpadju
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		0 0 0 0
+	n_dep_prods		1
+#	dependent products:	HYACCSCN 
+	dep_prods_list		103
+	desc		" Adjusted Scan Data"
+	type			0
+	alert			0
+	warehoused		0
+	path			precip/hyadjscn.lb
+	lb_n_msgs		5
+	max_size		170000
+    }
+
+    Product {
+	prod_id			105	HY1HRACC
+	prod_code		78
+	gen_task		prcpprod
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		81 81 81 81
+	n_dep_prods		1
+#	dependent products:	HYADJSCN 
+	dep_prods_list		104
+	desc		"OHP Surface Rainfall Accumulation (1 hr): 16 level/1.1 nm"
+	type			0
+	alert			5
+	warehoused		0
+	path			precip/hy1hracc.lb
+	lb_n_msgs		10
+# NOTE: Final products are links to product data base.
+	max_size		96
+    }
+
+    Product {
+	prod_id			106	HY3HRACC
+	prod_code		79
+	gen_task		prcpprod
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		77 77 77 77
+	n_dep_prods		1
+#	dependent products:	HYADJSCN 
+	dep_prods_list		104
+	desc		"THP Surface Rainfall Accumulation (3 hr): 16 level/1.1 nm"
+	type			0
+	alert			5
+	warehoused		0
+	path			precip/hy3hracc.lb
+	lb_n_msgs		10
+# NOTE: Final products are links to product data base.
+	max_size		96
+    }
+
+    Product {
+	prod_id			107	HYSTMTOT
+	prod_code		80
+	gen_task		prcpprod
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		78 78 78 78
+	n_dep_prods		1
+#	dependent products:	HYADJSCN 
+	dep_prods_list		104
+	desc		"STP Storm Total Rainfall Accumulation: 16 level/1.1 nm"
+	type			0
+	alert			5
+	warehoused		0
+	path			precip/hystmtot.lb
+	lb_n_msgs		10
+# NOTE: Final products are links to product data base.
+	max_size		96
+    }
+
+    Product {
+	prod_id			108	HY1HRDIG
+	prod_code		81
+	gen_task		prcpprod
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		80 80 80 80
+	n_dep_prods		1
+#	dependent products:	HYADJSCN 
+	dep_prods_list		104
+	desc		"DPA Hourly Digital Precip Array: 256 level"
+	type			0
+	alert			5
+	warehoused		0
+	path			precip/hy1hrdig.lb
+	lb_n_msgs		10
+# NOTE: Final products are links to product data base.
+	max_size		96
+    }
+
+    Product {
+	prod_id			109	HYSUPPLE
+	prod_code		82
+	gen_task		prcpprod
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		79 79 79 79
+	n_dep_prods		1
+#	dependent products:	HYADJSCN 
+	dep_prods_list		104
+	desc		"SPD Supplemental Precipitation Data"
+	type			0
+	alert			5
+	warehoused		0
+	path			precip/hysupple.lb
+	lb_n_msgs		10
+# NOTE: Final products are links to product data base.
+	max_size		96
+    }
+
+    Product {
+	prod_id			110	VAD
+	prod_code		84
+	gen_task		vad
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		57 57 57 57
+	n_dep_prods		1
+#	dependent products:	VADTMHGT 
+	dep_prods_list		97
+	desc		"VAD Velocity Azimuth Display: 8 level/5 kts"
+	type			0
+	alert			1
+	warehoused		0
+	path			kinematic/vad.lb
+	lb_n_msgs		70
+# NOTE: Final products are links to product data base.
+	max_size		96
+	params
+				2 0 70 2 1 "Altitude" "kft"
+    }
+
+    Product {
+	prod_id			111	VCSR8
+	prod_code		85
+	gen_task		vertxsct
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		50 50 50 50
+	n_dep_prods		1
+#	dependent products:	COMBBASE
+	dep_prods_list		96
+	desc		"RCS Cross Section (Reflectivity): 8 level/0.54 x 0.27 nm"
+	type			0
+	alert			1
+	warehoused		0
+	path			base/vcsr8.lb
+	lb_n_msgs		40
+# NOTE: Final products are links to product data base.
+	max_size		96
+	params
+				0 0 3599 0 10 "Azimuth Point 1" "Degrees"
+				1 0 1240 0 10 "Range Point 1"   "Nmiles"
+				2 0 3599 900 10 "Azimuth Point 2" "Degrees"
+				3 0 1240 1240 10 "Range Point 2"   "Nmiles"
+    }
+
+    Product {
+	prod_id			112	VCSV8
+	prod_code		86
+	gen_task		vertxsct
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		49 49 49 49
+	n_dep_prods		1
+#	dependent products:	COMBBASE
+	dep_prods_list		96
+	desc		"VCS Cross Section (Velocity): 8 level/0.54 x 0.27 nm"
+	type			0
+	alert			1
+	warehoused		0
+	path			base/vcsv8.lb
+	lb_n_msgs		40
+# NOTE: Final products are links to product data base.
+	max_size		96
+	params
+				0 0 3599 0 10 "Azimuth Point 1" "Degrees"
+				1 0 1240 0 10 "Range Point 1"   "Nmiles"
+				2 0 3599 900 10 "Azimuth Point 2" "Degrees"
+				3 0 1240 1240 10 "Range Point 2"   "Nmiles"
+    }
+
+    Product {  
+	prod_id			116	RFAVLYR3
+	prod_code		89
+	gen_task		lcrflct
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		40 40 40 40
+	n_dep_prods		1
+#	dependent products:	REFLDATA
+	dep_prods_list		79
+	desc		"LRA Layer Composite Reflectivity (Layer 3 Average): 8 level/2.2 nm"
+	type			0
+	alert			1
+	warehoused		0
+	path			precip/rfavlyr3.lb
+	lb_n_msgs		10
+# NOTE: Final products are links to product data base
+	max_size		96
+    }
+
+    Product {  
+	prod_id			117	RFMXLYR3
+	prod_code		90
+	gen_task		lcrflct
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		61 61 61 61
+	n_dep_prods		1
+#	dependent products:	REFLDATA
+	dep_prods_list		79
+	desc		"LRM Layer Composite Reflectivity (Layer 3 Maximum): 8 level/2.2 nm"
+	type			0
+	alert			1
+	warehoused		0
+	path			precip/rfmxlyr3.lb
+	lb_n_msgs		10
+# NOTE: Final products are links to product data base
+	max_size		96
+    }
+
+    Product {  
+	prod_id			119	CFCPROD
+	prod_code		34
+	gen_task		clutprod
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		99 99 99 99
+	n_dep_prods		0
+	dep_prods_list
+	desc		"CFC Clutter Filter Control: 8 level/0.54 nm"
+	type			4
+	alert			0
+	warehoused		0
+	path			hci/cfcprod.lb
+	lb_n_msgs		10
+# NOTE: Final products are links to product data base
+	max_size		96
+	params
+				0 2 32 2 0 "C(0) S(1-5)"  "Bit Map"
+    }
+
+    Product {
+	prod_id			122	CRPGAPE
+	prod_code		0
+	gen_task		cmprfape
+	wx_modes		7
+	disabled		0
+	n_priority		4
+        priority_list		3 3 3 3
+	n_dep_prods		1
+#	dependent products:	COMBBASE
+	dep_prods_list		96
+	desc		" Composite Reflectivity Polar Grid AP-Edited"
+	type			0
+	alert			0
+	warehoused		0
+	path			base/crpgape.lb
+	lb_n_msgs		5
+	max_size		331304
+    }
+
+    Product {  
+	prod_id			123	CRPAPE97
+	prod_code		97
+	gen_task		crapeprd
+	wx_modes		7
+	disabled		0
+	n_priority		4
+        priority_list		36 36 36 36
+	n_dep_prods		2
+#	dependent products	CRPGAPE COMBATTR
+	dep_prods_list		122 21
+	desc		"CRE Composite Reflectivity Edited for AP: 16 level/0.54 nm"
+	type			0
+	alert			1
+	warehoused		0
+	path			base/crpape97.lb
+	lb_n_msgs		10
+# NOTE: Final products are links to product database
+	max_size		96
+    }
+
+    Product {  
+	prod_id			124	CRPAPE95
+	prod_code		95
+	gen_task		crapeprd
+	wx_modes		7
+	disabled		0
+	n_priority		4
+        priority_list		35 35 35 35
+	n_dep_prods		2
+#	dependent products	CRPGAPE COMBATTR
+	dep_prods_list		122 21
+	desc		"CRE Composite Reflectivity Edited for AP: 8 level/0.54 nm"
+	type			0
+	alert			1
+	warehoused		0
+	path			base/crpape95.lb
+	lb_n_msgs		10
+# NOTE: Final products are links to product database
+	max_size		96
+    }
+
+    Product {  
+	prod_id			125	CRPAPE98
+	prod_code		98
+	gen_task		crapeprd
+	wx_modes		7
+	disabled		0
+	n_priority		4
+        priority_list		34 34 34 34
+	n_dep_prods		2
+#	dependent products	CRPGAPE COMBATTR
+	dep_prods_list		122 21
+	desc		"CRE Composite Reflectivity Edited for AP: 16 level/2.2 nm"
+	type			0
+	alert			1
+	warehoused		0
+	path			base/crpape98.lb
+	lb_n_msgs		10
+# NOTE: Final products are links to product database
+	max_size		96
+    }
+
+    Product {  
+	prod_id			126	CRPAPE96
+	prod_code		96
+	gen_task		crapeprd
+	wx_modes		7
+	disabled		0
+	n_priority		4
+        priority_list		33 33 33 33
+	n_dep_prods		2
+#	dependent products	CRPGAPE COMBATTR
+	dep_prods_list		122 21
+	desc		"CRE Composite Reflectivity Edited for AP: 8 level/2.2 nm"
+	type			0
+	alert			1
+	warehoused		0
+	path			base/crpape96.lb
+	lb_n_msgs		10
+# NOTE: Final products are links to product database
+	max_size		96
+    }
+
+    Product {  
+	prod_id			127	PRFOVLY
+	prod_code	        0	
+	gen_task		prfbmap
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		255 255 255 255
+	n_dep_prods		1
+#	dependent products:	REFLDATA
+	dep_prods_list		79
+	desc		" Obscuration Bit Map"
+	type			1
+	alert			0
+	warehoused		0
+	elev_index		2
+	path			hci/prfovly.lb
+	lb_n_msgs		10
+	max_size		92096
+	params
+				2 -20 3599 0 10 "Elevation" "Degrees"
+    }
+
+    Product {  
+	prod_id			129	POSEDRCM
+	prod_code	 	74	
+	gen_task		radcdmsg
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		65 65 65 65
+	n_dep_prods		5
+#	dependent products:	CRPG COMBATTR ETTAB VADTMHGT HYBRSCAN
+	dep_prods_list		91 21 30 97 101 
+	desc		"RCM Radar Coded Message"
+	type			0
+	alert			1
+	warehoused		0
+	path			msgs/posedrcm.lb
+	lb_n_msgs		10
+# NOTE: Final products are links to product data base
+	max_size		96
+    }
+
+    Product {  
+	prod_id			132	RECCLREF
+	prod_code	 	132	
+	gen_task		recclprods
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		70 70 70 70 70
+	n_dep_prods		1
+#	dependent products:	RECCLDIGREF
+	dep_prods_list		298
+	desc		"CLR Clutter Likelihood Reflectivity: 11 level/0.54 nm"
+	type			1
+	alert			0
+	warehoused		0
+	elev_index		2
+	path			base/recclprodsref.lb
+	lb_n_msgs		10
+# NOTE: Final products are links to product data base
+	max_size		96
+	params
+				2 -20 3599 0 10 "Elevation" "Degrees"
+    }
+    
+    Product {  
+	prod_id			133	RECCLDOP
+	prod_code	 	133	
+	gen_task		recclprods
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		70 70 70 70 70
+	n_dep_prods		1
+#	dependent products:	RECCLDIGDOP
+	dep_prods_list		299
+	desc		"CLD Clutter Likelihood Doppler: 12 level/0.54 nm"
+	type			1
+	alert			0
+	warehoused		0
+	elev_index		2
+	path			base/recclprodsdop.lb
+	lb_n_msgs		10
+# NOTE: Final products are links to product data base
+	max_size		96
+	params
+				2 -20 3599 0 10 "Elevation" "Degrees"
+    }
+
+    Product {  
+        prod_id                 134       HRVIL
+        prod_code               134
+        gen_task                hiresvil
+        compression             1
+        wx_modes                7
+        disabled                0
+        n_priority              4
+        priority_list           80 80 80 80
+        n_dep_prods             1
+#       dependent products:     DQA
+        dep_prods_list          297      
+        desc            "DVL High Resolution Digital VIL: 256 level/0.54 nm"
+        type                    0
+        alert                   1
+        warehoused              0
+        path                    precip/hrvil.lb
+        lb_n_msgs               10
+# Note: Final products are links to product database.
+        max_size                96
+    }
+
+    Product {  
+	prod_id			135       HREET
+	prod_code		135
+	gen_task                hireseet
+	wx_modes		7
+	disabled                0
+	n_priority              4
+	priority_list		80 80 80 80
+	format_type             2
+	x_azi_res               3600
+	y_ran_res               460
+	n_dep_prods		1
+#	dependent products:	DQA
+	dep_prods_list		297
+	desc            "EET Enhanced Echo Tops: 71 level/0.54 nm"
+	type			0
+	alert			1
+	warehoused		0
+	compression		1
+	path			precip/hreet.lb
+	lb_n_msgs		10
+# Note: Final products are links to product database.
+	max_size		96
+    }
+
+    Product {
+        prod_id                 136     SUPEROBVEL
+        prod_code               136
+        compression		1
+        gen_task                superob_vel
+        wx_modes                7
+        disabled                0
+        n_priority              4
+        priority_list           89 89 89 89
+        n_dep_prods             1
+#       dependent products:     COMBBASE
+        dep_prods_list          96
+        desc            "SO Superob:  NCEP Winds Model Initialization"
+        type                    0
+        alert                   0
+        warehoused              0
+        path                    base/superob_vel.lb
+        lb_n_msgs               10
+# Note: Final products are links to product database.
+        max_size                96
+    }
+
+    Product {  
+	prod_id			137	ULRDATA	
+	prod_code		137	
+	gen_task		user_sel_LRM
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		65 65 65 65
+	n_dep_prods		1
+#	dependent products:	REFLDATA
+	dep_prods_list		79
+	desc		"ULR User Selectable Layer Composite Reflectivity (Maximum)"
+	type			0
+	alert			0
+	warehoused		0
+	path			precip/ulrdata.lb	
+	lb_n_msgs		10
+# NOTE: Final products are links to product data base.
+	max_size		96
+	params
+		0 0 69 15 1 "bottom boundary" "kft"
+		1 1 70 40 1 "top boundary" "kft"
+    }
+
+    Product {
+        prod_id                 138    HYDIGSTM
+        prod_code               138
+        gen_task                prcpprod
+        wx_modes                7
+        disabled                0
+        n_priority              4
+        priority_list           80 80 80 80
+        compression             1
+        n_dep_prods             1
+#       dependent products:     HYADJSCN
+        dep_prods_list          104
+        desc            "DSP Digital Storm Total Rainfall Accumulation: 256 level/1.1 nm"
+        type                    0
+        alert                   0
+        warehoused              0
+        path                    precip/hydigstm.lb
+        lb_n_msgs               10
+# NOTE: Final products are links to product data base.
+        max_size                96
+    }
+
+    Product {  
+	prod_id                 140      MIGFA
+	prod_code               140
+	gen_task                nexradMigfa
+	wx_modes                7
+	disabled                0
+	n_priority              4
+	priority_list           90 90 90 90
+	n_dep_prods             1
+#	dependent products:     COMBBASE_ELEV
+	dep_prods_list         303 
+	desc        "GFM Gust Front MIGFA"
+	type                    0
+	alert                   1
+	warehoused              0
+#	elev_index              2
+	compression             0
+	path                    kinematic/migfa.lb
+	lb_n_msgs               10
+# Note: Final products are links to product database.
+	max_size                        96
+    }
+
+    Product {
+	prod_id			141	MDAPROD
+	prod_code		141
+	gen_task		mdaprod
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		87 87 87 87
+	n_dep_prods		1
+#	dependent products	MDATTNN
+	dep_prods_list		295
+	desc			"MD Mesocyclone Detection Product"
+	type			0
+	alert			1
+	warehoused		0
+	path			kinematic/mdprod.lb
+	lb_n_msgs		10
+	max_size		96
+# NOTE: Final products are links to product data base
+    }
+
+    Product {
+	prod_id			143	TRU
+	prod_code		143
+	gen_task		tdaruprod
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		70 70 70 70
+	n_dep_prods		2
+#	dependent products:	TVSATR_RU MDATTNN TRFRCATR
+	dep_prods_list		290 295 50
+	desc			"TRU Tornado Detection Rapid Update Product"
+	type			1
+	alert			0
+	warehoused		0
+	elev_index		2
+	path			kinematic/tdaruprod.lb
+	lb_n_msgs		20
+# NOTE: Final products are links to product data base
+	max_size		96
+	params
+				2 -20 3599 0 10 "Elevation" "Degrees"
+    }
+
+    Product {
+	prod_id			144	OSWACCUM
+	prod_code		144
+	gen_task		saaprods
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		81 81 81 81
+	n_dep_prods		1
+#	dependent products:	SAAACCUM
+	dep_prods_list		280
+	desc			"OSW One-hour Snow Accum (Water Equiv.): 16 level/0.54 nm"
+	type			0
+	alert			0
+	warehoused		0
+	path			snow/oswaccum.lb
+	lb_n_msgs		10
+# NOTE: Final products are links to product data base.
+	max_size		96
+    }
+
+    Product {
+	prod_id			145	OSDACCUM
+	prod_code		145
+	gen_task		saaprods
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		77 77 77 77
+	n_dep_prods		1
+#	dependent products:	SAAACCUM
+	dep_prods_list		280
+	desc			"OSD One-hour Snow Accum (Depth): 16 level/0.54 nm"
+	type			0
+	alert			0
+	warehoused		0
+	path			snow/osdaccum.lb
+	lb_n_msgs		10
+# NOTE: Final products are links to product data base.
+	max_size		96
+    }
+
+    Product {
+	prod_id			146	SSWACCUM
+	prod_code		146
+	gen_task		saaprods
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		78 78 78 78
+	n_dep_prods		1
+#	dependent products:	SAAACCUM
+	dep_prods_list		280
+	desc			"SSW Storm Total Snow Accum (Water Equiv.): 16 level/0.54 nm"
+	type			0
+	alert			0
+	warehoused		0
+	path			snow/sswaccum.lb
+	lb_n_msgs		10
+# NOTE: Final products are links to product data base.
+	max_size		96
+    }
+
+    Product {
+	prod_id			147	SSDACCUM
+	prod_code		147
+	gen_task		saaprods
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		80 80 80 80
+	n_dep_prods		1
+#	dependent products:	SAAACCUM
+	dep_prods_list		280
+	desc			"SSD Storm Total Snow Accum (Depth): 16 level/0.54 nm"
+	type			0
+	alert			0
+	warehoused		0
+	path			snow/ssdaccum.lb
+	lb_n_msgs		10
+# NOTE: Final products are links to product data base.
+	max_size		96
+    }
+
+    Product {
+	prod_id			149	DMDPROD
+	prod_code		149
+	gen_task		mdaprod
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		87 87 87 87
+	compression		1
+	n_dep_prods		1
+#	dependent products	MDATTNN
+	dep_prods_list		295
+	desc			"DMD Mesocyclone Detection Data Array Product"
+	type			1
+	alert			0
+	warehoused		0
+	elev_index		2
+	path			kinematic/dmdprod.lb
+	lb_n_msgs		40
+	max_size		96
+	params
+				2 -20 3599 0 10 "Elevation" "Degrees"
+# NOTE: Final products are links to product data base
+    }
+
+    Product {
+	prod_id			150	USWACCUM
+	prod_code		150
+	gen_task		saausers
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		79 79 79 79
+	n_dep_prods		1
+#	dependent products:	SAAACCUM
+	dep_prods_list		280
+	desc			"USW User Selectable Snow Accum (Water Equiv.): 16 level/0.54 nm"
+	type			0
+	alert			0
+	warehoused		0
+	path			snow/uswaccum.lb
+	lb_n_msgs		48
+# NOTE: Final products are links to product data base.
+	max_size		96
+	params
+                                0 0 23 12 1 "End Hour" "Hours"
+                                1 1  30 24 1 "Time Duration" "Hours"
+    }
+
+    Product {
+	prod_id			151	USDACCUM
+	prod_code		151
+	gen_task		saausers
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		79 79 79 79
+	n_dep_prods		1
+#	dependent products:	SAAACCUM
+	dep_prods_list		280
+	desc			"USD User Selectable Snow Accum (Depth): 16 level/0.54 nm"
+	type			0
+	alert			0
+	warehoused		0
+	path			snow/usdaccum.lb
+	lb_n_msgs		48
+# NOTE: Final products are links to product data base.
+	max_size		96
+	params
+				0 0 23 12 1 "End Hour" "Hours"
+				1 1  30 24 1 "Time Duration" "Hours"
+   }
+
+   Product {
+        prod_id                 152     STATPROD
+        prod_code               152
+        gen_task                status_prod
+        wx_modes                7
+        disabled                0
+	compression		1
+        n_priority              4
+        priority_list           255 255 255 255
+        n_dep_prods             0
+        desc                    "ASP Archive III Status Product"
+        type                    3
+        alert                   0
+        warehoused              0
+        path                    msgs/status_product.lb
+        lb_n_msgs               10
+# NOTE: Final products are links to product data base.
+        max_size                96
+
+   }
+
+   Product {  
+	prod_id			153	SR_BREF8BIT
+	prod_code		153
+	gen_task		superes8bit
+	wx_modes		7
+	disabled		0
+	compression		1
+	n_priority		4
+        priority_list		70 70 70 70    
+	n_dep_prods		1
+#       dependent_products:     SR_BASEDATA
+        dep_prods_list		76
+	desc		"SDR Super Resolution Reflectivity Data Array Product: 256 level/0.13 nm"
+	type			1
+	alert			0
+        warehoused		0
+	elev_index		2
+	path			base/sr_bref8bit.lb
+	lb_n_msgs		40
+# NOTE: Final products are links to product data base
+	max_size		96
+	params
+				2 -20 3599 0 10 "Elevation" "Degrees"
+   }
+
+   Product {
+        prod_id                 154     SR_BVEL8BIT
+        prod_code               154
+        gen_task                superes8bit
+        wx_modes                7
+        disabled                0
+        compression             1
+        n_priority              4
+        priority_list           70 70 70 70    
+        n_dep_prods             1
+#       dependent_products:     SR_BASEDATA
+        dep_prods_list          76
+        desc            "SDV Super Resolution Velocity Data Array Product: 256 level/0.13 nm"
+        type                    1
+        alert                   0
+        warehoused              0
+        elev_index              2
+        path                    base/sr_bvel8bit.lb
+        lb_n_msgs               40
+# NOTE: Final products are links to product data base
+        max_size                96
+        params
+                                2 -20 3599 0 10 "Elevation" "Degrees"
+   }
+
+   Product {
+        prod_id                 155     SR_BWID8BIT
+        prod_code               155
+        gen_task                superes8bit
+        wx_modes                7
+        disabled                0
+        compression             1
+        n_priority              4
+        priority_list           70 70 70 70    
+        n_dep_prods             1
+#       dependent_products:     SR_BASEDATA
+        dep_prods_list          76
+        desc            "SDW Super Resolution Spectrum Width Data Array Product: 256 level/0.13 nm"
+        type                    1
+        alert                   0
+        warehoused              0
+        elev_index              2
+        path                    base/sr_bspw8bit.lb
+        lb_n_msgs               40
+# NOTE: Final products are links to product data base
+        max_size                96
+        params
+                                2 -20 3599 0 10 "Elevation" "Degrees"
+   }
+
+   Product {
+        prod_id                 156     NTDA_EDR
+        prod_code               156
+        gen_task                ntda_fp
+        wx_modes                7
+        disabled                0
+        compression             1
+        n_priority              4
+        priority_list           55 55 55 55
+        n_dep_prods             3
+#       dependent products:     NTDA_EDR_IP NTDA_CONF_IP NTDA_CONF
+        dep_prods_list          315 316 157
+        desc                    "EDR NTDA Eddy Dissipation Rate Product"
+        type                    1
+        alert                   0
+        warehoused              0
+        elev_index              2
+        path                    kinematic/ntda_edr.lb
+        lb_n_msgs               40
+        max_size                124952
+        params
+                                2 -20 3599 0 10 "Elevation" "Degrees"
+   }
+
+   Product {
+        prod_id                 157     NTDA_CONF
+        prod_code               157
+        gen_task                ntda_fp
+        wx_modes                7
+        disabled                0
+        compression             1
+        n_priority              4
+        priority_list           55 55 55 55
+        n_dep_prods             2
+#       dependent products:     NTDA_EDR_IP NTDA_CONF_IP
+        dep_prods_list          315 316
+        desc                    "EDC NTDA Eddy Dissipation Confidence Product"
+        type                    1
+        alert                   0
+        warehoused              0
+        elev_index              2
+        path                    kinematic/ntda_conf.lb
+        lb_n_msgs               40
+        max_size                124952
+        params
+                                2 -20 3599 0 10 "Elevation" "Degrees"
+    }
+
+    Product {
+	prod_id			158	ZDR4BIT
+	prod_code		158
+	gen_task		dualpol4bit
+	wx_modes		7
+	disabled		0
+	compression		0
+	n_priority		4
+	priority_list		35 35 35 35
+	n_dep_prods		1
+#	dependent_products:	DP_BASE_HC_AND_ML
+	dep_prods_list		321
+	desc	"ZDR Differential Reflectivity Product: 16 level/0.54 nm"
+	type			1
+	alert			0
+	warehoused		0
+	elev_index		2
+	path			base/zdr4bit.lb
+	lb_n_msgs		40
+# NOTE: Final products are links to product data base
+	max_size		96
+	params
+				2 -20 3599 0 10 "Elevation" "Degrees"
+    }
+
+    Product {
+	prod_id			159	ZDR8BIT
+	prod_code		159
+	gen_task		dualpol8bit
+	wx_modes		7
+	disabled		0
+	compression		1
+	n_priority		4
+	priority_list		35 35 35 35
+	n_dep_prods		1
+#	dependent_products:	DP_BASE_HC_AND_ML
+	dep_prods_list		321
+	desc	"DZD Differential Reflectivity Data Array Product: 256 level/0.13 nm"
+	type			1
+	alert			0
+	warehoused		0
+	elev_index		2
+	path			base/zdr8bit.lb
+	lb_n_msgs		40
+# NOTE: Final products are links to product data base
+	max_size		96
+	params
+				2 -20 3599 0 10 "Elevation" "Degrees"
+    }
+
+    Product {
+      prod_id                 160     CC4BIT
+      prod_code               160
+      gen_task                dualpol4bit
+      wx_modes                7
+      disabled                0
+      compression             0
+      n_priority              4
+      priority_list           35 35 35 35
+      n_dep_prods             1
+#     dependent_products:     DP_BASE_HC_AND_ML
+      dep_prods_list          321
+      desc              "CC Correlation Coefficient Product: 16 level/0.54 nm"
+      type                    1
+      alert                   0
+      warehoused              0
+      elev_index              2
+      path                    base/cc4bit.lb
+      lb_n_msgs               40
+# NOTE: Final products are links to product data base
+      max_size                96
+      params
+                       2 -20 3599 0 10 "Elevation" "Degrees"
+    }
+
+    Product {
+        prod_id                 161     CC8BIT
+        prod_code               161
+        gen_task                dualpol8bit
+        wx_modes                7
+        disabled                0
+        compression             1
+        n_priority              4
+        priority_list           35 35 35 35
+        n_dep_prods             1
+#       dependent_products: DP_BASE_HC_AND_ML
+        dep_prods_list        321
+        desc            "DCC Correlation Coefficient Data Array Product: 256 level/0.13 nm"
+        type                    1
+        alert                   0
+        warehoused              0
+        elev_index              2
+        path                    base/cc8bit.lb
+        lb_n_msgs              40
+# NOTE: Final products are links to product data base
+        max_size               96
+        params
+                                2 -20 3599 0 10 "Elevation" "Degrees"
+    }
+
+    Product {
+      prod_id                 162     KDP4BIT
+      prod_code               162
+      gen_task                dualpol4bit
+      wx_modes                7
+      disabled                0
+      compression             0
+      n_priority              4
+      priority_list           35 35 35 35
+      n_dep_prods             1
+#     dependent_products:      DP_BASE_HC_AND_ML
+      dep_prods_list          321
+      desc           "KDP Specific Differential Phase Product: 16 level/0.54 nm"
+      type                    1
+      alert                   0
+      warehoused              0
+      elev_index              2
+      path                    base/kdp4bit.lb
+      lb_n_msgs               40
+# NOTE: Final products are links to product data base
+      max_size                96
+      params
+                2 -20 3599 0 10 "Elevation" "Degrees"
+    }
+
+    Product {
+        prod_id               163     KDP8BIT
+        prod_code             163
+        gen_task              dualpol8bit
+        wx_modes                7
+        disabled                0
+        compression             1
+        n_priority              4
+        priority_list           35 35 35 35
+        n_dep_prods             1
+#       dependent_products: DP_BASE_HC_AND_ML
+        dep_prods_list        321
+        desc            "DKD Specific Differential Phase Data Array Product: 256 level/0.13 nm"
+        type                    1
+        alert                   0
+        warehoused              0
+        elev_index              2
+        path                    base/kdp8bit.lb
+        lb_n_msgs              40
+# NOTE: Final products are links to product data base
+        max_size               96
+        params
+                                2 -20 3599 0 10 "Elevation" "Degrees"
+    }
+
+    Product {
+      prod_id                164    HC4BIT
+      prod_code              164
+      gen_task               dualpol4bit
+      wx_modes                 7
+      disabled                 0
+      compression              0
+      n_priority               4
+      priority_list           35 35 35 35
+      n_dep_prods              1
+#     dependent_products:    DP_BASE_HC_AND_ML
+      dep_prods_list         321
+      desc      "HC Hydrometeor Classification Product: 16 level/0.54 nm"
+      type                     1
+      alert                    0
+      warehoused               0
+      elev_index               2
+      path                     base/hc4bit.lb
+      lb_n_msgs               40
+# NOTE: Final products are links to product data base
+      max_size                96
+      params
+               2 -20 3599 0 10 "Elevation" "Degrees"
+    }
+
+    Product {
+        prod_id            165     HC8BIT
+        prod_code          165
+        gen_task           dualpol8bit
+        wx_modes             7
+        disabled             0
+        compression          1
+        n_priority           4
+        priority_list         35 35 35 35
+        n_dep_prods          1
+#     dependent_products: DP_BASE_HC_AND_ML
+        dep_prods_list     321
+        desc            "DHC Hydrometeor Classification Data Array Product: 256 level/0.13 nm"
+        type                 1
+        alert                0
+        warehoused           0
+        elev_index           2
+        path                 base/hc8bit.lb
+        lb_n_msgs           40
+# NOTE: Final products are links to product data base
+        max_size            96
+        params
+                             2 -20 3599 0 10 "Elevation" "Degrees"
+    }
+
+    Product {
+        prod_id                 166     MLPROD
+        prod_code               166
+        gen_task                mlprod
+        wx_modes                  7
+        disabled                  0
+        compression               0
+        n_priority                4
+        priority_list           35 35 35 35
+        n_dep_prods               1
+#       dependent_products:  DP_BASE_HC_AND_ML
+        dep_prods_list          321
+        desc            "ML Melting Layer Contours: 4 contours/0.13 nm"
+        type                      1
+        alert                     0
+        warehoused                0
+        elev_index                2
+        path                      base/mlprod.lb
+        lb_n_msgs                40
+# NOTE: Final products are links to product data base
+        max_size                 96
+        params
+                                2 -20 3599 0 10 "Elevation" "Degrees"
+    }
+
+    Product {
+        prod_id                 169     OHAPROD
+        prod_code               169
+        gen_task                dp_precip_4bit
+        wx_modes                7
+        disabled                0
+        n_priority              4
+        priority_list           89 89 89 89
+        n_dep_prods             1
+#        dependent products:     DP_LT_ACCUM
+        dep_prods_list          411
+        desc            "OHA Dual Pol One Hour Accumulation 16 Data Levels"
+        type                    0
+        alert                   5
+        warehoused              0
+        path                    precip/ohaprod.lb
+        lb_n_msgs               10
+# Note: Final products are links to product database.
+        max_size                96
+    }
+
+    Product {
+        prod_id                 170     DAAPROD
+        prod_code               170
+        gen_task                dp_precip_8bit
+        wx_modes                7
+        disabled                0
+        n_priority              4
+        priority_list           89 89 89 89
+        n_dep_prods             1
+#        dependent products:     DP_LT_ACCUM
+        dep_prods_list          411
+        desc            "DAA Dual Pol Digital Accumulation Array 256 Data Levels"
+        type                    0
+        alert                   5
+        warehoused              0
+        compression             1
+        path                    precip/daaprod.lb
+        lb_n_msgs               10
+# Note: Final products are links to product database.
+        max_size                96
+    }
+
+    Product {
+        prod_id                 171     STAPROD
+        prod_code               171
+        gen_task                dp_precip_4bit
+        wx_modes                7
+        disabled                0
+        n_priority              4
+        priority_list           89 89 89 89
+        n_dep_prods             1
+#        dependent products:     DP_LT_ACCUM
+        dep_prods_list          411
+        desc            "STA Dual Pol Storm Total Accumulation 16 Data Levels"
+        type                    0
+        alert                   5
+        warehoused              0
+        path                    precip/staprod.lb
+        lb_n_msgs               10
+# Note: Final products are links to product database.
+        max_size                96
+    }
+
+    Product {
+        prod_id                 172     DSAPROD
+        prod_code               172
+        gen_task                dp_precip_8bit
+        wx_modes                7
+        disabled                0
+        n_priority              4
+        priority_list           89 89 89 89
+        n_dep_prods             1
+#        dependent products:     DP_LT_ACCUM
+        dep_prods_list          411
+        desc            "DSA Dual Pol Digital Storm Total Accumulation 256 Data Levels"
+        type                    0
+        alert                   5
+        warehoused              0
+        compression             1
+        path                    precip/dsaprod.lb
+        lb_n_msgs               10
+# Note: Final products are links to product database.
+        max_size                96
+    }
+
+    Product {
+        prod_id                 173     DUAPROD
+        prod_code               173
+        gen_task                dp_dua_accum
+        wx_modes                7
+        disabled                0
+        n_priority              4
+        priority_list           89 89 89 89
+        dependent products:     DP_S2S_ACCUM
+        n_dep_prods             1
+#        dependent products:     DP_S2S_ACCUM
+        dep_prods_list          410
+        desc                    "DUA Dual Pol Digital User Selectable Accumulation Product"
+        type                    0
+        alert                   0
+        warehoused              0
+        compression             1
+        path                    precip/duaprod.lb
+        lb_n_msg                10
+# Note: Final products are links to product data base.
+        max_size                96
+        params
+                0 -1 1439 -1 1 "end time" "minutes"
+                1 15 1440 60 1 "time span" "minutes"
+   }
+
+    Product {
+        prod_id                 174     DODPROD
+        prod_code               174
+        gen_task                dp_precip_8bit
+        wx_modes                7
+        disabled                0
+        n_priority              4
+        priority_list           89 89 89 89
+        n_dep_prods             1
+#        dependent products:     DP_LT_ACCUM
+        dep_prods_list          411
+        desc            "DOD Dual Pol Digital One-Hour Difference Accum 256 Data Levels"
+        type                    0
+        alert                   5
+        warehoused              0
+        compression             1
+        path                    precip/dodprod.lb
+        lb_n_msgs               10
+# Note: Final products are links to product database.
+        max_size                96
+    }
+
+    Product {
+        prod_id                 175     DSDPROD
+        prod_code               175
+        gen_task                dp_precip_8bit
+        wx_modes                7
+        disabled                0
+        n_priority              4
+        priority_list           89 89 89 89
+        n_dep_prods             1
+#        dependent products:     DP_LT_ACCUM
+        dep_prods_list          411
+        desc            "DSD Dual Pol Digital Storm Total Difference Accum 256 Data Levels"
+        type                    0
+        alert                   5
+        warehoused              0
+        compression             1
+        path                    precip/dsdprod.lb
+        lb_n_msgs               10
+# Note: Final products are links to product database.
+        max_size                96
+    }
+
+    Product {
+        prod_id                 176     DPRPROD
+        prod_code               176
+        gen_task                qperate
+        wx_modes                7
+        disabled                0
+        n_priority              4
+        priority_list           82 82 82 82
+        n_dep_prods             1
+#        dependent products:     DP_MOMENTS_ELEV
+        dep_prods_list          406
+        desc            "DPR Digital Precipitation Rate Data: 65536 level/ 0.13 nm"
+        type                    0
+        alert                   5
+        warehoused              0
+        path                    precip/dprprod.lb
+        compression             1
+        lb_n_msgs               10
+# NOTE: Final products are links to product data base.
+        max_size                96
+    }
+
+    Product {
+      prod_id           177    HHC8BIT
+      prod_code         177
+      gen_task           hhc8bit
+      wx_modes           7
+     disabled          0
+      compression       1
+      n_priority        4
+      priority_list     35 35 35 35
+      n_dep_prods       1
+      dependent_products:    QPEHHC
+      dep_prods_list         312
+      desc      "HHC Hybrid Hydrometeor Classification Data Array Product: 256 level/0.13 nm"
+      type              0
+      alert             0
+      warehoused        0
+      path              precip/hhc8bit.lb
+      lb_n_msgs         40
+# NOTE: Final products are links to product data base
+      max_size          96
+    }
+
+    Product {
+     prod_id             178  IHL
+     prod_code           178
+     gen_task            icing_hazard
+     compression         1
+     wx_modes            7
+     disabled            0
+     n_priority          4
+     priority_list       80 80 80 80
+     n_dep_prods         1
+#    dependent products: HCA
+     dep_prods_list      321
+     desc       "IHL Icing Hazard Level"
+     type                0
+     alert               1
+     warehoused          0
+     path                precip/ihl.lb
+     lb_n_msgs           10
+# NOTE: Final products are links to product database.
+     max_size            96
+    }
+
+   Product {
+    prod_id              179  HHL
+    prod_code            179
+    gen_task             hail_hazard
+    compression          1
+    wx_modes             7
+    disabled             0
+    n_priority           4
+    priority_list        80 80 80 80
+    n_dep_prods          1
+#   dependent products:  HCA
+    dep_prods_list       321
+    desc                 "HHL Hail Hazard Layer"
+    type                 0
+    alert                1
+    warehoused           0
+    path                 precip/hhl.lb
+    lb_n_msgs            10
+# NOTE: Final products are links to product database.
+    max_size             96
+   }
+
+    Product {
+        prod_id                 195       DRQ
+        prod_code               195
+        gen_task                dqa_elev
+        compression             1
+        wx_modes                7
+        disabled                0
+        n_priority              4
+        priority_list           80 80 80 80
+        n_dep_prods             1
+#       dependent products:     DQA
+        dep_prods_list          297
+        desc            "DRQ Base Reflectivity Data Array Edited with DQA: 256 level/0.54 nm"
+        type                    1
+        alert                   1
+        warehoused              0
+        elev_index              2
+        path                    precip/dqa_elev.lb
+        lb_n_msgs               10
+# Note: Final products are links to product database.
+        max_size                96
+        params
+                                2 -20 3599 0 10 "Elevation" "Degrees"
+    }
+
+    Product {
+        prod_id             196  AMDA
+        prod_code           196
+        gen_task            nexradAmda
+        wx_modes            7
+        disabled            0
+        n_priority          4
+        priority_list       90 90 90 90
+        n_dep_prods         1
+#  dependent products: COMBBASE_ELEV 
+        dep_prods_list      310
+        desc       "MBA MicroBurst Detection"
+        type                0
+        alert               1
+        warehoused          0
+        compression         0
+        path                kinematic/amda.lb
+        lb_n_msgs           10
+# NOTE: Final products are links to product database.
+        max_size            96
+    }
+
+    Product {
+        prod_id                 276      SR_BASEDATA
+        class_id                276      SR_BASEDATA
+        class_mask              224     (REFLDATA_TYPE | COMBBASE_TYPE | BASEDATA_TYPE)
+        prod_code               0
+        gen_task                a_recomb
+        wx_modes                7
+        disabled                0
+        n_priority              4
+        priority_list           255 255 255 255
+        n_dep_prods             0
+        dep_prods_list
+        desc            " Super Resolution Base Data"
+        type                    5
+        alert                   0
+        warehoused              0
+#       warehoused              1200
+#       warehouse_id            8022    ORPGDAT_BASEDATA_REPLAY
+#       warehouse_acct_id       8023    ORPGDAT_BASEDATA_ACCT
+        path                    base/sr_azi_rec_basedata.lb
+        lb_n_msgs               1200
+        lb_types                "LB_MEMORY LB_DIRECT LB_SINGLE_WRITER"
+        max_size                16800
+    }
+
+    Product {
+        prod_id                 277      SR_COMBBASE
+        class_id                276      SR_BASEDATA
+        class_mask              192     (COMBBASE_TYPE | BASEDATA_TYPE)
+        prod_code               0
+        gen_task                a_recomb
+        wx_modes                7
+        disabled                0
+        n_priority              4
+        priority_list           255 255 255 255
+        n_dep_prods             0
+        dep_prods_list
+        desc            " Super Resolution Combined Base Base Data"
+        type                    5
+        alert                   0
+        warehoused              0
+#       warehoused              1200
+#        warehouse_id            8022    ORPGDAT_BASEDATA_REPLAY
+#        warehouse_acct_id       8023    ORPGDAT_BASEDATA_ACCT
+        path                    base/sr_azi_rec_basedata.lb
+        max_size                0
+    }
+
+    Product {
+        prod_id                 278      SR_REFLDATA
+        class_id                276      SR_BASEDATA
+        class_mask              160     (REFLDATA_TYPE | BASEDATA_TYPE)
+        prod_code               0
+        gen_task                a_recomb
+        wx_modes                7
+        disabled                0
+        n_priority              4
+        priority_list           255 255 255 255
+        n_dep_prods             0
+        dep_prods_list
+        desc            " Super Resolution Reflectivity Data"
+        type                    5
+        alert                   0
+        warehoused              0
+#       warehoused              1200
+#        warehouse_id            8022    ORPGDAT_BASEDATA_REPLAY
+#        warehouse_acct_id       8023    ORPGDAT_BASEDATA_ACCT
+        path                    base/sr_azi_rec_basedata.lb
+        max_size                0
+    }
+
+
+    Product {
+	prod_id			280	SAAACCUM
+	prod_code		0
+	gen_task		snowaccum
+	wx_modes		7
+	disabled		0
+	compression		2
+	n_priority		4
+	priority_list		255 255 255 255
+	n_dep_prods		1
+#	dependent products:	HYBRSCAN
+	dep_prods_list		101
+	desc			" Snow Algorithm Accumulations One Hour and Storm Total"
+	type			0
+	alert			0
+	warehoused		0
+	path			snow/saaaccum.lb
+	lb_n_msgs		5
+# NOTE: Final products are links to product data base.
+	max_size		665000
+    }
+
+    Product {
+	prod_id			290	TVSATR_RU
+	prod_code		0
+	gen_task		tda2d3dru
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		3 3 3 3
+	n_dep_prods		1
+#	dependent products:	TDA1DATR
+	dep_prods_list		46
+	desc			" Tornado Detection Algorithm 2D/3D Elev Based"
+	type			1
+	alert			0
+	warehoused		1200
+	path			kinematic/tda2d3dru.lb
+	lb_n_msgs		5
+	max_size		10000
+    }
+
+    Product {
+	prod_id			292	MDA1D
+	prod_code		0
+	gen_task		mda1d
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		87 87 87 87
+	compression		2
+	n_dep_prods		1
+#	dependent products:	SR_COMBBASE
+	dep_prods_list		76
+	desc			" Mesocyclone Detection Algorithm 1D for Super-Res"
+	type			1
+	alert			0
+	warehoused		0
+	path			kinematic/mda1d.lb
+	lb_n_msgs		10
+# NOTE: Final products are links to product data base
+	max_size		300100
+    }
+
+    Product {
+	prod_id			293	MDA2D
+	prod_code		0
+	gen_task		mda2d
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		87 87 87 87
+	compression		2
+	n_dep_prods		1
+#	dependent products	MDA1D
+	dep_prods_list		292
+	desc			" Mesocyclone Detection Algorithm 2D"
+	type			1
+	alert			0
+	warehoused		0
+	path			kinematic/mda2d.lb
+	lb_n_msgs		10
+	max_size		50100
+# NOTE: Final products are links to product data base
+    }
+
+    Product {
+	prod_id			294	MDA3D
+	prod_code		0
+	gen_task		mda3d
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		87 87 87 87
+	compression		2
+	n_dep_prods		1
+#	dependent products	MDA2D
+	dep_prods_list		293
+	desc			" Mesocyclone Detection Algorithm 3D"
+	type			1
+	alert			0
+	warehoused		0
+	path			kinematic/mda3d.lb
+	lb_n_msgs		40
+	max_size		300100
+# NOTE: Final products are links to product data base
+    }
+
+    Product {
+	prod_id			295	MDATTNN
+	prod_code		0
+	gen_task		mdattnn
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		87 87 87 87
+	compression		2
+	n_dep_prods		1
+#	dependent products	MDA3D
+	dep_prods_list		294
+	desc			" MDA Track, Trend, Neural Network"
+	type			1
+	alert			0
+	warehoused		0
+	path			kinematic/mdattnn.lb
+	lb_n_msgs		40
+# NOTE: Final products are links to product data base
+	max_size		81000
+    }
+
+    Product {
+        prod_id                 297       DQA
+        prod_code               0
+        gen_task                data_qual
+        wx_modes                7
+        disabled                0
+        n_priority              4
+        priority_list           89 89 89 89
+        n_dep_prods             1
+#       dependent products:     COMBBASE
+        dep_prods_list          96
+        desc            "DQA Edited Reflectivity Data"
+        type                    1
+        alert                   0
+        warehoused              0
+	compression		2
+        path                    precip/dqa.lb
+        lb_n_msgs               20
+        max_size                450000
+
+    }
+
+    Product {  
+	prod_id			298	RECCLDIGREF
+	prod_code	 	0	
+	gen_task		recclalg
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		88 88 88 88
+	n_dep_prods		1
+#	dependent products:	BASEDATA
+	dep_prods_list		55
+	desc	" Clutter Likelihood Reflectivity: 100 level/0.54 nm"
+	type			1
+	alert			0
+	warehoused		0
+	elev_index		2
+	compression		2
+	path			base/recclalgref.lb
+	lb_n_msgs		20
+# NOTE: Final products are links to product data base
+	max_size		191000
+	params
+				2 -20 3599 0 10 "Elevation" "Degrees"
+    }
+     
+    Product {  
+	prod_id			299	RECCLDIGDOP
+	prod_code	 	0
+	gen_task		recclalg
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		88 88 88 88
+	n_dep_prods		1
+#	dependent products:	BASEDATA
+	dep_prods_list		55
+	desc	" Clutter Likelihood Reflectivity: 100 level/0.13 nm"
+	type			1
+	alert			0
+	warehoused		0
+	elev_index		2
+	compression		2
+	path			base/recclalgdop.lb
+	lb_n_msgs		20
+# NOTE: Final products are links to product data base
+	max_size		743000
+	params
+				2 -20 3599 0 10 "Elevation" "Degrees"
+    } 
+      
+    Product {  
+	prod_id			301     BASEDATA_ELEV
+        class_id                301     BASEDATA_ELEV
+        class_mask              224     (REFLDATA_TYPE | COMBBASE_TYPE | BASEDATA_TYPE)
+	prod_code		0 
+	gen_task		elev_prod
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		89 89 89 89
+	n_dep_prods		0
+#	dependent products:	
+	dep_prods_list		
+	desc		" Base Data Elevation Product"
+	type			1
+	alert			0
+	warehoused		0
+	elev_index		2
+	compression		2
+	path			base/basedata_elev.lb
+	lb_n_msgs		20
+# Note: Final products are links to product database.
+	max_size		1000000
+	params
+				2 -20 3599 0 10 "Elevation" "Degrees"
+    }
+
+    Product {  
+	prod_id			302     REFLDATA_ELEV
+        class_id                301     BASEDATA_ELEV
+        class_mask              160     (REFLDATA_TYPE | BASEDATA_TYPE)
+	prod_code		0 
+	gen_task		elev_prod
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		89 89 89 89
+	n_dep_prods		0
+#	dependent products:	
+	dep_prods_list	
+	desc		" Base Data Elevation Product"
+	type			1
+	alert			0
+	warehoused		0
+	elev_index		2
+	compression		2
+	path			base/basedata_elev.lb
+	lb_n_msgs		20
+# Note: Final products are links to product database.
+	max_size		1000000
+	params
+				2 -20 3599 0 10 "Elevation" "Degrees"
+    }
+
+    Product {  
+	prod_id			303     COMBBASE_ELEV
+        class_id                301     BASEDATA_ELEV
+        class_mask              192     (COMBBASE_TYPE | BASEDATA_TYPE)
+	prod_code		0 
+	gen_task		elev_prod
+	wx_modes		7
+	disabled		0
+	n_priority		4
+	priority_list		89 89 89 89
+	n_dep_prods		0
+#	dependent products:	
+	dep_prods_list	
+	desc		" Base Data Elevation Product"
+	type			1
+	alert			0
+	warehoused		0
+	elev_index		2
+	compression		2
+	path			base/basedata_elev.lb
+	lb_n_msgs		20
+# Note: Final products are links to product database.
+	max_size		1000000
+	params
+				2 -20 3599 0 10 "Elevation" "Degrees"
+    }
+
+    Product {
+        prod_id                 304     PRFSEL
+        prod_code               0
+        gen_task                prfselect
+        wx_modes                7
+        disabled                0
+        n_priority              4
+        priority_list           255 255 255 255
+        n_dep_prods             1
+#       dependent products:     REFLDATA
+        dep_prods_list          79
+        desc            " PRF Selection Data"
+        type                    0
+        alert                   0
+        warehoused              0
+        path                    base/prfselect.lb
+        lb_n_msgs               20
+# Note: Final products are links to product database.
+        max_size                4000
+    }
+
+    Product {
+        prod_id                 305     DUALPOL_BASEDATA
+        class_id                305      SR_BASEDATA
+        class_mask              992     (REFLDATA_TYPE | COMBBASE_TYPE | BASEDATA_TYPE | SUPERRES_TYPE | DUALPOL_TYPE)
+        prod_code               0
+        gen_task                dpprep
+        wx_modes                7
+        disabled                0
+        n_priority              4
+        priority_list           255 255 255 255
+        n_dep_prods             0
+        dep_prods_list
+        desc            " Processed Dual Pol Base Data"
+        type                    5
+        alert                   0
+         warehoused             0
+#        warehouse_id            8022    ORPGDAT_DP_BASEDATA_REPLAY
+#        warehouse_acct_id       8023    ORPGDAT_DP_BASEDATA_ACCT
+        path                    base/dp_basedata.lb
+        lb_n_msgs               800
+        lb_types                "LB_SINGLE_WRITER"
+        max_size                0
+    }
+
+    Product {
+        prod_id                 306     DUALPOL_COMBBASE
+        class_id                305     SR_BASEDATA
+        class_mask              960     (COMBBASE_TYPE | BASEDATA_TYPE | SUPERRES_TYPE | DUALPOL_TYPE)
+        prod_code               0
+        gen_task                dpprep
+        wx_modes                7
+        disabled                0
+        n_priority              4
+        priority_list           255 255 255 255
+        n_dep_prods             0
+        dep_prods_list
+        desc            " Processed Dual Pol Base Data"
+        type                    5
+        alert                   0
+        warehoused              0
+#        warehouse_id            8022    ORPGDAT_DP_BASEDATA_REPLAY
+#        warehouse_acct_id       8023    ORPGDAT_DP_BASEDATA_ACCT
+        path                    base/dp_basedata.lb
+        max_size                0
+    }
+
+    Product {
+        prod_id                 307     DUALPOL_REFLDATA
+        class_id                305      SR_BASEDATA
+        class_mask              928     (REFLDATA_TYPE | BASEDATA_TYPE | SUPERRES_TYPE | DUALPOL_TYPE)
+        prod_code               0
+        gen_task                dpprep
+        wx_modes                7
+        disabled                0
+        n_priority              4
+        priority_list           255 255 255 255
+        n_dep_prods             0
+        dep_prods_list
+        desc            " Processed Dual Pol Base Data"
+        type                    5
+        alert                   0
+         warehoused             0
+#        warehouse_id            8022    ORPGDAT_DP_BASEDATA_REPLAY
+#        warehouse_acct_id       8023    ORPGDAT_DP_BASEDATA_ACCT
+        path                    base/dp_basedata.lb
+        max_size                0
+    }
+
+    Product {
+        prod_id                 308     BASEDATA_ELEV
+        class_id                308     BASEDATA_ELEV
+        class_mask              224     (REFLDATA_TYPE | COMBBASE_TYPE | BASEDATA_TYPE)
+        prod_code               0
+        gen_task                sr_elev_prod
+        wx_modes                7
+        disabled                0
+        n_priority              4
+        priority_list           78 78 78 78
+        n_dep_prods             0
+#       dependent products:
+        dep_prods_list
+        desc            " SR Base Data Elevation Product"
+        type                    1
+        alert                   0
+        warehoused              0
+        elev_index              2
+        compression             2
+        path                    base/sr_basedata_elev.lb
+        lb_n_msgs               20
+# Note: Final products are links to product database.
+        max_size                1000000
+        params
+                                2 -20 3599 0 10 "Elevation" "Degrees"
+    }
+
+    Product {
+        prod_id                 309     REFLDATA_ELEV
+        class_id                308     BASEDATA_ELEV
+        class_mask              160     (REFLDATA_TYPE | BASEDATA_TYPE)
+        prod_code               0
+        gen_task                sr_elev_prod
+        wx_modes                7
+        disabled                0
+        n_priority              4
+        priority_list           78 78 78 78
+        n_dep_prods             0
+#       dependent products:
+        dep_prods_list
+        desc            " SR Base Data Elevation Product"
+        type                    1
+        alert                   0
+        warehoused              0
+        elev_index              2
+        compression             2
+        path                    base/sr_basedata_elev.lb
+        lb_n_msgs               20
+# Note: Final products are links to product database.
+        max_size                1000000
+        params
+                                2 -20 3599 0 10 "Elevation" "Degrees"
+    }
+
+    Product {
+        prod_id                 310     COMBBASE_ELEV
+        class_id                308     BASEDATA_ELEV
+        class_mask              192     (COMBBASE_TYPE | BASEDATA_TYPE)
+        prod_code               0
+        gen_task                sr_elev_prod
+        wx_modes                7
+        disabled                0
+        n_priority              4
+        priority_list           78 78 78 78
+        n_dep_prods             0
+#       dependent products:
+        dep_prods_list
+        desc            " Base Data Elevation Product"
+        type                    1
+        alert                   0
+        warehoused              0
+        elev_index              2
+        compression             2
+        path                    base/sr_basedata_elev.lb
+        lb_n_msgs               20
+# Note: Final products are links to product database.
+        max_size                1000000
+        params
+                                2 -20 3599 0 10 "Elevation" "Degrees"
+    }
+
+    Product {
+        prod_id                 311     QPERATE
+        prod_code               0
+        gen_task                qperate
+        wx_modes                7
+        disabled                0
+        n_priority              4
+        priority_list           255 255 255 255
+        n_dep_prods             1
+#        dependent products:     DP_MOMENTS_ELEV
+        dep_prods_list          406
+        desc            " Dual Pol QPE Rate algorithm"
+        type                    0
+        alert                   0
+        warehoused              0
+        compression             2
+        path                    precip/qperate.lb
+        lb_n_msgs               20
+# Note: Intermediate product
+        max_size                1500000
+    }
+
+    Product {
+        prod_id                 312     QPEHHC
+        prod_code               0
+        gen_task                qperate
+        wx_modes                7
+        disabled                0
+        n_priority              4
+        priority_list           255 255 255 255
+        n_dep_prods             1
+#        dependent products:     DP_MOMENTS_ELEV
+        dep_prods_list          406
+        desc            " Dual Pol Hybrid Scan Hydrometeor Class"
+        type                    0
+        alert                   0
+        warehoused              0
+        compression             2
+        path                    precip/qpehhc.lb
+        lb_n_msgs               20
+# Note: Intermediate product
+        max_size                663000
+    }
+
+    Product {
+        prod_id                 315     NTDA_EDR_IP
+        prod_code               0
+        gen_task                ntda_alg
+        wx_modes                7
+        disabled                0
+        n_priority              4
+        priority_list           25 25 25 25
+#       dependent products:     COMBBASE_ELEV RECCLDIGREF
+        n_dep_prods             2
+        dep_prods_list          303 298
+        desc                    " NTDA EDR Intermediate Product"
+        type                    1
+        alert                   0
+        warehoused              0
+        elev_index              2
+        path                    kinematic/ntda_edr_ip.lb
+        lb_n_msgs               40
+        max_size                123424
+        params
+                                2 -20 3599 0 10 "Elevation" "Degrees"
+    }
+
+    Product {
+        prod_id                 316     NTDA_CONF_IP
+        prod_code               0
+        gen_task                ntda_alg
+        wx_modes                7
+        disabled                0
+        n_priority              4
+        priority_list           25 25 25 25
+#       dependent products:     COMBBASE_ELEV RECCLDIGREF
+        n_dep_prods             2
+        dep_prods_list          303 298
+        desc                    " NTDA CONF Intermediate Product"
+        type                    1
+        alert                   0
+        warehoused              0
+        elev_index              2
+        path                    kinematic/ntda_conf_ip.lb
+        lb_n_msgs               40
+        max_size                123424
+        params
+                                2 -20 3599 0 10 "Elevation" "Degrees"
+    }
+
+    Product {
+        prod_id                 320     DP_BASE_AND_QUALITY
+        prod_code               0
+        class_id                320
+        class_mask              2240  (COMBBASE_TYPE | BASEDATA_TYPE | PREPROCESSED_DUALPOL_TYPE)
+        gen_task                qia
+        wx_modes                7
+        disabled                0
+        n_priority              4
+        priority_list           255 255 255 255
+        n_dep_prods             1
+        dep_prods_list          306
+        desc            " Dual Pol Base Data and Quality Index"
+        type                    5
+        alert                   0
+        warehoused              0
+        lb_n_msgs               800
+        lb_types                "LB_MEMORY LB_DIRECT LB_SINGLE_WRITER"
+        path                    base/qia.lb
+        max_size                35000
+    }
+
+    Product {
+        prod_id                 321    DP_BASE_HC_AND_ML
+        prod_code               0
+        class_id                321
+        class_mask              992
+        gen_task                hca
+        wx_modes                7
+        disabled                0
+        n_priority              4
+        priority_list           255 255 255 255
+        n_dep_prods             1
+        dep_prods_list          320
+        desc            " Dual Pol Base Data, Hydro Class and Melting Layer"
+        type                    5
+        alert                   0
+        warehoused              0
+        lb_n_msgs               800
+        lb_types                "LB_MEMORY LB_DIRECT LB_SINGLE_WRITER"
+        path                    base/hca.lb
+        max_size                35000
+    }
+
+    Product {
+        prod_id                 328    MLDA
+        prod_code               0
+        class_id                328
+        class_mask              992
+        gen_task                mlda
+        wx_modes                7
+        disabled                0
+        n_priority              4
+        priority_list           255 255 255 255
+        n_dep_prods             1
+        dep_prods_list          321
+        desc            " Melting Layer Top and Bottom Heights"
+        type                    0
+        alert                   0
+        warehoused              0
+        lb_n_msgs               5
+        lb_types                "LB_MEMORY LB_DIRECT LB_SINGLE_WRITER"
+        path                    base/mlda.lb
+        max_size                3500
+    }
+
+    Product {
+        prod_id                 400     FILTREFL
+        prod_code               0
+        gen_task                segmtalg
+        wx_modes                7
+        disabled                0
+        n_priority              4
+        priority_list           3 3 3 3
+        n_dep_prods             1
+#       dependent products:     REFLDATA_ELEV
+        dep_prods_list          302
+        desc            " Filtered Reflectivity"
+        type                    1
+        alert                   0
+        warehoused              0
+        path                    storm/scitfilter.lb
+        lb_n_msgs               5
+        max_size                1000000
+        params
+                                2 -20 3599 0 10 "Elevation" "Degrees"
+
+    }
+
+    Product {
+        prod_id                 406     DP_MOMENTS_ELEV
+        prod_code               0
+        gen_task                dp_elev_prod
+        wx_modes                7
+        disabled                0
+        n_priority              4
+        priority_list           89 89 89 89
+        n_dep_prods             1
+#        dependent products:     DP_BASE_HC_AND_ML
+        dep_prods_list          321
+        desc            " Dual Pol Moment Elevation Data"
+        type                    1
+        alert                   2
+        warehoused              0
+        elev_index              2
+        compression             2
+        path                    base/dp_elev_prod.lb
+        lb_n_msgs               40
+# Note: Intermediate product
+        max_size                2000000
+        params
+                                2 -20 3599 0 10 "Elevation" "Degrees"
+    }
+
+    Product {
+        prod_id                 410     DP_S2S_ACCUM
+        prod_code               0
+        gen_task                dp_s2s_accum
+        wx_modes                7
+        disabled                0
+        n_priority              4
+        priority_list           255 255 255 255
+        n_dep_prods             1
+#        dependent products:     QPERATE
+        dep_prods_list          311
+        desc            " Dual Pol Scan-to-Scan Accumulation"
+        type                    0
+        alert                   0
+        warehoused              1
+        compression             2
+        path                    precip/dp_s2s_accum.lb
+        lb_n_msgs               5
+# NOTE: Intermediate product
+        max_size                663000
+    }
+
+    Product {
+        prod_id                 411     DP_LT_ACCUM
+        prod_code               0
+        gen_task                dp_lt_accum
+        wx_modes                7
+        disabled                0
+        n_priority              4
+        priority_list           255 255 255 255
+        n_dep_prods             2
+#        dependent products:     DP_S2S_ACCUM HYADJSCN
+        dep_prods_list          410 104
+        desc            " Dual Pol Long Term Accumulation"
+        type                    0
+        alert                   0
+        warehoused              0
+        compression             2
+        path                    precip/dp_lt_accum.lb
+        lb_n_msgs               5
+# NOTE: Intermediate product
+        max_size                6630000
+    }
+
+    Product {
+        prod_id                 1939      LDM_DP_RECOMB
+        class_id                1939
+        prod_code               0
+        gen_task                ldm_recomb
+        wx_modes                7
+        disabled                0
+        n_priority              4
+        priority_list           255 255 255 255
+        n_dep_prods             0
+        dep_prods_list
+        desc            " Non-Dealiased Dual Pol Az Recombined Base Data"
+        type                    5
+        alert                   0
+        warehoused              0
+        path                    base/ldm_dp_recomb.lb
+        lb_n_msgs               800
+        max_size                16800
+    }    
+

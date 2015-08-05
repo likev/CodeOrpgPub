@@ -1,0 +1,170 @@
+
+1.  DESIGN ISSUES:	
+
+    In order to conform to the current "link" based comms system configuration,
+    we specify each "link" separately in the link configuration file, even 
+    though the links are virtual (a server port number can accept multiple 
+    links, i.e. clients). No dynamic "link" is then allowed. If a link is 
+    used by a user, a second user can not use the same link.
+
+    In the TCP model, the two communicating ports must be specified as one 
+    server and one client. This must be specified in the TCP configuration file. 
+    We use the following rule:
+
+	Dial-in:	always server
+	Dial-out:	always client
+	Dedicated line:	"server" on ORPG ports and "client" on RDA and product 
+			user ports.
+
+    Port number: Although multiple dedicated lines can share the same port 
+    number, we assign a different port number for each link. This will help 
+    the server to track and report the user status based on the user's link 
+    number. This  may also reduce performance interference among links. We 
+    may use the following port number for the server sites: base_port_number 
+    + link_number. Is there any advantage of doing this? We, for the moment, 
+    specify explicitly a port number for each link 
+
+    Interface/hostname: For each server port, we specify the network interface
+    name. For each client port, we specify the server host name.
+
+    LAN/ppp: A link is either on a LAN (the Internet) or on a ppp link. If
+    it is a ppp link, additional connection/disconnection procedures may be 
+    required.
+
+    Dial-out phone number: For ppp connection only.
+
+    Multiple PVCs are implemented through multiple sockets on the same port.
+    A connection message, as depicted in the following, is expected to be 
+    received by a server port from a client port:
+
+	Msg_hd	link_id	pvc_number password
+
+    All fields after the message header are NULL terminated ASCII text. 
+    link_id identifies the link. pvc_number is the PVC number (0, 1, ..., 
+    n_pvcs - 1). An acknowledgment message is sent to the client via PVC 0. 
+    It contains the following NULL terminated ASCII text:
+
+	Msg_hd  link_id  number_of_PVCs  "connected"
+
+    A message header structure is used for all messages exchanged between the 
+    TCP comm_managers. In the header a magic number is used for protecting the 
+    cm_tcp from being connected to an unexpected remote process. Message type 
+    and length are other fields of the header.
+
+    The login and the ack messages are of fixed length for read convenience.
+
+    Security issues of dedicated line users are addressed by hardware 
+    configuration: Firewall, Dedicated LAN, ...
+
+    Data rate is controlled by the comm_manager. This will prevent any user
+    from consuming unexpected bandwidth. comm_manager only controls writing
+    data rate.
+
+    The keep alive feature needs to be implemented. We need to periodically 
+    send keep-alive message from a client to its server.
+
+03/17/98:
+    A comm_manager tool, cm_test, is developed. This tool is to replace
+    the older test program for each comm_manager. It is simpler while extending 
+    the tool's functionality.
+
+    Test cm_tcp:
+
+    The same link.conf file is shared by the server and the client.
+    The test was in /users/jing/rpg/orpg/cmm/tcp where the LBs req.5, req.6
+    resp.11 and resp.12 are created.
+
+    Then I ran, in background and two xterms, the server cm_tcp
+
+	cm_tcp -f /users/jing/rpg/cfg/link.conf -i req -o resp -v 5 &
+	cm_test -l 11 resp.11 r &
+	alias req "cm_test -l 11 req.5"
+
+    and the client cm_tcp
+
+	cm_tcp -f /users/jing/rpg/cfg/link.conf -i req -o resp -v 6 &
+	cm_test -l 12 resp.12 r &
+	alias req "cm_test -l 12 req.6"
+
+    where I also ran a cm_test for response printing for the server and client.
+    The last command is for conveniently sending requests. E.g. 
+
+	req c - sending connect request.
+
+    I use the following for sending message to another PVC:
+
+	cm_test -l 11 -p 1 req.5 w < tmsg
+
+03/19/98:
+
+    The basic version of cm_tcp has been tested. The following needs to be
+    done later:
+
+	We may want to define a new error code for the CM_CONNECT failure 
+	when the line is currently being used.
+
+	Data rate control, Keep Alive and Data rate estimation need to be 
+	added.
+
+03/20/98:
+
+    Data rate control will improve the bandwidth usage and reduce the delay 
+    on high priority circurts.
+
+    The following is a design.
+
+    1. Check number of bytes written in TCP_write and the time. If bytes are 
+    overwritten, the number of bytes overwritten is recorded (in number of 
+    seconds) and write stops. The time is also recorded.
+
+    2. In SH_poll, PVCs with overwritten is not polled.
+
+    3. In house keeping, check time and reset overwritten to 0.
+
+    4. The packet size is chosen to be related to the norminal bytes per 
+    second.
+
+    A specific house keeping function call is added to cm_common.c.
+
+03/31/98:
+    cm_tcp had problems running on the SPARC. I added several errno checks
+    in cmt_shared.c and cmt_sock.c.
+
+04/10/98:
+    Reading message header can be interupted by the EN signal and we get 
+incomplete header. I can not terminate at this point. I put the header read
+in a loop until the complete header is read. However this cause another
+problem: The poll returns but there is no message in the socket (may be 
+bacause first connected). Then the loop never terminates. I added a check:
+If no data at all, I also exit the loop. This way seemed working. I need
+further check on this part of code (read header and write header).
+
+05/05/98:
+    I added the password check to the cm_tcp. Now the password is required.
+I also changed the server host name specification such that now we have to
+specify the host name for the server (can be INADDR_ANY). This allows us to
+choose a local network interface for the server. The link data structure is
+improved. Hardcoded string lengths are removed. cm_tcp is added to the 
+comm_manager man-pages.
+
+    I removed the local link.conf and tcp.conf. I use those in ~/rpg/cfg 
+for testing cm_tcp. I changed correspondingly the test commands in an 
+earlier section of this notes.
+
+05/13/98:
+    Test cm_tcp with p_server:
+
+    p_server -v 4 7
+    cm_tcp -v 5
+    cm_tcp -v 6
+    cm_test -l 12 cm_req.6.lb c        u14fv9o1
+
+    A problem with cm_tcp was reported by Vankat. It turns out that I did
+not return when poll returns -1. When it returns -1, the contents in .revents
+are invalid. We must return and call later. 
+
+
+
+
+
+   

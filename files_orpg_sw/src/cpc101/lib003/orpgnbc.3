@@ -1,0 +1,112 @@
+
+NAME
+    ORPGNBC_send_NB_link_control_command, ORPGNBC_enable_disable_NB_links,
+    ORPGNBC_connect_disconnect_NB_links, ORPGNBC_request_APUP_status,
+    ORPGNBC_get_user_profile, ORPGNBC_n_lines,
+    ORPGNBC_send_NB_vv_control_command
+
+SYNOPSIS
+    #include <orpg.h>
+    
+    int ORPGNBC_send_NB_link_control_command (int cmd, int line_ind);
+    
+    int ORPGNBC_enable_disable_NB_links (
+				int command, int n_lines, int *line_ind);
+    
+    int ORPGNBC_connect_disconnect_NB_links (
+				int command, int n_lines, int *line_ind);
+    
+    int ORPGNBC_request_APUP_status (int line_ind);
+    
+    int ORPGNBC_get_user_profile (int line_type, 
+				int uid, int line_ind, Pd_user_entry **up);
+    
+    int ORPGNBC_n_lines ();
+    
+    int ORPGNBC_send_NB_vv_control_command (int command);
+
+DESCRIPTION
+    NBC is the Narrow Band Control module of liborpg.
+
+    ORPGNBC_send_NB_link_control_command sends a narrow band link control
+    command "cmd" to p_server. It sends the command to all p_server instances.
+    Argument "cmd" may be one of the following (defined in prod_distri_info.h):
+
+	CMD_SHUTDOWN:		Shuts down all NB service.
+	CMD_SWITCH_TO_INACTIVE:	Switch p_server to inactive mode.
+	CMD_SWITCH_TO_ACTIVE:	Switch p_server to active mode.
+	CMD_CONNECT:		Connect line "line_ind".
+	CMD_DISCONNECT:		Disconnect line "line_ind".
+
+    Argument "line_ind" is not used for cmd = CMD_SHUTDOWN,
+    CMD_SWITCH_TO_INACTIVE, and CMD_SWITCH_TO_ACTIVE. To perform the job,
+    ORPGNBC_send_NB_link_control_command posts event ORPGEVT_PD_LINE.
+    ORPGNBC_send_NB_link_control_command returns 0 on success or -1 on failure.
+
+    This function can not be used for sending commands CMD_REQUEST_APUP_STATUS
+    and CMD_LINK_STATE_CHANGED.
+
+    ORPGNBC_enable_disable_NB_links sends a enable/disable link command to the
+    p_server. It sends the command to all p_server instances. Argument
+    "command" must be either NBC_DISABLE_LINK or NBC_ENABLE_LINK.
+
+    One specifies the links to be enables/disabled in array "line_ind". The
+    size of "line_ind" is "n_lines".
+
+    To perform the job, ORPGNBC_enable_disable_NB_links locks the
+    PD_LINE_INFO_MSG_ID message in data store ORPGDAT_PROD_INFO, updates the
+    message (as described in prod_distri_info.h) and posts events
+    ORPGEVT_PD_LINE.
+
+    ORPGNBC_enable_disable_NB_links returns 0 on success or -1 on failure.
+
+    ORPGNBC_connect_disconnect_NB_links sends a connect/disconnect link command
+    to the p_server. It sends the command to all p_server instances. Argument
+    "command" must be either NBC_DISCONNECT or NBC_CONNECT.
+
+    One specifies the links to be enables/disabled in array "line_ind". The
+    size of "line_ind" is "n_lines".
+
+    To perform the job, ORPGNBC_connect_disconnect_NB_links locks the
+    PD_LINE_INFO_MSG_ID message in data store ORPGDAT_PROD_INFO, updates the
+    message (as described in prod_distri_info.h) and posts events
+    ORPGEVT_PD_LINE.
+
+    ORPGNBC_connect_disconnect_NB_links returns 0 on success or -1 on failure.
+
+    ORPGNBC_request_APUP_status sends a command to the p_server requesting APUP
+    status. It sends the command to all p_server instances. Argument "line_ind"
+    specifies the link of the specified APUP. "line_ind" may also take one of
+    the values of BC_ALL_DEDICATED, NBC_ALL_DIAL_IN and NBC_ALL_LINES.
+
+    To perform the job, ORPGNBC_request_APUP_status locks the
+    PD_LINE_INFO_MSG_ID message in data store ORPGDAT_PROD_INFO, updates the
+    message (as described in prod_distri_info.h) and posts events
+    ORPGEVT_PD_LINE.
+
+    ORPGNBC_request_APUP_status returns 0 on success or -1 on failure.
+
+    ORPGNBC_get_user_profile reads a user profile completed with class
+    information. Argument "line_type" specifies the line type: DEDICATED,
+    DIAL_IN or DIAL_OUT. "uid" specifying the user ID when "line_type" !=
+    DEDICATED. "line_ind" specifying the line index when "line_type" is
+    DEDICATED.
+
+    A pointer to the user profile is returned, on success, through argument
+    "up". The caller must free this pointer after finishing using it.
+
+    ORPGNBC_get_user_profile returns 0 on success or -1 on failure.
+
+    ORPGNBC_n_lines returns the number of listed NB lines in the product
+    distribution line info (data store ORPGDAT_PROD_INFO, message
+    PD_LINE_INFO_MSG_ID).
+
+    ORPGNBC_n_lines returns the number of listed NB lines or -1 on failure.
+
+    ORPGNBC_send_NB_vv_control_command sends a V&V control command "command" to
+    the p_server. "command" can be either CMD_VV_ON or CMD_VV_OFF as defined in
+    prod_distri_info.h. It returns 0 on success or -1 on failure.
+
+
+SEE ALSO
+    p_server(1)

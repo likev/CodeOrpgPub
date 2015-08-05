@@ -1,0 +1,239 @@
+C
+C RCS info
+C $Author: steves $
+C $Locker:  $
+C $Date: 2004/01/12 17:02:40 $
+C $Id: a318q5.ftn,v 1.5 2004/01/12 17:02:40 steves Exp $
+C $Revision: 1.5 $
+C $State: Exp $
+C
+      SUBROUTINE A318Q5__TVS_ADTAB(TVSATTR,TVSADAP,BUF)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A318Q5__TVS_ADTAB
+*.
+*.  MODULE VERSION: 0015
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       04 15 85      0000      D.A.HUMPHREYS        RPG BUILD 2
+*.       05 01 86      0001      D.A.HUMPHREYS        SPR# 60119
+*.       06 03 86      0002      JS GROMMONS          SPR# 60124
+*.       06 03 86      0002      JS GROMMONS          SPR# 60210
+*.       06 26 90      0003      JO STALEY            SPR# 90813
+*.       08 13 90      0003      PENNY J YELSHIN      SPR# 90919
+*.       11 06 90      0004      MEI   OU             SPR# 91259
+*.       12 03 91      0005      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0006      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0007      Toolset              SPR 91895
+*.       03/25/93      0008      Toolset              SPR NA93-06801
+*.       01/28/94      0009      Toolset              SPR NA94-01101
+*.       03/03/94      0010      Toolset              SPR NA94-05501
+*.       04/01/94      0011      Steve Smith          CCR 93146-002A00
+*.       04/11/96      0012      Toolset              CCR NA95-11802
+*.       12/23/96      0013      Toolset              CCR NA95-11807
+*.       05/13/97      0014      DAVE ZITTEL          CCR NA95-21503
+*.       03/16/99      0015      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:
+*.    CALL A318Q5__TVS_ADTAB(NUMTVS,TVSMES,TVSAZ,TVSRN,TVSBAZ,TVSBRN,
+*.                           TVSSHR,TVSORI,TVSROT,TVSHGT,TVSBOT,SRCHPCT,
+*.                           TVSSTHR,BUF)
+*.
+*.  MODULE FUNCTION: WRITES ADAPTATION BLOCK OUTPUT BUFFER
+*.
+*.  MODULES CALLED: A318Q6__TVS_ADAPT, A318Q7__TVS_TAB 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT      TYPE        DESCRIPTION
+*.    -   -----      ----        -----------
+*.    G   NTDA_AD    I*4         (CONSTANT)NUMBER OF ADAPTABLE PARAMETERS IN
+*.                               THE TDA AND IN THE TDAADAP (AND TADADAP)
+*.                               ARRAY
+*.    G   OGLSWOFF   I*4         (CONSTANT)Product header offset: graphic
+*.                               attributes (LSW).
+*.    G   OGMSWOFF   I*4         (CONSTANT)Product header offset: graphic
+*.                               attributes (MSW).
+*.    G   OTADLSWOFF I*4         (CONSTANT)Product header offset: offset to
+*.                               tabular/adaptation data (LSW)
+*.    G   OTADMSWOFF I*4         (CONSTANT)Product header offset: offset to
+*.                               tabular/adaptation (MSW)
+*.    G   PHEADLNG   I*4         (CONSTANT)Number of half words in product
+*.                               header (its length).
+*.    G   TVFEAT_CHR I*4         (CONSTANT)# OF TVS FEATURE ATTRIBUTES IN
+*.                               TVS_MAIN AND OTHER ARRAYS
+*.    G   TVFEAT_MAX I*4         (CONSTANT)MAXIMUM # OF TVS FEATURES IN
+*.                               TVS_MAIN AND OTHER ARRAYS
+*.    C   NUMPAGE    I*4         Current page number.
+*.    C   TVSIDX     I*4         TVS product output buffer index for pointing
+*.                               to next location in array BUF.
+*.    P   BUF        I*2         OUTPUT BUFFER
+*.    P   TVSADAP    I*4         Array of Tornado Detection Algorithm
+*.                               adaptable parameters.
+*.    P   TVSATTR    R*4         Array of TVS and ETVS attributes.
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    C   NUMPAGE I*4         Current page number.
+*.    C   TVSIDX  I*4         TVS product output buffer index for pointing to
+*.                            next location in array BUF.
+*.    P   BUF     I*2         OUTPUT BUFFER
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    P   BUF               I*2         OUTPUT BUFFER
+*.    P   TVSADAP           I*4         Array of Tornado Detection Algorithm
+*.                                      adaptable parameters.
+*.    P   TVSATTR           R*4         Array of TVS and ETVS attributes.
+*.
+*.  DATABASE/FILE REFERENCE:  NONE
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME       TYPE        DESCRIPTION
+*.    ----       ----        -----------
+*.    ADOFF      I*4         ADAPTATION BLOCK OFFSET
+*.    BLOCKID    I*2         ADAPTATION BLOCK ID
+*.    DIVIDER    I*2         ADAPTATION BLOCK DIVIDER
+*.    HLNG       I*4         HEADER LENGTH
+*.    I          I*4         AN INDEX VARIABLE
+*.    LENGTH     I*4         LENGTH OF BLOCK
+*.    LNG        I*4         LENGTH OF BLOCK OFFSET
+*.    N4         I*4         Do loop end range
+*.    N7         I*4         Do loop initial value for storing tabular header
+*.    N8         I*2         LOCAL VARIABLE = 8
+*.    NBLKS      I*2         NUMBER OF BLOCKS
+*.    NUMPAGEOFF I*4         PAGE-NUMBER OFFSET
+*.    PNDX       I*4         OFFSET PARAMETER FOR MESOCYCLONE TABLE
+*.    PNDX19     I*4         Offset parameter in Meso Tabular Alphanumeric to
+*.                           second Tabular product code
+*.    TAB_PCODE  I*2         LOCAL DECLARATION
+*.    TWO        I*4         :Program parameter value of 2.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    TAB
+*.    TVSINDEX
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  NONE
+*.
+*.  DEVIATION FROM STANDARDS:  NONE
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     THIS MODULE IS COMPILED USING THE COMP18.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     THIS MODULE IS LINKED USING THE LINK18.CSS
+*.
+*.  MISC:  NONE
+*.
+*.*******************************************************************
+$EJECT
+      IMPLICIT NONE
+C
+C  INCLUDE FILES:
+C
+C  PARAMETERS AND OFFSETS FOR PRODUCT HEADER
+$INCLUDE A309.INC/G,**A3PM01
+C  PARAMETERS AND OFFSETS FOR TORNADO DETECTION ALGORITHM
+$INCLUDE A317BUF.INC/G,**A317TP9
+$INCLUDE A317BUF.INC/G,**A317PTAD
+$INCLUDE A317BUF.INC/G,**A317CTAD
+$INCLUDE A318.INC/G,**A318TVS1 (NEND NLIST)
+C
+C
+C *******************  L O C A L    D A T A ********************
+C
+      INTEGER*4 TVSADAP(NTDA_AD)
+      REAL TVSATTR(TVFEAT_CHR,TVFEAT_MAX)
+C  LOCAL COMMON DEFINED:
+      INTEGER*4 MAXPAGE,MAXLINE,NUMPAGE,NUMLINE
+      COMMON /TAB/MAXPAGE,MAXLINE,NUMPAGE,NUMLINE
+C  LOCAL DECLARATIONS:
+      INTEGER*2 BUF(*),BLOCKID,DIVIDER
+      INTEGER*2 TAB_PCODE,NBLKS,N8
+      INTEGER*4 LNG,HLNG,LENGTH,I,ADOFF,NUMPAGEOFF,N4,N7
+      INTEGER*4 PNDX,PNDX4,PNDX19
+      PARAMETER (BLOCKID=3,DIVIDER=-1,N4=4,N7=7,N8=8,NBLKS=3)
+      PARAMETER (TAB_PCODE=104,PNDX4=3,PNDX19=15)
+      INTEGER TWO
+      PARAMETER(TWO=2)
+C
+C ******************** E X E C U T A B L E **********************
+C
+C   SET PNDX
+      PNDX = TVSIDX
+C   OFFSET TO ATTRIBUTES
+      LENGTH = PNDX - 1
+      call RPG_set_product_int( BUF(OTADMSWOFF), LENGTH )
+C  STORE ADAPTATION BLOCK DIVIDER
+      BUF(TVSIDX)=DIVIDER
+      TVSIDX=TVSIDX+1
+C  OFFSET FOR ADAPTATION BLOCK
+      ADOFF=TVSIDX-1
+C  STORE BLOCK ID
+      BUF(TVSIDX)=BLOCKID
+      TVSIDX=TVSIDX+1
+C  STORE LENGTH OF BLOCK OFFSET
+      LNG=TVSIDX
+      TVSIDX=TVSIDX+2
+C  STORE ADAPTATION TABULAR BLOCK ITEM IN MAIN HEADER
+C  AND INCREMENT INDEX
+      DO 10 I=1,N4
+        BUF(TVSIDX)=BUF(I)
+        TVSIDX=TVSIDX+1
+ 10   CONTINUE
+C  STORE ADAPTATION/TABULAR BLOCK HEADER LENGTH OFFSET
+      HLNG=TVSIDX
+      TVSIDX=TVSIDX+2
+      DO 20 I=N7,PHEADLNG
+        BUF(TVSIDX)=BUF(I)
+        TVSIDX=TVSIDX+1
+C   END OF HEADER
+ 20   CONTINUE
+C   SET NUMBER OF BLOCKS, OFFSETS
+      BUF(HLNG+N4) = NBLKS
+      call RPG_set_product_int( BUF(PNDX+N4+OTADMSWOFF-1), 0 )
+      call RPG_set_product_int( BUF(PNDX+N4+OGMSWOFF-1), 0 )
+C  STORE TAB HEADER PRODUCT CODE
+      PNDX = PNDX+N4
+      BUF(PNDX) = TAB_PCODE
+      PNDX = PNDX+PNDX19
+      BUF(PNDX) = TAB_PCODE
+C  STORE DIVIDER
+      BUF(TVSIDX)=DIVIDER
+      TVSIDX=TVSIDX+1
+C  STORE NUMBER OF PAGES OFFSET
+      NUMPAGEOFF=TVSIDX
+      TVSIDX=TVSIDX+1
+C  CALL TVS TABULAR SUBROUTINE
+      CALL A318Q7__TVS_TAB(TVSATTR,BUF)
+C  CALL ADAPTATION SUBROUTINE
+      CALL A318Q6__TVS_ADAPT(TVSADAP,BUF)
+      NUMPAGE=NUMPAGE+1
+C  STORE DIVIDER
+      BUF(TVSIDX)=DIVIDER
+      TVSIDX=TVSIDX+1
+C  STORE LENGTH OF BLOCK
+      LENGTH=(TVSIDX-ADOFF)*TWO
+      call RPG_set_product_int( BUF(LNG), LENGTH )
+C  STORE LENGTH IN ADAPTATION/TABULAR HEADER
+      LENGTH = LENGTH - N8
+      call RPG_set_product_int( BUF(HLNG), LENGTH )
+C  STORE NUMBER OF PAGES
+      BUF(NUMPAGEOFF)=NUMPAGE
+      RETURN
+      END

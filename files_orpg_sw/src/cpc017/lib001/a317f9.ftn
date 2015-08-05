@@ -1,0 +1,429 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/17 15:32:41 $
+C $Id: a317f9.ftn,v 1.2 2002/12/17 15:32:41 christie Exp $
+C $Revision: 1.2 $
+C $State: Exp $
+C
+      SUBROUTINE A317F9__SAVE_3D_FEAT(NBRLEVS)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A317F9__SAVE_3D_FEAT
+*.
+*.  MODULE VERSION: 0001
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       07/18/97      0000      DAVE ZITTEL          CCR NA95-21503
+*.       03/16/99      0001      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A317F9__SAVE_3D_FEAT(NBRLEVS)
+*.
+*.  MODULE FUNCTION:
+*.
+*.  Saves 3D Features and computes their attributes
+*.  from their 2D Features.
+*.
+*.  MODULES CALLED: A3CM70__REPORT_ERROR 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT     TYPE        DESCRIPTION
+*.    -   -----     ----        -----------
+*.    G   ADPMADH   R*4         TDA AVERAGE DELTA VELOCITY HEIGHT THRESHOLD
+*.    G   ADPMFPD   I*4         TDA MINIMUM # 2D FEATURES/3D FEATURE THRESHOLD
+*.    G   ADPMN3D   I*4         TDA MAXIMUM # 3D FEATURES THRESHOLD (PER
+*.                              VOLUME SCAN)
+*.    C   CORTABL   I*4         Correlation table of indexes into array
+*.                              VOLCOMP showing showing vertical association
+*.                              of two-dimensional features
+*.    C   ELEVTABL  R*4         A TABLE OF ELEVATION ANGLES FOR EACH ELEVATION
+*.                              SCAN
+*.    C   FEAT3D    R*4         Array containing three-dimensional feature
+*.                              attributes
+*.    C   NBR_COMP  I*4         Array of number of components for each
+*.                              potential three-dimensional feature.
+*.    C   NBR_P3DF  I*4         Counter for number of potential
+*.                              three-dimensional features.
+*.    C   NUM3D     I*4         Counter for number of three-dimensional
+*.                              features having the required number (ADPMFPD)
+*.                              of two-dimensional features.
+*.    C   VOLCOMP   R*4         ARRAY CONTAINING ATTRIBUTES OF THE 2D FEATURES
+*.                              FOR THE VOLUME SCAN
+*.    C   WT_INTCPT R*4         Y-INTERCEPT OF THE WEIGHTING FUNCTION
+*.                              (DEPENDENT ON HEIGHT) OF MAX. DELTA VELOCITY
+*.                              OF A 2D FEATURE FOR COMPUTING AVE. DELTA VEL.
+*.    C   WT_SLOPE  R*4         SLOPE OF THE WEIGHTING FUNCTION (DEPENDENT ON
+*.                              HEIGHT) OF MAX. DELTA VELOCITY OF A 2D FEATURE
+*.                              FOR COMPUTING AVE. DELTA VEL.
+*.    C   F3D_ADV   I*4         (CONSTANT)Position of the average delta
+*.                              velocity attribute (m/s) of a
+*.                              three-dimensional feature in the array FEAT3D
+*.    C   F3D_BAS   I*4         (CONSTANT)Position of the base height
+*.                              attribute (km) of a three-dimensional feature
+*.                              in the array FEAT3D
+*.    C   F3D_BAZ   I*4         (CONSTANT)Position of the base azimuth
+*.                              attribute (degrees) of a three-dimensional
+*.                              feature in the array FEAT3D
+*.    C   F3D_BEL   I*4         (CONSTANT)Index to the position of the base
+*.                              elevation attribute (degrees) of a
+*.                              three-dimensional feature in the array FEAT3D
+*.    C   F3D_BRN   I*4         (CONSTANT)Position of the base range attribute
+*.                              (km) of a three-dimensional feature in the
+*.                              array FEAT3D
+*.    C   F3D_DEP   I*4         (CONSTANT)Position of the depth attribute (km)
+*.                              of a three-dimensional feature in the array
+*.                              FEAT3D
+*.    C   F3D_HDV   I*4         (CONSTANT)Position of the height attribute
+*.                              (km) of a three-dimensional feature's maximum
+*.                              delta velocity in the array FEAT3D
+*.    C   F3D_HSH   I*4         (CONSTANT)Position of the height attribute
+*.                              (km) of a three-dimensional feature's maximum
+*.                              shear in the array FEAT3D
+*.    C   F3D_LDV   I*4         (CONSTANT)Position of the base low-level delta
+*.                              velocity attribute (m/s) of a
+*.                              three-dimensional feature in the array FEAT3D
+*.    C   F3D_MDV   I*4         (CONSTANT)Position of the maximum delta
+*.                              velocity attribute (m/s) of a
+*.                              three-dimensional feature in the array FEAT3D
+*.    C   F3D_MSH   I*4         (CONSTANT)Position of the maximum shear
+*.                              attribute (1/s) of a three-dimensional feature
+*.                              in the array FEAT3D
+*.    C   F3D_TOP   I*4         (CONSTANT)Position of the top attribute (km)
+*.                              of a three-dimensional feature in the array
+*.                              FEAT3D
+*.    C   P3D_EL    I*4         (CONSTANT)Position in the CORTABL array of the
+*.                              elevation index attribute for linking to
+*.                              VOLCOMP array.
+*.    C   P3D_ID    I*4         (CONSTANT)Position in the CORTABL array of the
+*.                              feature number attribute for linking to
+*.                              VOLCOMP array.
+*.    C   VCM_CAZ   I*4         (CONSTANT)INDEX INTO VOLCOMP TO THE AZIMUTH
+*.                              (IN DEGREES) TO THE MOMENTUM WEIGHTED CENTER
+*.                              OF A 2D FEATURE
+*.    C   VCM_CRG   I*4         (CONSTANT)INDEX INTO VOLCOMP TO THE RANGE (IN
+*.                              KM) TO THE MOMENTUM WEIGHTED CENTER OF A 2D
+*.                              FEATURE
+*.    C   VCM_DVE   I*4         (CONSTANT)INDEX INTO VOLCOMP TO THE MAX. DELTA
+*.                              VELOCITY (IN M/S) OF A 2D FEATURE
+*.    C   VCM_SHR   I*4         (CONSTANT)INDEX INTO VOLCOMP TO THE MAXIMUM
+*.                              SHEAR (IN 1/S*10**-3) OF A 2D FEATURE
+*.    C   VCM_ZCN   I*4         (CONSTANT)INDEX INTO VOLCOMP TO THE HEIGHT (IN
+*.                              KM) TO THE MOMENTUM WEIGHTED CENTER OF A 2D
+*.                              FEATURE
+*.    P   NBRLEVS   I*4         Number of elevations
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    G   ADPMADH R*4         TDA AVERAGE DELTA VELOCITY HEIGHT THRESHOLD
+*.    G   ADPMFPD I*4         TDA MINIMUM # 2D FEATURES/3D FEATURE THRESHOLD
+*.    G   ADPMN3D I*4         TDA MAXIMUM # 3D FEATURES THRESHOLD (PER VOLUME
+*.                            SCAN)
+*.    C   FEAT3D  R*4         Array containing three-dimensional feature
+*.                            attributes
+*.    C   NUM3D   I*4         Counter for number of three-dimensional features
+*.                            having the required number (ADPMFPD) of
+*.                            two-dimensional features.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME     TYPE        DESCRIPTION
+*.    ----     ----        -----------
+*.    BASEFLAG L*4         Flag indicating if a 3D feature's lowest 2D feature
+*.                         is on the lowest elevation cut
+*.    ELINDX   I*4         Index from array CORTABL pointing to a 2D feature's
+*.                         elevation cut in array VOLCOMP
+*.    ELXTOP   I*4         Index from array CORTABL pointing to the elevation
+*.                         cut of the highest 2D feature for a given 3D
+*.                         feature
+*.    ERRPHR   CHAR*50     Message sent to system console indicating maximum
+*.                         number of three-dimensional features has been
+*.                         reached
+*.    HGTDV    R*4         Temporary variable for holding height of maximum
+*.                         delta velocity found in any 2D feature in a 3D
+*.                         feature
+*.    HGTSH    R*4         Temporary variable to hold height of maximum shear
+*.                         found in any 2D feature in a 3D feature
+*.    I        I*4         Do loop index for pointing to all potential
+*.                         three-dimensional features
+*.    IDTOP    I*4         Index from array CORTABL pointing to highest 2D
+*.                         feature for a given 3D feature
+*.    IFEAT    I*4         Index from array CORTABL pointing to the position
+*.                         of a 2D feature in array VOLCOMP
+*.    J        I*4         Do loop index to get all 2D features for a given 3D
+*.                         feature from the 2nd to the highest
+*.    MAXDV    R*4         Temporary variable to hold maximum delta velocity
+*.                         found in any 2D feature in a 3D feature.
+*.    MAXSH    R*4         Temporary variable to hold maximum shear found in
+*.                         any 2D feature in a 3D feature.
+*.    NCOMP    I*4         Number of vertically associated 2D componets
+*.    SUM_ADV  R*4         Temporary variable to hold height-weighted delta
+*.                         velocity summed over number of 2D features in 3D
+*.                         feature.
+*.    WEIGHT   R*4         Weight to apply to a 2D features delta velocity
+*.                         based on height of the 2D feature.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A317CTAD
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A317C3DA
+*.    A317C3DB
+*.    A317CDAD
+*.    A317TC2
+*.    A317TDNE
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     Compiled using COMP17.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     Linked using LINK17.CSS
+*.
+*.  MISC:  None
+*.
+C********************************************************************
+C
+C             TDA 3D PROCESSING: MAKE A 3D FEATURE FROM 2D FEATURES
+C
+C********************************************************************
+C
+C
+      IMPLICIT NONE
+C
+$INCLUDE A317BUF.INC/G, **A317TP9
+$INCLUDE A317BUF.INC/G, **A317PTAD
+$INCLUDE A317BUF.INC/G, **A317CTAD
+$INCLUDE A317BUF.INC/G, **A317P3T (NLIST NEND)
+$INCLUDE A317.INC/G, **A317TP2
+$INCLUDE A317.INC/G, **A317TC2
+$INCLUDE A317.INC/G, **A317C3DA
+$INCLUDE A317.INC/G, **A317P3DB
+$INCLUDE A317.INC/G, **A317C3DB
+$INCLUDE A317.INC/G, **A317TCP (NLIST NEND)
+$INCLUDE A317.INC/G, **A317CDAD (NLIST)
+$INCLUDE A317.INC/G, **A317TDNE (NLIST)
+C
+C********************** LOCAL DECLARATIONS **************************
+C
+      REAL SUM_ADV, WEIGHT, HGTDV, HGTSH
+      REAL MAXSH, MAXDV
+      INTEGER I, IDTOP, NCOMP, ELINDX, IFEAT, ELXTOP, J, NBRLEVS
+      CHARACTER*50 ERRPHR
+      LOGICAL BASEFLAG
+C
+C****************** BEGIN MAIN PROCESSING SECTION *******************
+C
+C
+C***  Initialize the number of 3D features to zero.
+C
+      NUM3D = 0
+C
+C***  Do loop for processing all potential 3D features.
+C
+      DO 10 I = 1, NBR_P3DF
+C
+C***  Get the number of vertically associated components for this
+C***  potential 3D feature.
+C
+        NCOMP = NBR_COMP( I )
+C
+C***  Check if the number of components satisfies the minimum required
+C***  2D features per detection (ADPMFPD).
+C
+        IF( NCOMP .GE. ADPMFPD ) THEN
+C
+C***  Initialize a sum for computing average delta velocity
+C
+          SUM_ADV = 0.0
+C
+C*** Get the feature Id and the lowest elevation index (may not be 1)
+C
+          ELINDX = CORTABL( P3D_EL, I, 1 )
+          IFEAT = CORTABL( P3D_ID, I, 1 )
+C
+C***  IF ELINDX = 1 THEN 3D FEATURE IS AT LOWEST ELEVATION
+C***  SET BASEFLAG TRUE
+C
+          BASEFLAG = .FALSE.
+          IF(ELINDX .EQ. 1) BASEFLAG = .TRUE.
+C
+C***  Increment number of potential 3D features by 1 if less than max
+C***  allowed.
+C
+          IF( NUM3D .LT. ADPMN3D ) THEN
+            NUM3D = NUM3D + 1
+          ELSE
+C
+C***  Otherwise, send a message to the system and abort this module.
+C***  Note, processing will continue for the 3D features already
+C***  identified.
+C
+            WRITE(ERRPHR,899)
+ 899   FORMAT(1X,'Max # of adaptable 3D Features reached in TDA')
+            CALL A3CM70__REPORT_ERROR(ERRPHR)
+            GO TO 900
+          ENDIF
+C
+C***  Get the elevation angle of the lowest feature
+C
+          FEAT3D(F3D_BEL,NUM3D)= ELEVTABL(ELINDX)
+C
+C***  Get height of lowest component.
+C
+          FEAT3D(F3D_BAS,NUM3D)=VOLCOMP(VCM_ZCN,IFEAT,ELINDX)
+C
+C***  Get the low altitude Delta Velocity
+C
+          FEAT3D(F3D_LDV,NUM3D)=VOLCOMP(VCM_DVE,IFEAT,ELINDX)
+C
+C***  Get the base azimuth and range
+C
+          FEAT3D( F3D_BAZ, NUM3D) = VOLCOMP(VCM_CAZ, IFEAT, ELINDX)
+          FEAT3D( F3D_BRN, NUM3D) = VOLCOMP(VCM_CRG, IFEAT, ELINDX)
+C
+C***  Get the elevation index for the highest component
+C
+          ELXTOP = CORTABL(P3D_EL, I, NCOMP)
+          IDTOP = CORTABL(P3D_ID, I, NCOMP)
+          FEAT3D(F3D_TOP,NUM3D)=VOLCOMP(VCM_ZCN,IDTOP,ELXTOP)
+C
+C***  Compute and save the 3D feature depth
+C
+          FEAT3D(F3D_DEP,NUM3D) = FEAT3D(F3D_TOP, NUM3D) -
+     >                          FEAT3D(F3D_BAS, NUM3D)
+C
+C***  Begin computation of height-weighted average delta velocity.
+C***  Check the adaptable threshold height, ADPMADH, to determine
+C***  the weight to apply to the 2D feature's delta velocity.
+C
+          IF(FEAT3D(F3D_BAS,NUM3D) .LE. ADPMADH ) THEN
+            WEIGHT = 1.0
+          ELSE
+C
+C***  WT_SLOPE and WT_INTCPT are computed in module A317J9__DERIVE_ADAP
+C
+            WEIGHT = WT_SLOPE * FEAT3D(F3D_BAS,NUM3D) + WT_INTCPT
+            IF(WEIGHT .LT. 0.0) WEIGHT = 0.0
+          ENDIF
+C
+C***  Begin summing the weighted delta velocity
+C
+          SUM_ADV = WEIGHT * FEAT3D(F3D_LDV,NUM3D)
+C
+C***  Set the maximum delta velocity, its height, maximum shear and
+C***  its height to the lowest feature's values.
+C
+          MAXDV = FEAT3D(F3D_LDV,NUM3D)
+          MAXSH = VOLCOMP(VCM_SHR, IFEAT, ELINDX)
+          HGTDV = FEAT3D(F3D_BAS,NUM3D)
+          HGTSH = HGTDV
+C
+C***  Process the rest of the 2D features.
+C
+          DO 20 J = 2, NCOMP
+C
+C***  Get the elevation index for this 2D feature.
+C
+            ELINDX = CORTABL(P3D_EL, I, J)
+C
+C***  Check if any other 2D feature is on base elevation
+C
+            IF(ELINDX .EQ. 1) BASEFLAG = .TRUE.
+C
+C***  Find the lowest elevation angle
+C
+            IF(ELEVTABL(ELINDX) .LT. FEAT3D(F3D_BEL,NUM3D))
+     >       FEAT3D(F3D_BEL,NUM3D) = ELEVTABL(ELINDX)
+C
+C***  Get the 2D feature's Id.
+C
+            IFEAT = CORTABL( P3D_ID, I, J)
+C
+C***  Test if this feature's delta velocity is stronger than the
+C***  lower 2D feature's DV.  If so, set MAXDV and HGTDV to this
+C***  feature's values.
+C
+            IF(VOLCOMP(VCM_DVE, IFEAT, ELINDX) .GT. MAXDV)THEN
+              MAXDV = VOLCOMP(VCM_DVE, IFEAT, ELINDX)
+              HGTDV = VOLCOMP(VCM_ZCN, IFEAT, ELINDX)
+            ENDIF
+C
+C***  Test if this feature's shear is stronger than the lower 2D
+C***  feature's shear.  If so, set MAXSH and HGTSH to this
+C***  2D feature's values.
+C
+            IF(VOLCOMP(VCM_SHR, IFEAT, ELINDX) .GT. MAXSH)THEN
+              MAXSH = VOLCOMP(VCM_SHR, IFEAT, ELINDX)
+              HGTSH = VOLCOMP(VCM_ZCN, IFEAT, ELINDX)
+            ENDIF
+C
+C***  Continue computing average delta velocity
+C
+            IF(VOLCOMP(VCM_ZCN, IFEAT, ELINDX) .LE. ADPMADH)THEN
+              WEIGHT = 1.0
+            ELSE
+              WEIGHT = WT_SLOPE * VOLCOMP(VCM_ZCN,IFEAT,ELINDX)
+     >               + WT_INTCPT
+              IF(WEIGHT .LT. 0.0 ) WEIGHT = 0.0
+            ENDIF
+            SUM_ADV = SUM_ADV + WEIGHT*VOLCOMP(VCM_DVE,IFEAT,ELINDX)
+C
+C***  Get the next 2D feature.
+C
+ 20       CONTINUE
+C
+C***  Save the maximum delta velocity, its height, the maximum shear,
+C***  and its height in the array FEAT3D.
+C
+          FEAT3D(F3D_MDV,NUM3D) = MAXDV
+          FEAT3D(F3D_HDV,NUM3D) = HGTDV
+          FEAT3D(F3D_MSH,NUM3D) = MAXSH
+          FEAT3D(F3D_HSH,NUM3D) = HGTSH
+C
+C***  Complete the computation for average delta velocity
+C
+          FEAT3D(F3D_ADV,NUM3D) = SUM_ADV/(FLOAT(NCOMP) + 1.0)
+C
+C***  IF TOP IS AT HIGHEST ELEVATION ANGLE THEN FLAG AS NEGATIVE
+C
+          IF(ELXTOP .EQ. NBRLEVS) FEAT3D(F3D_TOP,NUM3D) =
+     >                           -FEAT3D(F3D_TOP,NUM3D)
+C
+C***  If BASEFLAG is .TRUE. negate the base height.
+C
+           IF(BASEFLAG)FEAT3D(F3D_BAS,NUM3D)=-FEAT3D(F3D_BAS,NUM3D)
+C
+C***  If BASEFLAG is true or TOP is at heighest elevation,
+C***  negate the depth.
+C
+           IF(BASEFLAG .OR. ELXTOP .EQ. NBRLEVS)
+     >       FEAT3D(F3D_DEP,NUM3D) = - FEAT3D(F3D_DEP,NUM3D)
+        ENDIF
+C
+C***  Get the next potential 3D feature.
+C
+ 10   CONTINUE
+ 900  RETURN
+      END

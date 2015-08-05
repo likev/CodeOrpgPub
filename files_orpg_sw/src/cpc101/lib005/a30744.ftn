@@ -1,0 +1,306 @@
+C 
+C RCS info 
+C $Author: nolitam $ 
+C $Locker:  $ 
+C $Date: 2002/12/11 20:00:11 $ 
+C $Id: a30744.ftn,v 1.2 2002/12/11 20:00:11 nolitam Exp $ 
+C $Revision: 1.2 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A30744__PRODUCT_GENERATION_CONTROL(PBUFPTR,CRPTR,
+     1                                             PROD,PFLAG,BSIZ,GC)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A30744__PRODUCT_GENERATION_CONTROL
+*.
+*.  MODULE VERSION: 0012
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       05 15 85      0000      ATARA WEINSTEIN
+*.                               & DENNIS MILLER
+*.       04 25 86      0001      BRADLEY SUTKER       SPR # 60159
+*.       08 04 86      0002      MIKE ISTOK           SPR # 60313
+*.       08 22 88      0003      VALERIE HOLDEN       SPR # 80248
+*.       02 22 91      0004      MARK FRESCH          SPR # 91248
+*.       02 15 91      0004      JOHN DEPHILIP        SPR # 91762
+*.       12 03 91      0005      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0006      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/20/92      0007      Toolset              SPR 91895
+*.       03/25/93      0008      Toolset              SPR NA93-06801
+*.       01/28/94      0009      Toolset              SPR NA94-01101
+*.       03/03/94      0010      Toolset              SPR NA94-05501
+*.       12/23/96      0011      Toolset              CCR NA95-11807
+*.       03/16/99      0012      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A30744__PRODUCT_GENERATION_CONTROL
+*.                          (PBUFPTR,CRPTR,PROD,PFLAG,BSIZ,GC)
+*.  MODULE FUNCTION:
+*.     Product Generation Control routine for COMPOSITE REFLECTIVITY
+*.     mapping program.
+*.
+*.  MODULES CALLED: A30745__CARTESIAN_MAP, A30746__INIT_CART_GRID, 
+*.                  A30748__PRODUCT_HEADER, A31218__BUF_VOL, 
+*.                  A3CM22__RASTER_RUN_LENGTH 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT         TYPE        DESCRIPTION
+*.    -   -----         ----        -----------
+*.    G   MEM           I*4         Array in RPG shared memory set aside for
+*.                                  buffer sharing.
+*.    G   SUMMARY       I*4         Volume Scan Summary Table
+*.    G   BLKOVRHD      I*4         (CONSTANT)SIZE OF OVERHEAD PORTION OF
+*.                                  PRODUCT SYMBOLOGY BLOCK, IN BYTES
+*.    G   CGRID         I*4         (CONSTANT)Offset to the grid portion of
+*.                                  the cartesian grid buffer.
+*.    G   CHDR          I*4         (CONSTANT)OFFSET TO HEADER OF CARTESIAN
+*.                                  GRID BUFFER
+*.    G   PFWXCLA       I*4         (CONSTANT)Code Indicating Clear Weather
+*.                                  Mode.
+*.    G   PGRID         I*4         (CONSTANT)Offset to grid portion of polar
+*.                                  grid buffer. From top of polar grid buffer
+*.    G   PHEADLNG      I*4         (CONSTANT)Number of half words in product
+*.                                  header (its length).
+*.    G   RASTER_HEADER I*4         (CONSTANT)Number of half words in raster
+*.                                  packet header.
+*.    G   SCAN_MODE     I*4         (CONSTANT)Weather Mode index into Scan
+*.                                  Summary Table
+*.    C   PHDR          I*4         (CONSTANT)Offset to header portion of
+*.                                  shared memory buffer.
+*.    C   REFCL16       I*4         (CONSTANT)Index into the color level table
+*.                                  COLDAT for all the color tables in the
+*.                                  RPG: Reflectivity 16 Level clear air.
+*.    C   REFCL8        I*4         (CONSTANT)Index into the color level table
+*.                                  COLDAT for all the color tables in the
+*.                                  RPG: Reflectivity 8 Level clear air.
+*.    C   REFNC16       I*4         (CONSTANT)Index into the color level table
+*.                                  COLDAT for all the color tables in the
+*.                                  RPG: Reflectivity 16 Level non-clear air.
+*.    C   REFNC8        I*4         (CONSTANT)Index into the color level table
+*.                                  COLDAT for all the color tables in the
+*.                                  RPG: Reflectivity 8 Level non-clear air.
+*.    C   VS_NUM        I*4         (CONSTANT)Index in buffer header to grid's
+*.                                  volume scan number.
+*.    P   BSIZ          I*4         An array of product output buffer sizes
+*.                                  for the Composite Reflectivity products
+*.    P   CRPTR         I*4         Array of pointers to the output buffers
+*.                                  for the Composite Reflectivity products
+*.    P   GC            I*4         Code for grid type
+*.    P   PBUFPTR       I*4         PRODUCT OUTPUT BUFFER POINTER
+*.    P   PFLAG         L*4         Array to keep track of which products are
+*.                                  to be generated
+*.    P   PROD          I*4         PRODUCT OUTPUT BUFFER
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    G   MEM     I*4         Array in RPG shared memory set aside for buffer
+*.                            sharing.
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    G   MEM               I*4         Array in RPG shared memory set aside
+*.                                      for buffer sharing.
+*.    P   PBUFPTR           I*4         PRODUCT OUTPUT BUFFER POINTER
+*.    P   PROD              I*4         PRODUCT OUTPUT BUFFER
+*.
+*.  DATABASE/FILE REFERENCE: NONE
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME     TYPE        DESCRIPTION
+*.    ----     ----        -----------
+*.    BOXRES   R*4         Grid resolution for cartesian grid
+*.    BUFSTAT  I*4         BUFFER COMPLETION STATUS
+*.    CGRIDHDR I*4         Array containing header portion of cartesian grid
+*.                         buffer.
+*.    CLTABIND I*4         Color table index for this product.
+*.    DL16     I*4         Parameter for sixteen data levels
+*.    DL8      I*4         Parameter for 8 data levels
+*.    GC2      I*4         Starting value for a Do loop.
+*.    GC4      I*4         Ending value for a Do loop.
+*.    GRIDSIZ  I*4         An array of the number of boxes in the cartesian
+*.                         grid
+*.    I2S      I*4         Output parameter with number of R.L.E bytes from
+*.                         RUN_LENGTH_ENCODING routine.
+*.    MAXIND   I*4         Maximum index for RUN_LENGTH_ENCODING.
+*.    N        I*4         Do loop index.
+*.    NDATLVL  I*4         Number of data levels.
+*.    NI2      I*4         (Constant) used to calculate RLBSIZE.
+*.    NPROD    I*4         Number of ranges/resolutions for this product
+*.    NRES     I*4         (Constant) Value used as dimension for array (RNG,
+*.                         BOXRES) which contains `ranges for each version of
+*.                         composite reflectivity map' and `grid resolution
+*.                         for
+*.    RLBSIZ   I*4         Number of RUN_LENGTH_ENCODED bytes.
+*.    RNG      I*4         An array of the ranges for each version of the
+*.                         composite reflectivity map
+*.    STARTIND I*4         Start index for run-length-encoding.
+*.    VSNUM    I*4         Volume scan number.
+*.    WEATHRMD I*4         Weather mode used for composite reflectivity
+*.                         mapping.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD00
+*.    A3CD05
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: NONE.
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP07.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK07.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+$EJECT
+C
+      IMPLICIT NONE
+C
+$INCLUDE A309.INC/G,**A3PM00 (NEND NLIST)
+$INCLUDE            **A3PM01 (NEND NLIST)
+$INCLUDE            **A3PM04 (NEND NLIST)
+$INCLUDE            **A3PM06 (NEND NLIST)
+$INCLUDE            **A3CD00 (NEND NLIST)
+$INCLUDE            **A3CD05 (NEND NLIST)
+*-------------------------------
+C
+$INCLUDE A309ADPT.INC/G,**A3CD70C8 (NEND NLIST)
+C
+$INCLUDE A307BUF.INC/G,**A307P4 (NEND NLIST)
+$INCLUDE               **A307P9 (NEND NLIST)
+$INCLUDE               **A307D9 (NEND NLIST)
+C
+C*** LOCAL DECLARATIONS:
+C
+      INTEGER NPROD,NRES,N,GC,GC2,GC4
+      INTEGER PBUFPTR
+      INTEGER A31218__BUF_VOL
+      INTEGER BUFSTAT
+      INTEGER STARTIND,MAXIND
+      INTEGER NI2,I2S,RLBSIZ
+      INTEGER NDATLVL
+      INTEGER CLTABIND
+      INTEGER VSNUM,WEATHRMD
+      INTEGER DL8,DL16
+      INTEGER*2 CCM,CCL
+C
+      PARAMETER (NPROD=6,NRES=2,NI2=2)
+      PARAMETER (DL8=8,DL16=16)
+C
+      INTEGER GRIDSIZ(NRES)
+      INTEGER RNG(NRES)
+      INTEGER PROD(NPROD)
+      INTEGER CRPTR(NPROD)
+      INTEGER BSIZ(NPROD)
+      REAL BOXRES(NRES)
+      LOGICAL PFLAG(NPROD)
+C
+      DATA RNG     /230 , 460/
+      DATA BOXRES  /1.0 , 4.0/
+      DATA GRIDSIZ /464 , 232/
+C
+C*** EXECUTABLE CODE:
+C
+X     TYPE *,' '
+X     TYPE *,'A30744: PROCESSING BUFFER NUMBER ',GC
+X     TYPE *,' '
+C
+C*** INITIALIZE CARTESIAN GRID BEFORE MAPPING
+      CALL A30746__INIT_CART_GRID( MEM(CRPTR(GC)+CGRID),GRIDSIZ(GC) )
+C**X  CALL WRITCART( MEM(CRPTR(GC)+CHDR),MEM(CRPTR(GC)+CGRID)
+C**  1                                               ,GRIDSIZ(GC),GC )
+X     TYPE *,'A30744: BACK FROM CRITICAL RANGE ROUTINE'
+C
+C*** MAP COMPOSITE REFLECTIVITY DATA FROM POLAR GRID TO CARTESIAN GRID:
+      CALL A30745__CARTESIAN_MAP( MEM(PBUFPTR+PGRID),RNG(GC),GRIDSIZ(GC)
+     1          ,BOXRES(GC),MEM(CRPTR(GC)+CGRID),MEM(CRPTR(GC)+CHDR) )
+C**X  CALL WRITCART( MEM(CRPTR(GC)+CHDR),MEM(CRPTR(GC)+CGRID)
+C**  1                                               ,GRIDSIZ(GC),GC )
+X     TYPE *,'A30744: BACK FROM CARTESIAN MAPPING ROUTINE'
+X     TYPE *,'A30744: CART.GRID HEADER:'
+X     TYPE *,'       ',(CGRIDHDR(N),N=1,HDRLNG)
+X     TYPE *,'A30744: COL: ',(CRPTR(GC)+GRID_COL-1),CGRIDHDR(GRID_COL)
+X     TYPE *,'A30744: ROW: ',(CRPTR(GC)+GRID_ROW-1),CGRIDHDR(GRID_ROW)
+X     TYPE *,'A30744: RES: ',(CRPTR(GC)+GRID_RES-1),CGRIDHDR(GRID_RES)
+C
+C**   CALL WRITCART( MEM(CRPTR(GC)+CHDR),MEM(CRPTR(GC)+CGRID)
+C**  1                                               ,GRIDSIZ(GC),GC )
+X     TYPE *,'A30744: BACK FROM SMOOTHING ROUTINE'
+C
+C*** STORE THE WEATHER MODE & VOLUME SCAN NUMBER FOR FUTURE USE:
+C
+C-----STUBBED IN UNTIL REAL DATA IS AVAILABLE
+      VSNUM = A31218__BUF_VOL(PBUFPTR)
+      WEATHRMD = SUMMARY(SCAN_MODE,VSNUM)
+      CGRIDHDR(VS_NUM) = VSNUM
+X     TYPE *,'A30744: VSNUM=',VSNUM,' AT ',(CRPTR(GC)+VS_NUM-1)
+X     TYPE *,'A30744: WEATHERMODE=',WEATHRMD
+C
+C*** FOR EACH PRODUCT REQUESTED, CALL RUN-LENGTH-ENCODING AND
+C*** PRODUCT-HEADER ROUTINES :
+      GC2=GC+2
+      GC4=GC+4
+      DO 20 N=GC2,GC4,2
+         IF (PFLAG(N)) THEN
+X        TYPE *,'A30744: READY TO R.L.E. & STORE HEADER FOR PROD# ',N
+C
+C*** GET WEATHER-MODE & COLOR-TABLE-INDEX FOR THE PRODUCT :
+            IF(WEATHRMD.EQ.PFWXCLA) THEN
+               IF(N.EQ.GC2) CLTABIND = REFCL8
+               IF(N.EQ.GC4) CLTABIND = REFCL16
+            ELSE
+               IF(N.EQ.GC2) CLTABIND = REFNC8
+               IF(N.EQ.GC4) CLTABIND = REFNC16
+            ENDIF
+C
+C*** GET STARTING AND MAXIMUM INDICES FOR RUN-LENGTH-ENCODING:
+            STARTIND = PHEADLNG + BLKOVRHD/2 + RASTER_HEADER+1
+            MAXIND = BSIZ(N) * 2
+X        TYPE *,'A30744: STARTIND=',STARTIND,'  MAXIND=',MAXIND
+C
+C
+C*** CALL RUN-LENGTH-ENCODING ROUTINE & DETERMINE # OF R.L.E. BYTES:
+            CALL A3CM22__RASTER_RUN_LENGTH( GRIDSIZ(GC),GRIDSIZ(GC)
+     1         ,BUFSTAT,MEM(CRPTR(GC)+CGRID),CLTABIND,MEM(CRPTR(N))
+     2         ,STARTIND,I2S,MAXIND )
+            RLBSIZ = I2S*NI2
+X        TYPE *,'A30744: BACK FROM R.L.E. FOR PRODUCT #',N
+X        TYPE *,'A30744: #RLE  BYTE...',RLBSIZ
+C
+C*** GET NUMBER OF DATA-LEVELS, FOR PRODUCT HEADER ROUTINE:
+             IF(N.EQ.(GC2)) THEN
+                NDATLVL = DL8
+             ELSE
+                NDATLVL = DL16
+             ENDIF
+C
+C*** CALL PRODUCT HEADER ROUTINE HERE
+             CALL A30748__PRODUCT_HEADER(MEM(CRPTR(N)),PROD(N),RLBSIZ,
+     1                 VSNUM,NDATLVL,WEATHRMD,CLTABIND,GRIDSIZ(GC),
+     2                 MEM(CRPTR(GC)+CHDR), MEM(PBUFPTR+PHDR) )
+X        TYPE *,'A30744: BACK FROM HEADER ROUTINE FOR PRODUCT #',N
+C
+         ENDIF
+ 20   CONTINUE
+C    --------------------------------
+C*** RETURN TO BUFFER CONTROL ROUTINE:
+      RETURN
+      END

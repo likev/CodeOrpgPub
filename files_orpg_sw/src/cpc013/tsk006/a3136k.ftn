@@ -1,0 +1,154 @@
+C 
+C RCS info 
+C $Author: nolitam $ 
+C $Locker:  $ 
+C $Date: 2002/11/27 15:58:28 $ 
+C $Id: a3136k.ftn,v 1.4 2002/11/27 15:58:28 nolitam Exp $ 
+C $Revision: 1.4 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A3136K__COPY_ACCUM( INP_ACCUM, OUTP_ACCUM )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3136K__COPY_ACCUM
+*.
+*.  MODULE VERSION: 0012
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       10 26 88      0000      Paul Jendrowski      SPR # 80383
+*.       05 17 90      0000      JOHN DEPHILIP        SPR # 90697
+*.       02 22 91      0001      PAUL JENDROWSKI      SPR # 91254
+*.       02 15 91      0001      JOHN DEPHILIP        SPR # 91762
+*.       12 03 91      0002      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0003      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0004      Toolset              SPR 91895
+*.       03/25/93      0005      Toolset              SPR NA93-06801
+*.       01/28/94      0006      Toolset              SPR NA94-01101
+*.       03/03/94      0007      Toolset              SPR NA94-05501
+*.       08/03/94      0008      C. Stephenson        CCR NW-94-084-02
+*.       04/11/96      0009      Toolset              CCR NA95-11802
+*.       12/23/96      0010      Toolset              CCR NA95-11807
+*.       03/16/99      0011      Toolset              CCR NA98-23803
+*.       01/31/02      0012      Dennis A. Miller     CCR NA01-27501
+*.
+*.  CALLING SEQUENCE: CALL A3136K__COPY_ACCUM( INP_ACCUM, OUTP_ACCUM )
+*.
+*.  MODULE FUNCTION:
+*.
+*.      This module serves to copy an accumulation scan (period or
+*.      hourly) from the input buffer to the output buffer.  No
+*.      Bias Adjustment is performed; if the operator elects to 
+*.      apply the bias, the adjustment is made to the individual
+*.      products in the Precip Products task.
+*.
+*.      For efficiency, the two dimensional arrays are passed in as
+*.      one dimensional arrays of Integer*4 instead of Integer*2.
+*.      The index for these arrays are the two dimensional indices,
+*.      multiplied and then divided by 2.  This decreases the time
+*.      to copy one array to the another.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT       TYPE        DESCRIPTION
+*.    -   -----       ----        -----------
+*.    G   MAX_ADJBINS I*4         (CONSTANT)Maximum number of range bins
+*.                                (index into output buffer of adjusted
+*.                                values).
+*.    G   MAX_AZMTHS  I*4         (CONSTANT)Maximum number of azimuths in a
+*.                                scan (index into output buffer of adjusted
+*.                                values).
+*.    C   IBEG        I*4         (CONSTANT)Parameter for start of Do Loop.
+*.    P   INP_ACCUM   I*4         Input scan to be adjusted
+*.
+*.    *   OUTPUT     TYPE        DESCRIPTION
+*.    -   ------     ----        -----------
+*.    P   OUTP_ACCUM I*4         Adjusted scan for output
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE: None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME    TYPE        DESCRIPTION
+*.    ----    ----        -----------
+*.    I       I*4         LOOP COUNTER
+*.    INDICES I*4         Number of radials times azimuth divided by 2
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS: None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP13.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK13.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+      IMPLICIT NONE
+C
+$INCLUDE A313HBUF.INC/G,**A313HYPP (NLIST)
+$INCLUDE **A313HYP6 (NLIST)
+$INCLUDE A313H.INC,**A3136P (NLIST)
+$INCLUDE **A3136C3 (NLIST)
+C
+      INTEGER*4 I, INDICES                                              9408402
+      PARAMETER (INDICES = MAX_ADJBINS*MAX_AZMTHS/2)                    9408402
+      INTEGER*4 INP_ACCUM(INDICES)                                      9408402
+      INTEGER*4 OUTP_ACCUM(INDICES)                                     9408402
+C
+X     INTEGER*4 J
+C
+X     WRITE(14,1)
+X  1  FORMAT(' ***** ENTER A3136K')
+C                                                                       9408402
+C** Remove code for CCR NW-94-084-02                                    9408402
+C** No longer adjust the accumulation scan with the Bias                9408402
+C
+C** Do for all azimuths and bins in polar grid                          9404802
+C
+X       WRITE(14,9)
+X  9    FORMAT(' ***** A3136K: UNADJUSTED SCAN COPIED TO OUTPUT BUFFER')
+C
+        DO 20 I=IBEG,INDICES                                            9408402
+C
+C** Just copy data from input buffer to output buffer
+C
+            OUTP_ACCUM(I)=INP_ACCUM(I)                                  9408402
+  20    CONTINUE
+C
+X         WRITE(6,107)
+X107      FORMAT(1X,'INPUT_ACCUM')
+X         WRITE(6,108)(INP_ACCUM(J),J=IBEG,INDICES)
+X108      FORMAT(1X,1478(14(1X,Z8)/),8(1X,Z8))
+X         WRITE(6,*)'OUTPUT_ACCUM'
+X         WRITE(6,108)(OUTP_ACCUM(J),J=IBEG,INDICES)
+C
+X     WRITE(14,99)
+X 99  FORMAT(' ***** EXIT A3136K')
+C
+      RETURN
+      END

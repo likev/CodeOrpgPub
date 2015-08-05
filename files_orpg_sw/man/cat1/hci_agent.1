@@ -1,0 +1,75 @@
+hci_agent(1)                ORPG SUM Man page                      hci_agent(1)
+
+NAME
+
+hci_agent
+
+SYNOPSIS
+
+hci_agent [options]
+
+DESCRIPTION
+
+The "hci_agent" command invokes the Human-Computer Interface (HCI) agent task
+for the  ORPG.  It is a non-GUI application which should be run along with
+other RPG control tasks.  Its primary purpose is to handle high-bandwidth
+operations for other HCI tasks and produce low-bandwidth output.  Unlike other
+HCI family tasks, hci_agent should be run on the ORPG platform instead of the
+MSCF platform.
+
+OPTIONS
+
+hci_agent recognizes the following options:
+
+	-h	      print usage message and exit
+	
+OVERVIEW
+
+The HCI Agent task is an RPG control task which runs on the RPG computer.  Its
+primary purpose is to monitor changes to designated ORPG data files and write
+summary information which can be used by other HCI family tasks.  This task is
+especially important for distant configurations where bandwidth is severely
+limited.
+
+The tasks performed by the HCI agent include: Manage failed task table, 
+Manage latest RPG status and alarm messages, and check for changes to the
+Clutter Regions Editor task (see hci_ccz(1)) and PRF Selection task (see
+hci_prf(1)) configuration data.
+
+The ORPG task table is a fairly large file which would pose a problem for any
+remote low-bandwidth HCI task needing to read it regularly.  The HCI agent
+reads this file when notified of updates and produces a summary file containing
+the name and ID of all failed tasks.  The HCI RPG Status task (see
+hci_status(1)) provides a popup window to display this information to the
+operator.
+
+The RPG status log file is another large file which would pose a problem for
+any remote low-bandwidth HCI task needing to read it regularly.  The HCI agent
+reads the file whenever notified of updates and produces a summary file
+containing the latest alarm and status (non-alarm) messages.  The latest
+status and alarm messages are stored for the HCI RPG Control/Status task (see
+hci(1) so it will not have to read the entire system log file at task
+startup in order to determine the latest status and alarm messages.
+
+The Clutter Regions Editor and PRF Selection tasks require certain background
+products to be generated.  These products are defined in the configuration
+file "hci_task_data" and maintained in the HCI_CCZ_TASK_DATA_MSG_ID and
+HCI_PRF_TASK_DATA_MSG_ID messages in the ORPGDAT_HCI_DATA LB.  It is the
+responsibility of the HCI agent task to initialize these messages (if they
+don't exist) and monitor changes to them.  At task startup, or when one of the
+data stores are updated, the HCI agent task builds an RPS list and sends it to
+the ORPGDAT_RT_REQUEST LB.  This RPS list contains the products required by
+the Clutter Regions Editor and PRF Selection tasks.  Line 0 is used for the
+request since it isn't used by any narrowband configuration.
+
+In FAA RMS configurations, the HCI Agent task monitors changes in RMS status.
+Whenever it changes, the RMS status message is updated in the HCI data LB so
+other HCI applications can access this information.
+
+NOTES
+
+SEE ALSO
+
+orpg(3) hci(1) hci_ccz(1) hci_prf(1)
+
+				$Revision: 1.5 $

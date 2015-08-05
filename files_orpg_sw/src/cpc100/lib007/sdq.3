@@ -1,0 +1,167 @@
+
+NAME
+    The Simple Data Query service
+
+SYNOPSIS
+    #include <infr.h>
+
+    int SDQ_select (char *lb_name, char *where, void **result);
+
+    void SDQ_set_query_mode (int mode);
+
+    void SDQ_set_maximum_records (int maxn_records);
+
+    int SDQ_update (char *lb_name, char *where, void *message, int msg_len);
+
+    int SDQ_insert (char *lb_name, void *message, int msg_len);
+
+    int SDQ_delete (char *lb_name, char *where);
+
+    int SDQ_lock (char *lb_name, char *where, int command);
+
+    int SDQ_get_record (void *result, int n, void **record);
+
+    int SDQ_get_message (void *result, int n, char **message);
+
+    int SDQ_get_n_records_found (void *r);
+
+    int SDQ_get_query_error (void *r);
+
+    int SDQ_get_n_records_returned (void *r);
+
+    int SDQ_get_query_record (void *r, int n, void **rec);
+
+    int SDQ_get_msg_id (void *result, int ind, LB_id_t *msg_id);
+
+DESCRIPTION
+
+    The SDQ (Simple Data Query) API is the client side interface for the
+    content based message access service, which supports LB message access and
+    update by their contents. This service requires the sdqs server. Refer to
+    "man sdqs" for more information about the server.
+
+    SDQ_select is the basic function for retrieving LB messages by their
+    content. Argument "lb_name" specifies the name of the LB. Argument "where",
+    using a syntax similar to that used in the SQL "where" clause, specifies
+    the searching criteria for selecting the messages. "where" field can be any
+    expression contains logical operators of "and", "or", "not", parantheces
+    "(" and ")" and primitive expressions. A primitive expression consists of a
+    field name, an comparison operator and an appropriate constant value.
+    Supported comparison operators are "=" (equal), "<>" or "!=" (not equal),
+    "<" (less than), "<=" (less than or equal), ">" (greater than) and ">="
+    (greater than or equal). The field name is any of the query field names
+    (Refer to sdqs man-page). If a character string "value" contains multiple
+    words, it must be quoted by "'". The following are examples pf valid
+    "where" expressions:
+
+	"product_name = my_product"
+
+	"(product_name = my_product1 or product_name = product2) and 
+	 volume_num <= 45"
+
+	"(product_name = my_product1 or product_name = product2) and 
+	 volume_num <= 45 and not (volume_num = 20)"
+
+	"(product_name = my_product1 or product_name = product2) and 
+	 (volume_num <= 45 and not volume_num = 20)"
+
+    where "product_name" and "volume_num" are assumed to be valid query field
+    names. The result of an empty "where" (i.e. "") query is undefined. "not" 
+    has the highest precedence and "or" has the lowest precedence. Thus the 
+    last two examples are identical.
+
+    The result of SDQ_select is returned in "result" which is a pointer to an
+    opaque data structure. The user should not try to directly dereference it
+    other than passing it to a SDQ function. The user is responsible for
+    freeing the returned "result" pointer if it is not NULL.
+
+    SDQ_select returns the number of records returned on success or a negative
+    error code.
+
+    Functions SDQ_get_* parses the result returned by SDQ_select.
+
+    SDQ_get_record accepts "result", the data returned by SDQ_select, and
+    extracts the "n"-th, started with 0, query record and returns it in
+    "record". SDQ_get_message is similar to SDQ_get_record other than that it
+    returns the LB message with argument "message". The user is responsible for
+    freeing the pointer returned by SDQ_get_message if the message size is not
+    zero. SDQ_get_message deserializes the message header after it is read from
+    the LB. The message header can be any of the three serializable types
+    described in smia.3. On success, SDQ_get_record returns the size of the
+    record and SDQ_get_message returns the size of the message read from the
+    LB. The two functions return a negative error code on failure.
+
+    SDQ_get_n_records_found returns the number of records found in the search.
+    SDQ_get_query_error returns the error code of the query. It returns 0 if no
+    error was found. SDQ_get_n_records_returned returns the number of records
+    returned in the result. The number of returned records may be less than the
+    number of records found. SDQ_get_query_record is similar to SDQ_get_record
+    except that it returns 1 on success and 0 on failure. SDQ_get_msg_id 
+    returns the message ID in LB.
+
+    One can call SDQ_set_query_mode to set a specific searching mode before
+    calling SDQ_select. The mode set is effective only for the following
+    SDQ_select call. The argument "mode" may be an OR of the following flags:
+
+	Field match mode: 
+	SDQM_ALL_MATCH - undefined field value matches any value.
+	SDQM_EXACT_MATCH (default) - undefined field value matches "undefined" 
+				     value only.
+
+	Partial search mode:
+	SDQM_FULL_SEARCH - find all records.
+	SDQM_PARTIAL_SEARCH (default) - find only records need to be returned.
+
+	Search direction:
+	SDQM_HIGHEND_SEARCH - search started from high value end.
+	SDQM_LOWEND_SEARCH (default) - search started from low value end.
+
+	Search for distinct query field values:
+	SDQM_DISTINCT_FIELD_VALUES - search for distinct query field values.
+	SDQM_ALL_FIELD_VALUES (default) - search all query field values.
+
+    Some of the above features work only for fields that have index trees.
+
+    One can call SDQ_set_maximum_records, before calling SDQ_select, to set a
+    limit on the maximum number of records the next SDQ_select will return.
+    This setting is effective only for the following SDQ_select call. A
+    default limit is used if this function is not called.
+
+    SDQ_update updates the message matching expression "where" in LB "lb_name"
+    by "message" of length "msg_len" bytes. SDQ_update performs serialization
+    and byte swap on the message header before writing it to the LB. "message"
+    can be any of the three serializable types described in smia.3. "msg_len"
+    is not used if the message is of type 2 in which case no additional data is
+    allowed after the header. "msg_len" can be 0 for type 1. If 0 is specified,
+    no boundary checking is performed. SDQ_update updates only one message. If
+    the number of messages found based of the "where" expression is zero or
+    more than one, SDQ_update will fail and return an error code. SDQ_update
+    returns the number of bytes written to the LB on success or a negative
+    error code on failure.
+
+    SDQ_insert is the same as SDQ_update except that it inserts a message into
+    the LB. It adds the message to the LB without first querying the server. 
+    SDQ_insert returns the size of the message inserted on success or a 
+    negative error code on failure.
+
+    SDQ_delete deletes all messages that matches expression "where" in LB
+    "lb_name". SDQ_delete returns the number of messages deleted on success or
+    a negative error code on failure.
+
+    SDQ_update, SDQ_insert and SDQ_delete modifies the LB directly. They do
+    not update the sdqs server atomically. Thus, for example, an immediate
+    SDQ_select after these routines may not see the changes made by them. One
+    can use SDQ_select to poll sdqs to find out if a particular change has 
+    available through the server.
+
+    SDQ_lock can be used for gaining unique access to an LB message for
+    updating. SDQ_lock selects the message that matches expression "where" in
+    LB "lb_name" and calls LB_lock on it. Argument "command" is passed to
+    LB_lock. Refer to "man lb" for further details. SDQ_lock can lock only one
+    message each time it is called. If the number of messages found based of
+    the "where" expression is zero or more than one, SDQ_lock will fail and
+    return an error code. An example of using SDQ_lock is to lock a message,
+    update the message and release the lock. The lock is necessary here if
+    another user can potentially try to simultaniously update the same message.
+    The lock is released when SDQ_lock is called with "command" = LB_UNLOCK or 
+    the process that hold the lock terminates.

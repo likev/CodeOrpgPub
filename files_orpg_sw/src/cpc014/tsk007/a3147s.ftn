@@ -1,0 +1,241 @@
+C 
+C RCS info 
+C $Author: steves $ 
+C $Locker:  $ 
+C $Date: 2004/01/21 17:52:24 $ 
+C $Id: a3147s.ftn,v 1.4 2004/01/21 17:52:24 steves Exp $ 
+C $Revision: 1.4 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A3147S__PROD_HDR_PT2(USPBUF,CDATE,CTIME,ONE_CA)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3147S__PROD_HDR_PT2
+*.
+*.  MODULE VERSION: 0002
+*.
+*.  MODULE LANGUAGE:  FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.        10/19/95      0000      Cheryl Stephenson    CCR NA94-08462
+*.       12/23/96      0001      Toolset              CCR NA95-11807
+*.       03/16/99      0002      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A3147S__PROD_HDR_PT2(USPBUF,CDATE,CTIME,
+*.                        ONE_CA)
+*.
+*.  MODULE FUNCTION:  This module fills in the second part of the
+*.  product header.  This includes the generation date/time and other
+*.  non unique product information (RDA ID, RDA LAT&LON).
+*.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT     TYPE        DESCRIPTION
+*.    -   -----     ----        -----------
+*.    G   SIRDAHGT  I*4         Site Adaptation - RDA Height.
+*.    G   SIRDALAT  I*4         Site Adaptation - RDA Latitude.
+*.    G   SIRDALON  I*4         Site Adaptation - RDA Longitude.
+*.    G   SIRPGID   I*4         Site Adaptation - RPG ID Number.
+*.    G   SUMMARY   I*4         Volume Scan Summary Table
+*.    G   GDPRDOFF  I*4         (CONSTANT)Product header offset: generation
+*.                              date of product.
+*.    G   GTLSWOFF  I*4         (CONSTANT)Product header offset:Generation
+*.                              time of product (LSW).
+*.    G   GTMSWOFF  I*4         (CONSTANT)Product header offset. Generation
+*.                              time of product (MSW).
+*.    G   LNLSWOFF  I*4         (CONSTANT)Product header offset: Longitude of
+*.                              radar (LSW).
+*.    G   LNMSWOFF  I*4         (CONSTANT)Product header offset: Longitude of
+*.                              radar (MSW).
+*.    G   LTLSWOFF  I*4         (CONSTANT)Product header offset: Latitude of
+*.                              radar (LSW).
+*.    G   LTMSWOFF  I*4         (CONSTANT)Product header offset: Latitude of
+*.                              radar (MSW)
+*.    G   MDL2OFF   I*4         (CONSTANT)Product header offset: Maximum Data
+*.                              Level 2.
+*.    G   MDL3OFF   I*4         (CONSTANT)Product header offset: Maximum Data
+*.                              Level 3.
+*.    G   MDL4OFF   I*4         (CONSTANT)Product header offset: Maximum Data
+*.                              Level 4.
+*.    G   MESCDOFF  I*4         (CONSTANT)Product header offset: Message code.
+*.    G   PRDCODOFF I*4         (CONSTANT)Product header offset descriptions:
+*.                              Product code.
+*.    G   RADHGTOFF I*4         (CONSTANT)Product header offset descriptions:
+*.                              Height of radar.
+*.    G   SCAN_DATE I*4         (CONSTANT)Volume Scan Date index into Scan
+*.                              Summary Table
+*.    G   SCAN_MODE I*4         (CONSTANT)Weather Mode index into Scan Summary
+*.                              Table
+*.    G   SCAN_TIME I*4         (CONSTANT)Volume Scan Time index into Scan
+*.                              Summary Table
+*.    G   SCAN_VCP  I*4         (CONSTANT)Volume Coverage Pattern index into
+*.                              Scan Summary Table
+*.    G   SRCIDOFF  I*4         (CONSTANT)Product header offset: Source
+*.                              ID-Number.
+*.    G   VCPOFF    I*4         (CONSTANT)Product header offset:  Volume
+*.                              coverage pattern.
+*.    G   VSDATOFF  I*4         (CONSTANT)Product header offset: Volume scan
+*.                              date.
+*.    G   VSNUMOFF  I*4         (CONSTANT)Product header offset descriptions:
+*.                              Volume scan number.
+*.    G   VSTLSWOFF I*4         (CONSTANT)Product header offset: Volume scan
+*.                              time (LSW).
+*.    G   VSTMSWOFF I*4         (CONSTANT)Product header offset:  Volume scan
+*.                              time (MSW).
+*.    G   WTMODOFF  I*4         (CONSTANT)Product header offset:  Weather
+*.                              mode.
+*.    C   NULL_PROD L*4         Flag indicating whether the product contains
+*.                              data or will a ASCII message explaining why
+*.                              there is no data
+*.    C   VOLN      I*4         Volume Scan Number
+*.    C   END_HOUR  I*4         (CONSTANT)INDEX INTO CUSTOMIZING ARRAY FOR END
+*.                              HOUR OF THE USP PRODUCT
+*.    C   FRSTI2WD  I*4         (CONSTANT)Index for 1st I*2 words of a pair
+*.                              which is equivalenced to one I*4 word
+*.    C   SCNDI2WD  I*4         (CONSTANT)Index for 2nd word of a pair of I*2
+*.                              words equivalenced to one I*4 word.
+*.    C   TIME_SPAN I*4         (CONSTANT)INDEX INTO CUSTOMIZING ARRAY FOR
+*.                              TIME SPAN OF THE USP PRODUCT
+*.    C   USP_CODE  I*4         (CONSTANT)USP PRODUCT CODE
+*.    P   CDATE     I*4         The generation date of the product  (Julian)
+*.    P   CTIME     I*4         The generation time of the product in second
+*.                              after midnight
+*.    P   ONE_CA    I*2         One customized USP product request
+*.    P   USPBUF    I*2         USP product buffer
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    P   USPBUF  I*2         USP product buffer
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME     TYPE        DESCRIPTION
+*.    ----     ----        -----------
+*.    BHRS     I*4         Used to check if the start date needs to be
+*.                         adjusted to the previous day
+*.    CHRS     I*4         Current hour
+*.    I4TOTLNG I*4         I*4 word equivalned to I*2 array TOTLNG (used to
+*.                         facilate storage of information in the product
+*.                         header)
+*.    ZERO     I*4         PARAMETER VALUE '0'
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD05
+*.    SITEADP
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3147C1
+*.    A3147C2
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  NONE
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK14.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+
+      IMPLICIT NONE
+C
+$INCLUDE A309ADPT.INC/G,**A3CD70CA (NLIST)
+$INCLUDE                **A3CD70C7 (NLIST)
+$INCLUDE                **A3CD70C5 (NLIST)
+$INCLUDE A309.INC/G,**A3PM00 (NLIST)
+$INCLUDE            **A3PM01 (NLIST)
+$INCLUDE            **A3PM04 (NLIST)
+$INCLUDE            **A3PM06 (NLIST)
+$INCLUDE            **A3CD05 (NLIST)
+$INCLUDE A3147.INC/G,**A3147P1 (NLIST)
+$INCLUDE             **A3147P2 (NLIST)
+$INCLUDE             **A3147C1 (NLIST)
+$INCLUDE             **A3147C2 (NLIST)
+$INCLUDE             **A3147C3 (NLIST)
+C
+      INTEGER*2 USPBUF(*),ONE_CA(10)
+      INTEGER*4 I4TOTLNG,IDX
+      INTEGER*4 CHRS,BHRS
+      INTEGER*4 ZERO, CTIME,CDATE
+      PARAMETER (ZERO = 0)
+C------------------------- EXECUTABLE ---------------------------
+C
+C*    STORE INFORMATION INTO THE PRODUCT HEADER BLOCK
+C
+      USPBUF(MESCDOFF) = USP_CODE
+      USPBUF(SRCIDOFF) = SIRPGID
+C
+C*    STORE RADAR LATITUDE AND LONGITUDE
+C
+      call RPG_set_product_int( USPBUF(LTMSWOFF), SIRDALAT )
+      call RPG_set_product_int( USPBUF(LNMSWOFF), SIRDALON )
+C*
+C*    STORE RADAR HEIGHT, PRODUCT CODE
+C*
+      USPBUF(RADHGTOFF) = SIRDAHGT
+      USPBUF(PRDCODOFF) = USP_CODE
+C*
+C*   OPERATION MODE AND VOLUME COVERAGE PATTERN
+C*
+      USPBUF(WTMODOFF) = SUMMARY(SCAN_MODE,VOLN)
+      USPBUF(VCPOFF) = SUMMARY(SCAN_VCP,VOLN)
+C*
+C*    STORE VOLUME SCAN NUMBER, VOLUME SCAN DATE AND TIME
+C
+      USPBUF(VSNUMOFF) = VOLN
+      USPBUF(VSDATOFF) = SUMMARY(SCAN_DATE,VOLN)
+      call RPG_set_product_int( USPBUF(VSTMSWOFF),
+     1                          SUMMARY(SCAN_TIME,VOLN) )
+C
+C*    STORE THE GENERATION DATE AND TIME
+C
+      USPBUF(GDPRDOFF) = CDATE
+      call RPG_set_product_int( USPBUF(GTMSWOFF), CTIME )
+C
+C  IF NULL PRODUCT FILL IN START AND END DATES AND END TIME
+C
+      IF(NULL_PROD)THEN
+C
+C  IF END HOUR IS GREATER THAN CURRENT TIME, END DATE
+C  IS YESTERDAY
+C
+         I4TOTLNG = SUMMARY(SCAN_TIME,VOLN)
+         CHRS=I4TOTLNG/3600
+         IF(ONE_CA(END_HOUR).GT.CHRS)THEN
+             USPBUF(MDL4OFF)=USPBUF(VSDATOFF)-1;END DATE
+         ELSE
+             USPBUF(MDL4OFF)=USPBUF(VSDATOFF)   ;END DATE
+         ENDIF
+         BHRS = ONE_CA(END_HOUR) - ONE_CA(TIME_SPAN)
+         IF(BHRS .LT. ZERO)THEN
+             BHRS = BHRS + 24
+             USPBUF(MDL2OFF)= USPBUF(MDL4OFF)-1; START DATE
+         ELSE
+             USPBUF(MDL2OFF)= USPBUF(MDL4OFF); START DATE
+         ENDIF
+         USPBUF(MDL3OFF)=BHRS*60  ; START TIME
+      ENDIF
+      RETURN
+      END

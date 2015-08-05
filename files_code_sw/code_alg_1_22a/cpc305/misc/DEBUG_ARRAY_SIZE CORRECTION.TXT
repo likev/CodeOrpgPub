@@ -1,0 +1,47 @@
+
+
+
+
+/* Sample Alg 1.18 - determined the number of bins to process here */
+    /* limit number of bins to the 70.000 ft MSL ceiling */
+    bins_to_70k = RPGC_bins_to_ceiling( basedataPtr, hdr->surv_bin_size );
+
+    if(bins_to_70k < max_num_bins)
+        bins_to_process = bins_to_70k;
+    else
+        bins_to_process = max_num_bins;
+
+    if(hdr->azm_reso == 1) {
+        max_num_radials = BASEDATA_MAX_SR_RADIALS;
+        if(DEBUG) fprintf(stderr,"Detected Super Res Radial (0.5 degree) \n");
+    } else if(hdr->azm_reso == 2) {
+        max_num_radials = BASEDATA_MAX_RADIALS;
+    }
+
+/* DEBUG OUTPUT */ 
+/* fprintf(stderr,"DEBUG Calculated Bins to Ceiling is %d\n", bins_to_70k); */
+/* fprintf(stderr,"DEBUG Bins to Process is %d\n", bins_to_process);        */
+/* fprintf(stderr,"DEBUG Max number of bins is %d\n", max_num_bins);        */
+/* fprintf(stderr,"DEBUG Max number of radials is %d\n", max_num_radials);  */
+
+    /* NOTE: when accomplishing numerical calculations including assembly   */
+    /*       of the final product arrays, the number of good bins must be   */
+    /*       accounted for.  This can be made by reducing the size of the   */
+    /*       internal data array processed, pins_to_process, or by ensuring */
+    /*       all data values after the last good bin are set to a value     */
+    /*       of '0'.                                                        */
+
+    /*       In this sample algorithm we make that reduction here in the    */
+    /*       value of number of bins to process.  It would be best to       */
+    /*       test this for each radial                                      */
+    index_first_bin = hdr->surv_range - 1;
+    index_last_bin = index_first_bin + hdr->n_surv_bins - 1;
+    if( bins_to_process > (index_last_bin - index_first_bin + 1) )
+        bins_to_process = index_last_bin - index_first_bin + 1;
+
+
+ /*DEBUG */
+/*fprintf(stderr,"DEBUG Index of first bin is %d\n", index_first_bin);          */
+/*fprintf(stderr,"DEBUG Number of bins in radial is %d\n", hdr->n_surv_bins);   */
+/*fprintf(stderr,"DEBUG Index of last bin is %d\n", index_last_bin);            */
+/*fprintf(stderr,"DEBUG Bins to Process(Good Bins) is %d\n\n", bins_to_process);*/

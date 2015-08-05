@@ -1,0 +1,112 @@
+orpgdbm(3)		ORPG SDD Manpage		orpgdbm(3)
+
+NAME
+orpgdbm - ORPG Library Products Data Base (DBM) access routines
+
+SYNOPSIS
+	cc [ flag ... ] file ... -lorpg -linfr [ library ... ]
+
+#include <orpg.h>
+
+int	ORPGDBM_query (RPG_prod_rec_t *db_info, ORPGDBM_query_data_t *data,
+		       int data_len, int max_list_size)
+int	ORPGDBM_read (int prod_code, char **buf, int vol_time, short *params)
+
+
+DESCRIPTION
+
+These functions provide access to the ORPG Products Database.
+
+ORPGDBM_read() queries the ORPG Products Database to find a match to
+the user specified product code (code in range 16-90), volume time,
+and parameter list.  The volume time is in UNIX seconds (from 1/1/1970).
+If a -1 is specified for the volume time, the latest time in the
+matched list is used.  The parameter list is one or more of the
+parameters (up to 6) defined for the product associated with the
+product ID.  See the product attributes table (PAT) for information
+on the parameters used for each product.
+
+If the user does not care about matching a particular parameter,
+then the macro PARAM_ANY_VALUE should be specified for that parameter.
+Only those parameters defined in the product attributes table for the
+product are compared.
+
+If a match is found, ORPGDBM_read() returns a positive value indicating
+the size of the message associated with the product.  Also, a pointer
+to the product data is returned in buf.  Memory is automatically
+allocated if a match is found.  The user is responsible for freeing buf
+when it is no longer needed.  On error, a value less than or equal to
+0 is returned.
+
+ORPGDBM_query() is used to query the ORPG Products Database for a
+specific product or group of products.  The structure data is used
+to pass in the query information.  The array structure contains two
+elements: field and value.  The number of query items must be
+specified by data_len.  The user can limit the number of matches
+returned using max_list_size.  The query data are returned in the
+structure db_info.  If the user wants to set search mode parameters,
+then the first element in the query information should have the field
+element set to ORPGDBM_MODE and the value element set to the mode
+parameters desired.  The mode parameters value can be set by "oring"
+the mode macros defined in orpgdbm.h.  
+
+The following query field macros are defined (see rpgdbm.h):
+
+	RPGP_RETENT,		/* retention time in minutes */
+	RPGP_VOLT,		/* volume time in julian seconds */
+	RPGP_PCODE,		/* product code (16 - 90) */
+	PRPG_ELEV,		/* elevation*10 */
+	PRPG_WAREHOUSED		/* warehoused product id */
+
+These additional query field macros are defined (see orpgdbm.h):
+        ORPGDBM_VOL_TIME_RANGE  /* range of volume times */
+                                /* for this option, a second value (value2) must
+                                   be specified in the query */
+
+The following query mode macros are defined (see orpgdbm.h):
+
+	ORPGDBM_ALL_MATCH	/* undefined field mathces any value */
+	ORPGDBM_EXACT_MATCH	/* undefined field value matches     *
+				 * undefined value only (default)    */
+	ORPGDBM_FULL_SEARCH	/* find all records. */
+	ORPGDBM_PARTIAL_SEARCH	/* find only enough records to satisfy *
+				 * user requested limit. */
+	ORPGDBM_HIGHEND_SEARCH	/* Search from newest to oldest */
+	ORPGDBM_LOWEND_SEARCH	/* Search from oldest to newest (default) */
+	ORPGDBM_DISTINCT_FIELD_VALUES	/* search for distinct query values */
+	ORPGDBM_ALL_FIELD_VALUES	/* search all query field values *
+					 * (default). */
+
+EXAMPLE
+
+In the following example, the user wants to query the ORPG Products
+Database for all unique times so the application can build a list
+of unique times for selection in a list widget.  The query data are
+to be ordered in descending order with the newest time first.
+
+	...
+
+	#include <orpgdbm.h>
+
+	...
+
+	RPG_prod_rec_t		db_info [MAX_PRODUCTS_IN_LIST];
+	ORPGDBM_query_data_t	query_data [MAX_PRODUCTS_IN_LIST];
+
+	...
+
+	query_data[0].field = ORPGDBM_MODE;
+	query_data[0].value = ORPGDBM_FULL_SEARCH | ORPGDBM_HIGHEND_SEARCH |
+			      ORPGDBM_DISTINCT_FIELD_VALUES;
+	query_data[1].field = RPGP_VOLT;
+	query_data[1].value = 0;	/* Unused */
+
+	ORPGDBM_query (db_info,
+		       query_data,
+		       2,
+		       MAX_PRODUCTS_IN_LIST);
+
+SEE ALSO
+cs (3) rpgdbm (3) sdqm(3) 
+
+				$Revision: 1.5 $

@@ -1,0 +1,213 @@
+C 
+C RCS info 
+C $Author: nolitam $ 
+C $Locker:  $ 
+C $Date: 2002/11/27 15:17:33 $ 
+C $Id: a3147t.ftn,v 1.3 2002/11/27 15:17:33 nolitam Exp $ 
+C $Revision: 1.3 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A3147T__BIAS_ARRAY(IN_DATA, OUT_PROD)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3147T__BIAS_ARRAY
+*.
+*.  MODULE VERSION: 0003
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       12/15/95      0000      CHERYL STEPHENSON    CCR NA94-08462
+*.       12/23/96      0001      Toolset              CCR NA95-11807
+*.       07/20/98      0002      CHERYL STEPHENSON    CCR NA98-20102
+*.       03/16/99      0003      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A3147T__BIAS_ARRAY(IN_DATA,OUT_PROD)
+*.
+*.  MODULE FUNCTION:
+*.    This module converts the Maximum Value from tenths of mm
+*.    to inches.  Then compares this to a threshold value to
+*.    determine which scale to use (One/Three Hour or STP).
+*.    Then it caps all values greater than the maximum
+*.    value of 255 to 255. Then using a lookup table
+*.    with the tenth of millemeter as an index, it gets
+*.    the biased color table value.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT         TYPE        DESCRIPTION
+*.    -   -----         ----        -----------
+*.    G   MAX_ADJBINS   I*4         (CONSTANT)Maximum number of range bins
+*.                                  (index into output buffer of adjusted
+*.                                  values).
+*.    G   MAX_AZMTHS    I*4         (CONSTANT)Maximum number of azimuths in a
+*.                                  scan (index into output buffer of adjusted
+*.                                  values).
+*.    G   MM_TO_IN      R*4         (CONSTANT)SCALING FACTOR FOR MILLIMETERS
+*.                                  TO INCHES
+*.    G   PPHRLYNC      I*4         (CONSTANT)Color table index for
+*.                                  precipitation, 1 and 3HR products (Not
+*.                                  clear air).
+*.    C   MAXVAL        I*4         The maximum value in the USP product
+*.    C   PPHRLY_LOOKUP I*2         Data level Lookup table for USP Product if
+*.                                  using OHP/THP Color Table
+*.    C   RTHRESH       R*4         Threshold value for switching from the
+*.                                  OHP/THP color table to STP color table
+*.    C   STMTOT_LOOKUP I*2         Data level Lookup table for USP Product if
+*.                                  using STP Color Table
+*.    C   IBEG          I*4         (CONSTANT)Parameter used as loop control
+*.                                  variable (initial value).
+*.    C   STMTOTNC      I*4         (CONSTANT)Storm total (Non clear air)
+*.                                  color table index.
+*.    P   IN_DATA       I*2         Input data array which contains summed
+*.                                  hourly accumulation
+*.
+*.    *   OUTPUT   TYPE        DESCRIPTION
+*.    -   ------   ----        -----------
+*.    C   MAXVAL   I*4         The maximum value in the USP product
+*.    C   SCALE    I*4         Scale for threshold and color table for
+*.                             run-length encoding this product
+*.    P   OUT_PROD I*2         The output data array which contains the summed
+*.                             hourly accumulation converted to the color
+*.                             lookup table values
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME               TYPE        DESCRIPTION
+*.    ----               ----        -----------
+*.    I                  I*4         LOOP COUNTER
+*.    MAX_ALLOW_VAL_PPHR I*4         (CONSTANT)Maximum allowable value for the
+*.                                   PPHR_LOOKUP array and the size of the
+*.                                   array
+*.    MAX_ALLOW_VAL_STM  I*4         (CONSTANT)Maximum allowable value for the
+*.                                   STMTOT_LOOKUP array and the size of the
+*.                                   array
+*.    MAX_TBL_VAL        I*2         (CONSTANT)Parameter for the maximum color
+*.                                   table value (255)
+*.    RMAXVAL            R*4         The maximum value
+*.    ZERO               I*2         PARAMETER VALUE '0'
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3147C2
+*.    A3147C5
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING THE COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING THE LINK14.CSS
+*.
+*.  MISC:  N/A
+*.
+*.*******************************************************************
+C
+C** 'X' IN COLUMN-1 INDICATES CONDITIONALLY COMPILED DEBUG CODE...
+C
+      IMPLICIT NONE
+C
+C
+$INCLUDE A309.INC/G,**A3PM04 (NLIST)
+$INCLUDE            **A3PM50 (NLIST)
+$INCLUDE A3146.INC/G,**A3146P1 (NLIST)
+$INCLUDE A313HBUF.INC/G, **A313HYPP (NLIST)
+$INCLUDE A3147.INC/G,**A3147C2      (NLIST)
+$INCLUDE             **A3147C5      (NLIST)
+C
+C
+      INTEGER*2 IN_DATA(MAX_ADJBINS*MAX_AZMTHS)
+      INTEGER*2 OUT_PROD(MAX_ADJBINS*MAX_AZMTHS)
+      INTEGER I
+      INTEGER*2 MAX_TBL_VAL, ZERO
+      PARAMETER (MAX_TBL_VAL = 255)
+      PARAMETER (ZERO = 0)
+C
+C
+      REAL CONVERT, RMAXVAL
+C
+C
+C** CONVERT 10THS OF MM TO 100THS OF AN INCH
+C
+      PARAMETER (CONVERT=MM_TO_IN)
+C
+C*************** EXECUTABLE **********************
+C
+X      WRITE(14,*)'ENTER A3147T'
+C
+C  DO FOR ENTIRE PRODUCT ARRAY
+C
+CX     WRITE(6,*)'    IN DATA'
+CX    WRITE(6,10)(IN_DATA(I),I=1,MAX_ADJBINS*MAX_AZMTHS,100)
+C10   FORMAT(1X,15(26(I4,',')/),24(I4,','))
+C
+C  Convert MAXVAL to a real from tenths of inches
+C
+        MAXVAL = NINT(MAXVAL*MM_TO_IN)
+        RMAXVAL = FLOAT(MAXVAL)/10.0
+X       WRITE(14,*)'MAXVAL =',MAXVAL,' RMAXVAL =',RMAXVAL
+        IF (RMAXVAL .GT. RTHRESH) THEN
+X           WRITE(14,*)'7T: USE STORM TOTAL SCALE'
+            SCALE = STMTOTNC
+            DO 400 I= IBEG, MAX_AZMTHS*MAX_ADJBINS
+C
+C  CAP THE OUTPUT IF THE INPUT VALUE EXCEEDS THE MAXIMUM ALLOWED VALUE (255)
+C
+                IF (IN_DATA(I) .GT. MAX_ALLOW_VAL_STM)THEN
+                  OUT_PROD(I) = MAX_TBL_VAL
+                ELSEIF (IN_DATA(I) .GT. ZERO) THEN
+C
+C  Use value as index into STMTOT_LOOKUP and save it in one hour array
+C
+                   OUT_PROD(I) = STMTOT_LOOKUP(IN_DATA(I))
+                ELSE
+                   OUT_PROD(I) = ZERO
+                ENDIF
+400           CONTINUE
+CX    WRITE(6,*)'7T:    BIASED DATA FROM STMTOT'
+            ELSE
+X              WRITE(14,*)'7T: USE 1/3 HR SCALE'
+               SCALE = PPHRLYNC
+               DO 500 I= IBEG, MAX_AZMTHS*MAX_ADJBINS
+C
+C  CAP THE OUTPUT IF THE INPUT VALUE EXCEEDS THE MAXIMUM ALLOWED VALUE (255)
+C
+                 IF (IN_DATA(I) .GT. MAX_ALLOW_VAL_PPHR)THEN
+                  OUT_PROD(I) = MAX_TBL_VAL
+                 ELSEIF (IN_DATA(I) .GT. ZERO) THEN
+C
+C  Use value as index into STMTOT_LOOKUP and save it in one hour array
+C
+                     OUT_PROD(I) = PPHRLY_LOOKUP(IN_DATA(I))
+                 ELSE
+                     OUT_PROD(I) = ZERO
+                 ENDIF
+500             CONTINUE
+CX    WRITE(6,*)'7T:    BIASED DATA FROM PPHRLY'
+            ENDIF
+CX    WRITE(6,10)(OUT_PROD(I),I=1,MAX_ADJBINS*MAX_AZMTHS,100)
+C
+C
+      RETURN
+      END

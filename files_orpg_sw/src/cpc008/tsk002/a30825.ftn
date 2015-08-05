@@ -1,0 +1,225 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/05 15:46:31 $
+C $Id: a30825.ftn,v 1.3 2002/12/05 15:46:31 christie Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A30825__RCM_ENCODE(IST,JST,LBL,POS,RUN_VIP,REPS,IROW,
+     $   ICOL,NBYTES,RCMBUF)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A30825__RCM_ENCODE
+*.
+*.  MODULE VERSION: 0014
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       02 28 86      0000      Mike Istok           Part 2, RPG Build 1
+*.       04 28 86      0001      MIKE ISTOK           SPR# 60124
+*.       09 22 86      0002      MIKE ISTOK           SPR# 60424
+*.       02 17 88      0003      VALERIE HOLDEN       SPR# 80002
+*.       12 14 88      0004      VALERIE HOLDEN       SPR# 80548
+*.       01 29 91      0005      VALERIE HOLDEN       SPR# 91249
+*.       12 03 91      0006      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0007      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/20/92      0008      Toolset              SPR 91895
+*.       03/25/93      0009      Toolset              SPR NA93-06801
+*.       01/28/94      0010      Toolset              SPR NA94-01101
+*.       03/03/94      0011      Toolset              SPR NA94-05501
+*.       04/11/96      0012      Toolset              CCR NA95-11802
+*.       12/23/96      0013      Toolset              CCR NA95-11807
+*.       03/16/99      0014      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A30825__RCM_ENCODE (IST,JST,LBL,POS,
+*.                    RUN_VIP,REPS,IROW,ICOL,NBYTES,RCMBUF)
+*.
+*.  MODULE FUNCTION: ENCODE THE RADAR CODED MESSAGE BUFFER
+*.
+*.  MODULES CALLED: A30826__BLANK_PAD, A30828__GRID_LETTERS, A3082A__COMPACT_RCM 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT     TYPE        DESCRIPTION
+*.    -   -----     ----        -----------
+*.    C   COUNT_INT I*4         Total number of reflectivity intensities
+*.                              reported in Part A, with a range of 0 to 16.
+*.    C   END       I*4         (CONSTANT)Flag indicating that Radar Coded
+*.                              Message encoding is being done at either END
+*.                              of the LFM grid row.
+*.    C   NACOLS    I*4         (CONSTANT)Number of columns available for
+*.                              Radar Coded Message product.
+*.    P   ICOL      I*4         Column Number
+*.    P   IROW      I*4         Row Number
+*.    P   IST       I*4         Call argument.
+*.    P   JST       I*4         J starting coordinate.
+*.    P   LBL       L*4         LABEL LFM BOX FLAG
+*.    P   NBYTES    I*4         NUMBER OF BYTES.
+*.    P   POS       I*4         POSITIONAL PARAMETER
+*.    P   RCMBUF    CHAR*1      RADAR CODED MESSAGE BUFFER
+*.    P   REPS      I*4         NUMBER OF REPETITIONS
+*.    P   RUN_VIP   I*4         RUN VALUE INDEX
+*.
+*.    *   OUTPUT    TYPE        DESCRIPTION
+*.    -   ------    ----        -----------
+*.    C   COUNT_INT I*4         Total number of reflectivity intensities
+*.                              reported in Part A, with a range of 0 to 16.
+*.    P   ICOL      I*4         Column Number
+*.    P   IROW      I*4         Row Number
+*.    P   LBL       L*4         LABEL LFM BOX FLAG
+*.    P   NBYTES    I*4         NUMBER OF BYTES.
+*.    P   POS       I*4         POSITIONAL PARAMETER
+*.    P   RCMBUF    CHAR*1      RADAR CODED MESSAGE BUFFER
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    P   ICOL              I*4         Column Number
+*.    P   IROW              I*4         Row Number
+*.    P   IST               I*4         Call argument.
+*.    P   JST               I*4         J starting coordinate.
+*.    P   NBYTES            I*4         NUMBER OF BYTES.
+*.    P   RCMBUF            CHAR*1      RADAR CODED MESSAGE BUFFER
+*.    P   REPS              I*4         NUMBER OF REPETITIONS
+*.    P   RUN_VIP           I*4         RUN VALUE INDEX
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME        TYPE        DESCRIPTION
+*.    ----        ----        -----------
+*.    BTH         I*4         Biased reflectivity threshold value, corresponds
+*.                            to <12dBz.
+*.    COMMA       CHAR*1      Flag indicating comma is required in RDA status
+*.                            messages.
+*.    ID          CHAR*1      RADAR CODED MESSAGE ID
+*.    INC1        I*4         INCREMENTAL VALUE OF 1
+*.    INIT1       I*4         INITIALIZED VALUE FOR 1
+*.    K           I*4         Loop control index variable.
+*.    L           I*4         Index control variable.
+*.    LEN_LETTERS I*4         LENGTH OF 3 GRID LETTERS
+*.    MAX_ZERO    I*4         MAXIMUM NUMBER OF EMBEDDED ZEROS
+*.    MID         I*4         Flag indicating that Radar Coded Message
+*.                            encoding is being done in the Middle of the LFM
+*.                            grid row.
+*.    N_COMPACT   I*4         COMPACTION NUMBER
+*.    ONE         I*4         Program parameter value for one used as lower
+*.                            index in do loop.
+*.    ROW4        I*4         ROW NUMBER FOUR
+*.    TWO_COL     I*4         TWO COLUMN POSITIONS
+*.    VIP         CHAR*1      VIP LEVELS 0-9
+*.    ZERO_CHAR   CHAR*1      CHARACTER FOR ZERO
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A308P2
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS: NONE
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     THIS MODULE IS COMPILED USING COMP08.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     THIS MODULE IS LINKED USING LINK08.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+C*
+$INCLUDE A308.INC,**A308P2 (NEND NLIST)
+C*
+      INTEGER*4   K,L,POS,NBYTES,IROW,ICOL,REPS,RUN_VIP,IST,JST,INC1
+      INTEGER*4   N_COMPACT,MAX_ZERO,INIT1,ROW4,LEN_LETTERS,TWO_COL
+      INTEGER*4   ONE
+      LOGICAL*4   LBL
+      CHARACTER*1 RCMBUF(*),VIP(0:8),ID(3),COMMA,ZERO_CHAR
+      PARAMETER   (N_COMPACT=2,MAX_ZERO=4,INIT1=1,ROW4=4,ONE=1)
+      PARAMETER   (LEN_LETTERS=3,TWO_COL=2,INC1=1)
+      DATA        VIP/'0','1','2','3','4','5','6','7','8'/
+      DATA        ZERO_CHAR/'0'/,COMMA/','/
+C*
+C*    CHECK IF BEGINNING OR END OF ROW AND VIP = ZERO
+      IF (POS.EQ.END.AND.RUN_VIP.EQ.BTH) THEN
+C*
+C*    CHECK IF MORE THAN 4 ZERO VIPS IN RUN_VIP
+      ELSE IF (RUN_VIP.EQ.BTH.AND.REPS.GT.MAX_ZERO) THEN
+         LBL=.TRUE.
+C*
+C*    VIP IS > ZERO  .OR.  VIP = ZERO AND REPS < 4
+      ELSE
+         IF (LBL) THEN
+            POS=MID
+C*
+C*    CHECK IF ENOUGH ROOM ON ROW TO PLACE COMMA SEPARATOR
+            IF (IROW.EQ.ROW4.AND.ICOL.EQ.INIT1) THEN
+            ELSE
+               IF (ICOL.GT.NACOLS) THEN
+                  IROW = IROW + INC1
+                  ICOL = INIT1
+               ENDIF
+               NBYTES = NBYTES + INC1
+               RCMBUF(NBYTES) = COMMA
+               ICOL = ICOL + INC1
+            ENDIF
+C*
+C*    CHECK IF ENOUGH ROOM ON ROW TO PUT ID
+            IF (ICOL+TWO_COL.GT.NACOLS) THEN
+               CALL A30826__BLANK_PAD(IROW,ICOL,NBYTES,RCMBUF)
+               IROW = IROW + INC1
+               ICOL = INIT1
+            END IF
+C*
+C*    GET 3 LETTER LFM GRID LOCATION AND STORE INTO BUFFER
+            CALL A30828__GRID_LETTERS(IST,JST,ID)
+            DO 13 L = ONE,LEN_LETTERS
+               NBYTES = NBYTES+INC1
+               RCMBUF(NBYTES) = ID(L)
+ 13         CONTINUE
+            ICOL = ICOL + LEN_LETTERS
+            LBL = .FALSE.
+         END IF
+C*
+C*    IF REPETITION IS > 2 THEN START COMPACTION PROCESS
+         IF(REPS.GT.N_COMPACT) THEN
+            CALL A3082A__COMPACT_RCM(REPS,RUN_VIP,IROW,ICOL,NBYTES,
+     $         RCMBUF)
+         ELSE
+C*
+C*    REPETITIONS IS <= 2, WRITE RUN_VIP NUMBER INTO BUFFER
+            DO 10 K = ONE,REPS
+               IF (ICOL.GT.NACOLS) THEN
+                  ICOL = INIT1
+                  IROW = IROW + INC1
+               END IF
+               NBYTES = NBYTES + INC1
+               RCMBUF(NBYTES) = VIP(RUN_VIP)
+               ICOL = ICOL + INC1
+ 10         CONTINUE
+C*
+C*    INCREMENT COUNTER FOR NUMBER OF INTENSITIES BY NUMBER OF
+C*    REPETITIONS (DON'T INCLUDE EMBEDDED ZERO INTENSITIES IN COUNT)
+            IF (VIP(RUN_VIP).NE.ZERO_CHAR) THEN
+               COUNT_INT = COUNT_INT + REPS
+            ENDIF
+         ENDIF
+      END IF
+C
+      RETURN
+      END

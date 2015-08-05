@@ -1,0 +1,88 @@
+C
+C RCS info
+C $Author: steves $
+C $Locker:  $
+C $Date: 2011/02/24 15:20:05 $
+C $Id: prcpadju.ftn,v 1.22 2011/02/24 15:20:05 steves Exp $
+C $Revision: 1.22 $
+C $State: Exp $
+C
+      PROGRAM PRECIP_ADJUSTMENT
+C***********************************************************************
+C
+C	Module:	prcpadju.ftn
+C
+C	Description: This module contains the main function for the 
+C	open RPG Precipitation Adjustment Algorithm
+C
+C***********************************************************************
+
+
+	IMPLICIT NONE
+#IFDEF LINUX
+C       IMPLICIT NONE FORCES EXPICIT DECLARATIONS OF
+C IMPLIED DO LOOP VARIABLES IN DATA STATEMENTS
+         INTEGER I
+#ENDIF
+$INCLUDE rpg_port.inc,**rpg_port	
+
+C adaptation common blocks
+$INCLUDE A309ADPT.INC/G,**A3CD70P6 (NEND NLIST)
+$INCLUDE                **A3CD70_HYDROMET_ADJ (NEND NLIST)
+$INCLUDE                **A3CD70_DEA_NAMES (NEND NLIST)
+$INCLUDE                **A3CD70CA (NLIST)
+$INCLUDE                **A3CD70C8 (NLIST)
+$INCLUDE                **A3CD70C4 (NLIST)
+$INCLUDE A309.INC/G,**A3PM00		
+$INCLUDE **A3PM06                       
+$INCLUDE **A3CD07 (NLIST)
+C
+C ITC support
+$INCLUDE itc.inc, **A3136C3
+C
+C Block data to initialize A3136C3 common
+$INCLUDE A313C3.FTN
+
+C Block data to initialize adaptation data common
+$INCLUDE A3CD70G.FTN
+
+	INTEGER PARAM
+
+        INTEGER HYDROMET_ADJ_CALLBACK_FX     ;adapt callback f(x)
+        EXTERNAL HYDROMET_ADJ_CALLBACK_FX    ;adapt callback f(x)
+
+	;** Specify inputs.
+	call RPG_in_data ( HYACCSCN, VOLUME_DATA )
+
+	;** Specify outputs.
+        call RPG_out_data ( HYADJSCN, VOLUME_DATA, INT_PROD )
+        call RPG_out_data ( CPC10MSG, DEMAND_DATA, INT_PROD )
+
+        ;** Register ITC output
+        call RPG_itc_out( A3136C3_ID, A3136C3_FIRST, A3136C3_LAST(2),
+     >                   HYADJSCN ) 
+
+	;** Register adapdation blocks and scan summary array.
+	call RPG_reg_adpt( RDACNT_ID, RDACNT_FIRST, BEGIN_VOLUME ) 
+	call RPG_reg_adpt( ENVIRON_ID, ENVIRON_FIRST, BEGIN_VOLUME ) 
+	call RPG_reg_scan_summary()
+
+        ;** register adaptation blocks and the scan summary array
+        call RPG_reg_ade_callback( HYDROMET_ADJ_CALLBACK_FX,
+     $                             TIMBIEST,
+     $                             HYDROMET_ADJ_DEA_NAME,
+     $                             BEGIN_VOLUME )
+        call RPG_reg_site_info( SIRDALAT )
+
+        ;** Initialize this task.  It is volume-based.
+        call RPG_task_init( VOLUME_BASED )
+
+        ;** Read the gage accumulation scan from disk
+        call prcpadju_gage_scan( )
+
+	;** The main loop, which will never end.
+ 10     call RPG_wait_act( WAIT_DRIVING_INPUT )
+        call A31360__BUFFER_CONTROLLER( PARAM )
+	goto 10
+
+	end

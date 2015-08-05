@@ -1,0 +1,181 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/16 19:41:05 $
+C $Id: a315t3.ftn,v 1.3 2002/12/16 19:41:05 christie Exp $
+C $Revision: 1.3 $
+C $State: Exp $
+C
+      SUBROUTINE A315T3__ABORT_PROCESSING( IPR, ISTAT, OPR, OSTAT,
+     >                                     REASON, SEG_BUF_UNAVAIL )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A315T3__ABORT_PROCESSING
+*.
+*.  MODULE VERSION: 0002
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       09 21 95      0000      STEVE SMITH          CCR NA94-26302
+*.       12/23/96      0001      Toolset              CCR NA95-11807
+*.       03/16/99      0002      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A315T3__ABORT_PROCESSING( IPR, ISTAT, OPR,
+*.                                  OSTAT, REASON, SEG_BUF_UNAVAIL )
+*.
+*.  MODULE FUNCTION:
+*.
+*.
+*.  MODULES CALLED: A31145__ABORT_ME, A31168__ABORT_ME_BECAUSE, 
+*.                  A31212__REL_INBUF, A31216__REL_OUTBUF, SNDMSG 
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT           TYPE        DESCRIPTION
+*.    -   -----           ----        -----------
+*.    G   DESTROY         I*4         (CONSTANT)Mnemonic used as input to
+*.                                    A31216__REL_OUTBUF. Indicates "do not
+*.                                    pass data to other tasks".
+*.    C   HIGH            I*4         (CONSTANT)Index to logical array
+*.                                    SEG_BUF_LOCK for locking access to the
+*.                                    high area of the segment buffer.
+*.    C   LOW             I*4         (CONSTANT)Index to logical array
+*.                                    SEG_BUF_LOCK for locking access to the
+*.                                    low area of the segment buffer.
+*.    P   IPR             I*4         :Pointer to input buffer start in MEM
+*.    P   ISTAT           I*4         Return status from getting input buffer
+*.    P   OPR             I*4         Pointer to starting position of output
+*.                                    buffer in MEM
+*.    P   OSTAT           I*4         Status of output buffer request
+*.    P   REASON          I*4         Reason code to abort processing.
+*.    P   SEG_BUF_UNAVAIL L*4         Flag indicating the segments buffer is
+*.                                    unavailable.
+*.
+*.    *   OUTPUT       TYPE        DESCRIPTION
+*.    -   ------       ----        -----------
+*.    G   SEG_BUF_LOCK L*4         If the lock is set to true for a half, then
+*.                                 that half of the image is in use by a task.
+*.                                 When a task is done accessing a half of the
+*.                                 image, the lock for th
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.    P   IPR               I*4         :Pointer to input buffer start in MEM
+*.    P   OPR               I*4         Pointer to starting position of output
+*.                                      buffer in MEM
+*.    P   REASON            I*4         Reason code to abort processing.
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME        TYPE        DESCRIPTION
+*.    ----        ----        -----------
+*.    ERRORPHR    CHAR*64     Error phrase indicating the Segments Buffer is
+*.                            unavailable
+*.    ERRORPHR_I4 I*4         Integer array equivalenced to error message
+*.                            phrase.
+*.    NULL        I*4         Parameter value of zero.
+*.    SEND_STATUS I*4         Status of the call to SNDMSG.
+*.    STATUS_TASK CHAR*8      ASCII name of Status Monitor task
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A315LOCK
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     Compiled using COMP15.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     Linked using LINK15.CSS
+*.
+*.  MISC:  None
+*.
+C********************************************************************
+C
+C               STORM SEGMENTS:  SEGMENT BUFFER UNAVAILABLE
+C
+C********************************************************************
+C
+      IMPLICIT NONE
+C
+$INCLUDE A309.INC/G, **A3PM00 (NLIST NEND)
+$INCLUDE             **A3PM07 (NLIST NEND)
+C
+$INCLUDE A315BUF.INC/G, **A315LOCK (NLIST NEND)
+C
+C************************ DATA DECLARATIONS *************************
+C
+      INTEGER  IPR, ISTAT, OPR, OSTAT, REASON
+      LOGICAL  SEG_BUF_UNAVAIL
+C
+      INTEGER  NULL
+      PARAMETER ( NULL = 0 )
+C
+      CHARACTER*64 ERRORPHR
+      CHARACTER*8  STATUS_TASK
+      INTEGER*4    ERRORPHR_I4(16), SEND_STATUS
+      EQUIVALENCE(ERRORPHR_I4(1),ERRORPHR)
+      PARAMETER ( STATUS_TASK = 'STATMON ' )
+C
+C******************* BEGIN MAIN PROCESSING SECTION ******************
+C
+C** Release the input buffer if pointer greater than zero.
+C
+      IF ( ISTAT .EQ. NULL ) CALL A31212__REL_INBUF( IPR )
+C
+C** Release the output buffer with a DESTROY disposition if pointer
+C** is greater than zero or pointer size is improbable.
+C
+      IF ( OSTAT .EQ. NULL ) CALL A31216__REL_OUTBUF( OPR, DESTROY )
+C
+C** If REASON is NULL, just abort.  Otherwise, abort with reason.
+C
+      IF ( REASON .EQ. NULL ) THEN
+         CALL A31145__ABORT_ME
+      ELSE
+C
+C** ABORT this task with the following reason.
+C
+         CALL A31168__ABORT_ME_BECAUSE( REASON )
+      END IF
+C
+C** Check the segment buffer availability flag.
+C
+      IF ( SEG_BUF_UNAVAIL ) THEN
+C
+C** Inform the status monitor that segment buffer unavailable.
+C
+         WRITE (ERRORPHR,100)
+ 100     FORMAT(4X,'SEGMTALG: Segment Buffer UNAVAILABLE.  Task',
+     >             ' ABORTED.')
+         CALL SNDMSG( STATUS_TASK,ERRORPHR_I4,SEND_STATUS )
+      END IF
+C
+C** Unlock all segment buffer locks so next volume scan either
+C** segment buffer can be used.
+C
+      SEG_BUF_LOCK( LOW ) = .FALSE.
+      SEG_BUF_LOCK( HIGH ) = .FALSE.
+C
+C** Return to caller module.
+C
+      RETURN
+      END

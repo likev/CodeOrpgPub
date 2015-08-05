@@ -1,0 +1,115 @@
+
+NAME
+    rssd - Remote System Services Daemon
+
+SYNOPSIS
+    rssd [-clpnfast]
+
+DESCRIPTION
+
+    rssd is the server program built with the RMT and RSS library modules. See
+    rmt(3) and rss(3) for details on how to use those modules. The functions
+    implemented are the following:
+
+	The remote version of most LB functions, a set of selected UNIX system
+	functions and file access functions.
+
+	A generic dynamically loadable remote procedure call function.
+
+	Event notification.
+
+    For detailed descriptions of the rssd functions refer to rss(3). Refer to
+    en(3) and lb(3) for detailed descriptions on the event notification and the
+    LB respectively.
+
+    In a typical distributed application environment, an instance of rssd must
+    be running on each of the hosts involved. rssd should be started before 
+    any other application process can be started. If multiple distributed 
+    applications have to run in the same hardware environment, an instance of
+    rssd with a unique port number should be started for each application on 
+    each host. See rmt(3) for details on how to set the port number.
+
+    rssd starts in foreground and goes to background and continues to run as a
+    daemon process after initialization. If a fatal error is detected while 
+    it is running in foreground, it will terminate. The log/error messages are
+    sent to the standard error port when it is in foreground. They are sent to
+    the rssd log file when rssd runs in background. Refer to rmt(3) for further
+    information about the rssd log file.
+
+    rssd completes its initialization in foreground. It starts its services
+    when it goes to background. Only one rssd can exist on each host for a
+    given port. rssd will not start if there is already a version running on
+    the port. Note that, if one kills rssd and immediately starts a new one,
+    the new one may not start because the termination process of the existing
+    rssd may take some time.
+
+OPTIONS:
+    -c	config_file_name
+	Specifies an alternative configuration file. The default is 
+	$HOME/.rssd.conf. Refer to rmt(3), rss(3) and en(3) for how to set up 
+	the configuration file.
+
+    -l	log_file_name
+	Specifies an alternative log file. The default is $HOME/rssd.log.
+
+    -p	port_number
+	Specifies an alternative RMT port number. The default is deduced from
+	string $HOME. Refer to rmt(3) for details.
+
+    -n	N_child
+	Specifies the maximum number of children available for RPC. The default
+	is 64.
+
+    -f	max_nfds
+	Specifies the maximum number of open file descriptors in rssd. The
+	default is OS dependent. A larger value than the OS default must be
+	specified if a large number of event using applications must be 
+	supported. See rmt(3) and lb(3) for more details.
+
+    -a	Keepalive_time
+	Specifies the child server alive time, in seconds, after connection 
+	failure. The default is the system KEEPALIVE timer (several hours).
+
+    -s	Runs without closing the standard input/output ports.
+
+    -t	Runs in foreground for testing purpose.
+
+EXAMPLES
+    Example 1: rssd
+	Starts rssd as a daemon with default options.
+
+    Example 2: rssd -c my_conf -t
+	Starts rssd with configuration file "my_conf" in foreground for 
+	debugging.
+
+ENVIRONMENT VARIABLES
+    HOME	The home directory where default rssd configuration and log
+		files are stored. It is also the location for other rssd files.
+
+    RMTPORT	Specifies an alternative port number, group number and home
+		directory. See rmt(3) for more details.
+
+EXIT STATUS
+    0:		Terminated normally. 
+
+    non-zero:	Terminated because an error was detected.
+
+FILES
+    rssd configuration file
+	The file contains access permission info. See rmt(3) for details. The
+	default is $HOME/.rssd.conf
+
+    rssd log file
+	For storing rssd log/err messages. The default is $HOME/rssd.log.
+
+    $HOME/.rmt.port.host=
+	The file used by rssd UNIX socket. Where port is the port number used 
+	and host is the host name.
+
+    $HOME/.rssd.disc
+	An rssd internal file containing the info about disconnected remote 
+	hosts.
+
+SEE ALSO
+    rmt(3), lb(3), rss(3), infr(3)
+

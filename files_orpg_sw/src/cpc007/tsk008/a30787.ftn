@@ -1,0 +1,291 @@
+C
+C RCS info
+C $Author: christie $
+C $Locker:  $
+C $Date: 2002/12/03 15:00:48 $
+C $Id: a30787.ftn,v 1.4 2002/12/03 15:00:48 christie Exp $
+C $Revision: 1.4 $
+C $State: Exp $
+C
+      SUBROUTINE A30787__MAX_DAT_LEVS(BUFF,NYROW,NXCOL,MOMENT,
+     $                  RESOLUT, MAX, MIN, MAX_X, MAX_Y, MIN_X, MIN_Y)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A30787__MAX_DAT_LEVS
+*.
+*.  MODULE VERSION: 0014
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       06 09 85      0000      BOB BENEDICT         RPG BUILD 2
+*.       05 05 86      0001      BOB BENEDICT         SPR # 60185
+*.       05 05 87      0002      JO STALEY            SPR # 70119
+*.       05 08 89      0003      CHARLIE BAUMHER      SPR # 80271
+*.       05 08 90      0004      CHI CHAN             SPR # 90697
+*.       11 03 90      0005      MARK FRESCH          SPR # 91248
+*.       12 03 91      0006      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0007      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/20/92      0008      Toolset              SPR 91895
+*.       03/25/93      0009      Toolset              SPR NA93-06801
+*.       01/28/94      0010      Toolset              SPR NA94-01101
+*.       03/03/94      0011      Toolset              SPR NA94-05501
+*.       04/11/96      0012      Toolset              CCR NA95-11802
+*.       12/23/96      0013      Toolset              CCR NA95-11807
+*.       03/16/99      0014      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:
+*.  CALL A30787__MAX_DAT_LEVS(BUFF,NYROW,NXCOL,MOMENT,RESOLUT,MAX,MIN,
+*.                             MAX_X,MAX_Y,MIN_X,MIN_Y)
+*.
+*.  MODULE FUNCTION:
+*.    VERTICAL CROSS SECTION ROUTINE.
+*.  ROUTINE TO DETERMINE THE MAXIMUM DATA LEVELS RECORDED FOR THIS
+*.  PRODUCT (IN THE CARTESIAN MAP). REFLECTIVITY AND SPECTRUM WIDTH
+*.  MOMENTS RECIEVE ONLY A MAXIMUM VALUE( MIN VALUE NOT APPLICABLE ).
+*.  VELOCITY RECIEVES BOTH A MAX AND A MIN(MIN=MAX NEGATIVE VALUE).
+*.  MAX AND MIN VALUES ARE CONVERTED ACCORDING TO THE SPECIFIC
+*.  MOMENT, WITH VELOCITY THE RESOLUTION IS ALSO TAKEN INTO ACCOUNT.
+*.
+*.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT      TYPE        DESCRIPTION
+*.    -   -----      ----        -----------
+*.    G   REF        R*4         The conversion table for reflectivity.  This
+*.                               table converts from halfword integer to real
+*.                               meteorological data.
+*.    G   SPW        R*4         The conversion table for spectrum width.
+*.    G   VEL        R*4         Table to get doppler velocity from biased
+*.                               values in radial. Indexed by radial base data
+*.                               by doppler modes.
+*.    G   RDBLTH     I*4         (CONSTANT)Flag value indicating sample bin
+*.                               Below Threshold
+*.    G   RDMSNG     I*4         (CONSTANT)Flag value indicating Missing
+*.                               sample bin
+*.    G   RDRNGF     I*4         (CONSTANT)Flag value indicating sample bin
+*.                               Range Folded
+*.    C   SPECTPROD8 I*4         (CONSTANT)Eight level spectrum width product
+*.                               code for cross section
+*.    C   VELOPROD16 I*4         (CONSTANT)Velocity PCODE data level 16.
+*.    C   VELOPROD8  I*4         (CONSTANT)Velocity PCODE data level 8.
+*.    C   ZERO       I*4         (CONSTANT)Program parameter for 0.
+*.    P   BUFF       I*2         CARTESIAN MAP FOR THIS PRODUCT
+*.    P   MAX        R*4         MAXIMUM DATA LEVEL (POSITIVE)
+*.    P   MOMENT     I*4         PRODUCT CODE
+*.    P   NXCOL      I*4         NUMBER OF COLUMNS IN CART.MAP
+*.    P   NYROW      I*4         NUMBER OF ROWS IN THE CART.MAP
+*.    P   RESOLUT    I*4         DOPPLER RESOLUTION
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    P   MAX     R*4         MAXIMUM DATA LEVEL (POSITIVE)
+*.    P   MAX_X   I*4         GRID X OF MAX VALUE
+*.    P   MAX_Y   I*4         GRID Y OF MAX VALUE
+*.    P   MIN     R*4         MAXIMUM DATA LEVEL (NEGATIVE)
+*.    P   MIN_X   I*4         GRID X OF MIN VALUE
+*.    P   MIN_Y   I*4         GRID Y OF MIN VALUE
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME        TYPE        DESCRIPTION
+*.    ----        ----        -----------
+*.    COL         I*4         LOOP INDEX
+*.    COL1        I*4         BEGINNING COLUMN NUMBER
+*.    IMAX        I*4         BIASED UNITS MAX
+*.    IMIN        I*4         BIASED UNITS MIN
+*.    KTS_PER_MPS R*4         NO. OF KNOTS PER M/S
+*.    ROW         I*4         LOOP INDEX
+*.    ROW1        I*4         BEGINNING ROW NUMBER
+*.    VELMIDPT    I*4         VELOCITY MIDPOINT VALUE(RES=1)
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A3CD99
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS:NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:
+*.
+*.   LOWEST VALUES FOR  REFLECTIVITY, VELOCITY, SPECTRUM WIDTH
+*.   ARE:                  -32.0       -63.5       -63.5
+*.                                       2.0(RESOLUTION 2)
+*.
+*.   FOR VELOCITY, AT RESOLUTION 2, THE MIDPOINT VALUE
+*.   (BOTTOM OF THE BELL CUVRE) IS 129.0
+*.
+*.  DEVIATION FROM STANDARDS:  NONE
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP01.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK01.CSS
+*.
+*.  MISC: NONE
+*.
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+C*
+C$DELETE
+$TITLE A30787__MAX_DAT_LEVS
+C$ENDDELETE
+C***************************************************************
+C*       A 3 0 7 8 7 __ MAX DATA LEVELS
+C*
+C*   ROUTINE TO DETERMINE THE MAXIMUM DATA LEVELS RECORDED FOR THIS
+C*   PRODUCT. REFLECTIVITY AND SPECTRUM WIDTH MOMENTS RECEIVE ONLY A
+C*   MAXIMUM VALUE (MIN VALUE NOT APPLICABLE). VELOCITY RECEIVES BOTH
+C*   A MAX AND MIN .
+C*
+C*   MAX AND MIN VALUES ARE CONVERTED ACCORDING TO THE SPECIFIC
+C*   MOMENT, WITH VELOCITY THE RESOLUTION IS ALSO TAKEN INTO ACCOUNT.
+C*
+C*******************************************************************
+C*
+$INCLUDE A304.INC/G,**A304P4 (NLIST)
+$INCLUDE A309.INC/G,**A3CD99 (NLIST)
+$INCLUDE A307.INC,**A30788  (NLIST)
+C
+#IFDEF LINUX
+      INTEGER*4    NYROW, NXCOL
+#ENDIF
+      INTEGER*2    BUFF(NXCOL, NYROW)
+      INTEGER*4    IMIN, IMAX
+      INTEGER*4    MOMENT, RESOLUT
+C
+#IFDEF LINUX
+C     NOTHING
+#ELSE
+      INTEGER*4    NYROW, NXCOL
+#ENDIF
+      INTEGER*4    ROW, COL, MAX_X, MAX_Y, MIN_X, MIN_Y
+      INTEGER*4    ROW1, COL1
+      INTEGER*4    VELMIDPT
+C
+X     INTEGER NM1, NBAD
+C
+      REAL*4       MIN, MAX, KTS_PER_MPS
+C
+C* DETERMINE KNOTS (NM/HR) PER M/S CONVERSION FACTOR
+C
+      PARAMETER    ( KTS_PER_MPS = 3.6/1.852 )
+      PARAMETER    ( COL1 = 1 )
+      PARAMETER    ( ROW1 = 1 )
+      PARAMETER    ( VELMIDPT   = 129 )
+C*
+C*********************************************************************
+C*
+X     TYPE *,'87: ENTERED A30787 ROUTINE '
+C
+      IMAX = ZERO
+      IMIN = ZERO
+      MAX_X = ZERO
+      MAX_Y = ZERO
+C
+C*  INITIALIZE MIN VALUES FOR VELOCITY PRODUCTS
+C
+      IF ( MOMENT .EQ. VELOPROD16   .OR.
+     $     MOMENT .EQ. VELOPROD8  ) THEN
+        IMAX = VELMIDPT
+        IMIN = VELMIDPT
+        MIN_X = ZERO
+        MIN_Y = ZERO
+C
+      END IF
+C
+X     NM1=0
+X     NBAD=0
+      DO 200 ROW = ROW1, NYROW
+        DO 100 COL = COL1, NXCOL
+X         IF (BUFF(COL,ROW).LT.0) NM1=NM1 + 1
+X         IF (BUFF(COL,ROW).GT.256) NBAD=NBAD+1
+C
+C
+C* DON'T PROCESS FLAGGED VALUES
+C
+          IF ( BUFF(COL,ROW).NE.RDBLTH .AND. BUFF(COL,ROW).NE.RDRNGF
+     $           .AND. BUFF(COL,ROW).NE.RDMSNG ) THEN
+C
+C* IF VELOCITY PRODUCT, LOOK FOR MINIMUM VALUE
+C
+            IF ( MOMENT .EQ. VELOPROD16   .OR.
+     $         MOMENT .EQ. VELOPROD8  ) THEN
+              IF ( BUFF(COL, ROW) .LT. IMIN ) THEN
+C
+C* NEW MIN VALUE, SAVE VALUE AND ITS GRID LOCATION
+C
+                IMIN = BUFF(COL, ROW)
+                MIN_X = COL
+                MIN_Y = ROW
+              END IF
+C
+            END IF
+C
+C* ALL PRODUCTS FIND MAX VALUE
+C
+            IF ( BUFF(COL, ROW) .GT. IMAX ) THEN
+              IMAX = BUFF(COL, ROW)
+              MAX_X = COL
+              MAX_Y = ROW
+            END IF
+          END IF
+C
+100     CONTINUE
+200   CONTINUE
+C
+X     TYPE *,'87: IMAX, IMIN = ',IMAX,IMIN
+C
+C*
+C*********************************************************************
+C*  CONVERT MAX, MIN VALUES TO PROPER MOMENT MEASUREMENTS.
+C*
+      IF ( MOMENT.EQ.VELOPROD16 .OR. MOMENT.EQ.VELOPROD8 ) THEN
+C
+C*  GET REAL MAX AND MIN VELOCITIES IN KNOTS
+C
+        MAX = VEL(IMAX,RESOLUT)
+        MIN = VEL(IMIN,RESOLUT)
+        IF (IMAX.NE.RDBLTH .AND. IMAX.NE.RDRNGF .AND. IMAX.NE.RDMSNG)
+     $          MAX = MAX*KTS_PER_MPS
+        IF (IMIN.NE.RDBLTH .AND. IMIN.NE.RDRNGF .AND. IMIN.NE.RDMSNG)
+     $          MIN = VEL(IMIN,RESOLUT)*KTS_PER_MPS
+C
+      ELSE IF (MOMENT.EQ.SPECTPROD8) THEN
+C
+C* GET REAL SPECTRUM WIDTH MAX VALUE IN KNOTS
+C
+        MAX = SPW(IMAX)
+        IF (IMAX.NE.RDBLTH .AND. IMAX.NE.RDRNGF .AND. IMAX.NE.RDMSNG)
+     $          MAX = MAX*KTS_PER_MPS
+C
+      ELSE
+C
+C* GET REAL MAX REFLECTIVITY VALUE
+C
+        MAX = REF(IMAX)
+      ENDIF
+C
+X     IF (NM1.GT.0 .OR. NBAD.GT.0) TYPE *,'87: NUM < 0 = ',NM1,
+     $    ' NUM > 256 = ',NBAD
+X     TYPE *,'87: FINISHED A30787 ROUTINE, MAX, MIN = ',MAX,MIN
+      RETURN
+      END

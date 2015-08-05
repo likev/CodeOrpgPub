@@ -1,0 +1,147 @@
+C 
+C RCS info 
+C $Author: nolitam $ 
+C $Locker:  $ 
+C $Date: 2002/11/27 15:14:52 $ 
+C $Id: a3149f.ftn,v 1.4 2002/11/27 15:14:52 nolitam Exp $ 
+C $Revision: 1.4 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A3149F__LAY_REF_MAP( AZ, LAYEND, XAZFUNC, YAZFUNC )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3149F__LAY_REF_MAP
+*.
+*.  MODULE VERSION: 0001
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       03/03/97      0000      Steven D. Smith       CCR NA96-17804
+*.       03/16/99      0001      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A3149F__LAY_REF_MAP( AZ, LAYEND, XAZFUNC,
+*.                                              YAZFUNC )
+*.
+*.  MODULE FUNCTION:
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT  TYPE        DESCRIPTION
+*.    -   -----  ----        -----------
+*.    P   AZ     R*4         The azimuth of the radial
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    P   LAYEND  I*4         The end bin number of the current layer.
+*.    P   XAZFUNC I*4         An initial x-axis Cartesian mapping parameter,
+*.                            in 1/km.
+*.    P   YAZFUNC I*4         An internal Y-axis cartesian mapping parameter,
+*.                            in 1/KM
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME     TYPE        DESCRIPTION
+*.    ----     ----        -----------
+*.    AZRAD    R*4         The current azimuth angle in radians
+*.    CONSTHT  I*4         CART. BOX HEIGHT MAPPING VARIABLE.
+*.    CONSTWD  I*4         Cartesian box width mapping variable
+*.    DEGTORAD R*4         The conversion factor for degrees to radians
+*.    NE       R*4         Parameter for 45.0 degree
+*.    NW       R*4         Parameter for NW (315 degrees)
+*.    RANGE    I*4         Range of Layer Composite Reflectivity Polar Grid
+*.    SE       R*4         Parameter for SE quadrant (135 degrees)
+*.    SW       R*4         Parameter for the SW quadrant (225 degrees)
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK14.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+      IMPLICIT NONE
+C
+$INCLUDE A314BUF.INC,**A3148P3         (NLIST)
+$INCLUDE A314BUF.INC,**A3148P4         (NLIST)
+C
+C  Passed Arguments
+C
+      REAL      AZ
+      INTEGER*4 LAYEND, XAZFUNC, YAZFUNC
+C
+C  Local declarations
+C
+      REAL      NW,NE,SE,SW,DEGTORAD,AZRAD
+C
+C Local data declarations
+C
+      PARAMETER( DEGTORAD  = 0.0174532 )
+      PARAMETER( NW  = 315.0, NE  = 45.0, SE  = 135.0, SW  = 225.0 )
+C
+C Convert azimuth from degrees to radians
+C
+      AZRAD=AZ*DEGTORAD
+C
+C Compute Cartesian mapping parameters
+C
+      XAZFUNC = INT(SIN(AZRAD)*CONSTWD)
+      YAZFUNC = INT(COS(AZRAD)*CONSTHT)
+C
+C Determine ending range at this azimuth to produce a square product
+C
+C If northern quadrant
+C
+      IF ( AZ.GT.NW.OR.AZ.LE.NE ) THEN
+
+        LAYEND = INT( RANGE/COS(AZRAD) )
+C
+C If eastern quadrant
+C
+      ELSE IF ( AZ.GT.NE.AND.AZ.LE.SE ) THEN
+
+        LAYEND = INT( RANGE/SIN(AZRAD) )
+C
+C If southern quadrant
+C
+      ELSE IF ( AZ.GT.SE.AND.AZ.LE.SW ) THEN
+
+        LAYEND = INT( -1*(RANGE/COS(AZRAD)) )
+C
+C If western quadrant
+C
+      ELSE
+
+        LAYEND = INT( -1*(RANGE/SIN(AZRAD)) )
+
+      END IF
+C
+      END

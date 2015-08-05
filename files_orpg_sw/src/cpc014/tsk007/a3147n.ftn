@@ -1,0 +1,275 @@
+C 
+C RCS info 
+C $Author: nolitam $ 
+C $Locker:  $ 
+C $Date: 2002/11/27 15:17:28 $ 
+C $Id: a3147n.ftn,v 1.3 2002/11/27 15:17:28 nolitam Exp $ 
+C $Revision: 1.3 $ 
+C $State: Exp $ 
+C 
+      SUBROUTINE A3147N__PACKET_WRITE(BL)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3147N__PACKET_WRITE
+*.
+*.  MODULE VERSION: 0002
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.        10/19/95      0000     Cheryl Stephenson    CCR NA94-08462
+*.       12/23/96      0001      Toolset              CCR NA95-11807
+*.       03/16/99      0002      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE:
+*.     CALL A3147N__PACKET_WRITE(BL)
+*.
+*.  MODULE FUNCTION:
+*.     FORMAT THE PACKET LINES FOR THE GRAPHIC BLOCK
+*.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT         TYPE        DESCRIPTION
+*.    -   -----         ----        -----------
+*.    C   AVAIL_FLAG    L*4         Flag indicating if the hour is available
+*.                                  in the User Selectable data base
+*.    C   BIAS_TOGGLE   L*4         Flag indicating whether to apply the Bias
+*.                                  to the USP product
+*.    C   IT            I*4         Pointer into graphic attribute table for
+*.                                  line number
+*.    C   K1            I*4         Index of starting hour to be written on
+*.                                  graphic page
+*.    C   K2            I*4         Index of ending hour to be written on
+*.                                  graphic page
+*.    C   NUM_HOURS     I*2         Number of hours included in a particular
+*.                                  USP product
+*.    C   TEMP_HRS      I*2         Temporary array of hours in the USP
+*.                                  product for generating the attribute table
+*.    C   TIMESPAN      I*2         Duration of USP product
+*.    C   USDB_CUR_BIAS R*4         An array of the the calculated BIAS for
+*.                                  the hourly accumulation
+*.    C   USDB_HRS_OLD  I*2         An array of indexs for the hourly
+*.                                  accumulation
+*.    C   NCOLS         I*4         (CONSTANT)Second dimension of TBUF (55)
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    C   IT      I*4         Pointer into graphic attribute table for line
+*.                            number
+*.    C   TBUF    I*2         Temporary buffer for the attribute table
+*.    C   TXCHR   CHAR*80     Text charatcer lines
+*.    P   BL      I*4         Number of characters per line
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME         TYPE        DESCRIPTION
+*.    ----         ----        -----------
+*.    APPLIED      CHAR*11     (CONSTANT)Character parameter indicating BIAS
+*.                             is applied for the hourly accumulation
+*.    BCHAR        I*4         (CONSTANT)Parameter for the maximum number of
+*.                             characters per line (80)
+*.    BIAS_APPLIED CHAR*11     Character field indicating whether BIAS value
+*.                             is applied or not
+*.    BIAS_INC     I*4         (CONSTANT)Value to increment pointer on where
+*.                             to start writing the BIAS value
+*.    BIPOS1       I*4         Pointer where to start writing a BIAS value on
+*.                             Line 4
+*.    BIPOS2       I*4         Pointer where to stop writing a BIAS value on
+*.                             Line 4
+*.    CNA          CHAR*6      (CONSTANT)Character parameter indicating BIAS
+*.                             values are not available for the hourly
+*.                             accumulation
+*.    CNO          CHAR*3      (CONSTANT)Character parameter for the word NO
+*.    CYES         CHAR*3      (CONSTANT)Character parameter for the word YES
+*.    FLD          CHAR*3      Text field
+*.    I            I*4         LOOP COUNTER
+*.    J            I*4         Do loop counter
+*.    K            I*4         Do loop index
+*.    LINE4_TITLE  CHAR*12     (CONSTANT)Title for line 4
+*.    NOT_APPLIED  CHAR*11     (CONSTANT)Character parameter indicating BIAS
+*.                             is not applied for the hourly accumulation
+*.    REC          I*2         Index of the hourly accumulation in
+*.                             USDB_HRS_OLD
+*.    RZERO        R*4         Parameter value for real zero.
+*.    SPACE        CHAR*1      (CONSTANT)Parameter value of a blank space
+*.    START_BIAS   I*4         (CONSTANT)Position where to start writing the
+*.                             first BIAS in Line 4
+*.    TITEND       I*4         (CONSTANT)Position where the title ends for
+*.                             Line 4
+*.    TITST        I*4         (CONSTANT)Position where the title starts for
+*.                             Line 4
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A3147C2
+*.    A3147C3
+*.    A3147C4
+*.    A3147C9
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.        THIS MODULE IS COMPILED USING THE COMP14.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.        THIS MODULE IS LINKED USING THE LINK14.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+C
+      IMPLICIT NONE
+C
+C   LOCAL COMMON
+C$INSERT$INCLUDE A309.INC/G, **A3PM00  
+$INCLUDE A3146.INC/G,**A3146P1 (NLIST)
+$INCLUDE A3147.INC/G,**A3147P2 (NLIST)
+$INCLUDE             **A3147P9 (NLIST)
+$INCLUDE             **A3147C2 (NLIST)
+$INCLUDE             **A3147C3  (NLIST)
+$INCLUDE             **A3147C4  (NLIST)
+$INCLUDE             **A3147C6  (NLIST)
+$INCLUDE             **A3147C9 (NLIST)
+C
+C   LOCAL DEFINITIONS:
+      INTEGER*2 REC
+      INTEGER*4  BL,J,K ,I
+      INTEGER*4  BCHAR
+      INTEGER TITST,TITEND
+
+      PARAMETER( TITST = 1, TITEND = 17)
+      INTEGER START_BIAS, BIPOS1,BIPOS2 , BIAS_INC
+C
+      PARAMETER  (BCHAR=80)
+      PARAMETER (START_BIAS = 18)
+      PARAMETER (BIAS_INC = 5)
+C
+      CHARACTER*1 SPACE
+      PARAMETER (SPACE = ' ')
+      CHARACTER*80  TXCHR(NCOLS)
+      CHARACTER*3 FLD(24)
+      CHARACTER*3 CNO, CYES
+      PARAMETER (CNO = ' NO', CYES = 'YES')
+      CHARACTER*12 LINE4_TITLE
+      PARAMETER (LINE4_TITLE = '  BIAS      ')
+      CHARACTER*6 CNA
+      PARAMETER (CNA = '   NA ')
+      CHARACTER*11 APPLIED
+      PARAMETER(APPLIED = 'APPLIED   ')
+      CHARACTER*11 NOT_APPLIED
+      PARAMETER (NOT_APPLIED = 'NOT APPLIED')
+      CHARACTER*11 BIAS_APPLIED
+C
+      REAL RZERO
+      PARAMETER (RZERO = 0.00)
+C
+      EQUIVALENCE  (TBUF(1,1),TXCHR)
+C*********************** EXECUTABLE **********************************
+X     WRITE(14,*)'ENTER 7N- FORMAT LINES'
+X     WRITE(14,*)'K1 = ',K1,' AND K2 = ',K2
+C
+C PURGE LINES WITH SPACES
+C
+      DO 20 I=1,5
+         DO 25 K=1,BCHAR
+           TXCHR(I)(K:)=SPACE
+25       CONTINUE
+20    CONTINUE
+C
+C   INITIALIZE LINE NO
+C
+      IT = 1
+C
+C   WRITE LINE 1
+C   If BIAS_TOGGLE is true, then the product is adjusted.
+C
+      IF(BIAS_TOGGLE)THEN
+         BIAS_APPLIED = APPLIED
+      ELSE
+         BIAS_APPLIED = NOT_APPLIED
+      ENDIF
+      WRITE(TXCHR(IT),901) BIAS_APPLIED
+X     WRITE(14,901)BIAS_APPLIED
+C
+C   WRITE LINE 2
+C   Number of hours in product
+C
+      IT = IT + 1
+       WRITE(TXCHR(IT),902)NUM_HOURS,TIMESPAN
+X      WRITE(14,902)NUM_HOURS,TIMESPAN
+C
+C  WRITE LINE 3
+C  A list of the hours in this product
+C
+      IT = IT + 1
+      WRITE(TXCHR(IT),903)(TEMP_HRS(J),J=K1,K2,-1)
+X     WRITE(14,903)(TEMP_HRS(J),J=K1,K2,-1)
+C
+C   WRITE BIAS ON LINE 4
+c
+      IT = IT + 1
+      TXCHR(IT)(TITST:TITEND)=LINE4_TITLE
+X     WRITE(14,*)'7N: PLACE TITLE'
+      BIPOS1 = START_BIAS
+      BIPOS2 = BIPOS1 + BIAS_INC
+      DO 35 J = K1,K2,-1
+            REC = USDB_HRS_OLD(J)
+       IF(USDB_CUR_BIAS(REC) .EQ. RZERO)THEN
+         TXCHR(IT)(BIPOS1:BIPOS2)=CNA
+X        WRITE(14,*)'7N: WRITE NA FOR J =',J
+       ELSE
+        WRITE(TXCHR(IT)(BIPOS1:BIPOS2),'(F6.2)') USDB_CUR_BIAS(REC)
+X       WRITE(14,904) USDB_CUR_BIAS(REC)
+       ENDIF
+        BIPOS1 = BIPOS1 + BIAS_INC +1
+        BIPOS2 = BIPOS1 + BIAS_INC
+35      CONTINUE
+C
+C  WRITE LINE 5
+C  WHETHER THIS HOUR IS INCLUDE IN THE PRODUCT
+C
+      IT = IT + 1
+      DO 10 I=K1,K2,-1
+         IF(AVAIL_FLAG(I))THEN
+            FLD(I) = CYES
+         ELSE
+            FLD(I) = CNO
+         ENDIF
+10    CONTINUE
+      WRITE(TXCHR(IT),905)(FLD(J), J=K1,K2,-1)
+X     WRITE(14,905)(FLD(J), J=K1,K2,-1)
+C
+C   DETERMINE NO I*2 WORDS OF CHARACTERS PER LINE
+C
+      BL = BCHAR / 2
+X     WRITE(14,*)'7N: NUM OF CHARS/LINE =',BL
+C
+      RETURN
+  901 FORMAT(2X,'GAGE BIAS -',1X,A11)
+  902 FORMAT(2X,I2,' OF ',I2,' HOURS IN PRODUCT')
+  903 FORMAT(2X,'END TIMES      ',8(2X,I2.2,'Z',1X))
+X 904 FORMAT(1X,F4.2,1X)
+  905 FORMAT(2X,'HOURS INCLUDED?',8(2X,A3,1X))
+X     TYPE*,'FINISHED A3147N'
+      END

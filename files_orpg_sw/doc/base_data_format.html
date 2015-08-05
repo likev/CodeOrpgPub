@@ -1,0 +1,654 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<html>
+   <head>
+      <title>
+         Vol 2. Doc 3. Sec I - Base Data Format
+      </title>
+   </head>
+   <body text="#000000" link="#0000ff" vlink="#551a8b" alink="#ff0000" bgcolor=
+   "#EEEEEE">
+      <h2>
+         Vol 2. Document 3 -<br>
+          Additional Information &amp; Guidance for WSR-88D Algorithm
+         Developers
+      </h2>
+      <h2>
+         Section&nbsp;&nbsp;I&nbsp;&nbsp; Base Data Format
+      </h2>
+      <br>
+       
+      <h3>
+         Base Data Radial Message
+      </h3>
+      <p>
+         The ORPG provides WSR-88D radar data to algorithms in the message
+         format shown below. Each message represents one radial of polar
+         coordinate base data.
+      </p>
+      <p>
+         The first part of the message is the <em>Base Data Header</em> with a
+         structure documented in this <a href="bdh.html">table</a>. Much of
+         this information is not of interest to the algorithm developer but
+         used by the ORPG infrastructure. Certain fields (flagged with "I" in
+         the table) contain data that are placed into the header portions of
+         the final ICD formatted product. The legacy FORTRAN algorithms access
+         the message contents via an offset into the memory block. The ORPG
+         infrastructure and algorithms written in ANSI-C can access the message
+         via a defined structure.
+      </p>
+      <p>
+         The actual data follow the header. The next block may contain 460
+         reflectivity data values, followed by 920 velocity data values, and
+         920 spectrum width data values. The size of these blocks are always
+         the same though the number of valid data bins may be fewer depending
+         on the range or elevation that data are sampled.
+      </p>
+      <table width="95%" align="center">
+         <tr>
+            <td width="15%">
+               &nbsp;
+            </td>
+            <td width="45%" bgcolor="Navy">
+               <table width="100%" cellspacing="2" cellpadding="1" align=
+               "center">
+                  <tr align="center">
+                     <td height="41" bgcolor="White">
+                        <a href="bdh.html"><b>Base Data Header</b></a> 
+                     </td>
+                  </tr>
+                  <tr align="center">
+                     <td height="61" bgcolor="White">
+                        <b>Reflectivity Data</b> 
+                     </td>
+                  </tr>
+                  <tr align="center">
+                     <td height="81" bgcolor="White">
+                        <b>Velocity Data</b> 
+                     </td>
+                  </tr>
+                  <tr align="center">
+                     <td height="81" bgcolor="White">
+                        <b>Spectrum Width Data</b> 
+                     </td>
+                  </tr>
+               </table>
+            </td>
+            <td>
+               <table width="100%" cellspacing="2" cellpadding="1" align=
+               "center">
+                  <tr>
+                     <td height="40">
+                        length of 52 short integers
+                     </td>
+                  </tr>
+                  <tr>
+                     <td height="60">
+                        460 short integer data array
+                     </td>
+                  </tr>
+                  <tr>
+                     <td height="80">
+                        920 short integer data array
+                     </td>
+                  </tr>
+                  <tr>
+                     <td height="80">
+                        920 short integer data array
+                     </td>
+                  </tr>
+               </table>
+            </td>
+         </tr>
+         <tr>
+            <td>
+               &nbsp;
+            </td>
+            <td align="center">
+               Note: a short integer is a 2-byte integer
+            </td>
+            <td>
+               &nbsp;
+            </td>
+         </tr>
+      </table>
+      <p>
+         <br>
+         <br>
+      </p>
+      <h3>
+         Volumetric Structure
+      </h3>
+      <p>
+         The volumetric structure of the data consists of multiple elevations
+         of radar data with each elevation consisting of multiple base data
+         radial messages. Each elevation is actually a conic section with data
+         sampled at a particular elevation angle. The data are sampled using
+         one of several predefined scanning strategies, called volume coverage
+         patterns (VCP). At present, two VCPs are optimized for severe weather
+         conditions (precipitation mode) and two are optimized for clear air
+         conditions (clear air mode). The following VCPs are currently defined:
+      </p>
+      <table width="95%" border="1" cellspacing="2" cellpadding="2" align=
+      "center" bgcolor="White">
+         <tr align="center">
+            <td>
+               <b>Scanning Strategy</b> 
+            </td>
+            <td>
+               <b>ORPG<br>
+                Weather Mode</b> 
+            </td>
+            <td>
+               <b>Number of<br>
+                Elevations</b> 
+            </td>
+            <td>
+               <b>Max Elevation Angle</b> 
+            </td>
+            <td>
+               <b>Volume Time</b> 
+            </td>
+         </tr>
+         <tr align="center">
+            <td rowspan="2">
+               VCP 11
+            </td>
+            <td>
+               Precipitation
+            </td>
+            <td>
+               14
+            </td>
+            <td>
+               20 degrees
+            </td>
+            <td>
+               5 minutes
+            </td>
+         </tr>
+         <tr>
+            <td colspan="4">
+               Provides better vertical sampling of weather near the antenna
+               than VCP 21. This scanning strategy is usually preferred when
+               severe weather of interest is within 60 NM of the antenna.&nbsp;
+            </td>
+         </tr>
+         <tr align="center">
+            <td rowspan="2">
+               VCP 21
+            </td>
+            <td>
+               Precipitation
+            </td>
+            <td>
+               9
+            </td>
+            <td>
+               20 degrees
+            </td>
+            <td>
+               6 minutes
+            </td>
+         </tr>
+         <tr>
+            <td colspan="4">
+               Provides better velocity and spectrum width estimates beyond 60
+               NM than VCP 11. &nbsp;
+            </td>
+         </tr>
+         <tr align="center">
+            <td rowspan="2">
+               VCP 31
+            </td>
+            <td>
+               Clear Air
+            </td>
+            <td>
+               5
+            </td>
+            <td>
+               5 degrees
+            </td>
+            <td>
+               10 minutes
+            </td>
+         </tr>
+         <tr>
+            <td colspan="4">
+               Radar in long pulse. Permits detection of lower reflectivity
+               returns at a longer range than VCP 32.&nbsp;
+            </td>
+         </tr>
+         <tr align="center">
+            <td rowspan="2">
+               VCP 32
+            </td>
+            <td>
+               Clear Air
+            </td>
+            <td>
+               5
+            </td>
+            <td>
+               5 degrees
+            </td>
+            <td>
+               10 minutes
+            </td>
+         </tr>
+         <tr>
+            <td colspan="4">
+               Radar in short pulse. Provides a larger unambiguous
+               velocity.&nbsp;
+            </td>
+         </tr>
+      </table>
+      <p>
+         A detailed description of the currently defined volume coverage
+         patterns can be found in Figures 40-1 through 40-4 in the B5
+         Specification for CPCI-03, the Radar Product Generation Program
+         (<b><i>B5-RPG</i></b>).&nbsp;
+      </p>
+      <p>
+         The factors that drive the design of the scanning strategy include the
+         tradeoff between unambiguous range and unambiguous velocity inherent
+         in Doppler radar, the temporal and spatial scales of the
+         meteorological conditions of interest, the desired precision and
+         accuracy of the data obtained, and the characteristics of the specific
+         radar. At elevation angles below approximately 6 degrees, the data are
+         sampled with two different PRFs in order to assign the Doppler data to
+         the correct surveillance echo (range unfolding). Two methods are used
+         to accomplish this double sampling. Below approximately 2.5 degrees,
+         this is accomplished by scanning each elevation twice (see "split
+         cuts" below) in order to meet accuracy requirements and obtain
+         reflectivity data to 460 km. Generally, from about 2.5 degrees through
+         6 degrees this is accomplished in a "batch" mode -- the radar rapidly
+         switching between a lower PRF (surveillance) and a higher PRF
+         (Doppler). Above 6 degrees range unfolding is not required since there
+         are generally no significant weather returns at higher altitudes. This
+         means that no echoes occur at longer slant ranges at higher elevation
+         angles, eliminating the ambiguity. Additional information can be
+         obtained from the Federal Meteorological Handbook No. 11, Part B,
+         Doppler Radar Theory and Meteorology (<b><i>FMH 11, Part B</i></b>).
+      </p>
+      <p>
+         The manner in which the data are sampled by the radar is related to
+         but differs from the manner in which the data are presented to the
+         algorithms. Stated in another way, the content of the data messages
+         sent to the ORPG from the radar is not the same as the base data
+         radial message read by an algorithm. Other than having different
+         structures and contents in the header portion of the message, the data
+         content differs in two significant ways.
+      </p>
+      <ol>
+         <li>
+            Data from the RDA "split cuts" have been combined.
+         </li>
+         <li>
+            The velocity information provided to the algorithms has been
+            dealiased by the ORPG.
+         </li>
+      </ol>
+      <h4>
+         Split Cuts
+      </h4>
+      <p>
+         In the currently defined VCPs, the lowest 2 or 3 elevations are
+         scanned twice. The first scan is at a lower PRF and the base data
+         messages transmitted to the ORPG include surveillance data bins
+         (reflectivity data). The second scan at that elevation uses a higher
+         PRF and the data messages transmitted include Doppler data bins
+         (radial velocity and spectrum width data). At higher elevations the
+         data are sampled in a single scan.
+      </p>
+      <p>
+         The ORPG transforms the RDA base data messages into the ORPG base data
+         messages described in this document. Algorithms interested only in
+         reflectivity data register for <tt><b>REFLDATA</b></tt> input and read
+         ORPG data messages created directly from the first scan of a split
+         cut. Algorithms interested in velocity and / or spectrum width data
+         register for <tt><b>COMBBASE</b></tt> input and read ORPG data
+         messages derived from the second scan of a split cut. The ORPG data
+         messages created from single scan elevation samples are read by all
+         algorithms inputting base data.
+      </p>
+      <p>
+         The ORPG base data messages derived from the second scan of a split
+         cut also contain reflectivity data that has been inserted from first
+         scan of that cut. This process involves selection of the first scan
+         reflectivity radial message with an azimuth closest to the second scan
+         azimuth. Thus, the reflectivity is "velocity mapped"; it no longer
+         includes the original azimuth information. As a result, algorithms
+         that are registered for <tt><b>COMBBASE</b></tt> input can process
+         reflectivity data in addition to velocity and spectrum width. However,
+         the reflectivity data for elevations derived from a split cut
+         (inserted reflectivity data) will have a minor azimuth error.
+      </p>
+      <h4>
+         Velocity Dealiasing
+      </h4>
+      <p>
+         Currently, all processing of base data except velocity dealiasing is
+         accomplished by the RDA. This includes: signal processing, conversion
+         to meteorological units, point target suppression, suppression of data
+         below a set threshold, and range unfolding. Additional information can
+         be obtained from the <b><i>FMH 11, Part B</i></b>. Velocity data that
+         has not been dealiased is not made available to ORPG algorithms with
+         the current API.&nbsp;
+      </p>
+      <h4>
+         Elevation Characteristics
+      </h4>
+      <ul>
+         <li>
+            Currently, a volume scan strategy cannot contain more than 20
+            elevations.
+         </li>
+         <li>
+            Elevations normally consist of approximately 360 radials. The
+            radial spacing is typically between 0.95 degrees and 1.1 degrees.
+            Under certain conditions, an elevation could contain up to 400
+            radials. Radial spacing is relatively stable for a given radar,
+            however.
+         </li>
+         <li>
+            Radials from one elevation are not aligned with radials in other
+            elevations, nor do elevations begin at the same azimuth. After the
+            radar antenna has repositioned to a new elevation angle, data
+            sampling begins when radar parameters (including antenna
+            positioning) have stabilized within specified limits.
+         </li>
+         <li>
+            The radar pedestal positioning accuracy is &plusmn; 0.2 degrees in
+            elevation and azimuth.
+         </li>
+      </ul>
+      <h4>
+         Radial Characteristics
+      </h4>
+      <ul>
+         <li>
+            The antenna beam width (actually half power beam width) is 0.95
+            degrees or slightly less depending on the frequency of the radar
+            signal. Radials are spaced approximately every degree.
+         </li>
+         <li>
+            Reflectivity range precision is one data point every 1.0 kilometers
+            from 1 km to 460 km <font size="-1"><b>Note 1</b></font>.
+         </li>
+         <li>
+            Radial velocity and spectrum width range precision is one data
+            point every 0.25 kilometers from 0.25 km to 230 km <font size=
+            "-1"><b>Note 1</b></font>.
+         </li>
+      </ul>
+      <table width="90%">
+         <tr valign="top">
+            <td>
+               Note&nbsp;1:
+            </td>
+            <td>
+               There is no requirement for data above 70,000 feet MSL. Data
+               values at ranges where altitude exceeds 70,000 feet MSL are not
+               valid.
+            </td>
+         </tr>
+         <tr valign="top">
+            <td>
+               Note&nbsp;2:
+            </td>
+            <td>
+               The range scale corresponds to slant range along the beam, not
+               the distance across the earth's surface.
+            </td>
+         </tr>
+      </table>
+      <h3>
+         Data Characteristics
+      </h3>
+      <p>
+         Encoding details and general characteristics of WSR-88D base data are
+         provided below. Data requirements for coverage area, sensitivity,
+         precision, and accuracy are documented in the WSR-88D System
+         Specification (<b><i>SS</i></b>), Sections 3.7.1 and 3.7.2.
+      </p>
+      <h4>
+         Data Range and Precision
+      </h4>
+      <p>
+         The actual range of data that can be measured is based upon many
+         parameters and is beyond the scope of this introduction. The range
+         that can be encoded is stated here. Generally, this encoding range
+         exceeds the system's capability to measure / estimate the
+         characteristic (no information is lost due to encoding
+         limitations).&nbsp; <b><i>FMH 11, Part B</i></b> provides a discussion
+         on WSR-88D radar characteristics and data acquisition considerations.
+      </p>
+      <ul>
+         <li>
+            <b>Reflectivity</b> (equivalent radar reflectivity <b>Z<font size=
+            "-1">e</font>)</b><br>
+             
+            <ul>
+               <li>
+                  is provided in increments of <tt><b>0.5 dBZ</b></tt> from
+                  -<tt><b>32</b></tt> to +<tt><b>94.5 dBZ</b></tt>
+               </li>
+            </ul>
+         </li>
+         <li>
+            <b>Radial Velocity</b><br>
+             Generally the RDA is set to provide the best precision of the
+            velocity data (Doppler resolution 1). Under certain conditions the
+            RDA is set to encode a greater range of velocities but with reduced
+            precision (Doppler resolution 2). 
+            <ul>
+               <li>
+                  is provided in increments of <tt><b>0.5
+                  meters/second</b></tt> from -<tt><b>63.5</b></tt> to
+                  +<tt><b>63</b></tt> <tt><b>meters/second</b></tt>&nbsp;&nbsp;
+                  (Doppler resolution 1)
+               </li>
+               <li>
+                  is provided in increments of <tt><b>1.0
+                  meters/second</b></tt> from -<tt><b>127</b></tt> to
+                  +<tt><b>126</b></tt>
+                  <tt><b>meters/second</b></tt>&nbsp;&nbsp; (Doppler resolution
+                  2)
+               </li>
+            </ul>
+         </li>
+         <li>
+            <b>Spectrum Width</b><br>
+             
+            <ul>
+               <li>
+                  is provided in increments of <tt><b>0.5
+                  meters/second</b></tt> from -<tt><b>63.5</b></tt> to
+                  +<tt><b>63</b></tt> <tt><b>meters/second</b></tt>
+               </li>
+            </ul>
+         </li>
+      </ul>
+      <p>
+         The precision of the data is defined as the smallest increment
+         recorded. &nbsp;
+      </p>
+      <h4>
+         Data Accuracy
+      </h4>
+      <p>
+         The accuracy of the data depends upon many factors including PRF,
+         antenna rotation rate, and clutter suppression. <b><i>FMH 11, Part
+         B</i></b> provides a discussion on WSR-88D radar characteristics and
+         data acquisition considerations. Typical values for standard deviation
+         are approximately:
+      </p>
+      <ul>
+         <li>
+            <b>Reflectivity:&nbsp;</b> <tt><b>1 dBZ</b></tt>
+         </li>
+         <li>
+            <b>Radial Velocity:&nbsp;</b> <tt><b>1 meter/second</b></tt>
+         </li>
+         <li>
+            <b>Spectrum Width:&nbsp;</b> <tt><b>1 meter/second</b></tt>
+         </li>
+      </ul>
+      <h4>
+         Data Encoding
+      </h4>
+      <p>
+         Data are encoded in the least significant byte of a short integer.
+         Value <tt><b>00</b></tt> is a flag for "Data Below Threshold". Value
+         <tt><b>01</b></tt> is a flag for "Signal Overlaid" (obscured by range
+         folding). The remaining 254 data values are encoded as follows:
+      </p>
+      <ul>
+         <li>
+            <b>Encoded Reflectivity</b>:<br>
+             
+            <table>
+               <tr>
+                  <td>
+                     &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                  </td>
+                  <td>
+                     <font face="sans-serif">R<font size="-1">enc</font> = NINT
+                     [2.0*(R + 32.0)] + 2</font> 
+                  </td>
+                  <td>
+                     &nbsp;
+                  </td>
+               </tr>
+            </table>
+         </li>
+         <li>
+            <b>Encoded Radial Velocity</b>:<br>
+             
+            <table>
+               <tr>
+                  <td>
+                     &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                  </td>
+                  <td>
+                     <font face="sans-serif">V<font size="-1">enc</font> = NINT
+                     [2.0*(V + 63.5)] + 2</font> 
+                  </td>
+                  <td>
+                     &nbsp;&nbsp;&nbsp;(Doppler resolution 1)
+                  </td>
+               </tr>
+               <tr>
+                  <td>
+                     &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                  </td>
+                  <td>
+                     <font face="sans-serif">V<font size="-1">enc</font> = NINT
+                     [V + 127] + 2</font> 
+                  </td>
+                  <td>
+                     &nbsp;&nbsp;&nbsp;(Doppler resolution 2)
+                  </td>
+               </tr>
+            </table>
+         </li>
+         <li>
+            <b>Encoded Spectrum Width</b>:<br>
+             
+            <table>
+               <tr>
+                  <td>
+                     &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                  </td>
+                  <td>
+                     <font face="sans-serif">W<font size="-1">enc</font> = NINT
+                     [2.0*(W + 63.5)] + 2</font> 
+                  </td>
+                  <td>
+                     &nbsp;
+                  </td>
+               </tr>
+            </table>
+         </li>
+      </ul>
+      <p>
+         Where <tt><b>NINT</b></tt> is a rounding function (i.e.,
+         <tt><b>NINT[1.5]</b></tt> returns 2) and <tt><b>R</b></tt>,
+         <tt><b>V</b></tt>, and <tt><b>W</b></tt> are the numbers before
+         scaling.&nbsp;
+      </p>
+      <p>
+         The data are decoded as follows:
+      </p>
+      <ul>
+         <li>
+            <b>Reflectivity (dBZ)</b>:<br>
+             
+            <table>
+               <tr>
+                  <td>
+                     &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                  </td>
+                  <td>
+                     <font face="sans-serif">R = R<font size="-1">enc</font> /
+                     2 - 33.0</font> 
+                  </td>
+                  <td>
+                     &nbsp;
+                  </td>
+               </tr>
+            </table>
+         </li>
+         <li>
+            <b>Radial Velocity (m sec<sup>-1</sup>)</b>:<br>
+             
+            <table>
+               <tr>
+                  <td>
+                     &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                  </td>
+                  <td>
+                     <font face="sans-serif">V = V<font size="-1">enc</font> /
+                     2 - 64.5</font> 
+                  </td>
+                  <td>
+                     &nbsp;&nbsp;&nbsp;(Doppler resolution 1)
+                  </td>
+               </tr>
+               <tr>
+                  <td>
+                     &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                  </td>
+                  <td>
+                     <font face="sans-serif">V = V<font size="-1">enc</font> -
+                     129.0</font> 
+                  </td>
+                  <td>
+                     &nbsp;&nbsp;&nbsp;(Doppler resolution 2)
+                  </td>
+               </tr>
+            </table>
+         </li>
+         <li>
+            <b>Spectrum Width (m sec<sup>-1</sup>)</b>:<br>
+             
+            <table>
+               <tr>
+                  <td>
+                     &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                  </td>
+                  <td>
+                     <font face="sans-serif">W = W<font size="-1">enc</font> /
+                     2 - 64.5</font> 
+                  </td>
+                  <td>
+                     &nbsp;
+                  </td>
+               </tr>
+            </table>
+         </li>
+      </ul>
+   </body>
+</html>
+

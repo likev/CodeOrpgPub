@@ -1,0 +1,242 @@
+C
+C RCS info
+C $Author: steves $
+C $Locker:  $
+C $Date: 2006/12/18 20:27:35 $
+C $Id: a3082s.ftn,v 1.5 2006/12/18 20:27:35 steves Exp $
+C $Revision: 1.5 $
+C $State: Exp $
+C
+      SUBROUTINE A3082S__PACKET_CENT(CAT_NUM_STORMS,CAT_FEAT,
+     $   COMB_ATT,NUM_FPOSITS,FORCST_POSITS,CAT_TVST,BUFOUT)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A3082S__PACKET_CENT
+*.
+*.  MODULE VERSION: 0012
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       05 19 88      0000      VALERIE HOLDEN       SPR # 80002
+*.       02 06 89      0001      VALERIE HOLDEN       SPR # 90027
+*.       01 29 91      0002      VALERIE HOLDEN       SPR # 91249
+*.       12 03 91      0003      STEVE ANDERSON       SPR # 92740
+*.       12/10/91      0004      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/20/92      0005      Toolset              SPR 91895
+*.       03/25/93      0006      Toolset              SPR NA93-06801
+*.       01/28/94      0007      Toolset              SPR NA94-01101
+*.       03/03/94      0008      Toolset              SPR NA94-05501
+*.       04/01/95      0009      Toolset              CCR NA95-11802
+*.       07/19/95      0010      STEVE SMITH          CCR NA94-26302
+*.       12/23/96      0011      Toolset              CCR NA95-11807
+*.       03/16/99      0012      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A3082S__PACKET_CENT(CAT_NUM_STORMS,
+*.                    CAT_FEAT,COMB_ATT,NUM_FPOSITS,FORCST_POSITS,
+*.                    CAT_TVST,BUFOUT)
+*.
+*.  MODULE FUNCTION: STORES THE LAYER DATA FOR RADAR CODED MESSAGE
+*.                   CENTROIDS INTO PACKETS
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT          TYPE        DESCRIPTION
+*.    -   -----          ----        -----------
+*.    G   NCENTROIDS     I*4         Number of Centroids to report in the
+*.                                   Radar Coded Message. Default is 12.
+*.    G   CAT_AZ         I*4         (CONSTANT)Combined attributes index for
+*.                                   Azimuth of storm centroid.
+*.    G   CAT_RNG        I*4         (CONSTANT)Combined attributes index for
+*.                                   projected range of storm centroid.
+*.    G   CAT_SID        I*4         (CONSTANT)Combined attributes features
+*.                                   index for storm ID.
+*.    C   RCMIDX         I*4         Index to current position in Radar Coded
+*.                                   Message output buffer (from top of
+*.                                   buffer).
+*.    C   CAT_ELCN       I*4         (CONSTANT)Offset in combined attributes
+*.                                   table of elevation of storm centroid.
+*.    C   MAX_STORM      I*4         (CONSTANT)Maximum number of storms.
+*.    P   BUFOUT         I*2         PRODUCT HEADER ARRAY
+*.    P   CAT_FEAT       I*4         Table of associated severe features.
+*.    P   CAT_NUM_STORMS I*4         Number of storms processed for the
+*.                                   combined attributes table.
+*.    P   COMB_ATT       R*4         Table of combined attributes.
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    C   RCMIDX  I*4         Index to current position in Radar Coded Message
+*.                            output buffer (from top of buffer).
+*.    P   BUFOUT  I*2         PRODUCT HEADER ARRAY
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE: NONE
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME       TYPE        DESCRIPTION
+*.    ----       ----        -----------
+*.    AZIM       R*4         AZIMUTH OF CENTROID
+*.    BLANK      CHAR*1      PROGRAM PARAMETER FOR A BLANK.
+*.    CENCHAR    CHAR*4      STORM ID CHARACTER
+*.    CENNUM     I*4         STORM ID NUMBER
+*.    CENT_TOTAL I*4         Total number of centroids within 230 KM range.
+*.    DTR        R*4         DEGREES TO RADIAN CONVERSION
+*.    ELEV       R*4         ELEVATION ANGLE OF CENTROID
+*.    FOUR       I*4         Constant value of four.
+*.    I          I*4         INDEX CONTROL VARIABLE
+*.    INC1       I*4         INCREMENTAL VALUE OF 1
+*.    K          I*4         Loop control index variable.
+*.    LEN_BLCK   I*4         LENGTH OF BLOCK
+*.    NUM4       I*4         Program parameter for 4.
+*.    OFF1       I*4         Constant respresenting offset 1.
+*.    OFF2       I*4         Constant representing offset 2.
+*.    OFF3       I*4         Constant representing offset 3.
+*.    OFF4       I*4         Constant representing offset 4.
+*.    OFF5       I*4         Constant representing offset 5.
+*.    OFF6       I*4         Constant representing offset 6.
+*.    OFF7       I*4         Constant representing offset 7.
+*.    OFF8       I*4         Constant representing offset 8.
+*.    OFF9       I*4         Constant representing offset 9.
+*.    ONE        I*4         Program parameter value for one used as lower
+*.                           index in do loop.
+*.    RANGE      R*4         RANGE OF CENTROID
+*.    RANGE_MAX  R*4         MAXIMUM RANGE VALUE = 230 KM
+*.    RGT_JUST   CHAR*4      RIGHT JUSTIFIED VALUE OF CENCHAR
+*.    SID_PACKCD I*4         STORM PACKET CODE
+*.    SPECSYM    I*4         HEX VALUE FOR SPECIAL SYMBOL
+*.    SYM_PACKCD I*4         SPECIAL SYMBOL PACKET CODE
+*.    TEMPNUM    I*4         TEMP. LOCATION EQUIVALENCED CENCHAR
+*.    TEMP_JUST  I*4         TEMP. LOCATION EQUIVALENCED RGT_JUST
+*.    TEN        I*4         INCREMENTAL VALUE FOR 10
+*.    THREE      I*4         Numeric three.
+*.    TWO        I*4         (Constant) Parameter equal to 2.
+*.    ZERO       I*4         PROGRAM PARAMETER FOR 0
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    PRODSEL
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A308P2
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS: NONE
+*.
+*.  DEVIATION FROM STANDARDS: NONE
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     THIS MODULE IS COMPILED USING COMP08.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     THIS MODULE IS LINKED USING LINK08.CSS
+*.
+*.  MISC: NONE
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+C*
+$INCLUDE A308BUF.INC/G,**A308P3    (NEND NLIST)
+$INCLUDE               **A308D3    (NEND NLIST)
+$INCLUDE A309ADPT.INC/G,**A3CD70C7 (NEND NLIST)
+$INCLUDE A308.INC,**A308P2         (NEND NLIST)
+C*
+      INTEGER*2    BUFOUT(*)
+      INTEGER*4    I,K,SID_PACKCD,SYM_PACKCD,SPECSYM,TEMPNUM
+      INTEGER*4    CENNUM(MAX_STORM),CENT_TOTAL,TEMP_JUST
+      INTEGER*4    ZERO,INC1,OFF1,OFF2,OFF3,OFF4,OFF5,OFF6,OFF7
+      INTEGER*4    OFF8,OFF9,TEN,LEN_BLCK,NUM4,ONE,TWO,THREE,FOUR
+      REAL         AZIM(MAX_STORM),RANGE(MAX_STORM),ELEV(MAX_STORM)
+      REAL         DTR,RANGE_MAX
+      CHARACTER*1  BLANK
+      CHARACTER*4  CENCHAR,RGT_JUST
+      DATA         BLANK/' '/
+      PARAMETER    (DTR=0.01745329,RANGE_MAX=230.0,SID_PACKCD=15)
+      PARAMETER    (SYM_PACKCD=2,SPECSYM=X'2220',NUM4=4)
+      PARAMETER    (ZERO=0,INC1=1,OFF1=1,OFF2=2,OFF3=3,OFF4=4,OFF5=5)
+      PARAMETER    (OFF6=6,OFF7=7,OFF8=8,OFF9=9,TEN=10,LEN_BLCK=6)
+      PARAMETER    (ONE=1,TWO=2,THREE=3,FOUR=4)
+      EQUIVALENCE  (TEMPNUM,CENCHAR)
+      EQUIVALENCE  (TEMP_JUST,RGT_JUST)
+C*
+C******************************************************************
+C*    COLLECT DATA FOR CENTROIDS WITHIN 230 KM RANGE
+C*
+      I = ZERO
+      DO 51 K = ONE,CAT_NUM_STORMS
+         IF (COMB_ATT(CAT_RNG,K).GT.RANGE_MAX) THEN
+         ELSE
+C*
+C*    SAVE CENTROID NUMBER, AZIMUTH, RANGE AND ELEVATION ANGLE
+C*
+            I = I + INC1
+C*
+C*    BRANCH OUT OF LOOP ONCE MAX_STORM IS REACHED
+C*
+            IF (I .GT. MAX_STORM) THEN
+C*
+C*    RESET THE COUNTER TO MAX_STORM
+C*
+               I = MAX_STORM
+               GO TO 52
+            END IF
+C*
+            CENNUM(I) = CAT_FEAT(CAT_SID,K)
+            AZIM(I)   = COMB_ATT(CAT_AZ,K) * DTR
+            RANGE(I)  = COMB_ATT(CAT_RNG,K)
+            ELEV(I)   = COMB_ATT(CAT_ELCN,K) * DTR
+         ENDIF
+ 51   CONTINUE
+C*
+ 52   CONTINUE
+      CENT_TOTAL = I
+C*
+C*    STORE CENTROID DATA
+C*
+      DO 20 K = ONE,MIN(NCENTROIDS,CENT_TOTAL)
+         TEMPNUM = CENNUM(K)
+C*
+C*    STORE PACKET CODE FOR STORM ID, BLOCK LENGTH, I&J COORDINATES
+C*
+         BUFOUT(RCMIDX)   = SID_PACKCD
+         BUFOUT(RCMIDX+OFF1) = LEN_BLCK
+         BUFOUT(RCMIDX+OFF2)=NINT((RANGE(K))*SIN(AZIM(K))
+     $      *COS(ELEV(K)))*NUM4
+         BUFOUT(RCMIDX+OFF3)=NINT((RANGE(K))*COS(AZIM(K))
+     $      *COS(ELEV(K)))*NUM4
+C*
+C*    STORE CENTROID ID NUMBER
+C*
+         RGT_JUST(ONE:ONE) = BLANK
+         RGT_JUST(TWO:TWO) = BLANK
+         RGT_JUST(THREE:THREE) = CENCHAR(ONE:ONE)
+         RGT_JUST(FOUR:FOUR)   = CENCHAR(TWO:TWO)
+         BUFOUT(RCMIDX+OFF4) = TEMP_JUST
+C*
+C*    STORE PACKET CODE FOR SPECIAL SYMBOL, LENGTH OF BLOCK, I&J
+C*    COORDINATES AND CODE FOR SPECIAL SYMBOL
+C*
+         BUFOUT(RCMIDX+OFF5) = SYM_PACKCD
+         BUFOUT(RCMIDX+OFF6) = LEN_BLCK
+         BUFOUT(RCMIDX+OFF7) = BUFOUT(RCMIDX+OFF2)
+         BUFOUT(RCMIDX+OFF8) = BUFOUT(RCMIDX+OFF3)
+         BUFOUT(RCMIDX+OFF9) = SPECSYM
+         RCMIDX = RCMIDX + TEN
+ 20   CONTINUE
+C*
+C*    RETURN TO CALLER
+C*
+      RETURN
+      END

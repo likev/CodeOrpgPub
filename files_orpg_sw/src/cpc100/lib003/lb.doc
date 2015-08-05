@@ -1,0 +1,903 @@
+
+    File: lb.doc
+
+    A description of the linear buffer, LB, module
+
+
+    A. General:
+
+	The linear buffer is designed for message communication among multiple 
+	processes. A message is a byte string of given length. Processes send 
+	messages (or data sets) to an LB and other processes can then receive 
+	those messages by reading them from the LB. An LB can hold multiple 
+	messages. Multiple writers and readers can access an LB simultaneously. 
+	There is no connection (such as socket connections) between 
+	communicating processes using the LB. 
+
+	The LB can be used, in addition to message distribution, for data 
+	buffering in real time distributed applications for maintaining 
+	continuous and smooth data flow between the writers and the readers.
+
+	The LB can be used to build reliable group multicasting tools such as 
+	abcast, cbcast and fbcast tools (Refer to Reliable Distributed Computing 
+	with the Isis Toolkit, Kenneth P. Birman and Robert Van Renesse, IEEE 
+	Computer Society Press, 1993), as well as reliable data replication 
+	utilities. It is particularly useful in developing distributed 
+	applications that use an Internet Web model, where information is 
+	stored in an open, distributed and publicly accessible way.
+
+	In an LB the messages are stored sequentially. When the buffer is full 
+	and a new message comes, by default, the oldest messages will be removed 
+	and the new message will be stored. A reader reads messages that are 
+	currently in the LB with no control over the availability of the 
+	messages. Optionally, if the LB is opened as "must-read", messages 
+	must be read before they can be removed. This allows the LB to be used 
+	as a message queue. If the LB is opened as "replaceable", message in 
+	the LB will never be expired although they can be replaced (when 
+	identified by their ids). If the LB is opened as "no-expiration", 
+	messages in the LB will never be automatically expired.
+
+	The LB module provides functions to read from and write messages into an 
+	LB. When a message is written to an LB, the message length as well as a 
+	message id are stored in the LB in addition to the message itself. When 
+	a message is read from the LB, the message as well as the message length 
+	is returned. The LB uses a read pointer to keep track of the message 
+	read for each reader. The reader can move the pointer forward or 
+	backward. The messages can also be read randomly by their ids. There can 
+	be arbitrary number of readers simultaneously accessing the same LB.
+
+	In a typical LB application, a process calls "LB_open" to open an LB 
+	and get an LB descriptor. It then calls LB_read or LB_write to read 
+	or write messages. The procedure is just like opening, reading and 
+	writing a Unix file. 
+
+	The LB does not require any access lock between a message writer and 
+	readers. This increases its efficiency. Multiple writers, however, are 
+	mutually locked (only one writer can modify the LB at a given time).
+
+	The LB is a reliable message passing channel. No messages written to 
+	an LB are ever lost before their expiration and no corrupted messages 
+	are ever read as long as the OS is running. The LB automatically 
+	processes the connection and termination. A reader or a writer can 
+	start, terminate or crash at any time without destroying the LB or leave 
+	corrupted messages in it. For example, a reader or a writer can crash, 
+	restart later and resume message passing without need of either 
+	restarting the other party, or any exception handling (such as 
+	reconnection) in the other party. 
+
+	Two different types of LB are supported: The shared memory type and the 
+	file type. The type is determined when an LB is first created. Shared 
+	memory LB is most efficient and suitable for high date rate message 
+	communication. File LB stores messages in a file. It is thus less 
+	volatile and not subject to the limitation of the available memory 
+	resource. The LB file can be copied for backup and post-analysis or 
+	stored on a tape for long term archive.
+
+	By default, the LB module turns off the write permission for the LB 
+	shared memory or file before returning to the caller. This provides 
+	memory leak protection (i.e. The LB integrity is protected from any 
+	memory leaking in the application). Optionally, the user can select to 
+	disable this feature to gain some efficiency advantage while loss the 
+	memory protection. This has no effect on message reading.
+
+	An LB can also be created as replaceable, which allows a message to be 
+	replaced by a new version with the same id.
+
+	An LB can be opened as "single-writer", in which case, if a second 
+	writer tries to open the LB for writing, the second will fail. This 
+	type of LB is also more efficient because the single writer constantly 
+	holds the lock.
+
+	The LB is network transparent, which means that the same LB can be 
+	accessed simultaneously by big-endian and little-endian machines. This,
+	however, does not apply to the user data (messages).
+
+	The system resources (memory and disk space) used by an LB are kept 
+	within user specified limits, which is important for operational 
+	applications. The LB is designed for efficient message read and write
+	operations.
+
+	The LB supports UNIX file and shared memory access permission 
+	protection.
+
+    B. The LB functions:
+
+	An application using the LB library routines must include "lb.h".
+	The LB library supports the following functions:
+
+	int LB_open (char *lb_name, int flags, LB_attr *attr)
+
+	    This function opens an LB of name "lb_name", which must be a valid 
+	    UNIX file path, and returns a non-negative LB descriptor on success. 
+	    Communicating processes must use the same "lb_name" to be able to 
+	    connect to the same LB. The argument "flags" specifies additional 
+	    options for LB_open as described later. The argument attr is a 
+	    structure specifying the attributes for the LB. Structure LB_attr 
+	    has the following fields: 
+
+		char remark [LB_REMARK_LENGTH];
+		mode_t mode;
+		int msg_size;
+		int maxn_msgs;
+		int types;
+
+	    "remark" is a NULL terminated character string which will be stored 
+	    in the LB for reference. It will not be used by LB module. MB_stat 
+	    can be used to retrieve it.
+
+	    "mode" is the permission flag used for opening the file and
+	    shared memory segment. Refer to "open" or "shmget". "msg_size" 
+	    and "maxn_msgs" specify the message size and the maximum number of 
+	    messages that can be buffered in the LB. No more than "maxn_msgs" 
+	    messages can be stored in the LB at any time. The "msg_size" 
+	    argument determines the buffer space for all message ("maxn_msgs" * 
+	    "msg_size" bytes). Thus it specifies the average message size. If 
+	    the average message size in an LB is large than "msg_size", less 
+	    than "maxn_msgs" messages will be allowed to be stored.
+
+	    "types" is an integer containing the following bit fields:
+
+		Storage type: LB_FILE or LB_MEMORY
+
+		    This one bit field specifies the type of storage used - 
+		    file LB or shared memory LB. The default is LB_FILE. A file 	
+		    type LB uses a file to store all messages and control 
+		    information. A shared memory type LB creates a file as well 
+		    as a shared memory segment. The file is used for storing 
+		    control information and for implementing locks between the 
+		    writers. The user should not try to modify or remove the LB 
+		    file for a shared memory LB except using LB_remove. 
+		    Otherwise shared memory resources may not be appropriately 
+		    freed.
+
+		Replaceability: LB_REPLACE or LB_NORMAL
+
+		    This one bit field determines if the messages are 
+		    replaceable. For a replaceable LB, a new message with the 
+		    same id as that of an existing message in the LB will 
+		    replace the old message. This replacement is possible only 
+		    if the new message has the same length as the old. If the 
+		    length is different, an error code is returned. If the LB is 
+		    not replaceable (LB_NORMAL), this message will be considered 
+		    as new and stored in the LB as a new message. The default is 
+		    LB_NORMAL. Messages are not subject to expiration for 
+		    replaceable LB. If an LB is full, LB_write can fail.
+
+		Must-read: LB_MUST_READ or LB_NORMAL
+
+		    This one bit field determines if messages must be read 
+		    before they can be expired. If this bit is set to 
+		    LB_MUST_READ, a message will not be subject to expiration if 
+		    this message and all messages after it have never been read. 
+		    Unread messages that can not be expired in an LB may cause 
+		    running out of free spaces in the LB and an LB_write 
+		    failure.
+
+		Single writer: LB_SINGLE_WRITER or LB_NORMAL
+
+		    If LB_SINGLE_WRITER is set, the LB only allows a single 
+		    writer to connect to it. If there is a second writer trying 
+		    to open the LB, the second writer will fail. The message 
+		    writing into an LB_SINGLE_WRITER LB is more efficient than 
+		    writing to an LB_NORMAL LB because the lock needs to be 
+		    acquired only once. The default is LB_NORMAL.
+
+		No expiration: LB_NOEXPIRE or LB_NORMAL
+
+		    If LB_NOEXPIRE is set, no message in the LB will be expired
+		    due to new message writing. When there is no room for the 
+		    new message, LB_write will return LB_FULL. The default is 
+		    LB_NORMAL.
+
+		LB protection: LB_UNPROTECTED or LB_NORMAL
+
+		    Without LB_UNPROTECTED set, the LB is protected by 
+		    turning off the write permission for the file or shared 
+		    memory before returning to the caller. If LB_UNPROTECTED is 
+		    set, no such access control is performed and thus 
+		    the LB is more efficient. There is, however, a chance that 
+		    the LB can be corrupted by memory leak in the application. 
+		    The default is LB_NORMAL.
+
+		LB direct memory access: LB_DIRECT or LB_NORMAL
+
+		    This option only works for the LB_MEMORY LB. When LB_DIRECT
+		    flag is set, the user can use function LB_direct to get
+		    the pointer pointing to the message in the shared memory.
+		    This increases, when used for accessing the message, the 
+		    efficiency by eliminating a message copy, which LB_read 
+		    requires. This option does not support LB_MUST_READ. The 
+		    default is LB_NORMAL.
+
+		    When this flag is set, the messages are stored in the 
+		    shared memory in contiguous segments. The area pointed to 
+		    by the pointer returned by LB_direct is set as 
+		    read-only unless LB_UNPROTECTED is set. However, the LB 
+		    depends on the OS to provide this protection, which may not 
+		    be guaranteed on a particular system. The message pointed 
+		    to by the returned pointer is not guaranteed to be available 
+		    after LB_direct call. The memory area can be used by a 
+		    writer for storing a new message and thus the message can 
+		    be corrupted at any time.
+
+		    The area used for each message is not guaranteed to be 
+		    aligned properly in terms of the hardware and data type.
+		    The messages are actually placed in the LB one immediately 
+		    after another. If alignment is important, the user should 
+		    make sure that all message lengths divide the machine 
+		    alignment length.
+
+		    If the LB is also created as LB_UNPROTECTED, the area 
+		    pointed by the returned pointer is also writable. In this
+		    case, the area can be used as a segment of conventional 
+		    shared memory.
+
+
+	    The "flags" argument is an integer containing the following bit 
+	    fields:
+
+	        Access mode field: LB_READ or LB_WRITE
+
+		    This 1 bit field specifies that the LB is opened for either 
+		    read-only or read-and-write. fd opened with LB_READ can not 
+		    be used for message write. The default is LB_READ.
+
+		Creation mode field: LB_CREATE or LB_NORMAL
+
+		    If LB_CREATE is specified and the named LB does not exist, 
+		    a new LB is created. If there exists an LB with the same 
+		    name, the old one is removed before creating the new LB.
+
+		    If LB_CREATE is not specified, an existing LB is opened. If 
+		    "attr" is not NULL, non-zero fields in "attr" are compared 
+		    with the attributes of the existing LB. If a difference is 
+		    found, the LB_open will fail and return LB_DIFFER. If there 
+		    is no existing LB with the specified name, LB_open will fail
+		    and return LB_OPEN_FAILED. 
+
+		    This field automatically activates the LB_WRITE flag. The 
+		    default is LB_NORMAL.
+
+	    When an LB is opened for read, its read pointer is set to pointing
+	    to the next incoming message (the message after the latest message 
+	    in the buffer if the LB is not empty) if LB_MUST_READ is not set.
+	    if LB_MUST_READ is set, the read pointer is set to pointing
+	    to the first unread message.
+
+	    When a shared memory LB is created, a file with "lb_name" is also
+	    created. In this file some control information is stored. One 
+	    should not try to remove this file by "rm". When the LB is removed
+	    by LB_remove, the file, as well as the shared memory allocated,
+	    will be removed.
+
+	    If more than one process creates an LB with the same lb_name at 
+	    the same time, the result is undefined. 
+
+	    One can only open an LB once before it is closed in one process.
+	    If one tries to open an LB that has already been opened in the same
+	    process, the second LB_open may fail due to an mmap error (LB_open
+	    returns LB_MMAP_FAILED).
+
+	    This function returns a non-negative number called the LB 
+	    descriptor, which will be used later for LB access just like the 
+	    file descriptor returned by the "open" call. On failure the 
+	    function returns a negative number indicating one of the following 
+	    error conditions:
+
+		LB_BAD_ARGUMENT:	One of the arguments does not make 
+					sense or incompatible types are 
+					specified simultaneously.
+		LB_TOO_MANY_OPENED:	Too many (more than MAX_N_LBS) LBs 
+					opened. 
+		LB_OPEN_FAILED:		Failed in "open" system call because 
+					either the LB file does not exist while
+					LB_CREATE is not set, or the LB file 
+					could not be created due to a 
+					permission problem. Refer to errno for 
+					further information.
+		LB_DIFFER:		An object (file or shm) with the same 
+					lb_name exits, but it is not the LB 
+					as specified, and LB_CREATE is not set.
+		LB_MALLOC_FAILED:	Failed in allocating memory.
+		LB_UPDATE_FAILED:	Failed in writing to the LB file for 
+					initialization.
+		LB_INTERNAL_ERROR:	An internal inconsistency is found. 
+					The LB is damaged due to unknown reason.
+		LB_TOO_MANY_WRITERS:	Another writer is currently opening 
+					this LB for writing and the LB is of 
+					type LB_SINGLE_WRITER.
+		LB_FTOK_FAILED: 	Failed in ftok system call.
+		LB_SHMGET_FAILED:	Failed in shmget system call.
+		LB_FTRUNCATE_FAILED:	Failed in ftruncate system call.
+		LB_SHMDT_FAILED:	Failed in shmdt system call.
+		LB_LOCK_FAILED:		Failed in a lock system call.
+		LB_MMAP_FAILED:		Failed in mmap system call.
+		LB_MPROTECT_FAILED:	Failed in mprotect system call.
+
+	    Examples:
+
+		lbd = LB_open ("my_lb", LB_READ, NULL) opens an LB "my_lb" for
+		receiving messages. We open it as long as it is a valid LB 
+		regardless of its attributes.
+
+		LB_attr attr;
+
+		strncpy (attr.remark, "My remark", LB_REMARK_LENGTH);
+		attr.remark [LB_REMARK_LENGTH - 1] = '\0';
+		attr.mode = 0666;
+		attr.msg_size = 1024;
+		attr.maxn_msgs = 512;
+		attr.type = LB_FILE | LB_REPLACE;
+
+		lbd = LB_open ("my_lb", LB_CREATE, &attr) creates a 	
+		new LB that can be read/write accessible by all users. The 
+		average message size is 1024 bytes and at most 512 messages can 
+		be buffered in the LB. The LB is a file LB and is replaceable.
+
+	int LB_read (int lbd, char *buf, int buflen, LB_id_t id) 
+
+	    LB_read reads the message of message id "id" and copies it to the 
+	    buffer "buf" if the size of the buffer "buflen" is sufficient for 
+	    the message. If the message does not exist, it fails and returns 
+	    an error code. If there are multiple messages in the LB with the 
+	    same "id", the latest one is read.
+
+	    If "buflen" is smaller than the message length, the first "buflen" 
+	    bytes of the message is copied to "buf" and LB_read returns 
+	    LB_BUF_TOO_SMALL. This feature can be used for reading the first 
+	    part of a message.
+
+	    If "id" is LB_NEXT, LB_read reads the message pointed 
+	    by the read-pointer (the next message in sequential reading). If 
+	    the next message is not yet available, the function returns 
+	    LB_TO_COME, which is 0. If the message is expired, it returns 
+	    LB_EXPIRED.
+
+	    If LB_read is succeeded or it is failed due to LB_BUF_TOO_SMALL or  
+	    LB_EXPIRED, the read pointer will be set to pointing to the next 
+	    message.
+
+	    On success, LB_read returns the length of the message read. On 
+	    failure, it returns LB_TO_COME as described earlier or a negative 
+	    value indicating one of the following error conditions:
+
+		LB_NOT_FOUND:		The message of "id" was not found.
+		LB_BAD_ARGUMENT:	One of the arguments does not make 
+					sense.
+		LB_BAD_DESCRIPTOR:	Unopened or closed LB descriptor is 
+					used.
+		LB_INTERNAL_ERROR:	An internal inconsistency is found. 
+					The LB is damaged due to unknown reason.
+		LB_EXPIRED:		The message is expired.
+		LB_BUF_TOO_SMALL:	"buflen" is smaller than the message 
+					length.
+		LB_PARITY_ERROR:	The user's LB data structure (not the 
+					LB) is corrupted by 
+					the caller due to a memory leak.
+		LB_SHMDT_FAILED:	Failed in shmdt system call.
+		LB_LOCK_FAILED:		Failed in a lock system call.
+		LB_MMAP_FAILED:		Failed in mmap system call.
+		LB_MPROTECT_FAILED:	Failed in mprotect system call.
+
+	int LB_write (int lbd, char *message, int length, LB_id_t id) 
+
+	    This function writes a message of "length" bytes in "message" into 
+	    LB "lbd" and assigns it with a message id of "id". A legal message 
+	    id value can be any 4-byte unsigned integer no larger than 
+	    LB_MAX_ID.
+
+	    The argument "id" may take a value of LB_ANY, in which case the LB 
+	    will use (previous_id + 1) % (LB_MAX_ID + 1) as id for the new 
+	    message, where previous_id is the id of the previous message. If 
+	    the LB is newly created, 1 is used.
+
+	    If LB_SINGLE_WRITER is set and there is another writer opening the 
+	    LB, LB_write will fail.
+
+	    For LB_REPLACE type LB, one should always use different id for 
+	    new massages (not replacement messages). This will prevent from 
+	    confusions in later LB_read, LB_list and LB_stat calls.
+
+	    On success this function returns the length of the message in number 
+	    of bytes. It returns LB_FULL (0) if the LB is of LB_MUST_READ, 
+	    LB_NOEXPIRE or LB_REPLACE type and there is no free space for the 
+	    new message due to messages that can not be expired. In other cases, 
+	    it returns a negative value indicating one of the following error 
+	    conditions:
+
+		LB_BAD_ARGUMENT:	One of the arguments does not make 
+					sense.
+		LB_BAD_ID:		Illegal id is used.
+		LB_BAD_DESCRIPTOR:	Unopened or closed LB descriptor is 
+					used.
+		LB_BAD_ACCESS:		The LB is opened as LB_READ.
+		LB_MSG_TOO_LARGE:	The message is too large.
+		LB_INTERNAL_ERROR:	An internal inconsistency is found. 
+					The LB is damaged due to unknown reason.
+		LB_LENGTH_ERROR:	"length" is different from the length of 
+					the message with the same id in the LB 
+					in a replacement LB_write.
+		LB_PARITY_ERROR:	The user's LB data structure (not the 
+					LB) is corrupted by 
+					the caller due to a memory leak.
+		LB_SHMDT_FAILED:	Failed in shmdt system call.
+		LB_LOCK_FAILED:		Failed in a lock system call.
+		LB_MMAP_FAILED:		Failed in mmap system call.
+		LB_MPROTECT_FAILED:	Failed in mprotect system call.
+
+	int LB_close (int lbd)
+
+	    This function closes the LB "lbd". It frees all allocated resources
+	    for the lbd. It "msync" the underline LB file.
+
+	    This function returns LB_SUCCESS on success or one of the following 
+	    negative numbers:
+
+		LB_BAD_DESCRIPTOR:	Unopened or closed LB descriptor is 
+					used.
+		LB_PARITY_ERROR:	The user's LB data structure (not the 
+					LB) is corrupted by 
+					the caller due to a memory leak.
+
+	    This function does not remove the LB file and the shared memory 
+	    resource allocated for the LB. 
+		
+	int LB_remove (char *lb_name)
+
+	    This function removes the LB named "lb_name". It frees the shared 
+	    memory resource allocated for the LB and "unlink"s the LB file. A 
+	    removed LB can not be opened as an existing LB. Currently open LB 
+	    descriptors, however, are not affected until they are closed. 
+
+	    LB_remove does not remove "lb_name" if it is not a valid LB file. 
+	    Thus if an LB file is corrupted, it can not be removed by LB_remove.
+
+	    This function returns LB_SUCCESS on success or one of the following 
+	    negative numbers:
+
+		LB_BAD_ARGUMENT:	One of the arguments does not make 
+					sense.
+		LB_REMOVE_FAILED:	LB_remove failed due to a permission 
+					problem or other system errors.
+		LB_NON_LB_FILE:		"lb_name" is not a valid LB file.
+
+	int LB_seek (int lbd, int offset, LB_id_t id, LB_info *info)
+
+	    This function moves the read pointer for "lbd". Argument "offset"
+	    specifies the offset of the new pointer in terms of the message 
+	    of "id". "id" can take the value of LB_FIRST, LB_CURRENT or 
+	    LB_LATEST which means that the offset starts from the 
+	    first available message, the current read pointer or the latest 
+	    message respectively. If there is no messages in the LB, LB_FIRST 
+	    and LB_LATEST will cause LB_seek to not move the pointer at all. 
+	    "offset" can be positive, negative or zero. A positive offset 
+	    moves the pointer towards a later message while a negative offset 
+	    moves the pointer towards an earlier message. The new pointer may
+	    be pointing to an expired or yet-to-come message. 
+
+	    The argument "info", if not NULL, returns the information about 
+	    the message pointed to by the new pointer. Refer to LB_list for
+	    a description of the LB_info data structure. The info->size field 
+	    is set to a negative value, LB_SEEK_TO_COME or LB_SEEK_EXPIRED,
+	    if the message pointed to by the new pointer is yet-to-come or 
+	    expired respectively. "info" is not assigned if LB_seek failed.
+
+            This function returns LB_SUCCESS on success or one of the following  	
+	    negative numbers to indicate an error:
+
+                LB_NOT_FOUND:		The message of "id" is not found.
+                LB_BAD_DESCRIPTOR:	Unopened or closed LB descriptor is 
+                        		used.
+		LB_SHMDT_FAILED:	Failed in shmdt system call.
+		LB_LOCK_FAILED:		Failed in a lock system call.
+		LB_MMAP_FAILED:		Failed in mmap system call.
+		LB_MPROTECT_FAILED:	Failed in mprotect system call.
+
+
+	int LB_clear (int lbd, int nrms)
+
+	    This function removes "nrms" oldest unexpired messages in the LB. 
+	    "nrms" can take a value of LB_ALL, which means that all existing 
+	    messages will be removed. It can be called only if the LB is opened 
+	    with LB_WRITE. If all messages are removed, new messages will be 
+	    stored starting from the beginning of the message area. The 
+	    messages are removed regardless of flags LB_REPLACE, LB_MUST_READ 
+	    and LB_NOEXPIRE.
+
+	    On success it returns the number of messages removed or one of the 
+	    following negative numbers on failure.
+
+		LB_BAD_ARGUMENT:	One of the arguments does not make 
+					sense.
+		LB_BAD_DESCRIPTOR:	Unopened or closed LB descriptor is 
+					used.
+		LB_BAD_ACCESS:		The LB is not opened as LB_WRITE.
+		LB_PARITY_ERROR:	The user's LB data structure (not the 
+					LB) is corrupted by 
+					the caller due to a memory leak.
+		LB_SHMDT_FAILED:	Failed in shmdt system call.
+		LB_LOCK_FAILED:		Failed in a lock system call.
+		LB_MMAP_FAILED:		Failed in mmap system call.
+		LB_MPROTECT_FAILED:	Failed in mprotect system call.
+
+	int LB_stat (int lbd, LB_status *status)
+
+	    This function returns, in argument "status", the status information 
+	    which includes the following fields:
+
+		LB_attr *attr:	The LB attributes.
+
+		time_t time:	LB creation time.
+
+		int n_msgs:	Number of messages in the LB.
+
+		int updated:	LB_TRUE or LB_FALSE - the update status (the LB 
+				has been updated since last LB_stat call). For 
+				LB_REPLACE type LB, this field is set to LB_TRUE 
+				if a new message is added, a message is removed 
+				or any of the listed message in check_list is 
+				replaced since last LB_stat call. For other 
+				types of LB, this field is set to LB_TRUE 
+				if a new message is added or any message is 
+				removed.
+
+		int n_check:	The number of messages to be checked for update 
+				(the size of array check_list). This and the 
+				next "check_list" are used for LB_REPLACE type 
+				only.
+
+		LB_check_list *check_list: The array used for message based 
+				update check. The LB_check_list structure has 
+				the following two fields:
+
+		LB_id_t id:	 message id;
+
+		int status:	 message status;
+
+				For each element in array check_list, the user 
+				specifies, in check_list[i].id, the id of a 
+				message that requires update check. Upon return 
+				check_list[i].status is assigned by 
+				LB_MSG_UPDATED, LB_MSG_NOCHANGE or 
+				LB_MSG_NOT_FOUND if the message is respectively 
+				updated (i.e. replaced), since the previous 
+				LB_stat call, not updated or not found in the 
+				LB. Array check_list must have "n_check" 
+				effective elements.
+
+	    If "attr" is NULL, LB_attr is not returned. If n_check is 0, 
+	    "check_list" is never used. 
+
+	    LB_stat returns LB_SUCCESS on success or one of the following 
+	    negative numbers to indicate an error:
+
+		LB_BAD_DESCRIPTOR:	"lbd" is not a valid LB descriptor.
+		LB_MALLOC_FAILED:	Failed in allocating memory.
+		LB_SHMDT_FAILED:	Failed in shmdt system call.
+		LB_LOCK_FAILED:		Failed in a lock system call.
+		LB_MMAP_FAILED:		Failed in mmap system call.
+		LB_MPROTECT_FAILED:	Failed in mprotect system call.
+
+	int LB_list (int lbd, LB_info *list, int nlist)
+
+	    This function returns, in "list", information about the latest 
+	    "nlist" messages in the LB "lbd". If the number of messages in the 
+	    LB is less than "nlist", the list length will be limited by that 
+	    number. The list ends with the latest message. Each item in the 
+	    array "list" is a structure containing the following members:
+
+		LB_id_t id;		/* the message id */
+		int size;		/* size of the message */
+		int mark;		/* the mark value of the message */
+
+	    The caller must allocate the appropriate space for the list. 
+
+	    The messages returned in the list are not guaranteed to be available 
+	    after the function call due to potential expiration.   
+
+	    This function returns the length of the returned list. If no 
+	    message is found, it returns 0. It can return one of the following 
+	    negative numbers to indicate an error:
+
+		LB_BAD_ARGUMENT:	One of the calling arguments does not 
+					make sense or is out of range.
+		LB_BAD_DESCRIPTOR:	"lbd" is not a valid LB descriptor.
+		LB_INTERNAL_ERROR:	The LB is corrupted.
+		LB_MALLOC_FAILED:	Failed in allocating work space.
+		LB_SHMDT_FAILED:	Failed in shmdt system call.
+		LB_LOCK_FAILED:		Failed in a lock system call.
+		LB_MMAP_FAILED:		Failed in mmap system call.
+		LB_MPROTECT_FAILED:	Failed in mprotect system call.
+
+	int LB_mark (int lbd, LB_id_t id, int mark)
+
+	    This function attaches a mark "mark" to the message of "id" in the
+	    LB "lbd". The mark is not used by the LB module. It can be 
+	    retrieved by an LB_list call. Currently acceptable values of "mark" 
+	    are 0 and 1. When a message is first written to LB, its mark is 
+	    always set to 0.
+
+	    LB_mark does not need a LB_WRITE permission. It, however, needs
+	    an exclusive lock and the LB write access permission. Thus LB_mark 
+	    will fail if another user opened the LB with LB_SINGLE_WRITER.
+
+	    LB_mark returns LB_SUCCESS on success or one of the following 
+	    negative number to indicate an error.
+
+		LB_NOT_FOUND:		The message of "id" was not found.
+		LB_BAD_ARGUMENT:	Illegal id is used.
+		LB_BAD_DESCRIPTOR:	Unopened or closed LB descriptor is 
+					used.
+		LB_INTERNAL_ERROR:	An internal inconsistency is found. 
+					The LB is damaged due to unknown reason.
+		LB_PARITY_ERROR:	The user's LB data structure (not the 
+					LB) is corrupted by 
+					the caller due to a memory leak.
+		LB_SHMDT_FAILED:	Failed in shmdt system call.
+		LB_LOCK_FAILED:		Failed in a lock system call.
+		LB_MMAP_FAILED:		Failed in mmap system call.
+		LB_MPROTECT_FAILED:	Failed in mprotect system call.
+
+	int LB_size (int lbd)
+
+	    LB_size returns the actual space used by the LB starting from the
+	    beginning of the file (or shared memory). It returns one of the 
+	    following negative error numbers on failure:
+
+		LB_BAD_DESCRIPTOR:	Unopened or closed LB descriptor is 
+					used.
+		LB_INTERNAL_ERROR:	An internal inconsistency is found. 
+					The LB is damaged due to unknown reason.
+		LB_SHMDT_FAILED:	Failed in shmdt system call.
+		LB_LOCK_FAILED:		Failed in a lock system call.
+		LB_MMAP_FAILED:		Failed in mmap system call.
+		LB_MPROTECT_FAILED:	Failed in mprotect system call.
+
+	int LB_direct (int lbd, char **ptr, LB_id_t id) 
+
+	    LB_direct returns, in "ptr", the pointer to the message of message 
+	    id "id". If the message does not exist, it fails and returns 
+	    an error code. If there are multiple messages in the LB with the 
+	    same "id", the latest one is returned.
+
+	    This function can only be used for an LB of type LB_DIRECT. The
+	    message pointed to by "ptr" can be corrupted, due to an automatic 
+	    message expiration, at any time after LB_direct returns. The area 
+	    pointed to by "ptr" is read-only, except that the LB is 
+	    LB_UNPROTECTED, and the size of the accessible 
+	    area is determined by the return value (message length). No proper 
+	    alignment is guaranteed. If alignment is an issue, one should 
+	    always use message lengths that divide the minimum alignment length 
+	    when messages are written to the LB. LB_DIRECT type LB does not
+	    support LB_MUST_READ.
+
+	    If "id" is LB_NEXT, LB_read returns the message pointed 
+	    by the read-pointer (the next message in sequential reading). If 
+	    the next message is not yet available, the function returns 
+	    LB_TO_COME, which is 0. If the message is expired, it returns 
+	    LB_EXPIRED.
+
+	    If LB_direct is succeeded or it is failed due to LB_EXPIRED, the 
+	    read pointer will be set to pointing to the next message.
+
+	    If LB_UNPROTECTED is set, the area pointed to by "ptr" is also 
+	    writable. In this case, the area can be used as a conventional
+	    shared memory area.
+
+	    On success, LB_direct returns the length of the returned message. On 
+	    failure, it returns LB_TO_COME as described earlier or a negative 
+	    value indicating one of the following error conditions:
+
+		LB_BAD_ACCESS:		The LB is not created as LB_DIRECT.
+		LB_NOT_FOUND:		The message of "id" was not found.
+		LB_BAD_ARGUMENT:	One of the arguments does not make 
+					sense.
+		LB_BAD_DESCRIPTOR:	Unopened or closed LB descriptor is 
+					used.
+		LB_INTERNAL_ERROR:	An internal inconsistency is found. 
+					The LB is damaged due to unknown reason.
+		LB_EXPIRED:		The message is expired.
+		LB_PARITY_ERROR:	The user's LB data structure (not the 
+					LB) is corrupted by 
+					the caller due to a memory leak.
+		LB_SHMDT_FAILED:	Failed in shmdt system call.
+		LB_LOCK_FAILED:		Failed in a lock system call.
+		LB_MMAP_FAILED:		Failed in mmap system call.
+		LB_MPROTECT_FAILED:	Failed in mprotect system call.
+
+
+	int LB_lock (int lbd, int command, int block)
+
+	    LB_lock locks the LB "lbd" for unique access. Argument "command"
+	    can take one of the following values:
+
+		LB_WRITE_LOCK: Locking the LB for unique write access. After 
+			a successful call to LB_lock, no other process can have
+			write access to the LB until the LB is unlocked.
+
+		LB_SHARED_LOCK: Obtaining a shared lock. A shared lock precludes
+			an exclusive lock but not another shared lock. This lock
+			is advisory but may prevent other processes from writing
+			to the LB. An advisory lock does not prevent any other
+			process from accessing the LB.
+
+		LB_EXCLUSIVE_LOCK: Obtaining an exclusive lock. An exclusive 
+			lock precludes all other locks. This lock is advisory 
+			but may prevent other processes from writing to the LB.
+
+		LB_UNLOCK: Releasing the lock on the LB.
+
+	    Argument "block" can take a value of LB_BLOCK or LB_NONBLOCK. If 
+	    LB_BLOCK is specified, LB_lock will not return until the requested
+	    lock is awarded. Otherwise, the function will return immediately
+	    whether the lock is gained or not.
+
+	    After the user gains control of the LB lock through a successful 
+	    LB_lock call, the LB module has no control on the lock and it is
+	    the user's responsibility to resolve the potential conflicts between 
+	    multiple users of the LB.
+
+	    Upon process termination, all its LB locks are automatically 
+	    released.
+
+	    LB_lock returns LB_SUCCESS on success or one of the following 
+	    negative error numbers on failure:
+
+		LB_BAD_DESCRIPTOR:	Unopened or closed LB descriptor is 
+					used.
+		LB_LOCK_FAILED:		Failed in a lock system call.
+		LB_BAD_ARGUMENT:	One of the arguments does not make 
+					sense.
+		LB_HAS_BEEN_LOCKED:	The lock can not be obtained because
+					another process holds the lock.
+		LB_LOCK_CONFLICT:	The lock request is inconsistent with
+					the lock status of the LB (e.g. one can 
+					not lock an LB that is of 
+					LB_SINGLE_WRITER type because it is 
+					already locked by definition).
+
+    C. Examples of using LB:
+
+	The following section of code tries to create an LB and write a message 
+	to it.
+
+
+	#include <lb.h>
+
+	int lbd, ret;
+	static char message [] = "This is a test message";
+	LB_attr attr;
+
+	/* open an LB for writing */
+	strncpy (attr.remark, "This is my test LB", LB_REMARK_LENGTH);
+	attr.remark [LB_REMARK_LENGTH - 1] = '\0';
+	attr.mode = 0666;
+	attr.msg_size = 128;
+	attr.maxn_msgs = 32;
+	attr.type = LB_NORMAL;
+	lbd = LB_open ("my_lb", LB_CREATE, &attr);
+	if (lbd < 0) {               /* open failed */
+	    printf ("LB_open failed. The return number is %d\n", lbd);
+	    exit (-1);
+	}
+
+	/* write the message to the LB */
+	ret = LB_write (lbd, message, strlen (message) + 1, LB_ANY);
+
+	if (ret == strlen (message) + 1)   /* success */
+	    exit (0);
+	else {                     /* other errors */
+	    printf ("LB_write failed. The return number = %d\n", ret);
+	    exit (-1);
+	}
+
+	The following section of code keeps reading the next available message 
+	from an LB until an error is encountered. If the next message is not 
+	available, it will re-try every second until a message is read.
+
+
+	#include "lb.h"
+
+	#define BUF_SIZE	128
+
+	int lbd;
+	char buffer [BUF_SIZE];
+
+	/* open an LB for reading */
+	lbd = LB_open ("my_lb", LB_READ, NULL);
+	if (lbd < 0) {               /* open failed */
+	    printf ("LB_open failed. The error number is %d\n", lbd);
+	    exit (-1);
+	}
+
+	while (1) {
+	    int len;
+
+	    len = LB_read (lbd, buffer, BUF_SIZE, LB_NEXT);
+
+	    if (len > 0) {  /* success */
+		buffer[len - 1] = '\0';
+		printf ("Message read: %s (msg len = %d)\n", buffer, len);
+	    }
+
+	    else if (len == LB_TO_COME) {    /* message to come. We will retry */
+		sleep (1);
+		continue;
+	    }
+
+	    else {                     /* an error */
+		printf ("LB_read failed. The return number = %d\n", len);
+		exit (-1);
+	    }
+	}
+
+
+    D. LB design notes:
+
+	An LB is implemented with a shared memory segment or a file, which 
+	contains a control area in the beginning. Message areas are allocated 
+	after the control area. In the control area an LB header is placed which 
+	contains the LB attributes and basic control fields. Following the 
+	header an array of slots is allocated for storing message information 
+	(id and location). A bit array for storing the user message markers is 
+	then allocated. An array of update counters is allocated after the 
+	markers for replaceable LB.
+
+	The way we implement a reliable LB without using a locking mechanism
+	between the writer and the reader is exploiting the fact that a 32 bit 
+	memory write is atomic in all modern workstations. We pack the message 
+	pointer pointing to the next available slot in the control area and the 
+	number of available messages into a single 32-bit word and store it in 
+	the LB header. If a reader checks the message availability using this 
+	32-bit information before and after it reads a message, the message 
+	integrity is guaranteed. i.e. The possibility that the message is being 
+	overwritten while the reading is going on is always detected.
+
+	The range for the message pointer must be larger than the maximum
+	number of messages. This allows unambiguously determining the currently
+	available messages from the packed pointer-number information. 
+	Furthermore, if the range of the pointer is at least 4 times of the 
+	maximum number of messages, we can unambiguously unfolding the message 
+	pointer when it falls back after reaching its maximum value. This can be 
+	done by introducing a message pointer page number. The page number does 
+	not need to be updated together with the pointer atomically. We can 
+	show that, if the page number is incremented 4 times before the pointer 
+	falls back, we are able to reliably unfold the pointer (and, thus, 
+	reliably detect an expired message).
+
+	We use big endian byte order for all fields in the LB control area.
+
+	It is possible to not store the message length in the message info area 	
+	of the LB. This requires to store the location (starting offset) of the 
+	next message. If there are extra slots, one can always get the necessary
+	information and compute the message lengths.
+
+	Double message areas must be allocated for replaceable LB.
+	To implement the replaceable LB, we need to use an additional counter
+	for each message. The counters are initialized with 0. When a message
+	is replaced, we update its counter. The counter indicates the buffer
+	location (in terms of the double buffers) and the message update. We
+	do not update num-ptr and the page in this case. Since the counter is
+	updated atomically, the message replacement is fail-save. The reader 
+	must check the counter after reading and, if it changes, another read is 
+	needed. This procedure does not require a lock between the reader and 
+	the writer. The message update status can be unambiguously determined 
+	as long as the counter range is sufficiently large. The counter array 
+	is placed in the control area.
+
+	Note that one can not clear an LB by simply resetting the message 
+	pointer to 0 because the page number can not be reset atomically. The 
+	writer, however, can choose to use the beginning of the message area 
+	when there is no message in the LB. It must, if doing so, also set the 
+	previous directory slot correctly.
+
+	The LB module does not try to verify the data in the message directory,
+	because this can not be done reliably. However, it does argument check
+	for all public function. It also guarantees that all memory accesses 
+	are within the allocated boundary such that no crash can happen, except 
+	that the LB size is changed by an illegal access of the LB. This 
+	means that if there is an illegal modification (writing to the LB 
+	without using an LB function) to an LB, the data in the LB may be 
+	corrupted, but the application will not likely to crash.
+
+

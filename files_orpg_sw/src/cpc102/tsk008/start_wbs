@@ -1,0 +1,92 @@
+#! /bin/sh
+
+# RCS info
+# $Author: ccalvert $
+# $Locker:  $
+# $Date: 2012/05/25 15:25:23 $
+# $Id: start_wbs,v 1.13 2012/05/25 15:25:23 ccalvert Exp $
+# $Revision: 1.13 $
+# $State: Exp $
+
+
+print_usage () {
+    echo "Usage: `basename $0` [options]"
+    echo "    Start the WB simulator"
+    echo "    Options:"
+    echo "    -h Print usage information"
+    echo "    -t data_tool (play_a2, lb_rep or read_ldm. Default: play_a2)"
+    echo "    -s data_src (data source. Default: The current dir)"
+    echo "       For lb_rep, data_src is the file name of the source LB."
+    echo "       For play_a2 and read_ldm, data_src is the source directory."
+    echo "    -c server port number for lb_rep (Default: 50000)"
+}
+
+DATA_TOOL="play_a2"
+DATA_SRC="."
+SRV_PORT=50000
+
+while getopts ht:s:c: input
+do
+    case $input in
+	t) DATA_TOOL="$OPTARG";;
+	s) DATA_SRC="$OPTARG";;
+	c) SRV_PORT="$OPTARG";;
+        h) print_usage; exit 0 ;;
+	\?) print_usage; exit 1 ;;
+    esac
+done
+
+if [ "$DATA_SRC" = "." -a "$DATA_TOOL" = "lb_rep" ]
+then
+    echo "Data source (-s) must be specified for lb_rep"
+    exit 1
+fi
+
+if [ -z $WBS_DIR ]
+then
+    WorkDir="$ORPGDIR/comms/"
+else
+    PATH=$WBS_DIR/bin:$PATH
+    LD_LIBRARY_PATH=$WBS_DIR/lib:"$LD_LIBRARY_PATH"
+    WorkDir="$WBS_DIR/work/"
+    export LE_DIR_EVENT=$WBS_DIR/logs
+    export CFG_DIR=$WBS_DIR/cfg
+fi
+mkdir -p ${WorkDir}
+
+if [ "$DATA_TOOL" = "play_a2" ]
+then
+    CMD="play_a2 -i -R -d $DATA_SRC -o ${WorkDir}wbs_data.lb"
+elif [ "$DATA_TOOL" = "lb_rep" ]
+then
+    echo $SRV_PORT | grep -v '[^0-9]' > /dev/null 2>&1
+    if [ $? -ne 0 ]
+    then
+      echo "ERROR: -c option should only contain digits"
+      exit 1
+    fi
+    CMD="lb_rep -p 1000 -c $SRV_PORT -r $DATA_SRC,${WorkDir}wbs_data.lb"
+elif [ "$DATA_TOOL" = "read_ldm" ]
+then
+    CMD="read_ldm -p -a -d $DATA_SRC ${WorkDir}wbs_data.lb"
+else
+    echo "Unexpected tool: $DATA_TOOL"
+    exit 1
+fi
+
+lb_create -n 100 ${WorkDir}wbs_req.0
+lb_create -n 500 ${WorkDir}wbs_resp.0
+lb_create -n 500 ${WorkDir}wbs_data.lb
+
+prm -quiet -9 cm_tcp1 wb_simulator play_a2
+
+cm_tcp1 -l 1 -f wbs_comms.conf -c 1 -i ${WorkDir}wbs_req -o ${WorkDir}wbs_resp 0 &
+wb_simulator -v -q ${WorkDir}wbs_req.0 -r ${WorkDir}wbs_resp.0 -d ${WorkDir}wbs_data.lb &
+$CMD
+
+prm -quiet -9 cm_tcp1 wb_simulator $DATA_TOOL
+
+
+
+
+

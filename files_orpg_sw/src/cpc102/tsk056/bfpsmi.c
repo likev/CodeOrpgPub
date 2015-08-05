@@ -1,0 +1,6000 @@
+/*
+ * RCS info
+ * $Author: ccalvert $
+ * $Locker:  $
+ * $Date: 2005/06/02 19:31:35 $
+ * $Id: bfpsmi.c,v 1.2 2005/06/02 19:31:35 ccalvert Exp $
+ * $Revision: 1.2 $
+ * $State: Exp $
+*/
+
+
+#include <basedata.h>
+#include <prod_gen_msg.h>
+#include <gen_stat_msg.h>
+#include <itc.h>
+#include <prod_request.h>
+#include <prod_status.h>
+#include <hci.h>
+#include <hci_up_nb.h>
+#include <rda_alarm_table.h>
+#include <le.h>
+#include <rda_status.h>
+#include <rda_rpg_loop_back.h>
+#include <rda_rpg_message_header.h>
+#include <rda_rpg_console_message.h>
+#include <rda_notch_width_map.h>
+#include <orda_clutter_map.h>
+#include <rda_rpg_clutter_map.h>
+#include <rda_control.h>
+#include <rpg_request_data.h>
+#include <mlos_info.h>
+#include <rda_control_adapt.h>
+#include <precip_detect.h>
+#include <layer_prod_params.h>
+#include <rcm_prod_params.h>
+#include <cell_prod_params.h>
+#include <product_parameters.h>
+#include <storm_cell_track.h>
+#include <hail_algorithm.h>
+#include <radazvd.h>
+#include <tda.h>
+#include <orda_pmd.h>
+#include <orda_adpt.h>
+#include <rpg_vcp.h>
+
+
+#define MAX_STR_SIZE    100
+
+
+
+/*
+   SMI_struct MyShortStruct;
+   SMI_struct MyIntStruct; 
+   SMI_struct MyCharStruct; 
+   SMI_struct MyComboStruct;
+   SMI_struct RDA_RPG_message_header_t;
+   SMI_struct RDA_status_msg_t;
+   SMI_struct Base_data_msg_t;
+   SMI_struct Prod_header;
+   SMI_struct RDA_basedata_header;
+   SMI_struct ORDA_basedata_header;
+   SMI_struct RDA_status_msg_t;
+   SMI_struct ORDA_status_msg_t;
+   SMI_struct RDA_RPG_loop_back_message_t;
+   SMI_struct RDA_RPG_message_header_t;
+   SMI_struct RDA_RPG_console_message_t;
+   SMI_struct RDA_notch_map_filter_t;
+   SMI_struct ORDA_clutter_map_filter_t;
+   SMI_struct RDA_notch_map_suppr_t;
+   SMI_struct ORDA_clutter_map_segment_t;
+   SMI_struct RDA_notch_map_data_t;
+   SMI_struct ORDA_clutter_map_data_t;
+   SMI_struct RDA_notch_map_t;
+   SMI_struct ORDA_clutter_map_t;
+   SMI_struct RDA_notch_map_msg_t;
+   SMI_struct ORDA_clutter_map_msg_t;
+   SMI_struct RDA_bypass_map_segment_t;
+   SMI_struct ORDA_bypass_map_segment_t;
+   SMI_struct RDA_bypass_map_t;
+   SMI_struct ORDA_bypass_map_t;
+   SMI_struct RDA_bypass_map_msg_t;
+   SMI_struct ORDA_bypass_map_msg_t;
+   SMI_struct RDA_control_commands_t;
+   SMI_struct ORDA_control_commands_t;
+   SMI_struct RPG_request_data_struct_t;
+   SMI_struct orda_pmd_t;
+   SMI_struct transmitter_t;
+   SMI_struct power_t;
+   SMI_struct comms_t;
+   SMI_struct tower_utilities_t;
+   SMI_struct equipment_shelter_t;
+   SMI_struct antenna_pedestal_t;
+   SMI_struct rf_gnrtr_rcvr_t;
+   SMI_struct calib_t;
+   SMI_struct file_status_t;
+   SMI_struct device_status_t;
+   SMI_struct ORDA_adpt_data_msg_t;
+   SMI_struct ORDA_adpt_data_t;
+   SMI_struct VCP_ICD_msg_t;
+   SMI_struct VCP_message_header_t;
+   SMI_struct VCP_elevation_cut_header_t;
+   SMI_struct LE_message;
+   SMI_struct sgmts09;
+   SMI_struct a315csad;
+   SMI_struct a315lock;
+   SMI_struct a315trnd;
+   SMI_struct a3cd09;
+   SMI_struct pvecs09;
+   SMI_struct a317ctad;
+   SMI_struct a317lock;
+   SMI_struct a3cd11;
+   SMI_struct cd07_vcpinfo;
+   SMI_struct Hrdb_date_time;
+   SMI_struct A3cd97;
+   SMI_struct A3136C3_t;
+   SMI_struct A3052t;
+   SMI_struct A3052u;
+   SMI_struct A304c2;
+   SMI_struct cd07_bypassmap;
+   SMI_struct hci_child_started_event_t;
+   SMI_struct String_msg_t;
+   SMI_struct Prod_user_status;
+   SMI_struct String_msg_t;
+   SMI_struct orpgevt_scan_info_t;
+   SMI_struct Orpgevt_radial_acct_t;
+   SMI_struct orpgevt_end_of_volume_t;
+   SMI_struct Orpgevt_task_exit_msg_t;
+   SMI_struct Orpginfo_statefl_flag_evtmsg_t;
+   SMI_struct Orpgevt_load_shed_msg_t;
+   SMI_struct Orpgevt_adapt_msg_t;
+   SMI_struct Orpginfo_rpg_alarm_evtmsg_t;
+   SMI_struct Orpginfo_rpg_opstat_evtmsg_t;
+   SMI_struct Orpginfo_rpg_status_change_evtmsg_t;
+   SMI_struct Int_message;
+   SMI_struct Pd_distri_cmd;
+   SMI_struct String_msg_t;
+   SMI_struct String_msg_t;
+   SMI_struct RDA_RPG_console_message_t;
+   SMI_struct Siteadp_adpt_t;
+   SMI_struct Redundant_info_t;
+   SMI_struct mlos_info_t;
+   SMI_struct rda_control_adapt_t;
+   SMI_struct precip_detect1_t;
+   SMI_struct layer_prod_params_t;
+   SMI_struct rcm_prod_params_t;
+   SMI_struct cell_prod_params_t;
+   SMI_struct vad_rcm_heights_t;
+   SMI_struct hail_algorithm_t;
+   SMI_struct storm_cell_track_t;
+   SMI_struct tda_t;
+*/
+
+
+/******* TEST STRUCTS - to be removed later ***********/
+
+typedef struct 
+{
+   short u;
+   short v;
+   short w;
+   short x;
+   short y;
+   short z;
+} MyShortStruct;
+
+typedef struct
+{
+   int a;
+   int b[4];
+   int c;
+   int d[10];
+   int e;
+   int f;
+} MyIntStruct;
+
+typedef struct
+{
+   char c[MAX_STR_SIZE];
+} MyCharStruct;
+
+typedef struct
+{
+   int   a;
+   short w;
+   short x;
+   int   b[8];
+   char c[MAX_STR_SIZE];
+   short y;
+   short z[2];
+   short zz;
+} MyComboStruct;
+
+/* SMI_function BFP_smi_info; */
+
+
+
+
+/* The following is generated by smipp */
+
+#include <smi.h>
+
+static int Need_byte_swap_data = 0;
+
+static int Byte_swap_data (void *data, char *type);
+
+static const char All_names[] = 
+"Prod_gen_msg\0prod_id\0short\0input_stream\0short\0\
+id\0unsigned int\0gen_t\0long\0vol_t\0int\0len\0int\0req_num\0unsigned short\0\
+elev_ind\0short\0vol_num\0unsigned int\0req_params\0short\0resp_params\0short\0\
+Radial_accounting_data\0accunrng\0short\0accunvel\0short\0accsecsaz\0float\0\
+acceltms\0long\0acceltme\0long\0acceldts\0int\0acceldte\0int\0accbegaz\0float\0\
+accbegel\0float\0accendaz\0float\0accpendaz\0float\0accnumrd\0short\0accatmos\0short\0\
+accnumel\0short\0accthrparm\0short\0accwxmode\0short\0accvcpnum\0short\0accdopres\0short\0\
+acccalib\0float\0accvsdate\0short\0RDA_status_t\0wb_comms\0RDA_RPG_comms_status_t\0\
+status_msg\0RDA_status_msg_t\0struct volume_status\0volume_number\0unsigned long\0\
+cv_time\0unsigned long\0initial_vol\0short\0expected_vol_dur\0unsigned short\0\
+cv_julian_date\0short\0pv_status\0short\0mode_operation\0short\0vol_cov_patt\0short\0\
+num_elev_cuts\0short\0elevations\0short\0elev_index\0short\0struct previous_state\0\
+rda_status\0short\0data_trans_enbld\0unsigned short\0rda_control_auth\0short\0\
+int_suppr_unit\0short\0op_mode\0short\0spot_blanking_status\0short\0current_vcp_number\0short\0\
+channel_control\0short\0Summary_Data\0scan_summary\0Scan_Summary\0ArchIII_status_t\0\
+status\0unsigned short\0pcnt_used\0short\0code\0int\0last_read\0unsigned int\0\
+RDA_bypass_map_msg_t\0msg_hdr\0RDA_RPG_message_header_t\0bypass_map\0RDA_bypass_map_t\0\
+ORDA_bypass_map_msg_t\0msg_hdr\0RDA_RPG_message_header_t\0bypass_map\0ORDA_bypass_map_t\0\
+RDA_notch_map_msg_t\0msg_hdr\0RDA_RPG_message_header_t\0notchmap\0RDA_notch_map_t\0\
+ORDA_clutter_map_msg_t\0msg_hdr\0RDA_RPG_message_header_t\0map\0ORDA_clutter_map_t\0\
+RPG_clutter_regions_msg_t\0last_dwnld_time\0int\0last_dwnld_file\0int\0file\0RPG_clutter_regions_file_t\0\
+ORPG_clutter_regions_msg_t\0last_dwnld_time\0int\0last_dwnld_file\0int\0file\0ORPG_clutter_regions_file_t\0\
+RDA_alarm_entry_t\0code\0short\0state\0short\0type\0short\0device\0short\0\
+sample\0short\0spare\0short\0alarm_text\0char\0RDA_alarm_t\0month\0short\0\
+day\0short\0year\0short\0hour\0short\0minute\0short\0second\0short\0code\0short\0\
+alarm\0short\0channel\0short\0spare\0short\0Rda_cmd_t\0cmd\0int\0line_num\0int\0\
+param1\0int\0param2\0int\0param3\0int\0param4\0int\0param5\0int\0msg\0char\0\
+rda_performance_t\0msg_hdr\0RDA_RPG_message_header_t\0rpg\0wideband_t\0user\0wideband_t\0\
+data\0bitdata_t\0calibration\0calibration_t\0clutter_check\0clutter_check_t\0\
+disk_status\0disk_file_status_t\0device_init\0device_init_t\0device_error\0device_io_error_t\0\
+interproc_chan_resp\0short\0spare502\0short\0chan_in_cntrl\0short\0spare504\0short\0\
+spare505\0short\0spare506\0short\0spare507\0short\0spare508\0short\0spare509\0short\0\
+spare510\0short\0spare511\0short\0spare512\0short\0spare513\0short\0spare514\0short\0\
+spare515\0short\0spare516\0short\0spare517\0short\0spare518\0short\0spare519\0short\0\
+spare520\0short\0RDA_RPG_console_message_t\0msg_hdr\0RDA_RPG_message_header_t\0\
+size\0short\0message\0char\0LE_critical_message\0code\0unsigned int\0time\0long\0\
+pid\0int\0n_reps\0int\0line_num\0int\0fname\0char\0pad\0char\0text\0char\0\
+Orpginfo_statefl_t\0rpg_op_status\0unsigned int\0rpg_alarms\0unsigned int\0\
+rpg_status_cmded\0unsigned int\0rpg_status\0unsigned int\0rpg_status_prev\0unsigned int\0\
+Orpginfo_statefl_shared_t\0flags\0unsigned int\0rpg_alarms\0unsigned int\0\
+rpg_op_status\0unsigned int\0Mrpg_state_t\0state\0int\0test_mode\0int\0st_time\0long\0\
+alive_time\0long\0cmd\0int\0active\0int\0fail_count\0short\0pf_state\0short\0\
+fail_time\0long\0check_sum\0unsigned int\0Orpgtat_entry_t\0id\0int\0name\0char\0\
+entry_size\0unsigned int\0type\0unsigned int\0input_stream\0int\0desc\0short\0\
+maxn_inst\0short\0args\0short\0binary_names\0short\0num_input_dataids\0int\0\
+input_data\0short\0num_output_dataids\0int\0output_data\0short\0Mrpg_cmd_t\0\
+id\0int\0mrpg_cmd\0int\0sender\0int\0time\0int\0load_shed_threshold_t\0prod_dist_warn\0unsigned char\0\
+prod_dist_alarm\0unsigned char\0prod_storage_warn\0unsigned char\0prod_storage_alarm\0unsigned char\0\
+input_buf_warn\0unsigned char\0input_buf_alarm\0unsigned char\0rda_radial_warn\0unsigned char\0\
+rda_radial_alarm\0unsigned char\0rpg_radial_warn\0unsigned char\0rpg_radial_alarm\0unsigned char\0\
+wb_user_warn\0unsigned char\0wb_user_alarm\0unsigned char\0load_shed_current_t\0\
+prod_dist\0unsigned char\0prod_dist_state\0unsigned char\0prod_storage\0unsigned char\0\
+prod_storage_state\0unsigned char\0input_buf\0unsigned char\0input_buf_state\0unsigned char\0\
+rda_radial\0unsigned char\0rda_radial_state\0unsigned char\0rpg_radial\0unsigned char\0\
+rpg_radial_state\0unsigned char\0wb_user\0unsigned char\0wb_user_state\0unsigned char\0\
+Hci_gui_t\0text_fg_color\0int\0text_bg_color\0int\0button_fg_color\0int\0\
+button_bg_color\0int\0edit_fg_color\0int\0edit_bg_color\0int\0canvas_bg1_color\0int\0\
+canvas_bg2_color\0int\0normal_color\0int\0warning_color\0int\0alarm1_color\0int\0\
+alarm2_color\0int\0loca_fg_color\0int\0loca_bg_color\0int\0icon_fg_color\0int\0\
+icon_bg_color\0int\0product_fg_color\0int\0product_bg_color\0int\0audio_enabled\0int\0\
+font_size\0int\0font_point\0int\0Hci_password_t\0agency\0char\0roc\0char\0\
+urc\0char\0Hci_rms_status_t\0status\0int\0Hci_task_t\0id\0int\0instance\0int\0\
+control_task\0int\0name\0char\0Hci_ccz_data_t\0low_product\0short\0high_product\0short\0\
+n_cuts\0short\0cut_list\0short\0n_products\0short\0product_list\0short\0Hci_prf_data_t\0\
+low_product\0short\0high_product\0short\0n_cuts\0short\0cut_list\0short\0\
+n_products\0short\0product_list\0short\0struct alg_cpu_stats\0vol_scan_num\0unsigned int\0\
+elev_cnt\0int\0total_cpu\0float\0avg_cpu\0float\0avg_cpu_percent\0float\0\
+Pd_user_entry\0entry_size\0short\0user_id\0short\0pms_len\0short\0dd_len\0short\0\
+map_len\0short\0pms_list\0short\0dd_list\0short\0map_list\0short\0max_connect_time\0short\0\
+n_req_prods\0short\0wait_time_for_rps\0short\0distri_method\0short\0up_type\0char\0\
+line_ind\0char\0class\0char\0cntl\0unsigned int\0defined\0unsigned int\0user_password\0char\0\
+user_name\0char\0pms\0Pd_pms_entry\0dd\0Pd_prod_item\0Line_status\0line_num\0short\0\
+type\0short\0protocol\0short\0user_id\0short\0status\0short\0state\0short\0\
+util\0short\0rate\0short\0uclass\0short\0enable\0short\0selected\0short\0\
+spare\0short\0str\0char\0Line_details\0line_num\0int\0type\0int\0port_pswd\0char\0\
+baud_rate\0int\0pserver_num\0int\0comms_mgr_num\0int\0max_conn_time\0int\0\
+packet_size\0int\0protocol\0int\0defined\0int\0user_id\0int\0user_name\0char\0\
+distri_method\0int\0uclass\0int\0retries\0int\0timeout\0int\0alarm\0int\0\
+warning\0int\0Line_details_tbl_t\0sizeof_data\0int\0data\0Line_details *\0\
+Dial_details\0msg_id\0int\0user_id\0int\0user_name\0char\0user_password\0char\0\
+max_connect_time\0int\0disconnect_override\0int\0class\0int\0distri_method\0int\0\
+defined\0int\0delete_flag\0int\0Dial_details_tbl_t\0sizeof_data\0int\0data\0Dial_details *\0\
+Class_details\0class\0int\0line_ind\0int\0name\0char\0distri_method\0int\0\
+defined\0int\0max_connect_time\0int\0Class_details_tbl_t\0sizeof_data\0int\0\
+data\0Class_details *\0MyShortStruct\0u\0short\0v\0short\0w\0short\0x\0short\0\
+y\0short\0z\0short\0MyIntStruct\0a\0int\0b\0int\0c\0int\0d\0int\0e\0int\0\
+f\0int\0MyCharStruct\0c\0char\0MyComboStruct\0a\0int\0w\0short\0x\0short\0\
+b\0int\0c\0char\0y\0short\0z\0short\0zz\0short\0RDA_RPG_message_header_t\0\
+size\0short\0rda_channel\0unsigned char\0type\0unsigned char\0sequence_num\0short\0\
+julian_date\0unsigned short\0milliseconds\0int\0num_segs\0short\0seg_num\0short\0\
+RDA_status_msg_t\0msg_hdr\0RDA_RPG_message_header_t\0rda_status\0unsigned short\0\
+op_status\0unsigned short\0control_status\0unsigned short\0aux_pwr_state\0unsigned short\0\
+ave_trans_pwr\0short\0ref_calib_corr\0short\0data_trans_enbld\0unsigned short\0\
+vcp_num\0short\0rda_control_auth\0unsigned short\0int_detect_rate\0unsigned short\0\
+op_mode\0unsigned short\0int_suppr_unit\0unsigned short\0arch_II_status\0unsigned short\0\
+arch_II_capacity\0unsigned short\0rda_alarm\0unsigned short\0command_status\0unsigned short\0\
+channel_status\0unsigned short\0spot_blanking_status\0unsigned short\0bypass_map_date\0unsigned short\0\
+bypass_map_time\0unsigned short\0notchwidth_map_date\0unsigned short\0notchwidth_map_time\0unsigned short\0\
+spare23\0short\0tps_status\0unsigned short\0rms_control_status\0unsigned short\0\
+spare26\0short\0alarm_code\0short\0Prod_header\0g\0Prod_gen_msg\0elev_t\0int\0\
+elev_cnt\0short\0archIII_flg\0short\0bd_status\0short\0spare\0short\0spot_blank_bitmap\0int\0\
+wx_mode\0short\0vcp_num\0short\0compr_method\0int\0orig_size\0int\0reserved\0int\0\
+struct nx_msg_hdr\0msg_len\0short\0msg_type\0short\0seq_num\0short\0msg_date\0short\0\
+msg_time\0long\0num_msg_segs\0short\0msg_seg_num\0short\0time\0long\0date\0short\0\
+unamb_range\0short\0azimuth\0unsigned short\0azi_num\0short\0status\0short\0\
+elevation\0unsigned short\0elev_num\0short\0surv_range\0short\0dop_range\0short\0\
+surv_bin_size\0short\0dop_bin_size\0short\0n_surv_bins\0short\0n_dop_bins\0short\0\
+sector_num\0short\0calib_const\0float\0ref_ptr\0short\0vel_ptr\0short\0spw_ptr\0short\0\
+vel_resolution\0short\0vcp_num\0short\0word_32\0short\0word_33\0short\0word_34\0short\0\
+word_35\0short\0ref_data_playback\0short\0dop_data_playback\0short\0sw_data_playback\0short\0\
+nyquist_vel\0short\0atmos_atten\0short\0threshold_param\0short\0spot_blank_flag\0short\0\
+word_43\0short\0word_44\0short\0word_45\0short\0word_46\0short\0word_47\0short\0\
+word_48\0short\0word_49\0short\0word_50\0short\0word_51\0short\0word_52\0short\0\
+word_53\0short\0word_54\0short\0word_55\0short\0word_56\0short\0word_57\0short\0\
+word_58\0short\0struct orda_nx_msg_hdr\0msg_hdr\0RDA_RPG_message_header_t\0\
+time\0long\0date\0short\0unamb_range\0short\0azimuth\0unsigned short\0azi_num\0short\0\
+status\0short\0elevation\0unsigned short\0elev_num\0short\0surv_range\0short\0\
+dop_range\0short\0surv_bin_size\0short\0dop_bin_size\0short\0n_surv_bins\0short\0\
+n_dop_bins\0short\0sector_num\0short\0calib_const\0float\0ref_ptr\0short\0\
+vel_ptr\0short\0spw_ptr\0short\0vel_resolution\0short\0vcp_num\0short\0word_32\0short\0\
+word_33\0short\0word_34\0short\0word_35\0short\0word_36\0short\0word_37\0short\0\
+word_38\0short\0nyquist_vel\0short\0atmos_atten\0short\0threshold_param\0short\0\
+spot_blank_flag\0short\0word_43\0short\0word_44\0short\0word_45\0short\0word_46\0short\0\
+word_47\0short\0word_48\0short\0word_49\0short\0word_50\0short\0word_51\0short\0\
+word_52\0short\0word_53\0short\0word_54\0short\0word_55\0short\0word_56\0short\0\
+word_57\0short\0word_58\0short\0ORDA_status_msg_t\0msg_hdr\0RDA_RPG_message_header_t\0\
+rda_status\0unsigned short\0op_status\0unsigned short\0control_status\0unsigned short\0\
+aux_pwr_state\0unsigned short\0ave_trans_pwr\0short\0ref_calib_corr\0short\0\
+data_trans_enbld\0unsigned short\0vcp_num\0short\0rda_control_auth\0unsigned short\0\
+rda_build_num\0short\0op_mode\0unsigned short\0spare12\0unsigned short\0spare13\0unsigned short\0\
+spare14\0unsigned short\0rda_alarm\0unsigned short\0command_status\0unsigned short\0\
+channel_status\0unsigned short\0spot_blanking_status\0unsigned short\0bypass_map_date\0unsigned short\0\
+bypass_map_time\0unsigned short\0clutter_map_date\0unsigned short\0clutter_map_time\0unsigned short\0\
+spare23\0short\0tps_status\0unsigned short\0rms_control_status\0unsigned short\0\
+spare26\0short\0alarm_code\0short\0RDA_RPG_loop_back_message_t\0size\0short\0\
+pattern\0short\0RDA_notch_map_filter_t\0op_code\0unsigned char\0range\0unsigned char\0\
+ORDA_clutter_map_filter_t\0op_code\0unsigned short\0range\0unsigned short\0\
+RDA_notch_map_suppr_t\0dplr_width\0unsigned char\0surv_width\0unsigned char\0\
+ORDA_clutter_map_segment_t\0num_zones\0unsigned short\0filter\0ORDA_clutter_map_filter_t\0\
+RDA_notch_map_data_t\0filter\0RDA_notch_map_filter_t\0suppr\0RDA_notch_map_suppr_t\0\
+ORDA_clutter_map_data_t\0segment\0ORDA_clutter_map_segment_t\0RDA_notch_map_t\0\
+date\0unsigned short\0time\0short\0data\0RDA_notch_map_data_t\0ORDA_clutter_map_t\0\
+date\0unsigned short\0time\0short\0num_elevation_segs\0unsigned short\0data\0ORDA_clutter_map_data_t\0\
+RDA_bypass_map_segment_t\0seg_num\0short\0data\0short\0ORDA_bypass_map_segment_t\0\
+seg_num\0short\0data\0short\0RDA_bypass_map_t\0date\0unsigned short\0time\0short\0\
+num_segs\0short\0segment\0RDA_bypass_map_segment_t\0ORDA_bypass_map_t\0date\0unsigned short\0\
+time\0short\0num_segs\0short\0segment\0ORDA_bypass_map_segment_t\0RDA_control_commands_t\0\
+state\0unsigned short\0data_enbl\0unsigned short\0aux_pwr_gen\0unsigned short\0\
+authorization\0unsigned short\0restart_elev\0unsigned short\0select_vcp\0short\0\
+auto_calib\0short\0spare8\0short\0spare9\0short\0interference\0short\0operate_mode\0short\0\
+channel\0short\0archive_II\0unsigned short\0archive_num\0short\0start_time\0int\0\
+start_date\0unsigned short\0stop_date\0unsigned short\0stop_time\0int\0spot_blanking\0short\0\
+spare22\0short\0spare23\0short\0spare24\0short\0spare25\0short\0spare26\0short\0\
+ORDA_control_commands_t\0state\0unsigned short\0data_enbl\0unsigned short\0\
+aux_pwr_gen\0unsigned short\0authorization\0unsigned short\0restart_elev\0unsigned short\0\
+select_vcp\0short\0auto_calib\0short\0spare8\0short\0spare9\0short\0spare10\0short\0\
+operate_mode\0short\0channel\0short\0spare13\0unsigned short\0spare14\0short\0\
+spare15\0int\0spare16\0unsigned short\0spare17\0unsigned short\0spare18\0int\0\
+spot_blanking\0short\0spare22\0short\0spare23\0short\0spare24\0short\0spare25\0short\0\
+spare26\0short\0RPG_request_data_struct_t\0RPG_request_data\0unsigned short\0\
+orda_pmd_t\0msg_hdr\0RDA_RPG_message_header_t\0comms\0comms_t\0power\0power_t\0\
+transmitter\0transmitter_t\0tower_utilities\0tower_utilities_t\0equipment_shelter\0equipment_shelter_t\0\
+antenna_pedestal\0antenna_pedestal_t\0rf_gnrtr_rcvr\0rf_gnrtr_rcvr_t\0calibration\0calib_t\0\
+file_status\0file_status_t\0device_status\0device_status_t\0transmitter_t\0\
+p_5vdc_ps\0short\0p_15vdc_ps\0short\0p_28vdc_ps\0short\0n_15vdc_ps\0short\0\
+p_45vdc_ps\0short\0flmnt_ps_vlt\0short\0vcum_pmp_ps_vlt\0short\0fcs_coil_ps_vlt\0short\0\
+flmnt_ps\0short\0klystron_warmup\0short\0trsmttr_avlble\0short\0wg_swtch_position\0short\0\
+wg_pfn_trsfr_intrlck\0short\0mntnce_mode\0short\0mntnce_reqd\0short\0pfn_swtch_position\0short\0\
+modular_ovrld\0short\0modulator_inv_crnt\0short\0modulator_swtch_fail\0short\0\
+main_pwr_vlt\0short\0flyback_chrgr\0short\0invrs_diode_crnt\0short\0trggr_amp\0short\0\
+circulator_temp\0short\0spctrm_fltr_pressure\0short\0wg_arc_vswr\0short\0\
+cbnt_interlock\0short\0cbnt_air_temp\0short\0cbnt_air_flow\0short\0klystron_crnt\0short\0\
+klystron_flmnt_crnt\0short\0klystron_vacion_crnt\0short\0klystron_air_temp\0short\0\
+klystron_air_flow\0short\0modulator_swtch_mntnce\0short\0post_chrg_regulator\0short\0\
+wg_pressure_humidity\0short\0trsmttr_ovr_vlt\0short\0trsmttr_ovr_crnt\0short\0\
+fcs_coil_crnt\0short\0fcs_coil_air_flow\0short\0oil_temp\0short\0prf_limit\0short\0\
+trsmttr_oil_lvl\0short\0trsmttr_batt_chrgng\0short\0hv_status\0short\0trsmttr_recycling_smmry\0short\0\
+trsmttr_inoperable\0short\0trsmttr_air_fltr\0short\0zero_tst_bit_0\0short\0\
+zero_tst_bit_1\0short\0zero_tst_bit_2\0short\0zero_tst_bit_3\0short\0zero_tst_bit_4\0short\0\
+zero_tst_bit_5\0short\0zero_tst_bit_6\0short\0zero_tst_bit_7\0short\0one_tst_bit_0\0short\0\
+one_tst_bit_1\0short\0one_tst_bit_2\0short\0one_tst_bit_3\0short\0one_tst_bit_4\0short\0\
+one_tst_bit_5\0short\0one_tst_bit_6\0short\0one_tst_bit_7\0short\0xmtr_dau_interface\0short\0\
+trsmttr_smmry_status\0short\0spare204\0short\0trsmttr_rf_pwr\0float\0spare207\0short\0\
+xmtr_peak_pwr\0float\0spare211\0short\0xmtr_rf_avg_pwr\0float\0xmtr_pwr_mtr_zero\0short\0\
+spare216\0short\0xmtr_recycle_cnt\0unsigned int\0spare219\0short\0power_t\0\
+ups_batt_status\0int\0ups_time_on_batt\0unsigned int\0ups_batt_temp\0unsigned int\0\
+ups_output_volt\0unsigned int\0ups_output_freq\0unsigned int\0ups_output_current\0unsigned int\0\
+pwr_mngr_load\0unsigned int\0spare113\0short\0comms_t\0spare1\0short\0loop_back_test_status\0short\0\
+t1_output_frames\0unsigned int\0t1_input_frames\0unsigned int\0router_mem_used\0unsigned int\0\
+router_mem_free\0unsigned int\0router_mem_util\0short\0spare12\0short\0csu_loss_of_signal\0unsigned int\0\
+csu_loss_of_frames\0unsigned int\0csu_yellow_alarms\0unsigned int\0csu_blue_alarms\0unsigned int\0\
+csu_15min_err_scnds\0unsigned int\0csu_15min_sev_err_scnds\0unsigned int\0\
+csu_15min_sev_err_frm_scnds\0unsigned int\0csu_15min_unavail_scnds\0unsigned int\0\
+csu_15min_cntrld_slip_scnds\0unsigned int\0csu_15min_path_cding_vlns\0unsigned int\0\
+csu_15min_line_err_scnds\0unsigned int\0csu_15min_brsty_err_scnds\0unsigned int\0\
+csu_15min_degraded_mins\0unsigned int\0lan_switch_mem_used\0unsigned int\0\
+lan_switch_mem_free\0unsigned int\0lan_switch_mem_util\0short\0spare44\0short\0\
+ntp_rejected_packets\0unsigned int\0ntp_est_time_error\0int\0gps_satellites\0int\0\
+gps_max_sig_strength\0int\0ipc_status\0short\0cmd_chnl_ctrl\0short\0dau_tst_0\0short\0\
+dau_tst_1\0short\0dau_tst_2\0short\0spare58\0short\0tower_utilities_t\0ac_1_cmprsr_shut_off\0short\0\
+ac_2_cmprsr_shut_off\0short\0gnrtr_mntnce_reqd\0short\0gnrtr_batt_vlt\0short\0\
+gnrtr_engn\0short\0gnrtr_vlt_freq\0short\0pwr_src\0short\0trans_pwr_src\0short\0\
+pwr_trnsfr_switch\0short\0aircraft_hzrd_lighting\0short\0dau_uart\0short\0\
+spare240\0short\0equipment_shelter_t\0equip_shltr_fire_smk\0short\0gnrtr_shltr_fire_smk\0short\0\
+utlty_vlt_freq\0short\0site_scrty_alarm\0short\0scrty_equip\0short\0scrty_sys\0short\0\
+rcvr_cnctd_to_antna\0short\0radome_hatch\0short\0ac_1_fltr_drty\0short\0ac_2_fltr_drty\0short\0\
+equip_shltr_temp\0float\0outside_amb_temp\0float\0trsmttr_leaving_air_temp\0float\0\
+ac_1_dschrg_air_temp\0float\0gnrtr_shltr_temp\0float\0radome_air_temp\0float\0\
+ac_2_dschrg_air_temp\0float\0dau_p_15v_ps\0float\0dau_n_15v_ps\0float\0dau_p_28v_ps\0float\0\
+dau_p_5v_ps\0float\0cnvrtd_gnrtr_fuel_lvl\0short\0spare284\0short\0antenna_pedestal_t\0\
+pdstl_p_28v_ps\0float\0pdstl_p_15v_ps\0float\0encdr_p_5v_ps\0float\0pdstl_p_5v_ps\0float\0\
+pdstl_n_15v_ps\0float\0p_150v_ovrvlt\0short\0p_150v_undrvlt\0short\0elev_srvo_amp_inhbt\0short\0\
+elev_srvo_amp_shrt_crct\0short\0elev_srvo_amp_ovr_temp\0short\0elev_motor_ovr_temp\0short\0\
+elev_stow_pin\0short\0elev_pcu_parity\0short\0elev_dead_lmt\0short\0elev_p_nrml_lmt\0short\0\
+elev_n_nrml_lmt\0short\0elev_encdr_light\0short\0elev_grbx_oil\0short\0elev_handwheel\0short\0\
+elev_amp_ps\0short\0azmth_srvo_amp_inhbt\0short\0azmth_srvo_amp_shrt_crct\0short\0\
+azmth_srvo_amp_ovr_temp\0short\0azmth_motor_ovr_temp\0short\0azmth_stow_pin\0short\0\
+azmth_pcu_parity\0short\0azmth_encdr_light\0short\0azmth_grbx_oil\0short\0\
+azmth_bull_gr_oil\0short\0azmth_handwheel\0short\0azmth_srvo_amp_ps\0short\0\
+srvo\0short\0pdstl_intrlock_swtch\0short\0azmth_pos_correction\0short\0elev_pos_correction\0short\0\
+slf_tst_1_status\0short\0slf_tst_2_status\0short\0slf_tst_2_data\0short\0\
+spare334\0short\0rf_gnrtr_rcvr_t\0coho_clock\0short\0rf_gnrtr_freq_slct_osc\0short\0\
+rf_gnrtr_rf_stalo\0short\0rf_gnrtr_phase_shft_coho\0short\0p_9v_rcvr_ps\0short\0\
+p_5v_rcvr_ps\0short\0p_18v_rcvr_ps\0short\0n_9v_rcvr_ps\0short\0p_5v_rcvr_prtctr_ps\0short\0\
+spare350\0short\0shrt_pulse_noise\0float\0int_pulse_noise\0float\0noise_temp\0float\0\
+spare357\0short\0calib_t\0linearity\0float\0dynamic_range\0float\0delta_dbz0\0float\0\
+rcv_prot_atten\0float\0kd_peak_measured\0float\0kd_injct_pnt_diff\0float\0\
+shrt_pls_dbz0\0float\0int_pls_dbz0\0float\0velocity_prcssd\0short\0width_prcssd\0short\0\
+velocity_rf_gen\0short\0width_rf_gen\0short\0i_naught\0float\0spare385\0short\0\
+cltr_supp_delta\0float\0cltr_supp_ufilt_pwr\0float\0cltr_supp_filt_pwr\0float\0\
+trsmit_brst_pwr\0float\0trsmit_brst_phase\0float\0spare419\0short\0file_status_t\0\
+state_file_rd_stat\0short\0state_file_wrt_stat\0short\0bypass_map_file_rd_stat\0short\0\
+bypass_map_file_wrt_stat\0short\0pmd_file_rd_status\0short\0pmd_file_wrt_status\0short\0\
+crnt_adpt_file_rd_stat\0short\0crnt_adpt_file_wrt_stat\0short\0cnsr_zn_file_rd_stat\0short\0\
+cnsr_zn_file_wrt_stat\0short\0rmt_vcp_file_rd_stat\0short\0rmt_vcp_file_wrt_stat\0short\0\
+bl_adpt_file_rd_stat\0short\0bl_adpt_file_wrt_stat\0short\0cf_map_file_rd_stat\0short\0\
+cf_map_file_wrt_stat\0short\0gnrl_disk_io_err\0short\0spare448\0short\0device_status_t\0\
+dau_comm_stat\0short\0hci_comm_stat\0short\0pdstl_comm_stat\0short\0sgnl_prcsr_comm_stat\0short\0\
+spare465\0short\0rms_lnk_stat\0short\0rpg_lnk_stat\0short\0spare468\0short\0\
+ORDA_adpt_data_msg_t\0msg_hdr\0RDA_RPG_message_header_t\0rda_adapt\0ORDA_adpt_data_t\0\
+ORDA_adpt_data_t\0adap_file_name\0char\0adap_format\0char\0adap_revision\0char\0\
+adap_date\0char\0adap_time\0char\0k1\0float\0k2\0float\0k3\0float\0k4\0float\0\
+parkaz\0float\0parkel\0float\0a_fuel_conv\0float\0a_min_shelter_temp\0float\0\
+a_max_shelter_temp\0float\0a_min_shelter_ac_temp_diff\0float\0a_max_xmtr_air_temp\0float\0\
+a_max_rad_temp\0float\0a_max_rad_temp_rise\0float\0ped_28V_reg_lim\0float\0\
+ped_5V_reg_lim\0float\0ped_15V_reg_lim\0float\0a_min_gen_room_temp\0float\0\
+a_max_gen_room_temp\0float\0dau_5V_reg_lim\0float\0dau_15V_reg_lim\0float\0\
+dau_28V_reg_lim\0float\0en_5V_reg_lim\0float\0en_5V_nom_volts\0float\0rpg_co_located\0char\0\
+spec_filter_installed\0char\0tps_installed\0char\0rms_installed\0char\0a_hvdl_tst_int\0int\0\
+a_rpg_lt_int\0int\0a_min_stab_util_pwr_time\0int\0a_gen_auto_exer_interval\0int\0\
+a_util_pwr_sw_req_interval\0int\0a_low_fuel_level\0float\0config_chan_number\0int\0\
+a_rpg_link_type\0int\0redundant_chan_config\0int\0atten_table\0float\0path_losses\0float\0\
+log_amp_factor\0float\0spare_936\0int\0rnscale\0float\0atmos\0float\0el_index\0float\0\
+tfreq_mhz\0int\0base_data_tcn\0float\0refl_data_tover\0float\0tar_dbz0_inc_lp\0float\0\
+cancgain\0float\0rcv_upper\0float\0rcv_lower\0float\0lx_lp\0float\0lx_sp\0float\0\
+meteor_param\0float\0beamwidth\0float\0antenna_gain\0float\0rfd_degrade_limit\0float\0\
+vel_maint_limit\0float\0wth_maint_limit\0float\0vel_degrad_limit\0float\0\
+wth_degrad_limit\0float\0noisetemp_dgrad_limit\0float\0noisetemp_maint_limit\0float\0\
+noisetemp_dgrad_limit_ol\0float\0noisetemp_maint_limit_ol\0float\0kly_degrade_limit\0float\0\
+ts_coho\0float\0ts_cw\0float\0ts_rf_sp\0float\0ts_rf_lp\0float\0ts_stalo\0float\0\
+ts_noise\0float\0xmtr_peak_power_high_limit\0float\0xmtr_peak_power_low_limit\0float\0\
+dbz0_delta_limit\0float\0threshold1\0float\0threshold2\0float\0clut_supp_dgrad_lim\0float\0\
+clut_supp_maint_lim\0float\0range0_value\0float\0xmtr_pwr_mtr_scale\0float\0\
+n_smooth\0float\0tar_dbz0_sp\0float\0spare_1248\0int\0deltaprf\0int\0spare_1256\0int\0\
+spare_1260\0int\0tau_sp\0int\0tau_lp\0int\0nc_dead_value\0int\0tau_rf_sp\0int\0\
+tau_rf_lp\0int\0seg1lim\0float\0slatsec\0float\0slonsec\0float\0spare_1296\0int\0\
+slatdeg\0int\0slatmin\0int\0slongdeg\0int\0slongmin\0int\0slatdir\0char\0\
+slondir\0char\0vc_ndx\0int\0vcpat11\0char\0vcpat21\0char\0vcpat31\0char\0\
+vcpat32\0char\0vcpat300\0char\0vcpat301\0char\0az_correction_factor\0float\0\
+el_correction_factor\0float\0site_name\0char\0ant_manual_setup_ielmin\0int\0\
+ant_manual_setup_ielmax\0int\0ant_manual_setup_fazvelmax\0int\0ant_manual_setup_felvelmax\0int\0\
+ant_manual_setup_ignd_hgt\0int\0ant_manual_setup_irad_hgt\0int\0spare_8396\0int\0\
+rvp8NV_iwaveguide_length\0int\0spare_8700\0int\0vel_data_tover\0float\0width_data_tover\0float\0\
+spare_8752\0int\0doppler_range_start\0float\0max_el_index\0int\0seg2lim\0float\0\
+seg3lim\0float\0seg4lim\0float\0nbr_el_segments\0int\0noise_long\0float\0\
+ant_noise_temp\0float\0noise_short\0float\0noise_tolerance\0float\0min_dyn_range\0float\0\
+spare_8808\0int\0VCP_ICD_msg_t\0vcp_msg_hdr\0VCP_message_header_t\0vcp_elev_data\0VCP_elevation_cut_header_t\0\
+VCP_message_header_t\0msg_size\0short\0pattern_type\0short\0pattern_number\0short\0\
+VCP_elevation_cut_header_t\0number_cuts\0short\0group\0short\0doppler_res\0unsigned char\0\
+pulse_width\0unsigned char\0spare7\0short\0spare8\0short\0spare9\0short\0\
+spare10\0short\0spare11\0short\0data\0VCP_elevation_cut_data_t\0LE_message\0\
+code\0unsigned int\0time\0long\0n_reps\0int\0pad\0char\0text\0char\0sgmts09\0\
+segmain\0float\0segindx\0short\0segazim\0float\0segbuf_th\0float\0a315csad\0\
+strmadap\0int\0a315lock\0seg_buf_lock\0int\0a315trnd\0cell_trend_data4\0int\0\
+cell_pointers\0int\0volume_counter\0int\0timeptr\0int\0volume_times\0short\0\
+cell_trend_index\0short\0a3cd09\0numstrm\0int\0timetag\0int\0avgstspd\0float\0\
+avgstdir\0float\0strmid\0int\0strmove\0int\0lokid\0int\0pvecs09\0tdamain\0float\0\
+pv_indx\0short\0pv_azim\0float\0a317ctad\0tdaadap\0int\0a317lock\0tda_buf_lock\0int\0\
+a3cd11\0imxnfeat\0int\0imxnmes\0int\0inpvthr\0int\0ihmthr\0float\0ilmthr\0float\0\
+imsthr\0float\0ilsthr\0float\0imrthr\0float\0ifmrthr\0float\0inrthr\0float\0\
+ifnrthr\0float\0irngthr\0float\0idisthr\0float\0iazthr\0float\0iazthr1\0float\0\
+ifhthr\0float\0cd07_vcpinfo\0rpgvcp\0int\0rpgvcpid\0int\0rpgwmode\0int\0rpgvsnum\0int\0\
+rpglastel\0int\0current_vcp_table\0Vcp_struct\0Hrdb_date_time\0last_date_hrdb\0int\0\
+last_time_hrdb\0int\0A3cd97\0envwndflg\0int\0ewtab\0float\0basehgt\0int\0\
+newndtab\0short\0sound_time\0int\0A3136C3_t\0tbupdt\0int\0dbupdt\0int\0tbtbl_upd\0int\0\
+dbtbl_upd\0int\0tbtbl_obs\0int\0dbtbl_obs\0int\0tbtbl_gen\0int\0dbtbl_gen\0int\0\
+bias\0float\0grpsiz\0float\0mspan\0float\0timecur\0int\0datecur\0int\0A3052t\0\
+cdate\0int\0ctime\0int\0lastdate\0int\0lasttime\0int\0date1\0int\0time1\0int\0\
+date2\0int\0time2\0int\0pcpctgry\0int\0prectgry\0int\0A3052u\0line_n\0int\0\
+last_n\0int\0ready_start\0int\0ready_end\0int\0last_cat1_time\0int\0last_cat1_date\0int\0\
+last_cat2_time\0int\0last_cat2_date\0int\0pcpctgry\0int\0precip_status_elev\0int\0\
+precip_status_ctgry\0int\0precip_status_dBZ\0float\0precip_status_dBR\0float\0\
+precip_status_minarea\0int\0precip_status_actarea\0int\0precip_status_catmet\0int\0\
+ptmp_precip_status_dBZ\0float\0ptmp_precip_status_dBR\0float\0A304c2\0nw_map_request_pending\0int\0\
+bypass_map_request_pending\0int\0unsolicited_nw_received\0int\0cd07_bypassmap\0\
+first_spare\0int\0bm_gendate\0unsigned short\0bm_gentime\0short\0last_spare\0int\0\
+hci_child_started_event_t\0parent_pid\0long\0child_id\0int\0Prod_user_status\0\
+line_ind\0char\0enable\0char\0link\0char\0loadshed\0char\0line_stat\0char\0\
+discon_reason\0char\0uid\0short\0util\0short\0uclass\0short\0rate\0int\0time\0long\0\
+orpgevt_scan_info_t\0key\0int\0data\0orpgevt_scan_info_data_t\0Orpgevt_radial_acct_t\0\
+azimuth\0short\0azi_num\0short\0elevation\0short\0elev_num\0short\0radial_status\0short\0\
+orpgevt_end_of_volume_t\0vol_aborted\0int\0vol_seq_num\0unsigned int\0expected_vol_dur\0unsigned int\0\
+Orpgevt_task_exit_msg_t\0task_id\0int\0instance\0int\0node_id\0int\0pid\0long\0\
+exitcode\0int\0termsig\0int\0Orpginfo_statefl_flag_evtmsg_t\0flag_id\0int\0\
+flag\0unsigned char\0old_bitflags\0unsigned int\0new_bitflags\0unsigned int\0\
+Orpgevt_load_shed_msg_t\0msg_id\0int\0Orpgevt_adapt_msg_t\0data_id\0unsigned int\0\
+msg_id\0int\0Orpginfo_rpg_alarm_evtmsg_t\0alarm_id\0int\0bitflag\0unsigned char\0\
+old_bitflags\0unsigned int\0new_bitflags\0unsigned int\0Orpginfo_rpg_opstat_evtmsg_t\0\
+old_bitflags\0unsigned int\0new_bitflags\0unsigned int\0Orpginfo_rpg_status_change_evtmsg_t\0\
+rpg_status\0unsigned int\0Pd_distri_cmd\0command\0int\0n_lines\0int\0line_ind\0int\0\
+Siteadp_adpt_t\0rda_lat\0int\0rda_lon\0int\0rda_elev\0int\0rpg_id\0int\0wx_mode\0int\0\
+def_mode_A_vcp\0int\0def_mode_B_vcp\0int\0has_mlos\0int\0has_rms\0int\0has_bdds\0int\0\
+has_archive_III\0int\0product_code\0int\0rpg_name\0char\0node_name\0char\0\
+Redundant_info_t\0redundant_type\0int\0channel_number\0int\0mlos_info_t\0\
+no_of_mlos_stations\0int\0station_type\0int\0rda_control_adapt_t\0loopback_rate\0int\0\
+loopback_disabled\0int\0no_of_conn_retries\0int\0no_of_conn_timeouts\0int\0\
+precip_detect1_t\0min_elev\0int\0max_elev\0int\0rate\0int\0nominal_clutter_area\0int\0\
+precip_area_thresh\0int\0precip_category\0int\0layer_prod_params_t\0first_dbz_level\0int\0\
+second_dbz_level\0int\0third_dbz_level\0int\0fourth_dbz_level\0int\0dbz_range\0int\0\
+rcm_prod_params_t\0range_thresh\0float\0num_storms\0int\0box_size\0float\0\
+angle_of_rotation\0float\0x_axis_distance\0float\0y_axis_distance\0float\0\
+cell_prod_params_t\0sti_alpha\0int\0ss_alpha\0int\0hail_alpha\0int\0sti_attrib\0int\0\
+comb_attrib\0int\0hail_attrib\0int\0vad_rcm_heights_t\0vad\0int\0rcm\0int\0\
+hail_algorithm_t\0hke_ref_wgt_low\0int\0hke_ref_wgt_high\0int\0poh_min_ref\0int\0\
+hke_coef1\0float\0hke_coef2\0float\0hke_coef3\0float\0posh_coef\0float\0posh_offset\0int\0\
+max_hail_range\0int\0shi_hail_size_coef\0float\0shi_hail_size_exp\0float\0\
+warn_thr_sel_mod_coef\0float\0warn_thr_sel_mod_off\0float\0poh_height_diff1\0float\0\
+poh_height_diff2\0float\0poh_height_diff3\0float\0poh_height_diff4\0float\0\
+poh_height_diff5\0float\0poh_height_diff6\0float\0poh_height_diff7\0float\0\
+poh_height_diff8\0float\0poh_height_diff9\0float\0poh_height_diff10\0float\0\
+rcm_probable_hail\0int\0rcm_positive_hail\0int\0height_0\0float\0height_minus_20\0float\0\
+hail_date_yy\0int\0hail_date_mm\0int\0hail_date_dd\0int\0hail_time_hr\0int\0\
+hail_time_min\0int\0hail_time_sec\0int\0storm_cell_track_t\0num_past_vols\0int\0\
+num_intvls\0int\0forecast_intvl\0int\0allow_err\0int\0err_intvl\0int\0default_dir\0int\0\
+max_time\0int\0default_spd\0float\0correlation_spd\0float\0minimum_spd\0float\0\
+tda_t\0min_dbz_thresh\0int\0vector_vel_diff\0int\0max_pv_range\0int\0max_pv_height\0float\0\
+max_pv_num\0int\0diff_vel1\0int\0diff_vel2\0int\0diff_vel3\0int\0diff_vel4\0int\0\
+diff_vel5\0int\0diff_vel6\0int\0min_vectors_2d\0int\0vector_rad_dist_2d\0float\0\
+vector_azi_dist_2d\0float\0max_ratio_2d\0float\0circ_radius1\0float\0circ_radius2\0float\0\
+circ_radius_range\0int\0max_2d_features\0int\0min_2d_features\0int\0min_depth_3d\0float\0\
+min_vel_3d\0int\0min_tvs_vel\0int\0max_3d_features\0int\0max_tvs_features\0int\0\
+max_etvs_features\0int\0min_tvs_height\0float\0min_tvs_elev\0float\0avg_vel_height\0float\0\
+max_storm_dist\0float\0RDA_RPG_comms_status_t\0wblnstat\0int\0rda_display_blanking\0int\0\
+wb_failed\0int\0Scan_Summary\0volume_start_date\0int\0volume_start_time\0int\0\
+weather_mode\0int\0vcp_number\0int\0rpg_elev_cuts\0short\0rda_elev_cuts\0short\0\
+spot_blank_status\0int\0RPG_clutter_regions_file_t\0file_id\0file_tag_t\0\
+regions\0RPG_clutter_regions_t\0ORPG_clutter_regions_file_t\0file_id\0file_tag_t\0\
+regions\0ORPG_clutter_regions_t\0wideband_t\0dcu_status\0short\0general_error\0short\0\
+svc_15_error\0short\0outgoing_frames\0unsigned short\0frames_fcs_errors\0unsigned short\0\
+retrans_i_frames\0unsigned short\0polls_sent_recvd\0unsigned short\0poll_timeout_exp\0short\0\
+min_buf_read_pool\0unsigned short\0max_buf_read_done\0unsigned short\0loopback_test\0short\0\
+spare12\0short\0spare13\0short\0spare14\0short\0spare15\0short\0bitdata_t\0\
+data31\0short\0data32\0short\0data33\0short\0data34\0short\0data35\0short\0\
+data36\0short\0data37\0short\0out_temp\0unsigned char\0eqp_shelt_temp\0unsigned char\0\
+ac1_air_temp\0unsigned char\0trans_air_temp\0unsigned char\0radome_air_temp\0unsigned char\0\
+gen_shelt_temp\0unsigned char\0gen_fuel_level\0unsigned char\0spare41l\0unsigned char\0\
+spare42h\0unsigned char\0spare42l\0unsigned char\0spare43h\0unsigned char\0\
+spare43l\0unsigned char\0spare44h\0unsigned char\0spare44l\0unsigned char\0\
+ac2_air_temp\0unsigned char\0spare45l\0unsigned char\0spare46h\0unsigned char\0\
+xmtr_rf_pwr\0unsigned char\0ant_rf_pwr\0unsigned char\0spare47l\0unsigned char\0\
+spare48h\0unsigned char\0spare48l\0unsigned char\0spare49h\0unsigned char\0\
+ped_p28v_ps\0unsigned char\0enc_p5v_ps\0unsigned char\0ped_p15v_ps\0unsigned char\0\
+spare51h\0unsigned char\0ped_p5v_ps\0unsigned char\0spare52h\0unsigned char\0\
+spare52l\0unsigned char\0sig_proc_p5v_ps\0unsigned char\0spare53l\0unsigned char\0\
+mnt_con_p28v_ps\0unsigned char\0mnt_con_p15v_ps\0unsigned char\0mnt_con_p5v_ps\0unsigned char\0\
+spare55l\0unsigned char\0spare56h\0unsigned char\0spare56l\0unsigned char\0\
+ped_n15v_ps\0unsigned char\0spare57l\0unsigned char\0spare58h\0unsigned char\0\
+mnt_con_n15v_ps\0unsigned char\0spare59h\0unsigned char\0dau_test0\0unsigned char\0\
+dau_test1\0unsigned char\0dau_test2\0unsigned char\0spare61h\0unsigned char\0\
+spare61l\0unsigned char\0dau_interface\0short\0xmtr_sum_stat\0short\0spare64\0short\0\
+spare65\0short\0spare66\0short\0spare67\0short\0spare68\0short\0spare69\0short\0\
+spare70\0short\0spare71\0short\0spare72\0short\0spare73\0short\0spare74\0short\0\
+spare75\0short\0spare76\0short\0spare77\0short\0spare78\0short\0spare79\0short\0\
+spare80\0short\0spare81\0short\0spare82\0short\0spare83\0short\0spare84\0short\0\
+spare85\0short\0spare86\0short\0spare87\0short\0spare88\0short\0spare89\0short\0\
+spare90\0short\0spare91\0short\0spare92\0short\0spare93\0short\0spare94\0short\0\
+spare95\0short\0data96\0short\0data97\0short\0data98\0short\0az_pos_corr\0short\0\
+el_pos_corr\0short\0spare101\0short\0spare102\0short\0spare103\0short\0spare104\0short\0\
+spare105\0short\0spare106h\0unsigned char\0rf_gen_data\0unsigned char\0spare107\0short\0\
+spare108\0short\0spare109h\0unsigned char\0parity_alrm_cf\0unsigned char\0\
+spare110\0short\0spare111\0short\0prt1_int\0unsigned short\0prt2_int\0unsigned short\0\
+spare114\0short\0spare115\0short\0spare116\0short\0spare117\0short\0spare118\0short\0\
+spare119\0short\0spare120\0short\0spare121\0short\0spare122\0short\0ant_pk_pwr\0float\0\
+xmtr_pk_pwr\0float\0ant_rf_ave_pwr\0float\0xmtr_rf_ave_pwr\0float\0mwave_loss\0float\0\
+ant_pwr_mtr_zero\0float\0xmtr_pwr_mtr_zero\0float\0xmtr_rec_cnt\0int\0spare139\0short\0\
+spare140\0short\0sh_pulse_lin_chan_noise\0float\0sh_pulse_log_chan_noise\0float\0\
+lo_pulse_lin_chan_noise\0float\0lo_pulse_log_chan_noise\0float\0system_noise_temp\0float\0\
+idu_tst_detect\0short\0spare152\0short\0calibration_t\0agc_step1_amp\0float\0\
+agc_step2_amp\0float\0agc_step3_amp\0float\0agc_step4_amp\0float\0agc_step5_amp\0float\0\
+agc_step6_amp\0float\0agc_step1_phase\0float\0agc_step2_phase\0float\0agc_step3_phase\0float\0\
+agc_step4_phase\0float\0agc_step5_phase\0float\0agc_step6_phase\0float\0agc_iq_amp_bal\0float\0\
+agc_iq_phase_bal\0float\0spare181\0short\0spare182\0short\0spare183\0short\0\
+spare184\0short\0spare185\0short\0spare186\0short\0spare187\0short\0spare188\0short\0\
+spare189\0short\0spare190\0short\0spare191\0short\0spare192\0short\0spare193\0short\0\
+spare194\0short\0spare195\0short\0spare196\0short\0spare197\0short\0spare198\0short\0\
+spare199\0short\0spare200\0short\0cw_lin_tgt_exp_amp\0float\0rfd1_lin_tgt_exp_amp\0float\0\
+rfd2_lin_tgt_exp_amp\0float\0rfd3_lin_tgt_exp_amp\0float\0cw_log_tgt_exp_amp\0float\0\
+rfd1_log_tgt_exp_amp\0float\0rfd2_log_tgt_exp_amp\0float\0rfd3_log_tgt_exp_amp\0float\0\
+cw_lin_tgt_mea_amp\0float\0rfd1_lin_tgt_mea_amp\0float\0rfd2_lin_tgt_mea_amp\0float\0\
+rfd3_lin_tgt_mea_amp\0float\0cw_log_tgt_mea_amp\0float\0rfd1_log_tgt_mea_amp\0float\0\
+rfd2_log_tgt_mea_amp\0float\0rfd3_log_tgt_mea_amp\0float\0short_pulse_lin_syscal\0float\0\
+short_pulse_log_syscal\0float\0long_pulse_lin_syscal\0float\0long_pulse_log_syscal\0float\0\
+phase_ram1_exp_vel\0float\0phase_ram2_exp_vel\0float\0phase_ram3_exp_vel\0float\0\
+phase_ram4_exp_vel\0float\0phase_ram1_mea_vel\0float\0phase_ram2_mea_vel\0float\0\
+phase_ram3_mea_vel\0float\0phase_ram4_mea_vel\0float\0phase_ram1_exp_wid\0float\0\
+phase_ram2_exp_wid\0float\0phase_ram3_exp_wid\0float\0phase_ram4_exp_wid\0float\0\
+phase_ram1_mea_wid\0float\0phase_ram2_mea_wid\0float\0phase_ram3_mea_wid\0float\0\
+phase_ram4_mea_wid\0float\0spare273\0short\0spare274\0short\0spare275\0short\0\
+spare276\0short\0spare277\0short\0spare278\0short\0spare279\0short\0spare280\0short\0\
+spare281\0short\0spare282\0short\0spare283\0short\0spare284\0short\0spare285\0short\0\
+spare286\0short\0spare287\0short\0spare288\0short\0spare289\0short\0spare290\0short\0\
+kd1_lin_tgt_exp_amp\0float\0kd2_lin_tgt_exp_amp\0float\0kd3_lin_tgt_exp_amp\0float\0\
+kd1_log_tgt_exp_amp\0float\0kd2_log_tgt_exp_amp\0float\0kd3_log_tgt_exp_amp\0float\0\
+kd1_lin_tgt_mea_amp\0float\0kd2_lin_tgt_mea_amp\0float\0kd3_lin_tgt_mea_amp\0float\0\
+kd1_log_tgt_mea_amp\0float\0kd2_log_tgt_mea_amp\0float\0kd3_log_tgt_mea_amp\0float\0\
+spare315\0short\0spare316\0short\0spare317\0short\0spare318\0short\0spare319\0short\0\
+spare320\0short\0spare321\0short\0spare322\0short\0spare323\0short\0spare324\0short\0\
+spare325\0short\0spare326\0short\0spare327\0short\0spare328\0short\0spare329\0short\0\
+spare330\0short\0clutter_check_t\0unfilt_lin_chan_pwr\0float\0filt_lin_chan_pwr\0float\0\
+unfilt_log_chan_pwr\0float\0filt_log_chan_pwr\0float\0spare339\0short\0spare340\0short\0\
+spare341\0short\0spare342\0short\0spare343\0short\0spare344\0short\0spare345\0short\0\
+spare346\0short\0spare347\0short\0spare348\0short\0spare349\0short\0spare350\0short\0\
+spare351\0short\0spare352\0short\0spare353\0short\0spare354\0short\0spare355\0short\0\
+spare356\0short\0spare357\0short\0spare358\0short\0spare359\0short\0spare360\0short\0\
+disk_file_status_t\0state_fil_rd_stat\0short\0state_fil_wr_stat\0short\0by_map_fil_rd_stat\0short\0\
+by_map_fil_wr_stat\0short\0rdasc_cal_fil_rd_stat\0short\0rdasc_cal_fil_wr_stat\0short\0\
+rdasot_cal_fil_rd_stat\0short\0mod_adap_fil_rd_stat\0short\0spare369\0short\0\
+cen_zone_fil_rd_stat\0short\0cen_zone_fil_wr_stat\0short\0rem_vcp_fil_wr_stat\0short\0\
+rem_vcp_fil_rd_stat\0short\0spare374\0short\0spare375\0short\0spare376\0short\0\
+spare377\0short\0spare378\0short\0spare379\0short\0spare380\0short\0spare381\0short\0\
+spare382\0short\0spare383\0short\0spare384\0short\0spare385\0short\0spare386\0short\0\
+spare387\0short\0spare388\0short\0spare389\0short\0spare390\0short\0spare391\0short\0\
+spare392\0short\0spare393\0short\0spare394\0short\0spare395\0short\0spare396\0short\0\
+spare397\0short\0spare398\0short\0spare399\0short\0spare400\0short\0device_init_t\0\
+dau_init_stat\0short\0maint_con_init_stat\0short\0ped_init_stat\0short\0self_tst1_stat\0short\0\
+self_tst2_stat\0short\0self_tst2_data\0short\0sps_init_stat\0short\0sps_download_stat\0short\0\
+sps_dim_loop_stat\0short\0sps_smi_loop_stat\0short\0sps_hsp_loop_stat\0short\0\
+rpg_link_init_stat\0short\0user_link_init_stat\0short\0spare414\0short\0spare415\0short\0\
+spare416\0short\0spare417\0short\0spare418\0short\0spare419\0short\0spare420\0short\0\
+spare421\0short\0spare422\0short\0spare423\0short\0spare424\0short\0spare425\0short\0\
+spare426\0short\0spare427\0short\0spare428\0short\0spare429\0short\0spare430\0short\0\
+device_io_error_t\0dau_io_err_stat\0int\0dau_io_err_date\0int\0dau_io_err_time\0char\0\
+mc_io_err_stat\0int\0mc_io_err_date\0int\0mc_io_err_time\0char\0ped_io_err_stat\0int\0\
+ped_io_err_date\0int\0ped_io_err_time\0char\0sps_io_err_stat\0int\0sps_io_err_date\0int\0\
+sps_io_err_time\0char\0arch2_io_err_stat\0int\0arch2_io_err_date\0int\0arch2_io_err_time\0char\0\
+disk_io_err_stat\0int\0disk_io_err_date\0int\0disk_io_err_time\0char\0arch2_sum_err_stat\0int\0\
+red_chan_io_err_stat\0int\0red_chan_io_err_date\0int\0red_chan_io_err_time\0char\0\
+spare487\0short\0spare488\0short\0spare489\0short\0spare490\0short\0spare491\0short\0\
+spare492\0short\0spare493\0short\0spare494\0short\0spare495\0short\0spare496\0short\0\
+spare497\0short\0spare498\0short\0spare499\0short\0spare500\0short\0Pd_pms_entry\0\
+prod_id\0short\0wx_modes\0char\0types\0char\0Pd_prod_item\0prod_id\0short\0\
+wx_modes\0char\0period\0char\0number\0char\0map_requested\0char\0priority\0char\0\
+params\0short\0VCP_elevation_cut_data_t\0angle\0unsigned short\0waveform\0unsigned char\0\
+surv_prf_num\0short\0surv_prf_pulse\0short\0azimuth_rate\0short\0refl_thresh\0short\0\
+vel_thresh\0short\0sw_thresh\0short\0spare9\0short\0spare10\0short\0spare11\0short\0\
+edge_angle1\0short\0dopp_prf_num1\0short\0dopp_prf_pulse1\0short\0spare15\0short\0\
+edge_angle2\0short\0dopp_prf_num2\0short\0dopp_prf_pulse2\0short\0spare19\0short\0\
+edge_angle3\0short\0dopp_prf_num3\0short\0dopp_prf_pulse3\0short\0spare23\0short\0\
+Vcp_struct\0msg_size\0short\0type\0short\0vcp_num\0short\0n_ele\0short\0clutter_map_num\0short\0\
+vel_resolution\0short\0pulse_width\0short\0sample_resolution\0short\0dbz_range_resolution\0short\0\
+dpl_range_resolution\0short\0azimuth_interval\0short\0unused5\0short\0vcp_ele\0short\0\
+orpgevt_scan_info_data_t\0vol_scan_number\0int\0elev_cut_number\0int\0date\0unsigned int\0\
+time\0unsigned int\0vcp_number\0int\0file_tag_t\0time\0int\0label\0char\0\
+RPG_clutter_regions_t\0regions\0short\0data\0RPG_clutter_region_data_t\0ORPG_clutter_regions_t\0\
+regions\0short\0data\0ORPG_clutter_region_data_t\0RPG_clutter_region_data_t\0\
+start_range\0short\0stop_range\0short\0start_azimuth\0short\0stop_azimuth\0short\0\
+segment\0short\0select_code\0short\0doppl_level\0short\0surv_level\0short\0\
+ORPG_clutter_region_data_t\0start_range\0short\0stop_range\0short\0start_azimuth\0short\0\
+stop_azimuth\0short\0segment\0short\0select_code\0short\0"
+;
+
+static const int All_ints[] = {
+ sizeof (Prod_gen_msg), 11, 0, 1, sizeof (short), 1, sizeof (short), 1, sizeof (unsigned int),
+ 1, sizeof (long), 1, sizeof (int), 1, sizeof (int), 1, sizeof (unsigned short),
+ 1, sizeof (short), 1, sizeof (unsigned int), 6, sizeof (short), 6, sizeof (short),
+ sizeof (Radial_accounting_data), 20, 0, 75, sizeof (short), 75, sizeof (short),
+ 75, sizeof (float), 25, sizeof (long), 25, sizeof (long), 25, sizeof (int),
+ 25, sizeof (int), 25, sizeof (float), 25, sizeof (float), 25, sizeof (float),
+ 25, sizeof (float), 25, sizeof (short), 25, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (float), 1, sizeof (short), sizeof (RDA_status_t), 2, 0, 1, sizeof (RDA_RPG_comms_status_t),
+ 1, sizeof (RDA_status_msg_t), sizeof (struct volume_status), 11, 0, 1, sizeof (unsigned long),
+ 1, sizeof (unsigned long), 1, sizeof (short), 1, sizeof (unsigned short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 25, sizeof (short), 25, sizeof (short), sizeof (struct previous_state), 8, 0,
+ 1, sizeof (short), 1, sizeof (unsigned short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ sizeof (Summary_Data), 1, 0, 81, sizeof (Scan_Summary), sizeof (ArchIII_status_t), 4, 0,
+ 1, sizeof (unsigned short), 1, sizeof (short), 1, sizeof (int), 1, sizeof (unsigned int),
+ sizeof (RDA_bypass_map_msg_t), 2, 0, 1, sizeof (RDA_RPG_message_header_t),
+ 1, sizeof (RDA_bypass_map_t), sizeof (ORDA_bypass_map_msg_t), 2, 0, 1, sizeof (RDA_RPG_message_header_t),
+ 1, sizeof (ORDA_bypass_map_t), sizeof (RDA_notch_map_msg_t), 2, 0, 1, sizeof (RDA_RPG_message_header_t),
+ 1, sizeof (RDA_notch_map_t), sizeof (ORDA_clutter_map_msg_t), 2, 0, 1, sizeof (RDA_RPG_message_header_t),
+ 1, sizeof (ORDA_clutter_map_t), sizeof (RPG_clutter_regions_msg_t), 3, 0,
+ 1, sizeof (int), 1, sizeof (int), 20, sizeof (RPG_clutter_regions_file_t),
+ sizeof (ORPG_clutter_regions_msg_t), 3, 0, 1, sizeof (int), 1, sizeof (int),
+ 20, sizeof (ORPG_clutter_regions_file_t), sizeof (RDA_alarm_entry_t), 7, 0,
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 80, sizeof (char), sizeof (RDA_alarm_t), 10, 0,
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), sizeof (Rda_cmd_t), 8, 0, 1, sizeof (int),
+ 1, sizeof (int), 1, sizeof (int), 1, sizeof (int), 1, sizeof (int), 1, sizeof (int),
+ 1, sizeof (int), 1600, sizeof (char), sizeof (rda_performance_t), 29, 0,
+ 1, sizeof (RDA_RPG_message_header_t), 1, sizeof (wideband_t), 1, sizeof (wideband_t),
+ 1, sizeof (bitdata_t), 1, sizeof (calibration_t), 1, sizeof (clutter_check_t),
+ 1, sizeof (disk_file_status_t), 1, sizeof (device_init_t), 1, sizeof (device_io_error_t),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ sizeof (RDA_RPG_console_message_t), 3, 0, 1, sizeof (RDA_RPG_message_header_t),
+ 1, sizeof (short), 404, sizeof (char), sizeof (LE_critical_message), 8, 0,
+ 1, sizeof (unsigned int), 1, sizeof (long), 1, sizeof (int), 1, sizeof (int),
+ 1, sizeof (int), 16, sizeof (char), 3, sizeof (char), 1, sizeof (char), sizeof (Orpginfo_statefl_t), 5, 0,
+ 1, sizeof (unsigned int), 1, sizeof (unsigned int), 1, sizeof (unsigned int),
+ 1, sizeof (unsigned int), 1, sizeof (unsigned int), sizeof (Orpginfo_statefl_shared_t), 3, 0,
+ 1, sizeof (unsigned int), 1, sizeof (unsigned int), 1, sizeof (unsigned int),
+ sizeof (Mrpg_state_t), 10, 0, 1, sizeof (int), 1, sizeof (int), 1, sizeof (long),
+ 1, sizeof (long), 1, sizeof (int), 1, sizeof (int), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (long), 1, sizeof (unsigned int), sizeof (Orpgtat_entry_t), 13, 0,
+ 1, sizeof (int), 0, sizeof (char), 1, sizeof (unsigned int), 1, sizeof (unsigned int),
+ 1, sizeof (int), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (int), 1, sizeof (short), 1, sizeof (int), 1, sizeof (short),
+ sizeof (Mrpg_cmd_t), 4, 0, 1, sizeof (int), 1, sizeof (int), 1, sizeof (int),
+ 1, sizeof (int), sizeof (load_shed_threshold_t), 12, 0, 1, sizeof (unsigned char),
+ 1, sizeof (unsigned char), 1, sizeof (unsigned char), 1, sizeof (unsigned char),
+ 1, sizeof (unsigned char), 1, sizeof (unsigned char), 1, sizeof (unsigned char),
+ 1, sizeof (unsigned char), 1, sizeof (unsigned char), 1, sizeof (unsigned char),
+ 1, sizeof (unsigned char), 1, sizeof (unsigned char), sizeof (load_shed_current_t), 12, 0,
+ 1, sizeof (unsigned char), 1, sizeof (unsigned char), 1, sizeof (unsigned char),
+ 1, sizeof (unsigned char), 1, sizeof (unsigned char), 1, sizeof (unsigned char),
+ 1, sizeof (unsigned char), 1, sizeof (unsigned char), 1, sizeof (unsigned char),
+ 1, sizeof (unsigned char), 1, sizeof (unsigned char), 1, sizeof (unsigned char),
+ sizeof (Hci_gui_t), 21, 0, 1, sizeof (int), 1, sizeof (int), 1, sizeof (int),
+ 1, sizeof (int), 1, sizeof (int), 1, sizeof (int), 1, sizeof (int), 1, sizeof (int),
+ 1, sizeof (int), 1, sizeof (int), 1, sizeof (int), 1, sizeof (int), 1, sizeof (int),
+ 1, sizeof (int), 1, sizeof (int), 1, sizeof (int), 1, sizeof (int), 1, sizeof (int),
+ 1, sizeof (int), 1, sizeof (int), 1, sizeof (int), sizeof (Hci_password_t), 3, 0,
+ 64, sizeof (char), 64, sizeof (char), 64, sizeof (char), sizeof (Hci_rms_status_t), 1, 0,
+ 1, sizeof (int), sizeof (Hci_task_t), 4, 0, 1, sizeof (int), 1, sizeof (int),
+ 1, sizeof (int), 0, sizeof (char), sizeof (Hci_ccz_data_t), 6, 0, 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 20, sizeof (short), 1, sizeof (short),
+ 256, sizeof (short), sizeof (Hci_prf_data_t), 6, 0, 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 20, sizeof (short), 1, sizeof (short), 256, sizeof (short),
+ sizeof (struct alg_cpu_stats), 5, 0, 1, sizeof (unsigned int), 1, sizeof (int),
+ 1, sizeof (float), 1, sizeof (float), 1, sizeof (float), sizeof (Pd_user_entry), 21, 3,
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (char), 1, sizeof (char), 1, sizeof (char), 1, sizeof (unsigned int),
+ 1, sizeof (unsigned int), 8, sizeof (char), 32, sizeof (char), 0, sizeof (Pd_pms_entry),
+ 0, sizeof (Pd_prod_item), sizeof (Line_status), 13, 0, 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 128, sizeof (char),
+ sizeof (Line_details), 18, 0, 1, sizeof (int), 1, sizeof (int), 8, sizeof (char),
+ 1, sizeof (int), 1, sizeof (int), 1, sizeof (int), 1, sizeof (int), 1, sizeof (int),
+ 1, sizeof (int), 1, sizeof (int), 1, sizeof (int), 32, sizeof (char), 1, sizeof (int),
+ 1, sizeof (int), 1, sizeof (int), 1, sizeof (int), 1, sizeof (int), 1, sizeof (int),
+ sizeof (Line_details_tbl_t), 2, 0, 1, sizeof (int), 1, sizeof (Line_details *),
+ sizeof (Dial_details), 10, 0, 1, sizeof (int), 1, sizeof (int), 32, sizeof (char),
+ 8, sizeof (char), 1, sizeof (int), 1, sizeof (int), 1, sizeof (int), 1, sizeof (int),
+ 1, sizeof (int), 1, sizeof (int), sizeof (Dial_details_tbl_t), 2, 0, 1, sizeof (int),
+ 1, sizeof (Dial_details *), sizeof (Class_details), 6, 0, 1, sizeof (int),
+ 1, sizeof (int), 32, sizeof (char), 1, sizeof (int), 1, sizeof (int), 1, sizeof (int),
+ sizeof (Class_details_tbl_t), 2, 0, 1, sizeof (int), 1, sizeof (Class_details *),
+ sizeof (MyShortStruct), 6, 0, 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), sizeof (MyIntStruct), 6, 0,
+ 1, sizeof (int), 4, sizeof (int), 1, sizeof (int), 10, sizeof (int), 1, sizeof (int),
+ 1, sizeof (int), sizeof (MyCharStruct), 1, 0, 100, sizeof (char), sizeof (MyComboStruct), 8, 0,
+ 1, sizeof (int), 1, sizeof (short), 1, sizeof (short), 8, sizeof (int), 100, sizeof (char),
+ 1, sizeof (short), 2, sizeof (short), 1, sizeof (short), sizeof (RDA_RPG_message_header_t), 8, 0,
+ 1, sizeof (short), 1, sizeof (unsigned char), 1, sizeof (unsigned char),
+ 1, sizeof (short), 1, sizeof (unsigned short), 1, sizeof (int), 1, sizeof (short),
+ 1, sizeof (short), sizeof (RDA_status_msg_t), 28, 0, 1, sizeof (RDA_RPG_message_header_t),
+ 1, sizeof (unsigned short), 1, sizeof (unsigned short), 1, sizeof (unsigned short),
+ 1, sizeof (unsigned short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (unsigned short),
+ 1, sizeof (short), 1, sizeof (unsigned short), 1, sizeof (unsigned short),
+ 1, sizeof (unsigned short), 1, sizeof (unsigned short), 1, sizeof (unsigned short),
+ 1, sizeof (unsigned short), 1, sizeof (unsigned short), 1, sizeof (unsigned short),
+ 1, sizeof (unsigned short), 1, sizeof (unsigned short), 1, sizeof (unsigned short),
+ 1, sizeof (unsigned short), 1, sizeof (unsigned short), 1, sizeof (unsigned short),
+ 1, sizeof (short), 1, sizeof (unsigned short), 1, sizeof (unsigned short),
+ 1, sizeof (short), 14, sizeof (short), sizeof (Prod_header), 12, 0, 1, sizeof (Prod_gen_msg),
+ 1, sizeof (int), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (int), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (int), 1, sizeof (int), 4, sizeof (int), sizeof (struct nx_msg_hdr), 55, 0,
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (long), 1, sizeof (short), 1, sizeof (short), 1, sizeof (long),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (unsigned short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (unsigned short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (float), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), sizeof (struct orda_nx_msg_hdr), 49, 0,
+ 1, sizeof (RDA_RPG_message_header_t), 1, sizeof (long), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (unsigned short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (unsigned short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (float), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), sizeof (ORDA_status_msg_t), 28, 0,
+ 1, sizeof (RDA_RPG_message_header_t), 1, sizeof (unsigned short), 1, sizeof (unsigned short),
+ 1, sizeof (unsigned short), 1, sizeof (unsigned short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (unsigned short), 1, sizeof (short), 1, sizeof (unsigned short),
+ 1, sizeof (short), 1, sizeof (unsigned short), 1, sizeof (unsigned short),
+ 1, sizeof (unsigned short), 1, sizeof (unsigned short), 1, sizeof (unsigned short),
+ 1, sizeof (unsigned short), 1, sizeof (unsigned short), 1, sizeof (unsigned short),
+ 1, sizeof (unsigned short), 1, sizeof (unsigned short), 1, sizeof (unsigned short),
+ 1, sizeof (unsigned short), 1, sizeof (short), 1, sizeof (unsigned short),
+ 1, sizeof (unsigned short), 1, sizeof (short), 14, sizeof (short), sizeof (RDA_RPG_loop_back_message_t), 2, 0,
+ 1, sizeof (short), 1199, sizeof (short), sizeof (RDA_notch_map_filter_t), 2, 0,
+ 1, sizeof (unsigned char), 1, sizeof (unsigned char), sizeof (ORDA_clutter_map_filter_t), 2, 0,
+ 1, sizeof (unsigned short), 1, sizeof (unsigned short), sizeof (RDA_notch_map_suppr_t), 2, 0,
+ 1, sizeof (unsigned char), 1, sizeof (unsigned char), sizeof (ORDA_clutter_map_segment_t), 2, 0,
+ 1, sizeof (unsigned short), 20, sizeof (ORDA_clutter_map_filter_t), sizeof (RDA_notch_map_data_t), 2, 0,
+ 512, sizeof (RDA_notch_map_filter_t), 512, sizeof (RDA_notch_map_suppr_t),
+ sizeof (ORDA_clutter_map_data_t), 1, 0, 360, sizeof (ORDA_clutter_map_segment_t),
+ sizeof (RDA_notch_map_t), 3, 0, 1, sizeof (unsigned short), 1, sizeof (short),
+ 16, sizeof (RDA_notch_map_data_t), sizeof (ORDA_clutter_map_t), 4, 0, 1, sizeof (unsigned short),
+ 1, sizeof (short), 1, sizeof (unsigned short), 5, sizeof (ORDA_clutter_map_data_t),
+ sizeof (RDA_bypass_map_segment_t), 2, 0, 1, sizeof (short), 8192, sizeof (short),
+ sizeof (ORDA_bypass_map_segment_t), 2, 0, 1, sizeof (short), 11520, sizeof (short),
+ sizeof (RDA_bypass_map_t), 4, 0, 1, sizeof (unsigned short), 1, sizeof (short),
+ 1, sizeof (short), 2, sizeof (RDA_bypass_map_segment_t), sizeof (ORDA_bypass_map_t), 4, 0,
+ 1, sizeof (unsigned short), 1, sizeof (short), 1, sizeof (short), 5, sizeof (ORDA_bypass_map_segment_t),
+ sizeof (RDA_control_commands_t), 24, 0, 1, sizeof (unsigned short), 1, sizeof (unsigned short),
+ 1, sizeof (unsigned short), 1, sizeof (unsigned short), 1, sizeof (unsigned short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (unsigned short),
+ 1, sizeof (short), 1, sizeof (int), 1, sizeof (unsigned short), 1, sizeof (unsigned short),
+ 1, sizeof (int), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), sizeof (ORDA_control_commands_t), 24, 0,
+ 1, sizeof (unsigned short), 1, sizeof (unsigned short), 1, sizeof (unsigned short),
+ 1, sizeof (unsigned short), 1, sizeof (unsigned short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (unsigned short), 1, sizeof (short),
+ 1, sizeof (int), 1, sizeof (unsigned short), 1, sizeof (unsigned short),
+ 1, sizeof (int), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), sizeof (RPG_request_data_struct_t), 1, 0,
+ 1, sizeof (unsigned short), sizeof (orda_pmd_t), 11, 0, 1, sizeof (RDA_RPG_message_header_t),
+ 1, sizeof (comms_t), 1, sizeof (power_t), 1, sizeof (transmitter_t), 1, sizeof (tower_utilities_t),
+ 1, sizeof (equipment_shelter_t), 1, sizeof (antenna_pedestal_t), 1, sizeof (rf_gnrtr_rcvr_t),
+ 1, sizeof (calib_t), 1, sizeof (file_status_t), 1, sizeof (device_status_t),
+ sizeof (transmitter_t), 77, 0, 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (float), 2, sizeof (short), 1, sizeof (float),
+ 2, sizeof (short), 1, sizeof (float), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (unsigned int), 10, sizeof (short), sizeof (power_t), 8, 0, 1, sizeof (int),
+ 1, sizeof (unsigned int), 1, sizeof (unsigned int), 1, sizeof (unsigned int),
+ 1, sizeof (unsigned int), 1, sizeof (unsigned int), 1, sizeof (unsigned int),
+ 24, sizeof (short), sizeof (comms_t), 35, 0, 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (unsigned int), 1, sizeof (unsigned int), 1, sizeof (unsigned int),
+ 1, sizeof (unsigned int), 1, sizeof (short), 1, sizeof (short), 1, sizeof (unsigned int),
+ 1, sizeof (unsigned int), 1, sizeof (unsigned int), 1, sizeof (unsigned int),
+ 1, sizeof (unsigned int), 1, sizeof (unsigned int), 1, sizeof (unsigned int),
+ 1, sizeof (unsigned int), 1, sizeof (unsigned int), 1, sizeof (unsigned int),
+ 1, sizeof (unsigned int), 1, sizeof (unsigned int), 1, sizeof (unsigned int),
+ 1, sizeof (unsigned int), 1, sizeof (unsigned int), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (unsigned int), 1, sizeof (int), 1, sizeof (int), 1, sizeof (int),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 41, sizeof (short), sizeof (tower_utilities_t), 12, 0,
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 11, sizeof (short),
+ sizeof (equipment_shelter_t), 23, 0, 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (float), 1, sizeof (float), 1, sizeof (float), 1, sizeof (float),
+ 1, sizeof (float), 1, sizeof (float), 1, sizeof (float), 1, sizeof (float),
+ 1, sizeof (float), 1, sizeof (float), 1, sizeof (float), 1, sizeof (short),
+ 7, sizeof (short), sizeof (antenna_pedestal_t), 39, 0, 1, sizeof (float),
+ 1, sizeof (float), 1, sizeof (float), 1, sizeof (float), 1, sizeof (float),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 7, sizeof (short), sizeof (rf_gnrtr_rcvr_t), 14, 0, 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (float), 1, sizeof (float), 1, sizeof (float),
+ 6, sizeof (short), sizeof (calib_t), 20, 0, 1, sizeof (float), 1, sizeof (float),
+ 1, sizeof (float), 1, sizeof (float), 1, sizeof (float), 1, sizeof (float),
+ 1, sizeof (float), 1, sizeof (float), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (float), 24, sizeof (short),
+ 1, sizeof (float), 1, sizeof (float), 1, sizeof (float), 1, sizeof (float),
+ 1, sizeof (float), 12, sizeof (short), sizeof (file_status_t), 18, 0, 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 13, sizeof (short), sizeof (device_status_t), 8, 0, 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 13, sizeof (short), sizeof (ORDA_adpt_data_msg_t), 2, 0,
+ 1, sizeof (RDA_RPG_message_header_t), 1, sizeof (ORDA_adpt_data_t), sizeof (ORDA_adpt_data_t), 140, 0,
+ 12, sizeof (char), 4, sizeof (char), 4, sizeof (char), 12, sizeof (char),
+ 12, sizeof (char), 1, sizeof (float), 1, sizeof (float), 1, sizeof (float),
+ 1, sizeof (float), 1, sizeof (float), 1, sizeof (float), 11, sizeof (float),
+ 1, sizeof (float), 1, sizeof (float), 1, sizeof (float), 1, sizeof (float),
+ 1, sizeof (float), 1, sizeof (float), 1, sizeof (float), 1, sizeof (float),
+ 1, sizeof (float), 1, sizeof (float), 1, sizeof (float), 1, sizeof (float),
+ 1, sizeof (float), 1, sizeof (float), 1, sizeof (float), 1, sizeof (float),
+ 4, sizeof (char), 4, sizeof (char), 4, sizeof (char), 4, sizeof (char), 1, sizeof (int),
+ 1, sizeof (int), 1, sizeof (int), 1, sizeof (int), 1, sizeof (int), 1, sizeof (float),
+ 1, sizeof (int), 1, sizeof (int), 1, sizeof (int), 104, sizeof (float), 71, sizeof (float),
+ 2, sizeof (float), 1, sizeof (int), 13, sizeof (float), 13, sizeof (float),
+ 12, sizeof (float), 1, sizeof (int), 1, sizeof (float), 1, sizeof (float),
+ 1, sizeof (float), 1, sizeof (float), 1, sizeof (float), 1, sizeof (float),
+ 1, sizeof (float), 1, sizeof (float), 1, sizeof (float), 1, sizeof (float),
+ 1, sizeof (float), 1, sizeof (float), 1, sizeof (float), 1, sizeof (float),
+ 1, sizeof (float), 1, sizeof (float), 1, sizeof (float), 1, sizeof (float),
+ 1, sizeof (float), 1, sizeof (float), 1, sizeof (float), 1, sizeof (float),
+ 1, sizeof (float), 1, sizeof (float), 1, sizeof (float), 1, sizeof (float),
+ 1, sizeof (float), 1, sizeof (float), 1, sizeof (float), 1, sizeof (float),
+ 1, sizeof (float), 1, sizeof (float), 1, sizeof (float), 1, sizeof (float),
+ 1, sizeof (float), 1, sizeof (float), 1, sizeof (float), 1, sizeof (float),
+ 1, sizeof (int), 1, sizeof (int), 1, sizeof (int), 1, sizeof (int), 1, sizeof (int),
+ 1, sizeof (int), 1, sizeof (int), 1, sizeof (int), 1, sizeof (int), 1, sizeof (float),
+ 1, sizeof (float), 1, sizeof (float), 1, sizeof (int), 1, sizeof (int), 1, sizeof (int),
+ 1, sizeof (int), 1, sizeof (int), 4, sizeof (char), 4, sizeof (char), 1, sizeof (int),
+ 1172, sizeof (char), 1172, sizeof (char), 1172, sizeof (char), 1172, sizeof (char),
+ 1172, sizeof (char), 1172, sizeof (char), 1, sizeof (float), 1, sizeof (float),
+ 4, sizeof (char), 1, sizeof (int), 1, sizeof (int), 1, sizeof (int), 1, sizeof (int),
+ 1, sizeof (int), 1, sizeof (int), 75, sizeof (int), 1, sizeof (int), 11, sizeof (int),
+ 1, sizeof (float), 1, sizeof (float), 3, sizeof (int), 1, sizeof (float),
+ 1, sizeof (int), 1, sizeof (float), 1, sizeof (float), 1, sizeof (float),
+ 1, sizeof (int), 1, sizeof (float), 1, sizeof (float), 1, sizeof (float),
+ 1, sizeof (float), 1, sizeof (float), 165, sizeof (int), sizeof (VCP_ICD_msg_t), 2, 0,
+ 1, sizeof (VCP_message_header_t), 1, sizeof (VCP_elevation_cut_header_t),
+ sizeof (VCP_message_header_t), 3, 0, 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), sizeof (VCP_elevation_cut_header_t), 10, 0, 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (unsigned char), 1, sizeof (unsigned char),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 25, sizeof (VCP_elevation_cut_data_t), sizeof (LE_message), 5, 0,
+ 1, sizeof (unsigned int), 1, sizeof (long), 1, sizeof (int), 3, sizeof (char),
+ 1, sizeof (char), sizeof (sgmts09), 4, 0, 0, sizeof (float), 0, sizeof (short),
+ 0, sizeof (float), 7, sizeof (float), sizeof (a315csad), 1, 0, 57, sizeof (int),
+ sizeof (a315lock), 1, 0, 2, sizeof (int), sizeof (a315trnd), 6, 0, 0, sizeof (int),
+ 0, sizeof (int), 1, sizeof (int), 1, sizeof (int), 0, sizeof (short), 260, sizeof (short),
+ sizeof (a3cd09), 7, 0, 1, sizeof (int), 1, sizeof (int), 1, sizeof (float),
+ 1, sizeof (float), 100, sizeof (int), 600, sizeof (int), 1, sizeof (int),
+ sizeof (pvecs09), 3, 0, 0, sizeof (float), 0, sizeof (short), 0, sizeof (float),
+ sizeof (a317ctad), 1, 0, 30, sizeof (int), sizeof (a317lock), 1, 0, 2, sizeof (int),
+ sizeof (a3cd11), 16, 0, 1, sizeof (int), 1, sizeof (int), 1, sizeof (int),
+ 1, sizeof (float), 1, sizeof (float), 1, sizeof (float), 1, sizeof (float),
+ 1, sizeof (float), 1, sizeof (float), 1, sizeof (float), 1, sizeof (float),
+ 1, sizeof (float), 1, sizeof (float), 1, sizeof (float), 1, sizeof (float),
+ 1, sizeof (float), sizeof (cd07_vcpinfo), 6, 0, 1, sizeof (int), 1, sizeof (int),
+ 1, sizeof (int), 1, sizeof (int), 1, sizeof (int), 1, sizeof (Vcp_struct),
+ sizeof (Hrdb_date_time), 2, 0, 1, sizeof (int), 1, sizeof (int), sizeof (A3cd97), 5, 0,
+ 1, sizeof (int), 140, sizeof (float), 1, sizeof (int), 140, sizeof (short),
+ 1, sizeof (int), sizeof (A3136C3_t), 13, 0, 1, sizeof (int), 1, sizeof (int),
+ 1, sizeof (int), 1, sizeof (int), 1, sizeof (int), 1, sizeof (int), 1, sizeof (int),
+ 1, sizeof (int), 1, sizeof (float), 1, sizeof (float), 1, sizeof (float),
+ 1, sizeof (int), 1, sizeof (int), sizeof (A3052t), 10, 0, 1, sizeof (int),
+ 1, sizeof (int), 1, sizeof (int), 1, sizeof (int), 1, sizeof (int), 1, sizeof (int),
+ 1, sizeof (int), 1, sizeof (int), 1, sizeof (int), 1, sizeof (int), sizeof (A3052u), 18, 0,
+ 1, sizeof (int), 1, sizeof (int), 1, sizeof (int), 1, sizeof (int), 1, sizeof (int),
+ 1, sizeof (int), 1, sizeof (int), 1, sizeof (int), 1, sizeof (int), 16, sizeof (int),
+ 16, sizeof (int), 16, sizeof (float), 16, sizeof (float), 16, sizeof (int),
+ 16, sizeof (int), 16, sizeof (int), 5, sizeof (float), 5, sizeof (float),
+ sizeof (A304c2), 3, 0, 1, sizeof (int), 1, sizeof (int), 1, sizeof (int),
+ sizeof (cd07_bypassmap), 4, 0, 1, sizeof (int), 1, sizeof (unsigned short),
+ 1, sizeof (short), 1, sizeof (int), sizeof (hci_child_started_event_t), 2, 0,
+ 1, sizeof (long), 1, sizeof (int), sizeof (Prod_user_status), 11, 0, 1, sizeof (char),
+ 1, sizeof (char), 1, sizeof (char), 1, sizeof (char), 1, sizeof (char), 1, sizeof (char),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (int),
+ 1, sizeof (long), sizeof (orpgevt_scan_info_t), 2, 0, 1, sizeof (int), 1, sizeof (orpgevt_scan_info_data_t),
+ sizeof (Orpgevt_radial_acct_t), 5, 0, 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), sizeof (orpgevt_end_of_volume_t), 3, 0,
+ 1, sizeof (int), 1, sizeof (unsigned int), 1, sizeof (unsigned int), sizeof (Orpgevt_task_exit_msg_t), 6, 0,
+ 1, sizeof (int), 1, sizeof (int), 1, sizeof (int), 1, sizeof (long), 1, sizeof (int),
+ 1, sizeof (int), sizeof (Orpginfo_statefl_flag_evtmsg_t), 4, 0, 1, sizeof (int),
+ 1, sizeof (unsigned char), 1, sizeof (unsigned int), 1, sizeof (unsigned int),
+ sizeof (Orpgevt_load_shed_msg_t), 1, 0, 1, sizeof (int), sizeof (Orpgevt_adapt_msg_t), 2, 0,
+ 1, sizeof (unsigned int), 1, sizeof (int), sizeof (Orpginfo_rpg_alarm_evtmsg_t), 4, 0,
+ 1, sizeof (int), 1, sizeof (unsigned char), 1, sizeof (unsigned int), 1, sizeof (unsigned int),
+ sizeof (Orpginfo_rpg_opstat_evtmsg_t), 2, 0, 1, sizeof (unsigned int), 1, sizeof (unsigned int),
+ sizeof (Orpginfo_rpg_status_change_evtmsg_t), 1, 0, 1, sizeof (unsigned int),
+ sizeof (Pd_distri_cmd), 3, 1, 1, sizeof (int), 1, sizeof (int), 0, sizeof (int),
+ sizeof (Siteadp_adpt_t), 14, 0, 1, sizeof (int), 1, sizeof (int), 1, sizeof (int),
+ 1, sizeof (int), 1, sizeof (int), 1, sizeof (int), 1, sizeof (int), 1, sizeof (int),
+ 1, sizeof (int), 1, sizeof (int), 1, sizeof (int), 1, sizeof (int), 8, sizeof (char),
+ 8, sizeof (char), sizeof (Redundant_info_t), 2, 0, 1, sizeof (int), 1, sizeof (int),
+ sizeof (mlos_info_t), 2, 0, 1, sizeof (int), 4, sizeof (int), sizeof (rda_control_adapt_t), 4, 0,
+ 1, sizeof (int), 1, sizeof (int), 1, sizeof (int), 1, sizeof (int), sizeof (precip_detect1_t), 6, 0,
+ 4, sizeof (int), 4, sizeof (int), 4, sizeof (int), 4, sizeof (int), 4, sizeof (int),
+ 4, sizeof (int), sizeof (layer_prod_params_t), 5, 0, 1, sizeof (int), 1, sizeof (int),
+ 1, sizeof (int), 1, sizeof (int), 1, sizeof (int), sizeof (rcm_prod_params_t), 6, 0,
+ 1, sizeof (float), 1, sizeof (int), 1, sizeof (float), 1, sizeof (float),
+ 1, sizeof (float), 1, sizeof (float), sizeof (cell_prod_params_t), 6, 0,
+ 1, sizeof (int), 1, sizeof (int), 1, sizeof (int), 1, sizeof (int), 1, sizeof (int),
+ 1, sizeof (int), sizeof (vad_rcm_heights_t), 2, 0, 30, sizeof (int), 19, sizeof (int),
+ sizeof (hail_algorithm_t), 33, 0, 1, sizeof (int), 1, sizeof (int), 1, sizeof (int),
+ 1, sizeof (float), 1, sizeof (float), 1, sizeof (float), 1, sizeof (float),
+ 1, sizeof (int), 1, sizeof (int), 1, sizeof (float), 1, sizeof (float), 1, sizeof (float),
+ 1, sizeof (float), 1, sizeof (float), 1, sizeof (float), 1, sizeof (float),
+ 1, sizeof (float), 1, sizeof (float), 1, sizeof (float), 1, sizeof (float),
+ 1, sizeof (float), 1, sizeof (float), 1, sizeof (float), 1, sizeof (int),
+ 1, sizeof (int), 1, sizeof (float), 1, sizeof (float), 1, sizeof (int), 1, sizeof (int),
+ 1, sizeof (int), 1, sizeof (int), 1, sizeof (int), 1, sizeof (int), sizeof (storm_cell_track_t), 10, 0,
+ 1, sizeof (int), 1, sizeof (int), 1, sizeof (int), 1, sizeof (int), 1, sizeof (int),
+ 1, sizeof (int), 1, sizeof (int), 1, sizeof (float), 1, sizeof (float), 1, sizeof (float),
+ sizeof (tda_t), 30, 0, 1, sizeof (int), 1, sizeof (int), 1, sizeof (int),
+ 1, sizeof (float), 1, sizeof (int), 1, sizeof (int), 1, sizeof (int), 1, sizeof (int),
+ 1, sizeof (int), 1, sizeof (int), 1, sizeof (int), 1, sizeof (int), 1, sizeof (float),
+ 1, sizeof (float), 1, sizeof (float), 1, sizeof (float), 1, sizeof (float),
+ 1, sizeof (int), 1, sizeof (int), 1, sizeof (int), 1, sizeof (float), 1, sizeof (int),
+ 1, sizeof (int), 1, sizeof (int), 1, sizeof (int), 1, sizeof (int), 1, sizeof (float),
+ 1, sizeof (float), 1, sizeof (float), 1, sizeof (float), sizeof (RDA_RPG_comms_status_t), 3, 0,
+ 1, sizeof (int), 1, sizeof (int), 1, sizeof (int), sizeof (Scan_Summary), 7, 0,
+ 1, sizeof (int), 1, sizeof (int), 1, sizeof (int), 1, sizeof (int), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (int), sizeof (RPG_clutter_regions_file_t), 2, 0,
+ 1, sizeof (file_tag_t), 1, sizeof (RPG_clutter_regions_t), sizeof (ORPG_clutter_regions_file_t), 2, 0,
+ 1, sizeof (file_tag_t), 1, sizeof (ORPG_clutter_regions_t), sizeof (wideband_t), 15, 0,
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (unsigned short),
+ 1, sizeof (unsigned short), 1, sizeof (unsigned short), 1, sizeof (unsigned short),
+ 1, sizeof (short), 1, sizeof (unsigned short), 1, sizeof (unsigned short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), sizeof (bitdata_t), 135, 0, 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (unsigned char), 1, sizeof (unsigned char),
+ 1, sizeof (unsigned char), 1, sizeof (unsigned char), 1, sizeof (unsigned char),
+ 1, sizeof (unsigned char), 1, sizeof (unsigned char), 1, sizeof (unsigned char),
+ 1, sizeof (unsigned char), 1, sizeof (unsigned char), 1, sizeof (unsigned char),
+ 1, sizeof (unsigned char), 1, sizeof (unsigned char), 1, sizeof (unsigned char),
+ 1, sizeof (unsigned char), 1, sizeof (unsigned char), 1, sizeof (unsigned char),
+ 1, sizeof (unsigned char), 1, sizeof (unsigned char), 1, sizeof (unsigned char),
+ 1, sizeof (unsigned char), 1, sizeof (unsigned char), 1, sizeof (unsigned char),
+ 1, sizeof (unsigned char), 1, sizeof (unsigned char), 1, sizeof (unsigned char),
+ 1, sizeof (unsigned char), 1, sizeof (unsigned char), 1, sizeof (unsigned char),
+ 1, sizeof (unsigned char), 1, sizeof (unsigned char), 1, sizeof (unsigned char),
+ 1, sizeof (unsigned char), 1, sizeof (unsigned char), 1, sizeof (unsigned char),
+ 1, sizeof (unsigned char), 1, sizeof (unsigned char), 1, sizeof (unsigned char),
+ 1, sizeof (unsigned char), 1, sizeof (unsigned char), 1, sizeof (unsigned char),
+ 1, sizeof (unsigned char), 1, sizeof (unsigned char), 1, sizeof (unsigned char),
+ 1, sizeof (unsigned char), 1, sizeof (unsigned char), 1, sizeof (unsigned char),
+ 1, sizeof (unsigned char), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (unsigned char), 1, sizeof (unsigned char),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (unsigned char), 1, sizeof (unsigned char),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (unsigned short), 1, sizeof (unsigned short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (float), 1, sizeof (float), 1, sizeof (float),
+ 1, sizeof (float), 1, sizeof (float), 1, sizeof (float), 1, sizeof (float),
+ 1, sizeof (int), 1, sizeof (short), 1, sizeof (short), 1, sizeof (float),
+ 1, sizeof (float), 1, sizeof (float), 1, sizeof (float), 1, sizeof (float),
+ 1, sizeof (short), 1, sizeof (short), sizeof (calibration_t), 116, 0, 1, sizeof (float),
+ 1, sizeof (float), 1, sizeof (float), 1, sizeof (float), 1, sizeof (float),
+ 1, sizeof (float), 1, sizeof (float), 1, sizeof (float), 1, sizeof (float),
+ 1, sizeof (float), 1, sizeof (float), 1, sizeof (float), 1, sizeof (float),
+ 1, sizeof (float), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (float), 1, sizeof (float), 1, sizeof (float),
+ 1, sizeof (float), 1, sizeof (float), 1, sizeof (float), 1, sizeof (float),
+ 1, sizeof (float), 1, sizeof (float), 1, sizeof (float), 1, sizeof (float),
+ 1, sizeof (float), 1, sizeof (float), 1, sizeof (float), 1, sizeof (float),
+ 1, sizeof (float), 1, sizeof (float), 1, sizeof (float), 1, sizeof (float),
+ 1, sizeof (float), 1, sizeof (float), 1, sizeof (float), 1, sizeof (float),
+ 1, sizeof (float), 1, sizeof (float), 1, sizeof (float), 1, sizeof (float),
+ 1, sizeof (float), 1, sizeof (float), 1, sizeof (float), 1, sizeof (float),
+ 1, sizeof (float), 1, sizeof (float), 1, sizeof (float), 1, sizeof (float),
+ 1, sizeof (float), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (float),
+ 1, sizeof (float), 1, sizeof (float), 1, sizeof (float), 1, sizeof (float),
+ 1, sizeof (float), 1, sizeof (float), 1, sizeof (float), 1, sizeof (float),
+ 1, sizeof (float), 1, sizeof (float), 1, sizeof (float), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), sizeof (clutter_check_t), 26, 0,
+ 1, sizeof (float), 1, sizeof (float), 1, sizeof (float), 1, sizeof (float),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), sizeof (disk_file_status_t), 40, 0,
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ sizeof (device_init_t), 30, 0, 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), sizeof (device_io_error_t), 36, 0,
+ 1, sizeof (int), 1, sizeof (int), 8, sizeof (char), 1, sizeof (int), 1, sizeof (int),
+ 8, sizeof (char), 1, sizeof (int), 1, sizeof (int), 8, sizeof (char), 1, sizeof (int),
+ 1, sizeof (int), 8, sizeof (char), 1, sizeof (int), 1, sizeof (int), 8, sizeof (char),
+ 1, sizeof (int), 1, sizeof (int), 8, sizeof (char), 1, sizeof (int), 1, sizeof (int),
+ 1, sizeof (int), 8, sizeof (char), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ sizeof (Pd_pms_entry), 3, 0, 1, sizeof (short), 1, sizeof (char), 1, sizeof (char),
+ sizeof (Pd_prod_item), 7, 0, 1, sizeof (short), 1, sizeof (char), 1, sizeof (char),
+ 1, sizeof (char), 1, sizeof (char), 1, sizeof (char), 6, sizeof (short),
+ sizeof (VCP_elevation_cut_data_t), 23, 0, 1, sizeof (unsigned short), 2, sizeof (unsigned char),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), sizeof (Vcp_struct), 13, 0, 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 575, sizeof (short), sizeof (orpgevt_scan_info_data_t), 5, 0,
+ 1, sizeof (int), 1, sizeof (int), 1, sizeof (unsigned int), 1, sizeof (unsigned int),
+ 1, sizeof (int), sizeof (file_tag_t), 2, 0, 1, sizeof (int), 32, sizeof (char),
+ sizeof (RPG_clutter_regions_t), 2, 0, 1, sizeof (short), 15, sizeof (RPG_clutter_region_data_t),
+ sizeof (ORPG_clutter_regions_t), 2, 0, 1, sizeof (short), 15, sizeof (ORPG_clutter_region_data_t),
+ sizeof (RPG_clutter_region_data_t), 8, 0, 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short), sizeof (ORPG_clutter_region_data_t), 6, 0,
+ 1, sizeof (short), 1, sizeof (short), 1, sizeof (short), 1, sizeof (short),
+ 1, sizeof (short), 1, sizeof (short) 
+};
+
+static const int All_offs[] = {
+ 0, 0, 185, 25, 510, 68, 583, 75, 835, 100, 1038, 119, 1077, 124, 1164, 135,
+ 1246, 142, 1330, 149, 1408, 156, 1487, 163, 1585, 172, 1685, 181, 1791, 198,
+ 1922, 221, 2017, 240, 2574, 301, 2657, 310, 2767, 329, 2920, 342, 3016, 351,
+ 3171, 374, 3400, 403, 3451, 414, 3833, 441, 4183, 468, 4577, 513, 4622, 522,
+ 4650, 527, 4708, 538, 4824, 553, 4940, 568, 5052, 581, 5411, 626, 5587, 655,
+ 5846, 694, 5901, 701, 6072, 724, 6127, 731, 6225, 746, 6282, 753, 6344, 768,
+ 6392, 783, 6412, 788, 6486, 807, 6659, 826, 7442, 885, 7635, 912, 8541, 1025,
+ 9347, 1126, 10091, 1185, 10144, 1192, 10209, 1199, 10279, 1206, 10351, 1213,
+ 10436, 1220, 10515, 1227, 10574, 1232, 10647, 1241, 10760, 1252, 10810, 1259,
+ 10861, 1266, 10957, 1277, 11055, 1288, 11534, 1339, 11992, 1390, 12050, 1395,
+ 12362, 1420, 14008, 1577, 14225, 1596, 15199, 1669, 15471, 1696, 16004, 1745,
+ 16913, 1826, 17225, 1857, 17639, 1900, 18131, 1939, 18304, 1958, 18385, 1965,
+ 21091, 2248, 21179, 2255, 21255, 2264, 21461, 2287, 21530, 2300, 21596, 2311,
+ 21618, 2316, 21644, 2321, 21765, 2336, 21859, 2353, 21909, 2362, 21930, 2367,
+ 21956, 2372, 22174, 2407, 22280, 2422, 22333, 2429, 22408, 2442, 22584, 2471,
+ 22703, 2494, 23081, 2533, 23174, 2542, 23263, 2553, 23318, 2560, 23472, 2585,
+ 23530, 2592, 23631, 2605, 23726, 2614, 23821, 2629, 23935, 2640, 23970, 2645,
+ 24022, 2652, 24137, 2663, 24218, 2670, 24278, 2675, 24329, 2684, 24546, 2715,
+ 24601, 2722, 24654, 2729, 24761, 2740, 24881, 2755, 24997, 2768, 25132, 2783,
+ 25240, 2798, 25274, 2805, 25967, 2874, 26153, 2897, 26717, 2960, 26792, 2969,
+ 26943, 2986, 27019, 2993, 27097, 3000, 27457, 3033, 30109, 3306, 32479, 3541,
+ 32925, 3596, 33680, 3679, 34245, 3742, 34944, 3817, 34996, 3826, 35107, 3843,
+ 35549, 3892, 35802, 3921, 35918, 3934, 35949, 3941, 36016, 3948, 36085, 3955,
+ 36252, 3974 
+};
+
+
+/*** Initializes the SMI struct at offset "off" */
+
+static SMI_info_t *Smi_init (int off) {
+    SMI_info_t *mi;
+    const char *name;
+    const int *ip;
+    int n_fields, i;
+    SMI_field_t *flds;
+
+    name = All_names + All_offs[off];
+    ip = All_ints + All_offs[off + 1];
+    n_fields = ip[1];
+    while ((mi = (SMI_info_t *)malloc 
+	(sizeof (SMI_info_t) + n_fields * sizeof (SMI_field_t))) == NULL)
+	sleep (1);
+    mi->name = (char *)name;
+    name += strlen (name) + 1;
+    mi->size = *ip;
+    ip++;
+    mi->n_fields = n_fields;
+    ip++;
+    mi->n_vsfs = *ip;
+    ip++;
+    flds = (SMI_field_t *)((char *)mi + sizeof (SMI_info_t));
+    mi->fields = flds;
+    mi->ci = NULL;
+
+    for (i = 0; i < n_fields; i++) {
+	flds[i].name = (char *)name;
+	name += strlen (name) + 1;
+	flds[i].type = (char *)name;
+	name += strlen (name) + 1;
+	flds[i].n_items = *ip;
+	ip++;
+	flds[i].size = *ip;
+	ip++;
+	flds[i].offset = 0;
+	flds[i].ci = NULL;
+    }
+    return (mi);
+}
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/prod_gen_msg.h started at line 61 ***/
+
+static SMI_info_t *Prod_gen_msg_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 0;
+    SMI_field_t *fmi;
+    Prod_gen_msg *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->prod_id) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->input_stream) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->id) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->gen_t) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->vol_t) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->len) - (char *)tmp;
+    fmi[6].offset = (char *)&(tmp->req_num) - (char *)tmp;
+    fmi[7].offset = (char *)&(tmp->elev_ind) - (char *)tmp;
+    fmi[8].offset = (char *)&(tmp->vol_num) - (char *)tmp;
+    fmi[9].offset = (char *)&(tmp->req_params) - (char *)tmp;
+    fmi[10].offset = (char *)&(tmp->resp_params) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/basedata.h started at line 574 ***/
+
+static SMI_info_t *Radial_accounting_data_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 2;
+    SMI_field_t *fmi;
+    Radial_accounting_data *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->accunrng) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->accunvel) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->accsecsaz) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->acceltms) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->acceltme) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->acceldts) - (char *)tmp;
+    fmi[6].offset = (char *)&(tmp->acceldte) - (char *)tmp;
+    fmi[7].offset = (char *)&(tmp->accbegaz) - (char *)tmp;
+    fmi[8].offset = (char *)&(tmp->accbegel) - (char *)tmp;
+    fmi[9].offset = (char *)&(tmp->accendaz) - (char *)tmp;
+    fmi[10].offset = (char *)&(tmp->accpendaz) - (char *)tmp;
+    fmi[11].offset = (char *)&(tmp->accnumrd) - (char *)tmp;
+    fmi[12].offset = (char *)&(tmp->accatmos) - (char *)tmp;
+    fmi[13].offset = (char *)&(tmp->accnumel) - (char *)tmp;
+    fmi[14].offset = (char *)&(tmp->accthrparm) - (char *)tmp;
+    fmi[15].offset = (char *)&(tmp->accwxmode) - (char *)tmp;
+    fmi[16].offset = (char *)&(tmp->accvcpnum) - (char *)tmp;
+    fmi[17].offset = (char *)&(tmp->accdopres) - (char *)tmp;
+    fmi[18].offset = (char *)&(tmp->acccalib) - (char *)tmp;
+    fmi[19].offset = (char *)&(tmp->accvsdate) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/gen_stat_msg.h started at line 121 ***/
+
+static SMI_info_t *RDA_status_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 4;
+    SMI_field_t *fmi;
+    RDA_status_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->wb_comms) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->status_msg) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/gen_stat_msg.h started at line 63 ***/
+
+static SMI_info_t *struct_volume_status_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 6;
+    SMI_field_t *fmi;
+    struct volume_status *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->volume_number) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->cv_time) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->initial_vol) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->expected_vol_dur) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->cv_julian_date) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->pv_status) - (char *)tmp;
+    fmi[6].offset = (char *)&(tmp->mode_operation) - (char *)tmp;
+    fmi[7].offset = (char *)&(tmp->vol_cov_patt) - (char *)tmp;
+    fmi[8].offset = (char *)&(tmp->num_elev_cuts) - (char *)tmp;
+    fmi[9].offset = (char *)&(tmp->elevations) - (char *)tmp;
+    fmi[10].offset = (char *)&(tmp->elev_index) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/gen_stat_msg.h started at line 143 ***/
+
+static SMI_info_t *struct_previous_state_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 8;
+    SMI_field_t *fmi;
+    struct previous_state *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->rda_status) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->data_trans_enbld) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->rda_control_auth) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->int_suppr_unit) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->op_mode) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->spot_blanking_status) - (char *)tmp;
+    fmi[6].offset = (char *)&(tmp->current_vcp_number) - (char *)tmp;
+    fmi[7].offset = (char *)&(tmp->channel_control) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/gen_stat_msg.h started at line 181 ***/
+
+static SMI_info_t *Summary_Data_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 10;
+    SMI_field_t *fmi;
+    Summary_Data *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->scan_summary) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/gen_stat_msg.h started at line 188 ***/
+
+static SMI_info_t *ArchIII_status_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 12;
+    SMI_field_t *fmi;
+    ArchIII_status_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->status) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->pcnt_used) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->code) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->last_read) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/rda_rpg_clutter_map.h started at line 142 ***/
+
+static SMI_info_t *RDA_bypass_map_msg_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 14;
+    SMI_field_t *fmi;
+    RDA_bypass_map_msg_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->msg_hdr) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->bypass_map) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/rda_rpg_clutter_map.h started at line 151 ***/
+
+static SMI_info_t *ORDA_bypass_map_msg_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 16;
+    SMI_field_t *fmi;
+    ORDA_bypass_map_msg_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->msg_hdr) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->bypass_map) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/rda_notch_width_map.h started at line 113 ***/
+
+static SMI_info_t *RDA_notch_map_msg_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 18;
+    SMI_field_t *fmi;
+    RDA_notch_map_msg_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->msg_hdr) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->notchmap) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/orda_clutter_map.h started at line 95 ***/
+
+static SMI_info_t *ORDA_clutter_map_msg_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 20;
+    SMI_field_t *fmi;
+    ORDA_clutter_map_msg_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->msg_hdr) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->map) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/clutter.h started at line 96 ***/
+
+static SMI_info_t *RPG_clutter_regions_msg_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 22;
+    SMI_field_t *fmi;
+    RPG_clutter_regions_msg_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->last_dwnld_time) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->last_dwnld_file) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->file) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/clutter.h started at line 104 ***/
+
+static SMI_info_t *ORPG_clutter_regions_msg_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 24;
+    SMI_field_t *fmi;
+    ORPG_clutter_regions_msg_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->last_dwnld_time) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->last_dwnld_file) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->file) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/orpgrat.h started at line 30 ***/
+
+static SMI_info_t *RDA_alarm_entry_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 26;
+    SMI_field_t *fmi;
+    RDA_alarm_entry_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->code) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->state) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->type) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->device) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->sample) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->spare) - (char *)tmp;
+    fmi[6].offset = (char *)&(tmp->alarm_text) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/rda_alarm_table.h started at line 18 ***/
+
+static SMI_info_t *RDA_alarm_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 28;
+    SMI_field_t *fmi;
+    RDA_alarm_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->month) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->day) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->year) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->hour) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->minute) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->second) - (char *)tmp;
+    fmi[6].offset = (char *)&(tmp->code) - (char *)tmp;
+    fmi[7].offset = (char *)&(tmp->alarm) - (char *)tmp;
+    fmi[8].offset = (char *)&(tmp->channel) - (char *)tmp;
+    fmi[9].offset = (char *)&(tmp->spare) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/orpgrda.h started at line 327 ***/
+
+static SMI_info_t *Rda_cmd_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 30;
+    SMI_field_t *fmi;
+    Rda_cmd_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->cmd) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->line_num) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->param1) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->param2) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->param3) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->param4) - (char *)tmp;
+    fmi[6].offset = (char *)&(tmp->param5) - (char *)tmp;
+    fmi[7].offset = (char *)&(tmp->msg) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/rda_performance_maintenance.h started at line 841 ***/
+
+static SMI_info_t *rda_performance_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 32;
+    SMI_field_t *fmi;
+    rda_performance_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->msg_hdr) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->rpg) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->user) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->data) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->calibration) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->clutter_check) - (char *)tmp;
+    fmi[6].offset = (char *)&(tmp->disk_status) - (char *)tmp;
+    fmi[7].offset = (char *)&(tmp->device_init) - (char *)tmp;
+    fmi[8].offset = (char *)&(tmp->device_error) - (char *)tmp;
+    fmi[9].offset = (char *)&(tmp->interproc_chan_resp) - (char *)tmp;
+    fmi[10].offset = (char *)&(tmp->spare502) - (char *)tmp;
+    fmi[11].offset = (char *)&(tmp->chan_in_cntrl) - (char *)tmp;
+    fmi[12].offset = (char *)&(tmp->spare504) - (char *)tmp;
+    fmi[13].offset = (char *)&(tmp->spare505) - (char *)tmp;
+    fmi[14].offset = (char *)&(tmp->spare506) - (char *)tmp;
+    fmi[15].offset = (char *)&(tmp->spare507) - (char *)tmp;
+    fmi[16].offset = (char *)&(tmp->spare508) - (char *)tmp;
+    fmi[17].offset = (char *)&(tmp->spare509) - (char *)tmp;
+    fmi[18].offset = (char *)&(tmp->spare510) - (char *)tmp;
+    fmi[19].offset = (char *)&(tmp->spare511) - (char *)tmp;
+    fmi[20].offset = (char *)&(tmp->spare512) - (char *)tmp;
+    fmi[21].offset = (char *)&(tmp->spare513) - (char *)tmp;
+    fmi[22].offset = (char *)&(tmp->spare514) - (char *)tmp;
+    fmi[23].offset = (char *)&(tmp->spare515) - (char *)tmp;
+    fmi[24].offset = (char *)&(tmp->spare516) - (char *)tmp;
+    fmi[25].offset = (char *)&(tmp->spare517) - (char *)tmp;
+    fmi[26].offset = (char *)&(tmp->spare518) - (char *)tmp;
+    fmi[27].offset = (char *)&(tmp->spare519) - (char *)tmp;
+    fmi[28].offset = (char *)&(tmp->spare520) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/rda_rpg_console_message.h started at line 27 ***/
+
+static SMI_info_t *RDA_RPG_console_message_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 34;
+    SMI_field_t *fmi;
+    RDA_RPG_console_message_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->msg_hdr) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->size) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->message) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/lib/include/le.h started at line 82 ***/
+
+static SMI_info_t *LE_critical_message_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 36;
+    SMI_field_t *fmi;
+    LE_critical_message *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->code) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->time) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->pid) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->n_reps) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->line_num) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->fname) - (char *)tmp;
+    fmi[6].offset = (char *)&(tmp->pad) - (char *)tmp;
+    fmi[7].offset = (char *)&(tmp->text) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/orpginfo.h started at line 180 ***/
+
+static SMI_info_t *Orpginfo_statefl_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 38;
+    SMI_field_t *fmi;
+    Orpginfo_statefl_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->rpg_op_status) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->rpg_alarms) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->rpg_status_cmded) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->rpg_status) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->rpg_status_prev) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/orpginfo.h started at line 161 ***/
+
+static SMI_info_t *Orpginfo_statefl_shared_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 40;
+    SMI_field_t *fmi;
+    Orpginfo_statefl_shared_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->flags) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->rpg_alarms) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->rpg_op_status) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/mrpg.h started at line 89 ***/
+
+static SMI_info_t *Mrpg_state_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 42;
+    SMI_field_t *fmi;
+    Mrpg_state_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->state) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->test_mode) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->st_time) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->alive_time) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->cmd) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->active) - (char *)tmp;
+    fmi[6].offset = (char *)&(tmp->fail_count) - (char *)tmp;
+    fmi[7].offset = (char *)&(tmp->pf_state) - (char *)tmp;
+    fmi[8].offset = (char *)&(tmp->fail_time) - (char *)tmp;
+    fmi[9].offset = (char *)&(tmp->check_sum) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/orpgtat.h started at line 137 ***/
+
+static SMI_info_t *Orpgtat_entry_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 44;
+    SMI_field_t *fmi;
+    Orpgtat_entry_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->id) - (char *)tmp;
+    fmi[1].n_items = (((32)+1));
+    fmi[1].offset = (char *)&(tmp->name) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->entry_size) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->type) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->input_stream) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->desc) - (char *)tmp;
+    fmi[6].offset = (char *)&(tmp->maxn_inst) - (char *)tmp;
+    fmi[7].offset = (char *)&(tmp->args) - (char *)tmp;
+    fmi[8].offset = (char *)&(tmp->binary_names) - (char *)tmp;
+    fmi[9].offset = (char *)&(tmp->num_input_dataids) - (char *)tmp;
+    fmi[10].offset = (char *)&(tmp->input_data) - (char *)tmp;
+    fmi[11].offset = (char *)&(tmp->num_output_dataids) - (char *)tmp;
+    fmi[12].offset = (char *)&(tmp->output_data) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/mrpg.h started at line 148 ***/
+
+static SMI_info_t *Mrpg_cmd_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 46;
+    SMI_field_t *fmi;
+    Mrpg_cmd_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->id) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->mrpg_cmd) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->sender) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->time) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/orpgload.h started at line 64 ***/
+
+static SMI_info_t *load_shed_threshold_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 48;
+    SMI_field_t *fmi;
+    load_shed_threshold_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->prod_dist_warn) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->prod_dist_alarm) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->prod_storage_warn) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->prod_storage_alarm) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->input_buf_warn) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->input_buf_alarm) - (char *)tmp;
+    fmi[6].offset = (char *)&(tmp->rda_radial_warn) - (char *)tmp;
+    fmi[7].offset = (char *)&(tmp->rda_radial_alarm) - (char *)tmp;
+    fmi[8].offset = (char *)&(tmp->rpg_radial_warn) - (char *)tmp;
+    fmi[9].offset = (char *)&(tmp->rpg_radial_alarm) - (char *)tmp;
+    fmi[10].offset = (char *)&(tmp->wb_user_warn) - (char *)tmp;
+    fmi[11].offset = (char *)&(tmp->wb_user_alarm) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/orpgload.h started at line 102 ***/
+
+static SMI_info_t *load_shed_current_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 50;
+    SMI_field_t *fmi;
+    load_shed_current_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->prod_dist) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->prod_dist_state) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->prod_storage) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->prod_storage_state) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->input_buf) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->input_buf_state) - (char *)tmp;
+    fmi[6].offset = (char *)&(tmp->rda_radial) - (char *)tmp;
+    fmi[7].offset = (char *)&(tmp->rda_radial_state) - (char *)tmp;
+    fmi[8].offset = (char *)&(tmp->rpg_radial) - (char *)tmp;
+    fmi[9].offset = (char *)&(tmp->rpg_radial_state) - (char *)tmp;
+    fmi[10].offset = (char *)&(tmp->wb_user) - (char *)tmp;
+    fmi[11].offset = (char *)&(tmp->wb_user_state) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/hci.h started at line 53 ***/
+
+static SMI_info_t *Hci_gui_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 52;
+    SMI_field_t *fmi;
+    Hci_gui_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->text_fg_color) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->text_bg_color) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->button_fg_color) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->button_bg_color) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->edit_fg_color) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->edit_bg_color) - (char *)tmp;
+    fmi[6].offset = (char *)&(tmp->canvas_bg1_color) - (char *)tmp;
+    fmi[7].offset = (char *)&(tmp->canvas_bg2_color) - (char *)tmp;
+    fmi[8].offset = (char *)&(tmp->normal_color) - (char *)tmp;
+    fmi[9].offset = (char *)&(tmp->warning_color) - (char *)tmp;
+    fmi[10].offset = (char *)&(tmp->alarm1_color) - (char *)tmp;
+    fmi[11].offset = (char *)&(tmp->alarm2_color) - (char *)tmp;
+    fmi[12].offset = (char *)&(tmp->loca_fg_color) - (char *)tmp;
+    fmi[13].offset = (char *)&(tmp->loca_bg_color) - (char *)tmp;
+    fmi[14].offset = (char *)&(tmp->icon_fg_color) - (char *)tmp;
+    fmi[15].offset = (char *)&(tmp->icon_bg_color) - (char *)tmp;
+    fmi[16].offset = (char *)&(tmp->product_fg_color) - (char *)tmp;
+    fmi[17].offset = (char *)&(tmp->product_bg_color) - (char *)tmp;
+    fmi[18].offset = (char *)&(tmp->audio_enabled) - (char *)tmp;
+    fmi[19].offset = (char *)&(tmp->font_size) - (char *)tmp;
+    fmi[20].offset = (char *)&(tmp->font_point) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/hci.h started at line 87 ***/
+
+static SMI_info_t *Hci_password_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 54;
+    SMI_field_t *fmi;
+    Hci_password_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->agency) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->roc) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->urc) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/hci.h started at line 97 ***/
+
+static SMI_info_t *Hci_rms_status_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 56;
+    SMI_field_t *fmi;
+    Hci_rms_status_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->status) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/hci.h started at line 109 ***/
+
+static SMI_info_t *Hci_task_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 58;
+    SMI_field_t *fmi;
+    Hci_task_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->id) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->instance) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->control_task) - (char *)tmp;
+    fmi[3].n_items = (((32)+1));
+    fmi[3].offset = (char *)&(tmp->name) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/hci.h started at line 124 ***/
+
+static SMI_info_t *Hci_ccz_data_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 60;
+    SMI_field_t *fmi;
+    Hci_ccz_data_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->low_product) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->high_product) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->n_cuts) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->cut_list) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->n_products) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->product_list) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/hci.h started at line 139 ***/
+
+static SMI_info_t *Hci_prf_data_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 62;
+    SMI_field_t *fmi;
+    Hci_prf_data_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->low_product) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->high_product) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->n_cuts) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->cut_list) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->n_products) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->product_list) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/alg_cpu_stats.h started at line 14 ***/
+
+static SMI_info_t *struct_alg_cpu_stats_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 64;
+    SMI_field_t *fmi;
+    struct alg_cpu_stats *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->vol_scan_num) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->elev_cnt) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->total_cpu) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->avg_cpu) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->avg_cpu_percent) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/prod_distri_info.h started at line 237 ***/
+
+static SMI_info_t *Pd_user_entry_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 66;
+    SMI_field_t *fmi;
+    Pd_user_entry *tmp = NULL;
+    Pd_user_entry *data = (Pd_user_entry *)dt;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    if (dt == NULL)
+	return (mi);
+
+    mi->size = (Byte_swap_data (&(data->entry_size), "short"));
+    fmi[0].offset = (char *)&(tmp->entry_size) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->user_id) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->pms_len) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->dd_len) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->map_len) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->pms_list) - (char *)tmp;
+    fmi[6].offset = (char *)&(tmp->dd_list) - (char *)tmp;
+    fmi[7].offset = (char *)&(tmp->map_list) - (char *)tmp;
+    fmi[8].offset = (char *)&(tmp->max_connect_time) - (char *)tmp;
+    fmi[9].offset = (char *)&(tmp->n_req_prods) - (char *)tmp;
+    fmi[10].offset = (char *)&(tmp->wait_time_for_rps) - (char *)tmp;
+    fmi[11].offset = (char *)&(tmp->distri_method) - (char *)tmp;
+    fmi[12].offset = (char *)&(tmp->up_type) - (char *)tmp;
+    fmi[13].offset = (char *)&(tmp->line_ind) - (char *)tmp;
+    fmi[14].offset = (char *)&(tmp->class) - (char *)tmp;
+    fmi[15].offset = (char *)&(tmp->cntl) - (char *)tmp;
+    fmi[16].offset = (char *)&(tmp->defined) - (char *)tmp;
+    fmi[17].offset = (char *)&(tmp->user_password) - (char *)tmp;
+    fmi[18].offset = (char *)&(tmp->user_name) - (char *)tmp;
+    fmi[19].n_items = (Byte_swap_data (&(data->pms_len), "short"));
+    fmi[19].offset = (Byte_swap_data (&(data->pms_list), "short"));
+    fmi[20].n_items = (Byte_swap_data (&(data->dd_len), "short"));
+    fmi[20].offset = (Byte_swap_data (&(data->dd_list), "short"));
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/hci_up_nb.h started at line 30 ***/
+
+static SMI_info_t *Line_status_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 68;
+    SMI_field_t *fmi;
+    Line_status *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->line_num) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->type) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->protocol) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->user_id) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->status) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->state) - (char *)tmp;
+    fmi[6].offset = (char *)&(tmp->util) - (char *)tmp;
+    fmi[7].offset = (char *)&(tmp->rate) - (char *)tmp;
+    fmi[8].offset = (char *)&(tmp->uclass) - (char *)tmp;
+    fmi[9].offset = (char *)&(tmp->enable) - (char *)tmp;
+    fmi[10].offset = (char *)&(tmp->selected) - (char *)tmp;
+    fmi[11].offset = (char *)&(tmp->spare) - (char *)tmp;
+    fmi[12].offset = (char *)&(tmp->str) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/hci_up_nb.h started at line 56 ***/
+
+static SMI_info_t *Line_details_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 70;
+    SMI_field_t *fmi;
+    Line_details *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->line_num) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->type) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->port_pswd) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->baud_rate) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->pserver_num) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->comms_mgr_num) - (char *)tmp;
+    fmi[6].offset = (char *)&(tmp->max_conn_time) - (char *)tmp;
+    fmi[7].offset = (char *)&(tmp->packet_size) - (char *)tmp;
+    fmi[8].offset = (char *)&(tmp->protocol) - (char *)tmp;
+    fmi[9].offset = (char *)&(tmp->defined) - (char *)tmp;
+    fmi[10].offset = (char *)&(tmp->user_id) - (char *)tmp;
+    fmi[11].offset = (char *)&(tmp->user_name) - (char *)tmp;
+    fmi[12].offset = (char *)&(tmp->distri_method) - (char *)tmp;
+    fmi[13].offset = (char *)&(tmp->uclass) - (char *)tmp;
+    fmi[14].offset = (char *)&(tmp->retries) - (char *)tmp;
+    fmi[15].offset = (char *)&(tmp->timeout) - (char *)tmp;
+    fmi[16].offset = (char *)&(tmp->alarm) - (char *)tmp;
+    fmi[17].offset = (char *)&(tmp->warning) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/hci_up_nb.h started at line 82 ***/
+
+static SMI_info_t *Line_details_tbl_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 72;
+    SMI_field_t *fmi;
+    Line_details_tbl_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->sizeof_data) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->data) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/hci_up_nb.h started at line 92 ***/
+
+static SMI_info_t *Dial_details_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 74;
+    SMI_field_t *fmi;
+    Dial_details *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->msg_id) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->user_id) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->user_name) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->user_password) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->max_connect_time) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->disconnect_override) - (char *)tmp;
+    fmi[6].offset = (char *)&(tmp->class) - (char *)tmp;
+    fmi[7].offset = (char *)&(tmp->distri_method) - (char *)tmp;
+    fmi[8].offset = (char *)&(tmp->defined) - (char *)tmp;
+    fmi[9].offset = (char *)&(tmp->delete_flag) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/hci_up_nb.h started at line 108 ***/
+
+static SMI_info_t *Dial_details_tbl_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 76;
+    SMI_field_t *fmi;
+    Dial_details_tbl_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->sizeof_data) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->data) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/hci_up_nb.h started at line 118 ***/
+
+static SMI_info_t *Class_details_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 78;
+    SMI_field_t *fmi;
+    Class_details *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->class) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->line_ind) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->name) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->distri_method) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->defined) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->max_connect_time) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/hci_up_nb.h started at line 130 ***/
+
+static SMI_info_t *Class_details_tbl_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 80;
+    SMI_field_t *fmi;
+    Class_details_tbl_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->sizeof_data) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->data) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     bfpsmi.c started at line 146 ***/
+
+static SMI_info_t *MyShortStruct_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 82;
+    SMI_field_t *fmi;
+    MyShortStruct *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->u) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->v) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->w) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->x) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->y) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->z) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     bfpsmi.c started at line 156 ***/
+
+static SMI_info_t *MyIntStruct_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 84;
+    SMI_field_t *fmi;
+    MyIntStruct *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->a) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->b) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->c) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->d) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->e) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->f) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     bfpsmi.c started at line 166 ***/
+
+static SMI_info_t *MyCharStruct_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 86;
+    SMI_field_t *fmi;
+    MyCharStruct *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->c) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     bfpsmi.c started at line 171 ***/
+
+static SMI_info_t *MyComboStruct_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 88;
+    SMI_field_t *fmi;
+    MyComboStruct *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->a) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->w) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->x) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->b) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->c) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->y) - (char *)tmp;
+    fmi[6].offset = (char *)&(tmp->z) - (char *)tmp;
+    fmi[7].offset = (char *)&(tmp->zz) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/rda_rpg_message_header.h started at line 37 ***/
+
+static SMI_info_t *RDA_RPG_message_header_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 90;
+    SMI_field_t *fmi;
+    RDA_RPG_message_header_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->size) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->rda_channel) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->type) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->sequence_num) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->julian_date) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->milliseconds) - (char *)tmp;
+    fmi[6].offset = (char *)&(tmp->num_segs) - (char *)tmp;
+    fmi[7].offset = (char *)&(tmp->seg_num) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/rda_status.h started at line 245 ***/
+
+static SMI_info_t *RDA_status_msg_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 92;
+    SMI_field_t *fmi;
+    RDA_status_msg_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->msg_hdr) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->rda_status) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->op_status) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->control_status) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->aux_pwr_state) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->ave_trans_pwr) - (char *)tmp;
+    fmi[6].offset = (char *)&(tmp->ref_calib_corr) - (char *)tmp;
+    fmi[7].offset = (char *)&(tmp->data_trans_enbld) - (char *)tmp;
+    fmi[8].offset = (char *)&(tmp->vcp_num) - (char *)tmp;
+    fmi[9].offset = (char *)&(tmp->rda_control_auth) - (char *)tmp;
+    fmi[10].offset = (char *)&(tmp->int_detect_rate) - (char *)tmp;
+    fmi[11].offset = (char *)&(tmp->op_mode) - (char *)tmp;
+    fmi[12].offset = (char *)&(tmp->int_suppr_unit) - (char *)tmp;
+    fmi[13].offset = (char *)&(tmp->arch_II_status) - (char *)tmp;
+    fmi[14].offset = (char *)&(tmp->arch_II_capacity) - (char *)tmp;
+    fmi[15].offset = (char *)&(tmp->rda_alarm) - (char *)tmp;
+    fmi[16].offset = (char *)&(tmp->command_status) - (char *)tmp;
+    fmi[17].offset = (char *)&(tmp->channel_status) - (char *)tmp;
+    fmi[18].offset = (char *)&(tmp->spot_blanking_status) - (char *)tmp;
+    fmi[19].offset = (char *)&(tmp->bypass_map_date) - (char *)tmp;
+    fmi[20].offset = (char *)&(tmp->bypass_map_time) - (char *)tmp;
+    fmi[21].offset = (char *)&(tmp->notchwidth_map_date) - (char *)tmp;
+    fmi[22].offset = (char *)&(tmp->notchwidth_map_time) - (char *)tmp;
+    fmi[23].offset = (char *)&(tmp->spare23) - (char *)tmp;
+    fmi[24].offset = (char *)&(tmp->tps_status) - (char *)tmp;
+    fmi[25].offset = (char *)&(tmp->rms_control_status) - (char *)tmp;
+    fmi[26].offset = (char *)&(tmp->spare26) - (char *)tmp;
+    fmi[27].offset = (char *)&(tmp->alarm_code) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/prod_gen_msg.h started at line 87 ***/
+
+static SMI_info_t *Prod_header_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 94;
+    SMI_field_t *fmi;
+    Prod_header *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->g) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->elev_t) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->elev_cnt) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->archIII_flg) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->bd_status) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->spare) - (char *)tmp;
+    fmi[6].offset = (char *)&(tmp->spot_blank_bitmap) - (char *)tmp;
+    fmi[7].offset = (char *)&(tmp->wx_mode) - (char *)tmp;
+    fmi[8].offset = (char *)&(tmp->vcp_num) - (char *)tmp;
+    fmi[9].offset = (char *)&(tmp->compr_method) - (char *)tmp;
+    fmi[10].offset = (char *)&(tmp->orig_size) - (char *)tmp;
+    fmi[11].offset = (char *)&(tmp->reserved) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/basedata.h started at line 131 ***/
+
+static SMI_info_t *struct_nx_msg_hdr_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 96;
+    SMI_field_t *fmi;
+    struct nx_msg_hdr *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->msg_len) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->msg_type) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->seq_num) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->msg_date) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->msg_time) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->num_msg_segs) - (char *)tmp;
+    fmi[6].offset = (char *)&(tmp->msg_seg_num) - (char *)tmp;
+    fmi[7].offset = (char *)&(tmp->time) - (char *)tmp;
+    fmi[8].offset = (char *)&(tmp->date) - (char *)tmp;
+    fmi[9].offset = (char *)&(tmp->unamb_range) - (char *)tmp;
+    fmi[10].offset = (char *)&(tmp->azimuth) - (char *)tmp;
+    fmi[11].offset = (char *)&(tmp->azi_num) - (char *)tmp;
+    fmi[12].offset = (char *)&(tmp->status) - (char *)tmp;
+    fmi[13].offset = (char *)&(tmp->elevation) - (char *)tmp;
+    fmi[14].offset = (char *)&(tmp->elev_num) - (char *)tmp;
+    fmi[15].offset = (char *)&(tmp->surv_range) - (char *)tmp;
+    fmi[16].offset = (char *)&(tmp->dop_range) - (char *)tmp;
+    fmi[17].offset = (char *)&(tmp->surv_bin_size) - (char *)tmp;
+    fmi[18].offset = (char *)&(tmp->dop_bin_size) - (char *)tmp;
+    fmi[19].offset = (char *)&(tmp->n_surv_bins) - (char *)tmp;
+    fmi[20].offset = (char *)&(tmp->n_dop_bins) - (char *)tmp;
+    fmi[21].offset = (char *)&(tmp->sector_num) - (char *)tmp;
+    fmi[22].offset = (char *)&(tmp->calib_const) - (char *)tmp;
+    fmi[23].offset = (char *)&(tmp->ref_ptr) - (char *)tmp;
+    fmi[24].offset = (char *)&(tmp->vel_ptr) - (char *)tmp;
+    fmi[25].offset = (char *)&(tmp->spw_ptr) - (char *)tmp;
+    fmi[26].offset = (char *)&(tmp->vel_resolution) - (char *)tmp;
+    fmi[27].offset = (char *)&(tmp->vcp_num) - (char *)tmp;
+    fmi[28].offset = (char *)&(tmp->word_32) - (char *)tmp;
+    fmi[29].offset = (char *)&(tmp->word_33) - (char *)tmp;
+    fmi[30].offset = (char *)&(tmp->word_34) - (char *)tmp;
+    fmi[31].offset = (char *)&(tmp->word_35) - (char *)tmp;
+    fmi[32].offset = (char *)&(tmp->ref_data_playback) - (char *)tmp;
+    fmi[33].offset = (char *)&(tmp->dop_data_playback) - (char *)tmp;
+    fmi[34].offset = (char *)&(tmp->sw_data_playback) - (char *)tmp;
+    fmi[35].offset = (char *)&(tmp->nyquist_vel) - (char *)tmp;
+    fmi[36].offset = (char *)&(tmp->atmos_atten) - (char *)tmp;
+    fmi[37].offset = (char *)&(tmp->threshold_param) - (char *)tmp;
+    fmi[38].offset = (char *)&(tmp->spot_blank_flag) - (char *)tmp;
+    fmi[39].offset = (char *)&(tmp->word_43) - (char *)tmp;
+    fmi[40].offset = (char *)&(tmp->word_44) - (char *)tmp;
+    fmi[41].offset = (char *)&(tmp->word_45) - (char *)tmp;
+    fmi[42].offset = (char *)&(tmp->word_46) - (char *)tmp;
+    fmi[43].offset = (char *)&(tmp->word_47) - (char *)tmp;
+    fmi[44].offset = (char *)&(tmp->word_48) - (char *)tmp;
+    fmi[45].offset = (char *)&(tmp->word_49) - (char *)tmp;
+    fmi[46].offset = (char *)&(tmp->word_50) - (char *)tmp;
+    fmi[47].offset = (char *)&(tmp->word_51) - (char *)tmp;
+    fmi[48].offset = (char *)&(tmp->word_52) - (char *)tmp;
+    fmi[49].offset = (char *)&(tmp->word_53) - (char *)tmp;
+    fmi[50].offset = (char *)&(tmp->word_54) - (char *)tmp;
+    fmi[51].offset = (char *)&(tmp->word_55) - (char *)tmp;
+    fmi[52].offset = (char *)&(tmp->word_56) - (char *)tmp;
+    fmi[53].offset = (char *)&(tmp->word_57) - (char *)tmp;
+    fmi[54].offset = (char *)&(tmp->word_58) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/basedata.h started at line 297 ***/
+
+static SMI_info_t *struct_orda_nx_msg_hdr_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 98;
+    SMI_field_t *fmi;
+    struct orda_nx_msg_hdr *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->msg_hdr) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->time) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->date) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->unamb_range) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->azimuth) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->azi_num) - (char *)tmp;
+    fmi[6].offset = (char *)&(tmp->status) - (char *)tmp;
+    fmi[7].offset = (char *)&(tmp->elevation) - (char *)tmp;
+    fmi[8].offset = (char *)&(tmp->elev_num) - (char *)tmp;
+    fmi[9].offset = (char *)&(tmp->surv_range) - (char *)tmp;
+    fmi[10].offset = (char *)&(tmp->dop_range) - (char *)tmp;
+    fmi[11].offset = (char *)&(tmp->surv_bin_size) - (char *)tmp;
+    fmi[12].offset = (char *)&(tmp->dop_bin_size) - (char *)tmp;
+    fmi[13].offset = (char *)&(tmp->n_surv_bins) - (char *)tmp;
+    fmi[14].offset = (char *)&(tmp->n_dop_bins) - (char *)tmp;
+    fmi[15].offset = (char *)&(tmp->sector_num) - (char *)tmp;
+    fmi[16].offset = (char *)&(tmp->calib_const) - (char *)tmp;
+    fmi[17].offset = (char *)&(tmp->ref_ptr) - (char *)tmp;
+    fmi[18].offset = (char *)&(tmp->vel_ptr) - (char *)tmp;
+    fmi[19].offset = (char *)&(tmp->spw_ptr) - (char *)tmp;
+    fmi[20].offset = (char *)&(tmp->vel_resolution) - (char *)tmp;
+    fmi[21].offset = (char *)&(tmp->vcp_num) - (char *)tmp;
+    fmi[22].offset = (char *)&(tmp->word_32) - (char *)tmp;
+    fmi[23].offset = (char *)&(tmp->word_33) - (char *)tmp;
+    fmi[24].offset = (char *)&(tmp->word_34) - (char *)tmp;
+    fmi[25].offset = (char *)&(tmp->word_35) - (char *)tmp;
+    fmi[26].offset = (char *)&(tmp->word_36) - (char *)tmp;
+    fmi[27].offset = (char *)&(tmp->word_37) - (char *)tmp;
+    fmi[28].offset = (char *)&(tmp->word_38) - (char *)tmp;
+    fmi[29].offset = (char *)&(tmp->nyquist_vel) - (char *)tmp;
+    fmi[30].offset = (char *)&(tmp->atmos_atten) - (char *)tmp;
+    fmi[31].offset = (char *)&(tmp->threshold_param) - (char *)tmp;
+    fmi[32].offset = (char *)&(tmp->spot_blank_flag) - (char *)tmp;
+    fmi[33].offset = (char *)&(tmp->word_43) - (char *)tmp;
+    fmi[34].offset = (char *)&(tmp->word_44) - (char *)tmp;
+    fmi[35].offset = (char *)&(tmp->word_45) - (char *)tmp;
+    fmi[36].offset = (char *)&(tmp->word_46) - (char *)tmp;
+    fmi[37].offset = (char *)&(tmp->word_47) - (char *)tmp;
+    fmi[38].offset = (char *)&(tmp->word_48) - (char *)tmp;
+    fmi[39].offset = (char *)&(tmp->word_49) - (char *)tmp;
+    fmi[40].offset = (char *)&(tmp->word_50) - (char *)tmp;
+    fmi[41].offset = (char *)&(tmp->word_51) - (char *)tmp;
+    fmi[42].offset = (char *)&(tmp->word_52) - (char *)tmp;
+    fmi[43].offset = (char *)&(tmp->word_53) - (char *)tmp;
+    fmi[44].offset = (char *)&(tmp->word_54) - (char *)tmp;
+    fmi[45].offset = (char *)&(tmp->word_55) - (char *)tmp;
+    fmi[46].offset = (char *)&(tmp->word_56) - (char *)tmp;
+    fmi[47].offset = (char *)&(tmp->word_57) - (char *)tmp;
+    fmi[48].offset = (char *)&(tmp->word_58) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/rda_status.h started at line 419 ***/
+
+static SMI_info_t *ORDA_status_msg_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 100;
+    SMI_field_t *fmi;
+    ORDA_status_msg_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->msg_hdr) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->rda_status) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->op_status) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->control_status) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->aux_pwr_state) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->ave_trans_pwr) - (char *)tmp;
+    fmi[6].offset = (char *)&(tmp->ref_calib_corr) - (char *)tmp;
+    fmi[7].offset = (char *)&(tmp->data_trans_enbld) - (char *)tmp;
+    fmi[8].offset = (char *)&(tmp->vcp_num) - (char *)tmp;
+    fmi[9].offset = (char *)&(tmp->rda_control_auth) - (char *)tmp;
+    fmi[10].offset = (char *)&(tmp->rda_build_num) - (char *)tmp;
+    fmi[11].offset = (char *)&(tmp->op_mode) - (char *)tmp;
+    fmi[12].offset = (char *)&(tmp->spare12) - (char *)tmp;
+    fmi[13].offset = (char *)&(tmp->spare13) - (char *)tmp;
+    fmi[14].offset = (char *)&(tmp->spare14) - (char *)tmp;
+    fmi[15].offset = (char *)&(tmp->rda_alarm) - (char *)tmp;
+    fmi[16].offset = (char *)&(tmp->command_status) - (char *)tmp;
+    fmi[17].offset = (char *)&(tmp->channel_status) - (char *)tmp;
+    fmi[18].offset = (char *)&(tmp->spot_blanking_status) - (char *)tmp;
+    fmi[19].offset = (char *)&(tmp->bypass_map_date) - (char *)tmp;
+    fmi[20].offset = (char *)&(tmp->bypass_map_time) - (char *)tmp;
+    fmi[21].offset = (char *)&(tmp->clutter_map_date) - (char *)tmp;
+    fmi[22].offset = (char *)&(tmp->clutter_map_time) - (char *)tmp;
+    fmi[23].offset = (char *)&(tmp->spare23) - (char *)tmp;
+    fmi[24].offset = (char *)&(tmp->tps_status) - (char *)tmp;
+    fmi[25].offset = (char *)&(tmp->rms_control_status) - (char *)tmp;
+    fmi[26].offset = (char *)&(tmp->spare26) - (char *)tmp;
+    fmi[27].offset = (char *)&(tmp->alarm_code) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/rda_rpg_loop_back.h started at line 25 ***/
+
+static SMI_info_t *RDA_RPG_loop_back_message_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 102;
+    SMI_field_t *fmi;
+    RDA_RPG_loop_back_message_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->size) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->pattern) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/rda_notch_width_map.h started at line 49 ***/
+
+static SMI_info_t *RDA_notch_map_filter_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 104;
+    SMI_field_t *fmi;
+    RDA_notch_map_filter_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->op_code) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->range) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/orda_clutter_map.h started at line 49 ***/
+
+static SMI_info_t *ORDA_clutter_map_filter_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 106;
+    SMI_field_t *fmi;
+    ORDA_clutter_map_filter_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->op_code) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->range) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/rda_notch_width_map.h started at line 64 ***/
+
+static SMI_info_t *RDA_notch_map_suppr_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 108;
+    SMI_field_t *fmi;
+    RDA_notch_map_suppr_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->dplr_width) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->surv_width) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/orda_clutter_map.h started at line 63 ***/
+
+static SMI_info_t *ORDA_clutter_map_segment_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 110;
+    SMI_field_t *fmi;
+    ORDA_clutter_map_segment_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->num_zones) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->filter) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/rda_notch_width_map.h started at line 83 ***/
+
+static SMI_info_t *RDA_notch_map_data_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 112;
+    SMI_field_t *fmi;
+    RDA_notch_map_data_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->filter) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->suppr) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/orda_clutter_map.h started at line 71 ***/
+
+static SMI_info_t *ORDA_clutter_map_data_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 114;
+    SMI_field_t *fmi;
+    ORDA_clutter_map_data_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->segment) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/rda_notch_width_map.h started at line 97 ***/
+
+static SMI_info_t *RDA_notch_map_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 116;
+    SMI_field_t *fmi;
+    RDA_notch_map_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->date) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->time) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->data) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/orda_clutter_map.h started at line 78 ***/
+
+static SMI_info_t *ORDA_clutter_map_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 118;
+    SMI_field_t *fmi;
+    ORDA_clutter_map_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->date) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->time) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->num_elevation_segs) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->data) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/rda_rpg_clutter_map.h started at line 40 ***/
+
+static SMI_info_t *RDA_bypass_map_segment_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 120;
+    SMI_field_t *fmi;
+    RDA_bypass_map_segment_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->seg_num) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->data) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/rda_rpg_clutter_map.h started at line 74 ***/
+
+static SMI_info_t *ORDA_bypass_map_segment_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 122;
+    SMI_field_t *fmi;
+    ORDA_bypass_map_segment_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->seg_num) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->data) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/rda_rpg_clutter_map.h started at line 104 ***/
+
+static SMI_info_t *RDA_bypass_map_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 124;
+    SMI_field_t *fmi;
+    RDA_bypass_map_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->date) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->time) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->num_segs) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->segment) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/rda_rpg_clutter_map.h started at line 123 ***/
+
+static SMI_info_t *ORDA_bypass_map_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 126;
+    SMI_field_t *fmi;
+    ORDA_bypass_map_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->date) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->time) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->num_segs) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->segment) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/rda_control.h started at line 120 ***/
+
+static SMI_info_t *RDA_control_commands_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 128;
+    SMI_field_t *fmi;
+    RDA_control_commands_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->state) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->data_enbl) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->aux_pwr_gen) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->authorization) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->restart_elev) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->select_vcp) - (char *)tmp;
+    fmi[6].offset = (char *)&(tmp->auto_calib) - (char *)tmp;
+    fmi[7].offset = (char *)&(tmp->spare8) - (char *)tmp;
+    fmi[8].offset = (char *)&(tmp->spare9) - (char *)tmp;
+    fmi[9].offset = (char *)&(tmp->interference) - (char *)tmp;
+    fmi[10].offset = (char *)&(tmp->operate_mode) - (char *)tmp;
+    fmi[11].offset = (char *)&(tmp->channel) - (char *)tmp;
+    fmi[12].offset = (char *)&(tmp->archive_II) - (char *)tmp;
+    fmi[13].offset = (char *)&(tmp->archive_num) - (char *)tmp;
+    fmi[14].offset = (char *)&(tmp->start_time) - (char *)tmp;
+    fmi[15].offset = (char *)&(tmp->start_date) - (char *)tmp;
+    fmi[16].offset = (char *)&(tmp->stop_date) - (char *)tmp;
+    fmi[17].offset = (char *)&(tmp->stop_time) - (char *)tmp;
+    fmi[18].offset = (char *)&(tmp->spot_blanking) - (char *)tmp;
+    fmi[19].offset = (char *)&(tmp->spare22) - (char *)tmp;
+    fmi[20].offset = (char *)&(tmp->spare23) - (char *)tmp;
+    fmi[21].offset = (char *)&(tmp->spare24) - (char *)tmp;
+    fmi[22].offset = (char *)&(tmp->spare25) - (char *)tmp;
+    fmi[23].offset = (char *)&(tmp->spare26) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/rda_control.h started at line 234 ***/
+
+static SMI_info_t *ORDA_control_commands_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 130;
+    SMI_field_t *fmi;
+    ORDA_control_commands_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->state) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->data_enbl) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->aux_pwr_gen) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->authorization) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->restart_elev) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->select_vcp) - (char *)tmp;
+    fmi[6].offset = (char *)&(tmp->auto_calib) - (char *)tmp;
+    fmi[7].offset = (char *)&(tmp->spare8) - (char *)tmp;
+    fmi[8].offset = (char *)&(tmp->spare9) - (char *)tmp;
+    fmi[9].offset = (char *)&(tmp->spare10) - (char *)tmp;
+    fmi[10].offset = (char *)&(tmp->operate_mode) - (char *)tmp;
+    fmi[11].offset = (char *)&(tmp->channel) - (char *)tmp;
+    fmi[12].offset = (char *)&(tmp->spare13) - (char *)tmp;
+    fmi[13].offset = (char *)&(tmp->spare14) - (char *)tmp;
+    fmi[14].offset = (char *)&(tmp->spare15) - (char *)tmp;
+    fmi[15].offset = (char *)&(tmp->spare16) - (char *)tmp;
+    fmi[16].offset = (char *)&(tmp->spare17) - (char *)tmp;
+    fmi[17].offset = (char *)&(tmp->spare18) - (char *)tmp;
+    fmi[18].offset = (char *)&(tmp->spot_blanking) - (char *)tmp;
+    fmi[19].offset = (char *)&(tmp->spare22) - (char *)tmp;
+    fmi[20].offset = (char *)&(tmp->spare23) - (char *)tmp;
+    fmi[21].offset = (char *)&(tmp->spare24) - (char *)tmp;
+    fmi[22].offset = (char *)&(tmp->spare25) - (char *)tmp;
+    fmi[23].offset = (char *)&(tmp->spare26) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/rpg_request_data.h started at line 40 ***/
+
+static SMI_info_t *RPG_request_data_struct_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 132;
+    SMI_field_t *fmi;
+    RPG_request_data_struct_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->RPG_request_data) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/orda_pmd.h started at line 316 ***/
+
+static SMI_info_t *orda_pmd_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 134;
+    SMI_field_t *fmi;
+    orda_pmd_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->msg_hdr) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->comms) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->power) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->transmitter) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->tower_utilities) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->equipment_shelter) - (char *)tmp;
+    fmi[6].offset = (char *)&(tmp->antenna_pedestal) - (char *)tmp;
+    fmi[7].offset = (char *)&(tmp->rf_gnrtr_rcvr) - (char *)tmp;
+    fmi[8].offset = (char *)&(tmp->calibration) - (char *)tmp;
+    fmi[9].offset = (char *)&(tmp->file_status) - (char *)tmp;
+    fmi[10].offset = (char *)&(tmp->device_status) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/orda_pmd.h started at line 73 ***/
+
+static SMI_info_t *transmitter_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 136;
+    SMI_field_t *fmi;
+    transmitter_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->p_5vdc_ps) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->p_15vdc_ps) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->p_28vdc_ps) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->n_15vdc_ps) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->p_45vdc_ps) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->flmnt_ps_vlt) - (char *)tmp;
+    fmi[6].offset = (char *)&(tmp->vcum_pmp_ps_vlt) - (char *)tmp;
+    fmi[7].offset = (char *)&(tmp->fcs_coil_ps_vlt) - (char *)tmp;
+    fmi[8].offset = (char *)&(tmp->flmnt_ps) - (char *)tmp;
+    fmi[9].offset = (char *)&(tmp->klystron_warmup) - (char *)tmp;
+    fmi[10].offset = (char *)&(tmp->trsmttr_avlble) - (char *)tmp;
+    fmi[11].offset = (char *)&(tmp->wg_swtch_position) - (char *)tmp;
+    fmi[12].offset = (char *)&(tmp->wg_pfn_trsfr_intrlck) - (char *)tmp;
+    fmi[13].offset = (char *)&(tmp->mntnce_mode) - (char *)tmp;
+    fmi[14].offset = (char *)&(tmp->mntnce_reqd) - (char *)tmp;
+    fmi[15].offset = (char *)&(tmp->pfn_swtch_position) - (char *)tmp;
+    fmi[16].offset = (char *)&(tmp->modular_ovrld) - (char *)tmp;
+    fmi[17].offset = (char *)&(tmp->modulator_inv_crnt) - (char *)tmp;
+    fmi[18].offset = (char *)&(tmp->modulator_swtch_fail) - (char *)tmp;
+    fmi[19].offset = (char *)&(tmp->main_pwr_vlt) - (char *)tmp;
+    fmi[20].offset = (char *)&(tmp->flyback_chrgr) - (char *)tmp;
+    fmi[21].offset = (char *)&(tmp->invrs_diode_crnt) - (char *)tmp;
+    fmi[22].offset = (char *)&(tmp->trggr_amp) - (char *)tmp;
+    fmi[23].offset = (char *)&(tmp->circulator_temp) - (char *)tmp;
+    fmi[24].offset = (char *)&(tmp->spctrm_fltr_pressure) - (char *)tmp;
+    fmi[25].offset = (char *)&(tmp->wg_arc_vswr) - (char *)tmp;
+    fmi[26].offset = (char *)&(tmp->cbnt_interlock) - (char *)tmp;
+    fmi[27].offset = (char *)&(tmp->cbnt_air_temp) - (char *)tmp;
+    fmi[28].offset = (char *)&(tmp->cbnt_air_flow) - (char *)tmp;
+    fmi[29].offset = (char *)&(tmp->klystron_crnt) - (char *)tmp;
+    fmi[30].offset = (char *)&(tmp->klystron_flmnt_crnt) - (char *)tmp;
+    fmi[31].offset = (char *)&(tmp->klystron_vacion_crnt) - (char *)tmp;
+    fmi[32].offset = (char *)&(tmp->klystron_air_temp) - (char *)tmp;
+    fmi[33].offset = (char *)&(tmp->klystron_air_flow) - (char *)tmp;
+    fmi[34].offset = (char *)&(tmp->modulator_swtch_mntnce) - (char *)tmp;
+    fmi[35].offset = (char *)&(tmp->post_chrg_regulator) - (char *)tmp;
+    fmi[36].offset = (char *)&(tmp->wg_pressure_humidity) - (char *)tmp;
+    fmi[37].offset = (char *)&(tmp->trsmttr_ovr_vlt) - (char *)tmp;
+    fmi[38].offset = (char *)&(tmp->trsmttr_ovr_crnt) - (char *)tmp;
+    fmi[39].offset = (char *)&(tmp->fcs_coil_crnt) - (char *)tmp;
+    fmi[40].offset = (char *)&(tmp->fcs_coil_air_flow) - (char *)tmp;
+    fmi[41].offset = (char *)&(tmp->oil_temp) - (char *)tmp;
+    fmi[42].offset = (char *)&(tmp->prf_limit) - (char *)tmp;
+    fmi[43].offset = (char *)&(tmp->trsmttr_oil_lvl) - (char *)tmp;
+    fmi[44].offset = (char *)&(tmp->trsmttr_batt_chrgng) - (char *)tmp;
+    fmi[45].offset = (char *)&(tmp->hv_status) - (char *)tmp;
+    fmi[46].offset = (char *)&(tmp->trsmttr_recycling_smmry) - (char *)tmp;
+    fmi[47].offset = (char *)&(tmp->trsmttr_inoperable) - (char *)tmp;
+    fmi[48].offset = (char *)&(tmp->trsmttr_air_fltr) - (char *)tmp;
+    fmi[49].offset = (char *)&(tmp->zero_tst_bit_0) - (char *)tmp;
+    fmi[50].offset = (char *)&(tmp->zero_tst_bit_1) - (char *)tmp;
+    fmi[51].offset = (char *)&(tmp->zero_tst_bit_2) - (char *)tmp;
+    fmi[52].offset = (char *)&(tmp->zero_tst_bit_3) - (char *)tmp;
+    fmi[53].offset = (char *)&(tmp->zero_tst_bit_4) - (char *)tmp;
+    fmi[54].offset = (char *)&(tmp->zero_tst_bit_5) - (char *)tmp;
+    fmi[55].offset = (char *)&(tmp->zero_tst_bit_6) - (char *)tmp;
+    fmi[56].offset = (char *)&(tmp->zero_tst_bit_7) - (char *)tmp;
+    fmi[57].offset = (char *)&(tmp->one_tst_bit_0) - (char *)tmp;
+    fmi[58].offset = (char *)&(tmp->one_tst_bit_1) - (char *)tmp;
+    fmi[59].offset = (char *)&(tmp->one_tst_bit_2) - (char *)tmp;
+    fmi[60].offset = (char *)&(tmp->one_tst_bit_3) - (char *)tmp;
+    fmi[61].offset = (char *)&(tmp->one_tst_bit_4) - (char *)tmp;
+    fmi[62].offset = (char *)&(tmp->one_tst_bit_5) - (char *)tmp;
+    fmi[63].offset = (char *)&(tmp->one_tst_bit_6) - (char *)tmp;
+    fmi[64].offset = (char *)&(tmp->one_tst_bit_7) - (char *)tmp;
+    fmi[65].offset = (char *)&(tmp->xmtr_dau_interface) - (char *)tmp;
+    fmi[66].offset = (char *)&(tmp->trsmttr_smmry_status) - (char *)tmp;
+    fmi[67].offset = (char *)&(tmp->spare204) - (char *)tmp;
+    fmi[68].offset = (char *)&(tmp->trsmttr_rf_pwr) - (char *)tmp;
+    fmi[69].offset = (char *)&(tmp->spare207) - (char *)tmp;
+    fmi[70].offset = (char *)&(tmp->xmtr_peak_pwr) - (char *)tmp;
+    fmi[71].offset = (char *)&(tmp->spare211) - (char *)tmp;
+    fmi[72].offset = (char *)&(tmp->xmtr_rf_avg_pwr) - (char *)tmp;
+    fmi[73].offset = (char *)&(tmp->xmtr_pwr_mtr_zero) - (char *)tmp;
+    fmi[74].offset = (char *)&(tmp->spare216) - (char *)tmp;
+    fmi[75].offset = (char *)&(tmp->xmtr_recycle_cnt) - (char *)tmp;
+    fmi[76].offset = (char *)&(tmp->spare219) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/orda_pmd.h started at line 61 ***/
+
+static SMI_info_t *power_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 138;
+    SMI_field_t *fmi;
+    power_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->ups_batt_status) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->ups_time_on_batt) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->ups_batt_temp) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->ups_output_volt) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->ups_output_freq) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->ups_output_current) - (char *)tmp;
+    fmi[6].offset = (char *)&(tmp->pwr_mngr_load) - (char *)tmp;
+    fmi[7].offset = (char *)&(tmp->spare113) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/orda_pmd.h started at line 22 ***/
+
+static SMI_info_t *comms_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 140;
+    SMI_field_t *fmi;
+    comms_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->spare1) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->loop_back_test_status) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->t1_output_frames) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->t1_input_frames) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->router_mem_used) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->router_mem_free) - (char *)tmp;
+    fmi[6].offset = (char *)&(tmp->router_mem_util) - (char *)tmp;
+    fmi[7].offset = (char *)&(tmp->spare12) - (char *)tmp;
+    fmi[8].offset = (char *)&(tmp->csu_loss_of_signal) - (char *)tmp;
+    fmi[9].offset = (char *)&(tmp->csu_loss_of_frames) - (char *)tmp;
+    fmi[10].offset = (char *)&(tmp->csu_yellow_alarms) - (char *)tmp;
+    fmi[11].offset = (char *)&(tmp->csu_blue_alarms) - (char *)tmp;
+    fmi[12].offset = (char *)&(tmp->csu_15min_err_scnds) - (char *)tmp;
+    fmi[13].offset = (char *)&(tmp->csu_15min_sev_err_scnds) - (char *)tmp;
+    fmi[14].offset = (char *)&(tmp->csu_15min_sev_err_frm_scnds) - (char *)tmp;
+    fmi[15].offset = (char *)&(tmp->csu_15min_unavail_scnds) - (char *)tmp;
+    fmi[16].offset = (char *)&(tmp->csu_15min_cntrld_slip_scnds) - (char *)tmp;
+    fmi[17].offset = (char *)&(tmp->csu_15min_path_cding_vlns) - (char *)tmp;
+    fmi[18].offset = (char *)&(tmp->csu_15min_line_err_scnds) - (char *)tmp;
+    fmi[19].offset = (char *)&(tmp->csu_15min_brsty_err_scnds) - (char *)tmp;
+    fmi[20].offset = (char *)&(tmp->csu_15min_degraded_mins) - (char *)tmp;
+    fmi[21].offset = (char *)&(tmp->lan_switch_mem_used) - (char *)tmp;
+    fmi[22].offset = (char *)&(tmp->lan_switch_mem_free) - (char *)tmp;
+    fmi[23].offset = (char *)&(tmp->lan_switch_mem_util) - (char *)tmp;
+    fmi[24].offset = (char *)&(tmp->spare44) - (char *)tmp;
+    fmi[25].offset = (char *)&(tmp->ntp_rejected_packets) - (char *)tmp;
+    fmi[26].offset = (char *)&(tmp->ntp_est_time_error) - (char *)tmp;
+    fmi[27].offset = (char *)&(tmp->gps_satellites) - (char *)tmp;
+    fmi[28].offset = (char *)&(tmp->gps_max_sig_strength) - (char *)tmp;
+    fmi[29].offset = (char *)&(tmp->ipc_status) - (char *)tmp;
+    fmi[30].offset = (char *)&(tmp->cmd_chnl_ctrl) - (char *)tmp;
+    fmi[31].offset = (char *)&(tmp->dau_tst_0) - (char *)tmp;
+    fmi[32].offset = (char *)&(tmp->dau_tst_1) - (char *)tmp;
+    fmi[33].offset = (char *)&(tmp->dau_tst_2) - (char *)tmp;
+    fmi[34].offset = (char *)&(tmp->spare58) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/orda_pmd.h started at line 154 ***/
+
+static SMI_info_t *tower_utilities_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 142;
+    SMI_field_t *fmi;
+    tower_utilities_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->ac_1_cmprsr_shut_off) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->ac_2_cmprsr_shut_off) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->gnrtr_mntnce_reqd) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->gnrtr_batt_vlt) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->gnrtr_engn) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->gnrtr_vlt_freq) - (char *)tmp;
+    fmi[6].offset = (char *)&(tmp->pwr_src) - (char *)tmp;
+    fmi[7].offset = (char *)&(tmp->trans_pwr_src) - (char *)tmp;
+    fmi[8].offset = (char *)&(tmp->pwr_trnsfr_switch) - (char *)tmp;
+    fmi[9].offset = (char *)&(tmp->aircraft_hzrd_lighting) - (char *)tmp;
+    fmi[10].offset = (char *)&(tmp->dau_uart) - (char *)tmp;
+    fmi[11].offset = (char *)&(tmp->spare240) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/orda_pmd.h started at line 170 ***/
+
+static SMI_info_t *equipment_shelter_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 144;
+    SMI_field_t *fmi;
+    equipment_shelter_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->equip_shltr_fire_smk) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->gnrtr_shltr_fire_smk) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->utlty_vlt_freq) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->site_scrty_alarm) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->scrty_equip) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->scrty_sys) - (char *)tmp;
+    fmi[6].offset = (char *)&(tmp->rcvr_cnctd_to_antna) - (char *)tmp;
+    fmi[7].offset = (char *)&(tmp->radome_hatch) - (char *)tmp;
+    fmi[8].offset = (char *)&(tmp->ac_1_fltr_drty) - (char *)tmp;
+    fmi[9].offset = (char *)&(tmp->ac_2_fltr_drty) - (char *)tmp;
+    fmi[10].offset = (char *)&(tmp->equip_shltr_temp) - (char *)tmp;
+    fmi[11].offset = (char *)&(tmp->outside_amb_temp) - (char *)tmp;
+    fmi[12].offset = (char *)&(tmp->trsmttr_leaving_air_temp) - (char *)tmp;
+    fmi[13].offset = (char *)&(tmp->ac_1_dschrg_air_temp) - (char *)tmp;
+    fmi[14].offset = (char *)&(tmp->gnrtr_shltr_temp) - (char *)tmp;
+    fmi[15].offset = (char *)&(tmp->radome_air_temp) - (char *)tmp;
+    fmi[16].offset = (char *)&(tmp->ac_2_dschrg_air_temp) - (char *)tmp;
+    fmi[17].offset = (char *)&(tmp->dau_p_15v_ps) - (char *)tmp;
+    fmi[18].offset = (char *)&(tmp->dau_n_15v_ps) - (char *)tmp;
+    fmi[19].offset = (char *)&(tmp->dau_p_28v_ps) - (char *)tmp;
+    fmi[20].offset = (char *)&(tmp->dau_p_5v_ps) - (char *)tmp;
+    fmi[21].offset = (char *)&(tmp->cnvrtd_gnrtr_fuel_lvl) - (char *)tmp;
+    fmi[22].offset = (char *)&(tmp->spare284) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/orda_pmd.h started at line 197 ***/
+
+static SMI_info_t *antenna_pedestal_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 146;
+    SMI_field_t *fmi;
+    antenna_pedestal_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->pdstl_p_28v_ps) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->pdstl_p_15v_ps) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->encdr_p_5v_ps) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->pdstl_p_5v_ps) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->pdstl_n_15v_ps) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->p_150v_ovrvlt) - (char *)tmp;
+    fmi[6].offset = (char *)&(tmp->p_150v_undrvlt) - (char *)tmp;
+    fmi[7].offset = (char *)&(tmp->elev_srvo_amp_inhbt) - (char *)tmp;
+    fmi[8].offset = (char *)&(tmp->elev_srvo_amp_shrt_crct) - (char *)tmp;
+    fmi[9].offset = (char *)&(tmp->elev_srvo_amp_ovr_temp) - (char *)tmp;
+    fmi[10].offset = (char *)&(tmp->elev_motor_ovr_temp) - (char *)tmp;
+    fmi[11].offset = (char *)&(tmp->elev_stow_pin) - (char *)tmp;
+    fmi[12].offset = (char *)&(tmp->elev_pcu_parity) - (char *)tmp;
+    fmi[13].offset = (char *)&(tmp->elev_dead_lmt) - (char *)tmp;
+    fmi[14].offset = (char *)&(tmp->elev_p_nrml_lmt) - (char *)tmp;
+    fmi[15].offset = (char *)&(tmp->elev_n_nrml_lmt) - (char *)tmp;
+    fmi[16].offset = (char *)&(tmp->elev_encdr_light) - (char *)tmp;
+    fmi[17].offset = (char *)&(tmp->elev_grbx_oil) - (char *)tmp;
+    fmi[18].offset = (char *)&(tmp->elev_handwheel) - (char *)tmp;
+    fmi[19].offset = (char *)&(tmp->elev_amp_ps) - (char *)tmp;
+    fmi[20].offset = (char *)&(tmp->azmth_srvo_amp_inhbt) - (char *)tmp;
+    fmi[21].offset = (char *)&(tmp->azmth_srvo_amp_shrt_crct) - (char *)tmp;
+    fmi[22].offset = (char *)&(tmp->azmth_srvo_amp_ovr_temp) - (char *)tmp;
+    fmi[23].offset = (char *)&(tmp->azmth_motor_ovr_temp) - (char *)tmp;
+    fmi[24].offset = (char *)&(tmp->azmth_stow_pin) - (char *)tmp;
+    fmi[25].offset = (char *)&(tmp->azmth_pcu_parity) - (char *)tmp;
+    fmi[26].offset = (char *)&(tmp->azmth_encdr_light) - (char *)tmp;
+    fmi[27].offset = (char *)&(tmp->azmth_grbx_oil) - (char *)tmp;
+    fmi[28].offset = (char *)&(tmp->azmth_bull_gr_oil) - (char *)tmp;
+    fmi[29].offset = (char *)&(tmp->azmth_handwheel) - (char *)tmp;
+    fmi[30].offset = (char *)&(tmp->azmth_srvo_amp_ps) - (char *)tmp;
+    fmi[31].offset = (char *)&(tmp->srvo) - (char *)tmp;
+    fmi[32].offset = (char *)&(tmp->pdstl_intrlock_swtch) - (char *)tmp;
+    fmi[33].offset = (char *)&(tmp->azmth_pos_correction) - (char *)tmp;
+    fmi[34].offset = (char *)&(tmp->elev_pos_correction) - (char *)tmp;
+    fmi[35].offset = (char *)&(tmp->slf_tst_1_status) - (char *)tmp;
+    fmi[36].offset = (char *)&(tmp->slf_tst_2_status) - (char *)tmp;
+    fmi[37].offset = (char *)&(tmp->slf_tst_2_data) - (char *)tmp;
+    fmi[38].offset = (char *)&(tmp->spare334) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/orda_pmd.h started at line 240 ***/
+
+static SMI_info_t *rf_gnrtr_rcvr_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 148;
+    SMI_field_t *fmi;
+    rf_gnrtr_rcvr_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->coho_clock) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->rf_gnrtr_freq_slct_osc) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->rf_gnrtr_rf_stalo) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->rf_gnrtr_phase_shft_coho) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->p_9v_rcvr_ps) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->p_5v_rcvr_ps) - (char *)tmp;
+    fmi[6].offset = (char *)&(tmp->p_18v_rcvr_ps) - (char *)tmp;
+    fmi[7].offset = (char *)&(tmp->n_9v_rcvr_ps) - (char *)tmp;
+    fmi[8].offset = (char *)&(tmp->p_5v_rcvr_prtctr_ps) - (char *)tmp;
+    fmi[9].offset = (char *)&(tmp->spare350) - (char *)tmp;
+    fmi[10].offset = (char *)&(tmp->shrt_pulse_noise) - (char *)tmp;
+    fmi[11].offset = (char *)&(tmp->int_pulse_noise) - (char *)tmp;
+    fmi[12].offset = (char *)&(tmp->noise_temp) - (char *)tmp;
+    fmi[13].offset = (char *)&(tmp->spare357) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/orda_pmd.h started at line 258 ***/
+
+static SMI_info_t *calib_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 150;
+    SMI_field_t *fmi;
+    calib_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->linearity) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->dynamic_range) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->delta_dbz0) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->rcv_prot_atten) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->kd_peak_measured) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->kd_injct_pnt_diff) - (char *)tmp;
+    fmi[6].offset = (char *)&(tmp->shrt_pls_dbz0) - (char *)tmp;
+    fmi[7].offset = (char *)&(tmp->int_pls_dbz0) - (char *)tmp;
+    fmi[8].offset = (char *)&(tmp->velocity_prcssd) - (char *)tmp;
+    fmi[9].offset = (char *)&(tmp->width_prcssd) - (char *)tmp;
+    fmi[10].offset = (char *)&(tmp->velocity_rf_gen) - (char *)tmp;
+    fmi[11].offset = (char *)&(tmp->width_rf_gen) - (char *)tmp;
+    fmi[12].offset = (char *)&(tmp->i_naught) - (char *)tmp;
+    fmi[13].offset = (char *)&(tmp->spare385) - (char *)tmp;
+    fmi[14].offset = (char *)&(tmp->cltr_supp_delta) - (char *)tmp;
+    fmi[15].offset = (char *)&(tmp->cltr_supp_ufilt_pwr) - (char *)tmp;
+    fmi[16].offset = (char *)&(tmp->cltr_supp_filt_pwr) - (char *)tmp;
+    fmi[17].offset = (char *)&(tmp->trsmit_brst_pwr) - (char *)tmp;
+    fmi[18].offset = (char *)&(tmp->trsmit_brst_phase) - (char *)tmp;
+    fmi[19].offset = (char *)&(tmp->spare419) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/orda_pmd.h started at line 282 ***/
+
+static SMI_info_t *file_status_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 152;
+    SMI_field_t *fmi;
+    file_status_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->state_file_rd_stat) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->state_file_wrt_stat) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->bypass_map_file_rd_stat) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->bypass_map_file_wrt_stat) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->pmd_file_rd_status) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->pmd_file_wrt_status) - (char *)tmp;
+    fmi[6].offset = (char *)&(tmp->crnt_adpt_file_rd_stat) - (char *)tmp;
+    fmi[7].offset = (char *)&(tmp->crnt_adpt_file_wrt_stat) - (char *)tmp;
+    fmi[8].offset = (char *)&(tmp->cnsr_zn_file_rd_stat) - (char *)tmp;
+    fmi[9].offset = (char *)&(tmp->cnsr_zn_file_wrt_stat) - (char *)tmp;
+    fmi[10].offset = (char *)&(tmp->rmt_vcp_file_rd_stat) - (char *)tmp;
+    fmi[11].offset = (char *)&(tmp->rmt_vcp_file_wrt_stat) - (char *)tmp;
+    fmi[12].offset = (char *)&(tmp->bl_adpt_file_rd_stat) - (char *)tmp;
+    fmi[13].offset = (char *)&(tmp->bl_adpt_file_wrt_stat) - (char *)tmp;
+    fmi[14].offset = (char *)&(tmp->cf_map_file_rd_stat) - (char *)tmp;
+    fmi[15].offset = (char *)&(tmp->cf_map_file_wrt_stat) - (char *)tmp;
+    fmi[16].offset = (char *)&(tmp->gnrl_disk_io_err) - (char *)tmp;
+    fmi[17].offset = (char *)&(tmp->spare448) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/orda_pmd.h started at line 304 ***/
+
+static SMI_info_t *device_status_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 154;
+    SMI_field_t *fmi;
+    device_status_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->dau_comm_stat) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->hci_comm_stat) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->pdstl_comm_stat) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->sgnl_prcsr_comm_stat) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->spare465) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->rms_lnk_stat) - (char *)tmp;
+    fmi[6].offset = (char *)&(tmp->rpg_lnk_stat) - (char *)tmp;
+    fmi[7].offset = (char *)&(tmp->spare468) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/orda_adpt.h started at line 353 ***/
+
+static SMI_info_t *ORDA_adpt_data_msg_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 156;
+    SMI_field_t *fmi;
+    ORDA_adpt_data_msg_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->msg_hdr) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->rda_adapt) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/orda_adpt.h started at line 25 ***/
+
+static SMI_info_t *ORDA_adpt_data_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 158;
+    SMI_field_t *fmi;
+    ORDA_adpt_data_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->adap_file_name) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->adap_format) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->adap_revision) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->adap_date) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->adap_time) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->k1) - (char *)tmp;
+    fmi[6].offset = (char *)&(tmp->k2) - (char *)tmp;
+    fmi[7].offset = (char *)&(tmp->k3) - (char *)tmp;
+    fmi[8].offset = (char *)&(tmp->k4) - (char *)tmp;
+    fmi[9].offset = (char *)&(tmp->parkaz) - (char *)tmp;
+    fmi[10].offset = (char *)&(tmp->parkel) - (char *)tmp;
+    fmi[11].offset = (char *)&(tmp->a_fuel_conv) - (char *)tmp;
+    fmi[12].offset = (char *)&(tmp->a_min_shelter_temp) - (char *)tmp;
+    fmi[13].offset = (char *)&(tmp->a_max_shelter_temp) - (char *)tmp;
+    fmi[14].offset = (char *)&(tmp->a_min_shelter_ac_temp_diff) - (char *)tmp;
+    fmi[15].offset = (char *)&(tmp->a_max_xmtr_air_temp) - (char *)tmp;
+    fmi[16].offset = (char *)&(tmp->a_max_rad_temp) - (char *)tmp;
+    fmi[17].offset = (char *)&(tmp->a_max_rad_temp_rise) - (char *)tmp;
+    fmi[18].offset = (char *)&(tmp->ped_28V_reg_lim) - (char *)tmp;
+    fmi[19].offset = (char *)&(tmp->ped_5V_reg_lim) - (char *)tmp;
+    fmi[20].offset = (char *)&(tmp->ped_15V_reg_lim) - (char *)tmp;
+    fmi[21].offset = (char *)&(tmp->a_min_gen_room_temp) - (char *)tmp;
+    fmi[22].offset = (char *)&(tmp->a_max_gen_room_temp) - (char *)tmp;
+    fmi[23].offset = (char *)&(tmp->dau_5V_reg_lim) - (char *)tmp;
+    fmi[24].offset = (char *)&(tmp->dau_15V_reg_lim) - (char *)tmp;
+    fmi[25].offset = (char *)&(tmp->dau_28V_reg_lim) - (char *)tmp;
+    fmi[26].offset = (char *)&(tmp->en_5V_reg_lim) - (char *)tmp;
+    fmi[27].offset = (char *)&(tmp->en_5V_nom_volts) - (char *)tmp;
+    fmi[28].offset = (char *)&(tmp->rpg_co_located) - (char *)tmp;
+    fmi[29].offset = (char *)&(tmp->spec_filter_installed) - (char *)tmp;
+    fmi[30].offset = (char *)&(tmp->tps_installed) - (char *)tmp;
+    fmi[31].offset = (char *)&(tmp->rms_installed) - (char *)tmp;
+    fmi[32].offset = (char *)&(tmp->a_hvdl_tst_int) - (char *)tmp;
+    fmi[33].offset = (char *)&(tmp->a_rpg_lt_int) - (char *)tmp;
+    fmi[34].offset = (char *)&(tmp->a_min_stab_util_pwr_time) - (char *)tmp;
+    fmi[35].offset = (char *)&(tmp->a_gen_auto_exer_interval) - (char *)tmp;
+    fmi[36].offset = (char *)&(tmp->a_util_pwr_sw_req_interval) - (char *)tmp;
+    fmi[37].offset = (char *)&(tmp->a_low_fuel_level) - (char *)tmp;
+    fmi[38].offset = (char *)&(tmp->config_chan_number) - (char *)tmp;
+    fmi[39].offset = (char *)&(tmp->a_rpg_link_type) - (char *)tmp;
+    fmi[40].offset = (char *)&(tmp->redundant_chan_config) - (char *)tmp;
+    fmi[41].offset = (char *)&(tmp->atten_table) - (char *)tmp;
+    fmi[42].offset = (char *)&(tmp->path_losses) - (char *)tmp;
+    fmi[43].offset = (char *)&(tmp->log_amp_factor) - (char *)tmp;
+    fmi[44].offset = (char *)&(tmp->spare_936) - (char *)tmp;
+    fmi[45].offset = (char *)&(tmp->rnscale) - (char *)tmp;
+    fmi[46].offset = (char *)&(tmp->atmos) - (char *)tmp;
+    fmi[47].offset = (char *)&(tmp->el_index) - (char *)tmp;
+    fmi[48].offset = (char *)&(tmp->tfreq_mhz) - (char *)tmp;
+    fmi[49].offset = (char *)&(tmp->base_data_tcn) - (char *)tmp;
+    fmi[50].offset = (char *)&(tmp->refl_data_tover) - (char *)tmp;
+    fmi[51].offset = (char *)&(tmp->tar_dbz0_inc_lp) - (char *)tmp;
+    fmi[52].offset = (char *)&(tmp->cancgain) - (char *)tmp;
+    fmi[53].offset = (char *)&(tmp->rcv_upper) - (char *)tmp;
+    fmi[54].offset = (char *)&(tmp->rcv_lower) - (char *)tmp;
+    fmi[55].offset = (char *)&(tmp->lx_lp) - (char *)tmp;
+    fmi[56].offset = (char *)&(tmp->lx_sp) - (char *)tmp;
+    fmi[57].offset = (char *)&(tmp->meteor_param) - (char *)tmp;
+    fmi[58].offset = (char *)&(tmp->beamwidth) - (char *)tmp;
+    fmi[59].offset = (char *)&(tmp->antenna_gain) - (char *)tmp;
+    fmi[60].offset = (char *)&(tmp->rfd_degrade_limit) - (char *)tmp;
+    fmi[61].offset = (char *)&(tmp->vel_maint_limit) - (char *)tmp;
+    fmi[62].offset = (char *)&(tmp->wth_maint_limit) - (char *)tmp;
+    fmi[63].offset = (char *)&(tmp->vel_degrad_limit) - (char *)tmp;
+    fmi[64].offset = (char *)&(tmp->wth_degrad_limit) - (char *)tmp;
+    fmi[65].offset = (char *)&(tmp->noisetemp_dgrad_limit) - (char *)tmp;
+    fmi[66].offset = (char *)&(tmp->noisetemp_maint_limit) - (char *)tmp;
+    fmi[67].offset = (char *)&(tmp->noisetemp_dgrad_limit_ol) - (char *)tmp;
+    fmi[68].offset = (char *)&(tmp->noisetemp_maint_limit_ol) - (char *)tmp;
+    fmi[69].offset = (char *)&(tmp->kly_degrade_limit) - (char *)tmp;
+    fmi[70].offset = (char *)&(tmp->ts_coho) - (char *)tmp;
+    fmi[71].offset = (char *)&(tmp->ts_cw) - (char *)tmp;
+    fmi[72].offset = (char *)&(tmp->ts_rf_sp) - (char *)tmp;
+    fmi[73].offset = (char *)&(tmp->ts_rf_lp) - (char *)tmp;
+    fmi[74].offset = (char *)&(tmp->ts_stalo) - (char *)tmp;
+    fmi[75].offset = (char *)&(tmp->ts_noise) - (char *)tmp;
+    fmi[76].offset = (char *)&(tmp->xmtr_peak_power_high_limit) - (char *)tmp;
+    fmi[77].offset = (char *)&(tmp->xmtr_peak_power_low_limit) - (char *)tmp;
+    fmi[78].offset = (char *)&(tmp->dbz0_delta_limit) - (char *)tmp;
+    fmi[79].offset = (char *)&(tmp->threshold1) - (char *)tmp;
+    fmi[80].offset = (char *)&(tmp->threshold2) - (char *)tmp;
+    fmi[81].offset = (char *)&(tmp->clut_supp_dgrad_lim) - (char *)tmp;
+    fmi[82].offset = (char *)&(tmp->clut_supp_maint_lim) - (char *)tmp;
+    fmi[83].offset = (char *)&(tmp->range0_value) - (char *)tmp;
+    fmi[84].offset = (char *)&(tmp->xmtr_pwr_mtr_scale) - (char *)tmp;
+    fmi[85].offset = (char *)&(tmp->n_smooth) - (char *)tmp;
+    fmi[86].offset = (char *)&(tmp->tar_dbz0_sp) - (char *)tmp;
+    fmi[87].offset = (char *)&(tmp->spare_1248) - (char *)tmp;
+    fmi[88].offset = (char *)&(tmp->deltaprf) - (char *)tmp;
+    fmi[89].offset = (char *)&(tmp->spare_1256) - (char *)tmp;
+    fmi[90].offset = (char *)&(tmp->spare_1260) - (char *)tmp;
+    fmi[91].offset = (char *)&(tmp->tau_sp) - (char *)tmp;
+    fmi[92].offset = (char *)&(tmp->tau_lp) - (char *)tmp;
+    fmi[93].offset = (char *)&(tmp->nc_dead_value) - (char *)tmp;
+    fmi[94].offset = (char *)&(tmp->tau_rf_sp) - (char *)tmp;
+    fmi[95].offset = (char *)&(tmp->tau_rf_lp) - (char *)tmp;
+    fmi[96].offset = (char *)&(tmp->seg1lim) - (char *)tmp;
+    fmi[97].offset = (char *)&(tmp->slatsec) - (char *)tmp;
+    fmi[98].offset = (char *)&(tmp->slonsec) - (char *)tmp;
+    fmi[99].offset = (char *)&(tmp->spare_1296) - (char *)tmp;
+    fmi[100].offset = (char *)&(tmp->slatdeg) - (char *)tmp;
+    fmi[101].offset = (char *)&(tmp->slatmin) - (char *)tmp;
+    fmi[102].offset = (char *)&(tmp->slongdeg) - (char *)tmp;
+    fmi[103].offset = (char *)&(tmp->slongmin) - (char *)tmp;
+    fmi[104].offset = (char *)&(tmp->slatdir) - (char *)tmp;
+    fmi[105].offset = (char *)&(tmp->slondir) - (char *)tmp;
+    fmi[106].offset = (char *)&(tmp->vc_ndx) - (char *)tmp;
+    fmi[107].offset = (char *)&(tmp->vcpat11) - (char *)tmp;
+    fmi[108].offset = (char *)&(tmp->vcpat21) - (char *)tmp;
+    fmi[109].offset = (char *)&(tmp->vcpat31) - (char *)tmp;
+    fmi[110].offset = (char *)&(tmp->vcpat32) - (char *)tmp;
+    fmi[111].offset = (char *)&(tmp->vcpat300) - (char *)tmp;
+    fmi[112].offset = (char *)&(tmp->vcpat301) - (char *)tmp;
+    fmi[113].offset = (char *)&(tmp->az_correction_factor) - (char *)tmp;
+    fmi[114].offset = (char *)&(tmp->el_correction_factor) - (char *)tmp;
+    fmi[115].offset = (char *)&(tmp->site_name) - (char *)tmp;
+    fmi[116].offset = (char *)&(tmp->ant_manual_setup_ielmin) - (char *)tmp;
+    fmi[117].offset = (char *)&(tmp->ant_manual_setup_ielmax) - (char *)tmp;
+    fmi[118].offset = (char *)&(tmp->ant_manual_setup_fazvelmax) - (char *)tmp;
+    fmi[119].offset = (char *)&(tmp->ant_manual_setup_felvelmax) - (char *)tmp;
+    fmi[120].offset = (char *)&(tmp->ant_manual_setup_ignd_hgt) - (char *)tmp;
+    fmi[121].offset = (char *)&(tmp->ant_manual_setup_irad_hgt) - (char *)tmp;
+    fmi[122].offset = (char *)&(tmp->spare_8396) - (char *)tmp;
+    fmi[123].offset = (char *)&(tmp->rvp8NV_iwaveguide_length) - (char *)tmp;
+    fmi[124].offset = (char *)&(tmp->spare_8700) - (char *)tmp;
+    fmi[125].offset = (char *)&(tmp->vel_data_tover) - (char *)tmp;
+    fmi[126].offset = (char *)&(tmp->width_data_tover) - (char *)tmp;
+    fmi[127].offset = (char *)&(tmp->spare_8752) - (char *)tmp;
+    fmi[128].offset = (char *)&(tmp->doppler_range_start) - (char *)tmp;
+    fmi[129].offset = (char *)&(tmp->max_el_index) - (char *)tmp;
+    fmi[130].offset = (char *)&(tmp->seg2lim) - (char *)tmp;
+    fmi[131].offset = (char *)&(tmp->seg3lim) - (char *)tmp;
+    fmi[132].offset = (char *)&(tmp->seg4lim) - (char *)tmp;
+    fmi[133].offset = (char *)&(tmp->nbr_el_segments) - (char *)tmp;
+    fmi[134].offset = (char *)&(tmp->noise_long) - (char *)tmp;
+    fmi[135].offset = (char *)&(tmp->ant_noise_temp) - (char *)tmp;
+    fmi[136].offset = (char *)&(tmp->noise_short) - (char *)tmp;
+    fmi[137].offset = (char *)&(tmp->noise_tolerance) - (char *)tmp;
+    fmi[138].offset = (char *)&(tmp->min_dyn_range) - (char *)tmp;
+    fmi[139].offset = (char *)&(tmp->spare_8808) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/rpg_vcp.h started at line 413 ***/
+
+static SMI_info_t *VCP_ICD_msg_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 160;
+    SMI_field_t *fmi;
+    VCP_ICD_msg_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->vcp_msg_hdr) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->vcp_elev_data) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/rpg_vcp.h started at line 36 ***/
+
+static SMI_info_t *VCP_message_header_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 162;
+    SMI_field_t *fmi;
+    VCP_message_header_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->msg_size) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->pattern_type) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->pattern_number) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/rpg_vcp.h started at line 152 ***/
+
+static SMI_info_t *VCP_elevation_cut_header_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 164;
+    SMI_field_t *fmi;
+    VCP_elevation_cut_header_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->number_cuts) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->group) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->doppler_res) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->pulse_width) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->spare7) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->spare8) - (char *)tmp;
+    fmi[6].offset = (char *)&(tmp->spare9) - (char *)tmp;
+    fmi[7].offset = (char *)&(tmp->spare10) - (char *)tmp;
+    fmi[8].offset = (char *)&(tmp->spare11) - (char *)tmp;
+    fmi[9].offset = (char *)&(tmp->data) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/lib/include/le.h started at line 74 ***/
+
+static SMI_info_t *LE_message_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 166;
+    SMI_field_t *fmi;
+    LE_message *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->code) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->time) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->n_reps) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->pad) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->text) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/itc.h started at line 31 ***/
+
+static SMI_info_t *sgmts09_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 168;
+    SMI_field_t *fmi;
+    sgmts09 *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].n_items = (6000*2) * (7);
+    fmi[0].offset = (char *)&(tmp->segmain) - (char *)tmp;
+    fmi[1].n_items = (400*2) * (7) * (2);
+    fmi[1].offset = (char *)&(tmp->segindx) - (char *)tmp;
+    fmi[2].n_items = (400*2);
+    fmi[2].offset = (char *)&(tmp->segazim) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->segbuf_th) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/itc.h started at line 55 ***/
+
+static SMI_info_t *a315csad_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 170;
+    SMI_field_t *fmi;
+    a315csad *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->strmadap) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/itc.h started at line 68 ***/
+
+static SMI_info_t *a315lock_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 172;
+    SMI_field_t *fmi;
+    a315lock *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->seg_buf_lock) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/itc.h started at line 90 ***/
+
+static SMI_info_t *a315trnd_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 174;
+    SMI_field_t *fmi;
+    a315trnd *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].n_items = ((((1+(10*8))*100)/2+1));
+    fmi[0].offset = (char *)&(tmp->cell_trend_data4) - (char *)tmp;
+    fmi[1].n_items = (100+2);
+    fmi[1].offset = (char *)&(tmp->cell_pointers) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->volume_counter) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->timeptr) - (char *)tmp;
+    fmi[4].n_items = ((2+10));
+    fmi[4].offset = (char *)&(tmp->volume_times) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->cell_trend_index) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/itc.h started at line 120 ***/
+
+static SMI_info_t *a3cd09_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 176;
+    SMI_field_t *fmi;
+    a3cd09 *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->numstrm) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->timetag) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->avgstspd) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->avgstdir) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->strmid) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->strmove) - (char *)tmp;
+    fmi[6].offset = (char *)&(tmp->lokid) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/itc.h started at line 160 ***/
+
+static SMI_info_t *pvecs09_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 178;
+    SMI_field_t *fmi;
+    pvecs09 *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].n_items = ((2*3000)) * (4);
+    fmi[0].offset = (char *)&(tmp->tdamain) - (char *)tmp;
+    fmi[1].n_items = ((2*400)) * (2);
+    fmi[1].offset = (char *)&(tmp->pv_indx) - (char *)tmp;
+    fmi[2].n_items = ((2*400));
+    fmi[2].offset = (char *)&(tmp->pv_azim) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/itc.h started at line 179 ***/
+
+static SMI_info_t *a317ctad_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 180;
+    SMI_field_t *fmi;
+    a317ctad *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->tdaadap) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/itc.h started at line 191 ***/
+
+static SMI_info_t *a317lock_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 182;
+    SMI_field_t *fmi;
+    a317lock *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->tda_buf_lock) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/itc.h started at line 200 ***/
+
+static SMI_info_t *a3cd11_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 184;
+    SMI_field_t *fmi;
+    a3cd11 *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->imxnfeat) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->imxnmes) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->inpvthr) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->ihmthr) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->ilmthr) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->imsthr) - (char *)tmp;
+    fmi[6].offset = (char *)&(tmp->ilsthr) - (char *)tmp;
+    fmi[7].offset = (char *)&(tmp->imrthr) - (char *)tmp;
+    fmi[8].offset = (char *)&(tmp->ifmrthr) - (char *)tmp;
+    fmi[9].offset = (char *)&(tmp->inrthr) - (char *)tmp;
+    fmi[10].offset = (char *)&(tmp->ifnrthr) - (char *)tmp;
+    fmi[11].offset = (char *)&(tmp->irngthr) - (char *)tmp;
+    fmi[12].offset = (char *)&(tmp->idisthr) - (char *)tmp;
+    fmi[13].offset = (char *)&(tmp->iazthr) - (char *)tmp;
+    fmi[14].offset = (char *)&(tmp->iazthr1) - (char *)tmp;
+    fmi[15].offset = (char *)&(tmp->ifhthr) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/itc.h started at line 225 ***/
+
+static SMI_info_t *cd07_vcpinfo_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 186;
+    SMI_field_t *fmi;
+    cd07_vcpinfo *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->rpgvcp) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->rpgvcpid) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->rpgwmode) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->rpgvsnum) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->rpglastel) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->current_vcp_table) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/itc.h started at line 252 ***/
+
+static SMI_info_t *Hrdb_date_time_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 188;
+    SMI_field_t *fmi;
+    Hrdb_date_time *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->last_date_hrdb) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->last_time_hrdb) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/itc.h started at line 278 ***/
+
+static SMI_info_t *A3cd97_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 190;
+    SMI_field_t *fmi;
+    A3cd97 *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->envwndflg) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->ewtab) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->basehgt) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->newndtab) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->sound_time) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/itc.h started at line 319 ***/
+
+static SMI_info_t *A3136C3_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 192;
+    SMI_field_t *fmi;
+    A3136C3_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->tbupdt) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->dbupdt) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->tbtbl_upd) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->dbtbl_upd) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->tbtbl_obs) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->dbtbl_obs) - (char *)tmp;
+    fmi[6].offset = (char *)&(tmp->tbtbl_gen) - (char *)tmp;
+    fmi[7].offset = (char *)&(tmp->dbtbl_gen) - (char *)tmp;
+    fmi[8].offset = (char *)&(tmp->bias) - (char *)tmp;
+    fmi[9].offset = (char *)&(tmp->grpsiz) - (char *)tmp;
+    fmi[10].offset = (char *)&(tmp->mspan) - (char *)tmp;
+    fmi[11].offset = (char *)&(tmp->timecur) - (char *)tmp;
+    fmi[12].offset = (char *)&(tmp->datecur) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/itc.h started at line 362 ***/
+
+static SMI_info_t *A3052t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 194;
+    SMI_field_t *fmi;
+    A3052t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->cdate) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->ctime) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->lastdate) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->lasttime) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->date1) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->time1) - (char *)tmp;
+    fmi[6].offset = (char *)&(tmp->date2) - (char *)tmp;
+    fmi[7].offset = (char *)&(tmp->time2) - (char *)tmp;
+    fmi[8].offset = (char *)&(tmp->pcpctgry) - (char *)tmp;
+    fmi[9].offset = (char *)&(tmp->prectgry) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/itc.h started at line 406 ***/
+
+static SMI_info_t *A3052u_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 196;
+    SMI_field_t *fmi;
+    A3052u *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->line_n) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->last_n) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->ready_start) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->ready_end) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->last_cat1_time) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->last_cat1_date) - (char *)tmp;
+    fmi[6].offset = (char *)&(tmp->last_cat2_time) - (char *)tmp;
+    fmi[7].offset = (char *)&(tmp->last_cat2_date) - (char *)tmp;
+    fmi[8].offset = (char *)&(tmp->pcpctgry) - (char *)tmp;
+    fmi[9].offset = (char *)&(tmp->precip_status_elev) - (char *)tmp;
+    fmi[10].offset = (char *)&(tmp->precip_status_ctgry) - (char *)tmp;
+    fmi[11].offset = (char *)&(tmp->precip_status_dBZ) - (char *)tmp;
+    fmi[12].offset = (char *)&(tmp->precip_status_dBR) - (char *)tmp;
+    fmi[13].offset = (char *)&(tmp->precip_status_minarea) - (char *)tmp;
+    fmi[14].offset = (char *)&(tmp->precip_status_actarea) - (char *)tmp;
+    fmi[15].offset = (char *)&(tmp->precip_status_catmet) - (char *)tmp;
+    fmi[16].offset = (char *)&(tmp->ptmp_precip_status_dBZ) - (char *)tmp;
+    fmi[17].offset = (char *)&(tmp->ptmp_precip_status_dBR) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/itc.h started at line 474 ***/
+
+static SMI_info_t *A304c2_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 198;
+    SMI_field_t *fmi;
+    A304c2 *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->nw_map_request_pending) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->bypass_map_request_pending) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->unsolicited_nw_received) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/itc.h started at line 491 ***/
+
+static SMI_info_t *cd07_bypassmap_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 200;
+    SMI_field_t *fmi;
+    cd07_bypassmap *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->first_spare) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->bm_gendate) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->bm_gentime) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->last_spare) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/orpgevt.h started at line 462 ***/
+
+static SMI_info_t *hci_child_started_event_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 202;
+    SMI_field_t *fmi;
+    hci_child_started_event_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->parent_pid) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->child_id) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/prod_status.h started at line 164 ***/
+
+static SMI_info_t *Prod_user_status_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 204;
+    SMI_field_t *fmi;
+    Prod_user_status *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->line_ind) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->enable) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->link) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->loadshed) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->line_stat) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->discon_reason) - (char *)tmp;
+    fmi[6].offset = (char *)&(tmp->uid) - (char *)tmp;
+    fmi[7].offset = (char *)&(tmp->util) - (char *)tmp;
+    fmi[8].offset = (char *)&(tmp->uclass) - (char *)tmp;
+    fmi[9].offset = (char *)&(tmp->rate) - (char *)tmp;
+    fmi[10].offset = (char *)&(tmp->time) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/orpgevt.h started at line 110 ***/
+
+static SMI_info_t *orpgevt_scan_info_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 206;
+    SMI_field_t *fmi;
+    orpgevt_scan_info_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->key) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->data) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/orpgevt.h started at line 268 ***/
+
+static SMI_info_t *Orpgevt_radial_acct_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 208;
+    SMI_field_t *fmi;
+    Orpgevt_radial_acct_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->azimuth) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->azi_num) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->elevation) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->elev_num) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->radial_status) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/orpgevt.h started at line 155 ***/
+
+static SMI_info_t *orpgevt_end_of_volume_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 210;
+    SMI_field_t *fmi;
+    orpgevt_end_of_volume_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->vol_aborted) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->vol_seq_num) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->expected_vol_dur) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/orpgevt.h started at line 243 ***/
+
+static SMI_info_t *Orpgevt_task_exit_msg_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 212;
+    SMI_field_t *fmi;
+    Orpgevt_task_exit_msg_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->task_id) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->instance) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->node_id) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->pid) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->exitcode) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->termsig) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/orpginfo.h started at line 65 ***/
+
+static SMI_info_t *Orpginfo_statefl_flag_evtmsg_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 214;
+    SMI_field_t *fmi;
+    Orpginfo_statefl_flag_evtmsg_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->flag_id) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->flag) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->old_bitflags) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->new_bitflags) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/orpgevt.h started at line 310 ***/
+
+static SMI_info_t *Orpgevt_load_shed_msg_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 216;
+    SMI_field_t *fmi;
+    Orpgevt_load_shed_msg_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->msg_id) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/orpgevt.h started at line 328 ***/
+
+static SMI_info_t *Orpgevt_adapt_msg_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 218;
+    SMI_field_t *fmi;
+    Orpgevt_adapt_msg_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->data_id) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->msg_id) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/orpginfo.h started at line 136 ***/
+
+static SMI_info_t *Orpginfo_rpg_alarm_evtmsg_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 220;
+    SMI_field_t *fmi;
+    Orpginfo_rpg_alarm_evtmsg_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->alarm_id) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->bitflag) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->old_bitflags) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->new_bitflags) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/orpginfo.h started at line 148 ***/
+
+static SMI_info_t *Orpginfo_rpg_opstat_evtmsg_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 222;
+    SMI_field_t *fmi;
+    Orpginfo_rpg_opstat_evtmsg_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->old_bitflags) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->new_bitflags) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/orpginfo.h started at line 45 ***/
+
+static SMI_info_t *Orpginfo_rpg_status_change_evtmsg_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 224;
+    SMI_field_t *fmi;
+    Orpginfo_rpg_status_change_evtmsg_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->rpg_status) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/prod_distri_info.h started at line 100 ***/
+
+static SMI_info_t *Pd_distri_cmd_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 226;
+    SMI_field_t *fmi;
+    Pd_distri_cmd *tmp = NULL;
+    Pd_distri_cmd *data = (Pd_distri_cmd *)dt;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    if (dt == NULL)
+	return (mi);
+
+    fmi[0].offset = (char *)&(tmp->command) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->n_lines) - (char *)tmp;
+    fmi[2].n_items = (Byte_swap_data (&(data->n_lines), "int"));
+    fmi[2].offset = (char *)&(tmp->line_ind) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/siteadp.h started at line 60 ***/
+
+static SMI_info_t *Siteadp_adpt_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 228;
+    SMI_field_t *fmi;
+    Siteadp_adpt_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->rda_lat) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->rda_lon) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->rda_elev) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->rpg_id) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->wx_mode) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->def_mode_A_vcp) - (char *)tmp;
+    fmi[6].offset = (char *)&(tmp->def_mode_B_vcp) - (char *)tmp;
+    fmi[7].offset = (char *)&(tmp->has_mlos) - (char *)tmp;
+    fmi[8].offset = (char *)&(tmp->has_rms) - (char *)tmp;
+    fmi[9].offset = (char *)&(tmp->has_bdds) - (char *)tmp;
+    fmi[10].offset = (char *)&(tmp->has_archive_III) - (char *)tmp;
+    fmi[11].offset = (char *)&(tmp->product_code) - (char *)tmp;
+    fmi[12].offset = (char *)&(tmp->rpg_name) - (char *)tmp;
+    fmi[13].offset = (char *)&(tmp->node_name) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/siteadp.h started at line 130 ***/
+
+static SMI_info_t *Redundant_info_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 230;
+    SMI_field_t *fmi;
+    Redundant_info_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->redundant_type) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->channel_number) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/mlos_info.h started at line 25 ***/
+
+static SMI_info_t *mlos_info_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 232;
+    SMI_field_t *fmi;
+    mlos_info_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->no_of_mlos_stations) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->station_type) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/rda_control_adapt.h started at line 25 ***/
+
+static SMI_info_t *rda_control_adapt_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 234;
+    SMI_field_t *fmi;
+    rda_control_adapt_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->loopback_rate) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->loopback_disabled) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->no_of_conn_retries) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->no_of_conn_timeouts) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/precip_detect.h started at line 123 ***/
+
+static SMI_info_t *precip_detect1_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 236;
+    SMI_field_t *fmi;
+    precip_detect1_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->min_elev) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->max_elev) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->rate) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->nominal_clutter_area) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->precip_area_thresh) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->precip_category) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/layer_prod_params.h started at line 27 ***/
+
+static SMI_info_t *layer_prod_params_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 238;
+    SMI_field_t *fmi;
+    layer_prod_params_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->first_dbz_level) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->second_dbz_level) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->third_dbz_level) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->fourth_dbz_level) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->dbz_range) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/rcm_prod_params.h started at line 24 ***/
+
+static SMI_info_t *rcm_prod_params_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 240;
+    SMI_field_t *fmi;
+    rcm_prod_params_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->range_thresh) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->num_storms) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->box_size) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->angle_of_rotation) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->x_axis_distance) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->y_axis_distance) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/cell_prod_params.h started at line 30 ***/
+
+static SMI_info_t *cell_prod_params_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 242;
+    SMI_field_t *fmi;
+    cell_prod_params_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->sti_alpha) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->ss_alpha) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->hail_alpha) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->sti_attrib) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->comb_attrib) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->hail_attrib) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/product_parameters.h started at line 69 ***/
+
+static SMI_info_t *vad_rcm_heights_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 244;
+    SMI_field_t *fmi;
+    vad_rcm_heights_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->vad) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->rcm) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/hail_algorithm.h started at line 36 ***/
+
+static SMI_info_t *hail_algorithm_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 246;
+    SMI_field_t *fmi;
+    hail_algorithm_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->hke_ref_wgt_low) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->hke_ref_wgt_high) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->poh_min_ref) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->hke_coef1) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->hke_coef2) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->hke_coef3) - (char *)tmp;
+    fmi[6].offset = (char *)&(tmp->posh_coef) - (char *)tmp;
+    fmi[7].offset = (char *)&(tmp->posh_offset) - (char *)tmp;
+    fmi[8].offset = (char *)&(tmp->max_hail_range) - (char *)tmp;
+    fmi[9].offset = (char *)&(tmp->shi_hail_size_coef) - (char *)tmp;
+    fmi[10].offset = (char *)&(tmp->shi_hail_size_exp) - (char *)tmp;
+    fmi[11].offset = (char *)&(tmp->warn_thr_sel_mod_coef) - (char *)tmp;
+    fmi[12].offset = (char *)&(tmp->warn_thr_sel_mod_off) - (char *)tmp;
+    fmi[13].offset = (char *)&(tmp->poh_height_diff1) - (char *)tmp;
+    fmi[14].offset = (char *)&(tmp->poh_height_diff2) - (char *)tmp;
+    fmi[15].offset = (char *)&(tmp->poh_height_diff3) - (char *)tmp;
+    fmi[16].offset = (char *)&(tmp->poh_height_diff4) - (char *)tmp;
+    fmi[17].offset = (char *)&(tmp->poh_height_diff5) - (char *)tmp;
+    fmi[18].offset = (char *)&(tmp->poh_height_diff6) - (char *)tmp;
+    fmi[19].offset = (char *)&(tmp->poh_height_diff7) - (char *)tmp;
+    fmi[20].offset = (char *)&(tmp->poh_height_diff8) - (char *)tmp;
+    fmi[21].offset = (char *)&(tmp->poh_height_diff9) - (char *)tmp;
+    fmi[22].offset = (char *)&(tmp->poh_height_diff10) - (char *)tmp;
+    fmi[23].offset = (char *)&(tmp->rcm_probable_hail) - (char *)tmp;
+    fmi[24].offset = (char *)&(tmp->rcm_positive_hail) - (char *)tmp;
+    fmi[25].offset = (char *)&(tmp->height_0) - (char *)tmp;
+    fmi[26].offset = (char *)&(tmp->height_minus_20) - (char *)tmp;
+    fmi[27].offset = (char *)&(tmp->hail_date_yy) - (char *)tmp;
+    fmi[28].offset = (char *)&(tmp->hail_date_mm) - (char *)tmp;
+    fmi[29].offset = (char *)&(tmp->hail_date_dd) - (char *)tmp;
+    fmi[30].offset = (char *)&(tmp->hail_time_hr) - (char *)tmp;
+    fmi[31].offset = (char *)&(tmp->hail_time_min) - (char *)tmp;
+    fmi[32].offset = (char *)&(tmp->hail_time_sec) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/storm_cell_track.h started at line 20 ***/
+
+static SMI_info_t *storm_cell_track_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 248;
+    SMI_field_t *fmi;
+    storm_cell_track_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->num_past_vols) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->num_intvls) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->forecast_intvl) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->allow_err) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->err_intvl) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->default_dir) - (char *)tmp;
+    fmi[6].offset = (char *)&(tmp->max_time) - (char *)tmp;
+    fmi[7].offset = (char *)&(tmp->default_spd) - (char *)tmp;
+    fmi[8].offset = (char *)&(tmp->correlation_spd) - (char *)tmp;
+    fmi[9].offset = (char *)&(tmp->minimum_spd) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/tda.h started at line 26 ***/
+
+static SMI_info_t *tda_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 250;
+    SMI_field_t *fmi;
+    tda_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->min_dbz_thresh) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->vector_vel_diff) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->max_pv_range) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->max_pv_height) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->max_pv_num) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->diff_vel1) - (char *)tmp;
+    fmi[6].offset = (char *)&(tmp->diff_vel2) - (char *)tmp;
+    fmi[7].offset = (char *)&(tmp->diff_vel3) - (char *)tmp;
+    fmi[8].offset = (char *)&(tmp->diff_vel4) - (char *)tmp;
+    fmi[9].offset = (char *)&(tmp->diff_vel5) - (char *)tmp;
+    fmi[10].offset = (char *)&(tmp->diff_vel6) - (char *)tmp;
+    fmi[11].offset = (char *)&(tmp->min_vectors_2d) - (char *)tmp;
+    fmi[12].offset = (char *)&(tmp->vector_rad_dist_2d) - (char *)tmp;
+    fmi[13].offset = (char *)&(tmp->vector_azi_dist_2d) - (char *)tmp;
+    fmi[14].offset = (char *)&(tmp->max_ratio_2d) - (char *)tmp;
+    fmi[15].offset = (char *)&(tmp->circ_radius1) - (char *)tmp;
+    fmi[16].offset = (char *)&(tmp->circ_radius2) - (char *)tmp;
+    fmi[17].offset = (char *)&(tmp->circ_radius_range) - (char *)tmp;
+    fmi[18].offset = (char *)&(tmp->max_2d_features) - (char *)tmp;
+    fmi[19].offset = (char *)&(tmp->min_2d_features) - (char *)tmp;
+    fmi[20].offset = (char *)&(tmp->min_depth_3d) - (char *)tmp;
+    fmi[21].offset = (char *)&(tmp->min_vel_3d) - (char *)tmp;
+    fmi[22].offset = (char *)&(tmp->min_tvs_vel) - (char *)tmp;
+    fmi[23].offset = (char *)&(tmp->max_3d_features) - (char *)tmp;
+    fmi[24].offset = (char *)&(tmp->max_tvs_features) - (char *)tmp;
+    fmi[25].offset = (char *)&(tmp->max_etvs_features) - (char *)tmp;
+    fmi[26].offset = (char *)&(tmp->min_tvs_height) - (char *)tmp;
+    fmi[27].offset = (char *)&(tmp->min_tvs_elev) - (char *)tmp;
+    fmi[28].offset = (char *)&(tmp->avg_vel_height) - (char *)tmp;
+    fmi[29].offset = (char *)&(tmp->max_storm_dist) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/gen_stat_msg.h started at line 106 ***/
+
+static SMI_info_t *RDA_RPG_comms_status_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 252;
+    SMI_field_t *fmi;
+    RDA_RPG_comms_status_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->wblnstat) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->rda_display_blanking) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->wb_failed) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/gen_stat_msg.h started at line 164 ***/
+
+static SMI_info_t *Scan_Summary_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 254;
+    SMI_field_t *fmi;
+    Scan_Summary *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->volume_start_date) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->volume_start_time) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->weather_mode) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->vcp_number) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->rpg_elev_cuts) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->rda_elev_cuts) - (char *)tmp;
+    fmi[6].offset = (char *)&(tmp->spot_blank_status) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/clutter.h started at line 82 ***/
+
+static SMI_info_t *RPG_clutter_regions_file_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 256;
+    SMI_field_t *fmi;
+    RPG_clutter_regions_file_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->file_id) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->regions) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/clutter.h started at line 89 ***/
+
+static SMI_info_t *ORPG_clutter_regions_file_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 258;
+    SMI_field_t *fmi;
+    ORPG_clutter_regions_file_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->file_id) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->regions) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/rda_performance_maintenance.h started at line 24 ***/
+
+static SMI_info_t *wideband_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 260;
+    SMI_field_t *fmi;
+    wideband_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->dcu_status) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->general_error) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->svc_15_error) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->outgoing_frames) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->frames_fcs_errors) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->retrans_i_frames) - (char *)tmp;
+    fmi[6].offset = (char *)&(tmp->polls_sent_recvd) - (char *)tmp;
+    fmi[7].offset = (char *)&(tmp->poll_timeout_exp) - (char *)tmp;
+    fmi[8].offset = (char *)&(tmp->min_buf_read_pool) - (char *)tmp;
+    fmi[9].offset = (char *)&(tmp->max_buf_read_done) - (char *)tmp;
+    fmi[10].offset = (char *)&(tmp->loopback_test) - (char *)tmp;
+    fmi[11].offset = (char *)&(tmp->spare12) - (char *)tmp;
+    fmi[12].offset = (char *)&(tmp->spare13) - (char *)tmp;
+    fmi[13].offset = (char *)&(tmp->spare14) - (char *)tmp;
+    fmi[14].offset = (char *)&(tmp->spare15) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/rda_performance_maintenance.h started at line 337 ***/
+
+static SMI_info_t *bitdata_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 262;
+    SMI_field_t *fmi;
+    bitdata_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->data31) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->data32) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->data33) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->data34) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->data35) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->data36) - (char *)tmp;
+    fmi[6].offset = (char *)&(tmp->data37) - (char *)tmp;
+    fmi[7].offset = (char *)&(tmp->out_temp) - (char *)tmp;
+    fmi[8].offset = (char *)&(tmp->eqp_shelt_temp) - (char *)tmp;
+    fmi[9].offset = (char *)&(tmp->ac1_air_temp) - (char *)tmp;
+    fmi[10].offset = (char *)&(tmp->trans_air_temp) - (char *)tmp;
+    fmi[11].offset = (char *)&(tmp->radome_air_temp) - (char *)tmp;
+    fmi[12].offset = (char *)&(tmp->gen_shelt_temp) - (char *)tmp;
+    fmi[13].offset = (char *)&(tmp->gen_fuel_level) - (char *)tmp;
+    fmi[14].offset = (char *)&(tmp->spare41l) - (char *)tmp;
+    fmi[15].offset = (char *)&(tmp->spare42h) - (char *)tmp;
+    fmi[16].offset = (char *)&(tmp->spare42l) - (char *)tmp;
+    fmi[17].offset = (char *)&(tmp->spare43h) - (char *)tmp;
+    fmi[18].offset = (char *)&(tmp->spare43l) - (char *)tmp;
+    fmi[19].offset = (char *)&(tmp->spare44h) - (char *)tmp;
+    fmi[20].offset = (char *)&(tmp->spare44l) - (char *)tmp;
+    fmi[21].offset = (char *)&(tmp->ac2_air_temp) - (char *)tmp;
+    fmi[22].offset = (char *)&(tmp->spare45l) - (char *)tmp;
+    fmi[23].offset = (char *)&(tmp->spare46h) - (char *)tmp;
+    fmi[24].offset = (char *)&(tmp->xmtr_rf_pwr) - (char *)tmp;
+    fmi[25].offset = (char *)&(tmp->ant_rf_pwr) - (char *)tmp;
+    fmi[26].offset = (char *)&(tmp->spare47l) - (char *)tmp;
+    fmi[27].offset = (char *)&(tmp->spare48h) - (char *)tmp;
+    fmi[28].offset = (char *)&(tmp->spare48l) - (char *)tmp;
+    fmi[29].offset = (char *)&(tmp->spare49h) - (char *)tmp;
+    fmi[30].offset = (char *)&(tmp->ped_p28v_ps) - (char *)tmp;
+    fmi[31].offset = (char *)&(tmp->enc_p5v_ps) - (char *)tmp;
+    fmi[32].offset = (char *)&(tmp->ped_p15v_ps) - (char *)tmp;
+    fmi[33].offset = (char *)&(tmp->spare51h) - (char *)tmp;
+    fmi[34].offset = (char *)&(tmp->ped_p5v_ps) - (char *)tmp;
+    fmi[35].offset = (char *)&(tmp->spare52h) - (char *)tmp;
+    fmi[36].offset = (char *)&(tmp->spare52l) - (char *)tmp;
+    fmi[37].offset = (char *)&(tmp->sig_proc_p5v_ps) - (char *)tmp;
+    fmi[38].offset = (char *)&(tmp->spare53l) - (char *)tmp;
+    fmi[39].offset = (char *)&(tmp->mnt_con_p28v_ps) - (char *)tmp;
+    fmi[40].offset = (char *)&(tmp->mnt_con_p15v_ps) - (char *)tmp;
+    fmi[41].offset = (char *)&(tmp->mnt_con_p5v_ps) - (char *)tmp;
+    fmi[42].offset = (char *)&(tmp->spare55l) - (char *)tmp;
+    fmi[43].offset = (char *)&(tmp->spare56h) - (char *)tmp;
+    fmi[44].offset = (char *)&(tmp->spare56l) - (char *)tmp;
+    fmi[45].offset = (char *)&(tmp->ped_n15v_ps) - (char *)tmp;
+    fmi[46].offset = (char *)&(tmp->spare57l) - (char *)tmp;
+    fmi[47].offset = (char *)&(tmp->spare58h) - (char *)tmp;
+    fmi[48].offset = (char *)&(tmp->mnt_con_n15v_ps) - (char *)tmp;
+    fmi[49].offset = (char *)&(tmp->spare59h) - (char *)tmp;
+    fmi[50].offset = (char *)&(tmp->dau_test0) - (char *)tmp;
+    fmi[51].offset = (char *)&(tmp->dau_test1) - (char *)tmp;
+    fmi[52].offset = (char *)&(tmp->dau_test2) - (char *)tmp;
+    fmi[53].offset = (char *)&(tmp->spare61h) - (char *)tmp;
+    fmi[54].offset = (char *)&(tmp->spare61l) - (char *)tmp;
+    fmi[55].offset = (char *)&(tmp->dau_interface) - (char *)tmp;
+    fmi[56].offset = (char *)&(tmp->xmtr_sum_stat) - (char *)tmp;
+    fmi[57].offset = (char *)&(tmp->spare64) - (char *)tmp;
+    fmi[58].offset = (char *)&(tmp->spare65) - (char *)tmp;
+    fmi[59].offset = (char *)&(tmp->spare66) - (char *)tmp;
+    fmi[60].offset = (char *)&(tmp->spare67) - (char *)tmp;
+    fmi[61].offset = (char *)&(tmp->spare68) - (char *)tmp;
+    fmi[62].offset = (char *)&(tmp->spare69) - (char *)tmp;
+    fmi[63].offset = (char *)&(tmp->spare70) - (char *)tmp;
+    fmi[64].offset = (char *)&(tmp->spare71) - (char *)tmp;
+    fmi[65].offset = (char *)&(tmp->spare72) - (char *)tmp;
+    fmi[66].offset = (char *)&(tmp->spare73) - (char *)tmp;
+    fmi[67].offset = (char *)&(tmp->spare74) - (char *)tmp;
+    fmi[68].offset = (char *)&(tmp->spare75) - (char *)tmp;
+    fmi[69].offset = (char *)&(tmp->spare76) - (char *)tmp;
+    fmi[70].offset = (char *)&(tmp->spare77) - (char *)tmp;
+    fmi[71].offset = (char *)&(tmp->spare78) - (char *)tmp;
+    fmi[72].offset = (char *)&(tmp->spare79) - (char *)tmp;
+    fmi[73].offset = (char *)&(tmp->spare80) - (char *)tmp;
+    fmi[74].offset = (char *)&(tmp->spare81) - (char *)tmp;
+    fmi[75].offset = (char *)&(tmp->spare82) - (char *)tmp;
+    fmi[76].offset = (char *)&(tmp->spare83) - (char *)tmp;
+    fmi[77].offset = (char *)&(tmp->spare84) - (char *)tmp;
+    fmi[78].offset = (char *)&(tmp->spare85) - (char *)tmp;
+    fmi[79].offset = (char *)&(tmp->spare86) - (char *)tmp;
+    fmi[80].offset = (char *)&(tmp->spare87) - (char *)tmp;
+    fmi[81].offset = (char *)&(tmp->spare88) - (char *)tmp;
+    fmi[82].offset = (char *)&(tmp->spare89) - (char *)tmp;
+    fmi[83].offset = (char *)&(tmp->spare90) - (char *)tmp;
+    fmi[84].offset = (char *)&(tmp->spare91) - (char *)tmp;
+    fmi[85].offset = (char *)&(tmp->spare92) - (char *)tmp;
+    fmi[86].offset = (char *)&(tmp->spare93) - (char *)tmp;
+    fmi[87].offset = (char *)&(tmp->spare94) - (char *)tmp;
+    fmi[88].offset = (char *)&(tmp->spare95) - (char *)tmp;
+    fmi[89].offset = (char *)&(tmp->data96) - (char *)tmp;
+    fmi[90].offset = (char *)&(tmp->data97) - (char *)tmp;
+    fmi[91].offset = (char *)&(tmp->data98) - (char *)tmp;
+    fmi[92].offset = (char *)&(tmp->az_pos_corr) - (char *)tmp;
+    fmi[93].offset = (char *)&(tmp->el_pos_corr) - (char *)tmp;
+    fmi[94].offset = (char *)&(tmp->spare101) - (char *)tmp;
+    fmi[95].offset = (char *)&(tmp->spare102) - (char *)tmp;
+    fmi[96].offset = (char *)&(tmp->spare103) - (char *)tmp;
+    fmi[97].offset = (char *)&(tmp->spare104) - (char *)tmp;
+    fmi[98].offset = (char *)&(tmp->spare105) - (char *)tmp;
+    fmi[99].offset = (char *)&(tmp->spare106h) - (char *)tmp;
+    fmi[100].offset = (char *)&(tmp->rf_gen_data) - (char *)tmp;
+    fmi[101].offset = (char *)&(tmp->spare107) - (char *)tmp;
+    fmi[102].offset = (char *)&(tmp->spare108) - (char *)tmp;
+    fmi[103].offset = (char *)&(tmp->spare109h) - (char *)tmp;
+    fmi[104].offset = (char *)&(tmp->parity_alrm_cf) - (char *)tmp;
+    fmi[105].offset = (char *)&(tmp->spare110) - (char *)tmp;
+    fmi[106].offset = (char *)&(tmp->spare111) - (char *)tmp;
+    fmi[107].offset = (char *)&(tmp->prt1_int) - (char *)tmp;
+    fmi[108].offset = (char *)&(tmp->prt2_int) - (char *)tmp;
+    fmi[109].offset = (char *)&(tmp->spare114) - (char *)tmp;
+    fmi[110].offset = (char *)&(tmp->spare115) - (char *)tmp;
+    fmi[111].offset = (char *)&(tmp->spare116) - (char *)tmp;
+    fmi[112].offset = (char *)&(tmp->spare117) - (char *)tmp;
+    fmi[113].offset = (char *)&(tmp->spare118) - (char *)tmp;
+    fmi[114].offset = (char *)&(tmp->spare119) - (char *)tmp;
+    fmi[115].offset = (char *)&(tmp->spare120) - (char *)tmp;
+    fmi[116].offset = (char *)&(tmp->spare121) - (char *)tmp;
+    fmi[117].offset = (char *)&(tmp->spare122) - (char *)tmp;
+    fmi[118].offset = (char *)&(tmp->ant_pk_pwr) - (char *)tmp;
+    fmi[119].offset = (char *)&(tmp->xmtr_pk_pwr) - (char *)tmp;
+    fmi[120].offset = (char *)&(tmp->ant_rf_ave_pwr) - (char *)tmp;
+    fmi[121].offset = (char *)&(tmp->xmtr_rf_ave_pwr) - (char *)tmp;
+    fmi[122].offset = (char *)&(tmp->mwave_loss) - (char *)tmp;
+    fmi[123].offset = (char *)&(tmp->ant_pwr_mtr_zero) - (char *)tmp;
+    fmi[124].offset = (char *)&(tmp->xmtr_pwr_mtr_zero) - (char *)tmp;
+    fmi[125].offset = (char *)&(tmp->xmtr_rec_cnt) - (char *)tmp;
+    fmi[126].offset = (char *)&(tmp->spare139) - (char *)tmp;
+    fmi[127].offset = (char *)&(tmp->spare140) - (char *)tmp;
+    fmi[128].offset = (char *)&(tmp->sh_pulse_lin_chan_noise) - (char *)tmp;
+    fmi[129].offset = (char *)&(tmp->sh_pulse_log_chan_noise) - (char *)tmp;
+    fmi[130].offset = (char *)&(tmp->lo_pulse_lin_chan_noise) - (char *)tmp;
+    fmi[131].offset = (char *)&(tmp->lo_pulse_log_chan_noise) - (char *)tmp;
+    fmi[132].offset = (char *)&(tmp->system_noise_temp) - (char *)tmp;
+    fmi[133].offset = (char *)&(tmp->idu_tst_detect) - (char *)tmp;
+    fmi[134].offset = (char *)&(tmp->spare152) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/rda_performance_maintenance.h started at line 62 ***/
+
+static SMI_info_t *calibration_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 264;
+    SMI_field_t *fmi;
+    calibration_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->agc_step1_amp) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->agc_step2_amp) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->agc_step3_amp) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->agc_step4_amp) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->agc_step5_amp) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->agc_step6_amp) - (char *)tmp;
+    fmi[6].offset = (char *)&(tmp->agc_step1_phase) - (char *)tmp;
+    fmi[7].offset = (char *)&(tmp->agc_step2_phase) - (char *)tmp;
+    fmi[8].offset = (char *)&(tmp->agc_step3_phase) - (char *)tmp;
+    fmi[9].offset = (char *)&(tmp->agc_step4_phase) - (char *)tmp;
+    fmi[10].offset = (char *)&(tmp->agc_step5_phase) - (char *)tmp;
+    fmi[11].offset = (char *)&(tmp->agc_step6_phase) - (char *)tmp;
+    fmi[12].offset = (char *)&(tmp->agc_iq_amp_bal) - (char *)tmp;
+    fmi[13].offset = (char *)&(tmp->agc_iq_phase_bal) - (char *)tmp;
+    fmi[14].offset = (char *)&(tmp->spare181) - (char *)tmp;
+    fmi[15].offset = (char *)&(tmp->spare182) - (char *)tmp;
+    fmi[16].offset = (char *)&(tmp->spare183) - (char *)tmp;
+    fmi[17].offset = (char *)&(tmp->spare184) - (char *)tmp;
+    fmi[18].offset = (char *)&(tmp->spare185) - (char *)tmp;
+    fmi[19].offset = (char *)&(tmp->spare186) - (char *)tmp;
+    fmi[20].offset = (char *)&(tmp->spare187) - (char *)tmp;
+    fmi[21].offset = (char *)&(tmp->spare188) - (char *)tmp;
+    fmi[22].offset = (char *)&(tmp->spare189) - (char *)tmp;
+    fmi[23].offset = (char *)&(tmp->spare190) - (char *)tmp;
+    fmi[24].offset = (char *)&(tmp->spare191) - (char *)tmp;
+    fmi[25].offset = (char *)&(tmp->spare192) - (char *)tmp;
+    fmi[26].offset = (char *)&(tmp->spare193) - (char *)tmp;
+    fmi[27].offset = (char *)&(tmp->spare194) - (char *)tmp;
+    fmi[28].offset = (char *)&(tmp->spare195) - (char *)tmp;
+    fmi[29].offset = (char *)&(tmp->spare196) - (char *)tmp;
+    fmi[30].offset = (char *)&(tmp->spare197) - (char *)tmp;
+    fmi[31].offset = (char *)&(tmp->spare198) - (char *)tmp;
+    fmi[32].offset = (char *)&(tmp->spare199) - (char *)tmp;
+    fmi[33].offset = (char *)&(tmp->spare200) - (char *)tmp;
+    fmi[34].offset = (char *)&(tmp->cw_lin_tgt_exp_amp) - (char *)tmp;
+    fmi[35].offset = (char *)&(tmp->rfd1_lin_tgt_exp_amp) - (char *)tmp;
+    fmi[36].offset = (char *)&(tmp->rfd2_lin_tgt_exp_amp) - (char *)tmp;
+    fmi[37].offset = (char *)&(tmp->rfd3_lin_tgt_exp_amp) - (char *)tmp;
+    fmi[38].offset = (char *)&(tmp->cw_log_tgt_exp_amp) - (char *)tmp;
+    fmi[39].offset = (char *)&(tmp->rfd1_log_tgt_exp_amp) - (char *)tmp;
+    fmi[40].offset = (char *)&(tmp->rfd2_log_tgt_exp_amp) - (char *)tmp;
+    fmi[41].offset = (char *)&(tmp->rfd3_log_tgt_exp_amp) - (char *)tmp;
+    fmi[42].offset = (char *)&(tmp->cw_lin_tgt_mea_amp) - (char *)tmp;
+    fmi[43].offset = (char *)&(tmp->rfd1_lin_tgt_mea_amp) - (char *)tmp;
+    fmi[44].offset = (char *)&(tmp->rfd2_lin_tgt_mea_amp) - (char *)tmp;
+    fmi[45].offset = (char *)&(tmp->rfd3_lin_tgt_mea_amp) - (char *)tmp;
+    fmi[46].offset = (char *)&(tmp->cw_log_tgt_mea_amp) - (char *)tmp;
+    fmi[47].offset = (char *)&(tmp->rfd1_log_tgt_mea_amp) - (char *)tmp;
+    fmi[48].offset = (char *)&(tmp->rfd2_log_tgt_mea_amp) - (char *)tmp;
+    fmi[49].offset = (char *)&(tmp->rfd3_log_tgt_mea_amp) - (char *)tmp;
+    fmi[50].offset = (char *)&(tmp->short_pulse_lin_syscal) - (char *)tmp;
+    fmi[51].offset = (char *)&(tmp->short_pulse_log_syscal) - (char *)tmp;
+    fmi[52].offset = (char *)&(tmp->long_pulse_lin_syscal) - (char *)tmp;
+    fmi[53].offset = (char *)&(tmp->long_pulse_log_syscal) - (char *)tmp;
+    fmi[54].offset = (char *)&(tmp->phase_ram1_exp_vel) - (char *)tmp;
+    fmi[55].offset = (char *)&(tmp->phase_ram2_exp_vel) - (char *)tmp;
+    fmi[56].offset = (char *)&(tmp->phase_ram3_exp_vel) - (char *)tmp;
+    fmi[57].offset = (char *)&(tmp->phase_ram4_exp_vel) - (char *)tmp;
+    fmi[58].offset = (char *)&(tmp->phase_ram1_mea_vel) - (char *)tmp;
+    fmi[59].offset = (char *)&(tmp->phase_ram2_mea_vel) - (char *)tmp;
+    fmi[60].offset = (char *)&(tmp->phase_ram3_mea_vel) - (char *)tmp;
+    fmi[61].offset = (char *)&(tmp->phase_ram4_mea_vel) - (char *)tmp;
+    fmi[62].offset = (char *)&(tmp->phase_ram1_exp_wid) - (char *)tmp;
+    fmi[63].offset = (char *)&(tmp->phase_ram2_exp_wid) - (char *)tmp;
+    fmi[64].offset = (char *)&(tmp->phase_ram3_exp_wid) - (char *)tmp;
+    fmi[65].offset = (char *)&(tmp->phase_ram4_exp_wid) - (char *)tmp;
+    fmi[66].offset = (char *)&(tmp->phase_ram1_mea_wid) - (char *)tmp;
+    fmi[67].offset = (char *)&(tmp->phase_ram2_mea_wid) - (char *)tmp;
+    fmi[68].offset = (char *)&(tmp->phase_ram3_mea_wid) - (char *)tmp;
+    fmi[69].offset = (char *)&(tmp->phase_ram4_mea_wid) - (char *)tmp;
+    fmi[70].offset = (char *)&(tmp->spare273) - (char *)tmp;
+    fmi[71].offset = (char *)&(tmp->spare274) - (char *)tmp;
+    fmi[72].offset = (char *)&(tmp->spare275) - (char *)tmp;
+    fmi[73].offset = (char *)&(tmp->spare276) - (char *)tmp;
+    fmi[74].offset = (char *)&(tmp->spare277) - (char *)tmp;
+    fmi[75].offset = (char *)&(tmp->spare278) - (char *)tmp;
+    fmi[76].offset = (char *)&(tmp->spare279) - (char *)tmp;
+    fmi[77].offset = (char *)&(tmp->spare280) - (char *)tmp;
+    fmi[78].offset = (char *)&(tmp->spare281) - (char *)tmp;
+    fmi[79].offset = (char *)&(tmp->spare282) - (char *)tmp;
+    fmi[80].offset = (char *)&(tmp->spare283) - (char *)tmp;
+    fmi[81].offset = (char *)&(tmp->spare284) - (char *)tmp;
+    fmi[82].offset = (char *)&(tmp->spare285) - (char *)tmp;
+    fmi[83].offset = (char *)&(tmp->spare286) - (char *)tmp;
+    fmi[84].offset = (char *)&(tmp->spare287) - (char *)tmp;
+    fmi[85].offset = (char *)&(tmp->spare288) - (char *)tmp;
+    fmi[86].offset = (char *)&(tmp->spare289) - (char *)tmp;
+    fmi[87].offset = (char *)&(tmp->spare290) - (char *)tmp;
+    fmi[88].offset = (char *)&(tmp->kd1_lin_tgt_exp_amp) - (char *)tmp;
+    fmi[89].offset = (char *)&(tmp->kd2_lin_tgt_exp_amp) - (char *)tmp;
+    fmi[90].offset = (char *)&(tmp->kd3_lin_tgt_exp_amp) - (char *)tmp;
+    fmi[91].offset = (char *)&(tmp->kd1_log_tgt_exp_amp) - (char *)tmp;
+    fmi[92].offset = (char *)&(tmp->kd2_log_tgt_exp_amp) - (char *)tmp;
+    fmi[93].offset = (char *)&(tmp->kd3_log_tgt_exp_amp) - (char *)tmp;
+    fmi[94].offset = (char *)&(tmp->kd1_lin_tgt_mea_amp) - (char *)tmp;
+    fmi[95].offset = (char *)&(tmp->kd2_lin_tgt_mea_amp) - (char *)tmp;
+    fmi[96].offset = (char *)&(tmp->kd3_lin_tgt_mea_amp) - (char *)tmp;
+    fmi[97].offset = (char *)&(tmp->kd1_log_tgt_mea_amp) - (char *)tmp;
+    fmi[98].offset = (char *)&(tmp->kd2_log_tgt_mea_amp) - (char *)tmp;
+    fmi[99].offset = (char *)&(tmp->kd3_log_tgt_mea_amp) - (char *)tmp;
+    fmi[100].offset = (char *)&(tmp->spare315) - (char *)tmp;
+    fmi[101].offset = (char *)&(tmp->spare316) - (char *)tmp;
+    fmi[102].offset = (char *)&(tmp->spare317) - (char *)tmp;
+    fmi[103].offset = (char *)&(tmp->spare318) - (char *)tmp;
+    fmi[104].offset = (char *)&(tmp->spare319) - (char *)tmp;
+    fmi[105].offset = (char *)&(tmp->spare320) - (char *)tmp;
+    fmi[106].offset = (char *)&(tmp->spare321) - (char *)tmp;
+    fmi[107].offset = (char *)&(tmp->spare322) - (char *)tmp;
+    fmi[108].offset = (char *)&(tmp->spare323) - (char *)tmp;
+    fmi[109].offset = (char *)&(tmp->spare324) - (char *)tmp;
+    fmi[110].offset = (char *)&(tmp->spare325) - (char *)tmp;
+    fmi[111].offset = (char *)&(tmp->spare326) - (char *)tmp;
+    fmi[112].offset = (char *)&(tmp->spare327) - (char *)tmp;
+    fmi[113].offset = (char *)&(tmp->spare328) - (char *)tmp;
+    fmi[114].offset = (char *)&(tmp->spare329) - (char *)tmp;
+    fmi[115].offset = (char *)&(tmp->spare330) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/rda_performance_maintenance.h started at line 183 ***/
+
+static SMI_info_t *clutter_check_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 266;
+    SMI_field_t *fmi;
+    clutter_check_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->unfilt_lin_chan_pwr) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->filt_lin_chan_pwr) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->unfilt_log_chan_pwr) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->filt_log_chan_pwr) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->spare339) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->spare340) - (char *)tmp;
+    fmi[6].offset = (char *)&(tmp->spare341) - (char *)tmp;
+    fmi[7].offset = (char *)&(tmp->spare342) - (char *)tmp;
+    fmi[8].offset = (char *)&(tmp->spare343) - (char *)tmp;
+    fmi[9].offset = (char *)&(tmp->spare344) - (char *)tmp;
+    fmi[10].offset = (char *)&(tmp->spare345) - (char *)tmp;
+    fmi[11].offset = (char *)&(tmp->spare346) - (char *)tmp;
+    fmi[12].offset = (char *)&(tmp->spare347) - (char *)tmp;
+    fmi[13].offset = (char *)&(tmp->spare348) - (char *)tmp;
+    fmi[14].offset = (char *)&(tmp->spare349) - (char *)tmp;
+    fmi[15].offset = (char *)&(tmp->spare350) - (char *)tmp;
+    fmi[16].offset = (char *)&(tmp->spare351) - (char *)tmp;
+    fmi[17].offset = (char *)&(tmp->spare352) - (char *)tmp;
+    fmi[18].offset = (char *)&(tmp->spare353) - (char *)tmp;
+    fmi[19].offset = (char *)&(tmp->spare354) - (char *)tmp;
+    fmi[20].offset = (char *)&(tmp->spare355) - (char *)tmp;
+    fmi[21].offset = (char *)&(tmp->spare356) - (char *)tmp;
+    fmi[22].offset = (char *)&(tmp->spare357) - (char *)tmp;
+    fmi[23].offset = (char *)&(tmp->spare358) - (char *)tmp;
+    fmi[24].offset = (char *)&(tmp->spare359) - (char *)tmp;
+    fmi[25].offset = (char *)&(tmp->spare360) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/rda_performance_maintenance.h started at line 214 ***/
+
+static SMI_info_t *disk_file_status_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 268;
+    SMI_field_t *fmi;
+    disk_file_status_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->state_fil_rd_stat) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->state_fil_wr_stat) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->by_map_fil_rd_stat) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->by_map_fil_wr_stat) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->rdasc_cal_fil_rd_stat) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->rdasc_cal_fil_wr_stat) - (char *)tmp;
+    fmi[6].offset = (char *)&(tmp->rdasot_cal_fil_rd_stat) - (char *)tmp;
+    fmi[7].offset = (char *)&(tmp->mod_adap_fil_rd_stat) - (char *)tmp;
+    fmi[8].offset = (char *)&(tmp->spare369) - (char *)tmp;
+    fmi[9].offset = (char *)&(tmp->cen_zone_fil_rd_stat) - (char *)tmp;
+    fmi[10].offset = (char *)&(tmp->cen_zone_fil_wr_stat) - (char *)tmp;
+    fmi[11].offset = (char *)&(tmp->rem_vcp_fil_wr_stat) - (char *)tmp;
+    fmi[12].offset = (char *)&(tmp->rem_vcp_fil_rd_stat) - (char *)tmp;
+    fmi[13].offset = (char *)&(tmp->spare374) - (char *)tmp;
+    fmi[14].offset = (char *)&(tmp->spare375) - (char *)tmp;
+    fmi[15].offset = (char *)&(tmp->spare376) - (char *)tmp;
+    fmi[16].offset = (char *)&(tmp->spare377) - (char *)tmp;
+    fmi[17].offset = (char *)&(tmp->spare378) - (char *)tmp;
+    fmi[18].offset = (char *)&(tmp->spare379) - (char *)tmp;
+    fmi[19].offset = (char *)&(tmp->spare380) - (char *)tmp;
+    fmi[20].offset = (char *)&(tmp->spare381) - (char *)tmp;
+    fmi[21].offset = (char *)&(tmp->spare382) - (char *)tmp;
+    fmi[22].offset = (char *)&(tmp->spare383) - (char *)tmp;
+    fmi[23].offset = (char *)&(tmp->spare384) - (char *)tmp;
+    fmi[24].offset = (char *)&(tmp->spare385) - (char *)tmp;
+    fmi[25].offset = (char *)&(tmp->spare386) - (char *)tmp;
+    fmi[26].offset = (char *)&(tmp->spare387) - (char *)tmp;
+    fmi[27].offset = (char *)&(tmp->spare388) - (char *)tmp;
+    fmi[28].offset = (char *)&(tmp->spare389) - (char *)tmp;
+    fmi[29].offset = (char *)&(tmp->spare390) - (char *)tmp;
+    fmi[30].offset = (char *)&(tmp->spare391) - (char *)tmp;
+    fmi[31].offset = (char *)&(tmp->spare392) - (char *)tmp;
+    fmi[32].offset = (char *)&(tmp->spare393) - (char *)tmp;
+    fmi[33].offset = (char *)&(tmp->spare394) - (char *)tmp;
+    fmi[34].offset = (char *)&(tmp->spare395) - (char *)tmp;
+    fmi[35].offset = (char *)&(tmp->spare396) - (char *)tmp;
+    fmi[36].offset = (char *)&(tmp->spare397) - (char *)tmp;
+    fmi[37].offset = (char *)&(tmp->spare398) - (char *)tmp;
+    fmi[38].offset = (char *)&(tmp->spare399) - (char *)tmp;
+    fmi[39].offset = (char *)&(tmp->spare400) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/rda_performance_maintenance.h started at line 259 ***/
+
+static SMI_info_t *device_init_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 270;
+    SMI_field_t *fmi;
+    device_init_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->dau_init_stat) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->maint_con_init_stat) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->ped_init_stat) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->self_tst1_stat) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->self_tst2_stat) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->self_tst2_data) - (char *)tmp;
+    fmi[6].offset = (char *)&(tmp->sps_init_stat) - (char *)tmp;
+    fmi[7].offset = (char *)&(tmp->sps_download_stat) - (char *)tmp;
+    fmi[8].offset = (char *)&(tmp->sps_dim_loop_stat) - (char *)tmp;
+    fmi[9].offset = (char *)&(tmp->sps_smi_loop_stat) - (char *)tmp;
+    fmi[10].offset = (char *)&(tmp->sps_hsp_loop_stat) - (char *)tmp;
+    fmi[11].offset = (char *)&(tmp->rpg_link_init_stat) - (char *)tmp;
+    fmi[12].offset = (char *)&(tmp->user_link_init_stat) - (char *)tmp;
+    fmi[13].offset = (char *)&(tmp->spare414) - (char *)tmp;
+    fmi[14].offset = (char *)&(tmp->spare415) - (char *)tmp;
+    fmi[15].offset = (char *)&(tmp->spare416) - (char *)tmp;
+    fmi[16].offset = (char *)&(tmp->spare417) - (char *)tmp;
+    fmi[17].offset = (char *)&(tmp->spare418) - (char *)tmp;
+    fmi[18].offset = (char *)&(tmp->spare419) - (char *)tmp;
+    fmi[19].offset = (char *)&(tmp->spare420) - (char *)tmp;
+    fmi[20].offset = (char *)&(tmp->spare421) - (char *)tmp;
+    fmi[21].offset = (char *)&(tmp->spare422) - (char *)tmp;
+    fmi[22].offset = (char *)&(tmp->spare423) - (char *)tmp;
+    fmi[23].offset = (char *)&(tmp->spare424) - (char *)tmp;
+    fmi[24].offset = (char *)&(tmp->spare425) - (char *)tmp;
+    fmi[25].offset = (char *)&(tmp->spare426) - (char *)tmp;
+    fmi[26].offset = (char *)&(tmp->spare427) - (char *)tmp;
+    fmi[27].offset = (char *)&(tmp->spare428) - (char *)tmp;
+    fmi[28].offset = (char *)&(tmp->spare429) - (char *)tmp;
+    fmi[29].offset = (char *)&(tmp->spare430) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/rda_performance_maintenance.h started at line 296 ***/
+
+static SMI_info_t *device_io_error_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 272;
+    SMI_field_t *fmi;
+    device_io_error_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->dau_io_err_stat) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->dau_io_err_date) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->dau_io_err_time) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->mc_io_err_stat) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->mc_io_err_date) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->mc_io_err_time) - (char *)tmp;
+    fmi[6].offset = (char *)&(tmp->ped_io_err_stat) - (char *)tmp;
+    fmi[7].offset = (char *)&(tmp->ped_io_err_date) - (char *)tmp;
+    fmi[8].offset = (char *)&(tmp->ped_io_err_time) - (char *)tmp;
+    fmi[9].offset = (char *)&(tmp->sps_io_err_stat) - (char *)tmp;
+    fmi[10].offset = (char *)&(tmp->sps_io_err_date) - (char *)tmp;
+    fmi[11].offset = (char *)&(tmp->sps_io_err_time) - (char *)tmp;
+    fmi[12].offset = (char *)&(tmp->arch2_io_err_stat) - (char *)tmp;
+    fmi[13].offset = (char *)&(tmp->arch2_io_err_date) - (char *)tmp;
+    fmi[14].offset = (char *)&(tmp->arch2_io_err_time) - (char *)tmp;
+    fmi[15].offset = (char *)&(tmp->disk_io_err_stat) - (char *)tmp;
+    fmi[16].offset = (char *)&(tmp->disk_io_err_date) - (char *)tmp;
+    fmi[17].offset = (char *)&(tmp->disk_io_err_time) - (char *)tmp;
+    fmi[18].offset = (char *)&(tmp->arch2_sum_err_stat) - (char *)tmp;
+    fmi[19].offset = (char *)&(tmp->red_chan_io_err_stat) - (char *)tmp;
+    fmi[20].offset = (char *)&(tmp->red_chan_io_err_date) - (char *)tmp;
+    fmi[21].offset = (char *)&(tmp->red_chan_io_err_time) - (char *)tmp;
+    fmi[22].offset = (char *)&(tmp->spare487) - (char *)tmp;
+    fmi[23].offset = (char *)&(tmp->spare488) - (char *)tmp;
+    fmi[24].offset = (char *)&(tmp->spare489) - (char *)tmp;
+    fmi[25].offset = (char *)&(tmp->spare490) - (char *)tmp;
+    fmi[26].offset = (char *)&(tmp->spare491) - (char *)tmp;
+    fmi[27].offset = (char *)&(tmp->spare492) - (char *)tmp;
+    fmi[28].offset = (char *)&(tmp->spare493) - (char *)tmp;
+    fmi[29].offset = (char *)&(tmp->spare494) - (char *)tmp;
+    fmi[30].offset = (char *)&(tmp->spare495) - (char *)tmp;
+    fmi[31].offset = (char *)&(tmp->spare496) - (char *)tmp;
+    fmi[32].offset = (char *)&(tmp->spare497) - (char *)tmp;
+    fmi[33].offset = (char *)&(tmp->spare498) - (char *)tmp;
+    fmi[34].offset = (char *)&(tmp->spare499) - (char *)tmp;
+    fmi[35].offset = (char *)&(tmp->spare500) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/prod_distri_info.h started at line 158 ***/
+
+static SMI_info_t *Pd_pms_entry_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 274;
+    SMI_field_t *fmi;
+    Pd_pms_entry *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->prod_id) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->wx_modes) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->types) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/prod_distri_info.h started at line 168 ***/
+
+static SMI_info_t *Pd_prod_item_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 276;
+    SMI_field_t *fmi;
+    Pd_prod_item *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->prod_id) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->wx_modes) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->period) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->number) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->map_requested) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->priority) - (char *)tmp;
+    fmi[6].offset = (char *)&(tmp->params) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/rpg_vcp.h started at line 64 ***/
+
+static SMI_info_t *VCP_elevation_cut_data_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 278;
+    SMI_field_t *fmi;
+    VCP_elevation_cut_data_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->angle) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->waveform) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->surv_prf_num) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->surv_prf_pulse) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->azimuth_rate) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->refl_thresh) - (char *)tmp;
+    fmi[6].offset = (char *)&(tmp->vel_thresh) - (char *)tmp;
+    fmi[7].offset = (char *)&(tmp->sw_thresh) - (char *)tmp;
+    fmi[8].offset = (char *)&(tmp->spare9) - (char *)tmp;
+    fmi[9].offset = (char *)&(tmp->spare10) - (char *)tmp;
+    fmi[10].offset = (char *)&(tmp->spare11) - (char *)tmp;
+    fmi[11].offset = (char *)&(tmp->edge_angle1) - (char *)tmp;
+    fmi[12].offset = (char *)&(tmp->dopp_prf_num1) - (char *)tmp;
+    fmi[13].offset = (char *)&(tmp->dopp_prf_pulse1) - (char *)tmp;
+    fmi[14].offset = (char *)&(tmp->spare15) - (char *)tmp;
+    fmi[15].offset = (char *)&(tmp->edge_angle2) - (char *)tmp;
+    fmi[16].offset = (char *)&(tmp->dopp_prf_num2) - (char *)tmp;
+    fmi[17].offset = (char *)&(tmp->dopp_prf_pulse2) - (char *)tmp;
+    fmi[18].offset = (char *)&(tmp->spare19) - (char *)tmp;
+    fmi[19].offset = (char *)&(tmp->edge_angle3) - (char *)tmp;
+    fmi[20].offset = (char *)&(tmp->dopp_prf_num3) - (char *)tmp;
+    fmi[21].offset = (char *)&(tmp->dopp_prf_pulse3) - (char *)tmp;
+    fmi[22].offset = (char *)&(tmp->spare23) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/vcp.h started at line 140 ***/
+
+static SMI_info_t *Vcp_struct_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 280;
+    SMI_field_t *fmi;
+    Vcp_struct *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->msg_size) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->type) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->vcp_num) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->n_ele) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->clutter_map_num) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->vel_resolution) - (char *)tmp;
+    fmi[6].offset = (char *)&(tmp->pulse_width) - (char *)tmp;
+    fmi[7].offset = (char *)&(tmp->sample_resolution) - (char *)tmp;
+    fmi[8].offset = (char *)&(tmp->dbz_range_resolution) - (char *)tmp;
+    fmi[9].offset = (char *)&(tmp->dpl_range_resolution) - (char *)tmp;
+    fmi[10].offset = (char *)&(tmp->azimuth_interval) - (char *)tmp;
+    fmi[11].offset = (char *)&(tmp->unused5) - (char *)tmp;
+    fmi[12].offset = (char *)&(tmp->vcp_ele) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/orpgevt.h started at line 99 ***/
+
+static SMI_info_t *orpgevt_scan_info_data_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 282;
+    SMI_field_t *fmi;
+    orpgevt_scan_info_data_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->vol_scan_number) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->elev_cut_number) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->date) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->time) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->vcp_number) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/clutter.h started at line 73 ***/
+
+static SMI_info_t *file_tag_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 284;
+    SMI_field_t *fmi;
+    file_tag_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->time) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->label) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/rpg_clutter_censor_zones.h started at line 128 ***/
+
+static SMI_info_t *RPG_clutter_regions_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 286;
+    SMI_field_t *fmi;
+    RPG_clutter_regions_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->regions) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->data) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/rpg_clutter_censor_zones.h started at line 142 ***/
+
+static SMI_info_t *ORPG_clutter_regions_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 288;
+    SMI_field_t *fmi;
+    ORPG_clutter_regions_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->regions) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->data) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/rpg_clutter_censor_zones.h started at line 42 ***/
+
+static SMI_info_t *RPG_clutter_region_data_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 290;
+    SMI_field_t *fmi;
+    RPG_clutter_region_data_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->start_range) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->stop_range) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->start_azimuth) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->stop_azimuth) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->segment) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->select_code) - (char *)tmp;
+    fmi[6].offset = (char *)&(tmp->doppl_level) - (char *)tmp;
+    fmi[7].offset = (char *)&(tmp->surv_level) - (char *)tmp;
+
+    return (mi);
+}
+
+
+/*** The next function is generated using code in file
+     /import/orpg/last_good_build/include/rpg_clutter_censor_zones.h started at line 91 ***/
+
+static SMI_info_t *ORPG_clutter_region_data_t_info_ (void *dt) {
+    static SMI_info_t *mi = NULL;
+    static int off = 292;
+    SMI_field_t *fmi;
+    ORPG_clutter_region_data_t *tmp = NULL;
+
+    if (mi == NULL)
+	mi = Smi_init (off);
+
+    fmi = mi->fields;
+    fmi[0].offset = (char *)&(tmp->start_range) - (char *)tmp;
+    fmi[1].offset = (char *)&(tmp->stop_range) - (char *)tmp;
+    fmi[2].offset = (char *)&(tmp->start_azimuth) - (char *)tmp;
+    fmi[3].offset = (char *)&(tmp->stop_azimuth) - (char *)tmp;
+    fmi[4].offset = (char *)&(tmp->segment) - (char *)tmp;
+    fmi[5].offset = (char *)&(tmp->select_code) - (char *)tmp;
+
+    return (mi);
+}
+
+
+SMI_info_t *BFP_smi_info (char *type_name, void *data) {
+
+    static struct {
+	SMI_info_t *(*func) (void *);
+	char *name;
+    } type_list [] = {
+	{ A304c2_info_, "A304c2"},
+	{ A3052t_info_, "A3052t"},
+	{ A3052u_info_, "A3052u"},
+	{ A3136C3_t_info_, "A3136C3_t"},
+	{ A3cd97_info_, "A3cd97"},
+	{ ArchIII_status_t_info_, "ArchIII_status_t"},
+	{ Class_details_info_, "Class_details"},
+	{ Class_details_tbl_t_info_, "Class_details_tbl_t"},
+	{ Dial_details_info_, "Dial_details"},
+	{ Dial_details_tbl_t_info_, "Dial_details_tbl_t"},
+	{ Hci_ccz_data_t_info_, "Hci_ccz_data_t"},
+	{ Hci_gui_t_info_, "Hci_gui_t"},
+	{ Hci_password_t_info_, "Hci_password_t"},
+	{ Hci_prf_data_t_info_, "Hci_prf_data_t"},
+	{ Hci_rms_status_t_info_, "Hci_rms_status_t"},
+	{ Hci_task_t_info_, "Hci_task_t"},
+	{ Hrdb_date_time_info_, "Hrdb_date_time"},
+	{ LE_critical_message_info_, "LE_critical_message"},
+	{ LE_message_info_, "LE_message"},
+	{ Line_details_info_, "Line_details"},
+	{ Line_details_tbl_t_info_, "Line_details_tbl_t"},
+	{ Line_status_info_, "Line_status"},
+	{ Mrpg_cmd_t_info_, "Mrpg_cmd_t"},
+	{ Mrpg_state_t_info_, "Mrpg_state_t"},
+	{ MyCharStruct_info_, "MyCharStruct"},
+	{ MyComboStruct_info_, "MyComboStruct"},
+	{ MyIntStruct_info_, "MyIntStruct"},
+	{ MyShortStruct_info_, "MyShortStruct"},
+	{ ORDA_adpt_data_msg_t_info_, "ORDA_adpt_data_msg_t"},
+	{ ORDA_adpt_data_t_info_, "ORDA_adpt_data_t"},
+	{ struct_orda_nx_msg_hdr_info_, "ORDA_basedata_header"},
+	{ ORDA_bypass_map_msg_t_info_, "ORDA_bypass_map_msg_t"},
+	{ ORDA_bypass_map_segment_t_info_, "ORDA_bypass_map_segment_t"},
+	{ ORDA_bypass_map_t_info_, "ORDA_bypass_map_t"},
+	{ ORDA_clutter_map_data_t_info_, "ORDA_clutter_map_data_t"},
+	{ ORDA_clutter_map_filter_t_info_, "ORDA_clutter_map_filter_t"},
+	{ ORDA_clutter_map_msg_t_info_, "ORDA_clutter_map_msg_t"},
+	{ ORDA_clutter_map_segment_t_info_, "ORDA_clutter_map_segment_t"},
+	{ ORDA_clutter_map_t_info_, "ORDA_clutter_map_t"},
+	{ ORDA_control_commands_t_info_, "ORDA_control_commands_t"},
+	{ ORDA_status_msg_t_info_, "ORDA_status_msg_t"},
+	{ ORPG_clutter_region_data_t_info_, "ORPG_clutter_region_data_t"},
+	{ ORPG_clutter_regions_file_t_info_, "ORPG_clutter_regions_file_t"},
+	{ ORPG_clutter_regions_msg_t_info_, "ORPG_clutter_regions_msg_t"},
+	{ ORPG_clutter_regions_t_info_, "ORPG_clutter_regions_t"},
+	{ Orpgevt_adapt_msg_t_info_, "Orpgevt_adapt_msg_t"},
+	{ Orpgevt_load_shed_msg_t_info_, "Orpgevt_load_shed_msg_t"},
+	{ Orpgevt_radial_acct_t_info_, "Orpgevt_radial_acct_t"},
+	{ Orpgevt_task_exit_msg_t_info_, "Orpgevt_task_exit_msg_t"},
+	{ Orpginfo_rpg_alarm_evtmsg_t_info_, "Orpginfo_rpg_alarm_evtmsg_t"},
+	{ Orpginfo_rpg_opstat_evtmsg_t_info_, "Orpginfo_rpg_opstat_evtmsg_t"},
+	{ Orpginfo_rpg_status_change_evtmsg_t_info_, "Orpginfo_rpg_status_change_evtmsg_t"},
+	{ Orpginfo_statefl_flag_evtmsg_t_info_, "Orpginfo_statefl_flag_evtmsg_t"},
+	{ Orpginfo_statefl_shared_t_info_, "Orpginfo_statefl_shared_t"},
+	{ Orpginfo_statefl_t_info_, "Orpginfo_statefl_t"},
+	{ Orpgtat_entry_t_info_, "Orpgtat_entry_t"},
+	{ Pd_distri_cmd_info_, "Pd_distri_cmd"},
+	{ Pd_pms_entry_info_, "Pd_pms_entry"},
+	{ Pd_prod_item_info_, "Pd_prod_item"},
+	{ Pd_user_entry_info_, "Pd_user_entry"},
+	{ struct_previous_state_info_, "Previous_state_t"},
+	{ Prod_gen_msg_info_, "Prod_gen_msg"},
+	{ Prod_header_info_, "Prod_header"},
+	{ Prod_user_status_info_, "Prod_user_status"},
+	{ RDA_RPG_comms_status_t_info_, "RDA_RPG_comms_status_t"},
+	{ RDA_RPG_console_message_t_info_, "RDA_RPG_console_message_t"},
+	{ RDA_RPG_loop_back_message_t_info_, "RDA_RPG_loop_back_message_t"},
+	{ RDA_RPG_message_header_t_info_, "RDA_RPG_message_header_t"},
+	{ RDA_alarm_entry_t_info_, "RDA_alarm_entry_t"},
+	{ RDA_alarm_t_info_, "RDA_alarm_t"},
+	{ struct_nx_msg_hdr_info_, "RDA_basedata_header"},
+	{ RDA_bypass_map_msg_t_info_, "RDA_bypass_map_msg_t"},
+	{ RDA_bypass_map_segment_t_info_, "RDA_bypass_map_segment_t"},
+	{ RDA_bypass_map_t_info_, "RDA_bypass_map_t"},
+	{ RDA_control_commands_t_info_, "RDA_control_commands_t"},
+	{ RDA_notch_map_data_t_info_, "RDA_notch_map_data_t"},
+	{ RDA_notch_map_filter_t_info_, "RDA_notch_map_filter_t"},
+	{ RDA_notch_map_msg_t_info_, "RDA_notch_map_msg_t"},
+	{ RDA_notch_map_suppr_t_info_, "RDA_notch_map_suppr_t"},
+	{ RDA_notch_map_t_info_, "RDA_notch_map_t"},
+	{ RDA_status_msg_t_info_, "RDA_status_msg_t"},
+	{ RDA_status_t_info_, "RDA_status_t"},
+	{ RPG_clutter_region_data_t_info_, "RPG_clutter_region_data_t"},
+	{ RPG_clutter_regions_file_t_info_, "RPG_clutter_regions_file_t"},
+	{ RPG_clutter_regions_msg_t_info_, "RPG_clutter_regions_msg_t"},
+	{ RPG_clutter_regions_t_info_, "RPG_clutter_regions_t"},
+	{ RPG_request_data_struct_t_info_, "RPG_request_data_struct_t"},
+	{ Radial_accounting_data_info_, "Radial_accounting_data"},
+	{ Rda_cmd_t_info_, "Rda_cmd_t"},
+	{ Redundant_info_t_info_, "Redundant_info_t"},
+	{ Scan_Summary_info_, "Scan_Summary"},
+	{ Siteadp_adpt_t_info_, "Siteadp_adpt_t"},
+	{ Summary_Data_info_, "Summary_Data"},
+	{ VCP_ICD_msg_t_info_, "VCP_ICD_msg_t"},
+	{ VCP_elevation_cut_data_t_info_, "VCP_elevation_cut_data_t"},
+	{ VCP_elevation_cut_header_t_info_, "VCP_elevation_cut_header_t"},
+	{ VCP_message_header_t_info_, "VCP_message_header_t"},
+	{ Vcp_struct_info_, "Vcp_struct"},
+	{ struct_volume_status_info_, "Vol_stat_gsm_t"},
+	{ a315csad_info_, "a315csad"},
+	{ a315lock_info_, "a315lock"},
+	{ a315trnd_info_, "a315trnd"},
+	{ a317ctad_info_, "a317ctad"},
+	{ a317lock_info_, "a317lock"},
+	{ a3cd09_info_, "a3cd09"},
+	{ a3cd11_info_, "a3cd11"},
+	{ struct_alg_cpu_stats_info_, "alg_cpu_stats_t"},
+	{ antenna_pedestal_t_info_, "antenna_pedestal_t"},
+	{ bitdata_t_info_, "bitdata_t"},
+	{ calib_t_info_, "calib_t"},
+	{ calibration_t_info_, "calibration_t"},
+	{ cd07_bypassmap_info_, "cd07_bypassmap"},
+	{ cd07_vcpinfo_info_, "cd07_vcpinfo"},
+	{ cell_prod_params_t_info_, "cell_prod_params_t"},
+	{ clutter_check_t_info_, "clutter_check_t"},
+	{ comms_t_info_, "comms_t"},
+	{ device_init_t_info_, "device_init_t"},
+	{ device_io_error_t_info_, "device_io_error_t"},
+	{ device_status_t_info_, "device_status_t"},
+	{ disk_file_status_t_info_, "disk_file_status_t"},
+	{ equipment_shelter_t_info_, "equipment_shelter_t"},
+	{ file_status_t_info_, "file_status_t"},
+	{ file_tag_t_info_, "file_tag_t"},
+	{ hail_algorithm_t_info_, "hail_algorithm_t"},
+	{ hci_child_started_event_t_info_, "hci_child_started_event_t"},
+	{ layer_prod_params_t_info_, "layer_prod_params_t"},
+	{ load_shed_current_t_info_, "load_shed_current_t"},
+	{ load_shed_threshold_t_info_, "load_shed_threshold_t"},
+	{ mlos_info_t_info_, "mlos_info_t"},
+	{ orda_pmd_t_info_, "orda_pmd_t"},
+	{ orpgevt_end_of_volume_t_info_, "orpgevt_end_of_volume_t"},
+	{ orpgevt_scan_info_data_t_info_, "orpgevt_scan_info_data_t"},
+	{ orpgevt_scan_info_t_info_, "orpgevt_scan_info_t"},
+	{ power_t_info_, "power_t"},
+	{ precip_detect1_t_info_, "precip_detect1_t"},
+	{ pvecs09_info_, "pvecs09"},
+	{ rcm_prod_params_t_info_, "rcm_prod_params_t"},
+	{ rda_control_adapt_t_info_, "rda_control_adapt_t"},
+	{ rda_performance_t_info_, "rda_performance_t"},
+	{ rf_gnrtr_rcvr_t_info_, "rf_gnrtr_rcvr_t"},
+	{ sgmts09_info_, "sgmts09"},
+	{ storm_cell_track_t_info_, "storm_cell_track_t"},
+	{ tda_t_info_, "tda_t"},
+	{ tower_utilities_t_info_, "tower_utilities_t"},
+	{ transmitter_t_info_, "transmitter_t"},
+	{ vad_rcm_heights_t_info_, "vad_rcm_heights_t"},
+	{ wideband_t_info_, "wideband_t"},
+    };
+    static int n_types = 147;
+    int st, end, ind, i;
+
+    if (type_name == NULL) {
+	if (data == NULL)
+	    Need_byte_swap_data = 0;
+	else
+	    Need_byte_swap_data = 1;
+	return (NULL);
+    }
+
+    /* binary search */
+    st = 0;
+    end = n_types - 1;
+    ind = -1;
+    while (1) {
+	i = (st + end) >> 1;
+	if (st == i) {
+	    if (strcmp (type_name, type_list[st].name) == 0)
+		ind = st;
+	    else if (strcmp (type_name, type_list[end].name) == 0)
+		ind = end;
+	    break;
+	}
+	if (strcmp (type_name, type_list[i].name) <= 0)
+	    end = i;
+	else
+	    st = i;
+    }
+    if (ind < 0)
+	return (NULL);
+    else 
+	return (type_list[ind].func (data));
+}
+
+static int N_id_types = 46;
+
+static const int Majors[] = {
+ ORPGDAT_PROD_GEN_MSGS, ORPGDAT_REPLAY_RESPONSES, ORPGDAT_ACCDATA, ORPGDAT_GSM_DATA,
+ ORPGDAT_GSM_DATA, ORPGDAT_GSM_DATA, ORPGDAT_GSM_DATA, ORPGDAT_GSM_DATA, ORPGDAT_CLUTTERMAP,
+ ORPGDAT_CLUTTERMAP, ORPGDAT_CLUTTERMAP, ORPGDAT_CLUTTERMAP, ORPGDAT_CLUTTERMAP,
+ ORPGDAT_CLUTTERMAP, ORPGDAT_CLUTTERMAP, ORPGDAT_CLUTTERMAP, ORPGDAT_CLUTTERMAP,
+ ORPGDAT_CLUTTERMAP, ORPGDAT_RDA_ALARMS_TBL, ORPGDAT_RDA_ALARMS_TBL, ORPGDAT_RDA_ALARMS,
+ ORPGDAT_RDA_COMMAND, ORPGDAT_RDA_PERF_MAIN, ORPGDAT_RDA_CONSOLE_MSG, ORPGDAT_SYSLOG,
+ ORPGDAT_ERRLOG, ORPGDAT_SYSLOG_LATEST, ORPGDAT_SYSLOG_LATEST, ORPGDAT_RPG_INFO,
+ ORPGDAT_RPG_INFO, ORPGDAT_TASK_STATUS, ORPGDAT_TAT, ORPGDAT_MRPG_CMDS, ORPGDAT_LOAD_SHED_CAT,
+ ORPGDAT_LOAD_SHED_CAT, ORPGDAT_LOAD_SHED_CAT, ORPGDAT_HCI_DATA, ORPGDAT_HCI_DATA,
+ ORPGDAT_HCI_DATA, ORPGDAT_HCI_DATA, ORPGDAT_HCI_DATA, ORPGDAT_HCI_DATA, ORPGDAT_ALG_CPU_STATS,
+ ORPGDAT_USER_PROFILES, ORPGDAT_BASELINE_USER_PROFILES, ORPGDAT_FACTORY_USER_PROFILES,
+};
+
+static const int Minors[] = {
+ -1, -1, -1, RDA_STATUS_ID, VOL_STAT_GSM_ID, PREV_RDA_STAT_ID, SCAN_SUMMARY_ID,
+ ARCHIII_STATUS_ID, LBID_BYPASSMAP_LGCY, LBID_EDBYPASSMAP_LGCY, LBID_BYPASSMAP_ORDA,
+ LBID_EDBYPASSMAP_ORDA, LBID_CLUTTERMAP_LGCY, LBID_CLUTTERMAP_ORDA, LBID_CENSOR_ZONES_LGCY,
+ LBID_BASELINE_CENSOR_ZONES_LGCY, LBID_CENSOR_ZONES_ORDA, LBID_BASELINE_CENSOR_ZONES_ORDA,
+ ORPGRAT_ALARMS_TBL_MSG_ID, -1, -1, -1, -1, -1, -1, -1, 1, 2, ORPGINFO_STATEFL_MSGID,
+ ORPGINFO_STATEFL_SHARED_MSGID, MRPG_RPG_STATE_MSGID, -1, -1, LOAD_SHED_THRESHOLD_MSG_ID,
+ LOAD_SHED_THRESHOLD_BASELINE_MSG_ID, LOAD_SHED_CURRENT_MSG_ID, HCI_GUI_INFO_MSG_ID,
+ HCI_PASSWORD_INFO_MSG_ID, HCI_RMS_STATUS_MSG_ID, HCI_TASK_INFO_MSG_ID, HCI_CCZ_TASK_DATA_MSG_ID,
+ HCI_PRF_TASK_DATA_MSG_ID, -1, -1, -1, -1,};
+
+static const char *Id_type_names[] = {
+ "Prod_gen_msg", "Prod_gen_msg", "Radial_accounting_data", "RDA_status_t",
+ "Vol_stat_gsm_t", "Previous_state_t", "Summary_Data", "ArchIII_status_t",
+ "RDA_bypass_map_msg_t", "RDA_bypass_map_msg_t", "ORDA_bypass_map_msg_t",
+ "ORDA_bypass_map_msg_t", "RDA_notch_map_msg_t", "ORDA_clutter_map_msg_t",
+ "RPG_clutter_regions_msg_t", "RPG_clutter_regions_msg_t", "ORPG_clutter_regions_msg_t",
+ "ORPG_clutter_regions_msg_t", "RDA_alarm_entry_t", "RDA_alarm_entry_t", "RDA_alarm_t",
+ "Rda_cmd_t", "rda_performance_t", "RDA_RPG_console_message_t", "LE_critical_message",
+ "LE_critical_message", "LE_critical_message", "LE_critical_message", "Orpginfo_statefl_t",
+ "Orpginfo_statefl_shared_t", "Mrpg_state_t", "Orpgtat_entry_t", "Mrpg_cmd_t",
+ "load_shed_threshold_t", "load_shed_threshold_t", "load_shed_current_t",
+ "Hci_gui_t", "Hci_password_t", "Hci_rms_status_t", "Hci_task_t", "Hci_ccz_data_t",
+ "Hci_prf_data_t", "alg_cpu_stats_t", "Pd_user_entry", "Pd_user_entry", "Pd_user_entry",
+};
+
+char *BFP_smi_info_type_by_id (int major, int minor) {
+    int ind, i;
+
+    ind = -1;
+    for (i = 0; i < N_id_types; i++) {
+	if (Majors[i] == major) {
+	    if (minor >= 0 && Minors[i] == minor)
+		return ((char *)Id_type_names[i]);
+	    if (Minors[i] < 0 && ind < 0) {
+		ind = i;
+		if (minor < 0)
+		    break;
+	    }
+	}
+    }
+    if (ind >= 0)
+	return ((char *)Id_type_names[ind]);
+    return (NULL);
+}
+
+int BFP_smi_info_get_all_ids (int **major, int **minor, char ***type) {
+    *major = (int *)Majors;
+    *minor = (int *)Minors;
+    *type = (char **)Id_type_names;
+    return (N_id_types);
+}
+
+
+static int Byte_swap_data (void *data, char *type) {
+    char *t;
+    short s;
+    int size, r;
+
+
+    t = type;
+    if (strncmp (t, "unsigned ", 9) == 0)
+	t += 9;
+
+    if (strcmp (t, "char") == 0)
+	size = 1;
+    else if (strcmp (t, "short") == 0 ||
+	     strncmp (t, "short ", 6) == 0)
+	size = 2;
+    else
+	size = 4;
+
+    if (size == 1)
+	r = *((char *)data);
+    else if (size == 2) {
+	s = *((short *)data);
+	if (Need_byte_swap_data)
+	    s = ((s & 0xff) << 8) | ((s >> 8) & 0xff);
+	r = s;
+    }
+    else {
+	r = *((int *)data);
+	if (Need_byte_swap_data)
+	    r = ((r & 0xff) << 24) | ((r & 0xff00) << 8) | 
+			((r >> 8) & 0xff00) | ((r >> 24) & 0xff);
+    }
+    return (r);
+}
+

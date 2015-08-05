@@ -1,0 +1,225 @@
+C
+C RCS info
+C $Author: ccalvert $
+C $Locker:  $
+C $Date: 2003/12/09 21:02:10 $
+C $Id: a315q5.ftn,v 1.4 2003/12/09 21:02:10 ccalvert Exp $
+C $Revision: 1.4 $
+C $State: Exp $
+C
+      SUBROUTINE A315Q5__DERIVE_ADAP( )
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A315Q5__DERIVE_ADAP
+*.
+*.  MODULE VERSION: 0002
+*.
+*.  MODULE LANGUAGE: FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     ---------------
+*.       06 28 95      0000      STEVE SMITH          CCR NA94-26302
+*.       12/23/96      0001      Toolset              CCR NA95-11807
+*.       03/16/99      0002      Toolset              CCR NA98-23803
+*.       12/09/03      0003      CHRIS CALVERT        CCR NA03-30002
+*.
+*.  CALLING SEQUENCE: CALL A315Q5__DERIVE_ADAP( )
+*.
+*.  MODULE FUNCTION:
+*.
+*.  This subroutine derives adaptation data values used in the
+*.  construction of Storm Cell centroids.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT             TYPE        DESCRIPTION
+*.    -   -----             ----        -----------
+*.    G   ADPHZDEL          R*4         Adaptation data Horizontal Delete
+*.                                      Threshold stored in Storm Data
+*.    G   ADPHZMRG          R*4         Adaptation data Horizontal Merge
+*.                                      Distance Threshold stored in Storm
+*.                                      Data
+*.    G   ADPMDSTM          I*4         Local copy of Adaptation parameter for
+*.                                      maximum number of storm cells
+*.    G   ADPRDSTH          R*4         Maximum search radius for vertically
+*.                                      linking componets
+*.    G   EBMWT             R*4         Beam Width (realtime data).
+*.    G   STRMADAP          I*4         Array containing the integer variables
+*.                                      in SCIT adaptation data in internal
+*.                                      common.
+*.    G   ONE_RADIAN        R*4         (CONSTANT)PARAMETER VALUE FOR ONE
+*.                                      RADIAN
+*.    G   STA_STMX          I*4         (CONSTANT)Offset to the Thresh. Max.
+*.                                      Cells/Vol. in the adaptation data part
+*.                                      of the centroids & tracking/forecast
+*.                                      output buffers.
+*.    G   STA_VILX          I*4         (CONSTANT)Offset to the Thresh. Max.
+*.                                      VIL (kg/m**2) in the adaptation data
+*.                                      part of the centroids &
+*.                                      tracking/forecast output buffers.
+*.    C   ADPBWDTH          R*4         Radar beam width (radians) to the
+*.                                      half-power points computed from the
+*.                                      adaptable parameter EBMWT from VIL.
+*.    C   ADPHZDEL_SQR      R*4         Square of the horizontal delete
+*.                                      distance adaptable parameter (km**2).
+*.                                      Uses VIL to delete weaker of two near
+*.                                      storm cells.
+*.    C   MAX_SEARCH_RADIUS I*4         (CONSTANT)Parameter to set dimension
+*.                                      size in local adaptation data for
+*.                                      number of radii searched when
+*.                                      vertically associating components into
+*.                                      storm cells.
+*.
+*.    *   OUTPUT             TYPE        DESCRIPTION
+*.    -   ------             ----        -----------
+*.    G   ADPHZDEL           R*4         Adaptation data Horizontal Delete
+*.                                       Threshold stored in Storm Data
+*.    G   ADPHZMRG           R*4         Adaptation data Horizontal Merge
+*.                                       Distance Threshold stored in Storm
+*.                                       Data
+*.    G   ADPMDSTM           I*4         Local copy of Adaptation parameter
+*.                                       for maximum number of storm cells
+*.    G   ADPRDSTH           R*4         Maximum search radius for vertically
+*.                                       linking componets
+*.    G   STRMADAP           I*4         Array containing the integer
+*.                                       variables in SCIT adaptation data in
+*.                                       internal common.
+*.    C   ADPBWDTH           R*4         Radar beam width (radians) to the
+*.                                       half-power points computed from the
+*.                                       adaptable parameter EBMWT from VIL.
+*.    C   ADPHZDEL_SQR       R*4         Square of the horizontal delete
+*.                                       distance adaptable parameter (km**2).
+*.                                       Uses VIL to delete weaker of two near
+*.                                       storm cells.
+*.    C   ADPHZMRG_SQR       R*4         Square of the horizontal merge
+*.                                       distance adaptable parameter (km**2).
+*.                                       Used to merge storm cells from
+*.                                       different elevations.
+*.    C   ADPRDSTH_SQR       R*4         Array of the distance squared (km**2)
+*.                                       of the maximum search radius for
+*.                                       vertically linking components.
+*.    C   ADPSTMMX           I*4         Maximum number of storm cells
+*.                                       computed as the lesser of  max no. of
+*.                                       detected storm cells and max no. of
+*.                                       storm cells.
+*.    C   ADPVILMX           R*4         Capping value for the maximum
+*.                                       cell-based VIL (kg/km**2) that will
+*.                                       be carried forward as a storm cell
+*.                                       attribute.
+*.    C   HALF_ADPBWDTH      R*4         Half the radar beam width (radians)
+*.                                       to the half-power points computed
+*.                                       from the adaptable parameter EBMWT
+*.                                       from VIL.
+*.    C   TWICE_ADPHZDEL_SQR R*4         Twice the square of the horizontal
+*.                                       delete distance adaptable parameter
+*.                                       (km**2).
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME     TYPE        DESCRIPTION
+*.    ----     ----        -----------
+*.    HLF_FCTR R*4         Real parameter value of 0.5
+*.    I        I*4         Do loop counter.
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.    A315CSAD
+*.    VIL_ECHO_TOPS
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.    A315CWCC
+*.
+*.  ERROR CONDITIONS:  None
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  None
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.     Compiled using COMP15.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.     Linked using LINK15.CSS
+*.
+*.  MISC:  None
+*.
+C********************************************************************
+C
+C          STORM CELL CENTROIDS: DERIVE ADAPTATION DATA
+C
+C********************************************************************
+C
+      IMPLICIT NONE
+C
+C**Attach parameter-definition file (of "STORM CENTROIDS")
+$INCLUDE A315BUF.INC/G,**A315PSAD (NLIST)
+$INCLUDE               **A315CSAD (NLIST)
+C
+C**Attach internal common area (CWCC)
+$INCLUDE A315.INC/G,**A315CWCC (NLIST)
+C
+$INCLUDE A309ADPT.INC/G, **A3CD70_VIL_ECHO_TOPS (NLIST)
+C
+$INCLUDE A309.INC/G, **A3PM50 (NLIST)
+C
+C********************** DATA DECLARATIONS ***************************
+C
+      INTEGER  I
+C
+      REAL     HLF_FCTR
+C
+      PARAMETER (HLF_FCTR = 0.5)
+C
+C******************* BEGIN MAIN PROCESSING SECTION ******************
+C
+C** Set the maximum number of storm cells.
+C
+      ADPSTMMX = MIN( STRMADAP( STA_STMX ), ADPMDSTM )
+C
+C** Convert the maximum cell-based VIL to real.
+C
+      ADPVILMX = FLOAT( STRMADAP( STA_VILX ) )
+C
+C** Get Beam Width adaptable parameter for gridded VIL.
+C
+      ADPBWDTH = EBMWT
+C
+C** Compute the half Beam Width (in radians).
+C
+      HALF_ADPBWDTH = ADPBWDTH*HLF_FCTR*ONE_RADIAN
+C
+C** Derive the square of the search radii thresholds.
+C
+      DO 1 I = 1, MAX_SEARCH_RADIUS
+         ADPRDSTH_SQR( I ) = ADPRDSTH( I )*ADPRDSTH( I )
+ 1    CONTINUE
+C
+C** Derive the square of the horizontal merge threshold.
+C
+      ADPHZMRG_SQR = ADPHZMRG*ADPHZMRG
+C
+C** Derive the square of the horizontal delete threshold.
+C
+      ADPHZDEL_SQR = ADPHZDEL*ADPHZDEL
+C
+C** Derive twice the horizontal delete threshold squared.
+C
+      TWICE_ADPHZDEL_SQR = 4.0*ADPHZDEL_SQR
+C
+C**************** END OF PROCESSING FOR SUBROUTINE ******************
+C
+      RETURN
+      END

@@ -1,0 +1,178 @@
+C
+C RCS info
+C $Author: steves $
+C $Locker:  $
+C $Date: 2006/01/18 21:41:42 $
+C $Id: a31875.ftn,v 1.4 2006/01/18 21:41:42 steves Exp $
+C $Revision: 1.4 $
+C $State: Exp $
+C
+      SUBROUTINE A31875__COUNLV_PKT(NEW,XL,YT,XR,YB,C,BPTR,VADBUF)
+*.********************************************************************
+*.                    M O D U L E  P R O L O G U E
+*.
+*.  MODULE NAME: A31875__COUNLV_PKT
+*.
+*.  MODULE VERSION: 0009
+*.
+*.  MODULE LANGUAGE:  FORTRAN
+*.
+*.  CHANGE HISTORY:
+*.
+*.       DATE          VERSION   PROGRAMMER           NOTES
+*.       ----------    -------   ----------------     --------------------
+*.       09 08 88      0000      VALERIE HOLDEN       SPR # 80273
+*.       11 07 90      0001      CHARLIE BAUMHER      SPR # 91259
+*.       12/10/91      0002      ED NICHLAS           SPR 92637 PDL Removal
+*.       04/24/92      0003      Toolset              SPR 91895
+*.       03/25/93      0004      Toolset              SPR NA93-06801
+*.       01/28/94      0005      Toolset              SPR NA94-01101
+*.       03/03/94      0006      Toolset              SPR NA94-05501
+*.       04/11/96      0007      Toolset              CCR NA95-11802
+*.       12/23/96      0008      Toolset              CCR NA95-11807
+*.       03/16/99      0009      Toolset              CCR NA98-23803
+*.
+*.  CALLING SEQUENCE: CALL A31875__COUNLV_PKT(NEW,XL,YT,XR,YB,
+*.                    C,BPTR,VADBUF)
+*.
+*.  MODULE FUNCTION:
+*.
+*.     APPENDS COLORED UNLINKED VECTOR PACKETS TO THE PRODUCT
+*.     BUFFER FOR VERSION 2 VAD.
+*.
+*.  MODULES CALLED: NONE.
+*.
+*.  PARAMETERS:          (*:  G = GLOBAL, C = COMMON, P = PASSED)
+*.
+*.    *   INPUT  TYPE        DESCRIPTION
+*.    -   -----  ----        -----------
+*.    P   BPTR   I*4         LENGTH OF THE VAD PRODUCT BUFFER (RUNNING TOTAL),
+*.                           HALF WORDS. ALSO USED AS THE POINTER TO A
+*.                           HALF-WORD IN THE PRODUCT BUFFER.
+*.    P   C      I*4         Color number.
+*.    P   NEW    L*4         INDICATES THAT CURRENT ENTRY INTO PACKET IS THE
+*.                           FIRST TIME
+*.    P   VADBUF I*2         VAD PRODUCT BUFFER
+*.    P   XL     R*4         X LEFT PIXEL
+*.    P   XR     R*4         X RIGHT PIXEL
+*.    P   YB     R*4         Y BOTTOM PIXEL
+*.    P   YT     R*4         Y TOP PIXEL
+*.
+*.    *   OUTPUT  TYPE        DESCRIPTION
+*.    -   ------  ----        -----------
+*.    P   BPTR    I*4         LENGTH OF THE VAD PRODUCT BUFFER (RUNNING
+*.                            TOTAL), HALF WORDS. ALSO USED AS THE POINTER TO
+*.                            A HALF-WORD IN THE PRODUCT BUFFER.
+*.    P   NEW     L*4         INDICATES THAT CURRENT ENTRY INTO PACKET IS THE
+*.                            FIRST TIME
+*.    P   VADBUF  I*2         VAD PRODUCT BUFFER
+*.
+*.    *   ACTUAL ARGUMENTS  TYPE        DESCRIPTION
+*.    -   ----------------  ----        -----------
+*.
+*.  DATABASE/FILE REFERENCE:  None
+*.
+*.  INTERNAL TABLES/WORK AREA:
+*.
+*.    NAME       TYPE        DESCRIPTION
+*.    ----       ----        -----------
+*.    COLOFF     I*4         COLOR LEVEL PACKET OFFSET
+*.    HALF_XY    I*4         NUMBER OF HALF WORDS OF X,Y
+*.    IDOFF      I*4         UNLINKED VECTOR PACKET ID OFFSET
+*.    INCREM_BUF I*4         INCREMENTAL VALUE TO INCREMNT SIZE
+*.    LENOFF     I*4         LENGTH OF BLOCK PACKET OFFSET
+*.    NBYTP      I*4         POINTER TO THE PACKET POSITION OF NUMBER OF BYTES
+*.                           IN THE PACKET
+*.    NUM_BYTES  I*4         NUMBER OF BYTES IN I*2 WORD
+*.    PACKET_ID  I*4         UNLINKED VECTOR PACKET ID
+*.    PACKET_LEN I*4         LENGTH OF VECTOR PACKET
+*.    XLOFF      I*4         X LEFT OFFSET
+*.    XROFF      I*4         X RIGHT OFFSET
+*.    YBOFF      I*4         Y BOTTOM OFFSET
+*.    YTOFF      I*4         Y TOP OFFSET
+*.    ZERO       I*4         PROGRAM PARAMETER FOR 0
+*.
+*.  GLOBAL BLOCKS REFERENCED:
+*.
+*.
+*.  COMMON BLOCKS REFERENCED:
+*.
+*.
+*.  ERROR CONDITIONS: NONE
+*.
+*.  ASSUMPTIONS/RESTRICTIONS:  None
+*.
+*.  DEVIATION FROM STANDARDS:  NONE
+*.
+*.  COMPILATION INSTRUCTIONS:
+*.
+*.    THIS MODULE IS COMPILED USING COMP18.CSS
+*.
+*.  LINKAGE INSTRUCTIONS:
+*.
+*.    THIS MODULE IS LINKED USING LINK18.CSS
+*.
+*.  MISC:  None
+*.
+*.*******************************************************************
+      IMPLICIT NONE
+C*
+      REAL         XL,YT,XR,YB
+      INTEGER*2    VADBUF(*)
+      LOGICAL*4    NEW
+      INTEGER*4    BPTR,C,NBYTP/0/,ZERO,NUM_BYTES,TEMP
+      INTEGER*4    COLOFF,IDOFF,LENOFF,XLOFF,XROFF,YBOFF,YTOFF
+      INTEGER*4    PACKET_LEN,PACKET_ID,HALF_XY,INCREM_BUF
+      PARAMETER    (IDOFF=1,LENOFF=2,COLOFF=3,XLOFF=1,XROFF=3)
+      PARAMETER    (YTOFF=2,YBOFF=4,PACKET_LEN=10,PACKET_ID=10)
+      PARAMETER    (HALF_XY=4,INCREM_BUF=3,ZERO=0,NUM_BYTES=2)
+C*
+C*    IF "NEW" IS TRUE, THIS IS FIRST TIME A VECTOR PACKET IS
+C*    APPENDED TO THE PRODUCT BUFFER.  SET UP THE DIVIDER, PACKET ID,
+C*    COLOR AND SAVE THE POSITION OF THE LENGTH OF THE REMAINDER
+C*    OF THE VECTOR PACKET BLOCK FOR FUTURE UPDATES
+C*
+      IF (NBYTP.EQ.ZERO) NEW=.TRUE.
+C*
+      IF (NEW) THEN
+C*
+C*    SET "NEW" TO FALSE FOR NEXT ENTRY
+         NEW = .FALSE.
+C*
+C*    STORE PACKET ID AND LENGTH OF REMAINDER OF VECTOR PACKET BLOCK
+         VADBUF(BPTR+IDOFF) = PACKET_ID
+         VADBUF(BPTR+LENOFF)= PACKET_LEN
+C*
+C*    SAVE POSITION WITHIN VADBUF OF THE LENGTH OF THE REMAINDER OF
+C>*   THE VECTOR PACKET BLOCK FOR FUTURE UPDATES
+         NBYTP = BPTR + LENOFF
+C*
+C*    STORE VECTOR COLOR AND INCREMENT LENGTH BY 3 HALF WORDS
+         VADBUF(BPTR+COLOFF) = C
+         BPTR = BPTR + INCREM_BUF
+C*
+C*    IF NOT THE FIRST VECTOR, UPDATE THE LENGTH OF THE PACKET BY
+C*    8 BYTES
+      ELSE
+         VADBUF(NBYTP) = VADBUF(NBYTP) + HALF_XY*NUM_BYTES
+      ENDIF
+C*
+C*    STORE X LEFT PIXEL, Y TOP PIXEL, X RIGHT PIXEL AND Y BOTTOM
+C*    PIXEL POSITIONS
+      CALL RPG_NINT(XL, TEMP)
+      VADBUF(BPTR+XLOFF) = TEMP
+
+      CALL RPG_NINT(YT, TEMP)
+      VADBUF(BPTR+YTOFF) = TEMP
+
+      CALL RPG_NINT(XR, TEMP)
+      VADBUF(BPTR+XROFF) = TEMP
+
+      CALL RPG_NINT(YB, TEMP)
+      VADBUF(BPTR+YBOFF) = TEMP
+C*
+C*    INCREMENT LENGTH OF PRODUCT BUFFER BY 4 HALF WORDS
+      BPTR = BPTR + HALF_XY
+
+      RETURN
+      END
